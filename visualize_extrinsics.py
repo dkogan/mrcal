@@ -369,7 +369,7 @@ and a label, return a list of plotting directives gnuplotlib understands
 
 
 
-def gen_pair_axes(pairs):
+def gen_pair_axes(pairs, ins2veh):
     r'''Given all my camera pairs, generate a list of tuples that can be passed to
 gnuplotlib to plot my world'''
 
@@ -383,7 +383,8 @@ gnuplotlib to plot my world
         def gen_one_cam_axes(icam, cam, cam2ins):
 
             return gen_plot_axes( ((cam['cam2pair_p'], cam['cam2pair_q']),
-                                   (cam2ins[0], cam2ins[1])),
+                                   (cam2ins[0], cam2ins[1]),
+                                   (ins2veh[0], ins2veh[1])),
                                   'pair{}-camera{}'.format(ipair, icam))
 
 
@@ -392,16 +393,26 @@ gnuplotlib to plot my world
 
     return (a for ipair,pair in pairs.items() for a in gen_one_pair_axes(ipair, pair))
 
+def gen_ins_axes(ins2veh):
+
+    return gen_plot_axes( ((ins2veh[0], ins2veh[1]),), "INS")
+
+
+
+
+
 
 transforms,cahvors = parse_args()
 pairs,ins2veh      = parse_and_consolidate(transforms, cahvors)
-plot_pairs         = gen_pair_axes(pairs)
-plot_ins           = gen_plot_axes( (), "INS")
+plot_pairs         = gen_pair_axes(pairs, ins2veh)
+plot_ins           = gen_ins_axes(ins2veh)
 
 # flatten the lists
 allplots = [ e for p in plot_pairs,plot_ins for e in p ]
 
-gp.plot3d( *allplots, square=1, zinv=1, ascii=1, xlabel='x', ylabel='y', zlabel='z')
+gp.plot3d( *allplots, square=1, zinv=1, ascii=1,
+           xlabel='x', ylabel='y', zlabel='z',
+           title="VEHICLE coordinate system")
 
 import time
 time.sleep(100000)
