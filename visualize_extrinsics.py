@@ -151,10 +151,15 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description= \
     r'''Visualize stereo calibration geometry. The calibration files can be given as
-    a directory or as a set of files directly''')
+a directory or as a set of files directly. By default, a visualization in the
+coord system of the vehicle is given. If --ins2wld is given then we use the
+world coord system instead''')
     parser.add_argument('--dir',
                         nargs=1,
                         help='Directory that contains the calibration')
+    parser.add_argument('--ins2wld',
+                        nargs=7,
+                        help='ins->world transform. Given as 7 numbers: pos.{xyz} rot.{uxyz}')
     parser.add_argument('cal_file',
                         nargs='*',
                         type=file,
@@ -196,7 +201,15 @@ def parse_args():
             cahvors[p][i] = f
 
 
-    return transforms,cahvors
+    if args.ins2wld:
+        p = np.array([float(x) for x in args.ins2wld[:3]])
+        q = np.array([float(x) for x in args.ins2wld[3:]])
+        if np.abs(nps.inner(q,q) - 1) > 1e-5:
+            raise Exception("ins2wld given a non-unit quaternion rotation: {}".format(q))
+        ins2wld = (p,q)
+    else:
+        ins2wld = None
+    return transforms,cahvors,ins2wld
 
 def parse_transforms(transforms):
 
@@ -402,17 +415,18 @@ def gen_ins_axes(ins2veh):
 
 
 
-transforms,cahvors = parse_args()
-pairs,ins2veh      = parse_and_consolidate(transforms, cahvors)
-plot_pairs         = gen_pair_axes(pairs, ins2veh)
-plot_ins           = gen_ins_axes(ins2veh)
+transforms,cahvors,ins2wld = parse_args()
+pairs,ins2veh              = parse_and_consolidate(transforms, cahvors)
+plot_pairs                 = gen_pair_axes(pairs, ins2veh if ins2wld is None else ins2wld)
+plot_ins                   = gen_ins_axes(ins2veh if ins2wld is None else ins2wld)
 
 # flatten the lists
 allplots = [ e for p in plot_pairs,plot_ins for e in p ]
 
+
 gp.plot3d( *allplots, square=1, zinv=1, ascii=1,
            xlabel='x', ylabel='y', zlabel='z',
-           title="VEHICLE coordinate system")
+           title="{} coordinate system".format( "VEHICLE" if ins2wld is None else "WORLD"))
 
 import time
 time.sleep(100000)
