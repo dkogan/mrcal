@@ -217,7 +217,7 @@ def parse_transforms(transforms):
           'cam2ins': {} }
 
     for l in transforms:
-        if l[0] == '\n' or l[0] == '#':
+        if re.match('^\s*#|^\s*$', l):
             continue
 
         re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
@@ -268,7 +268,7 @@ def parse_cahvor(cahvor):
           'V':           None }
 
     for l in cahvor:
-        if l[0] == '\n' or l[0] == '#':
+        if re.match('^\s*#|^\s*$', l):
             continue
 
         re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
