@@ -265,10 +265,7 @@ def parse_cahvor(cahvor):
           'C':           None,
           'A':           None,
           'H':           None,
-          'V':           None,
-          'O':           None,
-          'R':           None,
-          'E':           None }
+          'V':           None }
 
     for l in cahvor:
         if l[0] == '\n' or l[0] == '#':
