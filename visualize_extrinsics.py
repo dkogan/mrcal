@@ -329,6 +329,8 @@ use the world coord system instead''')
 def parse_transforms(transforms):
 
     x = { 'ins2veh': None,
+
+          # this is actually "pair" to ins
           'cam2ins': {} }
 
     for l in transforms:
@@ -428,8 +430,7 @@ def parse_cahvor(cahvor):
     x['Vs'] = np.sqrt(nps.inner(vsvp,vsvp))
     x['Vp'] = vsvp / x['Vs']
 
-    x['cam2pair_p'] = x['C']
-    x['cam2pair_q'] = rot2quat( nps.transpose(np.array( (x['Hp'], x['Vp'], x['A'] ))) )
+    x['cam2pair'] = ( x['C'], rot2quat( nps.transpose(np.array( (x['Hp'], x['Vp'], x['A'] ))) ) )
 
     return x
 
@@ -469,7 +470,7 @@ this into a 3x6 array that can be gnuplotted "with vectors", and into a
     out = nps.glue( out, axes[1:,:] - axes[0,:], axis=-1)
     return out
 
-def gen_plot_axes(transforms, label):
+def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
     r'''Given a list of transforms (applied to the reference set of axes in order)
 and a label, return a list of plotting directives gnuplotlib understands
 
@@ -477,7 +478,7 @@ and a label, return a list of plotting directives gnuplotlib understands
     axes = np.array( ((0,0,0),
                       (1,0,0),
                       (0,1,0),
-                      (0,0,1),), dtype=float )
+                      (0,0,1),), dtype=float ) * scale
 
     for xform in transforms:
         axes = transform( xform, X=axes )
@@ -486,15 +487,15 @@ and a label, return a list of plotting directives gnuplotlib understands
 
     l_axes = tuple(nps.transpose(axes_forplotting)) + \
         ({'with': 'vectors', 'tuplesize': 6},)
-    l_labels = tuple(nps.transpose(axes*1.01)) + \
+
+    l_labels = tuple(nps.transpose(axes*1.01 + \
+                                   (label_offset if label_offset is not None else 0))) + \
         (np.array((label,
                    'x', 'y', 'z')),
          {'with': 'labels', 'tuplesize': 4},)
     return l_axes, l_labels
 
-
-
-def gen_pair_axes(pairs, ins2veh):
+def gen_pair_axes(pairs, ins2global):
     r'''Given all my camera pairs, generate a list of tuples that can be passed to
 gnuplotlib to plot my world'''
 
@@ -507,20 +508,23 @@ gnuplotlib to plot my world
 
         def gen_one_cam_axes(icam, cam, cam2ins):
 
-            return gen_plot_axes( ((cam['cam2pair_p'], cam['cam2pair_q']),
-                                   (cam2ins[0], cam2ins[1]),
-                                   (ins2veh[0], ins2veh[1])),
-                                  'pair{}-camera{}'.format(ipair, icam))
+            return gen_plot_axes( (cam['cam2pair'], cam2ins, ins2global),
+                                  'pair{}-camera{}'.format(ipair, icam),
+                                  scale = 0.5,
+                                  label_offset=0.05)
 
 
+        individual_cam_axes = (e for icam in (0,1) for e in gen_one_cam_axes(icam, pair[icam], pair['cam2ins']))
+        pair_axes           = gen_plot_axes( (pair['cam2ins'], ins2global),
+                                             'pair{}'.format(ipair),
+                                             scale = 0.75)
 
-        return (a for icam in (0,1) for a in gen_one_cam_axes(icam, pair[icam], pair['cam2ins']))
+        return (e for axes in (individual_cam_axes,pair_axes) for e in axes)
 
     return (a for ipair,pair in pairs.items() for a in gen_one_pair_axes(ipair, pair))
 
-def gen_ins_axes(ins2veh):
-
-    return gen_plot_axes( ((ins2veh[0], ins2veh[1]),), "INS")
+def gen_ins_axes(ins2global):
+    return gen_plot_axes( (ins2global,), "INS")
 
 
 
