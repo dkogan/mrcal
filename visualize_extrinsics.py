@@ -104,7 +104,7 @@ array (N vectors) and transformed N vectors in a new Nx3 are returned
     return \
         weave.inline(code,
                      ['p','q','X','do_inverse'],
-                     include_dirs=["/home/dima/src_boats/mr-pose/include/maritime_robotics/pose/"],
+                     include_dirs=["/usr/include/maritime_robotics/pose/"],
                      headers=['"pose3.h"'],
 
                      # I get important-looking warnings about using a deprecated
