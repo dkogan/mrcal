@@ -21,15 +21,14 @@ transforms.txt) and makes a plot that shows the world, the cameras, the ins and
 the vehicle coord systems. This should simplify debugging'''
 
 
-def transform(p,q, X, do_inverse=False):
+def transform(pq, X, do_inverse=False):
     """Invoke a C program to apply a pose transformation. p is a 3d position vector
 and q is a 4d unit quaternion to represent the rotation. 'X' is an Nx3 numpy
 array (N vectors) and transformed N vectors in a new Nx3 are returned
 
     """
 
-    p = p.astype(float)
-    q = q.astype(float)
+    p,q = pq[0].astype(float), pq[1].astype(float)
     X = X.astype(float)
     code = r'''
 
@@ -111,6 +110,108 @@ array (N vectors) and transformed N vectors in a new Nx3 are returned
                      # API, and I don't want to see them.
                      extra_compile_args=["-Wno-cpp -Wno-unused-variable"])
 
+def pose_inv(pq):
+    r'''Inverts a pose. Wrapper for pose3_inv()'''
+
+    p,q = pq[0].astype(float), pq[1].astype(float)
+
+    code = r'''
+
+    pose3_t pose = {.pos = {.x = P1(0),
+                            .y = P1(1),
+                            .z = P1(2)},
+                    .rot = {.u = Q1(0),
+                            .x = Q1(1),
+                            .y = Q1(2),
+                            .z = Q1(3)}};
+
+    pose = pose3_inv(pose);
+
+    // Done. Now return the new pose
+
+    npy_intp shape3[] = {3};
+    npy_intp shape4[] = {4};
+    PyArrayObject* pout = (PyArrayObject*)PyArray_SimpleNew(1, shape3, NPY_DOUBLE);
+    PyArrayObject* qout = (PyArrayObject*)PyArray_SimpleNew(1, shape4, NPY_DOUBLE);
+
+    *(double*)(pout->data + 0*pout->strides[0]) = pose.pos.x;
+    *(double*)(pout->data + 1*pout->strides[0]) = pose.pos.y;
+    *(double*)(pout->data + 2*pout->strides[0]) = pose.pos.z;
+
+    *(double*)(qout->data + 0*qout->strides[0]) = pose.rot.u;
+    *(double*)(qout->data + 1*qout->strides[0]) = pose.rot.x;
+    *(double*)(qout->data + 2*qout->strides[0]) = pose.rot.y;
+    *(double*)(qout->data + 3*qout->strides[0]) = pose.rot.z;
+
+    PyObject* out = Py_BuildValue("NN", pout, qout);
+    return_val = out;
+'''
+
+    return \
+        weave.inline(code,
+                     ['p','q'],
+                     include_dirs=["/usr/include/maritime_robotics/pose/"],
+                     headers=['"pose3.h"'],
+
+                     # I get important-looking warnings about using a deprecated
+                     # API, and I don't want to see them.
+                     extra_compile_args=["-Wno-cpp -Wno-unused-variable"])
+
+def pose_mul(pq1,  pq2):
+    r'''Inverts a pose. Wrapper for pose3_inv()'''
+
+    p1,q1 = (pq1[0].astype(float), pq1[1].astype(float))
+    p2,q2 = (pq2[0].astype(float), pq2[1].astype(float))
+
+    code = r'''
+
+    pose3_t pose1 = {.pos = {.x = P11(0),
+                             .y = P11(1),
+                             .z = P11(2)},
+                     .rot = {.u = Q11(0),
+                             .x = Q11(1),
+                             .y = Q11(2),
+                             .z = Q11(3)}};
+    pose3_t pose2 = {.pos = {.x = P21(0),
+                             .y = P21(1),
+                             .z = P21(2)},
+                     .rot = {.u = Q21(0),
+                             .x = Q21(1),
+                             .y = Q21(2),
+                             .z = Q21(3)}};
+
+    pose1 = pose3_mul(pose1, pose2);
+
+    // Done. Now return the new pose
+
+    npy_intp shape3[] = {3};
+    npy_intp shape4[] = {4};
+    PyArrayObject* pout = (PyArrayObject*)PyArray_SimpleNew(1, shape3, NPY_DOUBLE);
+    PyArrayObject* qout = (PyArrayObject*)PyArray_SimpleNew(1, shape4, NPY_DOUBLE);
+
+    *(double*)(pout->data + 0*pout->strides[0]) = pose1.pos.x;
+    *(double*)(pout->data + 1*pout->strides[0]) = pose1.pos.y;
+    *(double*)(pout->data + 2*pout->strides[0]) = pose1.pos.z;
+
+    *(double*)(qout->data + 0*qout->strides[0]) = pose1.rot.u;
+    *(double*)(qout->data + 1*qout->strides[0]) = pose1.rot.x;
+    *(double*)(qout->data + 2*qout->strides[0]) = pose1.rot.y;
+    *(double*)(qout->data + 3*qout->strides[0]) = pose1.rot.z;
+
+    PyObject* out = Py_BuildValue("NN", pout, qout);
+    return_val = out;
+'''
+
+    return \
+        weave.inline(code,
+                     ['p1','q1','p2','q2'],
+                     include_dirs=["/usr/include/maritime_robotics/pose/"],
+                     headers=['"pose3.h"'],
+
+                     # I get important-looking warnings about using a deprecated
+                     # API, and I don't want to see them.
+                     extra_compile_args=["-Wno-cpp -Wno-unused-variable"])
+
 def rot2quat(R):
     """Invoke a C program to convert a 3x3 rotation matrix to a unit quaternion
 
@@ -152,14 +253,17 @@ def parse_args():
         argparse.ArgumentParser(description= \
     r'''Visualize stereo calibration geometry. The calibration files can be given as
 a directory or as a set of files directly. By default, a visualization in the
-coord system of the vehicle is given. If --ins2wld is given then we use the
-world coord system instead''')
+coord system of the vehicle is given. If --ins2wld or --cam2wld is given then we
+use the world coord system instead''')
     parser.add_argument('--dir',
                         nargs=1,
                         help='Directory that contains the calibration')
     parser.add_argument('--ins2wld',
                         nargs=7,
-                        help='ins->world transform. Given as 7 numbers: pos.{xyz} rot.{uxyz}')
+                        help=r'''ins->world transform. Given as 7 numbers: pos.{xyz} rot.{uxyz}. Exclusive with --cam2wld''')
+    parser.add_argument('--cam2wld',
+                        nargs=8,
+                        help=r'''ins->world transform. Given as 8 numbers: camera_index pos.{xyz} rot.{uxyz}. Exclusive with --ins2wld''')
     parser.add_argument('cal_file',
                         nargs='*',
                         type=file,
@@ -201,15 +305,26 @@ world coord system instead''')
             cahvors[p][i] = f
 
 
+    if args.ins2wld and args.cam2wld:
+        raise Exception("At most one of --ins2wld and --cam2wld can be given")
+
+    i_cam2wld,cam2wld,ins2wld = None,None,None
+    if args.cam2wld:
+        i_cam2wld = int(args.cam2wld[0])
+        p = np.array([float(x) for x in args.cam2wld[1:4]])
+        q = np.array([float(x) for x in args.cam2wld[4:]])
+        if np.abs(nps.inner(q,q) - 1) > 1e-5:
+            raise Exception("cam2wld given a non-unit quaternion rotation: {}".format(q))
+        cam2wld = (p,q)
+
     if args.ins2wld:
         p = np.array([float(x) for x in args.ins2wld[:3]])
         q = np.array([float(x) for x in args.ins2wld[3:]])
         if np.abs(nps.inner(q,q) - 1) > 1e-5:
             raise Exception("ins2wld given a non-unit quaternion rotation: {}".format(q))
         ins2wld = (p,q)
-    else:
-        ins2wld = None
-    return transforms,cahvors,ins2wld
+
+    return transforms,cahvors,ins2wld,i_cam2wld,cam2wld
 
 def parse_transforms(transforms):
 
@@ -365,7 +480,7 @@ and a label, return a list of plotting directives gnuplotlib understands
                       (0,0,1),), dtype=float )
 
     for xform in transforms:
-        axes = transform( *xform, X=axes )
+        axes = transform( xform, X=axes )
 
     axes_forplotting = extend_axes_for_plotting(axes)
 
@@ -412,16 +527,23 @@ def gen_ins_axes(ins2veh):
 
 
 
-transforms,cahvors,ins2wld = parse_args()
-pairs,ins2veh              = parse_and_consolidate(transforms, cahvors)
-plot_pairs                 = gen_pair_axes(pairs, ins2veh if ins2wld is None else ins2wld)
-plot_ins                   = gen_ins_axes(ins2veh if ins2wld is None else ins2wld)
+transforms,cahvors, \
+    ins2wld,i_cam2wld,cam2wld = parse_args()
+
+pairs,ins2veh = parse_and_consolidate(transforms, cahvors)
+
+if cam2wld is not None:
+    ins2wld = pose_mul(cam2wld, pose_inv(pairs[i_cam2wld]['cam2ins']))
+
+ins2global    = ins2veh if ins2wld is None else ins2wld
+plot_pairs    = gen_pair_axes(pairs, ins2global)
+plot_ins      = gen_ins_axes(ins2global)
 
 # flatten the lists
 allplots = [ e for p in plot_pairs,plot_ins for e in p ]
 
 
-gp.plot3d( *allplots, square=1, zinv=1, ascii=1,
+gp.plot3d( *allplots, square=1, zinv=1, xinv=1, yinv=1, ascii=1,
            xlabel='x', ylabel='y', zlabel='z',
            title="{} coordinate system".format( "VEHICLE" if ins2wld is None else "WORLD"))
 
