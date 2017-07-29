@@ -158,7 +158,7 @@ def pose_inv(pq):
                      extra_compile_args=["-Wno-cpp -Wno-unused-variable"])
 
 def pose_mul(pq1,  pq2):
-    r'''Inverts a pose. Wrapper for pose3_inv()'''
+    r'''Multiplies two pose. Wrapper for pose_mul()'''
 
     p1,q1 = (pq1[0].astype(float), pq1[1].astype(float))
     p2,q2 = (pq2[0].astype(float), pq2[1].astype(float))
