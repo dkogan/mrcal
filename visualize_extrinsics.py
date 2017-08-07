@@ -6,6 +6,7 @@ import sys
 import argparse
 import re
 from scipy import weave
+import camera_models
 
 # I need at least gnuplotlib 0.16 (got {}). That version fixed label plotting.
 # Don't know how to ask python to check. Tried
@@ -253,17 +254,18 @@ def parse_args():
         argparse.ArgumentParser(description= \
     r'''Visualize stereo calibration geometry. The calibration files can be given as
 a directory or as a set of files directly. By default, a visualization in the
-coord system of the vehicle is given. If --ins2wld or --cam2wld is given then we
-use the world coord system instead''')
+coord system of the vehicle is given. If --wld_from_ins or --wld_from_pair is
+given then we use the world coord system instead''')
     parser.add_argument('--dir',
                         nargs=1,
                         help='Directory that contains the calibration')
-    parser.add_argument('--ins2wld',
+    parser.add_argument('--wld_from_ins',
                         nargs=7,
-                        help=r'''ins->world transform. Given as 7 numbers: pos.{xyz} rot.{uxyz}. Exclusive with --cam2wld''')
-    parser.add_argument('--cam2wld',
+                        help=r'''ins->world transform. Given as 7 numbers: pos.{xyz} rot.{uxyz}. Exclusive with --wld_from_pair''')
+    parser.add_argument('--wld_from_pair',
                         nargs=8,
-                        help=r'''ins->world transform. Given as 8 numbers: camera_index pos.{xyz} rot.{uxyz}. Exclusive with --ins2wld''')
+                        help=r'''camera_pair->world transform. Given as 8 numbers: pair_index pos.{xyz}
+rot.{uxyz}. Exclusive with --wld_from_ins''')
     parser.add_argument('cal_file',
                         nargs='*',
                         type=file,
@@ -305,155 +307,26 @@ use the world coord system instead''')
             cahvors[p][i] = f
 
 
-    if args.ins2wld and args.cam2wld:
-        raise Exception("At most one of --ins2wld and --cam2wld can be given")
+    if args.wld_from_ins and args.wld_from_pair:
+        raise Exception("At most one of --wld_from_ins and --wld_from_pair can be given")
 
-    i_cam2wld,cam2wld,ins2wld = None,None,None
-    if args.cam2wld:
-        i_cam2wld = int(args.cam2wld[0])
-        p = np.array([float(x) for x in args.cam2wld[1:4]])
-        q = np.array([float(x) for x in args.cam2wld[4:]])
+    i_wld_from_pair,wld_from_pair,wld_from_ins = None,None,None
+    if args.wld_from_pair:
+        i_wld_from_pair = int(args.wld_from_pair[0])
+        p = np.array([float(x) for x in args.wld_from_pair[1:4]])
+        q = np.array([float(x) for x in args.wld_from_pair[4:]])
         if np.abs(nps.inner(q,q) - 1) > 1e-5:
-            raise Exception("cam2wld given a non-unit quaternion rotation: {}".format(q))
-        cam2wld = (p,q)
+            raise Exception("wld_from_pair given a non-unit quaternion rotation: {}".format(q))
+        wld_from_pair = (p,q)
 
-    if args.ins2wld:
-        p = np.array([float(x) for x in args.ins2wld[:3]])
-        q = np.array([float(x) for x in args.ins2wld[3:]])
+    if args.wld_from_ins:
+        p = np.array([float(x) for x in args.wld_from_ins[:3]])
+        q = np.array([float(x) for x in args.wld_from_ins[3:]])
         if np.abs(nps.inner(q,q) - 1) > 1e-5:
-            raise Exception("ins2wld given a non-unit quaternion rotation: {}".format(q))
-        ins2wld = (p,q)
+            raise Exception("wld_from_ins given a non-unit quaternion rotation: {}".format(q))
+        wld_from_ins = (p,q)
 
-    return transforms,cahvors,ins2wld,i_cam2wld,cam2wld
-
-def parse_transforms(transforms):
-
-    x = { 'ins2veh': None,
-
-          # this is actually "pair" to ins
-          'cam2ins': {} }
-
-    for l in transforms:
-        if re.match('^\s*#|^\s*$', l):
-            continue
-
-        re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-        re_u = '\d+'
-        re_d = '[-+]?\d+'
-        re_s = '.+'
-
-        re_pos  = '\(\s*({f})\s+({f})\s+({f})\s*\)'        .format(f=re_f)
-        re_quat = '\(\s*({f})\s+({f})\s+({f})\s+({f})\s*\)'.format(f=re_f)
-        m = re.match('\s*ins2veh\s*=\s*{p}\s*{q}\s*\n?$'.
-                     format(u=re_u, p=re_pos, q=re_quat),
-                     l)
-        if m:
-            if x['ins2veh'] is not None:
-                raise("'{}' is corrupt: more than one ins2veh".format(transforms.name))
-
-            x['ins2veh'] = ( np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)))),
-                             np.array((float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7)))))
-            continue
-
-        m = re.match('\s*cam2ins\s*\[({u})\]\s*=\s*{p}\s*{q}\s*\n?$'.
-                     format(u=re_u, p=re_pos, q=re_quat),
-                     l)
-        if m:
-            i = int(m.group(1))
-            if x['cam2ins'].get(i) is not None:
-                raise("'{}' is corrupt: more than one cam2ins[{}]".format(transforms.name, i))
-
-            x['cam2ins'][i] = ( np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)))),
-                                np.array((float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8)))))
-            continue
-
-        raise Exception("'transforms.txt': I only know about 'ins2veh' and 'cam2ins' lines. Got '{}'".
-                        format(l))
-
-    if not all(e for e in x.values()):
-        raise Exception("Transforms file '{}' incomplete. Missing values for: {}",
-                        transforms.name,
-                        [k for k in x.keys() if not x[k]])
-    return x
-
-def parse_cahvor(cahvor):
-
-    x = { 'dimensions':  None,
-          'C':           None,
-          'A':           None,
-          'H':           None,
-          'V':           None }
-
-    for l in cahvor:
-        if re.match('^\s*#|^\s*$', l):
-            continue
-
-        re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-        re_u = '\d+'
-        re_d = '[-+]?\d+'
-        re_s = '.+'
-
-        m = re.match('\s*dimensions\s*=\s*({u})\s+({u})\s*\n?$'.format(u=re_u),
-                     l,
-                     flags=re.I)
-        if m:
-            if x['dimensions'] is not None:
-                raise("'{}' is corrupt: more than one set of dimensions given".format(cahvor.name))
-
-            x['dimensions'] = (int(m.group(1)),int(m.group(2)))
-            continue
-
-        m = re.match('\s*([cahvore])\s*=\s*({f})\s+({f})\s+({f})\s*\n?$'.format(f=re_f),
-                     l,
-                     flags=re.I)
-        if m:
-            what = m.group(1).upper()
-            if x.get(what) is not None:
-                raise("'{}' is corrupt: more than one '{}'".format(cahvor.name, what))
-
-            x[what] = np.array((float(m.group(2)),float(m.group(3)),float(m.group(4))))
-            continue
-
-    # read through the whole file. Did I get all the things I want
-    if not all(e is not None for e in x.values()):
-        raise Exception("Cahvor file '{}' incomplete. Missing values for: {}".
-                        format(cahvor.name,
-                               [k for k in x.keys() if x[k] is None]))
-
-    x['Hc'] = nps.inner(x['H'], x['A'])
-    hshp = x['H'] - x['Hc'] * x['A']
-    x['Hs'] = np.sqrt(nps.inner(hshp,hshp))
-    x['Hp'] = hshp / x['Hs']
-
-    x['Vc'] = nps.inner(x['V'], x['A'])
-    vsvp = x['V'] - x['Vc'] * x['A']
-    x['Vs'] = np.sqrt(nps.inner(vsvp,vsvp))
-    x['Vp'] = vsvp / x['Vs']
-
-    x['cam2pair'] = ( x['C'], rot2quat( nps.transpose(np.array( (x['Hp'], x['Vp'], x['A'] ))) ) )
-
-    return x
-
-def parse_and_consolidate(transforms, cahvors):
-    transforms = parse_transforms(transforms)
-    for cahvor_pair_id in cahvors.keys():
-        cahvors[cahvor_pair_id] = [ parse_cahvor(c) for c in cahvors[cahvor_pair_id] ]
-
-    pair_ids = sorted(transforms['cam2ins'].keys())
-    if pair_ids != sorted(cahvors.keys()):
-        raise Exception("Mismatched camera pair IDs")
-
-    pairs = {}
-    for i in pair_ids:
-        pair = {'cam2ins': transforms['cam2ins'][i]}
-
-        for icam in range(len(cahvors[i])):
-            pair[icam] = cahvors[i][icam]
-        pairs[i] = pair
-
-    ins2veh = transforms['ins2veh']
-
-    return pairs,ins2veh
+    return transforms,cahvors,wld_from_ins,i_wld_from_pair,wld_from_pair
 
 def extend_axes_for_plotting(axes):
     r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
@@ -508,7 +381,7 @@ gnuplotlib to plot my world
 
         def gen_one_cam_axes(icam, cam, cam2ins):
 
-            return gen_plot_axes( (cam['cam2pair'], cam2ins, ins2global),
+            return gen_plot_axes( (cahvor_pair_from_camera(cam), cam2ins, ins2global),
                                   'pair{}-camera{}'.format(ipair, icam),
                                   scale = 0.5,
                                   label_offset=0.05)
@@ -532,16 +405,16 @@ def gen_ins_axes(ins2global):
 
 
 transforms,cahvors, \
-    ins2wld,i_cam2wld,cam2wld = parse_args()
+    wld_from_ins,i_wld_from_pair,wld_from_pair = parse_args()
 
-pairs,ins2veh = parse_and_consolidate(transforms, cahvors)
+pairs,veh_from_ins = camera_models.parse_and_consolidate(transforms, cahvors)
 
-if cam2wld is not None:
-    ins2wld = pose_mul(cam2wld, pose_inv(pairs[i_cam2wld]['cam2ins']))
+if wld_from_pair is not None:
+    wld_from_ins = pose_mul(wld_from_pair, pose_inv(pairs[i_wld_from_pair]['ins_from_camera']))
 
-ins2global    = ins2veh if ins2wld is None else ins2wld
-plot_pairs    = gen_pair_axes(pairs, ins2global)
-plot_ins      = gen_ins_axes(ins2global)
+global_from_ins = veh_from_ins if wld_from_ins is None else wld_from_ins
+plot_pairs      = gen_pair_axes(pairs, global_from_ins)
+plot_ins        = gen_ins_axes(global_from_ins)
 
 # flatten the lists
 allplots = [ e for p in plot_pairs,plot_ins for e in p ]
@@ -549,7 +422,7 @@ allplots = [ e for p in plot_pairs,plot_ins for e in p ]
 
 gp.plot3d( *allplots, square=1, zinv=1, xinv=1, yinv=1, ascii=1,
            xlabel='x', ylabel='y', zlabel='z',
-           title="{} coordinate system".format( "VEHICLE" if ins2wld is None else "WORLD"))
+           title="{} coordinate system".format( "VEHICLE" if wld_from_ins is None else "WORLD"))
 
 import time
 time.sleep(100000)
