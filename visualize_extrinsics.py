@@ -344,8 +344,11 @@ this into a 3x6 array that can be gnuplotted "with vectors", and into a
     return out
 
 def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
-    r'''Given a list of transforms (applied to the reference set of axes in order)
-and a label, return a list of plotting directives gnuplotlib understands
+    r'''Given a list of transforms (applied to the reference set of axes in reverse
+order) and a label, return a list of plotting directives gnuplotlib understands.
+
+Transforms are in reverse order so a point x being transformed as A*B*C*x can be
+represented as a transforms list (A,B,C)
 
     '''
     axes = np.array( ((0,0,0),
@@ -353,7 +356,7 @@ and a label, return a list of plotting directives gnuplotlib understands
                       (0,1,0),
                       (0,0,1),), dtype=float ) * scale
 
-    for xform in transforms:
+    for xform in transforms[-1::-1]:
         axes = transform( xform, X=axes )
 
     axes_forplotting = extend_axes_for_plotting(axes)
@@ -368,7 +371,7 @@ and a label, return a list of plotting directives gnuplotlib understands
          {'with': 'labels', 'tuplesize': 4},)
     return l_axes, l_labels
 
-def gen_pair_axes(pairs, ins2global):
+def gen_pair_axes(pairs, global_from_ins):
     r'''Given all my camera pairs, generate a list of tuples that can be passed to
 gnuplotlib to plot my world'''
 
@@ -379,16 +382,19 @@ gnuplotlib to plot my world
 
         '''
 
-        def gen_one_cam_axes(icam, cam, cam2ins):
+        def gen_one_cam_axes(icam, cam, ins_from_camera):
 
-            return gen_plot_axes( (cahvor_pair_from_camera(cam), cam2ins, ins2global),
+            return gen_plot_axes( (global_from_ins,
+                                   ins_from_camera,
+                                   camera_models.cahvor_pair_from_camera(cam)),
+
                                   'pair{}-camera{}'.format(ipair, icam),
                                   scale = 0.5,
                                   label_offset=0.05)
 
 
-        individual_cam_axes = (e for icam in (0,1) for e in gen_one_cam_axes(icam, pair[icam], pair['cam2ins']))
-        pair_axes           = gen_plot_axes( (pair['cam2ins'], ins2global),
+        individual_cam_axes = (e for icam in (0,1) for e in gen_one_cam_axes(icam, pair[icam], pair['ins_from_camera']))
+        pair_axes           = gen_plot_axes( (global_from_ins, pair['ins_from_camera']),
                                              'pair{}'.format(ipair),
                                              scale = 0.75)
 
@@ -396,8 +402,8 @@ gnuplotlib to plot my world
 
     return (a for ipair,pair in pairs.items() for a in gen_one_pair_axes(ipair, pair))
 
-def gen_ins_axes(ins2global):
-    return gen_plot_axes( (ins2global,), "INS")
+def gen_ins_axes(global_from_ins):
+    return gen_plot_axes( (global_from_ins,), "INS")
 
 
 
