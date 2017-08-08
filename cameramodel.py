@@ -36,8 +36,8 @@ and returns the dict
             if x['veh_from_ins'] is not None:
                 raise("'{}' is corrupt: more than one 'ins2veh'".format(f.name))
 
-            x['veh_from_ins'] = ( np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)))),
-                                  np.array((float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7)))))
+            x['veh_from_ins'] = np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)),
+                                          float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7))))
             continue
 
         m = re.match('\s*cam2ins\s*\[({u})\]\s*=\s*{p}\s*{q}\s*\n?$'.
@@ -48,14 +48,14 @@ and returns the dict
             if x['ins_from_camera'].get(i) is not None:
                 raise("'{}' is corrupt: more than one 'cam2ins'[{}]".format(f.name, i))
 
-            x['ins_from_camera'][i] = ( np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)))),
-                                        np.array((float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8)))))
+            x['ins_from_camera'][i] = np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)),
+                                                float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8))))
             continue
 
         raise Exception("'transforms.txt': I only know about 'ins2veh' and 'cam2ins' lines. Got '{}'".
                         format(l))
 
-    if not all(e for e in x.values()):
+    if not all(e is not None for e in x.values()):
         raise Exception("Transforms file '{}' incomplete. Missing values for: {}",
                         f.name,
                         [k for k in x.keys() if not x[k]])
@@ -193,9 +193,9 @@ def cahvor_pair_from_camera(cahvor):
     Hp   = (cahvor['H'] - Hc * cahvor['A']) / Hs
     Vp   = (cahvor['V'] - Vc * cahvor['A']) / Vs
 
-    return \
-        ( copy.deepcopy(cahvor['C']),
-          mrpose.quat_from_mat33d( nps.transpose(np.array((Hp, Vp, cahvor['A'] )))))
+    return nps.glue( np.array( cahvor['C'] ),
+                     mrpose.quat_from_mat33d( nps.transpose(np.array((Hp, Vp, cahvor['A'] )))),
+                     axis=-1 )
 
 def set_extrinsics(cahvor, pq):
     r'''Given a cahvor dict and a transformation, return another cahvor dict that
@@ -205,7 +205,8 @@ a (p,q) camera->pair tuple as usual
 
     '''
 
-    p,q                = pq
+    p = pq[:3]
+    q = pq[3:]
     R_pair_from_camera = mrpose.quat_to_mat33d(q)
     Hp,Vp,A            = nps.transpose(R_pair_from_camera)
 
