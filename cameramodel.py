@@ -228,8 +228,8 @@ a (p,q) camera->pair tuple as usual
     # some sort of deviation-from-A representation. Thus I transform O into the
     # camera coord system, which is by definition extrinsic-less. When I'm done
     # moving the extrinsics, I put O back into the new coord system
-    _,q_pair_from_camera = cahvor_pair_from_camera(cahvor)
-
+    pq_pair_from_camera = cahvor_pair_from_camera(cahvor)
+    q_pair_from_camera = pq_pair_from_camera[3:]
     if 'O' in cahvor:
         O_pair_old = cahvor['O']
         O_camera   = mrpose.vec3_rotate(mrpose.quat_conj(q_pair_from_camera),
