@@ -6,7 +6,6 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#warning am I actually using opencv? do i need to include this?
 #include <opencv2/calib3d/calib3d.hpp>
 
 #define VERBOSE 1
@@ -70,7 +69,7 @@ calibration and sfm formulations are a little different
 #define SCALE_TRANSLATION_FRAME       1.0
 
 
-#warning generalize
+#warning generalize to other calibration objects and lone points
 #define CALOBJECT_W                    10
 #define NUM_POINTS_IN_CALOBJECT        (CALOBJECT_W*CALOBJECT_W)
 #define CALIBRATION_OBJECT_DOT_SPACING (4.0 * 2.54 / 100.0) /* 4 inches */
@@ -90,7 +89,7 @@ struct intrinsics_t
 {
     double focal_xy [2];
     double center_xy[2];
-#warning fill
+#warning handle distortions
     // double distortion[];
 };
 #define NUM_INTRINSIC_PARAMS sizeof(intrinsics_t)/sizeof(double)
@@ -138,28 +137,243 @@ static int get_N_j_nonzero( const struct observation_t* observations,
 
 
 #warning maybe this should project multiple points at a time?
-static void project( // out
-                    union point2_t* pt,
-                    union point3_t* dxy_drcamera,
-                    union point3_t* dxy_dtcamera,
-                    union point3_t* dxy_drframe,
-                    union point3_t* dxy_dtframe,
+static union point2_t project( // out
+                              struct intrinsics_t* dxy_dintrinsics,
+                              union point3_t* dxy_drcamera,
+                              union point3_t* dxy_dtcamera,
+                              union point3_t* dxy_drframe,
+                              union point3_t* dxy_dtframe,
 
-                    // in
-                    // these are raw SCALED parameter vectors
-                    const double* p_camera,
-                    const double* p_frame,
-                    bool extrinsic_are_identity,
-                    int i_pt )
+                              // in
+                              // these are the unit-scale parameter vectors touched by the solver
+                              const double* p_camera_rt_intrinsics_unitscale,
+                              const double* p_frame_rt_unitscale,
+                              bool camera_at_identity,
+                              int i_pt )
 {
-    union point3_t pt_ref = get_refobject_point(i_pt);
+    // I need to compose two transformations
+    //
+    // (object in reference frame) -> [frame transform] -> (object in camera0 frame) ->
+    // -> [camera rt] -> (camera frame)
+    //
+    // Note that here the frame transform transforms TO the camera0 frame and
+    // the camera transform transforms FROM the camera0 frame. This is how my
+    // data is expected to be set up
+    //
+    // [Rc tc] [Rf tf] = [Rc*Rf  Rc*tf + tc]
+    // [0  1 ] [0  1 ]   [0      1         ]
+    //
+    // This transformation (and its gradients) is handled by cvComposeRT() I
+    // refer to the camera*frame transform as the "joint" transform, or the
+    // letter j
 
-    if( extrinsic_are_identity )
+    double _d_rj_rf[3*3];
+    double _d_rj_tf[3*3];
+    double _d_rj_rc[3*3];
+    double _d_rj_tc[3*3];
+    double _d_tj_rf[3*3];
+    double _d_tj_tf[3*3];
+    double _d_tj_rc[3*3];
+    double _d_tj_tc[3*3];
+
+    CvMat d_rj_rf = cvMat(3,3, CV_64FC1, _d_rj_rf);
+    CvMat d_rj_tf = cvMat(3,3, CV_64FC1, _d_rj_tf);
+    CvMat d_rj_rc = cvMat(3,3, CV_64FC1, _d_rj_rc);
+    CvMat d_rj_tc = cvMat(3,3, CV_64FC1, _d_rj_tc);
+    CvMat d_tj_rf = cvMat(3,3, CV_64FC1, _d_tj_rf);
+    CvMat d_tj_tf = cvMat(3,3, CV_64FC1, _d_tj_tf);
+    CvMat d_tj_rc = cvMat(3,3, CV_64FC1, _d_tj_rc);
+    CvMat d_tj_tc = cvMat(3,3, CV_64FC1, _d_tj_tc);
+
+    double _tj[3];
+    CvMat  tj = cvMat(3,1,CV_64FC1, _tj);
+
+    double p_frame_r[3];
+    double p_frame_t[3];
+    for(int i=0; i<3; i++)
     {
+        p_frame_r[i] = p_frame_rt_unitscale[i+0] * SCALE_ROTATION_FRAME;
+        p_frame_t[i] = p_frame_rt_unitscale[i+3] * SCALE_TRANSLATION_FRAME;
+    }
+    CvMat rf = cvMat(3,1, CV_64FC1, &p_frame_r);
+    CvMat tf = cvMat(3,1, CV_64FC1, &p_frame_t);
+
+    double _Rj[3*3];
+    CvMat  Rj = cvMat(3,3,CV_64FC1, _Rj);
+    double _d_Rj_rj[9*3];
+    CvMat d_Rj_rj = cvMat(9,3,CV_64F, _d_Rj_rj);
+
+    union point3_t pt_ref = get_refobject_point(i_pt);
+    if(!camera_at_identity)
+    {
+        double p_camera_r[3];
+        double p_camera_t[3];
+        for(int i=0; i<3; i++)
+        {
+            p_camera_r[i] = p_camera_rt_intrinsics_unitscale[i+0] * SCALE_ROTATION_CAMERA;
+            p_camera_t[i] = p_camera_rt_intrinsics_unitscale[i+3] * SCALE_TRANSLATION_CAMERA;
+        }
+        CvMat rc = cvMat(3,1, CV_64FC1, &p_camera_r);
+        CvMat tc = CvMat(3,1, CV_64FC1, &p_camera_t);
+
+        double _rj[3];
+        CvMat  rj = cvMat(3,1,CV_64FC1, _rj);
+        cvComposeRT( &rf,      &tf,
+                     &rc,      &tc,
+                     &rj,      &tj,
+                     &d_rj_rf, &d_rj_tf,
+                     &d_rj_rc, &d_rj_tc,
+                     &d_tj_rf, &d_tj_tf,
+                     &d_tj_rc, &d_tj_tc );
+        cvRodrigues2(&rj, &Rj, &d_Rj_rj);
+    }
+    else
+    {
+        // We're looking at camera0, so this camera transform is fixed at the
+        // identity. We don't need to compose anything, nor propagate gradients
+        // for the camera extrinsics, since those don't exist in the parameter
+        // vector
+
+        // Here the "joint" transform is just the "frame" transform
+        cvRodrigues2(&rf, &Rj, &d_Rj_rj);
+    }
+
+    // Rj * pt + tj -> pt
+    union point2_t pt_cam;
+    mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
+    add_vec(3, pt_cam.xyz,  _tj);
+
+    // pt is now in the camera coordinates. I can project
+    union point2_t pt_out;
+    const struct intrinsics_t* intrinsics = (const struct intrinsics_t*)(&p_camera_rt_intrinsics_unitscale[6]);
+    const double sx = intrinsics->focal_xy[0] * SCALE_INTRINSICS_FOCAL_LENGTH;
+    const double sy = intrinsics->focal_xy[1] * SCALE_INTRINSICS_FOCAL_LENGTH;
+    double z_recip = 1.0 / pt_cam.z;
+    pt_out.x =
+        pt_cam.x*z_recip * sx +
+        intrinsics->center_xy[0] * SCALE_INTRINSICS_CENTER_PIXEL;
+    pt_out.y =
+        pt_cam.y*z_recip * sy +
+        intrinsics->center_xy[1] * SCALE_INTRINSICS_CENTER_PIXEL;
+
+
+
+    // I have the projection, and I now need to propagate the gradients
+    memset(dxy_dintrinsics, 0, 2*sizeof(dxy_dintrinsics[0]));
+    dxy_dintrinsics[0].focal_xy [0] = pt_cam.x*z_recip * SCALE_INTRINSICS_FOCAL_LENGTH;
+    dxy_dintrinsics[0].center_xy[0] = SCALE_INTRINSICS_CENTER_PIXEL;
+    dxy_dintrinsics[1].focal_xy [1] = pt_cam.y*z_recip * SCALE_INTRINSICS_FOCAL_LENGTH;
+    dxy_dintrinsics[1].center_xy[1] = SCALE_INTRINSICS_CENTER_PIXEL;
+
+
+    if(!camera_at_identity)
+    {
+        // I do this multiple times, one each for {r,t}{camera,frame}
+        void propagate(union point3_t* dxy_dparam,
+                       const double* _d_rj,
+                       const double* _d_tj,
+
+                       // I want the gradients in respect to the unit-scale params
+                       double scale_param)
+        {
+            // dxy_drcamera[0] = sx/pt_cam.z * (d(pt_cam.x) - pt_cam.x/pt_cam.z * d(pt_cam.z));
+            // dxy_drcamera[1] = sy/pt_cam.z * (d(pt_cam.y) - pt_cam.y/pt_cam.z * d(pt_cam.z));
+            //
+            // pt_cam.x    = Rj[row0]*pt_ref + tj.x
+            // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
+            // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
+            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+
+            double d_ptcamx[3];
+            double d_ptcamy[3];
+            double d_ptcamz[3];
+
+            mul_vec3_gen33t_vout( pt_ref.xyz, _d_rj,          d_ptcamx );
+            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*1], d_ptcamy);
+            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*2], d_ptcamz);
+            mul_vec3_gen33t     ( d_ptcamx,   &_d_Rj_rj[9*0]);
+
+            add_vec(3, d_ptcamx, &_d_tj[3*0] );
+            add_vec(3, d_ptcamy, &_d_tj[3*1] );
+            add_vec(3, d_ptcamz, &_d_tj[3*2] );
+
+            for(int i=0; i<3; i++)
+            {
+                dxy_dparam[0].xyz[i] = scale_param *
+                    sx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
+                dxy_dparam[1].xyz[i] = scale_param *
+                    sy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
+            }
+        }
+
+        propagate( &dxy_drcamera, _d_rj_rc, _d_tj_rc, SCALE_ROTATION_CAMERA    );
+        propagate( &dxy_dtcamera, _d_rj_tc, _d_tj_tc, SCALE_TRANSLATION_CAMERA );
+        propagate( &dxy_drframe,  _d_rj_rf, _d_tj_rf, SCALE_ROTATION_FRAME     );
+        propagate( &dxy_dtframe,  _d_rj_tf, _d_tj_tf, SCALE_TRANSLATION_FRAME  );
+    }
+    else
+    {
+        void propagate_r(union point3_t* dxy_dparam,
+                         const double* _d_tj,
+
+                         // I want the gradients in respect to the unit-scale params
+                         double scale_param)
+        {
+            // dxy_drcamera[0] = sx/pt_cam.z * (d(pt_cam.x) - pt_cam.x/pt_cam.z * d(pt_cam.z));
+            // dxy_drcamera[1] = sy/pt_cam.z * (d(pt_cam.y) - pt_cam.y/pt_cam.z * d(pt_cam.z));
+            //
+            // pt_cam.x    = Rj[row0]*pt_ref + tj.x
+            // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
+            // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
+            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+
+            double d_ptcamx[3];
+            double d_ptcamy[3];
+            double d_ptcamz[3];
+
+            memcpy(d_ptcamx, pt_ref.xyz, sizeof(d_ptcamx));
+            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*1], d_ptcamy);
+            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*2], d_ptcamz);
+            mul_vec3_gen33t     ( d_ptcamx,   &_d_Rj_rj[9*0]);
+
+            for(int i=0; i<3; i++)
+            {
+                dxy_dparam[0].xyz[i] = scale_param *
+                    sx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
+                dxy_dparam[1].xyz[i] = scale_param *
+                    sy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
+            }
+        }
+        void propagate_t(union point3_t* dxy_dparam,
+
+                         // I want the gradients in respect to the unit-scale params
+                         double scale_param)
+        {
+            // dxy_drcamera[0] = sx/pt_cam.z * (d(pt_cam.x) - pt_cam.x/pt_cam.z * d(pt_cam.z));
+            // dxy_drcamera[1] = sy/pt_cam.z * (d(pt_cam.y) - pt_cam.y/pt_cam.z * d(pt_cam.z));
+            //
+            // pt_cam.x    = Rj[row0]*pt_ref + tj.x
+            // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
+            // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
+            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+
+
+            dxy_dparam[0].xyz[0] = scale_param * sx * z_recip;
+            dxy_dparam[1].xyz[0] = 0.0;
+
+            dxy_dparam[0].xyz[1] = 0.0;
+            dxy_dparam[1].xyz[1] = scale_param * sy * z_recip;
+
+            dxy_dparam[0].xyz[2] = -scale_param * sx * z_recip * pt_cam.x * z_recip;
+            dxy_dparam[1].xyz[2] = -scale_param * sy * z_recip * pt_cam.y * z_recip;
+        }
+
+        propagate_r( &dxy_drframe, SCALE_ROTATION_FRAME     );
+        propagate_t( &dxy_dtframe, SCALE_TRANSLATION_FRAME  );
     }
 }
 
-// From real values, to scaled values. Optimizer sees scaled values
+// From real values to unit-scale values. Optimizer sees unit-scale values
 static void pack_solver_state( // out
                               double* p,
 
@@ -181,7 +395,7 @@ static void pack_solver_state( // out
     for(int i_camera=1; i_camera < Ncameras; i_camera++)
     {
         // extrinsics first so that the intrinsics are evenly spaced and
-        // state_index_camera_intrinsics() can be branchless
+        // state_index_camera_rt_intrinsics() can be branchless
         p[i_state++] = camera_extrinsics[i_camera].r.xyz[0]     / SCALE_ROTATION_CAMERA;
         p[i_state++] = camera_extrinsics[i_camera].r.xyz[1]     / SCALE_ROTATION_CAMERA;
         p[i_state++] = camera_extrinsics[i_camera].r.xyz[2]     / SCALE_ROTATION_CAMERA;
@@ -210,7 +424,7 @@ static void pack_solver_state( // out
     assert(Nstate == Nstate_ref);
 }
 
-// From scaled values, to real values. Optimizer sees scaled values
+// From unit-scale values to real values. Optimizer sees unit-scale values
 static void unpack_solver_state( // out
                                  struct intrinsics_t* camera_intrinsics; // Ncameras of these
                                  struct pose_t*       camera_extrinsics; // Ncameras-1 of these
@@ -232,7 +446,7 @@ static void unpack_solver_state( // out
     for(int i_camera=1; i_camera < Ncameras; i_camera++)
     {
         // extrinsics first so that the intrinsics are evenly spaced and
-        // state_index_camera_intrinsics() can be branchless
+        // state_index_camera_rt_intrinsics() can be branchless
         camera_extrinsics[i_camera].r.xyz[0]     = p[i_state++] * SCALE_ROTATION_CAMERA;
         camera_extrinsics[i_camera].r.xyz[1]     = p[i_state++] * SCALE_ROTATION_CAMERA;
         camera_extrinsics[i_camera].r.xyz[2]     = p[i_state++] * SCALE_ROTATION_CAMERA;
@@ -261,14 +475,14 @@ static void unpack_solver_state( // out
     assert(Nstate == Nstate_ref);
 }
 
-static int state_index_camera_ex_in_trinsics(int i_camera)
+static int state_index_camera_rt_intrinsics(int i_camera)
 {
     // returns the variable index for the extrinsics-followed-by-intrinsics of a
     // given camera. Note that for i_camera==0 there are no extrinsics, so the
     // returned value will be negative, and the intrinsics live at index=0
     return i_camera*(NUM_INTRINSIC_PARAMS + 6) - 6;
 }
-static int state_index_frame_pose(int i_frame, int Ncameras)
+static int state_index_frame_rt(int i_frame, int Ncameras)
 {
     return i_frame*6 + (NUM_INTRINSIC_PARAMS + 6)*Ncameras - 6;
 }
@@ -278,8 +492,8 @@ bool optimize( // out, in (seed on input)
                // These are the state. I don't have a state_t because Ncameras
                // and Nframes aren't known at compile time
                struct intrinsics_t* camera_intrinsics; // Ncameras of these
-               struct pose_t*       camera_extrinsics; // Ncameras-1 of these
-               struct pose_t*       frames;            // Nframes of these
+               struct pose_t*       camera_extrinsics; // Ncameras-1 of these. Transform FROM camera0 frame
+               struct pose_t*       frames;            // Nframes of these.    Transform TO   camera0 frame
 
                // in
                int Ncameras, Nframes;
@@ -337,17 +551,16 @@ bool optimize( // out, in (seed on input)
             Jval   [ iJacobian ] = g;           \
             iJacobian++;                        \
         } while(0)
-#define STORE_JACOBIAN3(_col0, g0, g1, g2)       \
+#define STORE_JACOBIAN3(col0, g0, g1, g2)       \
         do                                      \
         {                                       \
-            int col0 = _col0;                   \
-            Jcolidx[ iJacobian ] = col0 + 0;    \
+            Jcolidx[ iJacobian ] = col0++       \
             Jval   [ iJacobian ] = g0;          \
             iJacobian++;                        \
-            Jcolidx[ iJacobian ] = col0 + 1;    \
+            Jcolidx[ iJacobian ] = col0++       \
             Jval   [ iJacobian ] = g1;          \
             iJacobian++;                        \
-            Jcolidx[ iJacobian ] = col0 + 2;    \
+            Jcolidx[ iJacobian ] = col0++       \
             Jval   [ iJacobian ] = g2;          \
             iJacobian++;                        \
         } while(0)
@@ -364,10 +577,10 @@ bool optimize( // out, in (seed on input)
             const int i_camera = observation->i_camera;
             const int i_frame  = observation->i_frame;
 
-            const double* p_camera =
-                &solver_state[ state_index_camera_ex_in_trinsics(i_camera) ];
-            const double* p_frame =
-                &solver_state[ state_index_frame_pose(i_frame, Ncameras) ];
+            const double* p_camera_rt_intrinsics =
+                &solver_state[ state_index_camera_rt_intrinsics(i_camera) ];
+            const double* p_frame_rt =
+                &solver_state[ state_index_frame_rt(i_frame, Ncameras) ];
 
             for(int i_pt=0;
                 i_pt < NUM_POINTS_IN_CALOBJECT;
@@ -375,21 +588,23 @@ bool optimize( // out, in (seed on input)
             {
                 Jrowptr[iMeasurement] = iJacobian;
 
-                union point2_t pt_hypothesis;
+                // these are computed in respect to the unit-scale parameters
+                // used by the optimizer
+                struct intrinsics_t dxy_dintrinsics[2];
                 union point3_t dxy_drcamera[2];
                 union point3_t dxy_dtcamera[2];
                 union point3_t dxy_drframe [2];
                 union point3_t dxy_dtframe [2];
-                double dintrinsics[...];
 
-                project(&pt_hypothesis,
-                        dxy_drcamera,
-                        dxy_dtcamera,
-                        dxy_drframe,
-                        dxy_dtframe,
-                        p_camera, p_frame,
-                        i_camera == 0,
-                        i_pt);
+                union point2_t pt_hypothesis =
+                    project(dxy_dintrinsics,
+                            dxy_drcamera,
+                            dxy_dtcamera,
+                            dxy_drframe,
+                            dxy_dtframe,
+                            p_camera_rt_intrinsics, p_frame_rt,
+                            i_camera == 0,
+                            i_pt);
 
                 const union point2_t* pt_observed = &observation->px[i_pt];
                 const double dx = pt_hypothesis.x - pt_observed->x;
@@ -397,24 +612,35 @@ bool optimize( // out, in (seed on input)
                 const double err2 = dx*dx + dy*dy;
                 x[iMeasurement] = err2;
 
-                static_assert(variable order; must be monotonic);
-#error gradients need to be in respect to the PACKED variables
-                STORE_JACOBIAN(ivar_intrinsics(i_camera),
-                               2.0 * ( dx * dintrinsics[...] +
-                                       dy * dintrinsics[...] ));
-                STORE_JACOBIAN3( ivar_extrinsics_r0(i_camera),
-                                 2.0 * ( dx * dxy_drcamera[0].xyz[0] + dy * dxy_drcamera[1].xyz[0] ),
-                                 2.0 * ( dx * dxy_drcamera[0].xyz[1] + dy * dxy_drcamera[1].xyz[1] ),
-                                 2.0 * ( dx * dxy_drcamera[0].xyz[2] + dy * dxy_drcamera[1].xyz[2] ))
-                STORE_JACOBIAN3( ivar_extrinsics_t0(i_camera),
-                                 2.0 * ( dx * dxy_dtcamera[0].xyz[0] + dy * dxy_dtcamera[1].xyz[0] ),
-                                 2.0 * ( dx * dxy_dtcamera[0].xyz[1] + dy * dxy_dtcamera[1].xyz[1] ),
-                                 2.0 * ( dx * dxy_dtcamera[0].xyz[2] + dy * dxy_dtcamera[1].xyz[2] ))
-                STORE_JACOBIAN3( ivar_frame_r0(i_frame),
+                // I want these gradient values to be computed in
+                // monotonically-increasing order of variable index. I don't
+                // CHECK, so it's the developer's responsibility to make sure.
+                // This ordering is set in the intrinsics_t structure and in
+                // pack_solver_state(), unpack_solver_state()
+                int i_var = state_index_camera_rt_intrinsics(i_camera);
+                if( i_camera != 0 )
+                {
+                    STORE_JACOBIAN3( i_var,
+                                     2.0 * ( dx * dxy_drcamera[0].xyz[0] + dy * dxy_drcamera[1].xyz[0] ),
+                                     2.0 * ( dx * dxy_drcamera[0].xyz[1] + dy * dxy_drcamera[1].xyz[1] ),
+                                     2.0 * ( dx * dxy_drcamera[0].xyz[2] + dy * dxy_drcamera[1].xyz[2] ));
+                    STORE_JACOBIAN3( i_var,
+                                     2.0 * ( dx * dxy_dtcamera[0].xyz[0] + dy * dxy_dtcamera[1].xyz[0] ),
+                                     2.0 * ( dx * dxy_dtcamera[0].xyz[1] + dy * dxy_dtcamera[1].xyz[1] ),
+                                     2.0 * ( dx * dxy_dtcamera[0].xyz[2] + dy * dxy_dtcamera[1].xyz[2] ));
+                }
+
+                for(int i=0; i<NUM_INTRINSIC_PARAMS; i++)
+                    STORE_JACOBIAN( ivar,
+                                    2.0 * ( dx * ((const double*)dxy_dintrinsics)[i + 0*NUM_INTRINSIC_PARAMS] +
+                                            dy * ((const double*)dxy_dintrinsics)[i + 1*NUM_INTRINSIC_PARAMS] ));
+
+                i_var = state_index_frame_rt(i_frame, Ncameras);
+                STORE_JACOBIAN3( i_var,
                                  2.0 * ( dx * dxy_drframe[0].xyz[0] + dy * dxy_drframe[1].xyz[0] ),
                                  2.0 * ( dx * dxy_drframe[0].xyz[1] + dy * dxy_drframe[1].xyz[1] ),
                                  2.0 * ( dx * dxy_drframe[0].xyz[2] + dy * dxy_drframe[1].xyz[2] ));
-                STORE_JACOBIAN3( ivar_frame_t0(i_frame),
+                STORE_JACOBIAN3( i_var,
                                  2.0 * ( dx * dxy_dtframe[0].xyz[0] + dy * dxy_dtframe[1].xyz[0] ),
                                  2.0 * ( dx * dxy_dtframe[0].xyz[1] + dy * dxy_dtframe[1].xyz[1] ),
                                  2.0 * ( dx * dxy_dtframe[0].xyz[2] + dy * dxy_dtframe[1].xyz[2] ));
