@@ -167,15 +167,15 @@ static union point2_t project( // out
     double _tj[3];
     CvMat  tj = cvMat(3,1,CV_64FC1, _tj);
 
-    double p_frame_r[3];
-    double p_frame_t[3];
+    double _rf[3];
+    double _tf[3];
     for(int i=0; i<3; i++)
     {
-        p_frame_r[i] = p_frame_rt_unitscale[i+0] * SCALE_ROTATION_FRAME;
-        p_frame_t[i] = p_frame_rt_unitscale[i+3] * SCALE_TRANSLATION_FRAME;
+        _rf[i] = p_frame_rt_unitscale[i+0] * SCALE_ROTATION_FRAME;
+        _tf[i] = p_frame_rt_unitscale[i+3] * SCALE_TRANSLATION_FRAME;
     }
-    CvMat rf = cvMat(3,1, CV_64FC1, &p_frame_r);
-    CvMat tf = cvMat(3,1, CV_64FC1, &p_frame_t);
+    CvMat rf = cvMat(3,1, CV_64FC1, &_rf);
+    CvMat tf = cvMat(3,1, CV_64FC1, &_tf);
 
     double _Rj[3*3];
     CvMat  Rj = cvMat(3,3,CV_64FC1, _Rj);
