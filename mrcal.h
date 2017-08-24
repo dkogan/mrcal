@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdbool.h>
+
+
 // this is copied from the stereo-server project. Please consolidate
 union point2_t
 {
