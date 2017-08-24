@@ -50,18 +50,18 @@ struct intrinsics_t
 
 
 
-bool optimize( // out, in (seed on input)
+double mrcal_optimize( // out, in (seed on input)
 
-               // These are the state. I don't have a state_t because Ncameras
-               // and Nframes aren't known at compile time
-               struct intrinsics_t* camera_intrinsics, // Ncameras of these
-               struct pose_t*       camera_extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
-               struct pose_t*       frames,            // Nframes of these.    Transform TO   camera0 frame
+                      // These are the state. I don't have a state_t because Ncameras
+                      // and Nframes aren't known at compile time
+                      struct intrinsics_t* camera_intrinsics, // Ncameras of these
+                      struct pose_t*       camera_extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
+                      struct pose_t*       frames,            // Nframes of these.    Transform TO   camera0 frame
 
-               // in
-               int Ncameras, int Nframes,
+                      // in
+                      int Ncameras, int Nframes,
 
-               const struct observation_t* observations,
-               int Nobservations,
+                      const struct observation_t* observations,
+                      int Nobservations,
 
-               bool check_gradient);
+                      bool check_gradient);
