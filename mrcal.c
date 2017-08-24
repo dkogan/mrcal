@@ -183,17 +183,19 @@ static union point2_t project( // out
     CvMat d_Rj_rj = cvMat(9,3,CV_64F, _d_Rj_rj);
 
     union point3_t pt_ref = get_refobject_point(i_pt);
+    union point3_t pt_cam;
+
     if(!camera_at_identity)
     {
-        double p_camera_r[3];
-        double p_camera_t[3];
+        double _rc[3];
+        double _tc[3];
         for(int i=0; i<3; i++)
         {
-            p_camera_r[i] = p_camera_rt_intrinsics_unitscale[i+0] * SCALE_ROTATION_CAMERA;
-            p_camera_t[i] = p_camera_rt_intrinsics_unitscale[i+3] * SCALE_TRANSLATION_CAMERA;
+            _rc[i] = p_camera_rt_intrinsics_unitscale[i+0] * SCALE_ROTATION_CAMERA;
+            _tc[i] = p_camera_rt_intrinsics_unitscale[i+3] * SCALE_TRANSLATION_CAMERA;
         }
-        CvMat rc = cvMat(3,1, CV_64FC1, &p_camera_r);
-        CvMat tc = cvMat(3,1, CV_64FC1, &p_camera_t);
+        CvMat rc = cvMat(3,1, CV_64FC1, &_rc);
+        CvMat tc = cvMat(3,1, CV_64FC1, &_tc);
 
         double _rj[3];
         CvMat  rj = cvMat(3,1,CV_64FC1, _rj);
@@ -205,6 +207,10 @@ static union point2_t project( // out
                      &d_tj_rf, &d_tj_tf,
                      &d_tj_rc, &d_tj_tc );
         cvRodrigues2(&rj, &Rj, &d_Rj_rj);
+
+        // Rj * pt + tj -> pt
+        mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
+        add_vec(3, pt_cam.xyz,  _tj);
     }
     else
     {
@@ -215,12 +221,11 @@ static union point2_t project( // out
 
         // Here the "joint" transform is just the "frame" transform
         cvRodrigues2(&rf, &Rj, &d_Rj_rj);
-    }
 
-    // Rj * pt + tj -> pt
-    union point3_t pt_cam;
-    mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
-    add_vec(3, pt_cam.xyz,  _tj);
+        // Rj * pt + tj -> pt
+        mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
+        add_vec(3, pt_cam.xyz,  _tf);
+    }
 
     // pt is now in the camera coordinates. I can project
     union point2_t pt_out;
@@ -234,7 +239,6 @@ static union point2_t project( // out
     pt_out.y =
         pt_cam.y*z_recip * sy +
         intrinsics->center_xy[1] * SCALE_INTRINSICS_CENTER_PIXEL;
-
 
 
     // I have the projection, and I now need to propagate the gradients
@@ -267,10 +271,12 @@ static union point2_t project( // out
             double d_ptcamy[3];
             double d_ptcamz[3];
 
-            mul_vec3_gen33t_vout( pt_ref.xyz, _d_rj,          d_ptcamx );
-            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*1], d_ptcamy);
-            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*2], d_ptcamz);
-            mul_vec3_gen33t     ( d_ptcamx,   &_d_Rj_rj[9*0]);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*0], d_ptcamx );
+            mul_vec3_gen33     ( d_ptcamx,   _d_rj);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*1], d_ptcamy );
+            mul_vec3_gen33     ( d_ptcamy,   _d_rj);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*2], d_ptcamz );
+            mul_vec3_gen33     ( d_ptcamz,   _d_rj);
 
             add_vec(3, d_ptcamx, &_d_tj[3*0] );
             add_vec(3, d_ptcamy, &_d_tj[3*1] );
@@ -310,9 +316,9 @@ static union point2_t project( // out
             double d_ptcamz[3];
 
             memcpy(d_ptcamx, pt_ref.xyz, sizeof(d_ptcamx));
-            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*1], d_ptcamy);
-            mul_vec3_gen33t_vout( d_ptcamx,   &_d_Rj_rj[9*2], d_ptcamz);
-            mul_vec3_gen33t     ( d_ptcamx,   &_d_Rj_rj[9*0]);
+            mul_vec3_gen33_vout( d_ptcamx,   &_d_Rj_rj[9*1], d_ptcamy);
+            mul_vec3_gen33_vout( d_ptcamx,   &_d_Rj_rj[9*2], d_ptcamz);
+            mul_vec3_gen33     ( d_ptcamx,   &_d_Rj_rj[9*0]);
 
             for(int i=0; i<3; i++)
             {
@@ -591,6 +597,7 @@ double mrcal_optimize( // out, in (seed on input)
                 const double dy = pt_hypothesis.y - pt_observed->y;
                 const double err2 = dx*dx + dy*dy;
                 x[iMeasurement] = err2;
+
 
                 // I want these gradient values to be computed in
                 // monotonically-increasing order of variable index. I don't
