@@ -9,7 +9,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <dogleg.h>
 
-#include "basic_points.h"
+#include "mrcal.h"
 
 #define VERBOSE 1
 
@@ -72,10 +72,6 @@ calibration and sfm formulations are a little different
 #define SCALE_TRANSLATION_FRAME       1.0
 
 
-#warning generalize to other calibration objects and lone points
-#define CALOBJECT_W                    10
-#define NUM_POINTS_IN_CALOBJECT        (CALOBJECT_W*CALOBJECT_W)
-#define CALIBRATION_OBJECT_DOT_SPACING (4.0 * 2.54 / 100.0) /* 4 inches */
 static union point3_t get_refobject_point(int i_pt)
 {
     int x = i_pt / CALOBJECT_W;
@@ -88,28 +84,8 @@ static union point3_t get_refobject_point(int i_pt)
 }
 
 
-struct intrinsics_t
-{
-    double focal_xy [2];
-    double center_xy[2];
-#warning handle distortions
-    // double distortion[];
-};
 #define NUM_INTRINSIC_PARAMS ((int)(sizeof(struct intrinsics_t)/sizeof(double)))
 
-// unconstrained 6DOF pose containing a rodrigues rotation and a translation
-struct pose_t
-{
-    union point3_t r,t;
-};
-
-struct observation_t
-{
-#warning I need i_camera, but maybe i_frame should live in a separate frame_start[] ?
-    int i_camera, i_frame;
-
-    union point2_t px[NUM_POINTS_IN_CALOBJECT];
-};
 
 
 
