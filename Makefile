@@ -3,6 +3,8 @@ ABI_VERSION  := 0
 TAIL_VERSION := 0
 
 LIB_SOURCES += mrcal.c
+BIN_SOURCES += test_gradients.c
+
 
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)
 LDLIBS_CV   := $(shell pkg-config --libs   opencv)
