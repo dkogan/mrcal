@@ -111,7 +111,7 @@ static int get_N_j_nonzero( const struct observation_t* observations,
     for(int i=0; i<Nobservations; i++)
         if(observations[i].i_camera == 0)
             N -= 6;
-    return N*NUM_INTRINSIC_PARAMS;
+    return N*NUM_POINTS_IN_CALOBJECT;
 }
 
 
