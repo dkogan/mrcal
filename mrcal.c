@@ -534,13 +534,13 @@ double mrcal_optimize( // out, in (seed on input)
 #define STORE_JACOBIAN3(col0, g0, g1, g2)       \
         do                                      \
         {                                       \
-            Jcolidx[ iJacobian ] = col0++;      \
+            Jcolidx[ iJacobian ] = col0+0;      \
             Jval   [ iJacobian ] = g0;          \
             iJacobian++;                        \
-            Jcolidx[ iJacobian ] = col0++;      \
+            Jcolidx[ iJacobian ] = col0+1;      \
             Jval   [ iJacobian ] = g1;          \
             iJacobian++;                        \
-            Jcolidx[ iJacobian ] = col0++;      \
+            Jcolidx[ iJacobian ] = col0+2;      \
             Jval   [ iJacobian ] = g2;          \
             iJacobian++;                        \
         } while(0)
@@ -600,27 +600,27 @@ double mrcal_optimize( // out, in (seed on input)
                 int i_var = state_index_camera_rt_intrinsics(i_camera);
                 if( i_camera != 0 )
                 {
-                    STORE_JACOBIAN3( i_var,
+                    STORE_JACOBIAN3( i_var + 0,
                                      2.0 * ( dx * dxy_drcamera[0].xyz[0] + dy * dxy_drcamera[1].xyz[0] ),
                                      2.0 * ( dx * dxy_drcamera[0].xyz[1] + dy * dxy_drcamera[1].xyz[1] ),
                                      2.0 * ( dx * dxy_drcamera[0].xyz[2] + dy * dxy_drcamera[1].xyz[2] ));
-                    STORE_JACOBIAN3( i_var,
+                    STORE_JACOBIAN3( i_var + 3,
                                      2.0 * ( dx * dxy_dtcamera[0].xyz[0] + dy * dxy_dtcamera[1].xyz[0] ),
                                      2.0 * ( dx * dxy_dtcamera[0].xyz[1] + dy * dxy_dtcamera[1].xyz[1] ),
                                      2.0 * ( dx * dxy_dtcamera[0].xyz[2] + dy * dxy_dtcamera[1].xyz[2] ));
                 }
 
                 for(int i=0; i<NUM_INTRINSIC_PARAMS; i++)
-                    STORE_JACOBIAN( i_var,
+                    STORE_JACOBIAN( i_var + 6 + i,
                                     2.0 * ( dx * ((const double*)dxy_dintrinsics)[i + 0*NUM_INTRINSIC_PARAMS] +
                                             dy * ((const double*)dxy_dintrinsics)[i + 1*NUM_INTRINSIC_PARAMS] ));
 
                 i_var = state_index_frame_rt(i_frame, Ncameras);
-                STORE_JACOBIAN3( i_var,
+                STORE_JACOBIAN3( i_var + 0,
                                  2.0 * ( dx * dxy_drframe[0].xyz[0] + dy * dxy_drframe[1].xyz[0] ),
                                  2.0 * ( dx * dxy_drframe[0].xyz[1] + dy * dxy_drframe[1].xyz[1] ),
                                  2.0 * ( dx * dxy_drframe[0].xyz[2] + dy * dxy_drframe[1].xyz[2] ));
-                STORE_JACOBIAN3( i_var,
+                STORE_JACOBIAN3( i_var + 3,
                                  2.0 * ( dx * dxy_dtframe[0].xyz[0] + dy * dxy_dtframe[1].xyz[0] ),
                                  2.0 * ( dx * dxy_dtframe[0].xyz[1] + dy * dxy_dtframe[1].xyz[1] ),
                                  2.0 * ( dx * dxy_dtframe[0].xyz[2] + dy * dxy_dtframe[1].xyz[2] ));
