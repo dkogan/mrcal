@@ -2,7 +2,7 @@ PROJECT_NAME := mrcal
 ABI_VERSION  := 0
 TAIL_VERSION := 0
 
-LIB_SOURCES += cal.c
+LIB_SOURCES += mrcal.c
 
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)
 LDLIBS_CV   := $(shell pkg-config --libs   opencv)
