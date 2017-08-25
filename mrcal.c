@@ -111,7 +111,7 @@ static int get_N_j_nonzero( const struct observation_t* observations,
     for(int i=0; i<Nobservations; i++)
         if(observations[i].i_camera == 0)
             N -= 6;
-    return N*NUM_POINTS_IN_CALOBJECT;
+    return N*NUM_POINTS_IN_CALOBJECT*2; // *2 because I have separate x and y measurements
 }
 
 
@@ -503,7 +503,7 @@ double mrcal_optimize( // out, in (seed on input)
 
 
     const int Nstate        = get_Nstate(Ncameras, Nframes);
-    const int Nmeasurements = Nobservations * NUM_POINTS_IN_CALOBJECT;
+    const int Nmeasurements = Nobservations * NUM_POINTS_IN_CALOBJECT * 2; // *2 because I have separate x and y measurements
     const int N_j_nonzero   = get_N_j_nonzero(observations, Nobservations);
 
 
@@ -572,8 +572,6 @@ double mrcal_optimize( // out, in (seed on input)
                 i_pt < NUM_POINTS_IN_CALOBJECT;
                 i_pt++)
             {
-                Jrowptr[iMeasurement] = iJacobian;
-
                 // these are computed in respect to the unit-scale parameters
                 // used by the optimizer
                 struct intrinsics_t dxy_dintrinsics[2];
@@ -593,46 +591,50 @@ double mrcal_optimize( // out, in (seed on input)
                             i_pt);
 
                 const union point2_t* pt_observed = &observation->px[i_pt];
-                const double dx = pt_hypothesis.x - pt_observed->x;
-                const double dy = pt_hypothesis.y - pt_observed->y;
-                const double err2 = dx*dx + dy*dy;
-                x[iMeasurement] = err2;
 
-
-                // I want these gradient values to be computed in
-                // monotonically-increasing order of variable index. I don't
-                // CHECK, so it's the developer's responsibility to make sure.
-                // This ordering is set in the intrinsics_t structure and in
-                // pack_solver_state(), unpack_solver_state()
-                int i_var = state_index_camera_rt_intrinsics(i_camera);
-                if( i_camera != 0 )
+                // I have my two measurements (dx, dy). I propagate their
+                // gradient and store them
+                for( int i_xy=0; i_xy<2; i_xy++ )
                 {
+                    Jrowptr[iMeasurement] = iJacobian;
+
+                    const double err = pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy];
+                    x[iMeasurement] = err;
+
+                    // I want these gradient values to be computed in
+                    // monotonically-increasing order of variable index. I don't
+                    // CHECK, so it's the developer's responsibility to make sure.
+                    // This ordering is set in the intrinsics_t structure and in
+                    // pack_solver_state(), unpack_solver_state()
+                    int i_var = state_index_camera_rt_intrinsics(i_camera);
+                    if( i_camera != 0 )
+                    {
+                        STORE_JACOBIAN3( i_var + 0,
+                                         dxy_drcamera[i_xy].xyz[0],
+                                         dxy_drcamera[i_xy].xyz[1],
+                                         dxy_drcamera[i_xy].xyz[2]);
+                        STORE_JACOBIAN3( i_var + 3,
+                                         dxy_dtcamera[i_xy].xyz[0],
+                                         dxy_dtcamera[i_xy].xyz[1],
+                                         dxy_dtcamera[i_xy].xyz[2]);
+                    }
+
+                    for(int i=0; i<NUM_INTRINSIC_PARAMS; i++)
+                        STORE_JACOBIAN( i_var + 6 + i,
+                                        ((const double*)&dxy_dintrinsics[i_xy])[i] );
+
+                    i_var = state_index_frame_rt(i_frame, Ncameras);
                     STORE_JACOBIAN3( i_var + 0,
-                                     2.0 * ( dx * dxy_drcamera[0].xyz[0] + dy * dxy_drcamera[1].xyz[0] ),
-                                     2.0 * ( dx * dxy_drcamera[0].xyz[1] + dy * dxy_drcamera[1].xyz[1] ),
-                                     2.0 * ( dx * dxy_drcamera[0].xyz[2] + dy * dxy_drcamera[1].xyz[2] ));
+                                     dxy_drframe[i_xy].xyz[0],
+                                     dxy_drframe[i_xy].xyz[1],
+                                     dxy_drframe[i_xy].xyz[2]);
                     STORE_JACOBIAN3( i_var + 3,
-                                     2.0 * ( dx * dxy_dtcamera[0].xyz[0] + dy * dxy_dtcamera[1].xyz[0] ),
-                                     2.0 * ( dx * dxy_dtcamera[0].xyz[1] + dy * dxy_dtcamera[1].xyz[1] ),
-                                     2.0 * ( dx * dxy_dtcamera[0].xyz[2] + dy * dxy_dtcamera[1].xyz[2] ));
+                                     dxy_dtframe[i_xy].xyz[0],
+                                     dxy_dtframe[i_xy].xyz[1],
+                                     dxy_dtframe[i_xy].xyz[2]);
+
+                    iMeasurement++;
                 }
-
-                for(int i=0; i<NUM_INTRINSIC_PARAMS; i++)
-                    STORE_JACOBIAN( i_var + 6 + i,
-                                    2.0 * ( dx * ((const double*)dxy_dintrinsics)[i + 0*NUM_INTRINSIC_PARAMS] +
-                                            dy * ((const double*)dxy_dintrinsics)[i + 1*NUM_INTRINSIC_PARAMS] ));
-
-                i_var = state_index_frame_rt(i_frame, Ncameras);
-                STORE_JACOBIAN3( i_var + 0,
-                                 2.0 * ( dx * dxy_drframe[0].xyz[0] + dy * dxy_drframe[1].xyz[0] ),
-                                 2.0 * ( dx * dxy_drframe[0].xyz[1] + dy * dxy_drframe[1].xyz[1] ),
-                                 2.0 * ( dx * dxy_drframe[0].xyz[2] + dy * dxy_drframe[1].xyz[2] ));
-                STORE_JACOBIAN3( i_var + 3,
-                                 2.0 * ( dx * dxy_dtframe[0].xyz[0] + dy * dxy_dtframe[1].xyz[0] ),
-                                 2.0 * ( dx * dxy_dtframe[0].xyz[1] + dy * dxy_dtframe[1].xyz[1] ),
-                                 2.0 * ( dx * dxy_dtframe[0].xyz[2] + dy * dxy_dtframe[1].xyz[2] ));
-
-                iMeasurement++;
             }
         }
 
@@ -690,5 +692,7 @@ double mrcal_optimize( // out, in (seed on input)
                                 &optimizerCallback, NULL);
 
     // Return RMS reprojection error
-    return sqrt(norm2_error / (double)Nmeasurements);
+
+    // /2 because I have separate x and y measurements
+    return sqrt(norm2_error / ((double)Nmeasurements / 2.0));
 }
