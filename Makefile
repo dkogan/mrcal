@@ -19,4 +19,10 @@ LDLIBS    += -ldogleg
 
 CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers
 
+%.docstring.h: %.docstring
+	< $^ sed 's/^/"/; s/$$/\\n"/;' > $@
+
+mrcal_pywrap.o: optimize.docstring.h
+EXTRA_CLEAN += *.docstring.h
+
 include /usr/include/mrbuild/Makefile.common

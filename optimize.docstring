@@ -1,0 +1,43 @@
+Invoke the calibration routine
+
+This is a flexible bundle-adjustment implementation, with outlier rejection and
+some metrics reported back to the user. More than 2 cameras at a time can be
+calibrated, and this routine is flexible-enough to solve SFM problems.
+
+All geometry is given in the coord system of camera 0. As a result, the pose of
+camera 0 is hard-coded to the identity, and this isn't a part of the
+optimization state.
+
+Args:
+
+- camera_intrinsics: array of dims (Ncameras, Nintrinsics). The intrinsics of
+  each camera. Each intrinsic vector is given as
+
+    (focal_x, focal_y, center_pixel_x, center_pixel_y, distorion0, distortion1,
+    ...)
+
+  The focal lengths are given in pixels.
+
+  On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
+  MODIFIED BY THIS CALL.
+
+- camera_extrinsics: array of dims (Ncameras-1, 6). The extrinsics of each
+  camera. Camera 0 is the reference coord system, so we omit this from the
+  extrinsics array. Each pose is given as 6 values: a rodrigues rotation vector
+  followed by a translation. This represents a transformation FROM the reference
+  coord system TO the coord system of each camera.
+
+  On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
+  MODIFIED BY THIS CALL.
+
+- frames: array of dims (Nframes, 6). The poses of the calibration object over
+  time. Each pose is given as 6 values: a rodrigues rotation vector followed by
+  a translation. This represents a transformation FROM the coord system of the
+  calibration object TO the reference coord system. THIS IS DIFFERENT FROM THE
+  CAMERA EXTRINSICS.
+
+  On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
+  MODIFIED BY THIS CALL.
+
+- observations: array of dims (Nframes, Ncameras, 10, 10). For each frame and
+  camera, these are the observed pixel coordinates of the calibration object.
