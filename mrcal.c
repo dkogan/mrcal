@@ -83,13 +83,6 @@ static union point3_t get_refobject_point(int i_pt)
     return pt;
 }
 
-
-#define NUM_INTRINSIC_PARAMS ((int)(sizeof(struct intrinsics_t)/sizeof(double)))
-
-
-
-
-
 static int get_Nstate(int Ncameras, int Nframes)
 {
     return

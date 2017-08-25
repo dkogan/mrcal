@@ -41,7 +41,7 @@ struct observation_t
 #warning I need i_camera, but maybe i_frame should live in a separate frame_start[] ?
     int i_camera, i_frame;
 
-    union point2_t px[NUM_POINTS_IN_CALOBJECT];
+    union point2_t* px; // NUM_POINTS_IN_CALOBJECT of these
 };
 struct intrinsics_t
 {
@@ -50,6 +50,7 @@ struct intrinsics_t
 #warning handle distortions
     // double distortion[];
 };
+#define NUM_INTRINSIC_PARAMS ((int)(sizeof(struct intrinsics_t)/sizeof(double)))
 
 
 

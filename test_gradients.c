@@ -30,13 +30,17 @@ int main(int argc     __attribute__((unused)),
     int Nframes  = sizeof(frames)    /sizeof(frames[0]);
 
 
+    // Dummy point observations. All use the same array, but this doesn't matter
+    // for this test anyway
+    union point2_t observations_px[NUM_POINTS_IN_CALOBJECT] = {};
+
     struct observation_t observations[] =
-        { {.i_camera = 0, .i_frame = 0},
-          {.i_camera = 1, .i_frame = 0},
-          {.i_camera = 1, .i_frame = 1},
-          {.i_camera = 0, .i_frame = 2},
-          {.i_camera = 0, .i_frame = 3},
-          {.i_camera = 1, .i_frame = 3} };
+        { {.i_camera = 0, .i_frame = 0, .px = observations_px},
+          {.i_camera = 1, .i_frame = 0, .px = observations_px},
+          {.i_camera = 1, .i_frame = 1, .px = observations_px},
+          {.i_camera = 0, .i_frame = 2, .px = observations_px},
+          {.i_camera = 0, .i_frame = 3, .px = observations_px},
+          {.i_camera = 1, .i_frame = 3, .px = observations_px} };
     int Nobservations = sizeof(observations)/sizeof(observations[0]);
 
     mrcal_optimize( intrinsics,
