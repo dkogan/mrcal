@@ -39,5 +39,7 @@ Args:
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- observations: array of dims (Nframes, Ncameras, 10, 10). For each frame and
-  camera, these are the observed pixel coordinates of the calibration object.
+- observations: array of dims (Nframes, Ncameras, 10, 10, 2). For each frame and
+  camera, these are the observed (x,y) pixel coordinates of the dots in the
+  calibration object. Subpixel interpolation is assumed, so these contain 64-bit
+  floating point values, like all the other data.

@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <Python.h>
 #include <numpy/arrayobject.h>
+#include "mrcal.h"
 
 const char optimize_docstring[] =
 #include "optimize.docstring.h"
@@ -28,9 +29,9 @@ static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
         PyErr_SetString(PyExc_RuntimeError, "'frames' must have exactly 2 dims");
         return false;
     }
-    if( PyArray_NDIM(observations) != 4 )
+    if( PyArray_NDIM(observations) != 5 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "'observations' must have exactly 4 dims");
+        PyErr_SetString(PyExc_RuntimeError, "'observations' must have exactly 5 dims");
         return false;
     }
 
@@ -43,6 +44,16 @@ static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
                      PyArray_DIMS(camera_intrinsics)[0] );
         return false;
     }
+    if( NUM_INTRINSIC_PARAMS != PyArray_DIMS(camera_intrinsics)[1] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
+                     NUM_INTRINSIC_PARAMS,
+                     PyArray_DIMS(camera_intrinsics)[1] );
+        return false;
+    }
+
+    static_assert( sizeof(struct pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
+
     if( 6 != PyArray_DIMS(camera_extrinsics)[1] )
     {
         PyErr_Format(PyExc_RuntimeError, "extrinsics.shape[1] MUST be 6. Instead got %ld",
@@ -72,11 +83,13 @@ static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
         return false;
     }
     if( 10 != PyArray_DIMS(observations)[2] ||
-        10 != PyArray_DIMS(observations)[3] )
+        10 != PyArray_DIMS(observations)[3] ||
+        2  != PyArray_DIMS(observations)[4] )
     {
-        PyErr_Format(PyExc_RuntimeError, "observations.shape[2:] MUST be (10,10). Instead got (%ld,%ld)",
+        PyErr_Format(PyExc_RuntimeError, "observations.shape[2:] MUST be (10,10,2). Instead got (%ld,%ld,%ld)",
                      PyArray_DIMS(observations)[2],
-                     PyArray_DIMS(observations)[3]);
+                     PyArray_DIMS(observations)[3],
+                     PyArray_DIMS(observations)[4]);
         return false;
     }
 
@@ -127,44 +140,36 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         goto done;
 
 
+    {
+        int Ncameras      = PyArray_DIMS(camera_intrinsics)[0];
+        int Nframes       = PyArray_DIMS(frames)[0];
+        int Nobservations = Ncameras * Nframes;
 
+        // The checks in optimize_validate_args() make sure these casts are kosher
+        struct intrinsics_t* c_camera_intrinsics = (struct intrinsics_t*)PyArray_DATA(camera_intrinsics);
+        struct pose_t*       c_camera_extrinsics = (struct pose_t*)      PyArray_DATA(camera_extrinsics);
+        struct pose_t*       c_frames            = (struct pose_t*)      PyArray_DATA(frames);
 
+        struct observation_t c_observations[Nobservations];
+        int i_observation = 0;
+        for( int i_frame=0; i_frame<Nframes; i_frame++ )
+            for( int i_camera=0; i_camera<Ncameras; i_camera++, i_observation++ )
+            {
+                c_observations[i_observation].i_camera = i_camera;
+                c_observations[i_observation].i_frame  = i_frame;
+                c_observations[i_observation].px       = (union point2_t*)PyArray_DATA(observations);
+            }
 
-    // int        ndim     = PyArray_NDIM(arr);
-    // npy_intp*  dims     = PyArray_DIMS(arr);
-    // int        typenum  = PyArray_TYPE(arr);
+        mrcal_optimize( c_camera_intrinsics,
+                        c_camera_extrinsics,
+                        c_frames,
+                        Ncameras, Nframes,
 
-
-    // // Useful metadata about this matrix
-    // __attribute__((unused)) char*      data0    = PyArray_DATA    (arr);
-    // __attribute__((unused)) char*      data1    = PyArray_BYTES   (arr);
-    // __attribute__((unused)) npy_intp  *strides  = PyArray_STRIDES (arr);
-    // __attribute__((unused)) int        ndim     = PyArray_NDIM    (arr);
-    // __attribute__((unused)) npy_intp*  dims     = PyArray_DIMS    (arr);
-    // __attribute__((unused)) npy_intp   itemsize = PyArray_ITEMSIZE(arr);
-    // __attribute__((unused)) int        typenum  = PyArray_TYPE    (arr);
-
-
-    // // Two ways to grab the data out of the matrix:
-    // //
-    // // 1. Call a function. Clear what this does, but if we need to access a lot
-    // // of data in a loop, this has overhead: this function is pre-compiled, so
-    // // the overhead will not be inlined
-    // double d0 = *(double*)PyArray_GetPtr( arr, (npy_intp[]){i, j} );
-
-    // // 2. inline the function ourselves. It's pretty simple
-    // double d1 = *(double*)&data0[ i*strides[0] + j*strides[1] ];
-
-    // // The two methods should be identical. If not, this example is wrong, and I
-    // // barf
-    // if( d0 != d1 )
-    // {
-    //     PyErr_Format(PyExc_RuntimeError, "PyArray_GetPtr() inlining didn't work: %f != %f", d0, d1);
-    //     goto done;
-    // }
-
-
-    result = Py_BuildValue( "d", 5.0 );
+                        c_observations,
+                        Nobservations,
+                        false );
+    }
+    // set result to stuff here
 
  done:
     Py_DECREF(camera_intrinsics);
