@@ -74,8 +74,8 @@ calibration and sfm formulations are a little different
 
 static union point3_t get_refobject_point(int i_pt)
 {
-    int x = i_pt / CALOBJECT_W;
-    int y = i_pt - x*CALOBJECT_W;
+    int y = i_pt / CALOBJECT_W;
+    int x = i_pt - y*CALOBJECT_W;
 
     union point3_t pt = {.x = (double)x* CALIBRATION_OBJECT_DOT_SPACING,
                          .y = (double)y* CALIBRATION_OBJECT_DOT_SPACING,
@@ -375,13 +375,13 @@ static void pack_solver_state( // out
     {
         // extrinsics first so that the intrinsics are evenly spaced and
         // state_index_camera_rt_intrinsics() can be branchless
-        p[i_state++] = camera_extrinsics[i_camera].r.xyz[0]     / SCALE_ROTATION_CAMERA;
-        p[i_state++] = camera_extrinsics[i_camera].r.xyz[1]     / SCALE_ROTATION_CAMERA;
-        p[i_state++] = camera_extrinsics[i_camera].r.xyz[2]     / SCALE_ROTATION_CAMERA;
+        p[i_state++] = camera_extrinsics[i_camera-1].r.xyz[0]     / SCALE_ROTATION_CAMERA;
+        p[i_state++] = camera_extrinsics[i_camera-1].r.xyz[1]     / SCALE_ROTATION_CAMERA;
+        p[i_state++] = camera_extrinsics[i_camera-1].r.xyz[2]     / SCALE_ROTATION_CAMERA;
 
-        p[i_state++] = camera_extrinsics[i_camera].t.xyz[0]     / SCALE_TRANSLATION_CAMERA;
-        p[i_state++] = camera_extrinsics[i_camera].t.xyz[1]     / SCALE_TRANSLATION_CAMERA;
-        p[i_state++] = camera_extrinsics[i_camera].t.xyz[2]     / SCALE_TRANSLATION_CAMERA;
+        p[i_state++] = camera_extrinsics[i_camera-1].t.xyz[0]     / SCALE_TRANSLATION_CAMERA;
+        p[i_state++] = camera_extrinsics[i_camera-1].t.xyz[1]     / SCALE_TRANSLATION_CAMERA;
+        p[i_state++] = camera_extrinsics[i_camera-1].t.xyz[2]     / SCALE_TRANSLATION_CAMERA;
 
         p[i_state++] = camera_intrinsics[i_camera].focal_xy [0] / SCALE_INTRINSICS_FOCAL_LENGTH;
         p[i_state++] = camera_intrinsics[i_camera].focal_xy [1] / SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -426,13 +426,13 @@ static void unpack_solver_state( // out
     {
         // extrinsics first so that the intrinsics are evenly spaced and
         // state_index_camera_rt_intrinsics() can be branchless
-        camera_extrinsics[i_camera].r.xyz[0]     = p[i_state++] * SCALE_ROTATION_CAMERA;
-        camera_extrinsics[i_camera].r.xyz[1]     = p[i_state++] * SCALE_ROTATION_CAMERA;
-        camera_extrinsics[i_camera].r.xyz[2]     = p[i_state++] * SCALE_ROTATION_CAMERA;
+        camera_extrinsics[i_camera-1].r.xyz[0]     = p[i_state++] * SCALE_ROTATION_CAMERA;
+        camera_extrinsics[i_camera-1].r.xyz[1]     = p[i_state++] * SCALE_ROTATION_CAMERA;
+        camera_extrinsics[i_camera-1].r.xyz[2]     = p[i_state++] * SCALE_ROTATION_CAMERA;
 
-        camera_extrinsics[i_camera].t.xyz[0]     = p[i_state++] * SCALE_TRANSLATION_CAMERA;
-        camera_extrinsics[i_camera].t.xyz[1]     = p[i_state++] * SCALE_TRANSLATION_CAMERA;
-        camera_extrinsics[i_camera].t.xyz[2]     = p[i_state++] * SCALE_TRANSLATION_CAMERA;
+        camera_extrinsics[i_camera-1].t.xyz[0]     = p[i_state++] * SCALE_TRANSLATION_CAMERA;
+        camera_extrinsics[i_camera-1].t.xyz[1]     = p[i_state++] * SCALE_TRANSLATION_CAMERA;
+        camera_extrinsics[i_camera-1].t.xyz[2]     = p[i_state++] * SCALE_TRANSLATION_CAMERA;
 
         camera_intrinsics[i_camera].focal_xy [0] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
         camera_intrinsics[i_camera].focal_xy [1] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
