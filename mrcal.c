@@ -657,7 +657,8 @@ double mrcal_optimize( // out, in (seed on input)
     {
 #if defined VERBOSE && VERBOSE
         reportFitMsg = "Before";
-        optimizerCallback(state, NULL, NULL, NULL);
+#warning hook this up
+        //        optimizerCallback(state, NULL, NULL, NULL);
 #endif
         reportFitMsg = NULL;
 
@@ -675,7 +676,8 @@ double mrcal_optimize( // out, in (seed on input)
 
 #if defined VERBOSE && VERBOSE
         reportFitMsg = "After";
-        optimizerCallback(state, NULL, NULL, NULL);
+#warning hook this up
+        //        optimizerCallback(state, NULL, NULL, NULL);
 #endif
     }
     else
