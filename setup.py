@@ -13,4 +13,7 @@ setup(name         = 'mrcal',
       author       = 'Dima Kogan',
       author_email = 'Dmitriy.Kogan@jpl.nasa.gov',
       ext_modules  = [Extension('mrcal',
-                                sources = ['mrcal_pywrap.c'])])
+                                sources = ['mrcal_pywrap.c'],
+                                extra_compile_args = ['--std=gnu99'],
+                                extra_link_args = ['-L{cwd} -Wl,-rpath={cwd}'.format(cwd=os.getcwd())],
+                                libraries=['mrcal'])])
