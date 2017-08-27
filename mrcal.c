@@ -64,11 +64,11 @@ calibration and sfm formulations are a little different
 // order of magnitute. This is important because the dogleg solve treats the
 // trust region as a ball in state space, and this ball is isotrophic, and has a
 // radius that applies in every direction
-#define SCALE_INTRINSICS_FOCAL_LENGTH 2.0
+#define SCALE_INTRINSICS_FOCAL_LENGTH 10.0
 #define SCALE_INTRINSICS_CENTER_PIXEL 2.0
-#define SCALE_ROTATION_CAMERA         2.0
-#define SCALE_TRANSLATION_CAMERA      2.0
-#define SCALE_ROTATION_FRAME          2.0
+#define SCALE_ROTATION_CAMERA         (1.0 * M_PI/180.0)
+#define SCALE_TRANSLATION_CAMERA      1.0
+#define SCALE_ROTATION_FRAME          (2.0 * M_PI/180.0)
 #define SCALE_TRANSLATION_FRAME       2.0
 
 
