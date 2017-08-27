@@ -23,17 +23,34 @@ re_s = '.+'
 @nps.broadcast_define( ((3,3),),
                        (3,), )
 def Rodrigues_tor_broadcasted(R):
+    r'''Broadcasting-aware wrapper cvRodrigues
+
+This handles the R->r direction, and does not report the gradient'''
+
     return cv2.Rodrigues(R)[0].ravel()
 
 
 @nps.broadcast_define( ((3,),),
                        (3,3), )
 def Rodrigues_toR_broadcasted(r):
+    r'''Broadcasting-aware wrapper cvRodrigues
+
+This handles the r->R direction, and does not report the gradient'''
+
     return cv2.Rodrigues(r)[0]
 
+
+@nps.broadcast_define( (('N',3), ('N',3),),
+                       (4,3), )
 def align3d_procrustes(A, B):
-    r"""Given two sets of 3d points in numpy arrays of shape (3,N), find the optimal
-rotation to align these sets of points. I.e. minimize
+    r"""Computes an optimal (R,t) to match points in B to points in A
+
+Given two sets of 3d points in numpy arrays of shape (N,3), find the optimal
+rotation, translation to align these sets of points. Returns array of shape
+(4,3): [ R ]
+       [ t ]
+
+We minimize
 
   E = sum( norm2( a_i - (R b_i + t)))
 
@@ -62,11 +79,10 @@ sure that R is in SO(3) not just in SE(3)
 
     """
 
-    # allow (3,N) and (N,3)
-    if A.shape[0] != 3 and A.shape[1] == 3:
-        A = nps.transpose(A)
-    if B.shape[0] != 3 and B.shape[1] == 3:
-        B = nps.transpose(B)
+    # I don't check dimensionality. The broadcasting-aware wrapper will do that
+
+    A = nps.transpose(A)
+    B = nps.transpose(B)
 
     M = nps.matmult(               B - np.mean(B, axis=-1)[..., np.newaxis],
                      nps.transpose(A - np.mean(A, axis=-1)[..., np.newaxis]) )
@@ -88,13 +104,13 @@ sure that R is in SO(3) not just in SE(3)
     #
     #   t = mean(a) - R mean(b)
     t = np.mean(A, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(B, axis=-1)[..., np.newaxis] )
-    t = t.ravel()
 
-    return R,t
+    return nps.glue( R, t.ravel(), axis=-2)
 
 def get_full_object(W, H, dot_spacing):
-    r'''Returns the geometry of the calibration object in its own coordinate frame.
-Shape is (H,W,2). I.e. the x index varies the fastest and each xyz coordinate
+    r'''Returns the geometry of the calibration object in its own coordinate frame
+
+Shape is (H,W,3). I.e. the x index varies the fastest and each xyz coordinate
 lives at (y,x,:)
 
     '''
@@ -106,8 +122,10 @@ lives at (y,x,:)
     return full_object * dot_spacing
 
 def read_observations_from_file__old_dot(filename, which):
-    r"""Given a xxx.dots file, read the observations into a numpy array. Returns this
-numpy array and a list of metadata.
+    r"""Parses the xxx.dots from the old stcal tool
+
+Given a xxx.dots file produced with stcal, read the observations into a numpy
+array. Returns this numpy array and a list of metadata.
 
 The array has axes: (iframe, idot_y, idot_x, idot2d_xy)
 
@@ -200,8 +218,10 @@ indices of frames that the numpy array contains
     return dots, metadata
 
 def read_observations_from_file__asciilog_dots(filename):
-    r"""Given a xxx.dots file, read the observations into a numpy array. Returns this
-numpy array and a list of metadata.
+    r"""Parses a newer asciilog xxx.dots file
+
+Given the asciilog xxx.dots, read the observations into a numpy array. Returns
+this numpy array and a list of metadata.
 
 The array has axes: (idot_y, idot_x, idot2d_xy)
 
@@ -258,10 +278,15 @@ indices of frames that the numpy array contains
     return dots, metadata
 
 def estimate_local_calobject_poses( dots, dot_spacing, focal, imager_size ):
-    r"""Given observations, and an estimate of camera intrinsics (focal lengths,
-imager size) computes an estimate of the pose of the calibration object in
-respect to the camera. This assumes a pinhole camera, and all the work is done
-by the solvePnP() openCV call.
+    r"""Estimates pose of observed object in a single-camera view
+
+Given observations, and an estimate of camera intrinsics (focal lengths, imager
+size) computes an estimate of the pose of the calibration object in respect to
+the camera for each frame. This assumes that all frames are independent and all
+cameras are independent. This assumes a pinhole camera.
+
+This function is a wrapper around the solvePnP() openCV call, which does all the
+work.
 
 The observations are given in a numpy array with axes:
 
@@ -310,6 +335,18 @@ Missing observations are given as negative pixel coords
     return Rall,tall
 
 def estimate_camera_pose( calobject_poses, dots, dot_spacing, metadata ):
+    r'''Estimates camera poses in respect to each other
+
+We are given poses of the calibration object in respect to each observing
+camera. We also have multiple cameras observing the same calibration object at
+the same time, and we have local poses for each. We can thus compute the
+relative camera pose from these observations.
+
+We have many frames that have different observations from the same set of
+fixed-relative-pose cameras, so we compute the relative camera pose to optimize
+the observations
+
+    '''
 
     if sorted(metadata.keys()) != ['left', 'right']:
         raise Exception("metadata dict has unknown keys: {}".format(metadata.keys()))
@@ -348,16 +385,17 @@ def estimate_camera_pose( calobject_poses, dots, dot_spacing, metadata ):
         i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0) * (d[..., 3] >= 0)
         d = d[i,:]
 
-        # ref_object is (3,N)
-        ref_object = nps.transpose( d[:,4:] )
+        # ref_object is (N,3)
+        ref_object = d[:,4:]
 
-        A = nps.glue(A, nps.transpose(nps.matmult( R0[iframe], ref_object)) + t0[iframe],
+        A = nps.glue(A, nps.matmult( ref_object, nps.transpose(R0[iframe])) + t0[iframe],
                      axis = -2)
-        B = nps.glue(B, nps.transpose(nps.matmult( R1[iframe], ref_object)) + t1[iframe],
+        B = nps.glue(B, nps.matmult( ref_object, nps.transpose(R1[iframe])) + t1[iframe],
                      axis = -2)
 
 
-    return align3d_procrustes(A, B)
+    Rt = align3d_procrustes(A, B)
+    return Rt[:3,:], Rt[3,:]
 
 def project_points(intrinsics, extrinsics, frames, observations, dot_spacing):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all the
@@ -387,6 +425,8 @@ reprojection errors'''
     # projected points. shape=(Nframes, Ncameras, 10, 10, 2)
     projected = object_cam[..., :2] / object_cam[..., 2:] * intrinsics[..., :2] + intrinsics[..., 2:]
     return projected
+
+
 
 look_at_old_dot_files = False
 cache                 = 'dots.pickle'
