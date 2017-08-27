@@ -157,7 +157,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             {
                 c_observations[i_observation].i_camera = i_camera;
                 c_observations[i_observation].i_frame  = i_frame;
-                c_observations[i_observation].px       = (union point2_t*)PyArray_DATA(observations);
+                c_observations[i_observation].px       = &((union point2_t*)PyArray_DATA(observations))[10*10*i_observation];
             }
 
         mrcal_optimize( c_camera_intrinsics,
