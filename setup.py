@@ -6,7 +6,7 @@ import os
 
 makelevel = os.environ.get('MAKELEVEL')
 if makelevel is None or int(makelevel) < 1:
-    raise Exception("Please do not run setup.py directly. It needs the Makefile to handle dependencies")
+    raise Exception("Please do not run setup.py directly, use the Makefile instead. The Makefile handles the dependencies")
 
 setup(name         = 'mrcal',
       version      = '0.1',
@@ -15,5 +15,6 @@ setup(name         = 'mrcal',
       ext_modules  = [Extension('mrcal',
                                 sources = ['mrcal_pywrap.c'],
                                 extra_compile_args = ['--std=gnu99'],
-                                extra_link_args = ['-L{cwd} -Wl,-rpath={cwd}'.format(cwd=os.getcwd())],
+                                extra_link_args = ['-L{cwd}'         .format(cwd=os.getcwd()),
+                                                   '-Wl,-rpath={cwd}'.format(cwd=os.getcwd())],
                                 libraries=['mrcal'])])

@@ -19,10 +19,17 @@ LDLIBS    += -ldogleg
 
 CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers
 
+# Python docstring rules. I construct these from plain ASCII files to handle
+# line wrapping
 %.docstring.h: %.docstring
 	< $^ sed 's/^/"/; s/$$/\\n"/;' > $@
-
-mrcal_pywrap.o: optimize.docstring.h
 EXTRA_CLEAN += *.docstring.h
+
+# The python extension library is handled by its own little build system. This
+# is stupid, but that's how these people did it
+build/lib.%/mrcal.so: mrcal_pywrap.c optimize.docstring.h
+	python setup.py build
+EXTRA_CLEAN += build
+all: libmrcal.so build/lib.linux-x86_64-2.7/mrcal.so
 
 include /usr/include/mrbuild/Makefile.common
