@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <Python.h>
 #include <numpy/arrayobject.h>
+#include <signal.h>
+
 #include "mrcal.h"
 
 static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
@@ -110,6 +112,7 @@ static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
 
     return true;
 }
+
 static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* NPY_UNUSED(kwargs))
@@ -121,13 +124,28 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* frames            = NULL;
     PyArrayObject* observations      = NULL;
 
+    // Python is silly. There's some nuance about signal handling where it sets
+    // a SIGINT (ctrl-c) handler to just set a flag, and the python layer then
+    // reads this flag and does the thing. Here I'm running C code, so SIGINT
+    // would set a flag, but not quit, so I can't interrupt the solver. Thus I
+    // reset the SIGINT handler to the default, and put it back to the
+    // python-specific version when I'm done
+    struct sigaction sigaction_old;
+    if( 0 != sigaction(SIGINT,
+                       &(struct sigaction){ .sa_handler = SIG_DFL },
+                       &sigaction_old) )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "sigaction() failed");
+        goto done;
+    }
+
     if(!PyArg_ParseTuple( args,
                           "O&O&O&O&",
                           PyArray_Converter, &camera_intrinsics,
                           PyArray_Converter, &camera_extrinsics,
                           PyArray_Converter, &frames,
                           PyArray_Converter, &observations))
-        return NULL;
+        goto done;
 
     if( !optimize_validate_args(camera_intrinsics,
                                 camera_extrinsics,
@@ -165,13 +183,20 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         Nobservations,
                         false );
     }
-    // set result to stuff here
+
+    Py_INCREF(Py_None);
+    result = Py_None;
 
  done:
-    Py_DECREF(camera_intrinsics);
-    Py_DECREF(camera_extrinsics);
-    Py_DECREF(frames);
-    Py_DECREF(observations);
+    if(camera_intrinsics) Py_DECREF(camera_intrinsics);
+    if(camera_extrinsics) Py_DECREF(camera_extrinsics);
+    if(frames)            Py_DECREF(frames);
+    if(observations)      Py_DECREF(observations);
+
+    if( 0 != sigaction(SIGINT,
+                       &sigaction_old, NULL ))
+        PyErr_SetString(PyExc_RuntimeError, "sigaction-restore failed");
+
     return result;
 }
 
