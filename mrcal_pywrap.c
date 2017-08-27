@@ -5,10 +5,6 @@
 #include <numpy/arrayobject.h>
 #include "mrcal.h"
 
-const char optimize_docstring[] =
-#include "optimize.docstring.h"
-    ;
-
 static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
                                     PyArrayObject* camera_extrinsics,
                                     PyArrayObject* frames,
@@ -181,6 +177,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 PyMODINIT_FUNC initmrcal(void)
 {
+    static const char optimize_docstring[] =
+#include "optimize.docstring.h"
+        ;
     static PyMethodDef methods[] =
         { {"optimize", (PyCFunction)optimize, METH_VARARGS | METH_KEYWORDS, optimize_docstring},
          {}
