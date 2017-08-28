@@ -52,6 +52,16 @@ struct intrinsics_t
 };
 #define NUM_INTRINSIC_PARAMS ((int)(sizeof(struct intrinsics_t)/sizeof(double)))
 
+#define DISTORTION_LIST(_) \
+    _(DISTORTION_NONE)     \
+    _(DISTORTION_OPENCV)   \
+    _(DISTORTION_CAHVOR)   \
+    _(DISTORTION_CAHVORE)
+
+#define LIST_WITH_COMMA(s) s,
+enum distortion_model_t
+    { DISTORTION_LIST( LIST_WITH_COMMA ) DISTORTION_INVALID };
+const char* mrcal_distortion_model_name( enum distortion_model_t model );;
 
 
 double mrcal_optimize( // out, in (seed on input)
@@ -68,4 +78,6 @@ double mrcal_optimize( // out, in (seed on input)
                       const struct observation_t* observations,
                       int Nobservations,
 
-                      bool check_gradient);
+                      bool check_gradient,
+                      enum distortion_model_t distortion_model,
+                      bool do_optimize_intrinsics);

@@ -480,7 +480,9 @@ double mrcal_optimize( // out, in (seed on input)
                       const struct observation_t* observations,
                       int Nobservations,
 
-                      bool check_gradient)
+                      bool check_gradient,
+                      enum distortion_model_t distortion_model,
+                      bool do_optimize_intrinsics)
 {
 #if defined VERBOSE && VERBOSE
     dogleg_setDebug(100);
@@ -690,4 +692,14 @@ double mrcal_optimize( // out, in (seed on input)
 
     // /2 because I have separate x and y measurements
     return sqrt(norm2_error / ((double)Nmeasurements / 2.0));
+}
+
+const char* mrcal_distortion_model_name( enum distortion_model_t model )
+{
+    switch(model)
+    {
+#define CASE_STRING(s) case s: return #s;
+        DISTORTION_LIST( CASE_STRING )
+    }
+    return NULL;
 }

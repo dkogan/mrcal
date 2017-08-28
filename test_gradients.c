@@ -51,7 +51,9 @@ int main(int argc     __attribute__((unused)),
                     observations,
                     Nobservations,
 
-                    true );
+                    true,
+                    DISTORTION_NONE,
+                    true);
 
     return 0;
 }

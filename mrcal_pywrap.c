@@ -7,10 +7,15 @@
 
 #include "mrcal.h"
 
-static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
+static bool optimize_validate_args( // out
+                                    enum distortion_model_t* distortion_model,
+
+                                    // in
+                                    PyArrayObject* camera_intrinsics,
                                     PyArrayObject* camera_extrinsics,
                                     PyArrayObject* frames,
-                                    PyArrayObject* observations)
+                                    PyArrayObject* observations,
+                                    PyObject*      distortion_model_string)
 {
     if( PyArray_NDIM(camera_intrinsics) != 2 )
     {
@@ -110,12 +115,45 @@ static bool optimize_validate_args( PyArrayObject* camera_intrinsics,
         return false;
     }
 
+    const char* distortion_model_cstring =
+        PyString_AsString(distortion_model_string);
+    if( distortion_model_cstring == NULL)
+    {
+#define QUOTED_LIST_WITH_COMMA(s) "'" #s "',"
+        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
+                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        return false;
+    }
+
+    *distortion_model = DISTORTION_INVALID;
+    do
+    {
+#define CHECK_AND_SET(s)                                        \
+        if( 0 == strcmp( distortion_model_cstring, #s) )        \
+        {                                                       \
+            *distortion_model = s;                              \
+            break;                                              \
+        }
+
+        DISTORTION_LIST( CHECK_AND_SET );
+    } while(0);
+
+    if( *distortion_model == DISTORTION_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
+                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     distortion_model_cstring);
+        return false;
+    }
+
     return true;
 }
 
 static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
-                          PyObject* NPY_UNUSED(kwargs))
+                          PyObject* kwargs)
 {
     PyObject* result = NULL;
 
@@ -139,20 +177,40 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    if(!PyArg_ParseTuple( args,
-                          "O&O&O&O&",
-                          PyArray_Converter, &camera_intrinsics,
-                          PyArray_Converter, &camera_extrinsics,
-                          PyArray_Converter, &frames,
-                          PyArray_Converter, &observations))
+
+    char* keywords[] = {"intrinsics",
+                        "extrinsics",
+                        "frames",
+                        "observations",
+                        "distortion_model",
+
+                        // optional kwargs
+                        "do_optimize_intrinsics",
+                        NULL};
+
+    PyObject* distortion_model_string = NULL;
+    PyObject* do_optimize_intrinsics = Py_True;
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O&O&O&O&S|O",
+                                     keywords,
+                                     PyArray_Converter, &camera_intrinsics,
+                                     PyArray_Converter, &camera_extrinsics,
+                                     PyArray_Converter, &frames,
+                                     PyArray_Converter, &observations,
+
+                                     &distortion_model_string,
+                                     &do_optimize_intrinsics))
         goto done;
 
-    if( !optimize_validate_args(camera_intrinsics,
+    enum distortion_model_t distortion_model;
+    if( !optimize_validate_args(&distortion_model,
+
+                                camera_intrinsics,
                                 camera_extrinsics,
                                 frames,
-                                observations ))
+                                observations,
+                                distortion_model_string))
         goto done;
-
 
     {
         int Ncameras      = PyArray_DIMS(camera_intrinsics)[0];
@@ -181,7 +239,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
                         c_observations,
                         Nobservations,
-                        false );
+                        false,
+                        distortion_model,
+                        PyObject_IsTrue(do_optimize_intrinsics));
     }
 
     Py_INCREF(Py_None);
