@@ -11,20 +11,20 @@ static bool optimize_validate_args( // out
                                     enum distortion_model_t* distortion_model,
 
                                     // in
-                                    PyArrayObject* camera_intrinsics,
-                                    PyArrayObject* camera_extrinsics,
+                                    PyArrayObject* intrinsics,
+                                    PyArrayObject* extrinsics,
                                     PyArrayObject* frames,
                                     PyArrayObject* observations,
                                     PyObject*      distortion_model_string)
 {
-    if( PyArray_NDIM(camera_intrinsics) != 2 )
+    if( PyArray_NDIM(intrinsics) != 2 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "'camera_intrinsics' must have exactly 2 dims");
+        PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 2 dims");
         return false;
     }
-    if( PyArray_NDIM(camera_extrinsics) != 2 )
+    if( PyArray_NDIM(extrinsics) != 2 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "'camera_extrinsics' must have exactly 2 dims");
+        PyErr_SetString(PyExc_RuntimeError, "'extrinsics' must have exactly 2 dims");
         return false;
     }
     if( PyArray_NDIM(frames) != 2 )
@@ -38,29 +38,23 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    int Ncameras = PyArray_DIMS(camera_intrinsics)[0];
+    int Ncameras = PyArray_DIMS(intrinsics)[0];
     if( Ncameras-1 !=
-        PyArray_DIMS(camera_extrinsics)[0] )
+        PyArray_DIMS(extrinsics)[0] )
     {
         PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, intrinsics says %ld",
-                     PyArray_DIMS(camera_extrinsics)[0] + 1,
-                     PyArray_DIMS(camera_intrinsics)[0] );
+                     PyArray_DIMS(extrinsics)[0] + 1,
+                     PyArray_DIMS(intrinsics)[0] );
         return false;
     }
-    if( sizeof(struct intrinsics_t)/sizeof(double) != PyArray_DIMS(camera_intrinsics)[1] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %ld. Instead got %ld",
-                     sizeof(struct intrinsics_t)/sizeof(double),
-                     PyArray_DIMS(camera_intrinsics)[1] );
-        return false;
-    }
+
 
     static_assert( sizeof(struct pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
 
-    if( 6 != PyArray_DIMS(camera_extrinsics)[1] )
+    if( 6 != PyArray_DIMS(extrinsics)[1] )
     {
         PyErr_Format(PyExc_RuntimeError, "extrinsics.shape[1] MUST be 6. Instead got %ld",
-                     PyArray_DIMS(camera_extrinsics)[1] );
+                     PyArray_DIMS(extrinsics)[1] );
         return false;
     }
     if( 6 != PyArray_DIMS(frames)[1] )
@@ -80,8 +74,8 @@ static bool optimize_validate_args( // out
     }
     if( Ncameras != PyArray_DIMS(observations)[1] )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'camera_intrinsics' says %ld, 'observations' says %ld",
-                     PyArray_DIMS(camera_intrinsics)[0],
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'intrinsics' says %ld, 'observations' says %ld",
+                     PyArray_DIMS(intrinsics)[0],
                      PyArray_DIMS(observations)[1]);
         return false;
     }
@@ -97,19 +91,19 @@ static bool optimize_validate_args( // out
     }
 
 
-    if( PyArray_TYPE(camera_intrinsics) != NPY_DOUBLE ||
-        PyArray_TYPE(camera_extrinsics) != NPY_DOUBLE ||
-        PyArray_TYPE(frames)            != NPY_DOUBLE ||
-        PyArray_TYPE(observations)      != NPY_DOUBLE )
+    if( PyArray_TYPE(intrinsics)   != NPY_DOUBLE ||
+        PyArray_TYPE(extrinsics)   != NPY_DOUBLE ||
+        PyArray_TYPE(frames)       != NPY_DOUBLE ||
+        PyArray_TYPE(observations) != NPY_DOUBLE )
     {
         PyErr_SetString(PyExc_RuntimeError, "All inputs must contain double-precision floating-point data");
         return false;
     }
 
-    if( !PyArray_IS_C_CONTIGUOUS(camera_intrinsics) ||
-        !PyArray_IS_C_CONTIGUOUS(camera_extrinsics) ||
-        !PyArray_IS_C_CONTIGUOUS(frames)            ||
-        !PyArray_IS_C_CONTIGUOUS(observations)      )
+    if( !PyArray_IS_C_CONTIGUOUS(intrinsics) ||
+        !PyArray_IS_C_CONTIGUOUS(extrinsics) ||
+        !PyArray_IS_C_CONTIGUOUS(frames)     ||
+        !PyArray_IS_C_CONTIGUOUS(observations) )
     {
         PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays");
         return false;
@@ -119,7 +113,7 @@ static bool optimize_validate_args( // out
         PyString_AsString(distortion_model_string);
     if( distortion_model_cstring == NULL)
     {
-#define QUOTED_LIST_WITH_COMMA(s) "'" #s "',"
+#define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
         PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
                         DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
@@ -129,7 +123,7 @@ static bool optimize_validate_args( // out
     *distortion_model = DISTORTION_INVALID;
     do
     {
-#define CHECK_AND_SET(s)                                        \
+#define CHECK_AND_SET(s,n)                                      \
         if( 0 == strcmp( distortion_model_cstring, #s) )        \
         {                                                       \
             *distortion_model = s;                              \
@@ -148,6 +142,16 @@ static bool optimize_validate_args( // out
         return false;
     }
 
+
+    int NdistortionParams = getNdistortionParams(*distortion_model);
+    if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[1] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
+                     N_INTRINSICS_CORE + NdistortionParams,
+                     PyArray_DIMS(intrinsics)[1] );
+        return false;
+    }
+
     return true;
 }
 
@@ -157,10 +161,10 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 {
     PyObject* result = NULL;
 
-    PyArrayObject* camera_intrinsics = NULL;
-    PyArrayObject* camera_extrinsics = NULL;
-    PyArrayObject* frames            = NULL;
-    PyArrayObject* observations      = NULL;
+    PyArrayObject* intrinsics   = NULL;
+    PyArrayObject* extrinsics   = NULL;
+    PyArrayObject* frames       = NULL;
+    PyArrayObject* observations = NULL;
 
     // Python is silly. There's some nuance about signal handling where it sets
     // a SIGINT (ctrl-c) handler to just set a flag, and the python layer then
@@ -193,8 +197,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      "O&O&O&O&S|O",
                                      keywords,
-                                     PyArray_Converter, &camera_intrinsics,
-                                     PyArray_Converter, &camera_extrinsics,
+                                     PyArray_Converter, &intrinsics,
+                                     PyArray_Converter, &extrinsics,
                                      PyArray_Converter, &frames,
                                      PyArray_Converter, &observations,
 
@@ -205,22 +209,22 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     enum distortion_model_t distortion_model;
     if( !optimize_validate_args(&distortion_model,
 
-                                camera_intrinsics,
-                                camera_extrinsics,
+                                intrinsics,
+                                extrinsics,
                                 frames,
                                 observations,
                                 distortion_model_string))
         goto done;
 
     {
-        int Ncameras      = PyArray_DIMS(camera_intrinsics)[0];
+        int Ncameras      = PyArray_DIMS(intrinsics)[0];
         int Nframes       = PyArray_DIMS(frames)[0];
         int Nobservations = Ncameras * Nframes;
 
         // The checks in optimize_validate_args() make sure these casts are kosher
-        struct intrinsics_t* c_camera_intrinsics = (struct intrinsics_t*)PyArray_DATA(camera_intrinsics);
-        struct pose_t*       c_camera_extrinsics = (struct pose_t*)      PyArray_DATA(camera_extrinsics);
-        struct pose_t*       c_frames            = (struct pose_t*)      PyArray_DATA(frames);
+        struct intrinsics_t* c_intrinsics = (struct intrinsics_t*)PyArray_DATA(intrinsics);
+        struct pose_t*       c_extrinsics = (struct pose_t*)      PyArray_DATA(extrinsics);
+        struct pose_t*       c_frames     = (struct pose_t*)      PyArray_DATA(frames);
 
         struct observation_t c_observations[Nobservations];
         int i_observation = 0;
@@ -232,8 +236,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                 c_observations[i_observation].px       = &((union point2_t*)PyArray_DATA(observations))[10*10*i_observation];
             }
 
-        mrcal_optimize( c_camera_intrinsics,
-                        c_camera_extrinsics,
+        mrcal_optimize( c_intrinsics,
+                        c_extrinsics,
                         c_frames,
                         Ncameras, Nframes,
 
@@ -248,10 +252,10 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     result = Py_None;
 
  done:
-    if(camera_intrinsics) Py_DECREF(camera_intrinsics);
-    if(camera_extrinsics) Py_DECREF(camera_extrinsics);
-    if(frames)            Py_DECREF(frames);
-    if(observations)      Py_DECREF(observations);
+    if(intrinsics)   Py_DECREF(intrinsics);
+    if(extrinsics)   Py_DECREF(extrinsics);
+    if(frames)       Py_DECREF(frames);
+    if(observations) Py_DECREF(observations);
 
     if( 0 != sigaction(SIGINT,
                        &sigaction_old, NULL ))
