@@ -26,9 +26,12 @@ CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers
 EXTRA_CLEAN += *.docstring.h
 
 # The python extension library is handled by its own little build system. This
-# is stupid, but that's how these people did it
-build/lib.%/mrcal.so: mrcal_pywrap.c optimize.docstring.h
-	python setup.py build
+# is stupid, but that's how these people did it. Oh, and since this is
+# effectively a recursive build, the proper dependency information doesn't make
+# it into the inner (python-specific) Makefile, so I "build -f" to forcefully
+# rebuild everything. Like I said, this is stupid.
+build/lib.%/mrcal.so: mrcal_pywrap.c optimize.docstring.h mrcal.h
+	python setup.py build -f
 EXTRA_CLEAN += build
 all: libmrcal.so build/lib.linux-x86_64-2.7/mrcal.so
 
