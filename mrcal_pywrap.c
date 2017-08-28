@@ -47,10 +47,10 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(camera_intrinsics)[0] );
         return false;
     }
-    if( NUM_INTRINSIC_PARAMS != PyArray_DIMS(camera_intrinsics)[1] )
+    if( sizeof(struct intrinsics_t)/sizeof(double) != PyArray_DIMS(camera_intrinsics)[1] )
     {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
-                     NUM_INTRINSIC_PARAMS,
+        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %ld. Instead got %ld",
+                     sizeof(struct intrinsics_t)/sizeof(double),
                      PyArray_DIMS(camera_intrinsics)[1] );
         return false;
     }

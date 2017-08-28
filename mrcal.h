@@ -50,7 +50,6 @@ struct intrinsics_t
 #warning handle distortions
     // double distortion[];
 };
-#define NUM_INTRINSIC_PARAMS ((int)(sizeof(struct intrinsics_t)/sizeof(double)))
 
 #define DISTORTION_LIST(_) \
     _(DISTORTION_NONE)     \
