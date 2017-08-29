@@ -70,6 +70,12 @@ struct intrinsics_t
 #define LIST_WITH_COMMA(s,n) s,
 enum distortion_model_t
     { DISTORTION_LIST( LIST_WITH_COMMA ) DISTORTION_INVALID };
+
+#define DECLARE_CUSTOM_INTRINSICS(s,n) \
+    struct intrinsics_ ## s ## _t { INTRINSICS_CORE; double distortions[n]; };
+DISTORTION_LIST( DECLARE_CUSTOM_INTRINSICS )
+
+
 const char* mrcal_distortion_model_name( enum distortion_model_t model );
 int getNdistortionParams(const enum distortion_model_t m);
 

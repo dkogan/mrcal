@@ -8,7 +8,7 @@ int main(int argc     __attribute__((unused)),
          char* argv[] __attribute__((unused)))
 {
 
-    struct intrinsics_t intrinsics[] =
+    struct intrinsics_DISTORTION_OPENCV4_t intrinsics[] =
         { {.focal_xy  = { 10.3, 10.5},
            .center_xy = { 49.3, 50.2} },
           {.focal_xy  = {  9.3,  9.5},
@@ -24,7 +24,9 @@ int main(int argc     __attribute__((unused)),
           {.r = {.xyz = {9.0, 2.4, 13.5}},
            .t = {.xyz = {0.7, 0.1, 0.3}}},
           {.r = {.xyz = {8.0, 5.2, 33.5}},
-           .t = {.xyz = {0.7, 0.6, 0.4}}}};
+           .t = {.xyz = {0.7, 0.6, 0.4}}},
+          {.r = {.xyz = {2.0, -2.2, 7.5}},
+           .t = {.xyz = {3.1, 6.3, 10.4}}}};
 
     int Ncameras = sizeof(intrinsics)/sizeof(intrinsics[0]);
     int Nframes  = sizeof(frames)    /sizeof(frames[0]);
@@ -43,7 +45,7 @@ int main(int argc     __attribute__((unused)),
           {.i_camera = 1, .i_frame = 3, .px = observations_px} };
     int Nobservations = sizeof(observations)/sizeof(observations[0]);
 
-    mrcal_optimize( intrinsics,
+    mrcal_optimize( (struct intrinsics_t*)intrinsics,
                     extrinsics,
                     frames,
                     Ncameras, Nframes,
