@@ -600,7 +600,21 @@ observations = np.ascontiguousarray(observations)
 projected = project_points(intrinsics, extrinsics, frames, observations,
                            metadata['left']['dot_spacing'])
 err = projected - observations
+print "initial norm2: {}".format(np.sum(err*err))
 
 
-mrcal.optimize(intrinsics, extrinsics, frames, observations)
+
+
+distortion_model = "DISTORTION_NONE"
+Ndistortions = mrcal.getNdistortionParams(distortion_model)
+
+intrinsics = nps.glue( intrinsics, np.zeros((Ncameras, Ndistortions), dtype=float), axis=-1 )
+mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, True)
+
+
+distortion_model = "DISTORTION_OPENCV4"
+Ndistortions = mrcal.getNdistortionParams(distortion_model)
+
+intrinsics = nps.glue( intrinsics, np.zeros((Ncameras, Ndistortions), dtype=float), axis=-1 )
+mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, True)
 
