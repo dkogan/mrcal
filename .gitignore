@@ -5,3 +5,4 @@
 *.docstring.h
 
 core
+test_gradients
