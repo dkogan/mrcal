@@ -257,13 +257,16 @@ static union point2_t project( // out
     }
 
 
+    const struct intrinsics_t* intrinsics = (const struct intrinsics_t*)p_intrinsics_unitscale;
+
     if( distortion_model == DISTORTION_OPENCV4 ||
         distortion_model == DISTORTION_OPENCV5 ||
         distortion_model == DISTORTION_OPENCV8 )
     {
+        // OpenCV does the projection AND the gradient propagation for me, so I
+        // implement a separate code path for it
         union point2_t pt_out;
 
-        // OpenCV does the projection AND the gradient propagation for me
         CvMat object_points  = cvMat(3,1, CV_64FC1, pt_ref.xyz);
         CvMat image_points   = cvMat(2,1, CV_64FC1, pt_out.xy);
 
@@ -272,7 +275,6 @@ static union point2_t project( // out
         CvMat  dxy_drj = cvMat(2,3, CV_64FC1, _dxy_drj);
         CvMat  dxy_dtj = cvMat(2,3, CV_64FC1, _dxy_dtj);
 
-        const struct intrinsics_t* intrinsics = (const struct intrinsics_t*)p_intrinsics_unitscale;
         double fx = intrinsics->focal_xy [0] * SCALE_INTRINSICS_FOCAL_LENGTH;
         double fy = intrinsics->focal_xy [1] * SCALE_INTRINSICS_FOCAL_LENGTH;
         double cx = intrinsics->center_xy[0] * SCALE_INTRINSICS_CENTER_PIXEL;
@@ -406,7 +408,7 @@ static union point2_t project( // out
     mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
     add_vec(3, pt_cam.xyz,  p_tj->data.db);
 
-    // pt is now in the camera coordinates. I can project
+    // pt_cam is now in the camera coordinates. I can project
 
 
 
@@ -416,15 +418,14 @@ static union point2_t project( // out
 
 
     union point2_t pt_out;
-    const struct intrinsics_t* intrinsics = (const struct intrinsics_t*)p_intrinsics_unitscale;
-    const double sx = intrinsics->focal_xy[0] * SCALE_INTRINSICS_FOCAL_LENGTH;
-    const double sy = intrinsics->focal_xy[1] * SCALE_INTRINSICS_FOCAL_LENGTH;
+    const double sfx = intrinsics->focal_xy[0] * SCALE_INTRINSICS_FOCAL_LENGTH;
+    const double sfy = intrinsics->focal_xy[1] * SCALE_INTRINSICS_FOCAL_LENGTH;
     double z_recip = 1.0 / pt_cam.z;
     pt_out.x =
-        pt_cam.x*z_recip * sx +
+        pt_cam.x*z_recip * sfx +
         intrinsics->center_xy[0] * SCALE_INTRINSICS_CENTER_PIXEL;
     pt_out.y =
-        pt_cam.y*z_recip * sy +
+        pt_cam.y*z_recip * sfy +
         intrinsics->center_xy[1] * SCALE_INTRINSICS_CENTER_PIXEL;
 
 
@@ -462,8 +463,8 @@ static union point2_t project( // out
                        // I want the gradients in respect to the unit-scale params
                        double scale_param)
         {
-            // d(x) = sx/pt_cam.z * (d(pt_cam.x) - pt_cam.x/pt_cam.z * d(pt_cam.z));
-            // d(y) = sy/pt_cam.z * (d(pt_cam.y) - pt_cam.y/pt_cam.z * d(pt_cam.z));
+            // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
+            // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
             // pt_cam.x    = Rj[row0]*pt_ref + tj.x
             // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
@@ -488,9 +489,9 @@ static union point2_t project( // out
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] = scale_param *
-                    sx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
+                    sfx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
                 dxy_dparam[1].xyz[i] = scale_param *
-                    sy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
+                    sfy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
             }
         }
 
@@ -506,29 +507,26 @@ static union point2_t project( // out
                          // I want the gradients in respect to the unit-scale params
                          double scale_param)
         {
-            // d(x) = sx/pt_cam.z * (d(pt_cam.x) - pt_cam.x/pt_cam.z * d(pt_cam.z));
-            // d(y) = sy/pt_cam.z * (d(pt_cam.y) - pt_cam.y/pt_cam.z * d(pt_cam.z));
+            // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
+            // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
-            // pt_cam.x    = Rj[row0]*pt_ref + tj.x
-            // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
+            // pt_cam.x       = Rj[row0]*pt_ref + ...
+            // d(pt_cam.x)/dr = d(Rj[row0])*pt_ref
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
-            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
 
             double d_ptcamx[3];
             double d_ptcamy[3];
             double d_ptcamz[3];
-
-            memcpy(d_ptcamx, pt_ref.xyz, sizeof(d_ptcamx));
-            mul_vec3_gen33_vout( d_ptcamx,   &_d_Rj_rj[9*1], d_ptcamy);
-            mul_vec3_gen33_vout( d_ptcamx,   &_d_Rj_rj[9*2], d_ptcamz);
-            mul_vec3_gen33     ( d_ptcamx,   &_d_Rj_rj[9*0]);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*0], d_ptcamx);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*1], d_ptcamy);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*2], d_ptcamz);
 
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] = scale_param *
-                    sx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
+                    sfx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
                 dxy_dparam[1].xyz[i] = scale_param *
-                    sy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
+                    sfy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
             }
         }
         void propagate_t(union point3_t* dxy_dparam,
@@ -536,23 +534,19 @@ static union point2_t project( // out
                          // I want the gradients in respect to the unit-scale params
                          double scale_param)
         {
-            // d(x) = sx/pt_cam.z * (d(pt_cam.x) - pt_cam.x/pt_cam.z * d(pt_cam.z));
-            // d(y) = sy/pt_cam.z * (d(pt_cam.y) - pt_cam.y/pt_cam.z * d(pt_cam.z));
+            // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
+            // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
-            // pt_cam.x    = Rj[row0]*pt_ref + tj.x
-            // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
-            // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
-            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
-
-
-            dxy_dparam[0].xyz[0] = scale_param * sx * z_recip;
+            // pt_cam.x    = ... + tj.x
+            // d(pt_cam.x)/dt = identity
+            dxy_dparam[0].xyz[0] = scale_param * sfx * z_recip;
             dxy_dparam[1].xyz[0] = 0.0;
 
             dxy_dparam[0].xyz[1] = 0.0;
-            dxy_dparam[1].xyz[1] = scale_param * sy * z_recip;
+            dxy_dparam[1].xyz[1] = scale_param * sfy * z_recip;
 
-            dxy_dparam[0].xyz[2] = -scale_param * sx * z_recip * pt_cam.x * z_recip;
-            dxy_dparam[1].xyz[2] = -scale_param * sy * z_recip * pt_cam.y * z_recip;
+            dxy_dparam[0].xyz[2] = -scale_param * sfx * z_recip * pt_cam.x * z_recip;
+            dxy_dparam[1].xyz[2] = -scale_param * sfy * z_recip * pt_cam.y * z_recip;
         }
 
         propagate_r( dxy_drframe, SCALE_ROTATION_FRAME     );
