@@ -8,7 +8,7 @@
 
 int main(int argc, char* argv[] )
 {
-    const char* usage = "%s DISTORTION_XXX [no-]optimize-intrinsics\n";
+    const char* usage = "Usage: %s DISTORTION_XXX [no-]optimize-intrinsics\n";
 
     if( argc != 3 )
     {
