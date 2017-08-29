@@ -76,8 +76,9 @@ enum distortion_model_t
 DISTORTION_LIST( DECLARE_CUSTOM_INTRINSICS )
 
 
-const char* mrcal_distortion_model_name( enum distortion_model_t model );
-int mrcal_getNdistortionParams(const enum distortion_model_t m);
+const char*              mrcal_distortion_model_name     ( enum distortion_model_t model );
+enum distortion_model_t  mrcal_distortion_model_from_name( const char* name );
+int                      mrcal_getNdistortionParams      (const enum distortion_model_t m);
 
 double mrcal_optimize( // out, in (seed on input)
 

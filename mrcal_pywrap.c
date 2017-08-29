@@ -120,19 +120,7 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    *distortion_model = DISTORTION_INVALID;
-    do
-    {
-#define CHECK_AND_SET_PTR(s,n)                                  \
-        if( 0 == strcmp( distortion_model_cstring, #s) )        \
-        {                                                       \
-            *distortion_model = s;                              \
-            break;                                              \
-        }
-
-        DISTORTION_LIST( CHECK_AND_SET_PTR );
-    } while(0);
-
+    *distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
     if( *distortion_model == DISTORTION_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
@@ -171,21 +159,10 @@ static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
         PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
                         DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
-        goto done;;
+        goto done;
     }
 
-    enum distortion_model_t distortion_model = DISTORTION_INVALID;
-    do
-    {
-#define CHECK_AND_SET(s,n)                                      \
-        if( 0 == strcmp( distortion_model_cstring, #s) )        \
-        {                                                       \
-            distortion_model = s;                               \
-            break;                                              \
-        }
-        DISTORTION_LIST( CHECK_AND_SET );
-    } while(0);
-
+    enum distortion_model_t distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
     if( distortion_model == DISTORTION_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("

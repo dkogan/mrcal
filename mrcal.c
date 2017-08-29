@@ -88,6 +88,13 @@ const char* mrcal_distortion_model_name( enum distortion_model_t model )
     }
     return NULL;
 }
+enum distortion_model_t mrcal_distortion_model_from_name( const char* name )
+{
+#define CHECK_AND_RETURN(s,n) if( 0 == strcmp( name, #s) ) return s;
+    DISTORTION_LIST( CHECK_AND_RETURN );
+
+    return DISTORTION_INVALID;
+}
 
 int mrcal_getNdistortionParams(const enum distortion_model_t m)
 {
