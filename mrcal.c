@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -415,24 +416,109 @@ static union point2_t project( // out
     mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
     add_vec(3, pt_cam.xyz,  p_tj->data.db);
 
+    double d_distorted_xyz__d_undistorted_xyz = 1.0;
+    double dxyz_ddistortion[3*NdistortionParams];
+
     // pt_cam is now in the camera coordinates. I can project
+    if( distortion_model == DISTORTION_CAHVOR )
+    {
+        // I perturb pt_cam, and then apply the focal length, center pixel stuff
+        // normally
+
+        // distortion parameter layout:
+        //   theta
+        //   phi
+        //   r0
+        //   r1
+        //   r2
+        double theta = intrinsics->distortions[0] * SCALE_DISTORTION;
+        double phi   = intrinsics->distortions[1] * SCALE_DISTORTION;
+        double r0    = intrinsics->distortions[2] * SCALE_DISTORTION;
+        double r1    = intrinsics->distortions[3] * SCALE_DISTORTION;
+        double r2    = intrinsics->distortions[4] * SCALE_DISTORTION;
+
+        double sth, cth, sph, cph;
+        sincos(theta, &sth, &cth);
+        sincos(phi,   &sph, &cph);
+        double o[] = { sph*cth,
+                       sph*sth,
+                       cph };
+        double do_dthph[] = { -sph*sth, sph*cth, 0,
+                               cph*cth, cph*sth, -sph };
 
 
+        double norm2p = norm2_vec(3, pt_cam.xyz);
+        double omega  = dot_vec(3, pt_cam.xyz, o);
+        double domega_dthph[2] = { dot_vec(3, pt_cam.xyz, &do_dthph[0*3]),
+                                   dot_vec(3, pt_cam.xyz, &do_dthph[1*3]) };
 
-    // I haven't implemented anything else yet
-    assert( distortion_model == DISTORTION_NONE );
+        double tau    = norm2p / (omega*omega) - 1.0;
+        double s__dtau_dthph__domega_dthph = -2.0*norm2p / (omega*omega*omega);
+
+        double mu     = r0 + tau*r1 + tau*tau*r2;
+        double s__dmu_dthph__domega_dthph = ( r1 + 2.0*r2*tau ) * s__dtau_dthph__domega_dthph;
+
+        d_distorted_xyz__d_undistorted_xyz = mu + 1.0;
+
+        for(int i=0; i<3; i++)
+        {
+            double dmu[5] = { s__dmu_dthph__domega_dthph * domega_dthph[0],
+                              s__dmu_dthph__domega_dthph * domega_dthph[1],
+                              1.0,
+                              tau,
+                              tau * tau };
+
+            dxyz_ddistortion[i*NdistortionParams + 0] = pt_cam.xyz[i] * dmu[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] = pt_cam.xyz[i] * dmu[i];
+            dxyz_ddistortion[i*NdistortionParams + 2] = pt_cam.xyz[i] * dmu[i];
+            dxyz_ddistortion[i*NdistortionParams + 3] = pt_cam.xyz[i] * dmu[i];
+            dxyz_ddistortion[i*NdistortionParams + 4] = pt_cam.xyz[i] * dmu[i];
+
+            dxyz_ddistortion[i*NdistortionParams + 0] -= dmu[i] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= dmu[i] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 2] -= dmu[i] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 3] -= dmu[i] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 4] -= dmu[i] * omega*o[i];
+
+            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dthph[0]*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dthph[1]*o[i];
+
+            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dthph[i*2 + 0];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dthph[i*2 + 1];
+
+            pt_cam.xyz[i] = pt_cam.xyz[i] * (mu+1.0) - mu*omega*o[i];
+        }
+    }
+    else if( distortion_model == DISTORTION_CAHVORE )
+    {
+        // set ddistortion_dxyz
+
+        fprintf(stderr, "CAHVORE not implmented yet\n");
+        assert(0);
+    }
+    else if( distortion_model == DISTORTION_NONE )
+    {
+    }
+    else
+    {
+        fprintf(stderr, "Unhandled distortion model: %d (%s)\n",
+                distortion_model,
+                mrcal_distortion_model_name(distortion_model));
+        assert(0);
+    }
+
 
 
 
     union point2_t pt_out;
-    const double sfx = intrinsics->focal_xy[0] * SCALE_INTRINSICS_FOCAL_LENGTH;
-    const double sfy = intrinsics->focal_xy[1] * SCALE_INTRINSICS_FOCAL_LENGTH;
+    const double fx = intrinsics->focal_xy[0] * SCALE_INTRINSICS_FOCAL_LENGTH;
+    const double fy = intrinsics->focal_xy[1] * SCALE_INTRINSICS_FOCAL_LENGTH;
     double z_recip = 1.0 / pt_cam.z;
     pt_out.x =
-        pt_cam.x*z_recip * sfx +
+        pt_cam.x*z_recip * fx +
         intrinsics->center_xy[0] * SCALE_INTRINSICS_CENTER_PIXEL;
     pt_out.y =
-        pt_cam.y*z_recip * sfy +
+        pt_cam.y*z_recip * fy +
         intrinsics->center_xy[1] * SCALE_INTRINSICS_CENTER_PIXEL;
 
 
@@ -442,8 +528,9 @@ static union point2_t project( // out
         struct intrinsics_t* dxy_dintrinsics0 = (struct intrinsics_t*)dxy_dintrinsics;
         struct intrinsics_t* dxy_dintrinsics1 = (struct intrinsics_t*)&dxy_dintrinsics[NintrinsicParams];
 
-
         // I have the projection, and I now need to propagate the gradients
+        //
+        // xy = fxy * distort(xy)/distort(z) + cxy
         dxy_dintrinsics0->focal_xy [0] = pt_cam.x*z_recip * SCALE_INTRINSICS_FOCAL_LENGTH;
         dxy_dintrinsics0->center_xy[0] = SCALE_INTRINSICS_CENTER_PIXEL;
         dxy_dintrinsics0->focal_xy [1] = 0.0;
@@ -455,8 +542,11 @@ static union point2_t project( // out
 
         for(int i=0; i<NdistortionParams; i++)
         {
-            dxy_dintrinsics0->distortions[i] *= SCALE_DISTORTION;
-            dxy_dintrinsics1->distortions[i] *= SCALE_DISTORTION;
+            const double dx = dxyz_ddistortion[i + 0*NdistortionParams];
+            const double dy = dxyz_ddistortion[i + 1*NdistortionParams];
+            const double dz = dxyz_ddistortion[i + 2*NdistortionParams];
+            dxy_dintrinsics0->distortions[i] = SCALE_DISTORTION * fx * z_recip * (dx - pt_cam.x*z_recip*dz);
+            dxy_dintrinsics1->distortions[i] = SCALE_DISTORTION * fy * z_recip * (dy - pt_cam.y*z_recip*dz);
         }
     }
 
@@ -478,27 +568,22 @@ static union point2_t project( // out
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
 
-            double d_ptcamx[3];
-            double d_ptcamy[3];
-            double d_ptcamz[3];
+            double d_ptcam[3*3];
+            for(int i=0; i<3; i++)
+            {
+                mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*i], &d_ptcam[3*i] );
+                mul_vec3_gen33     ( &d_ptcam[3*i],   _d_rj);
+                add_vec(3, &d_ptcam[3*i], &_d_tj[3*i] );
+            }
 
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*0], d_ptcamx );
-            mul_vec3_gen33     ( d_ptcamx,   _d_rj);
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*1], d_ptcamy );
-            mul_vec3_gen33     ( d_ptcamy,   _d_rj);
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*2], d_ptcamz );
-            mul_vec3_gen33     ( d_ptcamz,   _d_rj);
-
-            add_vec(3, d_ptcamx, &_d_tj[3*0] );
-            add_vec(3, d_ptcamy, &_d_tj[3*1] );
-            add_vec(3, d_ptcamz, &_d_tj[3*2] );
+            scale_param *= d_distorted_xyz__d_undistorted_xyz;
 
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] = scale_param *
-                    sfx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
+                    fx * z_recip * (d_ptcam[3*0 + i] - pt_cam.x * z_recip * d_ptcam[3*2 + i]);
                 dxy_dparam[1].xyz[i] = scale_param *
-                    sfy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
+                    fy * z_recip * (d_ptcam[3*1 + i] - pt_cam.y * z_recip * d_ptcam[3*2 + i]);
             }
         }
 
@@ -521,19 +606,19 @@ static union point2_t project( // out
             // d(pt_cam.x)/dr = d(Rj[row0])*pt_ref
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
 
-            double d_ptcamx[3];
-            double d_ptcamy[3];
-            double d_ptcamz[3];
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*0], d_ptcamx);
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*1], d_ptcamy);
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*2], d_ptcamz);
+            double d_ptcam[3*3];
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*0], &d_ptcam[3*0]);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*1], &d_ptcam[3*1]);
+            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*2], &d_ptcam[3*2]);
+
+            scale_param *= d_distorted_xyz__d_undistorted_xyz;
 
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] = scale_param *
-                    sfx * z_recip * (d_ptcamx[i] - pt_cam.x * z_recip * d_ptcamz[i]);
+                    fx * z_recip * (d_ptcam[3*0 + i] - pt_cam.x * z_recip * d_ptcam[3*2 + i]);
                 dxy_dparam[1].xyz[i] = scale_param *
-                    sfy * z_recip * (d_ptcamy[i] - pt_cam.y * z_recip * d_ptcamz[i]);
+                    fy * z_recip * (d_ptcam[3*1 + i] - pt_cam.y * z_recip * d_ptcam[3*2 + i]);
             }
         }
         void propagate_t(union point3_t* dxy_dparam,
@@ -546,14 +631,16 @@ static union point2_t project( // out
             //
             // pt_cam.x    = ... + tj.x
             // d(pt_cam.x)/dt = identity
-            dxy_dparam[0].xyz[0] = scale_param * sfx * z_recip;
+            scale_param *= d_distorted_xyz__d_undistorted_xyz;
+
+            dxy_dparam[0].xyz[0] = scale_param * fx * z_recip;
             dxy_dparam[1].xyz[0] = 0.0;
 
             dxy_dparam[0].xyz[1] = 0.0;
-            dxy_dparam[1].xyz[1] = scale_param * sfy * z_recip;
+            dxy_dparam[1].xyz[1] = scale_param * fy * z_recip;
 
-            dxy_dparam[0].xyz[2] = -scale_param * sfx * z_recip * pt_cam.x * z_recip;
-            dxy_dparam[1].xyz[2] = -scale_param * sfy * z_recip * pt_cam.y * z_recip;
+            dxy_dparam[0].xyz[2] = -scale_param * fx * z_recip * pt_cam.x * z_recip;
+            dxy_dparam[1].xyz[2] = -scale_param * fy * z_recip * pt_cam.y * z_recip;
         }
 
         propagate_r( dxy_drframe, SCALE_ROTATION_FRAME     );
