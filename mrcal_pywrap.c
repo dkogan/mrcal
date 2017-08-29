@@ -123,14 +123,14 @@ static bool optimize_validate_args( // out
     *distortion_model = DISTORTION_INVALID;
     do
     {
-#define CHECK_AND_SET(s,n)                                      \
+#define CHECK_AND_SET_PTR(s,n)                                  \
         if( 0 == strcmp( distortion_model_cstring, #s) )        \
         {                                                       \
             *distortion_model = s;                              \
             break;                                              \
         }
 
-        DISTORTION_LIST( CHECK_AND_SET );
+        DISTORTION_LIST( CHECK_AND_SET_PTR );
     } while(0);
 
     if( *distortion_model == DISTORTION_INVALID )
@@ -143,7 +143,7 @@ static bool optimize_validate_args( // out
     }
 
 
-    int NdistortionParams = getNdistortionParams(*distortion_model);
+    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model);
     if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[1] )
     {
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
@@ -154,6 +154,55 @@ static bool optimize_validate_args( // out
 
     return true;
 }
+
+static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
+                                      PyObject* args)
+{
+    PyObject* result = NULL;
+
+    PyObject* distortion_model_string = NULL;
+    if(!PyArg_ParseTuple( args, "S", &distortion_model_string ))
+        goto done;
+
+    const char* distortion_model_cstring =
+        PyString_AsString(distortion_model_string);
+    if( distortion_model_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
+                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        goto done;;
+    }
+
+    enum distortion_model_t distortion_model = DISTORTION_INVALID;
+    do
+    {
+#define CHECK_AND_SET(s,n)                                      \
+        if( 0 == strcmp( distortion_model_cstring, #s) )        \
+        {                                                       \
+            distortion_model = s;                               \
+            break;                                              \
+        }
+        DISTORTION_LIST( CHECK_AND_SET );
+    } while(0);
+
+    if( distortion_model == DISTORTION_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
+                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     distortion_model_cstring);
+        goto done;
+    }
+
+    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
+
+    result = Py_BuildValue("i", Ndistortions);
+
+ done:
+    return result;
+}
+
 
 static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
@@ -269,8 +318,12 @@ PyMODINIT_FUNC initmrcal(void)
     static const char optimize_docstring[] =
 #include "optimize.docstring.h"
         ;
+    static const char getNdistortionParams_docstring[] =
+#include "getNdistortionParams.docstring.h"
+        ;
     static PyMethodDef methods[] =
-        { {"optimize", (PyCFunction)optimize, METH_VARARGS | METH_KEYWORDS, optimize_docstring},
+        { {"optimize",             (PyCFunction)optimize,             METH_VARARGS | METH_KEYWORDS, optimize_docstring},
+          {"getNdistortionParams", (PyCFunction)getNdistortionParams, METH_VARARGS,                 getNdistortionParams_docstring},
          {}
         };
 

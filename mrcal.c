@@ -89,7 +89,7 @@ const char* mrcal_distortion_model_name( enum distortion_model_t model )
     return NULL;
 }
 
-int getNdistortionParams(const enum distortion_model_t m)
+int mrcal_getNdistortionParams(const enum distortion_model_t m)
 {
 #define SET_NDIST_PARAMS(s,n) [s] = n,
     const signed char numparams[] = { DISTORTION_LIST( SET_NDIST_PARAMS) [DISTORTION_INVALID] = -1 };
@@ -99,7 +99,7 @@ static int getNintrinsicParams(enum distortion_model_t distortion_model)
 {
     return
         N_INTRINSICS_CORE +
-        getNdistortionParams(distortion_model);
+        mrcal_getNdistortionParams(distortion_model);
 }
 static int getNintrinsicOptimizationParams(bool do_optimize_intrinsics, enum distortion_model_t distortion_model)
 {
@@ -165,7 +165,7 @@ static union point2_t project( // out
                               enum distortion_model_t distortion_model,
                               int i_pt )
 {
-    int NdistortionParams = getNdistortionParams(distortion_model);
+    int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
     int NintrinsicParams  = getNintrinsicParams (distortion_model);
 
     // I need to compose two transformations
@@ -589,7 +589,7 @@ static int pack_solver_state_intrinsics( // out
                                          int Ncameras )
 {
     int i_state      = 0;
-    int Ndistortions = getNdistortionParams(distortion_model);
+    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
     int Nintrinsics  = Ndistortions + N_INTRINSICS_CORE;
 
     for(int i_camera=0; i_camera < Ncameras; i_camera++)
@@ -670,7 +670,7 @@ static void unpack_solver_state( // out
 
     if(do_optimize_intrinsics)
     {
-        int Ndistortions = getNdistortionParams(distortion_model);
+        int Ndistortions = mrcal_getNdistortionParams(distortion_model);
         int Nintrinsics  = Ndistortions + N_INTRINSICS_CORE;
 
         for(int i_camera=0; i_camera < Ncameras; i_camera++)
