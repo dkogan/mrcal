@@ -416,14 +416,16 @@ static union point2_t project( // out
     mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
     add_vec(3, pt_cam.xyz,  p_tj->data.db);
 
-    double d_distorted_xyz__d_undistorted_xyz = 1.0;
     double dxyz_ddistortion[3*NdistortionParams];
+    double* d_distortion_xyz = NULL;
+    double  _d_distortion_xyz[3*3] = {};
 
     // pt_cam is now in the camera coordinates. I can project
     if( distortion_model == DISTORTION_CAHVOR )
     {
         // I perturb pt_cam, and then apply the focal length, center pixel stuff
         // normally
+        d_distortion_xyz = _d_distortion_xyz;
 
         // distortion parameter layout:
         //   theta
@@ -440,51 +442,60 @@ static union point2_t project( // out
         double sth, cth, sph, cph;
         sincos(theta, &sth, &cth);
         sincos(phi,   &sph, &cph);
-        double o[] = { sph*cth,
-                       sph*sth,
-                       cph };
-        double do_dthph[] = { -sph*sth, sph*cth, 0,
-                               cph*cth, cph*sth, -sph };
+        double o     [] = {  sph*cth, sph*sth,  cph };
+        double do_dth[] = { -sph*sth, sph*cth,    0 };
+        double do_dph[] = {  cph*cth, cph*sth, -sph };
 
 
         double norm2p = norm2_vec(3, pt_cam.xyz);
         double omega  = dot_vec(3, pt_cam.xyz, o);
-        double domega_dthph[2] = { dot_vec(3, pt_cam.xyz, &do_dthph[0*3]),
-                                   dot_vec(3, pt_cam.xyz, &do_dthph[1*3]) };
+        double domega_dth = dot_vec(3, pt_cam.xyz, do_dth);
+        double domega_dph = dot_vec(3, pt_cam.xyz, do_dph);
 
-        double tau    = norm2p / (omega*omega) - 1.0;
-        double s__dtau_dthph__domega_dthph = -2.0*norm2p / (omega*omega*omega);
-
+        double omega_recip = 1.0 / omega;
+        double tau    = norm2p * omega_recip*omega_recip - 1.0;
+        double s__dtau_dthph__domega_dthph = -2.0*norm2p * omega_recip*omega_recip*omega_recip;
+        double dmu_dtau = r1 + 2.0*tau*r2;
+        double dmu_dxyz[3];
+        for(int i=0; i<3; i++)
+            dmu_dxyz[i] = dmu_dtau *
+                (2.0 * pt_cam.xyz[i] * omega_recip*omega_recip + s__dtau_dthph__domega_dthph * o[i]);
         double mu     = r0 + tau*r1 + tau*tau*r2;
-        double s__dmu_dthph__domega_dthph = ( r1 + 2.0*r2*tau ) * s__dtau_dthph__domega_dthph;
-
-        d_distorted_xyz__d_undistorted_xyz = mu + 1.0;
+        double s__dmu_dthph__domega_dthph = dmu_dtau * s__dtau_dthph__domega_dthph;
 
         for(int i=0; i<3; i++)
         {
-            double dmu[5] = { s__dmu_dthph__domega_dthph * domega_dthph[0],
-                              s__dmu_dthph__domega_dthph * domega_dthph[1],
-                              1.0,
-                              tau,
-                              tau * tau };
+            double dmu_ddist[5] = { s__dmu_dthph__domega_dthph * domega_dth,
+                                    s__dmu_dthph__domega_dthph * domega_dph,
+                                    1.0,
+                                    tau,
+                                    tau * tau };
 
-            dxyz_ddistortion[i*NdistortionParams + 0] = pt_cam.xyz[i] * dmu[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] = pt_cam.xyz[i] * dmu[i];
-            dxyz_ddistortion[i*NdistortionParams + 2] = pt_cam.xyz[i] * dmu[i];
-            dxyz_ddistortion[i*NdistortionParams + 3] = pt_cam.xyz[i] * dmu[i];
-            dxyz_ddistortion[i*NdistortionParams + 4] = pt_cam.xyz[i] * dmu[i];
+            dxyz_ddistortion[i*NdistortionParams + 0] = pt_cam.xyz[i] * dmu_ddist[0];
+            dxyz_ddistortion[i*NdistortionParams + 1] = pt_cam.xyz[i] * dmu_ddist[1];
+            dxyz_ddistortion[i*NdistortionParams + 2] = pt_cam.xyz[i] * dmu_ddist[2];
+            dxyz_ddistortion[i*NdistortionParams + 3] = pt_cam.xyz[i] * dmu_ddist[3];
+            dxyz_ddistortion[i*NdistortionParams + 4] = pt_cam.xyz[i] * dmu_ddist[4];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= dmu[i] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= dmu[i] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 2] -= dmu[i] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 3] -= dmu[i] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 4] -= dmu[i] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dthph[0]*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dthph[1]*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dth*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dph*o[i];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dthph[i*2 + 0];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dthph[i*2 + 1];
+            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dth[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dph[i];
+
+
+            _d_distortion_xyz[3*i + i] = mu+1.0;
+            for(int j=0; j<3; j++)
+            {
+                _d_distortion_xyz[3*i + j] += (pt_cam.xyz[i] - omega*o[i]) * dmu_dxyz[j];
+                _d_distortion_xyz[3*i + j] -= mu*o[i]*o[j];
+            }
 
             pt_cam.xyz[i] = pt_cam.xyz[i] * (mu+1.0) - mu*omega*o[i];
         }
@@ -498,9 +509,11 @@ static union point2_t project( // out
     }
     else if( distortion_model == DISTORTION_NONE )
     {
+        d_distortion_xyz = NULL;
     }
     else
     {
+        d_distortion_xyz = NULL;
         fprintf(stderr, "Unhandled distortion model: %d (%s)\n",
                 distortion_model,
                 mrcal_distortion_model_name(distortion_model));
@@ -520,7 +533,6 @@ static union point2_t project( // out
     pt_out.y =
         pt_cam.y*z_recip * fy +
         intrinsics->center_xy[1] * SCALE_INTRINSICS_CENTER_PIXEL;
-
 
     // I have the projection, and I now need to propagate the gradients
     if(dxy_dintrinsics != NULL)
@@ -568,7 +580,12 @@ static union point2_t project( // out
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
 
-            double d_ptcam[3*3];
+            double d_undistorted_ptcam[3*3];
+            double d_distorted_ptcam[3*3];
+            double* d_ptcam;
+            if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
+            else                 d_ptcam = d_distorted_ptcam;
+
             for(int i=0; i<3; i++)
             {
                 mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*i], &d_ptcam[3*i] );
@@ -576,14 +593,16 @@ static union point2_t project( // out
                 add_vec(3, &d_ptcam[3*i], &_d_tj[3*i] );
             }
 
-            scale_param *= d_distorted_xyz__d_undistorted_xyz;
+            if(d_distortion_xyz)
+                // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
+                mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
 
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] = scale_param *
-                    fx * z_recip * (d_ptcam[3*0 + i] - pt_cam.x * z_recip * d_ptcam[3*2 + i]);
+                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam.x * z_recip * d_distorted_ptcam[3*2 + i]);
                 dxy_dparam[1].xyz[i] = scale_param *
-                    fy * z_recip * (d_ptcam[3*1 + i] - pt_cam.y * z_recip * d_ptcam[3*2 + i]);
+                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
             }
         }
 
@@ -606,19 +625,26 @@ static union point2_t project( // out
             // d(pt_cam.x)/dr = d(Rj[row0])*pt_ref
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
 
-            double d_ptcam[3*3];
+            double d_undistorted_ptcam[3*3];
+            double d_distorted_ptcam[3*3];
+            double* d_ptcam;
+            if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
+            else                 d_ptcam = d_distorted_ptcam;
+
             mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*0], &d_ptcam[3*0]);
             mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*1], &d_ptcam[3*1]);
             mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*2], &d_ptcam[3*2]);
 
-            scale_param *= d_distorted_xyz__d_undistorted_xyz;
+            if(d_distortion_xyz)
+                // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
+                mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
 
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] = scale_param *
-                    fx * z_recip * (d_ptcam[3*0 + i] - pt_cam.x * z_recip * d_ptcam[3*2 + i]);
+                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam.x * z_recip * d_distorted_ptcam[3*2 + i]);
                 dxy_dparam[1].xyz[i] = scale_param *
-                    fy * z_recip * (d_ptcam[3*1 + i] - pt_cam.y * z_recip * d_ptcam[3*2 + i]);
+                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
             }
         }
         void propagate_t(union point3_t* dxy_dparam,
@@ -631,16 +657,29 @@ static union point2_t project( // out
             //
             // pt_cam.x    = ... + tj.x
             // d(pt_cam.x)/dt = identity
-            scale_param *= d_distorted_xyz__d_undistorted_xyz;
+            if( d_distortion_xyz == NULL)
+            {
+                dxy_dparam[0].xyz[0] = scale_param * fx * z_recip;
+                dxy_dparam[1].xyz[0] = 0.0;
 
-            dxy_dparam[0].xyz[0] = scale_param * fx * z_recip;
-            dxy_dparam[1].xyz[0] = 0.0;
+                dxy_dparam[0].xyz[1] = 0.0;
+                dxy_dparam[1].xyz[1] = scale_param * fy * z_recip;
 
-            dxy_dparam[0].xyz[1] = 0.0;
-            dxy_dparam[1].xyz[1] = scale_param * fy * z_recip;
+                dxy_dparam[0].xyz[2] = -scale_param * fx * z_recip * pt_cam.x * z_recip;
+                dxy_dparam[1].xyz[2] = -scale_param * fy * z_recip * pt_cam.y * z_recip;
+            }
+            else
+            {
+                double* d_distorted_ptcam = d_distortion_xyz;
 
-            dxy_dparam[0].xyz[2] = -scale_param * fx * z_recip * pt_cam.x * z_recip;
-            dxy_dparam[1].xyz[2] = -scale_param * fy * z_recip * pt_cam.y * z_recip;
+                for(int i=0; i<3; i++)
+                {
+                    dxy_dparam[0].xyz[i] = scale_param *
+                        fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam.x * z_recip * d_distorted_ptcam[3*2 + i]);
+                    dxy_dparam[1].xyz[i] = scale_param *
+                        fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
+                }
+            }
         }
 
         propagate_r( dxy_drframe, SCALE_ROTATION_FRAME     );
