@@ -1,0 +1,14 @@
+Get the number of distortion parameters for a particular model type
+
+I support a number of distortion models, which have different numbers of
+parameters. Given a model specified as a string, this returns how many
+parameters there are. Currently I support
+
+  DISTORTION_NONE
+  DISTORTION_OPENCV4
+  DISTORTION_OPENCV5
+  DISTORTION_OPENCV8
+  DISTORTION_CAHVOR
+  DISTORTION_CAHVORE
+
+The full list can be obtained by passing an invalid string
