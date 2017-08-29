@@ -1,0 +1,19 @@
+#!/bin/zsh
+
+set -e
+
+make
+
+for d ('DISTORTION_NONE'
+       'DISTORTION_OPENCV4'
+       'DISTORTION_OPENCV5'
+       'DISTORTION_OPENCV8'
+       'DISTORTION_CAHVOR')
+{
+    for o ('no-optimize-intrinsics'
+           'optimize-intrinsics')
+    {
+        echo "Trying $d $o"
+        ./test_gradients $d $o | awk '$NF ~ /nan|inf/ || $NF > 1e-3 { print "  ",$0 }' | head
+    }
+}
