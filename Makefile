@@ -3,7 +3,7 @@ ABI_VERSION  := 0
 TAIL_VERSION := 0
 
 LIB_SOURCES += mrcal.c
-BIN_SOURCES += test_gradients.c
+BIN_SOURCES += test_gradients.c test_cahvor.c
 
 
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)
@@ -34,5 +34,8 @@ build/lib.%/mrcal.so: mrcal_pywrap.c optimize.docstring.h getNdistortionParams.d
 	python setup.py build -f
 EXTRA_CLEAN += build
 all: libmrcal.so build/lib.linux-x86_64-2.7/mrcal.so
+
+
+test_cahvor.o: CFLAGS += -Wno-unused-variable -Wno-unused-parameter
 
 include /usr/include/mrbuild/Makefile.common
