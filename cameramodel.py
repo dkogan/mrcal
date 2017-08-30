@@ -92,7 +92,7 @@ containing lines of text) into a cahvor dict, and returns the dict
         if m:
             key = m.group(1).title()
             if key in x:
-                raise Exception("Reading '{}': key '{}' seen more than once".format(filename,
+                raise Exception("Reading '{}': key '{}' seen more than once".format(f.name,
                                                                                     m.group(1)))
             x[key] = m.group(2)
 
@@ -113,7 +113,7 @@ containing lines of text) into a cahvor dict, and returns the dict
     for k in ('Dimensions','C','A','H','V'):
         if not k in x:
             raise Exception("Cahvor file '{}' incomplete. Missing values for: {}".
-                            format(filename, k))
+                            format(f.name, k))
 
     # I want to cut back on derived data in this structure to prevent confusion,
     # so I delete things I KNOW I want to skip
