@@ -35,16 +35,28 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-
-    // I use a large distortion array. Should be the largest one. I check with
-    // an assertion
-    struct intrinsics_DISTORTION_OPENCV8_t intrinsics[] =
-        { {.focal_xy  = { 10.3, 10.5},
-           .center_xy = { 49.3, 50.2} },
-          {.focal_xy  = {  9.3,  9.5},
+    // I define all possible intrinsics arrays, and use the proper one later on.
+    // This is required because sizeof(intrinsic) varies depending on the type
+#define DECLARE_SPECIFIC_INTRINSIC(s,n)                         \
+    __attribute__((unused))                                     \
+        struct intrinsics_ ## s ## _t intrinsics ## s[] =       \
+        { {.focal_xy  = { 10.3, 10.5},                          \
+           .center_xy = { 49.3, 50.2} },                        \
+          {.focal_xy  = {  9.3,  9.5},                          \
            .center_xy = { 51.3, 53.2} } };
-    assert( mrcal_getNdistortionParams(distortion_model) + 4 <=
-            (int)(sizeof(struct intrinsics_DISTORTION_OPENCV8_t)/sizeof(double)) );
+    DISTORTION_LIST(DECLARE_SPECIFIC_INTRINSIC)
+
+    int Ncameras = sizeof(intrinsicsDISTORTION_NONE)/sizeof(intrinsicsDISTORTION_NONE[0]);
+
+#define SET_SPECIFIC_DISTORTION(s,n)                                    \
+    for(int j=0; j<n; j++)                                              \
+        intrinsics ## s[i].distortions[j] = 0.0005 * (double)(i + Ncameras*j);
+    for(int i=0; i<Ncameras; i++)
+    {
+        DISTORTION_LIST(SET_SPECIFIC_DISTORTION);
+    }
+
+
 
     struct pose_t extrinsics[] =
         { {.r = {.xyz = {1.0, 2.1, 3.5}},
@@ -59,12 +71,7 @@ int main(int argc, char* argv[] )
            .t = {.xyz = {0.7, 0.6, 0.4}}},
           {.r = {.xyz = {2.0, -2.2, 7.5}},
            .t = {.xyz = {3.1, 6.3, 10.4}}}};
-
-    int Ncameras = sizeof(intrinsics)/sizeof(intrinsics[0]);
     int Nframes  = sizeof(frames)    /sizeof(frames[0]);
-    for(int i=0; i<Nframes; i++)
-        for(int j=0; j<mrcal_getNdistortionParams(distortion_model); j++)
-            intrinsics[i].distortions[j] = 0.05 * (double)(i + Nframes*j);
 
 
     // Dummy point observations. All use the same array, but this doesn't matter
@@ -80,7 +87,17 @@ int main(int argc, char* argv[] )
           {.i_camera = 1, .i_frame = 3, .px = observations_px} };
     int Nobservations = sizeof(observations)/sizeof(observations[0]);
 
-    mrcal_optimize( (struct intrinsics_t*)intrinsics,
+#define PICK_SPECIFIC_INTRINSICS(s,n) case s: intrinsics_specific = (struct intrinsics_t*)intrinsics ## s; break;
+    struct intrinsics_t* intrinsics_specific;
+    switch(distortion_model)
+    {
+        DISTORTION_LIST(PICK_SPECIFIC_INTRINSICS)
+
+    default:
+        assert(0);
+    }
+
+    mrcal_optimize( intrinsics_specific,
                     extrinsics,
                     frames,
                     Ncameras, Nframes,
