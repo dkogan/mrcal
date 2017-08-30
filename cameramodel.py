@@ -6,6 +6,8 @@ import mrpose
 import re
 import sys
 import copy
+import cv2
+
 
 def parse_transforms(f):
     r'''Reads a file (an iterable containing lines of text) into a transforms dict,
@@ -147,6 +149,73 @@ cahvor'''
 
     if needclose:
         f.close()
+
+def make_cahvor( intrinsics, extrinsics = None ):
+    r'''Produces a CAHVOR model from optimization results
+
+The inputs:
+
+- intrinsics: a 9-long numpy array containing
+  - fx
+  - fy
+  - cx
+  - cy
+  - theta (for computing O)
+  - phi   (for computing O)
+  - R0
+  - R1
+  - R2
+
+- extrinsics: If None, the identity transform is assumed. Otherwise, a 6-long
+  numpy array containing a transformation from the camera0 coord system TO this
+  camera. The elements are a 3-long Rodrigues rotation followed by a 3-long
+  translation
+
+    '''
+
+    # The reference coordinate system has a rotation offset from the cam0 coord
+    # system
+    Rcam0_to_ref = np.array(((0,0,1),
+                             (1,0,0),
+                             (0,1,0)),dtype = float)
+
+    if extrinsics is None:
+        R = np.eye(3)
+        t = np.zeros(3)
+    else:
+        r = extrinsics[:3]
+        t = extrinsics[3:]
+        R = cv2.Rodrigues(r)[0]
+
+
+    # I have (R,t) that transform a point in the cam0 coord system to a point in
+    # our camera. We want to go the other way: x = Rt x' - Rt t
+    t = -nps.matmult(t, R)
+    R = nps.transpose(R)
+    # Now we transform a point FROM our camera TO the cam0 coord system. But I
+    # need to go from the cam0 coord system to the ref coord system, so I apply
+    # that too
+    t = nps.matmult( t, nps.transpose(Rcam0_to_ref))
+    R = nps.matmult( Rcam0_to_ref, R)
+
+    fx,fy,cx,cy,theta,phi,R0,R1,R2 = intrinsics
+
+    # Now we can establish the geometry. C is the camera origin, A is the +z
+    # direction, Hp is the +x direction and Vp is the +y direction, all in the
+    # ref-coord-system
+    out      = {}
+    out['C'] = t
+    out['A'] = R[:,2]
+    Hp       = R[:,0]
+    Vp       = R[:,1]
+    out['H'] = fx*Hp + out['A']*cx
+    out['V'] = fy*Vp + out['A']*cy
+
+    sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
+    out['O'] = np.array(( sph*cth, sph*sth,  cph ))
+    out['R'] = np.array((R0, R1, R2))
+    return out
+
 
 def parse_and_consolidate(transforms, cahvors):
     transforms = parse_transforms(transforms)
