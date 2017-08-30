@@ -11,8 +11,25 @@ import re
 import glob
 import cPickle as pickle
 
+sys.path[:0] = ('/home/dima/src_boats/stereo-server/analyses',)
+import camera_models
+
 sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
 import mrcal
+
+
+
+# stuff the user may want to set
+pair                  = 0
+cache                 = 'dots{}.pickle'.format(pair)
+read_cache            = True
+
+focal_estimate    = 1950 # pixels
+imager_w_estimate = 3904
+datadir           = '/to_be_filed/datasets/2017-08-08-usv-swarm-test-3/output/calibration/stereo-2017-08-02-Wed-19-30-23/dots/opencv-only'
+
+look_at_old_dot_files = False
+# datadir           = '/home/dima/data/cal_data_2017_07_14/lfc4/' # for old dot files
 
 re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
 re_u = '\d+'
@@ -397,7 +414,7 @@ the observations
     Rt = align3d_procrustes(A, B)
     return Rt[:3,:], Rt[3,:]
 
-def project_points(intrinsics, extrinsics, frames, observations, dot_spacing):
+def project_points_no_distortion(intrinsics, extrinsics, frames, observations, dot_spacing):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all the
 reprojection errors'''
 
@@ -428,12 +445,6 @@ reprojection errors'''
 
 
 
-look_at_old_dot_files = False
-cache                 = 'dots.pickle'
-read_cache            = True
-
-focal_estimate    = 1950 # pixels
-imager_w_estimate = 3904
 
 calobject_poses = {}
 dots            = {}
@@ -441,8 +452,8 @@ metadata        = {}
 
 
 if look_at_old_dot_files:
-    for fil in ('/home/dima/data/cal_data_2017_07_14/lfc4/stcal-left.dots',
-                '/home/dima/data/cal_data_2017_07_14/lfc4/stcal-right.dots'):
+    for fil in ('{}/stcal-left.dots' .format(datadir),
+                '{}/stcal-right.dots'.format(datadir)):
         m = re.match( '.*-(left|right)\.dots$', fil)
         if not m: raise Exception("Can't tell if '{}' is left or right".format(fil))
         which = m.group(1)
@@ -472,9 +483,6 @@ else:
             dots,metadata = pickle.load(f)
 
     else:
-        datadir = '/to_be_filed/datasets/2017-08-08-usv-swarm-test-3/output/calibration/stereo-2017-08-02-Wed-19-30-23/dots/opencv-only'
-        pair = 0
-
         dotfiles_left  = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam0.dots'.format(datadir,pair)))
         dotfiles_right = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam1.dots'.format(datadir,pair)))
         dots['left' ] = np.array(())
@@ -593,28 +601,29 @@ allR,allt = calobject_poses['left']
 frames = nps.glue( Rodrigues_tor_broadcasted(allR), allt, axis=-1 )
 
 observations = nps.mv( nps.cat( dots['left'], dots['right']), 0, -4)
-
 observations = np.ascontiguousarray(observations)
 
-# for debugging
-projected = project_points(intrinsics, extrinsics, frames, observations,
-                           metadata['left']['dot_spacing'])
-err = projected - observations
-print "initial norm2: {}".format(np.sum(err*err))
 
 
-
+# done with everything. Run the calibration, in several passes.
+distortion_model = "DISTORTION_NONE"
+mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, False)
 
 distortion_model = "DISTORTION_NONE"
-Ndistortions = mrcal.getNdistortionParams(distortion_model)
-
-intrinsics = nps.glue( intrinsics, np.zeros((Ncameras, Ndistortions), dtype=float), axis=-1 )
 mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, True)
 
-
-distortion_model = "DISTORTION_OPENCV4"
+distortion_model = "DISTORTION_CAHVOR"
 Ndistortions = mrcal.getNdistortionParams(distortion_model)
-
-intrinsics = nps.glue( intrinsics, np.zeros((Ncameras, Ndistortions), dtype=float), axis=-1 )
+intrinsics = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions))*1e-6, axis=-1 )
 mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, True)
 
+# Done! Write out a cache of the solution
+with open("solution.pickle", 'w') as f:
+    pickle.dump( (intrinsics, extrinsics, frames, observations), f, protocol=2)
+
+# and write out the resulting cahvor files
+cahvor0 = camera_models.make_cahvor( intrinsics[0] )
+cahvor1 = camera_models.make_cahvor( intrinsics[1], extrinsics[0] )
+
+camera_models.write_cahvor( "camera{}-0.cahvor".format(pair), cahvor0 )
+camera_models.write_cahvor( "camera{}-1.cahvor".format(pair), cahvor1 )
