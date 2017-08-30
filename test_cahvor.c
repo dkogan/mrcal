@@ -211,23 +211,36 @@ int main(void)
     double p[] = {12, 13, 99};
 
 
+    // out0: old implementation
     double range;
     double out0[2];
     cmod_cahvor_3d_to_2d( p,
                           c,a,h,v,o,r, false,
                           &range, out0, NULL );
 
+    // out1: new implementation
     double out1[2];
     project_cahvor( p,
                     c,a,h,v,o,r,
                     out1 );
 
+    // out2: new implementation, with scaled up 3d vector. The scaling should
+    // have NO effect
+    double out2[2];
+    for(int i=0;i<3;i++) p[i] *= 10.0;
+    project_cahvor( p,
+                    c,a,h,v,o,r,
+                    out2 );
+
     printf("out0: %f %f\n", out0[0], out0[1]);
     printf("out1: %f %f\n", out1[0], out1[1]);
+    printf("out2: %f %f\n", out1[0], out1[1]);
 
     double err[2];
-    sub_vec_vout(2, out0, out1, err);
-    printf("err:  %f %f\n",  err[0],  err[1]);
+    sub_vec_vout(2, out1, out0, err);
+    printf("err10:  %f %f\n",  err[0], err[1]);
+    sub_vec_vout(2, out2, out0, err);
+    printf("err20:  %f %f\n",  err[0], err[1]);
 
     return 0;
 }
