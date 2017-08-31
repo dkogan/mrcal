@@ -20,16 +20,25 @@ import mrcal
 
 
 # stuff the user may want to set
-pair                  = 0
-cache                 = 'dots{}.pickle'.format(pair)
-read_cache            = True
+pair            = 1
+read_cache_dots = True
 
 focal_estimate    = 1950 # pixels
 imager_w_estimate = 3904
 datadir           = '/to_be_filed/datasets/2017-08-08-usv-swarm-test-3/output/calibration/stereo-2017-08-02-Wed-19-30-23/dots/opencv-only'
 
-look_at_old_dot_files = False
+old_dots_file = False
 # datadir           = '/home/dima/data/cal_data_2017_07_14/lfc4/' # for old dot files
+
+
+
+
+
+
+
+
+
+
 
 re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
 re_u = '\d+'
@@ -137,162 +146,6 @@ lives at (y,x,:)
                            np.zeros((H,W,1)),
                            axis=-1) # shape (H,W,3)
     return full_object * dot_spacing
-
-def read_observations_from_file__old_dot(filename, which):
-    r"""Parses the xxx.dots from the old stcal tool
-
-Given a xxx.dots file produced with stcal, read the observations into a numpy
-array. Returns this numpy array and a list of metadata.
-
-The array has axes: (iframe, idot_y, idot_x, idot2d_xy)
-
-So as an example, the observed pixel coord of the dot (3,4) in frame index 5 is
-the 2-vector dots[5,3,4,:]
-
-The metadata is a dictionary, containing the dimensions of the imager, and the
-indices of frames that the numpy array contains
-
-    """
-
-    with open(filename, 'r') as f:
-        for l in f:
-            if re.match('# Format: jplv$',
-                        l):
-                break
-        else:
-            raise Exception('No explicit "Format: jplv" when reading {}'.format(filename))
-
-        # Data. Axes: (iframe, idot_y, idot_x, idot2d_xy)
-        # So the observed pixel coord of the dot (3,4) in frame index 5 is
-        # the 2-vector dots[5,3,4,:]
-        dots       = np.array( (), dtype=float)
-        metadata   = {'frames': [],
-                      'imager_size': None,
-                      'dot_spacing': None}
-        cur_frame  = None
-        cur_iframe = None
-
-        for l in f:
-            if l[0] == '\n' or l[0] == '#':
-                continue
-
-            m = re.match('IMAGE ({u}) ({u})'.format(u=re_u),
-                         l)
-            if m:
-                if metadata['imager_size'] is not None:
-                    raise Exception('Got line "{}", but already have width, height'.format(l))
-                metadata['imager_size'] = (int(m.group(1)), int(m.group(2)))
-                continue
-
-            m = re.match('DOT ({s}) (stcal-({u})-({s}).pnm) FIX ({u}) ({u}) ({u}) ({f}) ({f}) IMG ({f}) ({f})'.format(f=re_f, u=re_u, d=re_d, s=re_s), l)
-            if m:
-                if which != m.group(1):
-                    raise Exception("Reading file {}: expected '{}' frames, but got '{}". \
-                                    format(filename, which, m.group(1)))
-                if which != m.group(4):
-                    raise Exception("Reading file {}: expected '{}' frames, but got image file '{}". \
-                                    format(filename, which, m.group(2)))
-                frame  = int(m.group(3))
-                iframe = int(m.group(5))
-                idot   = (int(   m.group(6)),  int(  m.group(7)))
-                dot3d  = (float( m.group(8)),  float(m.group(9)))
-                dot2d  = np.array(( float(m.group(10)), float(m.group(11))))
-
-                if cur_iframe == iframe and \
-                   cur_frame  != frame:
-                    raise Exception('frame changed, but iframe did not')
-                if cur_frame  == frame and \
-                   cur_iframe != iframe:
-                    raise Exception('iframe changed, but frame did not')
-                if cur_iframe is None and iframe != 0:
-                    raise Exception('iframe should start at 0')
-
-                if cur_iframe != iframe:
-                    if cur_iframe is not None and cur_iframe+1 != iframe:
-                        raise Exception('non-consecutive frame index...')
-                    if cur_frame is not None and cur_frame >= frame:
-                        raise Exception('non-increasing frame number...')
-
-                    cur_frame,cur_iframe = frame,iframe
-                    dots = nps.glue( dots,
-                                     np.zeros((10,10,2), dtype=float) - 1,
-                                     axis=-4 )
-                    metadata['frames'].append(frame)
-
-                dot_spacing = np.array(dot3d, dtype=float) / np.array(idot, dtype=float)
-                if metadata['dot_spacing'] is None:
-                    metadata['dot_spacing'] = dot_spacing
-                else:
-                    if np.max( np.abs(metadata['dot_spacing'] - dot_spacing) ) > 1e-4:
-                        raise Exception("Inconsistent dot spacing. Previously saw {} but now have {}". \
-                                        format(metadata['dot_spacing'], dot_spacing))
-
-                dots[-1, idot[1]-1, idot[0]-1,:] = dot2d
-                continue
-
-            raise Exception('Got unknown line "{}"'.format(l))
-
-    return dots, metadata
-
-def read_observations_from_file__asciilog_dots(filename):
-    r"""Parses a newer asciilog xxx.dots file
-
-Given the asciilog xxx.dots, read the observations into a numpy array. Returns
-this numpy array and a list of metadata.
-
-The array has axes: (idot_y, idot_x, idot2d_xy)
-
-So as an example, the observed pixel coord of the dot (3,4) is the 2-vector
-dots[3,4,:]
-
-The metadata is a dictionary, containing the dimensions of the imager, and the
-indices of frames that the numpy array contains
-
-    """
-
-    # Data. Axes: (idot_y, idot_x, idot2d_xy)
-    # So the observed pixel coord of the dot (3,4) is
-    # the 2-vector dots[3,4,:]
-    dots     = np.array( (), dtype=float)
-    metadata = {'dot_spacing': None}
-
-    point_index = 0
-
-    with open(filename, 'r') as f:
-
-        l = next(f)
-        if l != '# path fixture_size_m fixture_space_m fixture_cols fixture_rows num_dots_detected dot_fixture_col dot_fixture_row dot_fixture_physical_x dot_fixture_physical_y dot_image_col dot_image_row\n':
-            raise Exception("Unexpected legend in '{}".format(filename))
-        l = next(f)
-
-        m = re.match('.* ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
-        if m is None:
-            raise Exception("Unexpected metadata in '{}".format(filename))
-        metadata['dot_spacing'] = float(m.group(2))
-
-        # I only accept complete observations of the cal board for now
-        Ndetected = int(m.group(3))
-        if Ndetected != 100:
-            return None,None
-
-        dots = np.zeros((10,10,2), dtype=float)
-
-        for l in f:
-
-            lf = l.split()
-            idot_x,idot_y     = [int(x)   for x in lf[6 :8 ]]
-            dot2d_x, dot2d_y  = [float(x) for x in lf[10:12]]
-
-            # I only accept complete observations of the cal board for now
-            idot_y_want = int(point_index / 10)
-            idot_x_want = point_index - idot_y_want*10
-            if idot_x != idot_x_want or idot_y != idot_y_want:
-                return None,None
-            point_index += 1
-
-            dots[idot_y,idot_x,:] = (dot2d_x,dot2d_y)
-
-    return dots, metadata
 
 def estimate_local_calobject_poses( dots, dot_spacing, focal, imager_size ):
     r"""Estimates pose of observed object in a single-camera view
@@ -444,14 +297,110 @@ reprojection errors'''
     return projected
 
 
+def _read_dots_stcal(datadir):
+
+    def read_observations_from_file__old_dot(filename, which):
+        r"""Parses the xxx.dots from the old stcal tool
+
+Given a xxx.dots file produced with stcal, read the observations into a numpy
+array. Returns this numpy array and a list of metadata.
+
+The array has axes: (iframe, idot_y, idot_x, idot2d_xy)
+
+So as an example, the observed pixel coord of the dot (3,4) in frame index 5 is
+the 2-vector dots[5,3,4,:]
+
+The metadata is a dictionary, containing the dimensions of the imager, and the
+indices of frames that the numpy array contains
+
+        """
+
+        with open(filename, 'r') as f:
+            for l in f:
+                if re.match('# Format: jplv$',
+                            l):
+                    break
+            else:
+                raise Exception('No explicit "Format: jplv" when reading {}'.format(filename))
+
+            # Data. Axes: (iframe, idot_y, idot_x, idot2d_xy)
+            # So the observed pixel coord of the dot (3,4) in frame index 5 is
+            # the 2-vector dots[5,3,4,:]
+            dots       = np.array( (), dtype=float)
+            metadata   = {'frames': [],
+                          'imager_size': None,
+                          'dot_spacing': None}
+            cur_frame  = None
+            cur_iframe = None
+
+            for l in f:
+                if l[0] == '\n' or l[0] == '#':
+                    continue
+
+                m = re.match('IMAGE ({u}) ({u})'.format(u=re_u),
+                             l)
+                if m:
+                    if metadata['imager_size'] is not None:
+                        raise Exception('Got line "{}", but already have width, height'.format(l))
+                    metadata['imager_size'] = (int(m.group(1)), int(m.group(2)))
+                    continue
+
+                m = re.match('DOT ({s}) (stcal-({u})-({s}).pnm) FIX ({u}) ({u}) ({u}) ({f}) ({f}) IMG ({f}) ({f})'.format(f=re_f, u=re_u, d=re_d, s=re_s), l)
+                if m:
+                    if which != m.group(1):
+                        raise Exception("Reading file {}: expected '{}' frames, but got '{}". \
+                                        format(filename, which, m.group(1)))
+                    if which != m.group(4):
+                        raise Exception("Reading file {}: expected '{}' frames, but got image file '{}". \
+                                        format(filename, which, m.group(2)))
+                    frame  = int(m.group(3))
+                    iframe = int(m.group(5))
+                    idot   = (int(   m.group(6)),  int(  m.group(7)))
+                    dot3d  = (float( m.group(8)),  float(m.group(9)))
+                    dot2d  = np.array(( float(m.group(10)), float(m.group(11))))
+
+                    if cur_iframe == iframe and \
+                       cur_frame  != frame:
+                        raise Exception('frame changed, but iframe did not')
+                    if cur_frame  == frame and \
+                       cur_iframe != iframe:
+                        raise Exception('iframe changed, but frame did not')
+                    if cur_iframe is None and iframe != 0:
+                        raise Exception('iframe should start at 0')
+
+                    if cur_iframe != iframe:
+                        if cur_iframe is not None and cur_iframe+1 != iframe:
+                            raise Exception('non-consecutive frame index...')
+                        if cur_frame is not None and cur_frame >= frame:
+                            raise Exception('non-increasing frame number...')
+
+                        cur_frame,cur_iframe = frame,iframe
+                        dots = nps.glue( dots,
+                                         np.zeros((10,10,2), dtype=float) - 1,
+                                         axis=-4 )
+                        metadata['frames'].append(frame)
+
+                    dot_spacing = np.array(dot3d, dtype=float) / np.array(idot, dtype=float)
+                    if metadata['dot_spacing'] is None:
+                        metadata['dot_spacing'] = dot_spacing
+                    else:
+                        if np.max( np.abs(metadata['dot_spacing'] - dot_spacing) ) > 1e-4:
+                            raise Exception("Inconsistent dot spacing. Previously saw {} but now have {}". \
+                                            format(metadata['dot_spacing'], dot_spacing))
+
+                    dots[-1, idot[1]-1, idot[0]-1,:] = dot2d
+                    continue
+
+                raise Exception('Got unknown line "{}"'.format(l))
+
+        return dots, metadata
 
 
-calobject_poses = {}
-dots            = {}
-metadata        = {}
 
 
-if look_at_old_dot_files:
+    dots            = {}
+    metadata        = {}
+
     for fil in ('{}/stcal-left.dots' .format(datadir),
                 '{}/stcal-right.dots'.format(datadir)):
         m = re.match( '.*-(left|right)\.dots$', fil)
@@ -462,94 +411,162 @@ if look_at_old_dot_files:
         dots    [which] = d
         metadata[which] = m
 
-        # I compute an estimate of the poses of the calibration object in the local
-        # coord system of each camera for each frame. This is done for each frame
-        # and for each camera separately. This isn't meant to be precise, and is
-        # only used for seeding.
-        #
-        # I get rotation, translation such that R*calobject + t produces the
-        # calibration object points in the coord system of the camera. Here R,t have
-        # dimensions (N,3,3) and (N,3) respectively
-        R,t = estimate_local_calobject_poses( dots[which],
-                                              metadata[which]['dot_spacing'],
-                                              (focal_estimate, focal_estimate),
-                                              metadata[which]['imager_size'] )
-        calobject_poses[which] = (R,t)
+    return dots,metadata
 
+def _read_dots_asciilog(datadir):
+
+    def read_observations_from_file__asciilog_dots(filename):
+        r"""Parses a newer asciilog xxx.dots file
+
+Given the asciilog xxx.dots, read the observations into a numpy array. Returns
+this numpy array and a list of metadata.
+
+The array has axes: (idot_y, idot_x, idot2d_xy)
+
+So as an example, the observed pixel coord of the dot (3,4) is the 2-vector
+dots[3,4,:]
+
+The metadata is a dictionary, containing the dimensions of the imager, and the
+indices of frames that the numpy array contains
+
+        """
+
+        # Data. Axes: (idot_y, idot_x, idot2d_xy)
+        # So the observed pixel coord of the dot (3,4) is
+        # the 2-vector dots[3,4,:]
+        dots     = np.array( (), dtype=float)
+        metadata = {'dot_spacing': None}
+
+        point_index = 0
+
+        with open(filename, 'r') as f:
+
+            l = next(f)
+            if l != '# path fixture_size_m fixture_space_m fixture_cols fixture_rows num_dots_detected dot_fixture_col dot_fixture_row dot_fixture_physical_x dot_fixture_physical_y dot_image_col dot_image_row\n':
+                raise Exception("Unexpected legend in '{}".format(filename))
+            l = next(f)
+
+            m = re.match('.* ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
+            if m is None:
+                raise Exception("Unexpected metadata in '{}".format(filename))
+            metadata['dot_spacing'] = float(m.group(2))
+
+            # I only accept complete observations of the cal board for now
+            Ndetected = int(m.group(3))
+            if Ndetected != 100:
+                return None,None
+
+            dots = np.zeros((10,10,2), dtype=float)
+
+            for l in f:
+
+                lf = l.split()
+                idot_x,idot_y     = [int(x)   for x in lf[6 :8 ]]
+                dot2d_x, dot2d_y  = [float(x) for x in lf[10:12]]
+
+                # I only accept complete observations of the cal board for now
+                idot_y_want = int(point_index / 10)
+                idot_x_want = point_index - idot_y_want*10
+                if idot_x != idot_x_want or idot_y != idot_y_want:
+                    return None,None
+                point_index += 1
+
+                dots[idot_y,idot_x,:] = (dot2d_x,dot2d_y)
+
+        return dots, metadata
+
+
+
+
+    dots     = {}
+    metadata = {}
+
+    dotfiles_left  = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam0.dots'.format(datadir,pair)))
+    dotfiles_right = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam1.dots'.format(datadir,pair)))
+    dots['left' ] = np.array(())
+    dots['right'] = np.array(())
+
+    for fil_left,fil_right in zip(dotfiles_left,dotfiles_right):
+        m = re.match( '.*/frame([0-9]+)-pair[01]-cam0.dots$', fil_left)
+        if not m: raise Exception("Can't parse filename '{}'".format(fil_left))
+        i_frame_left = int(m.group(1))
+
+        m = re.match( '.*/frame([0-9]+)-pair[01]-cam1.dots$', fil_right)
+        if not m: raise Exception("Can't parse filename '{}'".format(fil_right))
+        i_frame_right = int(m.group(1))
+
+        if i_frame_left != i_frame_right:
+            raise Exception("Mismatched frames")
+
+        d_left, m_left  = read_observations_from_file__asciilog_dots( fil_left )
+        if d_left is None: continue
+
+        d_right,m_right = read_observations_from_file__asciilog_dots( fil_right )
+        if d_right is None: continue
+
+        if 'left'  not in metadata:
+            metadata['left' ] = m_left
+        else:
+            if m_left['dot_spacing'] != metadata['left' ]['dot_spacing']:
+                raise Exception("Inconsistent dot spacing")
+
+        if 'right' not in metadata:
+            metadata['right'] = m_right
+        else:
+            if m_right['dot_spacing'] != metadata['right' ]['dot_spacing']:
+                raise Exception("Inconsistent dot spacing")
+
+        if m_left['dot_spacing'] != m_right['dot_spacing']:
+            raise Exception("mismatched dot spacing")
+
+        # neato. I have a full view of the object with both cameras
+        dots['left' ] = nps.glue(dots['left' ], d_left,  axis = -4)
+        dots['right'] = nps.glue(dots['right'], d_right, axis = -4)
+
+    return dots,metadata
+
+
+def read_dots(datadir):
+    if(old_dots_file): return _read_dots_stcal(datadir)
+    return _read_dots_asciilog(datadir)
+
+
+
+
+
+
+
+cachefile_dots = 'mrcal.dots.pair{}.pickle'.format(pair)
+if( read_cache_dots ):
+    with open(cachefile_dots, 'r') as f:
+        dots,metadata = pickle.load(f)
 else:
+    dots,metadata = read_dots(datadir)
+    with open(cachefile_dots, 'w') as f:
+        pickle.dump( (dots,metadata), f, protocol=2)
 
-    if read_cache:
-        with open(cache, 'r') as f:
-            dots,metadata = pickle.load(f)
 
-    else:
-        dotfiles_left  = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam0.dots'.format(datadir,pair)))
-        dotfiles_right = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam1.dots'.format(datadir,pair)))
-        dots['left' ] = np.array(())
-        dots['right'] = np.array(())
-
-        for fil_left,fil_right in zip(dotfiles_left,dotfiles_right):
-            m = re.match( '.*/frame([0-9]+)-pair[01]-cam0.dots$', fil_left)
-            if not m: raise Exception("Can't parse filename '{}'".format(fil_left))
-            i_frame_left = int(m.group(1))
-
-            m = re.match( '.*/frame([0-9]+)-pair[01]-cam1.dots$', fil_right)
-            if not m: raise Exception("Can't parse filename '{}'".format(fil_right))
-            i_frame_right = int(m.group(1))
-
-            if i_frame_left != i_frame_right:
-                raise Exception("Mismatched frames")
-
-            d_left, m_left  = read_observations_from_file__asciilog_dots( fil_left )
-            if d_left is None: continue
-
-            d_right,m_right = read_observations_from_file__asciilog_dots( fil_right )
-            if d_right is None: continue
-
-            if 'left'  not in metadata:
-                metadata['left' ] = m_left
-            else:
-                if m_left['dot_spacing'] != metadata['left' ]['dot_spacing']:
-                    raise Exception("Inconsistent dot spacing")
-
-            if 'right' not in metadata:
-                metadata['right'] = m_right
-            else:
-                if m_right['dot_spacing'] != metadata['right' ]['dot_spacing']:
-                    raise Exception("Inconsistent dot spacing")
-
-            if m_left['dot_spacing'] != m_right['dot_spacing']:
-                raise Exception("mismatched dot spacing")
-
-            # neato. I have a full view of the object with both cameras
-            dots['left' ] = nps.glue(dots['left' ], d_left,  axis = -4)
-            dots['right'] = nps.glue(dots['right'], d_right, axis = -4)
-
-        with open(cache, 'w') as f:
-            pickle.dump( (dots,metadata), f, protocol=2)
-        print "Wrote cache to '{}'".format(cache)
-        sys.exit(1)
+calobject_poses = {}
+for which in ('left','right'):
+    # I compute an estimate of the poses of the calibration object in the local
+    # coord system of each camera for each frame. This is done for each frame
+    # and for each camera separately. This isn't meant to be precise, and is
+    # only used for seeding.
+    #
+    # I get rotation, translation such that R*calobject + t produces the
+    # calibration object points in the coord system of the camera. Here R,t have
+    # dimensions (N,3,3) and (N,3) respectively
+    metadata[which]['imager_size'] = (imager_w_estimate, imager_w_estimate)
+    R,t = estimate_local_calobject_poses( dots[which],
+                                          metadata[which]['dot_spacing'],
+                                          (focal_estimate, focal_estimate),
+                                          metadata[which]['imager_size'] )
+    # these map FROM the coord system of the calibration object TO the coord
+    # system of this camera
+    calobject_poses[which] = (R,t)
 
 
 
-    for which in ('left','right'):
-        # I compute an estimate of the poses of the calibration object in the local
-        # coord system of each camera for each frame. This is done for each frame
-        # and for each camera separately. This isn't meant to be precise, and is
-        # only used for seeding.
-        #
-        # I get rotation, translation such that R*calobject + t produces the
-        # calibration object points in the coord system of the camera. Here R,t have
-        # dimensions (N,3,3) and (N,3) respectively
-        metadata[which]['imager_size'] = (imager_w_estimate, imager_w_estimate)
-        R,t = estimate_local_calobject_poses( dots[which],
-                                              metadata[which]['dot_spacing'],
-                                              (focal_estimate, focal_estimate),
-                                              metadata[which]['imager_size'] )
-
-        # these map FROM the coord system of the calibration object TO the coord
-        # system of this camera
-        calobject_poses[which] = (R,t)
 
 if np.linalg.norm(metadata['left']['dot_spacing'] - metadata['right']['dot_spacing']) > 1e-5:
     raise Exception("Mismatched dot spacing")
@@ -618,7 +635,8 @@ intrinsics = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions))*1e
 mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, True)
 
 # Done! Write out a cache of the solution
-with open("solution.pickle", 'w') as f:
+cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair)
+with open(cachefile_solution, 'w') as f:
     pickle.dump( (intrinsics, extrinsics, frames, observations), f, protocol=2)
 
 # and write out the resulting cahvor files
