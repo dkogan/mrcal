@@ -147,7 +147,8 @@ lives at (y,x,:)
                            axis=-1) # shape (H,W,3)
     return full_object * dot_spacing
 
-def estimate_local_calobject_poses( dots, dot_spacing, focal, imager_size ):
+def estimate_local_calobject_poses( indices_frame_camera, \
+                                    dots, dot_spacing, focal, imager_size ):
     r"""Estimates pose of observed object in a single-camera view
 
 Given observations, and an estimate of camera intrinsics (focal lengths, imager
@@ -165,21 +166,28 @@ The observations are given in a numpy array with axes:
 So as an example, the observed pixel coord of the dot (3,4) in frame index 5 is
 the 2-vector dots[5,3,4,:]
 
-Missing observations are given as negative pixel coords
+Missing observations are given as negative pixel coords.
+
+This function returns an (Nobservations,4,3) array, with the observations
+aligned with the dots and indices_frame_camera arrays. Each observation the
+(4,3) slice is glue(R, t, axis=-2)
 
     """
 
+    Nobservations = indices_frame_camera.shape[0]
+
+    # this wastes memory, but makes it easier to keep track of which data goes
+    # with what
+    Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
     camera_matrix = np.array((( focal[0], 0,        imager_size[0]/2), \
                               (        0, focal[1], imager_size[1]/2), \
                               (        0,        0,                 1)))
 
     full_object = get_full_object(10, 10, dot_spacing)
 
-    # look through each frame
-    Rall = np.array(())
-    tall = np.array(())
+    for i_observation in xrange(dots.shape[0]):
+        d = dots[i_observation, ...]
 
-    for d in dots:
         d = nps.transpose(nps.clump( nps.mv( nps.glue(d, full_object, axis=-1), -1, -3 ), n=2 ))
         # d is (100,5); each row is an xy pixel observation followed by the xyz
         # coord of the point in the calibration object. I pick off those rows
@@ -198,13 +206,13 @@ Missing observations are given as negative pixel coords
         if tvec[2] <= 0:
             raise Exception("solvePnP says that tvec.z <= 0. Maybe needs a flip, but please examine this")
 
-        R,_ = cv2.Rodrigues(rvec)
-        Rall = nps.glue(Rall, R,            axis=-3)
-        tall = nps.glue(tall, tvec.ravel(), axis=-2)
+        Rt_all[i_observation, :3, :] = Rodrigues_toR_broadcasted(rvec.ravel())
+        Rt_all[i_observation,  3, :] = tvec.ravel()
 
-    return Rall,tall
+    return Rt_all
 
-def estimate_camera_pose( calobject_poses, dots, dot_spacing, metadata ):
+def estimate_camera_poses( calobject_poses_Rt, indices_frame_camera, \
+                           dots, dot_spacing, Ncameras):
     r'''Estimates camera poses in respect to each other
 
 We are given poses of the calibration object in respect to each observing
@@ -218,58 +226,146 @@ the observations
 
     '''
 
-    if sorted(metadata.keys()) != ['left', 'right']:
-        raise Exception("metadata dict has unknown keys: {}".format(metadata.keys()))
 
-    if 'frames' in metadata['left' ]:
-        f0 = metadata['left' ]['frames']
-        f1 = metadata['right']['frames']
-        if f0 != f1:
-            raise Exception("Inconsistent frame sets. This is from my quick implementation. Please fix")
-        Nframes = len(f0)
-    else:
-        Nframes = dots['left'].shape[0]
-
-    A = np.array(())
-    B = np.array(())
-
-    R0 = calobject_poses['left' ][0]
-    t0 = calobject_poses['left' ][1]
-    R1 = calobject_poses['right'][0]
-    t1 = calobject_poses['right'][1]
+    # This is a bit of a hack. I look at the correspondence of camera0 to camera
+    # i for i in 1:N-1. I ignore all correspondences between cameras i,j if i!=0
+    # and j!=0. Good enough for now
 
     full_object = get_full_object(10, 10, dot_spacing)
 
-    for iframe in xrange(Nframes):
+    Rt = np.array(())
+    for i_camera in xrange(1,Ncameras):
+        A = np.array(())
+        B = np.array(())
 
-        # d looks at one frame and has shape (10,10,7). Each row is
-        #   xy pixel observation in left camera
-        #   xy pixel observation in right camera
-        #   xyz coord of dot in the calibration object coord system
-        d = nps.glue( dots['left'][iframe], dots['right'][iframe], full_object, axis=-1 )
+        # I traverse my observation list, and pick out observations from frames
+        # that had data from both camera 0 and camera i
+        i_frame_last = -1
+        d0  = None
+        d1  = None
+        Rt0 = None
+        Rt1 = None
+        for i_observation in xrange(dots.shape[0]):
+            i_frame_this,i_camera_this = indices_frame_camera[i_observation, ...]
+            if i_frame_this != i_frame_last:
+                d0  = None
+                d1  = None
+                Rt0 = None
+                Rt1 = None
+                i_frame_last = i_frame_this
 
-        # squash dims so that d is (100,7)
-        d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
+            if i_camera_this == 0:
+                if Rt0 is not None:
+                    raise Exception("Saw multiple camera0 observations in frame {}".format(i_frame_this))
+                Rt0 = calobject_poses_Rt[i_observation, ...]
+                d0  = dots[i_observation, ...]
+            if i_camera_this == i_camera:
+                if Rt1 is not None:
+                    raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
+                                                                                            i_frame_this))
+                Rt1 = calobject_poses_Rt[i_observation, ...]
+                d1  = dots[i_observation, ...]
 
-        # I pick out those points that have observations in both frames
-        i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0) * (d[..., 3] >= 0)
-        d = d[i,:]
+                if Rt0 is None: # have camera1 observation, but not camera0
+                    continue
 
-        # ref_object is (N,3)
-        ref_object = d[:,4:]
+                # It's possible that I could have incomplete views of the
+                # calibration object, so I pull out only those point
+                # observations that have a complete view. In reality, I
+                # currently don't accept any incomplete views, and much outside
+                # code would need an update to support that. This doesn't hurt, however
 
-        A = nps.glue(A, nps.matmult( ref_object, nps.transpose(R0[iframe])) + t0[iframe],
-                     axis = -2)
-        B = nps.glue(B, nps.matmult( ref_object, nps.transpose(R1[iframe])) + t1[iframe],
-                     axis = -2)
+                # d looks at one frame and has shape (10,10,7). Each row is
+                #   xy pixel observation in left camera
+                #   xy pixel observation in right camera
+                #   xyz coord of dot in the calibration object coord system
+                d = nps.glue( d0, d1, full_object, axis=-1 )
 
+                # squash dims so that d is (100,7)
+                d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
 
-    Rt = align3d_procrustes(A, B)
-    return Rt[:3,:], Rt[3,:]
+                # I pick out those points that have observations in both frames
+                i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0) * (d[..., 3] >= 0)
+                d = d[i,:]
 
-def project_points_no_distortion(intrinsics, extrinsics, frames, observations, dot_spacing):
+                # ref_object is (N,3)
+                ref_object = d[:,4:]
+                A = nps.glue(A, nps.matmult( ref_object, nps.transpose(Rt0[:3,:])) + Rt0[3,:],
+                             axis = -2)
+                B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt1[:3,:])) + Rt1[3,:],
+                             axis = -2)
+        Rt = nps.glue(Rt, align3d_procrustes(A, B),
+                      axis=-3)
+
+    return Rt
+
+def estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt, indices_frame_camera):
+    r'''We're given
+
+calobject_poses_Rt:
+
+  an array of dimensions (Nobservations,4,3) that contains a
+  calobject-to-camera transformation estimate, for each observation of the board
+
+camera_poses_Rt:
+
+  an array of dimensions (Ncameras-1,4,3) that contains a camerai-to-camera0
+  transformation estimate. camera0-to-camera0 is the identity, so this isn't
+  stored
+
+indices_frame_camera:
+
+  an array of shape (Nobservations,2) that indicates which frame and which
+  camera has observed the board
+
+With this data, I return an array of shape (Nframes,6) that contains an estimate
+of the pose of each frame, in the camera0 coord system. Each row is (r,t) where
+r is a Rodrigues rotation and t is a translation that map points in the
+calobject coord system to that of camera 0
+
+    '''
+
+    frame_poses_rt = np.array(())
+
+    # frame poses should map FROM the frame coord system TO the ref coord system
+    # (camera 0). I have an estimate of these for each camera. Should merge them,
+    # but for now, let me simply take the first estimate
+    i_frame_last     = -1
+
+    for i_observation in xrange(indices_frame_camera.shape[0]):
+        i_frame,i_camera = indices_frame_camera[i_observation, ...]
+
+        if i_frame != i_frame_last:
+            if i_camera == 0:
+                R = calobject_poses_Rt[i_observation, :3, :]
+                t = calobject_poses_Rt[i_observation,  3, :]
+            else:
+                # cameraiTcamera0 camera0Tboard = cameraiTboard
+                # I need camera0Tboard = inv(cameraiTcamera0) cameraiTboard
+                # camera_poses_Rt    is inv(cameraiTcamera0)
+                # calobject_poses_Rt is cameraiTboard
+                Rtcam = camera_poses_Rt[i_camera-1, ...]
+                Rcam  = Rtcam[:3,:]
+                tcam  = Rtcam[ 3,:]
+                Rf = calobject_poses_Rt[i_observation, :3, :]
+                tf = calobject_poses_Rt[i_observation,  3, :]
+
+                # Rcam( Rframe *x + tframe) + tcam = Rcam Rframe x + Rcam tframe + tcam
+                R = nps.matmult(Rcam, Rf)
+                t = nps.matmult( Rcam, nps.transpose(tf)).ravel() + tcam
+
+            frame_poses_rt = nps.glue(frame_poses_rt,
+                                      nps.glue( Rodrigues_tor_broadcasted(R),
+                                                t,
+                                                axis=-1 ),
+                                      axis=-2)
+            i_frame_last = i_frame
+
+    return frame_poses_rt
+
+def project_points_no_distortion(intrinsics, extrinsics, frames, dot_spacing):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all the
-reprojection errors'''
+projections. Output has shape (Nframes,Ncameras,10,10,2)'''
 
     object_ref = get_full_object(10, 10, dot_spacing)
     Rf = Rodrigues_toR_broadcasted(frames[:,:3])
@@ -296,9 +392,30 @@ reprojection errors'''
     projected = object_cam[..., :2] / object_cam[..., 2:] * intrinsics[..., :2] + intrinsics[..., 2:]
     return projected
 
+def compute_reproj_error(projected, observations, indices_frame_camera):
+    r'''Given
+
+- projected (shape [Nframes,Ncameras,10,10,2])
+- observations (shape [Nframes,10,10,2])
+- indices_frame_camera (shape [Nobservations,2])
+
+Return the reprojection error for each point: shape [Nobservations,10,10,2]
+
+    '''
+
+    Nframes               = projected.shape[0]
+    Nobservations         = indices_frame_camera.shape[0]
+    err                   = np.zeros((Nobservations,10,10,2))
+    for i_observation in xrange(Nobservations):
+        i_frame, i_camera = indices_frame_camera[i_observation]
+        err[i_observation] = observations[i_observation] - projected[i_frame,i_camera]
+
+    return err
+
 
 def _read_dots_stcal(datadir):
 
+    raise Exception("This is still coded to assume stereo PAIRS. Update to use discrete cameras")
     def read_observations_from_file__old_dot(filename, which):
         r"""Parses the xxx.dots from the old stcal tool
 
@@ -426,16 +543,13 @@ The array has axes: (idot_y, idot_x, idot2d_xy)
 So as an example, the observed pixel coord of the dot (3,4) is the 2-vector
 dots[3,4,:]
 
-The metadata is a dictionary, containing the dimensions of the imager, and the
-indices of frames that the numpy array contains
-
         """
 
         # Data. Axes: (idot_y, idot_x, idot2d_xy)
         # So the observed pixel coord of the dot (3,4) is
         # the 2-vector dots[3,4,:]
-        dots     = np.array( (), dtype=float)
-        metadata = {'dot_spacing': None}
+        dots        = np.array( (), dtype=float)
+        dot_spacing = None
 
         point_index = 0
 
@@ -449,11 +563,11 @@ indices of frames that the numpy array contains
             m = re.match('.* ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
             if m is None:
                 raise Exception("Unexpected metadata in '{}".format(filename))
-            metadata['dot_spacing'] = float(m.group(2))
+            dot_spacing = float(m.group(2))
 
             # I only accept complete observations of the cal board for now
             Ndetected = int(m.group(3))
-            if Ndetected != 100:
+            if Ndetected != 10*10:
                 return None,None
 
             dots = np.zeros((10,10,2), dtype=float)
@@ -473,57 +587,79 @@ indices of frames that the numpy array contains
 
                 dots[idot_y,idot_x,:] = (dot2d_x,dot2d_y)
 
-        return dots, metadata
+        return dots, dot_spacing
 
 
 
 
-    dots     = {}
-    metadata = {}
 
-    dotfiles_left  = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam0.dots'.format(datadir,pair)))
-    dotfiles_right = sorted(glob.glob('{}/frame[0-9]*-pair{}-cam1.dots'.format(datadir,pair)))
-    dots['left' ] = np.array(())
-    dots['right'] = np.array(())
 
-    for fil_left,fil_right in zip(dotfiles_left,dotfiles_right):
-        m = re.match( '.*/frame([0-9]+)-pair[01]-cam0.dots$', fil_left)
-        if not m: raise Exception("Can't parse filename '{}'".format(fil_left))
-        i_frame_left = int(m.group(1))
 
-        m = re.match( '.*/frame([0-9]+)-pair[01]-cam1.dots$', fil_right)
-        if not m: raise Exception("Can't parse filename '{}'".format(fil_right))
-        i_frame_right = int(m.group(1))
 
-        if i_frame_left != i_frame_right:
-            raise Exception("Mismatched frames")
 
-        d_left, m_left  = read_observations_from_file__asciilog_dots( fil_left )
-        if d_left is None: continue
+    dots     = np.array(())
+    metadata = { 'indices_frame_camera': np.array((), dtype=np.int32),
+                 'imager_size'         : (imager_w_estimate, imager_w_estimate),
+                 'focal_estimate':       (focal_estimate, focal_estimate)}
 
-        d_right,m_right = read_observations_from_file__asciilog_dots( fil_right )
-        if d_right is None: continue
+    # all dotfile: left AND right AND whatever else we have
+    globstr = '{}/frame[0-9]*-pair{}-cam[0-9]*.dots'.format(datadir,pair)
+    dotfiles = sorted(glob.glob(globstr))
+    if len(dotfiles) == 0:
+        raise Exception("Glob '{}' matched nothing".format(globstr))
 
-        if 'left'  not in metadata:
-            metadata['left' ] = m_left
+    i_frame_consecutive   = -1
+    new_consecutive_frame = False
+    i_frame_last          = -1
+    seen_cameras          = set()
+    i_camera_last         = None
+
+    for fil in dotfiles:
+        m                         = re.match( '.*/frame([0-9]+)-pair[01]-cam([0-9]+)\.dots$', fil)
+        if not m: raise Exception("Can't parse filename '{}'".format(fil))
+        i_frame                   = int(m.group(1))
+        i_camera                  = int(m.group(2))
+        if i_frame != i_frame_last and \
+           i_frame != i_frame_last+1:
+            raise Exception("Non-consecutive i_frame: got {} and then {}".format(i_frame_last,i_frame))
+        if i_frame != i_frame_last:
+            i_camera_last         = i_camera-1
+            i_frame_last          = i_frame
+            new_consecutive_frame = True
+        if i_camera <= i_camera_last:
+            raise Exception("Non-consecutive i_camera: got {} and then {} in frame {}".
+                            format(i_camera_last, i_camera, i_frame))
+
+        seen_cameras.add(i_camera)
+
+        d,dot_spacing = read_observations_from_file__asciilog_dots( fil )
+        if d is None: continue
+
+        if not 'dot_spacing' in metadata:
+            metadata['dot_spacing'] = dot_spacing
         else:
-            if m_left['dot_spacing'] != metadata['left' ]['dot_spacing']:
+            if dot_spacing != metadata['dot_spacing']:
                 raise Exception("Inconsistent dot spacing")
 
-        if 'right' not in metadata:
-            metadata['right'] = m_right
-        else:
-            if m_right['dot_spacing'] != metadata['right' ]['dot_spacing']:
-                raise Exception("Inconsistent dot spacing")
+        if new_consecutive_frame:
+            i_frame_consecutive += 1
+            new_consecutive_frame = False
 
-        if m_left['dot_spacing'] != m_right['dot_spacing']:
-            raise Exception("mismatched dot spacing")
+        dots = nps.glue(dots, d, axis = -4)
+        metadata['indices_frame_camera'] = \
+            nps.glue(metadata['indices_frame_camera'],
+                     np.array((i_frame_consecutive, i_camera), dtype=np.int32),
+                     axis=-2)
 
-        # neato. I have a full view of the object with both cameras
-        dots['left' ] = nps.glue(dots['left' ], d_left,  axis = -4)
-        dots['right'] = nps.glue(dots['right'], d_right, axis = -4)
 
+    if min(seen_cameras) != 0:
+        raise Exception("Min camera index must be 0, but got {}".format(min(seen_cameras)))
+    metadata['Ncameras'] = max(seen_cameras) + 1
+    if metadata['Ncameras'] != len(seen_cameras):
+        raise Exception("Non-consecutive cam indices: min: {} max: {} len: {}". \
+                        format(min(seen_cameras),max(seen_cameras),len(seen_cameras)))
     return dots,metadata
+
 
 
 def read_dots(datadir):
@@ -546,30 +682,33 @@ else:
         pickle.dump( (dots,metadata), f, protocol=2)
 
 
-calobject_poses = {}
-for which in ('left','right'):
-    # I compute an estimate of the poses of the calibration object in the local
-    # coord system of each camera for each frame. This is done for each frame
-    # and for each camera separately. This isn't meant to be precise, and is
-    # only used for seeding.
-    #
-    # I get rotation, translation such that R*calobject + t produces the
-    # calibration object points in the coord system of the camera. Here R,t have
-    # dimensions (N,3,3) and (N,3) respectively
-    metadata[which]['imager_size'] = (imager_w_estimate, imager_w_estimate)
-    R,t = estimate_local_calobject_poses( dots[which],
-                                          metadata[which]['dot_spacing'],
-                                          (focal_estimate, focal_estimate),
-                                          metadata[which]['imager_size'] )
-    # these map FROM the coord system of the calibration object TO the coord
-    # system of this camera
-    calobject_poses[which] = (R,t)
+# I now have estimates of all parameters, and can run the full optimization
+def make_intrinsics_vector(i_camera, metadata):
+    imager_w,imager_h = metadata['imager_size']
+    return np.array( (metadata['focal_estimate'][0], metadata['focal_estimate'][1],
+                      float(imager_w-1)/2.,
+                      float(imager_h-1)/2.))
+
+intrinsics = nps.cat( *[make_intrinsics_vector(i_camera, metadata) \
+                        for i_camera in xrange(metadata['Ncameras'])] )
 
 
-
-
-if np.linalg.norm(metadata['left']['dot_spacing'] - metadata['right']['dot_spacing']) > 1e-5:
-    raise Exception("Mismatched dot spacing")
+# I compute an estimate of the poses of the calibration object in the local
+# coord system of each camera for each frame. This is done for each frame
+# and for each camera separately. This isn't meant to be precise, and is
+# only used for seeding.
+#
+# I get rotation, translation in a (4,3) array, such that R*calobject + t
+# produces the calibration object points in the coord system of the camera.
+# The result has dimensions (N,4,3)
+calobject_poses_Rt = \
+    estimate_local_calobject_poses( metadata['indices_frame_camera'],
+                                    dots,
+                                    metadata['dot_spacing'],
+                                    metadata['focal_estimate'],
+                                    metadata['imager_size'] )
+# these map FROM the coord system of the calibration object TO the coord
+# system of this camera
 
 # I now have a rough estimate of calobject poses in the coord system of each
 # frame. One can think of these as two sets of point clouds, each attached to
@@ -580,59 +719,56 @@ if np.linalg.norm(metadata['left']['dot_spacing'] - metadata['right']['dot_spaci
 #
 # I get transformations that map points in 1-Nth camera coord system to 0th
 # camera coord system. R,t have dimensions (N-1,3,3) and (N-1,3) respectively
-R,t = estimate_camera_pose( calobject_poses,
-                            dots,
-                            metadata['left']['dot_spacing'],
-                            metadata )
-
-# I now have estimates of all parameters, and can run the full optimization
-Ncameras = 2
-Nframes  = dots['left'].shape[0]
-
-
-def get_intrinsics(which):
-    if 'imager_size' not in metadata[which]:
-        imager_w = imager_w_estimate
-        imager_h = imager_w_estimate
-    else:
-        imager_w,imager_h = metadata[which]['imager_size']
-    return np.array((focal_estimate, focal_estimate,
-                     float(imager_w-1)/2.,
-                     float(imager_h-1)/2.))
-
-intrinsics = nps.cat(get_intrinsics('left'), get_intrinsics('right'))
+camera_poses_Rt = estimate_camera_poses( calobject_poses_Rt,
+                                         metadata['indices_frame_camera'],
+                                         dots,
+                                         metadata['dot_spacing'],
+                                         metadata['Ncameras'] )
 
 # extrinsics should map FROM the ref coord system TO the coord system of the
 # camera in question. This is backwards from what I have. To flip:
 #
 # R*x + t = x'    ->     x = Rt x' - Rt t
-extrinsics = nps.atleast_dims( nps.glue( cv2.Rodrigues(nps.transpose(R))[0].ravel(),
-                                         -nps.matmult( t, R ), axis=-1 ),
+R = camera_poses_Rt[..., :3, :]
+t = camera_poses_Rt[...,  3, :]
+extrinsics = nps.atleast_dims( nps.glue( Rodrigues_tor_broadcasted(nps.transpose(R)),
+                                         -nps.matmult( nps.dummy(t,-2), R )[..., 0, :],
+                                         axis=-1 ),
                                -2)
 
-# frame poses should map FROM the frame coord system TO the ref coord system
-# (camera 0). I have an estimate of these for each camera. Should merge them,
-# but for now, let me simply take the camera0 estimate
-allR,allt = calobject_poses['left']
+frames = \
+    estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt,
+                         metadata['indices_frame_camera'])
+observations = dots
 
-frames = nps.glue( Rodrigues_tor_broadcasted(allR), allt, axis=-1 )
 
-observations = nps.mv( nps.cat( dots['left'], dots['right']), 0, -4)
-observations = np.ascontiguousarray(observations)
 
 
 
 # done with everything. Run the calibration, in several passes.
-distortion_model = "DISTORTION_NONE"
-mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, False)
+projected = \
+    project_points_no_distortion(intrinsics, extrinsics, frames,
+                                 metadata['dot_spacing'])
+err = compute_reproj_error(projected, observations,
+                           metadata['indices_frame_camera'])
+
+norm2_err = nps.inner(err.ravel(), err.ravel())
+rms_err   = np.sqrt( norm2_err / (err.ravel().shape[0]/2) )
+print "initial norm2 err: {}, rms: {}".format(norm2_err, rms_err )
 
 distortion_model = "DISTORTION_NONE"
-mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, True)
+mrcal.optimize(intrinsics, extrinsics, frames,
+               observations, metadata['indices_frame_camera'], distortion_model, False)
+
+distortion_model = "DISTORTION_NONE"
+mrcal.optimize(intrinsics, extrinsics, frames,
+               observations, metadata['indices_frame_camera'], distortion_model, True)
 
 distortion_model = "DISTORTION_CAHVOR"
 Ndistortions = mrcal.getNdistortionParams(distortion_model)
-intrinsics = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions))*1e-6, axis=-1 )
-mrcal.optimize(intrinsics, extrinsics, frames, observations, distortion_model, True)
+intrinsics = nps.glue( intrinsics, np.random.random((metadata['Ncameras'], Ndistortions))*1e-6, axis=-1 )
+mrcal.optimize(intrinsics, extrinsics, frames,
+               observations, metadata['indices_frame_camera'], distortion_model, True)
 
 # Done! Write out a cache of the solution
 cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair)
