@@ -25,10 +25,14 @@ read_cache_dots = True
 
 focal_estimate    = 1950 # pixels
 imager_w_estimate = 3904
-datadir           = '/to_be_filed/datasets/2017-08-08-usv-swarm-test-3/output/calibration/stereo-2017-08-02-Wed-19-30-23/dots/opencv-only'
 
-old_dots_file = False
-# datadir           = '/home/dima/data/cal_data_2017_07_14/lfc4/' # for old dot files
+# This is a concatenation of all the individual files in
+# /to_be_filed/datasets/2017-08-08-usv-swarm-test-3/output/calibration/stereo-2017-08-02-Wed-19-30-23/dots/opencv-only
+datafile_asciilog='viet_norfolk_joint.asciilog'
+
+
+# if defined, we will use this:
+# datadir_stcal = '/home/dima/data/cal_data_2017_07_14/lfc4/' # for old dot files
 
 
 
@@ -530,51 +534,80 @@ indices of frames that the numpy array contains
 
     return dots,metadata
 
-def _read_dots_asciilog(datadir):
+def _read_dots_asciilog(datafile):
+    r'''Reads an asciilog dots file produced by cdas-find-dots
 
-    def read_observations_from_file__asciilog_dots(filename):
-        r"""Parses a newer asciilog xxx.dots file
+cdas-find-dots lives in the cdas-core project.
 
-Given the asciilog xxx.dots, read the observations into a numpy array. Returns
-this numpy array and a list of metadata.
+This function parses a single data file that contains ALL the observations.
+There are no assumptions of any joint observations. I.e. during each instant in
+time anywhere from 1 to N>2 cameras could have been observed (this is a generic
+N-camera calibration, NOT a camera pair calibration).
 
-The array has axes: (idot_y, idot_x, idot2d_xy)
+Each board observation lives in a slice of the returned 'dots' array. The frame
+and camera indices responsible for that observation live in a corresponding
+slice of the metadata['indices_frame_camera'] array
 
-So as an example, the observed pixel coord of the dot (3,4) is the 2-vector
-dots[3,4,:]
+    '''
+    def get_next_dots(f):
 
-        """
+        def parse_image_header(l):
+            # Two image formats are possible:
+            #   frame00002-pair1-cam0.jpg
+            #   input-right-0-02093.jpg
+            m = re.match('([^ ]*/frame([0-9]+)-pair([01])-cam([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
+            if m:
+                path        = m.group(1)
+                i_frame     = int(m.group(2))
+                i_pair      = int(m.group(3))
+                i_camera    = int(m.group(4))
+                dot_spacing = float(m.group(6))
+                Ndetected   = int(m.group(7))
+                return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
+            m = re.match('([^ ]*/input-(left|right)-([01])-([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
+            if m:
+                path        = m.group(1)
+                i_frame     = int(m.group(4))
+                i_pair      = int(m.group(3))
+                i_camera    = 0 if m.group(2) == 'left' else 1
+                dot_spacing = float(m.group(6))
+                Ndetected   = int(m.group(7))
+                return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
+            raise Exception("Couldn't parse image header line '{}'".format(l))
 
-        # Data. Axes: (idot_y, idot_x, idot2d_xy)
-        # So the observed pixel coord of the dot (3,4) is
-        # the 2-vector dots[3,4,:]
-        dots        = np.array( (), dtype=float)
-        dot_spacing = None
 
-        point_index = 0
 
-        with open(filename, 'r') as f:
 
-            l = next(f)
-            if l != '# path fixture_size_m fixture_space_m fixture_cols fixture_rows num_dots_detected dot_fixture_col dot_fixture_row dot_fixture_physical_x dot_fixture_physical_y dot_image_col dot_image_row\n':
-                raise Exception("Unexpected legend in '{}".format(filename))
-            l = next(f)
 
-            m = re.match('.* ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
-            if m is None:
-                raise Exception("Unexpected metadata in '{}".format(filename))
-            dot_spacing = float(m.group(2))
+        # Keep going until I get a full frame's worth of data or until there's
+        # nothing else to read
+        while True:
 
-            # I only accept complete observations of the cal board for now
-            Ndetected = int(m.group(3))
+            # Grab the next non-comment line
+            while True:
+                try:
+                    l = next(f)
+                except:
+                    return None,None,None,None,None,None
+                if l[0] != '#':
+                    break
+
+            path,i_frame,i_pair,i_camera,dot_spacing,Ndetected = parse_image_header(l)
+
             if Ndetected != 10*10:
-                return None,None
+                if Ndetected != 0:
+                    raise Exception("I can't handle incomplete board observations yet")
+                continue
 
+            # OK then. I have dots to look at
             dots = np.zeros((10,10,2), dtype=float)
 
-            for l in f:
-
+            for point_index in xrange(Ndetected):
+                l = next(f)
                 lf = l.split()
+                if lf[0] != path:
+                    raise Exception("Unexpected incomplete observation. Expected path '{}' but got '{}'".
+                                    format(path, lf[0]))
                 idot_x,idot_y     = [int(x)   for x in lf[6 :8 ]]
                 dot2d_x, dot2d_y  = [float(x) for x in lf[10:12]]
 
@@ -582,12 +615,11 @@ dots[3,4,:]
                 idot_y_want = int(point_index / 10)
                 idot_x_want = point_index - idot_y_want*10
                 if idot_x != idot_x_want or idot_y != idot_y_want:
-                    return None,None
-                point_index += 1
+                    raise Exception("Unexpected dot index")
 
                 dots[idot_y,idot_x,:] = (dot2d_x,dot2d_y)
 
-        return dots, dot_spacing
+            return path,i_frame,i_pair,i_camera,dot_spacing,dots
 
 
 
@@ -597,74 +629,88 @@ dots[3,4,:]
 
 
 
-    dots     = np.array(())
-    metadata = { 'indices_frame_camera': np.array((), dtype=np.int32),
-                 'imager_size'         : (imager_w_estimate, imager_w_estimate),
-                 'focal_estimate':       (focal_estimate, focal_estimate)}
 
-    # all dotfile: left AND right AND whatever else we have
-    globstr = '{}/frame[0-9]*-pair{}-cam[0-9]*.dots'.format(datadir,pair)
-    dotfiles = sorted(glob.glob(globstr))
-    if len(dotfiles) == 0:
-        raise Exception("Glob '{}' matched nothing".format(globstr))
+    # dimensions (Nobservations, 10,10, 2)
+    dots                 = np.array(())
+    # dimension (Nobservations, 2). Each row is (i_frame_consecutive, i_camera)
+    indices_frame_camera = np.array((), dtype=np.int32)
+
+    metadata = { 'imager_size':    (imager_w_estimate, imager_w_estimate),
+                 'focal_estimate': (focal_estimate, focal_estimate)}
 
     i_frame_consecutive   = -1
-    new_consecutive_frame = False
     i_frame_last          = -1
     seen_cameras          = set()
     i_camera_last         = None
 
-    for fil in dotfiles:
-        m                         = re.match( '.*/frame([0-9]+)-pair[01]-cam([0-9]+)\.dots$', fil)
-        if not m: raise Exception("Can't parse filename '{}'".format(fil))
-        i_frame                   = int(m.group(1))
-        i_camera                  = int(m.group(2))
-        if i_frame != i_frame_last and \
-           i_frame != i_frame_last+1:
-            raise Exception("Non-consecutive i_frame: got {} and then {}".format(i_frame_last,i_frame))
-        if i_frame != i_frame_last:
-            i_camera_last         = i_camera-1
-            i_frame_last          = i_frame
-            new_consecutive_frame = True
-        if i_camera <= i_camera_last:
-            raise Exception("Non-consecutive i_camera: got {} and then {} in frame {}".
-                            format(i_camera_last, i_camera, i_frame))
-
-        seen_cameras.add(i_camera)
-
-        d,dot_spacing = read_observations_from_file__asciilog_dots( fil )
-        if d is None: continue
-
-        if not 'dot_spacing' in metadata:
-            metadata['dot_spacing'] = dot_spacing
-        else:
-            if dot_spacing != metadata['dot_spacing']:
-                raise Exception("Inconsistent dot spacing")
-
-        if new_consecutive_frame:
-            i_frame_consecutive += 1
-            new_consecutive_frame = False
-
-        dots = nps.glue(dots, d, axis = -4)
-        metadata['indices_frame_camera'] = \
-            nps.glue(metadata['indices_frame_camera'],
-                     np.array((i_frame_consecutive, i_camera), dtype=np.int32),
-                     axis=-2)
+    # used to make sure we don't get interspersed image descriptions in the
+    # input file: I want each image to be described in a discrete, consecutive
+    # block
+    seen_image_paths = set()
 
 
-    if min(seen_cameras) != 0:
-        raise Exception("Min camera index must be 0, but got {}".format(min(seen_cameras)))
-    metadata['Ncameras'] = max(seen_cameras) + 1
-    if metadata['Ncameras'] != len(seen_cameras):
-        raise Exception("Non-consecutive cam indices: min: {} max: {} len: {}". \
-                        format(min(seen_cameras),max(seen_cameras),len(seen_cameras)))
-    return dots,metadata
+    # Data. Axes: (idot_y, idot_x, idot2d_xy)
+    # So the observed pixel coord of the dot (3,4) is
+    # the 2-vector dots[3,4,:]
+    dots        = np.array( (), dtype=float)
+    dot_spacing = None
+
+    point_index = 0
+
+    with open(datafile, 'r') as f:
+
+        l = next(f)
+        if l != '# path fixture_size_m fixture_space_m fixture_cols fixture_rows num_dots_detected dot_fixture_col dot_fixture_row dot_fixture_physical_x dot_fixture_physical_y dot_image_col dot_image_row\n':
+            raise Exception("Unexpected legend in '{}".format(datafile))
+
+        while True:
+            path,i_frame,i_pair,i_camera,dot_spacing,dots_here = get_next_dots(f)
+            if i_frame is None:
+                break
+
+            if i_pair == pair: continue
+
+            if path in seen_image_paths:
+                raise Exception("Non-consecutive observation of image '{}'".format(path))
+            seen_image_paths.add(path)
+
+            # got valid observation
+            if i_frame != i_frame_last:
+                i_camera_last        = i_camera-1
+                i_frame_last         = i_frame
+                i_frame_consecutive += 1
+            if i_camera <= i_camera_last:
+                raise Exception("Non-consecutive i_camera: got {} and then {} in frame {}".
+                                format(i_camera_last, i_camera, i_frame))
+
+            seen_cameras.add(i_camera)
+
+            if not 'dot_spacing' in metadata:
+                metadata['dot_spacing'] = dot_spacing
+            else:
+                if dot_spacing != metadata['dot_spacing']:
+                    raise Exception("Inconsistent dot spacing")
+
+            dots = nps.glue(dots, dots_here, axis = -4)
+            indices_frame_camera = \
+                nps.glue(indices_frame_camera,
+                         np.array((i_frame_consecutive, i_camera), dtype=np.int32),
+                         axis=-2)
 
 
-
-def read_dots(datadir):
-    if(old_dots_file): return _read_dots_stcal(datadir)
-    return _read_dots_asciilog(datadir)
+        if min(seen_cameras) != 0:
+            raise Exception("Min camera index must be 0, but got {}".format(min(seen_cameras)))
+        metadata['Ncameras'] = max(seen_cameras) + 1
+        if metadata['Ncameras'] != len(seen_cameras):
+            raise Exception("Non-consecutive cam indices: min: {} max: {} len: {}". \
+                            format(min(seen_cameras),max(seen_cameras),len(seen_cameras)))
+        metadata['indices_frame_camera'] = indices_frame_camera
+        return dots,metadata
+def read_dots():
+    try:
+        return _read_dots_stcal(datadir_stcal)
+    except:
+        return _read_dots_asciilog(datafile_asciilog)
 
 
 
@@ -677,7 +723,7 @@ if( read_cache_dots ):
     with open(cachefile_dots, 'r') as f:
         dots,metadata = pickle.load(f)
 else:
-    dots,metadata = read_dots(datadir)
+    dots,metadata = read_dots()
     with open(cachefile_dots, 'w') as f:
         pickle.dump( (dots,metadata), f, protocol=2)
 
