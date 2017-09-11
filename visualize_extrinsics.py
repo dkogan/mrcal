@@ -61,6 +61,7 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
         transforms = [f for f in args.cal_file if re.match('(?:.*/)?transforms.txt$', f.name)]
         if len(transforms) != 1:
             raise Exception("Exactly one transforms.txt should have been given")
+        transforms = transforms[0]
 
         cahvors = {}
         for f in args.cal_file:
