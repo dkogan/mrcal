@@ -327,7 +327,7 @@ def parse_and_consolidate(transforms, cahvors):
 
     pair_ids = sorted(transforms['ins_from_camera'].keys())
     if pair_ids != sorted(cahvors.keys()):
-        raise Exception("Mismatched camera pair IDs")
+        raise Exception("Mismatched camera pair IDs. transforms.txt knows about pairs {}, but I have cahvors for pairs {}".format(pair_ids,cahvors.keys()))
 
     pairs = {}
     for i in pair_ids:
