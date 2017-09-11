@@ -637,13 +637,9 @@ slice of the metadata['indices_frame_camera'] array
     i_frame_consecutive   = -1
     i_frame_last          = -1
     seen_cameras          = set()
-    i_camera_last         = None
 
-    # used to make sure we don't get interspersed image descriptions in the
-    # input file: I want each image to be described in a discrete, consecutive
-    # block
-    seen_image_paths = set()
-
+    # I want the data to come in order:
+    # frames - pairs - cameras - dots
 
     # Data. Axes: (idot_y, idot_x, idot2d_xy)
     # So the observed pixel coord of the dot (3,4) is
@@ -664,20 +660,39 @@ slice of the metadata['indices_frame_camera'] array
             if i_frame is None:
                 break
 
-            if i_pair == pair: continue
-
-            if path in seen_image_paths:
-                raise Exception("Non-consecutive observation of image '{}'".format(path))
-            seen_image_paths.add(path)
-
-            # got valid observation
             if i_frame != i_frame_last:
-                i_camera_last        = i_camera-1
+                new_frame = True
+
+            # make sure I get the ordering I want: frames - pairs - cameras
+            if i_frame != i_frame_last:
+                # if i_frame < i_frame_last:
+                #     raise Exception("Non-consecutive i_frame: got {} and then {}".
+                #                     format(i_frame_last, i_frame))
+                # commented out because I have different directories and non-consecutive frames will thus result
+
                 i_frame_last         = i_frame
+                i_pair_last          = i_pair
+                i_camera_last        = i_camera
+            elif i_pair != i_pair_last:
+                if i_pair < i_pair_last:
+                    raise Exception("Non-consecutive i_pair: got {} and then {}".
+                                    format(i_pair_last, i_pair))
+                i_pair_last          = i_pair
+                i_camera_last        = i_camera
+            elif i_camera != i_camera_last:
+                if i_camera < i_camera_last:
+                    raise Exception("Non-consecutive i_camera: got {} and then {}".
+                                    format(i_camera_last, i_camera))
+                i_camera_last        = i_camera
+
+
+            if i_pair != pair_want:
+                continue
+
+            if new_frame:
                 i_frame_consecutive += 1
-            if i_camera <= i_camera_last:
-                raise Exception("Non-consecutive i_camera: got {} and then {} in frame {}".
-                                format(i_camera_last, i_camera, i_frame))
+                new_frame = False
+
 
             seen_cameras.add(i_camera)
 
