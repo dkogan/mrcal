@@ -367,7 +367,7 @@ calobject coord system to that of camera 0
 
     return frame_poses_rt
 
-def project_points_no_distortion(intrinsics, extrinsics, frames, dot_spacing):
+def project_points(intrinsics, extrinsics, frames, dot_spacing):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all the
 projections. Output has shape (Nframes,Ncameras,10,10,2)'''
 
@@ -393,8 +393,7 @@ projections. Output has shape (Nframes,Ncameras,10,10,2)'''
     intrinsics = nps.mv(intrinsics, 0, -4)
 
     # projected points. shape=(Nframes, Ncameras, 10, 10, 2)
-    projected = object_cam[..., :2] / object_cam[..., 2:] * intrinsics[..., :2] + intrinsics[..., 2:]
-    return projected
+    return camera_models.project( object_cam, intrinsics )
 
 def compute_reproj_error(projected, observations, indices_frame_camera):
     r'''Given
@@ -793,8 +792,8 @@ observations = dots
 
 # done with everything. Run the calibration, in several passes.
 projected = \
-    project_points_no_distortion(intrinsics, extrinsics, frames,
-                                 metadata['dot_spacing'])
+    project_points(intrinsics, extrinsics, frames,
+                   metadata['dot_spacing'])
 err = compute_reproj_error(projected, observations,
                            metadata['indices_frame_camera'])
 
