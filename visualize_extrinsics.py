@@ -58,16 +58,16 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
                         open('{}/camera{}-{}.cahvor'.format(args.dir[0], 1, 1), 'r')] }
 
     else:
-        transforms = [f for f in args.cal_file if f.name.endswith('/transforms.txt')]
+        transforms = [f for f in args.cal_file if re.match('(?:.*/)?transforms.txt$', f.name)]
         if len(transforms) != 1:
             raise Exception("Exactly one transforms.txt should have been given")
 
         cahvors = {}
         for f in args.cal_file:
-            if f.name.endswith('/transforms.txt'):
+            if re.match('(?:.*/)?transforms.txt$', f.name):
                 continue
 
-            m = re.match('.*/camera(\d+)-([01]).cahvor$', f.name)
+            m = re.match('(?:.*/)?camera(\d+)-([01]).cahvor$', f.name)
             if not m:
                 raise Exception("All cal_file args must be either 'transforms.txt' or 'camera-A-B.cahvor', but '{}' is neither".format(f.name))
 
