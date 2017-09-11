@@ -833,8 +833,8 @@ with open(cachefile_solution, 'w') as f:
     pickle.dump( (intrinsics, extrinsics, frames, observations), f, protocol=2)
 
 # and write out the resulting cahvor files
-cahvor0 = camera_models.make_cahvor( intrinsics[0] )
-cahvor1 = camera_models.make_cahvor( intrinsics[1], extrinsics[0] )
+cahvor0 = camera_models.assemble_cahvor( intrinsics[0] )
+cahvor1 = camera_models.assemble_cahvor( intrinsics[1], extrinsics[0] )
 
 camera_models.write_cahvor( "camera{}-0.cahvor".format(pair_want), cahvor0 )
 camera_models.write_cahvor( "camera{}-1.cahvor".format(pair_want), cahvor1 )
