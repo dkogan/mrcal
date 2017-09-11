@@ -70,7 +70,7 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
 
             m = re.match('(?:.*/)?camera(\d+)-([01]).cahvor$', f.name)
             if not m:
-                raise Exception("All cal_file args must be either 'transforms.txt' or 'camera-A-B.cahvor', but '{}' is neither".format(f.name))
+                raise Exception("All cal_file args must be either 'transforms.txt' or 'cameraA-B.cahvor', but '{}' is neither".format(f.name))
 
             p,i = int(m.group(1)),int(m.group(2))
             if cahvors.get(p) is None:
