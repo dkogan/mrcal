@@ -173,8 +173,8 @@ the 2-vector dots[5,3,4,:]
 Missing observations are given as negative pixel coords.
 
 This function returns an (Nobservations,4,3) array, with the observations
-aligned with the dots and indices_frame_camera arrays. Each observation the
-(4,3) slice is glue(R, t, axis=-2)
+aligned with the dots and indices_frame_camera arrays. Each observation slice is
+(4,3) in glue(R, t, axis=-2)
 
     """
 
@@ -230,13 +230,10 @@ the observations
 
     '''
 
-
     # This is a bit of a hack. I look at the correspondence of camera0 to camera
     # i for i in 1:N-1. I ignore all correspondences between cameras i,j if i!=0
     # and j!=0. Good enough for now
-
     full_object = get_full_object(10, 10, dot_spacing)
-
     Rt = np.array(())
     for i_camera in xrange(1,Ncameras):
         A = np.array(())
