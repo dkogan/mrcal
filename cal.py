@@ -729,7 +729,7 @@ def read_dots():
 
 
 
-cachefile_dots = 'mrcal.dots.pair{}.pickle'.format(pair)
+cachefile_dots = 'mrcal.dots.pair{}.pickle'.format(pair_want)
 if( read_cache_dots ):
     with open(cachefile_dots, 'r') as f:
         dots,metadata = pickle.load(f)
@@ -828,7 +828,7 @@ mrcal.optimize(intrinsics, extrinsics, frames,
                observations, metadata['indices_frame_camera'], distortion_model, True)
 
 # Done! Write out a cache of the solution
-cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair)
+cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair_want)
 with open(cachefile_solution, 'w') as f:
     pickle.dump( (intrinsics, extrinsics, frames, observations), f, protocol=2)
 
@@ -836,5 +836,5 @@ with open(cachefile_solution, 'w') as f:
 cahvor0 = camera_models.make_cahvor( intrinsics[0] )
 cahvor1 = camera_models.make_cahvor( intrinsics[1], extrinsics[0] )
 
-camera_models.write_cahvor( "camera{}-0.cahvor".format(pair), cahvor0 )
-camera_models.write_cahvor( "camera{}-1.cahvor".format(pair), cahvor1 )
+camera_models.write_cahvor( "camera{}-0.cahvor".format(pair_want), cahvor0 )
+camera_models.write_cahvor( "camera{}-1.cahvor".format(pair_want), cahvor1 )
