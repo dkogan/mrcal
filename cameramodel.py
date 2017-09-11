@@ -412,7 +412,13 @@ a (p,q) camera->pair tuple as usual
     return out
 
 def cahvor_warp(p, fx, fy, cx, cy, theta, phi, r0, r1, r2):
-    r'''Given intrinsic parameters of a CAHVOR model, apply the warp'''
+    r'''Apply a CAHVOR warp to a projected point
+
+Given intrinsic parameters of a CAHVOR model and a pinhole-projected point numpy
+array of shape (2,), return the projected point that we'd get with the CAHVOR
+warp.
+
+    '''
 
     # p is a 2d point. Temporarily convert to a 3d point
     p = np.array(((p[0] - cx)/fx, (p[1] - cy)/fy, 1))
@@ -427,3 +433,39 @@ def cahvor_warp(p, fx, fy, cx, cy, theta, phi, r0, r1, r2):
 
     # now I apply a normal projection to the warped 3d point p
     return np.array((fx,fy)) * p[:2] / p[2] + np.array((cx,cy))
+
+@nps.broadcast_define( ((3,),(Nintrinsics,)),
+                       (2,), )
+def project(p, intrinsics):
+    r'''Projects a 3D point using the given camera intrinsics
+
+This function is broadcastable, so you're meant to use it to project a number of
+points at the same time. Inputs:
+
+- p a 3D point in the camera coord system
+
+- intrinsics: a numpy array containing
+  - fx
+  - fy
+  - cx
+  - cy
+  - CAHVOR theta (for computing O)
+  - CAHVOR phi   (for computing O)
+  - CAHVOR R0
+  - CAHVOR R1
+  - CAHVOR R2
+
+  The CAHVOR distortion stuff is optional.
+
+    '''
+    if len(intrinsics) == 4:
+        pinhole = True
+    elif len(intrinsics) == 9:
+        pinhole = False
+    else:
+        raise Exception("I know how to deal with an ideal camera (4 intrinsics) or a cahvor camera (9 intrinsics), but I got {} intrinsics intead".format(len(intrinsics)))
+
+    p2d = p[:2]/p[2:] * intrinsics[:2] + intrinsics[2:]
+    if pinhole: return p2d
+
+    return cahvor_warp(p2d, *intrinsics)
