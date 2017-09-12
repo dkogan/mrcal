@@ -631,6 +631,7 @@ slice of the metadata['indices_frame_camera'] array
     # dimension (Nobservations, 2). Each row is (i_frame_consecutive, i_camera)
     indices_frame_camera = np.array((), dtype=np.int32)
 
+    paths = []
     metadata = { 'imager_size':    (imager_w_estimate, imager_w_estimate),
                  'focal_estimate': (focal_estimate, focal_estimate)}
 
@@ -707,6 +708,7 @@ slice of the metadata['indices_frame_camera'] array
                 nps.glue(indices_frame_camera,
                          np.array((i_frame_consecutive, i_camera), dtype=np.int32),
                          axis=-2)
+            paths.append(path)
 
 
         if min(seen_cameras) != 0:
@@ -716,6 +718,7 @@ slice of the metadata['indices_frame_camera'] array
             raise Exception("Non-consecutive cam indices: min: {} max: {} len: {}". \
                             format(min(seen_cameras),max(seen_cameras),len(seen_cameras)))
         metadata['indices_frame_camera'] = indices_frame_camera
+        metadata['paths']                = paths
         return dots,metadata
 def read_dots():
     try:
