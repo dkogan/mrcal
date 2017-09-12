@@ -434,7 +434,7 @@ warp.
     # now I apply a normal projection to the warped 3d point p
     return np.array((fx,fy)) * p[:2] / p[2] + np.array((cx,cy))
 
-@nps.broadcast_define( ((3,),(Nintrinsics,)),
+@nps.broadcast_define( ((3,),('Nintrinsics',)),
                        (2,), )
 def project(p, intrinsics):
     r'''Projects a 3D point using the given camera intrinsics
