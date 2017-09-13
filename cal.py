@@ -300,7 +300,7 @@ the observations
 
     return Rt
 
-def estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt, indices_frame_camera):
+def estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt, indices_frame_camera, dot_spacing):
     r'''We're given
 
 calobject_poses_Rt:
@@ -326,41 +326,92 @@ calobject coord system to that of camera 0
 
     '''
 
+
+    def process(i_observation0, i_observation1):
+        R'''Given a range of observations corresponding to the same frame, estimate the
+frame pose'''
+
+        def get_camera0Tboard(i_observation):
+            i_frame,i_camera = indices_frame_camera[i_observation, ...]
+
+            Rf = calobject_poses_Rt[i_observation, :3, :]
+            tf = calobject_poses_Rt[i_observation,  3, :]
+            if i_camera == 0:
+                return Rf,tf
+
+            # cameraiTcamera0 camera0Tboard = cameraiTboard
+            # I need camera0Tboard = inv(cameraiTcamera0) cameraiTboard
+            # camera_poses_Rt    is inv(cameraiTcamera0)
+            # calobject_poses_Rt is cameraiTboard
+            Rtcam = camera_poses_Rt[i_camera-1, ...]
+            Rcam  = Rtcam[:3,:]
+            tcam  = Rtcam[ 3,:]
+
+            # Rcam( Rframe *x + tframe) + tcam = Rcam Rframe x + Rcam tframe + tcam
+            R = nps.matmult(Rcam, Rf)
+            t = nps.matmult( Rcam, nps.transpose(tf)).ravel() + tcam
+            return R,t
+
+
+        # frame poses should map FROM the frame coord system TO the ref coord
+        # system (camera 0).
+
+        # special case: if there's a single observation, I just use it
+        if i_observation1 - i_observation0 == 1:
+            R,t = get_camera0Tboard(i_observation0)
+            return nps.glue( utils.Rodrigues_tor_broadcasted(R),
+                             t,
+                             axis=-1 )
+
+        # Multiple cameras have observed the object for this frame. I have an
+        # estimate of these for each camera. I merge them in a lame way: I
+        # average out the positions of each point, and fit the calibration
+        # object into the mean point cloud
+        obj = utils.get_full_object(Nwant, Nwant, dot_spacing)
+
+        sum_obj_unproj = obj*0
+        for i_observation in xrange(i_observation0, i_observation1):
+            R,t = get_camera0Tboard(i_observation)
+
+            sum_obj_unproj += (nps.matmult(R, nps.dummy(obj, -1)) + nps.transpose(t))[..., 0]
+
+        mean = sum_obj_unproj / (i_observation1 - i_observation0)
+
+        # Got my point cloud. fit
+
+        # transform both to shape = (N*N, 3)
+        obj  = nps.transpose(nps.clump( nps.mv(obj,  -1,-3), n=2))
+        mean = nps.transpose(nps.clump( nps.mv(mean, -1,-3), n=2))
+        Rt = align3d_procrustes( mean, obj )
+        R = Rt[:3,:]
+        t = Rt[3 ,:]
+        return nps.glue( utils.Rodrigues_tor_broadcasted(R),
+                         t,
+                         axis=-1 )
+
+
+
+
+
     frame_poses_rt = np.array(())
 
-    # frame poses should map FROM the frame coord system TO the ref coord system
-    # (camera 0). I have an estimate of these for each camera. Should merge them,
-    # but for now, let me simply take the first estimate
-    i_frame_last     = -1
+    i_frame_current          = -1
+    i_observation_framestart = -1;
 
     for i_observation in xrange(indices_frame_camera.shape[0]):
         i_frame,i_camera = indices_frame_camera[i_observation, ...]
 
-        if i_frame != i_frame_last:
-            if i_camera == 0:
-                R = calobject_poses_Rt[i_observation, :3, :]
-                t = calobject_poses_Rt[i_observation,  3, :]
-            else:
-                # cameraiTcamera0 camera0Tboard = cameraiTboard
-                # I need camera0Tboard = inv(cameraiTcamera0) cameraiTboard
-                # camera_poses_Rt    is inv(cameraiTcamera0)
-                # calobject_poses_Rt is cameraiTboard
-                Rtcam = camera_poses_Rt[i_camera-1, ...]
-                Rcam  = Rtcam[:3,:]
-                tcam  = Rtcam[ 3,:]
-                Rf = calobject_poses_Rt[i_observation, :3, :]
-                tf = calobject_poses_Rt[i_observation,  3, :]
+        if i_frame != i_frame_current:
+            if i_observation_framestart >= 0:
+                rt = process(i_observation_framestart, i_observation)
+                frame_poses_rt = nps.glue(frame_poses_rt, rt, axis=-2)
 
-                # Rcam( Rframe *x + tframe) + tcam = Rcam Rframe x + Rcam tframe + tcam
-                R = nps.matmult(Rcam, Rf)
-                t = nps.matmult( Rcam, nps.transpose(tf)).ravel() + tcam
+            i_observation_framestart = i_observation
+            i_frame_current = i_frame
 
-            frame_poses_rt = nps.glue(frame_poses_rt,
-                                      nps.glue( Rodrigues_tor_broadcasted(R),
-                                                t,
-                                                axis=-1 ),
-                                      axis=-2)
-            i_frame_last = i_frame
+    if i_observation_framestart >= 0:
+        rt = process(i_observation_framestart, indices_frame_camera.shape[0])
+        frame_poses_rt = nps.glue(frame_poses_rt, rt, axis=-2)
 
     return frame_poses_rt
 
@@ -798,7 +849,8 @@ extrinsics = nps.atleast_dims( nps.glue( Rodrigues_tor_broadcasted(nps.transpose
 
 frames = \
     estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt,
-                         metadata['indices_frame_camera'])
+                         metadata['indices_frame_camera'],
+                         metadata['dot_spacing'])
 observations = dots
 
 
