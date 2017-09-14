@@ -815,7 +815,7 @@ mrcal.optimize(intrinsics, extrinsics, frames,
 # Done! Write out a cache of the solution
 cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair_want)
 with open(cachefile_solution, 'w') as f:
-    pickle.dump( (intrinsics, extrinsics, frames, observations), f, protocol=2)
+    pickle.dump( (intrinsics, extrinsics, frames, observations, metadata), f, protocol=2)
 
 # and write out the resulting cahvor files
 cahvor0 = camera_models.assemble_cahvor( intrinsics[0] )
