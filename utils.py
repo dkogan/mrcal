@@ -277,8 +277,9 @@ visualization is colored by the reprojection-error-quality of the fit
 
     '''
 
+    Nobservations = len(indices_frame_camera)
     if i_camera is not None:
-        i_observations_frames = [(i,indices_frame_camera[i,0]) for i in xrange(len(indices_frame_camera)) if indices_frame_camera[i,1] == i_camera]
+        i_observations_frames = [(i,indices_frame_camera[i,0]) for i in xrange(Nobservations) if indices_frame_camera[i,1] == i_camera]
         i_observations, i_frames = nps.transpose(np.array(i_observations_frames))
         frames = frames[i_frames, ...]
 
@@ -293,7 +294,15 @@ visualization is colored by the reprojection-error-quality of the fit
     object_cam0 = nps.matmult( object_ref, nps.transpose(Rf)) + tf
     if i_camera is not None:
         # shape=(Nobservations, Nwant, Nwant, 2)
-        err = observations[i_observations, ...] - camera_models.project(object_cam0, intrinsics[i_camera, ...])
+        if i_camera == 0:
+            object_cam = object_cam0
+        else:
+            Rc = Rodrigues_toR_broadcasted(extrinsics[i_camera-1,:3])
+            tc = extrinsics[i_camera-1,3:]
+
+            object_cam = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
+
+        err = observations[i_observations, ...] - camera_models.project(object_cam, intrinsics[i_camera, ...])
         err = nps.clump(err, n=3)
         rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
         object_cam0 = nps.glue( object_cam0,
