@@ -16,7 +16,7 @@ import camera_models
 
 sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
 import mrcal
-
+import utils
 
 
 # stuff the user may want to set
@@ -25,6 +25,7 @@ read_cache_dots = True
 
 focal_estimate    = 1950 # pixels
 imager_w_estimate = 3904
+Nwant             = 10
 
 # This is a concatenation of all the individual files in
 # /to_be_filed/datasets/2017-08-08-usv-swarm-test-3/output/calibration/stereo-2017-08-02-Wed-19-30-23/dots/opencv-only
@@ -49,25 +50,6 @@ re_u = '\d+'
 re_d = '[-+]?\d+'
 re_s = '.+'
 
-
-@nps.broadcast_define( ((3,3),),
-                       (3,), )
-def Rodrigues_tor_broadcasted(R):
-    r'''Broadcasting-aware wrapper cvRodrigues
-
-This handles the R->r direction, and does not report the gradient'''
-
-    return cv2.Rodrigues(R)[0].ravel()
-
-
-@nps.broadcast_define( ((3,),),
-                       (3,3), )
-def Rodrigues_toR_broadcasted(r):
-    r'''Broadcasting-aware wrapper cvRodrigues
-
-This handles the r->R direction, and does not report the gradient'''
-
-    return cv2.Rodrigues(r)[0]
 
 
 @nps.broadcast_define( (('N',3), ('N',3),),
@@ -137,20 +119,6 @@ sure that R is in SO(3) not just in SE(3)
 
     return nps.glue( R, t.ravel(), axis=-2)
 
-def get_full_object(W, H, dot_spacing):
-    r'''Returns the geometry of the calibration object in its own coordinate frame
-
-Shape is (H,W,3). I.e. the x index varies the fastest and each xyz coordinate
-lives at (y,x,:)
-
-    '''
-
-    xx,yy       = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
-    full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
-                           np.zeros((H,W,1)),
-                           axis=-1) # shape (H,W,3)
-    return full_object * dot_spacing
-
 def estimate_local_calobject_poses( indices_frame_camera, \
                                     dots, dot_spacing, focal, imager_size ):
     r"""Estimates pose of observed object in a single-camera view
@@ -187,16 +155,16 @@ aligned with the dots and indices_frame_camera arrays. Each observation slice is
                               (        0, focal[1], imager_size[1]/2), \
                               (        0,        0,                 1)))
 
-    full_object = get_full_object(10, 10, dot_spacing)
+    full_object = utils.get_full_object(Nwant, Nwant, dot_spacing)
 
     for i_observation in xrange(dots.shape[0]):
         d = dots[i_observation, ...]
 
         d = nps.transpose(nps.clump( nps.mv( nps.glue(d, full_object, axis=-1), -1, -3 ), n=2 ))
-        # d is (100,5); each row is an xy pixel observation followed by the xyz
+        # d is (Nwant*Nwant,5); each row is an xy pixel observation followed by the xyz
         # coord of the point in the calibration object. I pick off those rows
         # where the observations are both >= 0. Result should be (N,5) where N
-        # <= 100
+        # <= Nwant*Nwant
         i = (d[..., 0] >= 0) * (d[..., 1] >= 0)
         d = d[i,:]
 
@@ -210,7 +178,7 @@ aligned with the dots and indices_frame_camera arrays. Each observation slice is
         if tvec[2] <= 0:
             raise Exception("solvePnP says that tvec.z <= 0. Maybe needs a flip, but please examine this")
 
-        Rt_all[i_observation, :3, :] = Rodrigues_toR_broadcasted(rvec.ravel())
+        Rt_all[i_observation, :3, :] = utils.Rodrigues_toR_broadcasted(rvec.ravel())
         Rt_all[i_observation,  3, :] = tvec.ravel()
 
     return Rt_all
@@ -233,8 +201,9 @@ the observations
     # This is a bit of a hack. I look at the correspondence of camera0 to camera
     # i for i in 1:N-1. I ignore all correspondences between cameras i,j if i!=0
     # and j!=0. Good enough for now
-    full_object = get_full_object(10, 10, dot_spacing)
+    full_object = utils.get_full_object(Nwant, Nwant, dot_spacing)
     Rt = np.array(())
+
     for i_camera in xrange(1,Ncameras):
         A = np.array(())
         B = np.array(())
@@ -415,54 +384,6 @@ frame pose'''
 
     return frame_poses_rt
 
-def project_points(intrinsics, extrinsics, frames, dot_spacing):
-    r'''Takes in the same arguments as mrcal.optimize(), and returns all the
-projections. Output has shape (Nframes,Ncameras,10,10,2)'''
-
-    object_ref = get_full_object(10, 10, dot_spacing)
-    Rf = Rodrigues_toR_broadcasted(frames[:,:3])
-    Rf = nps.mv(Rf,           0, -5)
-    tf = nps.mv(frames[:,3:], 0, -5)
-
-    # object in the cam0 coord system. shape=(Nframes, 1, 10, 10, 3)
-    object_cam0 = nps.matmult( object_ref, nps.transpose(Rf)) + tf
-
-    Rc = Rodrigues_toR_broadcasted(extrinsics[:,:3])
-    Rc = nps.mv(Rc,               0, -4)
-    tc = nps.mv(extrinsics[:,3:], 0, -4)
-
-    # object in the OTHER camera coord systems. shape=(Nframes, Ncameras-1, 10, 10, 3)
-    object_cam_others = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
-
-    # object in the ALL camera coord systems. shape=(Nframes, Ncameras, 10, 10, 3)
-    object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
-
-    # I now project all of these
-    intrinsics = nps.mv(intrinsics, 0, -4)
-
-    # projected points. shape=(Nframes, Ncameras, 10, 10, 2)
-    return camera_models.project( object_cam, intrinsics )
-
-def compute_reproj_error(projected, observations, indices_frame_camera):
-    r'''Given
-
-- projected (shape [Nframes,Ncameras,10,10,2])
-- observations (shape [Nframes,10,10,2])
-- indices_frame_camera (shape [Nobservations,2])
-
-Return the reprojection error for each point: shape [Nobservations,10,10,2]
-
-    '''
-
-    Nframes               = projected.shape[0]
-    Nobservations         = indices_frame_camera.shape[0]
-    err                   = np.zeros((Nobservations,10,10,2))
-    for i_observation in xrange(Nobservations):
-        i_frame, i_camera = indices_frame_camera[i_observation]
-        err[i_observation] = observations[i_observation] - projected[i_frame,i_camera]
-
-    return err
-
 
 def _read_dots_stcal(datadir):
 
@@ -497,7 +418,8 @@ indices of frames that the numpy array contains
             dots       = np.array( (), dtype=float)
             metadata   = {'frames': [],
                           'imager_size': None,
-                          'dot_spacing': None}
+                          'dot_spacing': None,
+                          'Nwant'      : Nwant}
             cur_frame  = None
             cur_iframe = None
 
@@ -544,7 +466,7 @@ indices of frames that the numpy array contains
 
                         cur_frame,cur_iframe = frame,iframe
                         dots = nps.glue( dots,
-                                         np.zeros((10,10,2), dtype=float) - 1,
+                                         np.zeros((Nwant,Nwant,2), dtype=float) - 1,
                                          axis=-4 )
                         metadata['frames'].append(frame)
 
@@ -567,7 +489,7 @@ indices of frames that the numpy array contains
 
 
     dots            = {}
-    metadata        = {}
+    metadata        = {'Nwant': Nwant}
 
     for fil in ('{}/stcal-left.dots' .format(datadir),
                 '{}/stcal-right.dots'.format(datadir)):
@@ -602,7 +524,7 @@ slice of the metadata['indices_frame_camera'] array
             # Two image formats are possible:
             #   frame00002-pair1-cam0.jpg
             #   input-right-0-02093.jpg
-            m = re.match('([^ ]*/frame([0-9]+)-pair([01])-cam([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
+            m = re.match('([^ ]*/frame([0-9]+)-pair([01])-cam([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) {Nwant} {Nwant} ({d}) - - - - - -\n$'.format(f=re_f, d=re_d, Nwant=Nwant), l)
             if m:
                 path        = m.group(1)
                 i_frame     = int(m.group(2))
@@ -611,7 +533,7 @@ slice of the metadata['indices_frame_camera'] array
                 dot_spacing = float(m.group(6))
                 Ndetected   = int(m.group(7))
                 return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
-            m = re.match('([^ ]*/input-(left|right)-([01])-([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) 10 10 ({d}) - - - - - -\n$'.format(f=re_f, d=re_d), l)
+            m = re.match('([^ ]*/input-(left|right)-([01])-([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) {Nwant} {Nwant} ({d}) - - - - - -\n$'.format(f=re_f, d=re_d,Nwant=Nwant), l)
             if m:
                 path        = m.group(1)
                 i_frame     = int(m.group(4))
@@ -641,13 +563,13 @@ slice of the metadata['indices_frame_camera'] array
 
             path,i_frame,i_pair,i_camera,dot_spacing,Ndetected = parse_image_header(l)
 
-            if Ndetected != 10*10:
+            if Ndetected != Nwant*Nwant:
                 if Ndetected != 0:
-                    raise Exception("I can't handle incomplete board observations yet")
+                    raise Exception("I can't handle incomplete board observations yet: {}".format(path))
                 continue
 
             # OK then. I have dots to look at
-            dots = np.zeros((10,10,2), dtype=float)
+            dots = np.zeros((Nwant,Nwant,2), dtype=float)
 
             for point_index in xrange(Ndetected):
                 l = next(f)
@@ -662,7 +584,7 @@ slice of the metadata['indices_frame_camera'] array
                 idot_y_want = int(point_index / 10)
                 idot_x_want = point_index - idot_y_want*10
                 if idot_x != idot_x_want or idot_y != idot_y_want:
-                    raise Exception("Unexpected dot index")
+                    raise Exception("Unexpected dot index. Line: '{}'".format(l))
 
                 dots[idot_y,idot_x,:] = (dot2d_x,dot2d_y)
 
@@ -677,14 +599,15 @@ slice of the metadata['indices_frame_camera'] array
 
 
 
-    # dimensions (Nobservations, 10,10, 2)
+    # dimensions (Nobservations, Nwant,Nwant, 2)
     dots                 = np.array(())
     # dimension (Nobservations, 2). Each row is (i_frame_consecutive, i_camera)
     indices_frame_camera = np.array((), dtype=np.int32)
 
     paths = []
     metadata = { 'imager_size':    (imager_w_estimate, imager_w_estimate),
-                 'focal_estimate': (focal_estimate, focal_estimate)}
+                 'focal_estimate': (focal_estimate, focal_estimate),
+                 'Nwant':          Nwant}
 
     i_frame_consecutive   = -1
     i_frame_last          = -1
@@ -705,7 +628,7 @@ slice of the metadata['indices_frame_camera'] array
 
         l = next(f)
         if l != '# path fixture_size_m fixture_space_m fixture_cols fixture_rows num_dots_detected dot_fixture_col dot_fixture_row dot_fixture_physical_x dot_fixture_physical_y dot_image_col dot_image_row\n':
-            raise Exception("Unexpected legend in '{}".format(datafile))
+            raise Exception("Unexpected legend in '{}'. Got: '{}".format(datafile,l))
 
         while True:
             path,i_frame,i_pair,i_camera,dot_spacing,dots_here = get_next_dots(f)
@@ -836,16 +759,19 @@ camera_poses_Rt = estimate_camera_poses( calobject_poses_Rt,
                                          metadata['dot_spacing'],
                                          metadata['Ncameras'] )
 
-# extrinsics should map FROM the ref coord system TO the coord system of the
-# camera in question. This is backwards from what I have. To flip:
-#
-# R*x + t = x'    ->     x = Rt x' - Rt t
-R = camera_poses_Rt[..., :3, :]
-t = camera_poses_Rt[...,  3, :]
-extrinsics = nps.atleast_dims( nps.glue( Rodrigues_tor_broadcasted(nps.transpose(R)),
-                                         -nps.matmult( nps.dummy(t,-2), R )[..., 0, :],
-                                         axis=-1 ),
-                               -2)
+if len(camera_poses_Rt):
+    # extrinsics should map FROM the ref coord system TO the coord system of the
+    # camera in question. This is backwards from what I have. To flip:
+    #
+    # R*x + t = x'    ->     x = Rt x' - Rt t
+    R = camera_poses_Rt[..., :3, :]
+    t = camera_poses_Rt[...,  3, :]
+    extrinsics = nps.atleast_dims( nps.glue( utils.Rodrigues_tor_broadcasted(nps.transpose(R)),
+                                             -nps.matmult( nps.dummy(t,-2), R )[..., 0, :],
+                                             axis=-1 ),
+                                   -2)
+else:
+    extrinsics = np.zeros((0,6))
 
 frames = \
     estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt,
@@ -859,10 +785,14 @@ observations = dots
 
 # done with everything. Run the calibration, in several passes.
 projected = \
-    project_points(intrinsics, extrinsics, frames,
-                   metadata['dot_spacing'])
-err = compute_reproj_error(projected, observations,
-                           metadata['indices_frame_camera'])
+    utils.project_points(intrinsics, extrinsics, frames,
+                         metadata['dot_spacing'], Nwant)
+err = utils.compute_reproj_error(projected, observations,
+                                 metadata['indices_frame_camera'], Nwant)
+
+norm2_err_perimage = nps.inner( nps.clump(err,n=3),  nps.clump(err,n=3))
+rms_err_perimage   = np.sqrt( norm2_err_perimage / (Nwant*Nwant) )
+
 
 norm2_err = nps.inner(err.ravel(), err.ravel())
 rms_err   = np.sqrt( norm2_err / (err.ravel().shape[0]/2) )
