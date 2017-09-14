@@ -40,10 +40,10 @@ int main(int argc, char* argv[] )
 #define DECLARE_SPECIFIC_INTRINSIC(s,n)                         \
     __attribute__((unused))                                     \
         struct intrinsics_ ## s ## _t intrinsics ## s[] =       \
-        { {.focal_xy  = { 10.3, 10.5},                          \
-           .center_xy = { 49.3, 50.2} },                        \
-          {.focal_xy  = {  9.3,  9.5},                          \
-           .center_xy = { 51.3, 53.2} } };
+        { {.focal_xy  = { 2000.3, 1900.5},                      \
+           .center_xy = { 1800.3, 1790.2} },                    \
+          {.focal_xy  = { 2100.2, 2130.4},                      \
+           .center_xy = { 1830.3, 1810.2} } };
     DISTORTION_LIST(DECLARE_SPECIFIC_INTRINSIC)
 
     int Ncameras = sizeof(intrinsicsDISTORTION_NONE)/sizeof(intrinsicsDISTORTION_NONE[0]);
@@ -59,7 +59,7 @@ int main(int argc, char* argv[] )
 
 
     struct pose_t extrinsics[] =
-        { { .r = { .xyz = {  .01,   .3,    .02}},  .t = { .xyz = { 2.3, 0.2, 0.1}}}};
+        { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { 2.3, 0.2, 0.1}}}};
 
     struct pose_t frames[] =
         { { .r = { .xyz = { -.1,    .52,  -.13}},  .t = { .xyz = { 1.3, 0.1, 10.2}}},
