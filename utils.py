@@ -323,3 +323,25 @@ visualization is colored by the reprojection-error-quality of the fit
 
     import time
     time.sleep(100000)
+
+@nps.broadcast_define( (('Nw','Nh',2),),
+                       ())
+def get_observation_size(obs):
+    r'''Computes an observed 'size' of an observation.
+
+Given an observed calibration object, this returns the max(delta_x, delta_y).
+From this we can get a very rough initial estimate of the range to the object.
+
+The observation is an array of shape (N,N,2)
+'''
+
+    # corners
+    c = nps.cat( obs[ 0, 0, ...],
+                 obs[-1, 0, ...],
+                 obs[ 0,-1, ...],
+                 obs[-1,-1, ...] )
+
+    dx = c[:,0].max() - c[:,0].min()
+    dy = c[:,1].max() - c[:,1].min()
+
+    return max(dx,dy)
