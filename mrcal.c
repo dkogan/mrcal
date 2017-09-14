@@ -1059,10 +1059,13 @@ double mrcal_optimize( // out, in (seed on input)
         }
 
         // required to indicate the end of the jacobian matrix
-        Jrowptr[iMeasurement] = iJacobian;
+        if( !reportFitMsg )
+        {
+            Jrowptr[iMeasurement] = iJacobian;
+            assert(iMeasurement == Nmeasurements);
+            assert(iJacobian    == N_j_nonzero  );
+        }
 
-        assert(iMeasurement == Nmeasurements);
-        assert(iJacobian    == N_j_nonzero  );
     }
 
 
