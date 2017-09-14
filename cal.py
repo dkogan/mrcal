@@ -20,7 +20,7 @@ import mrcal
 
 
 # stuff the user may want to set
-pair            = 1
+pair_want            = 1
 read_cache_dots = True
 
 focal_estimate    = 1950 # pixels
