@@ -7,6 +7,10 @@
 
 #include "mrcal.h"
 
+
+#define Nwant CALOBJECT_W
+
+
 static bool optimize_validate_args( // out
                                     enum distortion_model_t* distortion_model,
 
@@ -78,11 +82,11 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(indices_frame_camera)[0]);
         return false;
     }
-    if( 10 != PyArray_DIMS(observations)[1] ||
-        10 != PyArray_DIMS(observations)[2] ||
+    if( Nwant != PyArray_DIMS(observations)[1] ||
+        Nwant != PyArray_DIMS(observations)[2] ||
         2  != PyArray_DIMS(observations)[3] )
     {
-        PyErr_Format(PyExc_RuntimeError, "observations.shape[1:] MUST be (10,10,2). Instead got (%ld,%ld,%ld)",
+        PyErr_Format(PyExc_RuntimeError, "observations.shape[1:] MUST be (Nwant,Nwant,2). Instead got (%ld,%ld,%ld)",
                      PyArray_DIMS(observations)[1],
                      PyArray_DIMS(observations)[2],
                      PyArray_DIMS(observations)[3]);
@@ -268,7 +272,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
             c_observations[i_observation].i_camera = i_camera;
             c_observations[i_observation].i_frame  = i_frame;
-            c_observations[i_observation].px       = &((union point2_t*)PyArray_DATA(observations))[10*10*i_observation];
+            c_observations[i_observation].px       = &((union point2_t*)PyArray_DATA(observations))[Nwant*Nwant*i_observation];
         }
 
         mrcal_optimize( c_intrinsics,
