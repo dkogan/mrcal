@@ -74,11 +74,11 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    int Nobservations = PyArray_DIMS(observations)[0];
-    if( PyArray_DIMS(indices_frame_camera)[0] != PyArray_DIMS(observations)[0] )
+    long int Nobservations = PyArray_DIMS(observations)[0];
+    if( PyArray_DIMS(indices_frame_camera)[0] != Nobservations )
     {
         PyErr_Format(PyExc_RuntimeError, "Inconsistent Nobservations: 'observations' says %ld, 'indices_frame_camera' says %ld",
-                     PyArray_DIMS(observations)[0],
+                     Nobservations,
                      PyArray_DIMS(indices_frame_camera)[0]);
         return false;
     }
@@ -225,13 +225,15 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "distortion_model",
 
                         // optional kwargs
-                        "do_optimize_intrinsics",
+                        "do_optimize_intrinsic_core",
+                        "do_optimize_intrinsic_distortions",
                         NULL};
 
     PyObject* distortion_model_string = NULL;
-    PyObject* do_optimize_intrinsics = Py_True;
+    PyObject* do_optimize_intrinsic_core        = Py_True;
+    PyObject* do_optimize_intrinsic_distortions = Py_True;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&S|O",
+                                     "O&O&O&O&O&S|OO",
                                      keywords,
                                      PyArray_Converter, &intrinsics,
                                      PyArray_Converter, &extrinsics,
@@ -240,7 +242,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      PyArray_Converter, &indices_frame_camera,
 
                                      &distortion_model_string,
-                                     &do_optimize_intrinsics))
+
+                                     &do_optimize_intrinsic_core,
+                                     &do_optimize_intrinsic_distortions))
         goto done;
 
     enum distortion_model_t distortion_model;
@@ -275,6 +279,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             c_observations[i_observation].px       = &((union point2_t*)PyArray_DATA(observations))[Nwant*Nwant*i_observation];
         }
 
+        struct mrcal_variable_select optimization_variable_choice;
+        optimization_variable_choice.do_optimize_intrinsic_core =
+            PyObject_IsTrue(do_optimize_intrinsic_core);
+        optimization_variable_choice.do_optimize_intrinsic_distortions =
+            PyObject_IsTrue(do_optimize_intrinsic_distortions);
         mrcal_optimize( c_intrinsics,
                         c_extrinsics,
                         c_frames,
@@ -284,7 +293,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         Nobservations,
                         false,
                         distortion_model,
-                        PyObject_IsTrue(do_optimize_intrinsics));
+                        optimization_variable_choice);
     }
 
     Py_INCREF(Py_None);

@@ -80,6 +80,12 @@ const char*              mrcal_distortion_model_name     ( enum distortion_model
 enum distortion_model_t  mrcal_distortion_model_from_name( const char* name );
 int                      mrcal_getNdistortionParams      (const enum distortion_model_t m);
 
+struct mrcal_variable_select
+{
+    bool do_optimize_intrinsic_core        : 1;
+    bool do_optimize_intrinsic_distortions : 1;
+};
+
 double mrcal_optimize( // out, in (seed on input)
 
                       // These are the state. I don't have a state_t because Ncameras
@@ -102,4 +108,4 @@ double mrcal_optimize( // out, in (seed on input)
 
                       bool check_gradient,
                       enum distortion_model_t distortion_model,
-                      bool do_optimize_intrinsics);
+                      struct mrcal_variable_select optimization_variable_choice );

@@ -10,8 +10,8 @@ optimization state.
 
 Args:
 
-- camera_intrinsics: array of dims (Ncameras, Nintrinsics). The intrinsics of
-  each camera. Each intrinsic vector is given as
+- intrinsics: array of dims (Ncameras, Nintrinsics). The intrinsics of each
+  camera. Each intrinsic vector is given as
 
     (focal_x, focal_y, center_pixel_x, center_pixel_y, distorion0, distortion1,
     ...)
@@ -21,11 +21,11 @@ Args:
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- camera_extrinsics: array of dims (Ncameras-1, 6). The extrinsics of each
-  camera. Camera 0 is the reference coord system, so we omit this from the
-  extrinsics array. Each pose is given as 6 values: a rodrigues rotation vector
-  followed by a translation. This represents a transformation FROM the reference
-  coord system TO the coord system of each camera.
+- extrinsics: array of dims (Ncameras-1, 6). The extrinsics of each camera.
+  Camera 0 is the reference coord system, so we omit this from the extrinsics
+  array. Each pose is given as 6 values: a rodrigues rotation vector followed by
+  a translation. This represents a transformation FROM the reference coord
+  system TO the coord system of each camera.
 
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
@@ -48,3 +48,21 @@ Args:
 - indices_frame_camera: array of dims (Nobservations, 2). For each observation
   these are an (i_frame,i_camera) tuple. The frame indices and camera indices
   are guaranteed to be monotonic. This array contains plain 'int' integers.
+
+- distortion_model: a string such as
+
+  DISTORTION_NONE
+  DISTORTION_OPENCV4
+  DISTORTION_OPENCV5
+  DISTORTION_OPENCV8
+  DISTORTION_CAHVOR
+  DISTORTION_CAHVORE
+
+  Not all of these may be supported. Currently most of the work went to support
+  DISTORTION_NONE and DISTORTION_CAHVOR
+
+- do_optimize_intrinsic_core: optional boolean, defaults to True. Whether
+  fx,fy,cx,cy should be optimized
+
+- do_optimize_intrinsic_distortions: optional boolean, defaults to True. Whether
+  the distortions should be optimized
