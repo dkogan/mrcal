@@ -508,7 +508,7 @@ static union point2_t project( // out
                 _d_distortion_xyz[3*i + j] -= mu*o[i]*o[j];
             }
 
-            pt_cam.xyz[i] = pt_cam.xyz[i] * (mu+1.0) - mu*omega*o[i];
+            pt_cam.xyz[i] += mu * (pt_cam.xyz[i] - omega*o[i]);
         }
     }
     else if( distortion_model == DISTORTION_CAHVORE )
