@@ -245,13 +245,13 @@ the observations
                 # currently don't accept any incomplete views, and much outside
                 # code would need an update to support that. This doesn't hurt, however
 
-                # d looks at one frame and has shape (10,10,7). Each row is
+                # d looks at one frame and has shape (Nwant,Nwant,7). Each row is
                 #   xy pixel observation in left camera
                 #   xy pixel observation in right camera
                 #   xyz coord of dot in the calibration object coord system
                 d = nps.glue( d0, d1, full_object, axis=-1 )
 
-                # squash dims so that d is (100,7)
+                # squash dims so that d is (Nwant*Nwant,7)
                 d = nps.clump(d, n=2)
 
                 # I pick out those points that have observations in both frames
