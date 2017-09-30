@@ -9,9 +9,47 @@ import copy
 import cv2
 
 
+def cahvor_HVs_HVc_HVp(cahvor):
+    r'''Given a cahvor dict returns a tuple containing (Hs,Vs,Hc,Vc,Hp,Vp)'''
+
+    Hc   = nps.inner(cahvor['H'], cahvor['A'])
+    hshp = cahvor['H'] - Hc * cahvor['A']
+    Hs   = np.sqrt(nps.inner(hshp,hshp))
+
+    Vc   = nps.inner(cahvor['V'], cahvor['A'])
+    vsvp = cahvor['V'] - Vc * cahvor['A']
+    Vs   = np.sqrt(nps.inner(vsvp,vsvp))
+
+    Hp   = hshp / Hs
+    Vp   = vsvp / Vs
+
+    return Hs,Vs,Hc,Vc,Hp,Vp
+
+def cahvor_fxy_cxy(cahvor):
+    r'''Given a cahvor dict returns a tuple containing (fx,fy,cx,cy)'''
+    return cahvor_HVs_HVc_HVp(cahvor)[:4]
+
+def _validate_cahvor(cahvor):
+    r'''Confirm that a given model is valid'''
+
+    if abs(np.linalg.norm(cahvor['A']) - 1) > 1e-8:
+        raise Exception("cahvor.['A'] must be a unit vector. Instead head {} of length {}". \
+                        format(cahvor['A'],
+                               np.linalg.norm(cahvor['A'])))
+    if 'O' in cahvor and \
+       abs(np.linalg.norm(cahvor['O']) - 1) > 1e-8:
+        raise Exception("cahvor.['O'] must be a unit vector. Instead head {} of length {}". \
+                        format(cahvor['O'],
+                               np.linalg.norm(cahvor['O'])))
+    Hp,Vp = cahvor_HVs_HVc_HVp(cahvor)[-2:]
+    if abs(nps.inner(Hp,Vp)) > 1e-8:
+        raise Exception("Hp must be perpendicular to Vp. Instead inner(Hp,Vp) = {}. Full model: {}". \
+                        format(nps.inner(Hp,Vp), cahvor))
+    return True
+
 def parse_transforms(f):
     r'''Reads a file (an iterable containing lines of text) into a transforms dict,
-and returns the dict
+    and returns the dict
 
     '''
 
@@ -65,7 +103,7 @@ and returns the dict
 
 def parse_cahvor(f):
     r'''Reads a file (a filename string, or a file-like object: an iterable
-containing lines of text) into a cahvor dict, and returns the dict
+    containing lines of text) into a cahvor dict, and returns the dict
 
     '''
 
@@ -128,9 +166,35 @@ containing lines of text) into a cahvor dict, and returns the dict
 
     return x
 
+def parse_and_consolidate(transforms, cahvors):
+    transforms = parse_transforms(transforms)
+    for i_pair in cahvors.keys():
+        for i_cam in cahvors[i_pair]:
+            cahvors[i_pair][i_cam] = parse_cahvor(cahvors[i_pair][i_cam])
+
+    pair_ids = sorted(transforms['ins_from_camera'].keys())
+    if pair_ids != sorted(cahvors.keys()):
+        raise Exception("Mismatched camera pair IDs. transforms.txt knows about pairs {}, but I have cahvors for pairs {}".format(pair_ids,cahvors.keys()))
+
+    pairs = {}
+    for i in pair_ids:
+        pair = {'ins_from_camera': transforms['ins_from_camera'][i]}
+
+        for icam in range(len(cahvors[i])):
+            pair[icam] = cahvors[i][icam]
+        pairs[i] = pair
+
+    veh_from_ins = transforms['veh_from_ins']
+
+    return pairs,veh_from_ins
+
 def write_cahvor(f, cahvor):
-    r'''Given a filename or a writeable file and a cahvor dict, spits out the
-cahvor'''
+    r'''Given a (filename or a writeable file) and a cahvor dict, spits out the
+    cahvor
+
+    '''
+
+    _validate_cahvor(cahvor)
 
     needclose = False
     if type(f) is str:
@@ -139,9 +203,10 @@ cahvor'''
 
     for i in ('Model','Dimensions','C','A','H','V','O','R','E'):
         if i in cahvor:
-            f.write("{} = {}\n".format(i, cahvor[i] if type(cahvor[i]) is not np.ndarray else ' '.join(str(x) for x in cahvor[i])))
+            N = len(cahvor[i])
+            f.write(("{} =" + (" {:15.10f}" * N) + "\n").format(i, *cahvor[i]))
 
-    Hs,Vs,Hc,Vc = cahvor_HVs_HVc(cahvor)
+    Hs,Vs,Hc,Vc = cahvor_HVs_HVc_HVp(cahvor)[:4]
     f.write("Hs = {}\n".format(Hs))
     f.write("Hc = {}\n".format(Hc))
     f.write("Vs = {}\n".format(Vs))
@@ -150,30 +215,145 @@ cahvor'''
     if needclose:
         f.close()
 
+def get_intrinsics(cahvor):
+    r'''Pull the intrinsics from a cahvor dict
+
+    The intrinsics are a numpy array containing
+      - fx
+      - fy
+      - cx
+      - cy
+      - theta (for computing O)
+      - phi   (for computing O)
+      - R0
+      - R1
+      - R2
+
+    If O == A and R == 0, we have a distortion-less camera, and the distortion
+    parameters (theta, phi, R0, R1, R2) are omitted.
+
+    '''
+
+    fx,fy,cx,cy = cahvor_fxy_cxy(cahvor)
+
+    Rt = get_extrinsics_Rt_toref(cahvor)
+    R  = Rt[:3,:]
+
+    if 'O' not in cahvor:
+        theta = 0
+        phi   = 0
+    else:
+        o = nps.matmult( cahvor['O'], R )
+        norm2_oxy = o[0]*o[0] + o[1]*o[1]
+        if norm2_oxy < 1e-8:
+            theta = 0
+            phi   = 0
+        else:
+            theta = np.arctan2(o[1], o[0])
+            phi   = np.arcsin( np.sqrt( norm2_oxy ) )
+
+    if abs(phi) < 1e-8 and \
+       ( 'R' not in cahvor or np.linalg.norm(cahvor['R']) < 1e-8):
+        # pinhole
+        intrinsics = np.array((fx,fy,cx,cy))
+    else:
+        R0,R1,R2 = cahvor['R'].ravel()
+        intrinsics = np.array((fx,fy,cx,cy,theta,phi,R0,R1,R2))
+
+    return intrinsics
+
+def get_extrinsics_Rt_toref(cahvor):
+    r'''Pull the extrinsics from a cahvor dict
+
+    Returns the extrinsics in a Rt representation: a (4,3)-shape numpy array of
+    a rotation represented as a 3x3 matrix in the [:3,:] slice, concatenated
+    with the translation in the [3,:] slice. This is a transformation FROM
+    points in this camera TO the ref coordinate system
+
+    '''
+
+    Hp,Vp = cahvor_HVs_HVc_HVp(cahvor)[-2:]
+
+    R = nps.transpose( nps.cat( Hp,
+                                Vp,
+                                cahvor['A'] ))
+    t = cahvor['C']
+
+    return nps.glue(R,t, axis=-2);
+
+def get_extrinsics_pq_toref(cahvor):
+    r'''Pull the extrinsics from a cahvor dict
+
+    Returns the extrinsics in a pq representation: a 7-long numpy array of 3D
+    translation followed by a 4D unit quaternion rotation. This is a
+    transformation FROM points in this camera TO the ref coordinate system
+
+    '''
+
+    Rt = get_extrinsics_Rt_toref(cahvor)
+    R  = Rt[:3,:]
+    t  = Rt[ 3,:]
+
+    p = t
+    q = mrpose.quat_from_mat33d( R )
+    return nps.glue(p,q, axis=-1)
+
+def get_extrinsics_rt_fromref(cahvor):
+    r'''Pull the extrinsics from a cahvor dict
+
+    Returns the extrinsics in a rt representation: a 6-long numpy array of a 3D
+    Rodrigues rotation followed by a 3D translation. This is a transformation
+    FROM the ref coordinate system TO this camera
+
+    '''
+
+    Rt = get_extrinsics_Rt_toref(cahvor)
+    R  = Rt[:3,:]
+    t  = Rt[ 3,:]
+
+    # My transformation is in the reverse direction from what I want.
+    # a = Rb + t -> b = R'(a-t) = R'a - R't
+    t = -nps.matmult(t, R)
+    R = nps.transpose(R)
+
+    r = cv2.Rodrigues(R)[0]
+    return nps.glue(r,t, axis=-1)
+
 def assemble_cahvor( intrinsics, extrinsics = None ):
     r'''Produces a CAHVOR model from separate intrinsics and extrinsics
 
-This is the reverse of factor_cahvor()
+    The inputs:
 
-The inputs:
+    - intrinsics: a numpy array containing
+      - fx
+      - fy
+      - cx
+      - cy
+      - theta (for computing O)
+      - phi   (for computing O)
+      - R0
+      - R1
+      - R2
 
-- intrinsics: a numpy array containing
-  - fx
-  - fy
-  - cx
-  - cy
-  - theta (for computing O)
-  - phi   (for computing O)
-  - R0
-  - R1
-  - R2
+      The distortion parameters (theta, phi, R0, R1, R2) is optional.
 
-  The distortion stuff (theta, phi, R0, R1, R2) is optional.
+    - extrinsics: a transformation, the interpretation of which depends on the
+      argument. Supported options are:
 
-- extrinsics: If None, the identity transform is assumed. Otherwise, a 6-long
-  numpy array containing a transformation from the camera0 coord system TO this
-  camera. The elements are a 3-long Rodrigues rotation followed by a 3-long
-  translation
+      - None: the identity transform is assumed
+
+      - a numpy array of shape (4,3): Rt_toref. A rotation represented as a 3x3
+        matrix in the [:3,:] slice, concatenated with the translation in the
+        [3,:] slice. This is a transformation FROM points in this camera TO the
+        ref coordinate system
+
+      - a numpy array of shape (7,): pq_toref. A 3D translation followed by a 4D
+        unit quaternion rotation. This is a transformation FROM points in this
+        camera TO the ref coordinate system
+
+      - a numpy array of shape (6,): rt_fromref. A 3D Rodrigues rotation
+        followed by a 3D translation. This is a transformation FROM the ref
+        coordinate system TO this camera
 
     '''
     if len(intrinsics) == 4:
@@ -183,33 +363,36 @@ The inputs:
     else:
         raise Exception("I know how to deal with an ideal camera (4 intrinsics) or a cahvor camera (9 intrinsics), but I got {} intrinsics intead".format(len(intrinsics)))
 
-
-
-    # The reference coordinate system has a rotation offset from the cam0 coord
-    # system
-    Rcam0_to_ref = np.array(((0,0,1),
-                             (1,0,0),
-                             (0,1,0)),dtype = float)
-
+    # I parse the extrinsics, and convert them into Rt_toref form
     if extrinsics is None:
         R = np.eye(3)
         t = np.zeros(3)
+    elif isinstance( extrinsics, np.ndarray ):
+        if extrinsics.shape == (4,3):
+            # Rt_toref
+            R = extrinsics[:3,:]
+            t = extrinsics[ 3,:]
+        elif extrinsics.shape == (7,):
+            # pq_toref
+            p = extrinsics[:3]
+            q = extrinsics[3:]
+
+            R = mrpose.quat_to_mat33d(q)
+            t = p
+        elif extrinsics.shape == (6,):
+            # rt_fromref
+            r = extrinsics[:3]
+            t = extrinsics[3:]
+
+            # My transformation is in the reverse direction from what I want.
+            # a = Rb + t -> b = R'(a-t) = R'a - R't
+            R = cv2.Rodrigues(r)[0]
+            t = -nps.matmult(t, R)
+            R = nps.transpose(R)
+        else:
+            raise Exception("extrinsics must have shape (4,3) or (7,) or (6,) but got {}".format(extrinsics.shape))
     else:
-        r = extrinsics[:3]
-        t = extrinsics[3:]
-        R = cv2.Rodrigues(r)[0]
-
-
-    # I have (R,t) that transform a point in the cam0 coord system to a point in
-    # our camera. We want to go the other way: x = Rt x' - Rt t
-    t = -nps.matmult(t, R)
-    R = nps.transpose(R)
-    # Now we transform a point FROM our camera TO the cam0 coord system. But I
-    # need to go from the cam0 coord system to the ref coord system, so I apply
-    # that too
-    t = nps.matmult( t, nps.transpose(Rcam0_to_ref))
-    R = nps.matmult( Rcam0_to_ref, R)
-
+        raise Exception("Extrinsics MUST be None of a numpy array. Instead got value of type '{}'".format(type(extrinsics)))
 
     fx,fy,cx,cy = intrinsics[:4]
 
@@ -230,232 +413,75 @@ The inputs:
         sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
         out['O'] = nps.matmult( R, nps.transpose(np.array(( sph*cth, sph*sth,  cph ))) ).ravel()
         out['R'] = np.array((R0, R1, R2))
-    return out
 
-def factor_cahvor(cahvor):
-    r'''Split a cahvor model into separate extrinsics and intrinsics
-
-This is the reverse of assemble_cahvor()
-
-A cahvor dict is input
-
-The outputs:
-
-- intrinsics: a numpy array containing
-  - fx
-  - fy
-  - cx
-  - cy
-  - theta (for computing O)
-  - phi   (for computing O)
-  - R0
-  - R1
-  - R2
-
-    If O == A and R == 0, we have a distortion-less camera, and the distortion
-    stuff (theta, phi, R0, R1, R2) is omitted.
-
-- extrinsics: if we're looking at an identity transformation, this is None.
-    Otherwise, a 6-long numpy array containing a transformation from the camera0
-    coord system TO this camera. The elements are a 3-long Rodrigues rotation
-    followed by a 3-long translation
-
-    '''
-
-    fx,fy,cx,cy = cahvor_fxy_cxy(cahvor)
-    Hs,Vs,Hc,Vc = fx,fy,cx,cy
-
-    Hp   = (cahvor['H'] - Hc * cahvor['A']) / Hs
-    Vp   = (cahvor['V'] - Vc * cahvor['A']) / Vs
-
-    R = np.zeros((3,3), dtype=float)
-    t      = cahvor['C']
-    R[:,2] = cahvor['A']
-    R[:,0] = Hp
-    R[:,1] = Vp
-
-
-    if 'O' in cahvor:
-        o = nps.matmult( cahvor['O'], R )
-    else:
-        o = nps.matmult( cahvor['A'], R )
-    if np.linalg.norm(o - np.array((0., 0., 1.))) < 1e-6 or abs(o[2]) > 1:
-        # O = A
-        theta = 0
-        phi   = 0
-    else:
-        theta = np.arctan2(o[1], o[0])
-        phi   = np.arcsin( np.sqrt( o[0]*o[0] + o[1]*o[1] ) )
-
-    if abs(theta) < 1e-8 and abs(phi) < 1e-8 and \
-       ( 'R' not in cahvor or np.linalg.norm(cahvor['R']) < 1e-8):
-        # pinhole
-        intrinsics = np.array((fx,fy,cx,cy))
-    else:
-        R0,R1,R2 = cahvor['R'].ravel()
-        intrinsics = np.array((fx,fy,cx,cy,theta,phi,R0,R1,R2))
-
-
-    # I have R,t in the cam0 coord system. Need to transform to the ref coord
-    # system. I'm reversing the operations in assemble_cahvor()
-
-    # The reference coordinate system has a rotation offset from the cam0 coord
-    # system
-    Rcam0_to_ref = np.array(((0,0,1),
-                             (1,0,0),
-                             (0,1,0)),dtype = float)
-
-    R = nps.matmult( nps.transpose(Rcam0_to_ref), R)
-    t = nps.matmult( t, Rcam0_to_ref)
-    t = -nps.matmult(t, R)
-    R = nps.transpose(R)
-
-    extrinsics = nps.glue( cv2.Rodrigues(R)[0].ravel(),
-                           t,
-                           axis=-1 )
-
-    return intrinsics,extrinsics
-
-
-
-
-
-def parse_and_consolidate(transforms, cahvors):
-    transforms = parse_transforms(transforms)
-    for cahvor_pair_id in cahvors.keys():
-        cahvors[cahvor_pair_id] = [ parse_cahvor(c) for c in cahvors[cahvor_pair_id] ]
-
-    pair_ids = sorted(transforms['ins_from_camera'].keys())
-    if pair_ids != sorted(cahvors.keys()):
-        raise Exception("Mismatched camera pair IDs. transforms.txt knows about pairs {}, but I have cahvors for pairs {}".format(pair_ids,cahvors.keys()))
-
-    pairs = {}
-    for i in pair_ids:
-        pair = {'ins_from_camera': transforms['ins_from_camera'][i]}
-
-        for icam in range(len(cahvors[i])):
-            pair[icam] = cahvors[i][icam]
-        pairs[i] = pair
-
-    veh_from_ins = transforms['veh_from_ins']
-
-    return pairs,veh_from_ins
-
-def cahvor_HVs_HVc(cahvor):
-    r'''Given a cahvor dict returns a tuple containing (Hs,Vs,Hc,Vc)'''
-
-    Hc   = nps.inner(cahvor['H'], cahvor['A'])
-    hshp = cahvor['H'] - Hc * cahvor['A']
-    Hs   = np.sqrt(nps.inner(hshp,hshp))
-
-    Vc   = nps.inner(cahvor['V'], cahvor['A'])
-    vsvp = cahvor['V'] - Vc * cahvor['A']
-    Vs   = np.sqrt(nps.inner(vsvp,vsvp))
-
-    return Hs,Vs,Hc,Vc
-
-def cahvor_fxy_cxy(cahvor):
-    r'''Given a cahvor dict returns a tuple containing (fx,fy,cx,cy)'''
-    return cahvor_HVs_HVc(cahvor)
-
-def cahvor_pair_from_camera(cahvor):
-    r'''Given a cahvor dict returns a pair_from_camera transformation'''
-    Hs,Vs,Hc,Vc = cahvor_HVs_HVc(cahvor)
-
-    Hp   = (cahvor['H'] - Hc * cahvor['A']) / Hs
-    Vp   = (cahvor['V'] - Vc * cahvor['A']) / Vs
-
-    return nps.glue( np.array( cahvor['C'] ),
-                     mrpose.quat_from_mat33d( nps.transpose(np.array((Hp, Vp, cahvor['A'] )))),
-                     axis=-1 )
-
-def set_extrinsics(cahvor, pq):
-    r'''Given a cahvor dict and a transformation, return another cahvor dict that
-represents the first (as far as the intrinsics are concerned), but with the
-extrinsics replaced by the given transformation. The transformation is given as
-a (p,q) camera->pair tuple as usual
-
-    '''
-
-    p = pq[:3]
-    q = pq[3:]
-    R_pair_from_camera = mrpose.quat_to_mat33d(q)
-    Hp,Vp,A            = nps.transpose(R_pair_from_camera)
-
-    Hs,Vs,Hc,Vc = cahvor_HVs_HVc(cahvor)
-    H           = Hs*Hp + Hc*A
-    V           = Vs*Vp + Vc*A
-
-    out = copy.deepcopy(cahvor)
-
-    out['C'] = p
-    out['A'] = A
-    out['H'] = H
-    out['V'] = V
-
-    # I need to keep the intrinsics. This is simple, except the 'O' parameter
-    # needs special attention. The O vector is an intrinsic parameter
-    # representing the optical axis direction. In a distortion-less camera this
-    # is identical to A. I need to separate the intrinsics and extrinsics I want
-    # some sort of deviation-from-A representation. Thus I transform O into the
-    # camera coord system, which is by definition extrinsic-less. When I'm done
-    # moving the extrinsics, I put O back into the new coord system
-    pq_pair_from_camera = cahvor_pair_from_camera(cahvor)
-    q_pair_from_camera = pq_pair_from_camera[3:]
-    if 'O' in cahvor:
-        O_pair_old = cahvor['O']
-        O_camera   = mrpose.vec3_rotate(mrpose.quat_conj(q_pair_from_camera),
-                                        O_pair_old)
-        O_pair_new = mrpose.vec3_rotate(q, O_camera)
-        out['O'] = O_pair_new
-
+    _validate_cahvor(out)
     return out
 
 def cahvor_warp(p, fx, fy, cx, cy, theta, phi, r0, r1, r2):
     r'''Apply a CAHVOR warp to a projected point
 
-Given intrinsic parameters of a CAHVOR model and a pinhole-projected point numpy
-array of shape (2,), return the projected point that we'd get with the CAHVOR
-warp.
+    Given intrinsic parameters of a CAHVOR model and a pinhole-projected
+    point(s) numpy array of shape (..., 2), return the projected point(s) that
+    we'd get if the distortion wasn't there. We ASSUME THE SAME fx,fy,cx,cy
+
+    This function can broadcast the points array
 
     '''
 
     # p is a 2d point. Temporarily convert to a 3d point
-    p = np.array(((p[0] - cx)/fx, (p[1] - cy)/fy, 1))
+    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
+                        (p[..., 1] - cy)/fy,
+                        np.ones( p.shape[:-1])),
+                0, -1 )
     o = np.array( (np.sin(phi) * np.cos(theta),
                    np.sin(phi) * np.sin(theta),
                    np.cos(phi) ))
 
-    omega = nps.inner(p, o)
+    # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
+    # omega/norm(p)
+    omega = nps.inner(p,o)
+
+    # tau = 1/cos^2 - 1 = inner(p,p)/(omega*omega) - 1 =
+    #     = tan^2
     tau   = nps.inner(p,p) / (omega*omega) - 1.0
     mu    = r0 + tau*r1 + tau*tau*r2
-    p     = p*(mu+1.0) - mu*omega*o
+    p     = p*(nps.dummy(mu,-1)+1.0) - nps.dummy(mu*omega, -1)*o
 
     # now I apply a normal projection to the warped 3d point p
-    return np.array((fx,fy)) * p[:2] / p[2] + np.array((cx,cy))
+    return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
 
-@nps.broadcast_define( ((3,),('Nintrinsics',)),
-                       (2,), )
 def project(p, intrinsics):
-    r'''Projects a 3D point using the given camera intrinsics
+    r'''Projects 3D point(s) using the given camera intrinsics
 
-This function is broadcastable, so you're meant to use it to project a number of
-points at the same time. Inputs:
+    This function is broadcastable over p only: you're meant to use it to
+    project a number of points at the same time, but only a single set of
+    intrinsics is supported.
 
-- p a 3D point in the camera coord system
+    I can easily add that support with
 
-- intrinsics: a numpy array containing
-  - fx
-  - fy
-  - cx
-  - cy
-  - CAHVOR theta (for computing O)
-  - CAHVOR phi   (for computing O)
-  - CAHVOR R0
-  - CAHVOR R1
-  - CAHVOR R2
+      @nps.broadcast_define( ((3,),('Nintrinsics',)),
+                             (2,), )
 
-  The CAHVOR distortion stuff is optional.
+    but then I'd have a python loop iterating over all my points, which is slow.
+    The computations here are simple enough for numpy to handle all the
+    broadcasting at the C level, so I let it do that.
+
+    Inputs:
+
+    - p a 3D point in the camera coord system
+
+    - intrinsics: a numpy array containing
+      - fx
+      - fy
+      - cx
+      - cy
+      - CAHVOR theta (for computing O)
+      - CAHVOR phi   (for computing O)
+      - CAHVOR R0
+      - CAHVOR R1
+      - CAHVOR R2
+
+      The CAHVOR distortion stuff is optional.
 
     '''
     if len(intrinsics) == 4:
@@ -465,7 +491,9 @@ points at the same time. Inputs:
     else:
         raise Exception("I know how to deal with an ideal camera (4 intrinsics) or a cahvor camera (9 intrinsics), but I got {} intrinsics intead".format(len(intrinsics)))
 
-    p2d = p[:2]/p[2:] * intrinsics[:2] + intrinsics[2:]
+
+    p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
     if pinhole: return p2d
 
     return cahvor_warp(p2d, *intrinsics)
+
