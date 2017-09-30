@@ -13,6 +13,86 @@ import camera_models
 
 
 
+def cahvor_warp(p, fx, fy, cx, cy, theta, phi, r0, r1, r2):
+    r'''Apply a CAHVOR warp to a projected point
+
+    Given intrinsic parameters of a CAHVOR model and a pinhole-projected
+    point(s) numpy array of shape (..., 2), return the projected point(s) that
+    we'd get if the distortion wasn't there. We ASSUME THE SAME fx,fy,cx,cy
+
+    This function can broadcast the points array
+
+    '''
+
+    # p is a 2d point. Temporarily convert to a 3d point
+    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
+                        (p[..., 1] - cy)/fy,
+                        np.ones( p.shape[:-1])),
+                0, -1 )
+    o = np.array( (np.sin(phi) * np.cos(theta),
+                   np.sin(phi) * np.sin(theta),
+                   np.cos(phi) ))
+
+    # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
+    # omega/norm(p)
+    omega = nps.inner(p,o)
+
+    # tau = 1/cos^2 - 1 = inner(p,p)/(omega*omega) - 1 =
+    #     = tan^2
+    tau   = nps.inner(p,p) / (omega*omega) - 1.0
+    mu    = r0 + tau*r1 + tau*tau*r2
+    p     = p*(nps.dummy(mu,-1)+1.0) - nps.dummy(mu*omega, -1)*o
+
+    # now I apply a normal projection to the warped 3d point p
+    return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+
+def project(p, intrinsics):
+    r'''Projects 3D point(s) using the given camera intrinsics
+
+    This function is broadcastable over p only: you're meant to use it to
+    project a number of points at the same time, but only a single set of
+    intrinsics is supported.
+
+    I can easily add that support with
+
+      @nps.broadcast_define( ((3,),('Nintrinsics',)),
+                             (2,), )
+
+    but then I'd have a python loop iterating over all my points, which is slow.
+    The computations here are simple enough for numpy to handle all the
+    broadcasting at the C level, so I let it do that.
+
+    Inputs:
+
+    - p a 3D point in the camera coord system
+
+    - intrinsics: a numpy array containing
+      - fx
+      - fy
+      - cx
+      - cy
+      - CAHVOR theta (for computing O)
+      - CAHVOR phi   (for computing O)
+      - CAHVOR R0
+      - CAHVOR R1
+      - CAHVOR R2
+
+      The CAHVOR distortion stuff is optional.
+
+    '''
+    if len(intrinsics) == 4:
+        pinhole = True
+    elif len(intrinsics) == 9:
+        pinhole = False
+    else:
+        raise Exception("I know how to deal with an ideal camera (4 intrinsics) or a cahvor camera (9 intrinsics), but I got {} intrinsics intead".format(len(intrinsics)))
+
+
+    p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
+    if pinhole: return p2d
+
+    return cahvor_warp(p2d, *intrinsics)
+
 @nps.broadcast_define( ((3,3),),
                        (3,), )
 def Rodrigues_tor_broadcasted(R):
@@ -108,7 +188,7 @@ Produces two arrays of shape Nwidth,Nheight,2:
 
     # shape: Nwidth,Nheight,2
     grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
-    ugrid = camera_models.cahvor_warp(grid, *intrinsics)
+    ugrid = cahvor_warp(grid, *intrinsics)
     return grid, ugrid
 
 def visualize_distortion(model):
@@ -244,7 +324,7 @@ projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)'''
     intrinsics = nps.mv(intrinsics, 0, -4)
 
     # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
-    return camera_models.project( object_cam, intrinsics )
+    return project( object_cam, intrinsics )
 
 def compute_reproj_error(projected, observations, indices_frame_camera, Nwant):
     r'''Given
@@ -302,7 +382,7 @@ visualization is colored by the reprojection-error-quality of the fit
 
             object_cam = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
 
-        err = observations[i_observations, ...] - camera_models.project(object_cam, intrinsics[i_camera, ...])
+        err = observations[i_observations, ...] - project(object_cam, intrinsics[i_camera, ...])
         err = nps.clump(err, n=3)
         rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
         object_cam0 = nps.glue( object_cam0,
