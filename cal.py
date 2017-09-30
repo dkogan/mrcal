@@ -160,7 +160,7 @@ aligned with the dots and indices_frame_camera arrays. Each observation slice is
     for i_observation in xrange(dots.shape[0]):
         d = dots[i_observation, ...]
 
-        d = nps.transpose(nps.clump( nps.mv( nps.glue(d, full_object, axis=-1), -1, -3 ), n=2 ))
+        d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
         # d is (Nwant*Nwant,5); each row is an xy pixel observation followed by the xyz
         # coord of the point in the calibration object. I pick off those rows
         # where the observations are both >= 0. Result should be (N,5) where N
@@ -252,7 +252,7 @@ the observations
                 d = nps.glue( d0, d1, full_object, axis=-1 )
 
                 # squash dims so that d is (100,7)
-                d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
+                d = nps.clump(d, n=2)
 
                 # I pick out those points that have observations in both frames
                 i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0) * (d[..., 3] >= 0)
@@ -349,8 +349,8 @@ frame pose'''
         # Got my point cloud. fit
 
         # transform both to shape = (N*N, 3)
-        obj  = nps.transpose(nps.clump( nps.mv(obj,  -1,-3), n=2))
-        mean = nps.transpose(nps.clump( nps.mv(mean, -1,-3), n=2))
+        obj  = nps.clump(obj,  n=2)
+        mean = nps.clump(mean, n=2)
         Rt = align3d_procrustes( mean, obj )
         R = Rt[:3,:]
         t = Rt[3 ,:]
@@ -790,7 +790,7 @@ projected = \
 err = utils.compute_reproj_error(projected, observations,
                                  metadata['indices_frame_camera'], Nwant)
 
-norm2_err_perimage = nps.inner( nps.clump(err,n=3),  nps.clump(err,n=3))
+norm2_err_perimage = nps.inner( nps.clump(err,n=-3),  nps.clump(err,n=-3))
 rms_err_perimage   = np.sqrt( norm2_err_perimage / (Nwant*Nwant) )
 
 

@@ -212,8 +212,8 @@ intrinsics
                                               np.linspace(0,H,N))
 
     # shape: N*N,2
-    grid  = nps.transpose(nps.clump(nps.mv(grid,  -1, -3), n=2))
-    ugrid = nps.transpose(nps.clump(nps.mv(ugrid, -1, -3), n=2))
+    grid  = nps.clump(grid,  n=2)
+    ugrid = nps.clump(ugrid, n=2)
 
     delta = ugrid-grid
     gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
@@ -383,14 +383,14 @@ visualization is colored by the reprojection-error-quality of the fit
             object_cam = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
 
         err = observations[i_observations, ...] - project(object_cam, intrinsics[i_camera, ...])
-        err = nps.clump(err, n=3)
+        err = nps.clump(err, n=-3)
         rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
         object_cam0 = nps.glue( object_cam0,
                                 nps.dummy( nps.mv(rms, -1, -3) * np.ones((Nwant,Nwant)),
                                            -1 ),
                                 axis = -1)
 
-    object_cam0 = nps.clump( nps.mv(object_cam0, -1, -4), n=2)
+    object_cam0 = nps.clump( nps.mv(object_cam0, -1, -4), n=-2)
     cam0_axes_labels = gen_plot_axes((mrpose.pose3_ident(),), 'cam0')
     cam_axes_labels  = [gen_plot_axes( (mrpose.pose3_inv(pose__pq_from_rt(extrinsics[i])),),
                                         'cam{}'.format(i+1)) for i in range(0,extrinsics.shape[-2])]
