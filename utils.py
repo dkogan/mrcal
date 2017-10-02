@@ -13,7 +13,7 @@ import camera_models
 
 
 
-def cahvor_warp(p, fx, fy, cx, cy, theta, phi, r0, r1, r2):
+def cahvor_warp(p, fx, fy, cx, cy, *distortions):
     r'''Apply a CAHVOR warp to a projected point
 
     Given intrinsic parameters of a CAHVOR model and a pinhole-projected
@@ -23,6 +23,10 @@ def cahvor_warp(p, fx, fy, cx, cy, theta, phi, r0, r1, r2):
     This function can broadcast the points array
 
     '''
+
+    if not len(distortions):
+        return p
+    theta, phi, r0, r1, r2 = distortions
 
     # p is a 2d point. Temporarily convert to a 3d point
     p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
