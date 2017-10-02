@@ -233,7 +233,7 @@ intrinsics
     import time
     time.sleep(100000)
 
-def visualize_distortion_image(model, image):
+def undistort_image(model, image):
     r'''Visualize the distortion effect of a set of intrinsic
 
 This function warps an image to remove the distortion.
