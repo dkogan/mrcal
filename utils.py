@@ -226,7 +226,7 @@ intrinsics
               {'with': 'points',
                'tuplesize': 2,
                }),
-             _xrange=(0,W), _yrange=(0,H),)
+             _xrange=(0,W), _yrange=(H,0))
 
     import time
     time.sleep(100000)
