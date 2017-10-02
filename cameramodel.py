@@ -45,6 +45,10 @@ def _validate_cahvor(cahvor):
     if abs(nps.inner(Hp,Vp)) > 1e-8:
         raise Exception("Hp must be perpendicular to Vp. Instead inner(Hp,Vp) = {}. Full model: {}". \
                         format(nps.inner(Hp,Vp), cahvor))
+
+    if np.linalg.norm(np.cross(Hp,Vp) - cahvor['A']) > 0.1:
+        raise Exception("Hp,Vp,A must for a right-handed orthonormal basis. It looks left-handed. I have Hp={}, Vp={}, A={}; model={}". \
+                        format(Hp,Vp,cahvor['A'],cahvor))
     return True
 
 def parse_transforms(f):
