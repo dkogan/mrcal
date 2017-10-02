@@ -282,7 +282,7 @@ this into a 3x6 array that can be gnuplotted "with vectors"
     return out
 
 # from visualize_extrinsic. please unduplicate. I changed the length of the
-# drawn x axis
+# drawn x axis. I'm coloring the pairs separately in the other function
 def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
     r'''Given a list of transforms (applied to the reference set of axes in reverse
 order) and a label, return a list of plotting directives gnuplotlib understands.
