@@ -215,6 +215,7 @@ def write_cahvor(f, cahvor):
     f.write("Hc = {}\n".format(Hc))
     f.write("Vs = {}\n".format(Vs))
     f.write("Vc = {}\n".format(Vc))
+    f.write("Theta = {} (-90.0 deg) # this is hard-coded\n".format(-np.pi/2))
 
     if needclose:
         f.close()
