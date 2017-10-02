@@ -153,7 +153,7 @@ The output is a numpy array containing the intrinsics
         model_file.close()
 
     if type(model) is dict:
-        model, extrinsics = camera_models.factor_cahvor(model)
+        model = camera_models.get_intrinsics(model)
 
     if type(model) is not np.ndarray:
         raise Exception("Input must be a string, a file, a dict or a numpy array")
