@@ -260,15 +260,15 @@ intrinsics
 def undistort_image(model, image):
     r'''Visualize the distortion effect of a set of intrinsic
 
-This function warps an image to remove the distortion.
+    This function warps an image to remove the distortion.
 
-The input should either be a file containing a CAHVOR model, a python file
-object from which such a model could be read, the dict representation you get
-when you parse_cahvor() on such a file OR a numpy array containing the
-intrinsics.
+    The input should either be a file containing a CAHVOR model, a python file
+    object from which such a model could be read, the dict representation you
+    get when you parse_cahvor() on such a file OR a numpy array containing the
+    intrinsics.
 
-An image is also input (could be a filename or an array). An array image is
-output.
+    An image is also input (could be a filename or an array). An array image is
+    output.
 
     '''
 
