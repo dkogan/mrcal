@@ -278,16 +278,98 @@ def undistort_image(model, image):
         image = cv2.imread(image)
 
     H,W = image.shape[:2]
-    _,mapxy = distortion_map__from_warped(cahvor,
+    _,mapxy = distortion_map__from_warped(intrinsics,
                                           np.arange(W), np.arange(H))
     mapx = mapxy[:,:,0].astype(np.float32)
     mapy = mapxy[:,:,1].astype(np.float32)
 
-    # is this remap thing right??? Am I mixing up W and H?
-    return  cv2.remap(image,
-                      nps.transpose(mapx),
-                      nps.transpose(mapy),
-                      cv2.INTER_LINEAR)
+    remapped = cv2.remap(image,
+                         nps.transpose(mapx),
+                         nps.transpose(mapy),
+                         cv2.INTER_LINEAR)
+    return remapped
+
+def homography_atinfinity_map( w, h, m0, m1 ):
+    r'''Compute that 1<-0 at-infinity homography for two cahvor models
+
+    The initial inputs are the output image width grid and height grid.
+
+    The following inputs should either be a file containing a CAHVOR model, a
+    python file object from which such a model could be read or the dict
+    representation you get when you parse_cahvor() on such a file.
+
+    THIS FUNCTION IGNORES DISTORTIONS.
+
+    I have an observation x0 in camera0. If x0 is in homogeneous coordinates,
+    then the corresponding observation in the other camera is like so:
+
+        x1 = A1 * (R10 (k * inv(A0)*x0) + t10)
+
+    At infinity, the k dominates:
+
+        x1 = A1 * (R10 * k * inv(A0)*x0)
+
+    And since I have homogeneous coordinates, I can drop the k:
+
+        x1 = A1 * R10 * inv(A0)*x0.
+
+    I.e:
+
+        x1 = H10 x0    where   H10 = A1 * R10 * inv(A0)
+
+    R10 is R 1<-0
+
+    '''
+
+    def get_components(m):
+        m = ingest_cahvor(m)
+        e = camera_models.get_extrinsics_Rt_toref(m)
+        fx,fy,cx,cy = camera_models.cahvor_fxy_cxy(m)
+        return e[:3,:],fx,fy,cx,cy
+
+    Rr0,fx0,fy0,cx0,cy0 = get_components(m0)
+    Rr1,fx1,fy1,cx1,cy1 = get_components(m1)
+
+    # R10 = R1r * Rr0 = inv(Rr1) * Rr0
+    R10 = nps.matmult( nps.transpose(Rr1), Rr0 )
+
+    # I can compute the homography:
+    #   A0 = np.array(((fx0,   0, cx0), \
+    #                  (  0, fy0, cy0), \
+    #                  (  0,   0,   1)))
+    #   A1 = np.array(((fx1,   0, cx1), \
+    #                  (  0, fy1, cy1), \
+    #                  (  0,   0,   1)))
+    #   H = nps.matmult(A1, R10, np.linalg.inv(A0))
+    #
+    # To apply this homography I'd need a broadcast-multiply of a bunch of
+    # points by H, which is currently a python loop in numpysane, so it's very
+    # slow. Instead I compute a map here using core numpy components, so it's
+    # fast.
+
+    # I'm computing a map TO the remapped coords, so I need the INVERSE
+    # homography: A0 R01 inv(A1)
+
+
+    # Output image grid. shape: Nwidth,Nheight,2
+    p1 = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+    # Output image grid in homogeneous coords; without the extra "1". shape:
+    # Nwidth,Nheight,2
+    p1xy3d = (p1 - np.array((cx1,cy1))) / np.array((fx1,fy1))
+
+    # Input image grid in homogeneous coords. Each has shape: Nwidth,Nheight
+    p03d_x = nps.inner(R10[:2,0], p1xy3d) + R10[2,0]
+    p03d_y = nps.inner(R10[:2,1], p1xy3d) + R10[2,1]
+    p03d_z = nps.inner(R10[:2,2], p1xy3d) + R10[2,2]
+
+    # Project. shape: Nwidth,Nheight,2
+    p0xy = nps.mv(nps.cat(p03d_x,p03d_y) / p03d_z, 0,-1)
+
+    # Input Pixel coords. shape: Nwidth,Nheight,2
+    p0xy = p0xy * np.array((fx0,fy0)) + np.array((cx0,cy0))
+    return p1, p0xy
+
 
 # from visualize_extrinsic. please unduplicate
 def extend_axes_for_plotting(axes):
