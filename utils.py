@@ -193,8 +193,10 @@ Produces two arrays of shape Nwidth,Nheight,2:
     ugrid = cahvor_warp(grid, *intrinsics)
     return grid, ugrid
 
-def visualize_distortion(model):
+def visualize_distortion_vector_field(model):
     r'''Visualize the distortion effect of a set of intrinsic
+
+This function renders the distortion vector field
 
 The input should either be a file containing a CAHVOR model, a python file
 object from which such a model could be read, the dict representation you get
@@ -231,6 +233,37 @@ intrinsics
     import time
     time.sleep(100000)
 
+def visualize_distortion_image(model, image):
+    r'''Visualize the distortion effect of a set of intrinsic
+
+This function warps an image to remove the distortion.
+
+The input should either be a file containing a CAHVOR model, a python file
+object from which such a model could be read, the dict representation you get
+when you parse_cahvor() on such a file OR a numpy array containing the
+intrinsics.
+
+An image is also input (could be a filename or an array). An array image is
+output.
+
+    '''
+
+    intrinsics = ingest_intrinsics(model)
+
+    if not isinstance(image, np.ndarray):
+        image = cv2.imread(image)
+
+    H,W = image.shape[:2]
+    _,mapxy = distortion_map__from_warped(cahvor,
+                                          np.arange(W), np.arange(H))
+    mapx = mapxy[:,:,0].astype(np.float32)
+    mapy = mapxy[:,:,1].astype(np.float32)
+
+    # is this remap thing right??? Am I mixing up W and H?
+    return  cv2.remap(image,
+                      nps.transpose(mapx),
+                      nps.transpose(mapy),
+                      cv2.INTER_LINEAR)
 
 # from visualize_extrinsic. please unduplicate
 def extend_axes_for_plotting(axes):
