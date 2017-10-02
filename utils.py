@@ -133,42 +133,62 @@ lives at (y,x,:)
     return full_object * dot_spacing
 
 
-def ingest_intrinsics(model):
-    r'''Reads intrinsics from a variety of representations
+def ingest_cahvor(model):
+    r'''Reutnrs a cahvor model from a variety of representations
 
-The input should either be a file containing a CAHVOR model, a python file
-object from which such a model could be read, the dict representation you get
-when you parse_cahvor() on such a file OR a numpy array containing the
-intrinsics.
+    The input should be any of
 
-The output is a numpy array containing the intrinsics
+    - a file containing a CAHVOR model
+    - a python file object from which such a model could be read
+    - a dict representation you get when you parse_cahvor() such a file
+
+    The output is a cahvor dict
     '''
 
     model_file = None
 
-    if type(model) is str:
+    if isinstance(model, str):
         model = open(model, 'r')
         model_file = model
 
-    if type(model) is file:
+    if isinstance(model, file):
         model = camera_models.parse_cahvor(model)
 
     if model_file is not None:
         model_file.close()
 
-    if type(model) is dict:
+    if isinstance(model, dict):
+        return model
+
+    raise Exception("Input must be a string, a file, a dict or a numpy array.")
+
+
+def ingest_intrinsics(model):
+    r'''Reads cahvor intrinsics from a variety of representations
+
+    The input should be any of
+
+    - a file containing a CAHVOR model
+    - a python file object from which such a model could be read
+    - a dict representation you get when you parse_cahvor() such a file
+    - a numpy array containing the intrinsics.
+
+    The output is a numpy array containing the intrinsics
+    '''
+
+    if not isinstance(model, np.ndarray):
+        model = ingest_cahvor(model)
         model = camera_models.get_intrinsics(model)
 
-    if type(model) is not np.ndarray:
+    if not isinstance(model, np.ndarray):
         raise Exception("Input must be a string, a file, a dict or a numpy array")
 
     if len(model) == 4:
-        print "Pinhole camera. No distortion"
-        sys.exit(0)
-    if len(model) != 9:
-        raise Exception("Intrinsics vector MUST have length 4 or 9. Instead got {}".format(len(model)))
+        return model
+    if len(model) == 9:
+        return model
 
-    return model
+    raise Exception("Intrinsics vector MUST have length 4 or 9. Instead got {}".format(len(model)))
 
 
 def distortion_map__from_warped(model, w, h):
