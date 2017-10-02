@@ -80,6 +80,8 @@ def project(p, intrinsics):
       The CAHVOR distortion stuff is optional.
 
     '''
+    intrinsics = intrinsics.ravel()
+
     if len(intrinsics) == 4:
         pinhole = True
     elif len(intrinsics) == 9:
