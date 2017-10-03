@@ -79,12 +79,12 @@ def align3d_procrustes(A, B):
 
     return nps.glue( R, t.ravel(), axis=-2)
 
-def cahvor_warp(p, fx, fy, cx, cy, *distortions):
-    r'''Apply a CAHVOR warp to a projected point
+def cahvor_warp_distort(p, fx, fy, cx, cy, *distortions):
+    r'''Apply a CAHVOR warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVOR model and a pinhole-projected
     point(s) numpy array of shape (..., 2), return the projected point(s) that
-    we'd get if the distortion wasn't there. We ASSUME THE SAME fx,fy,cx,cy
+    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
 
     This function can broadcast the points array
 
@@ -163,7 +163,7 @@ def project(p, intrinsics):
     p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
     if pinhole: return p2d
 
-    return cahvor_warp(p2d, *intrinsics)
+    return cahvor_warp_distort(p2d, *intrinsics)
 
 @nps.broadcast_define( ((3,3),),
                        (3,), )
@@ -257,22 +257,22 @@ def ingest_intrinsics(model):
     raise Exception("Intrinsics vector MUST have length 4 or 9. Instead got {}".format(len(model)))
 
 
-def distortion_map__from_warped(model, w, h):
+def distortion_map__to_warped(model, w, h):
     r'''Returns the pre and post distortion map of a model
 
-Takes in
+    Takes in
 
-- a cahvor model (in a number of representations)
-- a sampling spacing on the x axis
-- a sampling spacing on the y axis
+    - a cahvor model (in a number of representations)
+    - a sampling spacing on the x axis
+    - a sampling spacing on the y axis
 
-Produces two arrays of shape Nwidth,Nheight,2:
+    Produces two arrays of shape Nwidth,Nheight,2:
 
-- grid: a meshgrid of the sampling spacings given as inputs. This refers to the
-  DISTORTED image
+    - grid: a meshgrid of the sampling spacings given as inputs. This refers to the
+      UNDISTORTED image
 
-- ugrid: a meshgrid where each point in grid had the distortion corrected. This
-  refers to the UNDISTORTED image
+    - dgrid: a meshgrid where each point in grid had the distortion corrected.
+      This refers to the DISTORTED image
 
     '''
 
@@ -280,18 +280,18 @@ Produces two arrays of shape Nwidth,Nheight,2:
 
     # shape: Nwidth,Nheight,2
     grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
-    ugrid = cahvor_warp(grid, *intrinsics)
-    return grid, ugrid
+    dgrid = cahvor_warp_distort(grid, *intrinsics)
+    return grid, dgrid
 
 def visualize_distortion_vector_field(model):
     r'''Visualize the distortion effect of a set of intrinsic
 
-This function renders the distortion vector field
+    This function renders the distortion vector field
 
-The input should either be a file containing a CAHVOR model, a python file
-object from which such a model could be read, the dict representation you get
-when you parse_cahvor() on such a file OR a numpy array containing the
-intrinsics
+    The input should either be a file containing a CAHVOR model, a python file
+    object from which such a model could be read, the dict representation you
+    get when you parse_cahvor() on such a file OR a numpy array containing the
+    intrinsics
 
     '''
 
@@ -301,15 +301,15 @@ intrinsics
     W,H = [2*center for center in intrinsics[2:4]]
 
     # get the input and output grids of shape Nwidth,Nheight,2
-    grid, ugrid = distortion_map__from_warped(intrinsics,
-                                              np.linspace(0,W,N),
-                                              np.linspace(0,H,N))
+    grid, dgrid = distortion_map__to_warped(intrinsics,
+                                            np.linspace(0,W,N),
+                                            np.linspace(0,H,N))
 
     # shape: N*N,2
     grid  = nps.clump(grid,  n=2)
-    ugrid = nps.clump(ugrid, n=2)
+    dgrid = nps.clump(dgrid, n=2)
 
-    delta = ugrid-grid
+    delta = dgrid-grid
     gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
               {'with': 'vectors size screen 0.01,20 fixed filled',
                'tuplesize': 4,
@@ -344,8 +344,8 @@ def undistort_image(model, image):
         image = cv2.imread(image)
 
     H,W = image.shape[:2]
-    _,mapxy = distortion_map__from_warped(intrinsics,
-                                          np.arange(W), np.arange(H))
+    _,mapxy = distortion_map__to_warped(intrinsics,
+                                        np.arange(W), np.arange(H))
     mapx = mapxy[:,:,0].astype(np.float32)
     mapy = mapxy[:,:,1].astype(np.float32)
 
