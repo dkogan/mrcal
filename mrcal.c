@@ -1051,52 +1051,101 @@ double mrcal_optimize( // out, in (seed on input)
 
                 const union point2_t* pt_observed = &observation->px[i_pt];
 
-                // I have my two measurements (dx, dy). I propagate their
-                // gradient and store them
-                for( int i_xy=0; i_xy<2; i_xy++ )
+                if(!observation->skip_observation)
                 {
-                    Jrowptr[iMeasurement] = iJacobian;
-
-                    const double err = pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy];
-                    x[iMeasurement] = err;
-
-                    // I want these gradient values to be computed in
-                    // monotonically-increasing order of variable index. I don't
-                    // CHECK, so it's the developer's responsibility to make sure.
-                    // This ordering is set in the intrinsics_t structure and in
-                    // pack_solver_state(), unpack_solver_state()
-                    if( optimization_variable_choice.do_optimize_intrinsic_core )
-                        for(int i=0; i<N_INTRINSICS_CORE; i++)
-                            STORE_JACOBIAN( i_var_intrinsic_core + i,
-                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + i] );
-
-                    if( optimization_variable_choice.do_optimize_intrinsic_distortions )
-                        for(int i=0; i<Ndistortions; i++)
-                            STORE_JACOBIAN( i_var_intrinsic_distortions + i,
-                                            dxy_dintrinsic_distortions[i_xy * Ndistortions + i] );
-
-                    if( i_camera != 0 )
+                    // I have my two measurements (dx, dy). I propagate their
+                    // gradient and store them
+                    for( int i_xy=0; i_xy<2; i_xy++ )
                     {
-                        STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                         dxy_drcamera[i_xy].xyz[0],
-                                         dxy_drcamera[i_xy].xyz[1],
-                                         dxy_drcamera[i_xy].xyz[2]);
-                        STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                         dxy_dtcamera[i_xy].xyz[0],
-                                         dxy_dtcamera[i_xy].xyz[1],
-                                         dxy_dtcamera[i_xy].xyz[2]);
+                        const double err = pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy];
+                        norm2_error += err*err;
+
+                        Jrowptr[iMeasurement] = iJacobian;
+                        x[iMeasurement] = err;
+
+                        // I want these gradient values to be computed in
+                        // monotonically-increasing order of variable index. I don't
+                        // CHECK, so it's the developer's responsibility to make sure.
+                        // This ordering is set in the intrinsics_t structure and in
+                        // pack_solver_state(), unpack_solver_state()
+                        if( optimization_variable_choice.do_optimize_intrinsic_core )
+                            for(int i=0; i<N_INTRINSICS_CORE; i++)
+                                STORE_JACOBIAN( i_var_intrinsic_core + i,
+                                                dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + i] );
+
+                        if( optimization_variable_choice.do_optimize_intrinsic_distortions )
+                            for(int i=0; i<Ndistortions; i++)
+                                STORE_JACOBIAN( i_var_intrinsic_distortions + i,
+                                                dxy_dintrinsic_distortions[i_xy * Ndistortions + i] );
+
+                        if( i_camera != 0 )
+                        {
+                            STORE_JACOBIAN3( i_var_camera_rt + 0,
+                                             dxy_drcamera[i_xy].xyz[0],
+                                             dxy_drcamera[i_xy].xyz[1],
+                                             dxy_drcamera[i_xy].xyz[2]);
+                            STORE_JACOBIAN3( i_var_camera_rt + 3,
+                                             dxy_dtcamera[i_xy].xyz[0],
+                                             dxy_dtcamera[i_xy].xyz[1],
+                                             dxy_dtcamera[i_xy].xyz[2]);
+                        }
+
+                        STORE_JACOBIAN3( i_var_frame_rt + 0,
+                                         dxy_drframe[i_xy].xyz[0],
+                                         dxy_drframe[i_xy].xyz[1],
+                                         dxy_drframe[i_xy].xyz[2]);
+                        STORE_JACOBIAN3( i_var_frame_rt + 3,
+                                         dxy_dtframe[i_xy].xyz[0],
+                                         dxy_dtframe[i_xy].xyz[1],
+                                         dxy_dtframe[i_xy].xyz[2]);
+
+                        iMeasurement++;
                     }
+                }
+                else
+                {
+                    // This is arbitrary. I'm skipping this observation, so I
+                    // don't touch the projection results. I need to have SOME
+                    // dependency on the frame parameters to ensure a full-rank
+                    // Hessian. So if we're skipping all observations for this
+                    // frame, I replace this cost contribution with an L2 cost
+                    // on the frame parameters.
+                    for( int i_xy=0; i_xy<2; i_xy++ )
+                    {
+                        const double err = 0.0;
+                        norm2_error += err*err;
 
-                    STORE_JACOBIAN3( i_var_frame_rt + 0,
-                                     dxy_drframe[i_xy].xyz[0],
-                                     dxy_drframe[i_xy].xyz[1],
-                                     dxy_drframe[i_xy].xyz[2]);
-                    STORE_JACOBIAN3( i_var_frame_rt + 3,
-                                     dxy_dtframe[i_xy].xyz[0],
-                                     dxy_dtframe[i_xy].xyz[1],
-                                     dxy_dtframe[i_xy].xyz[2]);
+                        if( reportFitMsg )
+                        {
+                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %f\n",
+                                    reportFitMsg,
+                                    i_observation, i_frame, i_camera, i_pt, err);
+                            continue;
+                        }
 
-                    iMeasurement++;
+                        Jrowptr[iMeasurement] = iJacobian;
+                        x[iMeasurement] = err;
+
+                        if( optimization_variable_choice.do_optimize_intrinsic_core )
+                            for(int i=0; i<N_INTRINSICS_CORE; i++)
+                                STORE_JACOBIAN( i_var_intrinsic_core + i, 0.0 );
+
+                        if( optimization_variable_choice.do_optimize_intrinsic_distortions )
+                            for(int i=0; i<Ndistortions; i++)
+                                STORE_JACOBIAN( i_var_intrinsic_distortions + i, 0.0 );
+
+                        if( i_camera != 0 )
+                        {
+                            STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
+                            STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
+                        }
+
+                        const double dframe = observation->skip_frame ? 1.0 : 0.0;
+                        STORE_JACOBIAN3( i_var_frame_rt + 0, dframe, dframe, dframe);
+                        STORE_JACOBIAN3( i_var_frame_rt + 3, dframe, dframe, dframe);
+
+                        iMeasurement++;
+                    }
                 }
             }
         }

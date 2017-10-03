@@ -66,3 +66,6 @@ Args:
 
 - do_optimize_intrinsic_distortions: optional boolean, defaults to True. Whether
   the distortions should be optimized
+
+- skipped_observations: list of integers for the observations that we don't care
+  about. Defaults to None: don't skip anything

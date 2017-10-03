@@ -39,7 +39,10 @@ struct pose_t
 struct observation_t
 {
 #warning I need i_camera, but maybe i_frame should live in a separate frame_start[] ?
-    int i_camera, i_frame;
+    int  i_camera         : 31;
+    bool skip_frame       : 1;
+    int  i_frame          : 31;
+    bool skip_observation : 1;
 
     union point2_t* px; // NUM_POINTS_IN_CALOBJECT of these
 };

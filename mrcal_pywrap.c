@@ -20,6 +20,7 @@ static bool optimize_validate_args( // out
                                     PyArrayObject* frames,
                                     PyArrayObject* observations,
                                     PyArrayObject* indices_frame_camera,
+                                    PyObject*      skipped_observations,
                                     PyObject*      distortion_model_string)
 {
     if( PyArray_NDIM(intrinsics) != 2 )
@@ -149,6 +150,34 @@ static bool optimize_validate_args( // out
         return false;
     }
 
+    if( skipped_observations != NULL &&
+        skipped_observations != Py_None)
+    {
+        if( !PySequence_Check(skipped_observations) )
+        {
+            PyErr_Format(PyExc_RuntimeError, "skipped_observations MUST be None or an iterable of monotonically-increasing integers >= 0");
+            return false;
+        }
+
+        int Nskipped_observations = (int)PySequence_Size(skipped_observations);
+        long iskip_last = -1;
+        for(int i=0; i<Nskipped_observations; i++)
+        {
+            PyObject* nextskip = PySequence_GetItem(skipped_observations, i);
+            if(!PyInt_Check(nextskip))
+            {
+                PyErr_Format(PyExc_RuntimeError, "skipped_observations MUST be None or an iterable of monotonically-increasing integers >= 0");
+                return false;
+            }
+            long iskip = PyInt_AsLong(nextskip);
+            if(iskip <= iskip_last)
+            {
+                PyErr_Format(PyExc_RuntimeError, "skipped_observations MUST be None or an iterable of monotonically-increasing integers >= 0");
+                return false;
+            }
+            iskip_last = iskip;
+        }
+    }
     return true;
 }
 
@@ -227,13 +256,15 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         // optional kwargs
                         "do_optimize_intrinsic_core",
                         "do_optimize_intrinsic_distortions",
+                        "skipped_observations",
                         NULL};
 
     PyObject* distortion_model_string = NULL;
     PyObject* do_optimize_intrinsic_core        = Py_True;
     PyObject* do_optimize_intrinsic_distortions = Py_True;
+    PyObject* skipped_observations              = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&S|OO",
+                                     "O&O&O&O&O&S|OOO",
                                      keywords,
                                      PyArray_Converter, &intrinsics,
                                      PyArray_Converter, &extrinsics,
@@ -244,7 +275,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &distortion_model_string,
 
                                      &do_optimize_intrinsic_core,
-                                     &do_optimize_intrinsic_distortions))
+                                     &do_optimize_intrinsic_distortions,
+                                     &skipped_observations))
         goto done;
 
     enum distortion_model_t distortion_model;
@@ -255,6 +287,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                 frames,
                                 observations,
                                 indices_frame_camera,
+                                skipped_observations,
                                 distortion_model_string))
         goto done;
 
@@ -269,14 +302,84 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         struct pose_t*       c_frames     = (struct pose_t*)      PyArray_DATA(frames);
 
         struct observation_t c_observations[Nobservations];
+
+        int Nskipped_observations =
+            ( skipped_observations == NULL ||
+              skipped_observations == Py_None ) ?
+            0 :
+            (int)PySequence_Size(skipped_observations);
+        int i_skipped_observation = 0;
+        int i_observation_next_skip = -1;
+        if( i_skipped_observation < Nskipped_observations )
+        {
+            PyObject* nextskip = PySequence_GetItem(skipped_observations, i_skipped_observation);
+            i_observation_next_skip = (int)PyInt_AsLong(nextskip);
+        }
+
+        int i_frame_current_skipped = -1;
+        int i_frame_last            = -1;
         for(int i_observation=0; i_observation<Nobservations; i_observation++)
         {
             int i_frame  = ((int*)PyArray_DATA(indices_frame_camera))[i_observation*2 + 0];
             int i_camera = ((int*)PyArray_DATA(indices_frame_camera))[i_observation*2 + 1];
 
-            c_observations[i_observation].i_camera = i_camera;
-            c_observations[i_observation].i_frame  = i_frame;
-            c_observations[i_observation].px       = &((union point2_t*)PyArray_DATA(observations))[Nwant*Nwant*i_observation];
+            c_observations[i_observation].i_camera         = i_camera;
+            c_observations[i_observation].i_frame          = i_frame;
+            c_observations[i_observation].px               = &((union point2_t*)PyArray_DATA(observations))[Nwant*Nwant*i_observation];
+
+            // I skip this frame if I skip ALL observations of this frame
+            if( i_frame_current_skipped >= 0 &&
+                i_frame_current_skipped != i_frame )
+            {
+                // Ooh! We moved past the frame where we skipped all
+                // observations. So I need to go back, and mark all of those as
+                // skipping that frame
+                for(int i_observation_skip_frame = i_observation-1;
+                    i_observation_skip_frame >= 0 && c_observations[i_observation_skip_frame].i_frame == i_frame_current_skipped;
+                    i_observation_skip_frame--)
+                {
+                    c_observations[i_observation_skip_frame].skip_frame = true;
+                }
+            }
+            else
+                c_observations[i_observation].skip_frame = false;
+
+            if( i_observation == i_observation_next_skip )
+            {
+                if( i_frame_last != i_frame )
+                    i_frame_current_skipped = i_frame;
+
+                c_observations[i_observation].skip_observation = true;
+
+                i_skipped_observation++;
+                if( i_skipped_observation < Nskipped_observations )
+                {
+                    PyObject* nextskip = PySequence_GetItem(skipped_observations, i_skipped_observation);
+                    i_observation_next_skip = (int)PyInt_AsLong(nextskip);
+                }
+                else
+                    i_observation_next_skip = -1;
+            }
+            else
+            {
+                c_observations[i_observation].skip_observation = false;
+                i_frame_current_skipped = -1;
+            }
+
+            i_frame_last = i_frame;
+        }
+        // check for frame-skips on the last observation
+        if( i_frame_current_skipped >= 0 )
+        {
+            // Ooh! We moved past the frame where we skipped all
+            // observations. So I need to go back, and mark all of those as
+            // skipping that frame
+            for(int i_observation_skip_frame = Nobservations - 1;
+                i_observation_skip_frame >= 0 && c_observations[i_observation_skip_frame].i_frame == i_frame_current_skipped;
+                i_observation_skip_frame--)
+            {
+                c_observations[i_observation_skip_frame].skip_frame = true;
+            }
         }
 
         struct mrcal_variable_select optimization_variable_choice;
