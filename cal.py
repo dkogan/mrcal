@@ -52,73 +52,6 @@ re_s = '.+'
 
 
 
-@nps.broadcast_define( (('N',3), ('N',3),),
-                       (4,3), )
-def align3d_procrustes(A, B):
-    r"""Computes an optimal (R,t) to match points in B to points in A
-
-Given two sets of 3d points in numpy arrays of shape (N,3), find the optimal
-rotation, translation to align these sets of points. Returns array of shape
-(4,3): [ R ]
-       [ t ]
-
-We minimize
-
-  E = sum( norm2( a_i - (R b_i + t)))
-
-We can expand this to get
-
-  E = sum( norm2(a_i) - 2 inner(a_i, R b_i + t ) + norm2(b_i) + 2 inner(R b_i,t) + norm2(t) )
-
-ignoring factors not depending on the optimization variables (R,t)
-
-  E ~ sum( - 2 inner(a_i, R b_i + t ) + 2 inner(R b_i,t) + norm2(t) )
-
-  dE/dt = sum( - 2 a_i + 2 R b_i + 2 t ) = 0
-  -> sum(a_i) = R sum(b_i) + N t -> t = mean(a) - R mean(b)
-
-I can shift my a_i and b_i so that they have 0-mean. In this case, the optimal t
-= 0 and
-
-  E ~ sum( inner(a_i, R b_i )  )
-
-This is the classic procrustes problem
-
-  E = tr( At R B ) = tr( R B At ) = tr( R U S Vt ) = tr( Vt R U S )
-
-So the critical points are at Vt R U = I and R = V Ut, modulo a tweak to make
-sure that R is in SO(3) not just in SE(3)
-
-    """
-
-    # I don't check dimensionality. The broadcasting-aware wrapper will do that
-
-    A = nps.transpose(A)
-    B = nps.transpose(B)
-
-    M = nps.matmult(               B - np.mean(B, axis=-1)[..., np.newaxis],
-                     nps.transpose(A - np.mean(A, axis=-1)[..., np.newaxis]) )
-    U,S,Vt = np.linalg.svd(M)
-
-    R = nps.matmult(U, Vt)
-
-    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
-    # is not a physical rotation. I compensate by negating the least-important
-    # pair of singular vectors
-    if np.linalg.det(R) < 0:
-        U[:,2] *= -1
-        R = nps.matmult(U, Vt)
-
-    # I wanted V Ut, not U Vt
-    R = nps.transpose(R)
-
-    # Now that I have my optimal R, I compute the optimal t. From before:
-    #
-    #   t = mean(a) - R mean(b)
-    t = np.mean(A, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(B, axis=-1)[..., np.newaxis] )
-
-    return nps.glue( R, t.ravel(), axis=-2)
-
 def estimate_local_calobject_poses( indices_frame_camera, \
                                     dots, dot_spacing, focal, imager_size ):
     r"""Estimates pose of observed object in a single-camera view
@@ -264,7 +197,8 @@ the observations
                              axis = -2)
                 B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt1[:3,:])) + Rt1[3,:],
                              axis = -2)
-        Rt = nps.glue(Rt, align3d_procrustes(A, B),
+
+        Rt = nps.glue(Rt, utils.align3d_procrustes(A, B),
                       axis=-3)
 
     return Rt
@@ -351,7 +285,7 @@ frame pose'''
         # transform both to shape = (N*N, 3)
         obj  = nps.clump(obj,  n=2)
         mean = nps.clump(mean, n=2)
-        Rt = align3d_procrustes( mean, obj )
+        Rt = utils.align3d_procrustes( mean, obj )
         R = Rt[:3,:]
         t = Rt[3 ,:]
         return nps.glue( utils.Rodrigues_tor_broadcasted(R),
