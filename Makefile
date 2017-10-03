@@ -33,7 +33,7 @@ EXTRA_CLEAN += *.docstring.h
 build/lib.%/mrcal.so: mrcal_pywrap.c optimize.docstring.h getNdistortionParams.docstring.h mrcal.h libmrcal.so
 	python setup.py build -f
 EXTRA_CLEAN += build
-all: libmrcal.so build/lib.linux-x86_64-2.7/mrcal.so
+all: build/lib.linux-x86_64-2.7/mrcal.so
 
 
 test_cahvor.o: CFLAGS += -Wno-unused-variable -Wno-unused-parameter
