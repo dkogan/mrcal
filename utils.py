@@ -6,6 +6,7 @@ import gnuplotlib as gp
 import sys
 import cv2
 import cPickle as pickle
+import scipy.optimize
 
 sys.path[:0] = ('/home/dima/jpl/stereo-server/analyses',)
 import camera_models
@@ -115,6 +116,36 @@ def cahvor_warp_distort(p, fx, fy, cx, cy, *distortions):
 
     # now I apply a normal projection to the warped 3d point p
     return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+
+def cahvor_warp_undistort(p, fx, fy, cx, cy, *distortions):
+    r'''Un-apply a CAHVOR warp: undistort a point
+
+    Given intrinsic parameters of a CAHVOR model and a pinhole-projected
+    point(s) numpy array of shape (..., 2), return the projected point(s) that
+    we'd get without distortion. We ASSUME THE SAME fx,fy,cx,cy
+
+    This function can broadcast the points array.
+
+    Note that this function has an iterative solver and is thus SLOW. This is
+    the "backwards" direction. Most of the time you want cahvor_warp_distort().
+
+    '''
+
+    if not len(distortions):
+        return p
+
+    # I could make this much more efficient: precompute lots of stuff, use
+    # gradients, etc, etc. I can also optimize each point separately. But that
+    # would make the code messy and require more work. This functions decently
+    # well and I leave it.
+    def f(p0):
+        '''Optimization functions'''
+        N = len(p0.ravel()) / 2
+        p1 = cahvor_warp_distort(p0.reshape(N,2), fx,fy,cx,cy, *distortions)
+        return p1.ravel() - p.ravel()
+
+    p1 = scipy.optimize.leastsq(f, p.ravel())[0]
+    return np.array(p1).reshape(p.shape)
 
 def project(p, intrinsics):
     r'''Projects 3D point(s) using the given camera intrinsics
