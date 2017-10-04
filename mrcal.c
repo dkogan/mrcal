@@ -1141,8 +1141,12 @@ double mrcal_optimize( // out, in (seed on input)
                         }
 
                         const double dframe = observation->skip_frame ? 1.0 : 0.0;
-                        STORE_JACOBIAN3( i_var_frame_rt + 0, dframe, dframe, dframe);
-                        STORE_JACOBIAN3( i_var_frame_rt + 3, dframe, dframe, dframe);
+                        // Arbitrary differences between the dimensions to keep
+                        // my Hessian non-singular. This is 100% arbitrary. I'm
+                        // skipping these measurements so these variables
+                        // actually don't affect the computation at all
+                        STORE_JACOBIAN3( i_var_frame_rt + 0, dframe*1.1, dframe*1.2, dframe*1.3);
+                        STORE_JACOBIAN3( i_var_frame_rt + 3, dframe*1.4, dframe*1.5, dframe*1.6);
 
                         iMeasurement++;
                     }
