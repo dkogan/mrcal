@@ -8,6 +8,11 @@ All geometry is given in the coord system of camera 0. As a result, the pose of
 camera 0 is hard-coded to the identity, and this isn't a part of the
 optimization state.
 
+The input is a combination of observations of a calibration board and
+observations of discrete points. The point observations can come JUST from
+correspondences, or they can also have a known-distance-to-a-camera (i.e. if
+we're looking at very-far-away clouds or known fiducials).
+
 Args:
 
 - intrinsics: array of dims (Ncameras, Nintrinsics). The intrinsics of each
@@ -39,15 +44,34 @@ Args:
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- observations: array of dims (Nobservations, 10, 10, 2). These are the observed
-  (x,y) pixel coordinates of the dots in the calibration object. Subpixel
-  interpolation is assumed, so these contain 64-bit floating point values, like
-  all the other data. The frame and camera that gathered these observations are
-  given in the indices_frame_camera array
+- points: array of dims (Npoints, 3). The positions of discrete points we're
+  observing. These positions are represented in the reference coord system.
 
-- indices_frame_camera: array of dims (Nobservations, 2). For each observation
-  these are an (i_frame,i_camera) tuple. The frame indices and camera indices
-  are guaranteed to be monotonic. This array contains plain 'int' integers.
+  On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
+  MODIFIED BY THIS CALL.
+
+- observations_board: array of dims (NobservationsBoard, 10, 10, 2). These are
+  the observed (x,y) pixel coordinates of the dots in the calibration object.
+  Subpixel interpolation is assumed, so these contain 64-bit floating point
+  values, like all the other data. The frame and camera that produced these
+  observations are given in the indices_frame_camera array
+
+- indices_frame_camera_board: array of dims (NobservationsBoard, 2). For each
+  observation these are an (i_frame,i_camera) tuple. The frame indices and
+  camera indices are guaranteed to be monotonic. This array contains plain 'int'
+  integers.
+
+- observations_point: array of dims (NobservationsPoint, 3). These are the
+  observed (x,y) pixel coordinates of the point, followed by the reference
+  distance. If no reference distance is available, set this to <= 0. Subpixel
+  interpolation is assumed, so these contain 64-bit floating point values, like
+  all the other data. The point index and camera that produced these
+  observations are given in the indices_point_camera_points array.
+
+- indices_point_camera_points: array of dims (NobservationsPoint, 2). For each
+  observation these are an (i_point,i_camera) tuple. The point indices and
+  camera indices are guaranteed to be monotonic. This array contains plain 'int'
+  integers.
 
 - distortion_model: a string such as
 
@@ -67,5 +91,8 @@ Args:
 - do_optimize_intrinsic_distortions: optional boolean, defaults to True. Whether
   the distortions should be optimized
 
-- skipped_observations: list of integers for the observations that we don't care
-  about. Defaults to None: don't skip anything
+- skipped_observations_board: list of integers for the board observations that
+  we don't care about. Defaults to None: don't skip anything
+
+- skipped_observations_point: list of integers for the point observations that
+  we don't care about. Defaults to None: don't skip anything

@@ -81,19 +81,30 @@ int main(int argc, char* argv[] )
           { .r = { .xyz = {  .20,  -.22,   .75}},  .t = { .xyz = { 3.1, 6.3, 10.4}}}};
     int Nframes  = sizeof(frames)    /sizeof(frames[0]);
 
+    union point3_t points[] =
+        { {.xyz = {-5.3,   2.3, 20.4}},
+          {.xyz = {-15.3, -3.2, 200.4}}};
+    int Npoints = sizeof(points)/sizeof(points[0]);
 
     // Dummy point observations. All use the same array, but this doesn't matter
     // for this test anyway
     union point2_t observations_px[NUM_POINTS_IN_CALOBJECT] = {};
 
-    struct observation_board_t observations[] =
+    struct observation_board_t observations_board[] =
         { {.i_camera = 0, .i_frame = 0, .px = observations_px},
           {.i_camera = 1, .i_frame = 0, .px = observations_px},
           {.i_camera = 1, .i_frame = 1, .px = observations_px},
           {.i_camera = 0, .i_frame = 2, .px = observations_px},
           {.i_camera = 0, .i_frame = 3, .px = observations_px},
           {.i_camera = 1, .i_frame = 3, .px = observations_px} };
-    int Nobservations = sizeof(observations)/sizeof(observations[0]);
+    int NobservationsBoard = sizeof(observations_board)/sizeof(observations_board[0]);
+
+    struct observation_point_t observations_point[] =
+        { {.i_camera = 0, .i_point = 0, .px = {}},
+          {.i_camera = 1, .i_point = 0, .px = {}},
+          {.i_camera = 0, .i_point = 1, .px = {}, .dist = 18.0},
+          {.i_camera = 1, .i_point = 1, .px = {}, .dist = 180.0} };
+    int NobservationsPoint = sizeof(observations_point)/sizeof(observations_point[0]);
 
 #define PICK_SPECIFIC_INTRINSICS(s,n) case s: intrinsics_specific = (struct intrinsics_t*)intrinsics ## s; break;
     struct intrinsics_t* intrinsics_specific;
@@ -108,10 +119,14 @@ int main(int argc, char* argv[] )
     mrcal_optimize( intrinsics_specific,
                     extrinsics,
                     frames,
-                    Ncameras, Nframes,
+                    points,
+                    Ncameras, Nframes, Npoints,
 
-                    observations,
-                    Nobservations,
+                    observations_board,
+                    NobservationsBoard,
+
+                    observations_point,
+                    NobservationsPoint,
 
                     true,
                     distortion_model,

@@ -3,7 +3,6 @@
 #include <stdbool.h>
 
 
-// this is copied from the stereo-server project. Please consolidate
 union point2_t
 {
     struct
@@ -24,7 +23,7 @@ union point3_t
 
 
 
-#warning generalize to other calibration objects and lone points
+#warning generalize to other calibration objects
 #define CALOBJECT_W                    10
 #define NUM_POINTS_IN_CALOBJECT        (CALOBJECT_W*CALOBJECT_W)
 #define CALIBRATION_OBJECT_DOT_SPACING (4.0 * 2.54 / 100.0) /* 4 inches */
@@ -36,15 +35,35 @@ struct pose_t
     union point3_t r,t;
 };
 
+// An observation of a calibration board. Each "observation" is ONE camera
+// observing a board
 struct observation_board_t
 {
-#warning I need i_camera, but maybe i_frame should live in a separate frame_start[] ?
     int  i_camera         : 31;
     bool skip_frame       : 1;
     int  i_frame          : 31;
     bool skip_observation : 1;
 
     union point2_t* px; // NUM_POINTS_IN_CALOBJECT of these
+};
+
+// An observation of a point in space. Here each "observation" is two cameras
+// observing the point. The 3d position of the point is NOT given in the
+// parameter vector, but the reprojection error is computed directly from the
+// camera geometry. Optionally, the distance to from each camera to the point is
+// given also. This is optional, and used only if the given distance is > 0.
+struct observation_point_t
+{
+    int  i_camera         : 31;
+    bool skip_point       : 1;
+    int  i_point          : 31;
+    bool skip_observation : 1;
+
+    // Observed pixel coordinates
+    union point2_t px;
+
+    // Reference distance. This is optional; skipped if <= 0
+    double dist;
 };
 
 
@@ -102,12 +121,16 @@ double mrcal_optimize( // out, in (seed on input)
                       struct intrinsics_t* camera_intrinsics,  // Ncameras of these
                       struct pose_t*       camera_extrinsics,  // Ncameras-1 of these. Transform FROM camera0 frame
                       struct pose_t*       frames,             // Nframes of these.    Transform TO   camera0 frame
+                      union  point3_t*     points,             // Npoints of these.    In the camera0 frame
 
                       // in
-                      int Ncameras, int Nframes,
+                      int Ncameras, int Nframes, int Npoints,
 
-                      const struct observation_board_t* observations,
-                      int Nobservations,
+                      const struct observation_board_t* observations_board,
+                      int NobservationsBoard,
+
+                      const struct observation_point_t* observations_point,
+                      int NobservationsPoint,
 
                       bool check_gradient,
                       enum distortion_model_t distortion_model,
