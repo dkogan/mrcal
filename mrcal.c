@@ -141,7 +141,7 @@ static int get_Nstate(int Ncameras, int Nframes,
         Ncameras * getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model); // camera intrinsics
 }
 
-static int get_N_j_nonzero( const struct observation_t* observations,
+static int get_N_j_nonzero( const struct observation_board_t* observations,
                             int Nobservations,
                             struct mrcal_variable_select optimization_variable_choice,
                             enum distortion_model_t distortion_model)
@@ -911,7 +911,7 @@ double mrcal_optimize( // out, in (seed on input)
                       // in
                       int Ncameras, int Nframes,
 
-                      const struct observation_t* observations,
+                      const struct observation_board_t* observations,
                       int Nobservations,
 
                       bool check_gradient,
@@ -1001,7 +1001,7 @@ double mrcal_optimize( // out, in (seed on input)
             i_observation < Nobservations;
             i_observation++)
         {
-            const struct observation_t* observation = &observations[i_observation];
+            const struct observation_board_t* observation = &observations[i_observation];
 
             const int i_camera = observation->i_camera;
             const int i_frame  = observation->i_frame;

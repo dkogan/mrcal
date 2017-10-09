@@ -36,7 +36,7 @@ struct pose_t
     union point3_t r,t;
 };
 
-struct observation_t
+struct observation_board_t
 {
 #warning I need i_camera, but maybe i_frame should live in a separate frame_start[] ?
     int  i_camera         : 31;
@@ -106,7 +106,7 @@ double mrcal_optimize( // out, in (seed on input)
                       // in
                       int Ncameras, int Nframes,
 
-                      const struct observation_t* observations,
+                      const struct observation_board_t* observations,
                       int Nobservations,
 
                       bool check_gradient,

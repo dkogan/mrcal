@@ -301,7 +301,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         struct pose_t*       c_extrinsics = (struct pose_t*)      PyArray_DATA(extrinsics);
         struct pose_t*       c_frames     = (struct pose_t*)      PyArray_DATA(frames);
 
-        struct observation_t c_observations[Nobservations];
+        struct observation_board_t c_observations[Nobservations];
 
         int Nskipped_observations =
             ( skipped_observations == NULL ||

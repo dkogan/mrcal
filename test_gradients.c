@@ -86,7 +86,7 @@ int main(int argc, char* argv[] )
     // for this test anyway
     union point2_t observations_px[NUM_POINTS_IN_CALOBJECT] = {};
 
-    struct observation_t observations[] =
+    struct observation_board_t observations[] =
         { {.i_camera = 0, .i_frame = 0, .px = observations_px},
           {.i_camera = 1, .i_frame = 0, .px = observations_px},
           {.i_camera = 1, .i_frame = 1, .px = observations_px},
