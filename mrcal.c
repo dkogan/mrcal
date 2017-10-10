@@ -568,7 +568,7 @@ static union point2_t project( // out
     {
         // set ddistortion_dxyz
 
-        fprintf(stderr, "CAHVORE not implmented yet\n");
+        fprintf(stderr, "CAHVORE not implemented yet\n");
         assert(0);
     }
     else if( distortion_model == DISTORTION_NONE )
