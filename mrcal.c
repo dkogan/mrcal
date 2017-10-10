@@ -73,6 +73,11 @@ calibration and sfm formulations are a little different
 #define SCALE_TRANSLATION_FRAME       2.0
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 
+// I need to constrain the point motion since it's not well-defined, and cal
+// jump to clearly-incorrect values. This is the distance in front of camera0. I
+// make sure this is positive and not unreasonably high
+#define POINT_MAXZ                    50000
+
 #warning make this not arbitrary
 #define SCALE_DISTORTION              2.0
 
@@ -1239,6 +1244,7 @@ double mrcal_optimize( // out, in (seed on input)
 
         // Handle all the point observations. This is VERY similar to the
         // board-observation loop above. Please consolidate
+        bool   have_invalid_point = false;
         for(int i_observation_point = 0;
             i_observation_point < NobservationsPoint;
             i_observation_point++)
@@ -1256,6 +1262,19 @@ double mrcal_optimize( // out, in (seed on input)
             const double* p_intrinsic_distortions     = &solver_state[ i_var_intrinsic_distortions ];
             const double* p_camera_rt                 = &solver_state[ i_var_camera_rt ];
             const double* p_point                     = &solver_state[ i_var_point ];
+
+            // Check for invalid points. I report a very poor cost if I see
+            // this.
+            if( p_point[2] <= 0.0 || p_point[2] >= POINT_MAXZ / SCALE_POSITION_POINT )
+            {
+                have_invalid_point = true;
+#if defined VERBOSE && VERBOSE
+                fprintf(stderr, "Saw invalid point distance: z = %f! obs/point/cam: %d %d %d\n",
+                        p_point[2]*SCALE_POSITION_POINT,
+                        i_observation_point, i_point, i_camera);
+#endif
+            }
+
 
             // Stuff we're not optimizing is still required to be known, but
             // it's not in my state variables, so I get it from elsewhere
@@ -1497,6 +1516,11 @@ double mrcal_optimize( // out, in (seed on input)
             Jrowptr[iMeasurement] = iJacobian;
             assert(iMeasurement == Nmeasurements);
             assert(iJacobian    == N_j_nonzero  );
+
+            // I have an invalid point. This is a VERY bad solution. The solver
+            // needs to try again with a smaller step
+            if( have_invalid_point )
+                *x *= 1e6;
         }
     }
 
