@@ -44,8 +44,9 @@ Args:
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- points: array of dims (Npoints, 3). The positions of discrete points we're
-  observing. These positions are represented in the reference coord system.
+- points: array of dims (Npoints, 3). The estimated positions of discrete points
+  we're observing. These positions are represented in the reference coord
+  system.
 
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
