@@ -1151,6 +1151,14 @@ double mrcal_optimize( // out, in (seed on input)
                     {
                         const double err = pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy];
 
+                        if( reportFitMsg )
+                        {
+                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %f\n",
+                                    reportFitMsg,
+                                    i_observation_board, i_frame, i_camera, i_pt, err);
+                            continue;
+                        }
+
                         Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
 
