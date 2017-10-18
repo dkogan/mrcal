@@ -159,21 +159,15 @@ def cahvor_warp_undistort(p, fx, fy, cx, cy, *distortions):
     p1 = scipy.optimize.leastsq(f, p.ravel())[0]
     return np.array(p1).reshape(p.shape)
 
+# @nps.broadcast_define( ((3,),('Nintrinsics',)),
+#                        (2,), )
 def project(p, intrinsics):
     r'''Projects 3D point(s) using the given camera intrinsics
 
-    This function is broadcastable over p only: you're meant to use it to
-    project a number of points at the same time, but only a single set of
-    intrinsics is supported.
-
-    I can easily add that support with
-
-      @nps.broadcast_define( ((3,),('Nintrinsics',)),
-                             (2,), )
-
-    but then I'd have a python loop iterating over all my points, which is slow.
-    The computations here are simple enough for numpy to handle all the
-    broadcasting at the C level, so I let it do that.
+    This function is broadcastable, but not with nps.broadcast_define() because
+    the python loop-over-p could be slow. The computations here are simple
+    enough for numpy to handle all the broadcasting at the C level, so I let it
+    do that.
 
     Inputs:
 
@@ -193,20 +187,48 @@ def project(p, intrinsics):
       The CAHVOR distortion stuff is optional.
 
     '''
-    intrinsics = intrinsics.ravel()
 
-    if len(intrinsics) == 4:
+    def project_one_cam(p, intrinsics):
+
+        p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
+        if pinhole: return p2d
+
+        return cahvor_warp_distort(p2d, *intrinsics)
+
+
+
+    # manually broadcast over intrinsics[]. The broadcast over p happens
+    # implicitly.
+    #
+    # intrinsics shape I support: (a,b,c,..., Nintrinsics)
+    # In my use case, at most one of a,b,c,... is != 1
+    if intrinsics.shape[-1] == 4:
         pinhole = True
-    elif len(intrinsics) == 9:
+    elif intrinsics.shape[-1] == 9:
         pinhole = False
     else:
-        raise Exception("I know how to deal with an ideal camera (4 intrinsics) or a cahvor camera (9 intrinsics), but I got {} intrinsics intead".format(len(intrinsics)))
+        raise Exception("I know how to deal with an ideal camera (4 intrinsics) or a cahvor camera (9 intrinsics), but I got {} intrinsics intead".format(intrinsics.shape[-1]))
+
+    idims_not1 = [ i for i in xrange(len(intrinsics.shape)-1) if intrinsics.shape[i] != 1 ]
+    if len(idims_not1) > 1:
+        raise Exception("More than 1D worth of broadcasting for the intrinsics not implemented")
+
+    if len(idims_not1) == 0:
+        return project_one_cam(p, intrinsics.ravel())
+
+    idim_broadcast = idims_not1[0] - len(intrinsics.shape)
+    Nbroadcast = intrinsics.shape[idim_broadcast]
+    if p.shape[idim_broadcast] != Nbroadcast:
+        raise Exception("Inconsistent dimensionality for broadcast at idim {}. p.shape: {} and intrinsics.shape: {}".format(idim_broadcast, p.shape, intrinsics.shape))
+
+    psplit     = nps.mv(p,          idim_broadcast, 0)
+    intrinsics = nps.mv(intrinsics, idim_broadcast, 0)
+
+    return \
+        nps.mv( nps.cat(*[ project_one_cam(psplit[i], intrinsics[i].ravel()) for i in xrange(Nbroadcast)]),
+                0, idim_broadcast )
 
 
-    p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
-    if pinhole: return p2d
-
-    return cahvor_warp_distort(p2d, *intrinsics)
 
 @nps.broadcast_define( ((3,3),),
                        (3,), )
