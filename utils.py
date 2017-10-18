@@ -213,7 +213,9 @@ def project(p, intrinsics):
 def Rodrigues_tor_broadcasted(R):
     r'''Broadcasting-aware wrapper cvRodrigues
 
-This handles the R->r direction, and does not report the gradient'''
+    This handles the R->r direction, and does not report the gradient
+
+    '''
 
     return cv2.Rodrigues(R)[0].ravel()
 
@@ -223,15 +225,17 @@ This handles the R->r direction, and does not report the gradient'''
 def Rodrigues_toR_broadcasted(r):
     r'''Broadcasting-aware wrapper cvRodrigues
 
-This handles the r->R direction, and does not report the gradient'''
+    This handles the r->R direction, and does not report the gradient
+
+    '''
 
     return cv2.Rodrigues(r)[0]
 
 def get_full_object(W, H, dot_spacing):
     r'''Returns the geometry of the calibration object in its own coordinate frame
 
-Shape is (H,W,3). I.e. the x index varies the fastest and each xyz coordinate
-lives at (y,x,:)
+    Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
+    coordinate lives at (y,x,:)
 
     '''
 
@@ -483,7 +487,7 @@ def homography_atinfinity_map( w, h, m0, m1 ):
 # from visualize_extrinsic. please unduplicate
 def extend_axes_for_plotting(axes):
     r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
-this into a 3x6 array that can be gnuplotted "with vectors"
+    this into a 3x6 array that can be gnuplotted "with vectors"
 
     '''
 
@@ -500,10 +504,11 @@ this into a 3x6 array that can be gnuplotted "with vectors"
 # drawn x axis. I'm coloring the pairs separately in the other function
 def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
     r'''Given a list of transforms (applied to the reference set of axes in reverse
-order) and a label, return a list of plotting directives gnuplotlib understands.
+    order) and a label, return a list of plotting directives gnuplotlib
+    understands.
 
-Transforms are in reverse order so a point x being transformed as A*B*C*x can be
-represented as a transforms list (A,B,C)
+    Transforms are in reverse order so a point x being transformed as A*B*C*x
+    can be represented as a transforms list (A,B,C)
 
     '''
     axes = np.array( ((0,0,0),
@@ -536,10 +541,12 @@ represented as a transforms list (A,B,C)
 def pose__pq_from_rt(rt):
     r'''Converts a pose from an rt to a pq representation
 
-Input is a (6,) numpy array containing a 3d rodrigues rotation and a 3d
-translation
+    Input is a (6,) numpy array containing a 3d rodrigues rotation and a 3d
+    translation
 
-Output is a pose_t object numpy array containing a 3d translation and a 4d quaternion
+    Output is a pose_t object numpy array containing a 3d translation and a 4d
+    quaternion
+
     '''
     p = rt[3:]
     r = rt[:3]
@@ -550,7 +557,7 @@ Output is a pose_t object numpy array containing a 3d translation and a 4d quate
 
 def project_points(intrinsics, extrinsics, frames, dot_spacing, Nwant):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all the
-projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)'''
+    projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)'''
 
     object_ref = get_full_object(Nwant, Nwant, dot_spacing)
     Rf = Rodrigues_toR_broadcasted(frames[:,:3])
@@ -579,11 +586,12 @@ projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)'''
 def compute_reproj_error(projected, observations, indices_frame_camera, Nwant):
     r'''Given
 
-- projected (shape [Nframes,Ncameras,Nwant,Nwant,2])
-- observations (shape [Nframes,Nwant,Nwant,2])
-- indices_frame_camera (shape [Nobservations,2])
+    - projected (shape [Nframes,Ncameras,Nwant,Nwant,2])
+    - observations (shape [Nframes,Nwant,Nwant,2])
+    - indices_frame_camera (shape [Nobservations,2])
 
-Return the reprojection error for each point: shape [Nobservations,Nwant,Nwant,2]
+    Return the reprojection error for each point: shape
+    [Nobservations,Nwant,Nwant,2]
 
     '''
 
@@ -602,8 +610,8 @@ def visualize_solution(intrinsics, extrinsics, frames, observations,
                        indices_frame_camera, dot_spacing, Nwant, i_camera=None):
     r'''Plot the best-estimate 3d poses of a hypothesis calibration
 
-The inputs are the same as to mrcal.optimize(). If i_camera is not None, the
-visualization is colored by the reprojection-error-quality of the fit
+    The inputs are the same as to mrcal.optimize(). If i_camera is not None, the
+    visualization is colored by the reprojection-error-quality of the fit
 
     '''
 
@@ -668,11 +676,13 @@ visualization is colored by the reprojection-error-quality of the fit
 def get_observation_size(obs):
     r'''Computes an observed 'size' of an observation.
 
-Given an observed calibration object, this returns the max(delta_x, delta_y).
-From this we can get a very rough initial estimate of the range to the object.
+    Given an observed calibration object, this returns the max(delta_x,
+    delta_y). From this we can get a very rough initial estimate of the range to
+    the object.
 
-The observation is an array of shape (N,N,2)
-'''
+    The observation is an array of shape (N,N,2)
+
+    '''
 
     # corners
     c = nps.cat( obs[ 0, 0, ...],
