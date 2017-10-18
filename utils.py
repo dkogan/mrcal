@@ -11,6 +11,8 @@ import scipy.optimize
 sys.path[:0] = ('/home/dima/jpl/stereo-server/analyses',)
 import camera_models
 
+import mrpose
+
 
 
 @nps.broadcast_define( (('N',3), ('N',3),),
