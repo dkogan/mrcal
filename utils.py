@@ -15,7 +15,7 @@ import camera_models
 
 @nps.broadcast_define( (('N',3), ('N',3),),
                        (4,3), )
-def align3d_procrustes(A, B):
+def align3d_procrustes(A, B, vectors=False):
     r"""Computes an optimal (R,t) to match points in B to points in A
 
     Given two sets of 3d points in numpy arrays of shape (N,3), find the optimal
@@ -50,6 +50,12 @@ def align3d_procrustes(A, B):
     So the critical points are at Vt R U = I and R = V Ut, modulo a tweak to
     make sure that R is in SO(3) not just in SE(3)
 
+
+    This can ALSO be used to find the optimal rotation to align a set of unit
+    vectors. The math is exactly the same, but subtracting the mean should be
+    skipped. And returning t is non-sensical, so in this case we just return R. To
+    do this, pass vectors=True as a kwarg
+
     """
 
     # I don't check dimensionality. The broadcasting-aware wrapper will do that
@@ -57,8 +63,11 @@ def align3d_procrustes(A, B):
     A = nps.transpose(A)
     B = nps.transpose(B)
 
-    M = nps.matmult(               B - np.mean(B, axis=-1)[..., np.newaxis],
-                     nps.transpose(A - np.mean(A, axis=-1)[..., np.newaxis]) )
+    if vectors:
+        M = nps.matmult( B, nps.transpose(A) )
+    else:
+        M = nps.matmult(               B - np.mean(B, axis=-1)[..., np.newaxis],
+                         nps.transpose(A - np.mean(A, axis=-1)[..., np.newaxis]) )
     U,S,Vt = np.linalg.svd(M)
 
     R = nps.matmult(U, Vt)
@@ -72,6 +81,9 @@ def align3d_procrustes(A, B):
 
     # I wanted V Ut, not U Vt
     R = nps.transpose(R)
+
+    if vectors:
+        return R
 
     # Now that I have my optimal R, I compute the optimal t. From before:
     #
