@@ -162,9 +162,20 @@ static bool optimize_validate_args( // out
         PyErr_SetString(PyExc_RuntimeError, "indices_frame_camera_board must contain int data");
         return false;
     }
+    if( !PyArray_IS_C_CONTIGUOUS(indices_frame_camera_board) )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays");
+        return false;
+    }
+
     if( PyArray_TYPE(indices_point_camera_points)   != NPY_INT )
     {
         PyErr_SetString(PyExc_RuntimeError, "indices_point_camera_points must contain int data");
+        return false;
+    }
+    if( !PyArray_IS_C_CONTIGUOUS(indices_point_camera_points) )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays");
         return false;
     }
 
