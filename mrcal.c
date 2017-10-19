@@ -73,7 +73,7 @@ calibration and sfm formulations are a little different
 #define SCALE_TRANSLATION_FRAME       2.0
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 
-#define DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL 1.0
+#define DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M 1.0
 
 // I need to constrain the point motion since it's not well-defined, and cal
 // jump to clearly-incorrect values. This is the distance in front of camera0. I
@@ -1384,12 +1384,12 @@ double mrcal_optimize( // out, in (seed on input)
                                             p_point[1]*p_point[1] +
                                             p_point[2]*p_point[2] );
                         double err = dist*SCALE_POSITION_POINT - observation->dist;
-                        err *= DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL;
+                        err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
                         Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
 
-                        double scale = SCALE_POSITION_POINT * DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL/dist;
+                        double scale = SCALE_POSITION_POINT * DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M/dist;
                         STORE_JACOBIAN3( i_var_point,
                                          scale*p_point[0],
                                          scale*p_point[1],
@@ -1424,7 +1424,7 @@ double mrcal_optimize( // out, in (seed on input)
                                             pt_cam.z*pt_cam.z );
                         double dist_recip = 1.0/dist;
                         double err = dist - observation->dist;
-                        err *= DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL;
+                        err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
                         Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
@@ -1440,39 +1440,39 @@ double mrcal_optimize( // out, in (seed on input)
                         mul_vec3_gen33_vout_scaled( p_point, &_d_Rc_rc[9*2], d_ptcamz_dr, SCALE_POSITION_POINT );
 
                         STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL *
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
                                          SCALE_ROTATION_CAMERA*
                                          dist_recip*( pt_cam.x*d_ptcamx_dr[0] +
                                                       pt_cam.y*d_ptcamy_dr[0] +
                                                       pt_cam.z*d_ptcamz_dr[0] ),
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL *
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
                                          SCALE_ROTATION_CAMERA*
                                          dist_recip*( pt_cam.x*d_ptcamx_dr[1] +
                                                       pt_cam.y*d_ptcamy_dr[1] +
                                                       pt_cam.z*d_ptcamz_dr[1] ),
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL *
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
                                          SCALE_ROTATION_CAMERA*
                                          dist_recip*( pt_cam.x*d_ptcamx_dr[2] +
                                                       pt_cam.y*d_ptcamy_dr[2] +
                                                       pt_cam.z*d_ptcamz_dr[2] ) );
                         STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL*
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_TRANSLATION_CAMERA*
                                          dist_recip*pt_cam.x,
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL*
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_TRANSLATION_CAMERA*
                                          dist_recip*pt_cam.y,
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL*
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_TRANSLATION_CAMERA*
                                          dist_recip*pt_cam.z );
                         STORE_JACOBIAN3( i_var_point,
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL*
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_POSITION_POINT*
                                          dist_recip*(pt_cam.x*_Rc[0] + pt_cam.y*_Rc[3] + pt_cam.z*_Rc[6]),
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL*
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_POSITION_POINT*
                                          dist_recip*(pt_cam.x*_Rc[1] + pt_cam.y*_Rc[4] + pt_cam.z*_Rc[7]),
-                                         DISTANCE_ERROR_EQUIVALENT__M_PER_PIXEL*
+                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_POSITION_POINT*
                                          dist_recip*(pt_cam.x*_Rc[2] + pt_cam.y*_Rc[5] + pt_cam.z*_Rc[8]) );
                         iMeasurement++;
