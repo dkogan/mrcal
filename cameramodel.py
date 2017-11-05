@@ -52,10 +52,17 @@ def _validate_cahvor(cahvor):
     return True
 
 def parse_transforms(f):
-    r'''Reads a file (an iterable containing lines of text) into a transforms dict,
+    r'''Reads a file (a filename string, or a file-like object: an iterable
+    containing lines of text) into a transforms dict,
     and returns the dict
 
     '''
+
+    needclose = False
+    if type(f) is str:
+        filename = f
+        f = open(filename, 'r')
+        needclose = True
 
     x = { 'veh_from_ins': None,
 
@@ -103,6 +110,9 @@ def parse_transforms(f):
         raise Exception("Transforms file '{}' incomplete. Missing values for: {}",
                         f.name,
                         [k for k in x.keys() if not x[k]])
+    if needclose:
+        f.close()
+
     return x
 
 def parse_cahvor(f):
