@@ -144,7 +144,7 @@ def parse_cahvor(f):
         m = re.match('\s*(\w+)\s*=\s*(.+?)\s*\n?$'.format(u=re_u),
                      l, flags=re.I)
         if m:
-            key = m.group(1).title()
+            key = m.group(1)
             if key in x:
                 raise Exception("Reading '{}': key '{}' seen more than once".format(f.name,
                                                                                     m.group(1)))
