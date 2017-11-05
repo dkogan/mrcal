@@ -32,17 +32,17 @@ def cahvor_fxy_cxy(cahvor):
 def _validate_cahvor(cahvor):
     r'''Confirm that a given model is valid'''
 
-    if abs(np.linalg.norm(cahvor['A']) - 1) > 1e-8:
+    if abs(np.linalg.norm(cahvor['A']) - 1) > 1e-6:
         raise Exception("cahvor.['A'] must be a unit vector. Instead got {} of length {}". \
                         format(cahvor['A'],
                                np.linalg.norm(cahvor['A'])))
     if 'O' in cahvor and \
-       abs(np.linalg.norm(cahvor['O']) - 1) > 1e-8:
+       abs(np.linalg.norm(cahvor['O']) - 1) > 1e-6:
         raise Exception("cahvor.['O'] must be a unit vector. Instead got {} of length {}". \
                         format(cahvor['O'],
                                np.linalg.norm(cahvor['O'])))
     Hp,Vp = cahvor_HVs_HVc_HVp(cahvor)[-2:]
-    if abs(nps.inner(Hp,Vp)) > 1e-8:
+    if abs(nps.inner(Hp,Vp)) > 1e-6:
         raise Exception("Hp must be perpendicular to Vp. Instead inner(Hp,Vp) = {}. Full model: {}". \
                         format(nps.inner(Hp,Vp), cahvor))
 
@@ -250,15 +250,15 @@ def get_intrinsics(cahvor):
     else:
         o = nps.matmult( cahvor['O'], R )
         norm2_oxy = o[0]*o[0] + o[1]*o[1]
-        if norm2_oxy < 1e-8:
+        if norm2_oxy < 1e-6:
             theta = 0
             phi   = 0
         else:
             theta = np.arctan2(o[1], o[0])
             phi   = np.arcsin( np.sqrt( norm2_oxy ) )
 
-    if abs(phi) < 1e-8 and \
-       ( 'R' not in cahvor or np.linalg.norm(cahvor['R']) < 1e-8):
+    if abs(phi) < 1e-6 and \
+       ( 'R' not in cahvor or np.linalg.norm(cahvor['R']) < 1e-6):
         # pinhole
         intrinsics = np.array((fx,fy,cx,cy))
     else:
