@@ -579,13 +579,6 @@ static union point2_t project( // out
             pt_cam.xyz[i] += mu * (pt_cam.xyz[i] - omega*o[i]);
         }
     }
-    else if( distortion_model == DISTORTION_CAHVORE )
-    {
-        // set ddistortion_dxyz
-
-        fprintf(stderr, "CAHVORE not implemented yet\n");
-        assert(0);
-    }
     else if( distortion_model == DISTORTION_NONE )
     {
         d_distortion_xyz = NULL;

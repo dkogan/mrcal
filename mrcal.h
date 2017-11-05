@@ -86,8 +86,7 @@ struct intrinsics_t
     _(DISTORTION_OPENCV4, 4)                    \
     _(DISTORTION_OPENCV5, 5)                    \
     _(DISTORTION_OPENCV8, 8)                    \
-    _(DISTORTION_CAHVOR,  5)                    \
-    _(DISTORTION_CAHVORE, 8)
+    _(DISTORTION_CAHVOR,  5)
 
 #define LIST_WITH_COMMA(s,n) s,
 enum distortion_model_t
