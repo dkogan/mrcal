@@ -1,13 +1,34 @@
 #!/usr/bin/python2
 
 import cv2
-import cPickle as pickle
+import re
 
 import numpy     as np
 import numpysane as nps
+import numbers
 
 import mrcal
 
+
+
+def _validateExtrinsics(e):
+    r'''Raises an exception if the given extrinsics are invalid'''
+
+    # Internal extrinsic representation is a 6-long array
+    try:
+        N = len(e)
+    except:
+        raise Exception("Valid extrinsics are an iterable of len 6")
+
+
+    if N != 6:
+        raise Exception("Valid extrinsics are an iterable of len 6")
+
+    for x in extrinsics:
+        if not isinstance(x, numbers.Number):
+            raise Exception("All extrinsics elements should be numeric, but '{}' isn't".format(x))
+
+    return True
 
 
 def _validateIntrinsics(i):
@@ -35,6 +56,10 @@ def _validateIntrinsics(i):
 
     if Ndistortions_want != Ndistortions_have:
         raise Exception("Mismatched Ndistortions. Got {}, but model {} must have {}".format(Ndistortions_have,distortion_model,Ndistortions_want))
+
+    for x in intrinsics:
+        if not isinstance(x, numbers.Number):
+            raise Exception("All intrinsics elements should be numeric, but '{}' isn't".format(x))
 
     return True
 
@@ -77,6 +102,83 @@ class cameramodel:
     '''
 
 
+    def _write(self, f):
+        r'''Writes out this camera model to an open file'''
+
+        _validateIntrinsics(self.intrinsics)
+        _validateExtrinsics(self.intrinsics)
+
+        f.write("distortion_model = {}\n".format(self.intrinsics[0]))
+        f.write("\n")
+
+        N = len(self.intrinsics[1])
+        f.write(("intrinsics =" + (" {:15.10f}" * N) + "\n").format(*self.intrinsics[1]))
+        f.write("\n")
+
+        N = len(self.extrinsics)
+        f.write("# extrinsics are rt_fromref\n")
+        f.write(("extrinsics =" + (" {:15.10f}" * N) + "\n").format(*self.extrinsics))
+        f.write("\n")
+
+
+    def _read_and_parse(self, f):
+        r'''Reads in a model from an open file'''
+
+        re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+        re_u = '\d+'
+        re_d = '[-+]?\d+'
+        re_s = '.+'
+
+        distortion_model  = None
+        intrinsics_values = None
+        extrinsics        = None
+
+        for l in f:
+            # skip comments and blank lines
+            if re.match('^\s*#|^\s*$', l):
+                continue
+
+            # all valid lines look like 'key = value'. I allow lots of
+            # whitespace, and (value) works too.
+            m = re.match('\s*(\w+)\s*=\s*\(?\s*(.+?)\s*\)?\s*\n?$', l)
+            if not m:
+                raise Exception("All valid non-comment, non-empty lines should be parseable as key=value, but got '{}'"format(l))
+
+            key   = m.group(1)
+            value = m.group(2)
+            if key == 'distortion_model':
+                if distortion_model is not None:
+                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
+                                    format('distortion_model', distortion_model, value))
+                distortion_model = value
+            elif key == 'intrinsics':
+                if intrinsics_values is not None:
+                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
+                                    format('intrinsics', intrinsics_values, value))
+                intrinsics_values = np.array([float(x) for x in value.split(', \t')])
+            elif key == 'extrinsics':
+                if extrinsics is not None:
+                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
+                                    format('extrinsics', extrinsics, value))
+                extrinsics = np.array([float(x) for x in value.split(', \t')])
+            else:
+                raise Exception("Unknown key '{}'. I only know about 'distortion_model', 'intrinsics', 'extrinsics'".format(key))
+
+        if distortion_model is None:
+            raise Exception("Unspecified distortion_model")
+        if intrinsics_values is None:
+            raise Exception("Unspecified intrinsics")
+        if extrinsics is None:
+            raise Exception("Unspecified extrinsics")
+
+        intrinsics = (distortion_model, intrinsics_values)
+        _validateIntrinsics(intrinsics_values)
+        _validateIntrinsics(extrinsics)
+
+        self.intrinsics = intrinsics
+        self.extrinsics = extrinsics
+
+
     def __init__(self, f=None):
         r'''Initializes a new camera-model object
 
@@ -97,10 +199,10 @@ class cameramodel:
 
         elif type(f) is str:
             with open(f, 'r') as openedfile:
-                self = pickle.load(openedfile)
+                self._read_and_parse(openedfile)
 
         else:
-            self = pickle.load(f)
+            self._read_and_parse(f)
 
 
     def write(self, f):
@@ -112,10 +214,10 @@ class cameramodel:
 
         if type(f) is str:
             with open(f, 'w') as openedfile:
-                self = pickle.dump( self, openedfile, protocol=2 )
+                self._write( openedfile )
 
         else:
-            self = pickle.dump( self, f, protocol=2 )
+            self._write( f )
 
 
     def intrinsics(self, i=None):
