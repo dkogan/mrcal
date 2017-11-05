@@ -1,471 +1,259 @@
 #!/usr/bin/python2
 
-import numpy as np
-import numpysane as nps
-import mrpose
-import re
-import sys
-import copy
 import cv2
+import cPickle as pickle
+
+import numpy     as np
+import numpysane as nps
+
+import mrcal
 
 
-def cahvor_HVs_HVc_HVp(cahvor):
-    r'''Given a cahvor dict returns a tuple containing (Hs,Vs,Hc,Vc,Hp,Vp)'''
 
-    Hc   = nps.inner(cahvor['H'], cahvor['A'])
-    hshp = cahvor['H'] - Hc * cahvor['A']
-    Hs   = np.sqrt(nps.inner(hshp,hshp))
+def _validateIntrinsics(i):
+    r'''Raises an exception if the given intrinsics are invalid'''
 
-    Vc   = nps.inner(cahvor['V'], cahvor['A'])
-    vsvp = cahvor['V'] - Vc * cahvor['A']
-    Vs   = np.sqrt(nps.inner(vsvp,vsvp))
+    try:
+        N = len(i)
+    except:
+        raise Exception("Valid intrinsics are an iterable of len 2")
 
-    Hp   = hshp / Hs
-    Vp   = vsvp / Vs
 
-    return Hs,Vs,Hc,Vc,Hp,Vp
+    if N != 2:
+        raise Exception("Valid intrinsics are an iterable of len 2")
 
-def cahvor_fxy_cxy(cahvor):
-    r'''Given a cahvor dict returns a tuple containing (fx,fy,cx,cy)'''
-    return cahvor_HVs_HVc_HVp(cahvor)[:4]
+    distortion_model = i[0]
+    intrinsics       = i[1]
 
-def _validate_cahvor(cahvor):
-    r'''Confirm that a given model is valid'''
+    # If this fails, I keep the exception and let it fall through
+    Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
 
-    if abs(np.linalg.norm(cahvor['A']) - 1) > 1e-6:
-        raise Exception("cahvor.['A'] must be a unit vector. Instead got {} of length {}". \
-                        format(cahvor['A'],
-                               np.linalg.norm(cahvor['A'])))
-    if 'O' in cahvor and \
-       abs(np.linalg.norm(cahvor['O']) - 1) > 1e-6:
-        raise Exception("cahvor.['O'] must be a unit vector. Instead got {} of length {}". \
-                        format(cahvor['O'],
-                               np.linalg.norm(cahvor['O'])))
-    Hp,Vp = cahvor_HVs_HVc_HVp(cahvor)[-2:]
-    if abs(nps.inner(Hp,Vp)) > 1e-6:
-        raise Exception("Hp must be perpendicular to Vp. Instead inner(Hp,Vp) = {}. Full model: {}". \
-                        format(nps.inner(Hp,Vp), cahvor))
+    try:
+        Ndistortions_have = len(intrinsics) - 4
+    except:
+        raise Exception("Valid intrinsics are (distortion_model, intrinsics) where 'intrinsics' is an iterable with a length")
 
-    if np.linalg.norm(np.cross(Hp,Vp) - cahvor['A']) > 0.1:
-        raise Exception("Hp,Vp,A must for a right-handed orthonormal basis. It looks left-handed. I have Hp={}, Vp={}, A={}; model={}". \
-                        format(Hp,Vp,cahvor['A'],cahvor))
+    if Ndistortions_want != Ndistortions_have:
+        raise Exception("Mismatched Ndistortions. Got {}, but model {} must have {}".format(Ndistortions_have,distortion_model,Ndistortions_want))
+
     return True
 
-def parse_transforms(f):
-    r'''Reads a file (a filename string, or a file-like object: an iterable
-    containing lines of text) into a transforms dict,
-    and returns the dict
+
+def invert_Rt(R,t):
+    r'''Given a (R,t) transformation, return the inverse transformation
+
+    I need to reverse the transformation:
+      b = Ra + t  -> a = R'b - R't
 
     '''
 
-    needclose = False
-    if type(f) is str:
-        filename = f
-        f = open(filename, 'r')
-        needclose = True
-
-    x = { 'veh_from_ins': None,
-
-          # this is actually "pair" to ins
-          'ins_from_camera': {} }
-
-    for l in f:
-        if re.match('^\s*#|^\s*$', l):
-            continue
-
-        re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-        re_u = '\d+'
-        re_d = '[-+]?\d+'
-        re_s = '.+'
-
-        re_pos  = '\(\s*({f})\s+({f})\s+({f})\s*\)'        .format(f=re_f)
-        re_quat = '\(\s*({f})\s+({f})\s+({f})\s+({f})\s*\)'.format(f=re_f)
-        m = re.match('\s*ins2veh\s*=\s*{p}\s*{q}\s*\n?$'.
-                     format(u=re_u, p=re_pos, q=re_quat),
-                     l)
-        if m:
-            if x['veh_from_ins'] is not None:
-                raise("'{}' is corrupt: more than one 'ins2veh'".format(f.name))
-
-            x['veh_from_ins'] = np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)),
-                                          float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7))))
-            continue
-
-        m = re.match('\s*cam2ins\s*\[({u})\]\s*=\s*{p}\s*{q}\s*\n?$'.
-                     format(u=re_u, p=re_pos, q=re_quat),
-                     l)
-        if m:
-            i = int(m.group(1))
-            if x['ins_from_camera'].get(i) is not None:
-                raise("'{}' is corrupt: more than one 'cam2ins'[{}]".format(f.name, i))
-
-            x['ins_from_camera'][i] = np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)),
-                                                float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8))))
-            continue
-
-        raise Exception("'transforms.txt': I only know about 'ins2veh' and 'cam2ins' lines. Got '{}'".
-                        format(l))
-
-    if not all(e is not None for e in x.values()):
-        raise Exception("Transforms file '{}' incomplete. Missing values for: {}",
-                        f.name,
-                        [k for k in x.keys() if not x[k]])
-    if needclose:
-        f.close()
-
-    return x
-
-def parse_cahvor(f):
-    r'''Reads a file (a filename string, or a file-like object: an iterable
-    containing lines of text) into a cahvor dict, and returns the dict
-
-    '''
-
-    re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-    re_u = '\d+'
-    re_d = '[-+]?\d+'
-    re_s = '.+'
-
-    needclose = False
-    if type(f) is str:
-        filename = f
-        f = open(filename, 'r')
-        needclose = True
-
-    # I parse all key=value lines into my dict as raw text. Further I
-    # post-process some of these raw lines. The covariances don't fit into this
-    # mold, since the values span multiple lines. But since I don't care about
-    # covariances, I happily ignore them
-    x = {}
-    for l in f:
-        if re.match('^\s*#|^\s*$', l):
-            continue
-
-        m = re.match('\s*(\w+)\s*=\s*(.+?)\s*\n?$'.format(u=re_u),
-                     l, flags=re.I)
-        if m:
-            key = m.group(1)
-            if key in x:
-                raise Exception("Reading '{}': key '{}' seen more than once".format(f.name,
-                                                                                    m.group(1)))
-            x[key] = m.group(2)
-
-
-    # Done reading. Any values that look like numbers, I convert to numbers.
-    for i in x:
-        if re.match('{}$'.format(re_f), x[i]):
-            x[i] = float(x[i])
-
-    # I parse the fields I know I care about into numpy arrays
-    for i in ('Dimensions','C','A','H','V','O','R','E',
-              'DISTORTION_OPENCV4', 'DISTORTION_OPENCV5', 'DISTORTION_OPENCV8'):
-        if i in x:
-            if re.match('[0-9\s]+$', x[i]): totype = int
-            else:                           totype = float
-            x[i] = np.array( [ totype(v) for v in re.split('\s+', x[i])])
-
-    # Now I sanity-check the results and call it done
-    for k in ('Dimensions','C','A','H','V'):
-        if not k in x:
-            raise Exception("Cahvor file '{}' incomplete. Missing values for: {}".
-                            format(f.name, k))
-
-    # I want to cut back on derived data in this structure to prevent confusion,
-    # so I delete things I KNOW I want to skip
-    for k in ('Hs','Vs','Hc','Vc','Theta'):
-        if k in x:
-            del x[k]
-
-    if needclose:
-        f.close()
-
-    if 'E' in x:
-        x['distortion_model'] = "DISTORTION_CAHVORE"
-    elif 'R' in x:
-        x['distortion_model'] = "DISTORTION_CAHVOR"
-    elif 'DISTORTION_OPENCV8' in x:
-        x['distortion_model'] = "DISTORTION_OPENCV8"
-    elif 'DISTORTION_OPENCV5' in x:
-        x['distortion_model'] = "DISTORTION_OPENCV5"
-    elif 'DISTORTION_OPENCV4' in x:
-        x['distortion_model'] = "DISTORTION_OPENCV4"
-    else:
-        x['distortion_model'] = "DISTORTION_CAHVOR"
-
-    return x
-
-def parse_and_consolidate(transforms, cahvors):
-    transforms = parse_transforms(transforms)
-
-    for i_pair in cahvors.keys():
-        cahvors[i_pair] = [parse_cahvor(m) for m in cahvors[i_pair]]
-
-    pair_ids = sorted(transforms['ins_from_camera'].keys())
-    if pair_ids != sorted(cahvors.keys()):
-        raise Exception("Mismatched camera pair IDs. transforms.txt knows about pairs {}, but I have cahvors for pairs {}".format(pair_ids,cahvors.keys()))
-
-    pairs = {}
-    for i in pair_ids:
-        pair = {'ins_from_camera': transforms['ins_from_camera'][i]}
-
-        for icam in range(len(cahvors[i])):
-            pair[icam] = cahvors[i][icam]
-        pairs[i] = pair
-
-    veh_from_ins = transforms['veh_from_ins']
-
-    return pairs,veh_from_ins
-
-def write_cahvor(f, cahvor):
-    r'''Given a (filename or a writeable file) and a cahvor dict, spits out the
-    cahvor
-
-    '''
-
-    _validate_cahvor(cahvor)
-
-    needclose = False
-    if type(f) is str:
-        f = open(f, 'w+')
-        needclose = True
-
-    if 'Model' in cahvor:
-        f.write(("Model = {}\n").format(cahvor['Model']))
-    for i in ('C','A','H','V','O','R','E'):
-        if i in cahvor:
-            N = len(cahvor[i])
-            f.write(("{} =" + (" {:15.10f}" * N) + "\n").format(i, *cahvor[i]))
-
-    Hs,Vs,Hc,Vc = cahvor_HVs_HVc_HVp(cahvor)[:4]
-    f.write("Hs = {}\n".format(Hs))
-    f.write("Hc = {}\n".format(Hc))
-    f.write("Vs = {}\n".format(Vs))
-    f.write("Vc = {}\n".format(Vc))
-    f.write("Theta = {} (-90.0 deg) # this is hard-coded\n".format(-np.pi/2))
-
-    if 'extra' in cahvor:
-        for e in cahvor['extra']:
-            f.write(e)
-
-    if needclose:
-        f.close()
-
-def get_intrinsics(cahvor):
-    r'''Pull the intrinsics from a cahvor dict
-
-    The intrinsics are a numpy array containing
-      - fx
-      - fy
-      - cx
-      - cy
-      - distortions
-
-    If O == A and R == 0, we have a distortion-less camera, and the distortion
-    parameters (theta, phi, R0, R1, R2) are omitted.
-
-    '''
-
-    fx,fy,cx,cy = cahvor_fxy_cxy(cahvor)
-
-    Rt = get_extrinsics_Rt_toref(cahvor)
-    R  = Rt[:3,:]
-
-    if 'O' not in cahvor:
-        theta = 0
-        phi   = 0
-    else:
-        o = nps.matmult( cahvor['O'], R )
-        norm2_oxy = o[0]*o[0] + o[1]*o[1]
-        if norm2_oxy < 1e-6:
-            theta = 0
-            phi   = 0
-        else:
-            theta = np.arctan2(o[1], o[0])
-            phi   = np.arcsin( np.sqrt( norm2_oxy ) )
-
-    if abs(phi) < 1e-6 and \
-       ( 'R' not in cahvor or np.linalg.norm(cahvor['R']) < 1e-6):
-        # pinhole
-        intrinsics = np.array((fx,fy,cx,cy))
-        for k in cahvor.keys():
-            if re.match('DISTORTION_OPENCV[0-9]', k):
-                intrinsics = nps.glue(intrinsics, np.array(cahvor[k]), axis=-1)
-                break
-    else:
-        R0,R1,R2 = cahvor['R'].ravel()
-        intrinsics = np.array((fx,fy,cx,cy,theta,phi,R0,R1,R2))
-
-    return intrinsics
-
-def get_extrinsics_Rt_toref(cahvor):
-    r'''Pull the extrinsics from a cahvor dict
-
-    Returns the extrinsics in a Rt representation: a (4,3)-shape numpy array of
-    a rotation represented as a 3x3 matrix in the [:3,:] slice, concatenated
-    with the translation in the [3,:] slice. This is a transformation FROM
-    points in this camera TO the ref coordinate system
-
-    '''
-
-    Hp,Vp = cahvor_HVs_HVc_HVp(cahvor)[-2:]
-
-    R = nps.transpose( nps.cat( Hp,
-                                Vp,
-                                cahvor['A'] ))
-    t = cahvor['C']
-
-    return nps.glue(R,t, axis=-2);
-
-def get_extrinsics_pq_toref(cahvor):
-    r'''Pull the extrinsics from a cahvor dict
-
-    Returns the extrinsics in a pq representation: a 7-long numpy array of 3D
-    translation followed by a 4D unit quaternion rotation. This is a
-    transformation FROM points in this camera TO the ref coordinate system
-
-    '''
-
-    Rt = get_extrinsics_Rt_toref(cahvor)
-    R  = Rt[:3,:]
-    t  = Rt[ 3,:]
-
-    p = t
-    q = mrpose.quat_from_mat33d( R )
-    return nps.glue(p,q, axis=-1)
-
-def get_extrinsics_rt_fromref(cahvor):
-    r'''Pull the extrinsics from a cahvor dict
-
-    Returns the extrinsics in a rt representation: a 6-long numpy array of a 3D
-    Rodrigues rotation followed by a 3D translation. This is a transformation
-    FROM the ref coordinate system TO this camera
-
-    '''
-
-    Rt = get_extrinsics_Rt_toref(cahvor)
-    R  = Rt[:3,:]
-    t  = Rt[ 3,:]
-
-    # My transformation is in the reverse direction from what I want.
-    # a = Rb + t -> b = R'(a-t) = R'a - R't
     t = -nps.matmult(t, R)
     R = nps.transpose(R)
+    return (R,t)
 
-    r = cv2.Rodrigues(R)[0]
-    return nps.glue(r,t, axis=-1)
 
-def assemble_cahvor( distortion_model, intrinsics, extrinsics = None ):
-    r'''Produces a CAHVOR model from separate intrinsics and extrinsics
+class cameramodel:
+    r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
 
-    The inputs:
+    For ONE camera this class represents
 
-    - distortion_model: a string that says what the values in 'intrinsics'
-      mean. The supported values are defined in the DISTORTION_LIST macro in
-      mrcal.h. At the time of this writing, the supported values are
+    - The intrinsics: parameters internal to this camera. These do not change as
+      the camera moves around in space. These include
 
-        DISTORTION_NONE
-        DISTORTION_OPENCV4
-        DISTORTION_OPENCV5
-        DISTORTION_OPENCV8
-        DISTORTION_CAHVOR
+      - The 4 pinhole-camera parameters: focal lengths, coordinates of the
+        center pixel
 
-      The no-distortion case is a CAHV model. The non-cahvor cases produce CAHV
-      files with the extra parameters written directly, without any
-      interpretation
+      - Some representation of the camera distortion. Multiple distortion models
+        are supported. mrcal.getSupportedDistortionModels() returns a list of
+        supported models.
 
-    - intrinsics: a numpy array containing
-      - fx
-      - fy
-      - cx
-      - cy
-      - model-specific distortion parameters
+    - The extrinsics: the pose of this camera in respect to SOME reference
+      coordinate system. The meaning of this coordinate system is defined by the
+      user of this class: this class itself does not care
 
-    - extrinsics: a transformation, the interpretation of which depends on the
-      argument. Supported options are:
-
-      - None: the identity transform is assumed
-
-      - a numpy array of shape (4,3): Rt_toref. A rotation represented as a 3x3
-        matrix in the [:3,:] slice, concatenated with the translation in the
-        [3,:] slice. This is a transformation FROM points in this camera TO the
-        ref coordinate system
-
-      - a numpy array of shape (7,): pq_toref. A 3D translation followed by a 4D
-        unit quaternion rotation. This is a transformation FROM points in this
-        camera TO the ref coordinate system
-
-      - a numpy array of shape (6,): rt_fromref. A 3D Rodrigues rotation
-        followed by a 3D translation. This is a transformation FROM the ref
-        coordinate system TO this camera
+    This class provides facilities to read/write models, and to get/set the
+    various parameters
 
     '''
-    Ndistortions = mrcal.getNdistortionParams(distortion_model)
-    if len(intrinsics) != Ndistortions+4:
-        raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters + 4 core values, but got {} intrinsics values", distortion_model, Ndistortions, len(intrinsics))
 
-    # I parse the extrinsics, and convert them into Rt_toref form
-    if extrinsics is None:
-        R = np.eye(3)
-        t = np.zeros(3)
-    elif isinstance( extrinsics, np.ndarray ):
-        if extrinsics.shape == (4,3):
-            # Rt_toref
-            R = extrinsics[:3,:]
-            t = extrinsics[ 3,:]
-        elif extrinsics.shape == (7,):
-            # pq_toref
-            p = extrinsics[:3]
-            q = extrinsics[3:]
 
-            R = mrpose.quat_to_mat33d(q)
-            t = p
-        elif extrinsics.shape == (6,):
-            # rt_fromref
-            r = extrinsics[:3]
-            t = extrinsics[3:]
+    def __init__(self, f=None):
+        r'''Initializes a new camera-model object
 
-            # My transformation is in the reverse direction from what I want.
-            # a = Rb + t -> b = R'(a-t) = R'a - R't
-            R = cv2.Rodrigues(r)[0]
-            t = -nps.matmult(t, R)
-            R = nps.transpose(R)
+        If f is not None: we read the camera model from a filename, a pre-opened
+        file or from another camera model
+
+        If f is None: we init the model with invalid intrinsics (None initially;
+        will need to be set later), and identity extrinsics
+
+        '''
+
+        if f is None:
+            self.extrinsics = np.zeros(6)
+            self.intrinsics = None
+
+        elif type(f) is cameramodel:
+            self = f
+
+        elif type(f) is str:
+            with open(f, 'r') as openedfile:
+                self = pickle.load(openedfile)
+
         else:
-            raise Exception("extrinsics must have shape (4,3) or (7,) or (6,) but got {}".format(extrinsics.shape))
-    else:
-        raise Exception("Extrinsics MUST be None of a numpy array. Instead got value of type '{}'".format(type(extrinsics)))
-
-    fx,fy,cx,cy = intrinsics[:4]
-
-    # Now we can establish the geometry. C is the camera origin, A is the +z
-    # direction, Hp is the +x direction and Vp is the +y direction, all in the
-    # ref-coord-system
-    out      = {}
-    out['C'] = t
-    out['A'] = R[:,2]
-    Hp       = R[:,0]
-    Vp       = R[:,1]
-    out['H'] = fx*Hp + out['A']*cx
-    out['V'] = fy*Vp + out['A']*cy
-
-    distortions = intrinsics[4:]
+            self = pickle.load(f)
 
 
-    if distortion_model == "DISTORTION_CAHVORE":
-        raise Exception("CAHVORE not supported (yet?)")
+    def write(self, f):
+        r'''Writes out this camera model
 
-    if distortion_model == "DISTORTION_CAHVOR":
-        theta,phi,R0,R1,R2 = distortions
+        We write to the given filename or a given pre-opened file.
 
-        sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
-        out['O'] = nps.matmult( R, nps.transpose(np.array(( sph*cth, sph*sth,  cph ))) ).ravel()
-        out['R'] = np.array((R0, R1, R2))
-    elif re.search("OPENCV", distortion_model):
-        out['extra'] = [ "{} = {}\n".format(distortion_model, ' '.join([str(x) for x in distortions.ravel()]))]
-    elif distortion_model == "DISTORTION_NONE":
-        pass
-    else:
-        raise Exception("Distortion model {} not supported".format(distortion_model))
+        '''
 
-    _validate_cahvor(out)
-    return out
+        if type(f) is str:
+            with open(f, 'w') as openedfile:
+                self = pickle.dump( self, openedfile, protocol=2 )
+
+        else:
+            self = pickle.dump( self, f, protocol=2 )
+
+
+    def intrinsics(self, i=None):
+        r'''Get or set the intrinsics in this model
+
+        if i is None: this is a getter; otherwise a setter.
+
+        i is a tuple (distortion_model, parameters):
+
+        - distortion_model is a string for the specific distortion model we're
+          using. mrcal.getSupportedDistortionModels() returns a list of
+          supported models.
+
+        - parameters is a numpy array of distortion parameters. The first 4
+          values are the pinhole-camera parameters: (fx,fy,cx,cy). The following
+          values represent the lens distortion. The number and meaning of these
+          parameters depends on the distortion model we're using
+
+        '''
+
+        if i is None:
+            return self.intrinsics
+
+        _validateIntrinsics(i)
+        self.intrinsics = i
+
+
+    def extrinsics_rt(self, toref, rt=None):
+        r'''Get or set the extrinsics in this model
+
+        This function represents the pose as a 6-long numpy array that contains
+        a 3-long Rodrigues rotation followed by a 3-long translation in the last
+        row:
+
+          r = rt[:3]
+          t = rt[3:]
+          R = cv2.Rodrigues(r)[0]
+
+        The transformation is b <-- R*a + t:
+
+          import numpysane as nps
+          b = nps.matmult(a, nps.transpose(R)) + t
+
+        if rt is None: this is a getter; otherwise a setter.
+
+        toref is a boolean. if toref: then rt maps points in the coord system of
+        THIS camera to the reference coord system. Otherwise in the opposite
+        direction
+
+        '''
+
+        # The internal representation is rt_fromref
+
+        if rt is None:
+            # getter
+            if not toref:
+                return self.extrinsics
+
+            rt_fromref = self.extrinsics
+            r_fromref  = rt_fromref[:3]
+            t_fromref  = rt_fromref[3:]
+
+            R_fromref = cv2.Rodrigues(r_fromref)[0]
+
+            R_toref,t_toref = invert_Rt(R_fromref, t_fromref)
+            r_toref = cv2.Rodrigues(R_toref)[0]
+            return nps.glue(r_toref, t_toref, axis=-1)
+
+
+        # setter
+        if not toref:
+            self.extrinsics = rt
+            return True
+
+        rt_toref = rt
+        r_toref  = rt_toref[:3]
+        t_toref  = rt_toref[3:]
+
+        R_toref = cv2.Rodrigues(r_toref)[0]
+
+        R_fromref,t_fromref = invert_Rt(R_toref, t_toref)
+        r_fromref = cv2.Rodrigues(R_fromref)[0]
+        self.extrinsics = nps.glue(r_fromref, t_fromref, axis=-1)
+        return True
+
+
+    def extrinsics_Rt(self, toref, Rt=None):
+        r'''Get or set the extrinsics in this model
+
+        This function represents the pose as a shape (4,3) numpy array that
+        contains a (3,3) rotation matrix, followed by a (1,3) translation in the
+        last row:
+
+          R = Rt[:3,:]
+          t = Rt[ 3,:]
+
+        The transformation is b <-- R*a + t:
+
+          import numpysane as nps
+          b = nps.matmult(a, nps.transpose(R)) + t
+
+        if Rt is None: this is a getter; otherwise a setter.
+
+        toref is a boolean. if toref: then Rt maps points in the coord system of
+        THIS camera to the reference coord system. Otherwise in the opposite
+        direction
+
+        '''
+
+        # The internal representation is rt_fromref
+
+        if Rt is None:
+            # getter
+            rt_fromref = self.extrinsics
+            r_fromref  = rt_fromref[:3]
+            t_fromref  = rt_fromref[3:]
+
+            R_fromref = cv2.Rodrigues(r_fromref)[0]
+
+            if not toref:
+                return nps.glue(R_fromref, t_fromref, axis=-2)
+
+            R_toref,t_toref = invert_Rt(R_fromref, t_fromref)
+            return nps.glue(R_toref, t_toref, axis=-2)
+
+
+        # setter
+        if toref:
+            R_toref = Rt[:3,:]
+            t_toref = Rt[ 3,:]
+
+            R_fromref,t_fromref = invert_Rt(R_toref, t_toref)
+        else:
+            R_fromref = Rt[:3,:]
+            t_fromref = Rt[ 3,:]
+
+            r_fromref = cv2.Rodrigues(R_fromref)[0]
+
+        self.extrinsics = nps.glue( r_fromref, t_fromref )
+        return True
 
