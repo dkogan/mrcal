@@ -307,6 +307,41 @@ static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
+                                              PyObject* NPY_UNUSED(args))
+{
+    PyObject* result = NULL;
+    const char* const* names = mrcal_getSupportedDistortionModels();
+
+    // I now have a NULL-terminated list of NULL-terminated strings. Get N
+    int N=0;
+    while(names[N] != NULL)
+        N++;
+
+    result = PyTuple_New(N);
+    if(result == NULL)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Failed PyTuple_New(%d)", N);
+        goto done;
+    }
+
+    for(int i=0; i<N; i++)
+    {
+        PyObject* name = Py_BuildValue("s", names[i]);
+        if( name == NULL )
+        {
+            PyErr_Format(PyExc_RuntimeError, "Failed Py_BuildValue...");
+            Py_DECREF(result);
+            result = NULL;
+            goto done;
+        }
+        PyTuple_SET_ITEM(result, i, name);
+    }
+
+ done:
+    return result;
+}
+
 static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* kwargs)
@@ -621,12 +656,18 @@ PyMODINIT_FUNC initmrcal(void)
     static const char getNdistortionParams_docstring[] =
 #include "getNdistortionParams.docstring.h"
         ;
-    static PyMethodDef methods[] =
-        { {"optimize",             (PyCFunction)optimize,             METH_VARARGS | METH_KEYWORDS, optimize_docstring},
-          {"getNdistortionParams", (PyCFunction)getNdistortionParams, METH_VARARGS,                 getNdistortionParams_docstring},
-         {}
-        };
+    static const char getSupportedDistortionModels_docstring[] =
+#include "getSupportedDistortionModels.docstring.h"
+        ;
 
+#define PYMETHODDEF_ENTRY(x, args) {#x, (PyCFunction)x, args, x ## _docstring}
+
+    static PyMethodDef methods[] =
+        { PYMETHODDEF_ENTRY(optimize,                     METH_VARARGS | METH_KEYWORDS),
+          PYMETHODDEF_ENTRY(getNdistortionParams,         METH_VARARGS),
+          PYMETHODDEF_ENTRY(getSupportedDistortionModels, METH_NOARGS),
+          {}
+        };
 
     PyImport_AddModule("mrcal");
     Py_InitModule3("mrcal", methods,

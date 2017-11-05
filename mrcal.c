@@ -111,6 +111,14 @@ int mrcal_getNdistortionParams(const enum distortion_model_t m)
     const signed char numparams[] = { DISTORTION_LIST( SET_NDIST_PARAMS) [DISTORTION_INVALID] = -1 };
     return (int)numparams[m];
 }
+
+const char* const* mrcal_getSupportedDistortionModels( void )
+{
+#define NAMESTRING(s,n) #s,
+    static const char* names[] = { DISTORTION_LIST(NAMESTRING) NULL };
+    return names;
+}
+
 static int getNintrinsicParams(enum distortion_model_t distortion_model)
 {
     return

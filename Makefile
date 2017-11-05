@@ -30,7 +30,7 @@ EXTRA_CLEAN += *.docstring.h
 # effectively a recursive build, the proper dependency information doesn't make
 # it into the inner (python-specific) Makefile, so I "build -f" to forcefully
 # rebuild everything. Like I said, this is stupid.
-build/lib.%/mrcal.so: mrcal_pywrap.c optimize.docstring.h getNdistortionParams.docstring.h mrcal.h libmrcal.so
+build/lib.%/mrcal.so: mrcal_pywrap.c $(addsuffix .h,$(wildcard *.docstring)) mrcal.h libmrcal.so
 	python setup.py build -f
 EXTRA_CLEAN += build
 all: build/lib.linux-x86_64-2.7/mrcal.so
