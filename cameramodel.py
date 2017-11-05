@@ -157,7 +157,8 @@ def parse_cahvor(f):
             x[i] = float(x[i])
 
     # I parse the fields I know I care about into numpy arrays
-    for i in ('Dimensions','C','A','H','V','O','R','E'):
+    for i in ('Dimensions','C','A','H','V','O','R','E',
+              'DISTORTION_OPENCV4', 'DISTORTION_OPENCV5', 'DISTORTION_OPENCV8'):
         if i in x:
             if re.match('[0-9\s]+$', x[i]): totype = int
             else:                           totype = float
@@ -177,6 +178,19 @@ def parse_cahvor(f):
 
     if needclose:
         f.close()
+
+    if 'E' in x:
+        x['distortion_model'] = "DISTORTION_CAHVORE"
+    elif 'R' in x:
+        x['distortion_model'] = "DISTORTION_CAHVOR"
+    elif 'DISTORTION_OPENCV8' in x:
+        x['distortion_model'] = "DISTORTION_OPENCV8"
+    elif 'DISTORTION_OPENCV5' in x:
+        x['distortion_model'] = "DISTORTION_OPENCV5"
+    elif 'DISTORTION_OPENCV4' in x:
+        x['distortion_model'] = "DISTORTION_OPENCV4"
+    else:
+        x['distortion_model'] = "DISTORTION_CAHVOR"
 
     return x
 
@@ -215,7 +229,9 @@ def write_cahvor(f, cahvor):
         f = open(f, 'w+')
         needclose = True
 
-    for i in ('Model','Dimensions','C','A','H','V','O','R','E'):
+    if 'Model' in cahvor:
+        f.write(("Model = {}\n").format(cahvor['Model']))
+    for i in ('C','A','H','V','O','R','E'):
         if i in cahvor:
             N = len(cahvor[i])
             f.write(("{} =" + (" {:15.10f}" * N) + "\n").format(i, *cahvor[i]))
@@ -226,6 +242,10 @@ def write_cahvor(f, cahvor):
     f.write("Vs = {}\n".format(Vs))
     f.write("Vc = {}\n".format(Vc))
     f.write("Theta = {} (-90.0 deg) # this is hard-coded\n".format(-np.pi/2))
+
+    if 'extra' in cahvor:
+        for e in cahvor['extra']:
+            f.write(e)
 
     if needclose:
         f.close()
@@ -238,11 +258,7 @@ def get_intrinsics(cahvor):
       - fy
       - cx
       - cy
-      - theta (for computing O)
-      - phi   (for computing O)
-      - R0
-      - R1
-      - R2
+      - distortions
 
     If O == A and R == 0, we have a distortion-less camera, and the distortion
     parameters (theta, phi, R0, R1, R2) are omitted.
@@ -271,6 +287,10 @@ def get_intrinsics(cahvor):
        ( 'R' not in cahvor or np.linalg.norm(cahvor['R']) < 1e-6):
         # pinhole
         intrinsics = np.array((fx,fy,cx,cy))
+        for k in cahvor.keys():
+            if re.match('DISTORTION_OPENCV[0-9]', k):
+                intrinsics = nps.glue(intrinsics, np.array(cahvor[k]), axis=-1)
+                break
     else:
         R0,R1,R2 = cahvor['R'].ravel()
         intrinsics = np.array((fx,fy,cx,cy,theta,phi,R0,R1,R2))
@@ -334,23 +354,31 @@ def get_extrinsics_rt_fromref(cahvor):
     r = cv2.Rodrigues(R)[0]
     return nps.glue(r,t, axis=-1)
 
-def assemble_cahvor( intrinsics, extrinsics = None ):
+def assemble_cahvor( distortion_model, intrinsics, extrinsics = None ):
     r'''Produces a CAHVOR model from separate intrinsics and extrinsics
 
     The inputs:
+
+    - distortion_model: a string that says what the values in 'intrinsics'
+      mean. The supported values are defined in the DISTORTION_LIST macro in
+      mrcal.h. At the time of this writing, the supported values are
+
+        DISTORTION_NONE
+        DISTORTION_OPENCV4
+        DISTORTION_OPENCV5
+        DISTORTION_OPENCV8
+        DISTORTION_CAHVOR
+
+      The no-distortion case is a CAHV model. The non-cahvor cases produce CAHV
+      files with the extra parameters written directly, without any
+      interpretation
 
     - intrinsics: a numpy array containing
       - fx
       - fy
       - cx
       - cy
-      - theta (for computing O)
-      - phi   (for computing O)
-      - R0
-      - R1
-      - R2
-
-      The distortion parameters (theta, phi, R0, R1, R2) is optional.
+      - model-specific distortion parameters
 
     - extrinsics: a transformation, the interpretation of which depends on the
       argument. Supported options are:
@@ -371,12 +399,9 @@ def assemble_cahvor( intrinsics, extrinsics = None ):
         coordinate system TO this camera
 
     '''
-    if len(intrinsics) == 4:
-        pinhole = True
-    elif len(intrinsics) == 9:
-        pinhole = False
-    else:
-        raise Exception("I know how to deal with an ideal camera (4 intrinsics) or a cahvor camera (9 intrinsics), but I got {} intrinsics intead".format(len(intrinsics)))
+    Ndistortions = mrcal.getNdistortionParams(distortion_model)
+    if len(intrinsics) != Ndistortions+4:
+        raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters + 4 core values, but got {} intrinsics values", distortion_model, Ndistortions, len(intrinsics))
 
     # I parse the extrinsics, and convert them into Rt_toref form
     if extrinsics is None:
@@ -422,12 +447,24 @@ def assemble_cahvor( intrinsics, extrinsics = None ):
     out['H'] = fx*Hp + out['A']*cx
     out['V'] = fy*Vp + out['A']*cy
 
-    if not pinhole:
-        theta,phi,R0,R1,R2 = intrinsics[4:]
+    distortions = intrinsics[4:]
+
+
+    if distortion_model == "DISTORTION_CAHVORE":
+        raise Exception("CAHVORE not supported (yet?)")
+
+    if distortion_model == "DISTORTION_CAHVOR":
+        theta,phi,R0,R1,R2 = distortions
 
         sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
         out['O'] = nps.matmult( R, nps.transpose(np.array(( sph*cth, sph*sth,  cph ))) ).ravel()
         out['R'] = np.array((R0, R1, R2))
+    elif re.search("OPENCV", distortion_model):
+        out['extra'] = [ "{} = {}\n".format(distortion_model, ' '.join([str(x) for x in distortions.ravel()]))]
+    elif distortion_model == "DISTORTION_NONE":
+        pass
+    else:
+        raise Exception("Distortion model {} not supported".format(distortion_model))
 
     _validate_cahvor(out)
     return out
