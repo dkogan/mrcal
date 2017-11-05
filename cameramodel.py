@@ -196,9 +196,9 @@ def parse_cahvor(f):
 
 def parse_and_consolidate(transforms, cahvors):
     transforms = parse_transforms(transforms)
+
     for i_pair in cahvors.keys():
-        for i_cam in cahvors[i_pair]:
-            cahvors[i_pair][i_cam] = parse_cahvor(cahvors[i_pair][i_cam])
+        cahvors[i_pair] = [parse_cahvor(m) for m in cahvors[i_pair]]
 
     pair_ids = sorted(transforms['ins_from_camera'].keys())
     if pair_ids != sorted(cahvors.keys()):
