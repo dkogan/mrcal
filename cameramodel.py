@@ -33,12 +33,12 @@ def _validate_cahvor(cahvor):
     r'''Confirm that a given model is valid'''
 
     if abs(np.linalg.norm(cahvor['A']) - 1) > 1e-8:
-        raise Exception("cahvor.['A'] must be a unit vector. Instead head {} of length {}". \
+        raise Exception("cahvor.['A'] must be a unit vector. Instead got {} of length {}". \
                         format(cahvor['A'],
                                np.linalg.norm(cahvor['A'])))
     if 'O' in cahvor and \
        abs(np.linalg.norm(cahvor['O']) - 1) > 1e-8:
-        raise Exception("cahvor.['O'] must be a unit vector. Instead head {} of length {}". \
+        raise Exception("cahvor.['O'] must be a unit vector. Instead got {} of length {}". \
                         format(cahvor['O'],
                                np.linalg.norm(cahvor['O'])))
     Hp,Vp = cahvor_HVs_HVc_HVp(cahvor)[-2:]
