@@ -10,6 +10,9 @@ import numbers
 import mrcal
 
 
+r'''A module that provides a 'cameramodel' class to read/write/manipulate camera
+models'''
+
 
 def _validateExtrinsics(e):
     r'''Raises an exception if the given extrinsics are invalid'''
@@ -105,19 +108,19 @@ class cameramodel:
     def _write(self, f):
         r'''Writes out this camera model to an open file'''
 
-        _validateIntrinsics(self.intrinsics)
-        _validateExtrinsics(self.intrinsics)
+        _validateIntrinsics(self._intrinsics)
+        _validateExtrinsics(self._intrinsics)
 
-        f.write("distortion_model = {}\n".format(self.intrinsics[0]))
+        f.write("distortion_model = {}\n".format(self._intrinsics[0]))
         f.write("\n")
 
-        N = len(self.intrinsics[1])
-        f.write(("intrinsics =" + (" {:15.10f}" * N) + "\n").format(*self.intrinsics[1]))
+        N = len(self._intrinsics[1])
+        f.write(("intrinsics =" + (" {:15.10f}" * N) + "\n").format(*self._intrinsics[1]))
         f.write("\n")
 
-        N = len(self.extrinsics)
+        N = len(self._extrinsics)
         f.write("# extrinsics are rt_fromref\n")
-        f.write(("extrinsics =" + (" {:15.10f}" * N) + "\n").format(*self.extrinsics))
+        f.write(("extrinsics =" + (" {:15.10f}" * N) + "\n").format(*self._extrinsics))
         f.write("\n")
 
 
@@ -142,7 +145,7 @@ class cameramodel:
             # whitespace, and (value) works too.
             m = re.match('\s*(\w+)\s*=\s*\(?\s*(.+?)\s*\)?\s*\n?$', l)
             if not m:
-                raise Exception("All valid non-comment, non-empty lines should be parseable as key=value, but got '{}'"format(l))
+                raise Exception("All valid non-comment, non-empty lines should be parseable as key=value, but got '{}'".format(l))
 
             key   = m.group(1)
             value = m.group(2)
@@ -175,34 +178,65 @@ class cameramodel:
         _validateIntrinsics(intrinsics_values)
         _validateIntrinsics(extrinsics)
 
-        self.intrinsics = intrinsics
-        self.extrinsics = extrinsics
+        self._intrinsics = intrinsics
+        self._extrinsics = extrinsics
 
 
-    def __init__(self, f=None):
+    def __init__(self, f=None, **kwargs):
         r'''Initializes a new camera-model object
 
         If f is not None: we read the camera model from a filename, a pre-opened
         file or from another camera model
 
-        If f is None: we init the model with invalid intrinsics (None initially;
-        will need to be set later), and identity extrinsics
+        If f is None and kwargs is empty: we init the model with invalid
+        intrinsics (None initially; will need to be set later), and identity
+        extrinsics
+
+        if f is none and we have kwargs: required 'intrinsics' kwarg has the
+        intrinsic, and we have extrinsics in one of
+
+        - extrinsics_Rt_toref
+        - extrinsics_Rt_fromref
+        - extrinsics_rt_toref
+        - extrinsics_rt_fromref
 
         '''
 
-        if f is None:
-            self.extrinsics = np.zeros(6)
-            self.intrinsics = None
+        if len(kwargs) == 0:
+            if f is None:
+                self._extrinsics = np.zeros(6)
+                self._intrinsics = None
 
-        elif type(f) is cameramodel:
-            self = f
+            elif type(f) is cameramodel:
+                self = f
 
-        elif type(f) is str:
-            with open(f, 'r') as openedfile:
-                self._read_and_parse(openedfile)
+            elif type(f) is str:
+                with open(f, 'r') as openedfile:
+                    self._read_and_parse(openedfile)
+
+            else:
+                self._read_and_parse(f)
 
         else:
-            self._read_and_parse(f)
+            if f is not None:
+                raise Exception("We have kwargs AND f. These are supposed to be mutually exclusive")
+
+            if 'intrinsics' not in kwargs:
+                raise Exception("No f was given, so we MUST have gotten an 'intrinsics' kwarg")
+            N=0
+            extrinsics_keys=('extrinsics_Rt_toref','extrinsics_Rt_fromref','extrinsics_rt_toref','extrinsics_rt_fromref')
+            for k in extrinsics_keys:
+                if k in kwargs:
+                    N += 1
+            if N != 1 or len(kwargs) != 2:
+                raise Exception("No f was given, so we MUST have gotten an 'intrinsics' kwarg and one of {}"format(extrinsics_keys))
+
+            self.intrinsics(kwargs['intrinsics'])
+            if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
+            if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt(False, kwargs['extrinsics_Rt_fromref'])
+            if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt(True,  kwargs['extrinsics_rt_toref'  ])
+            if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt(False, kwargs['extrinsics_rt_fromref'])
+
 
 
     def write(self, f):
@@ -239,10 +273,10 @@ class cameramodel:
         '''
 
         if i is None:
-            return self.intrinsics
+            return self._intrinsics
 
         _validateIntrinsics(i)
-        self.intrinsics = i
+        self._intrinsics = i
 
 
     def extrinsics_rt(self, toref, rt=None):
@@ -274,22 +308,22 @@ class cameramodel:
         if rt is None:
             # getter
             if not toref:
-                return self.extrinsics
+                return self._extrinsics
 
-            rt_fromref = self.extrinsics
+            rt_fromref = self._extrinsics
             r_fromref  = rt_fromref[:3]
             t_fromref  = rt_fromref[3:]
 
             R_fromref = cv2.Rodrigues(r_fromref)[0]
 
             R_toref,t_toref = invert_Rt(R_fromref, t_fromref)
-            r_toref = cv2.Rodrigues(R_toref)[0]
+            r_toref = cv2.Rodrigues(R_toref)[0].ravel()
             return nps.glue(r_toref, t_toref, axis=-1)
 
 
         # setter
         if not toref:
-            self.extrinsics = rt
+            self._extrinsics = rt
             return True
 
         rt_toref = rt
@@ -299,8 +333,8 @@ class cameramodel:
         R_toref = cv2.Rodrigues(r_toref)[0]
 
         R_fromref,t_fromref = invert_Rt(R_toref, t_toref)
-        r_fromref = cv2.Rodrigues(R_fromref)[0]
-        self.extrinsics = nps.glue(r_fromref, t_fromref, axis=-1)
+        r_fromref = cv2.Rodrigues(R_fromref)[0].ravel()
+        self._extrinsics = nps.glue(r_fromref, t_fromref, axis=-1)
         return True
 
 
@@ -331,7 +365,7 @@ class cameramodel:
 
         if Rt is None:
             # getter
-            rt_fromref = self.extrinsics
+            rt_fromref = self._extrinsics
             r_fromref  = rt_fromref[:3]
             t_fromref  = rt_fromref[3:]
 
@@ -354,8 +388,8 @@ class cameramodel:
             R_fromref = Rt[:3,:]
             t_fromref = Rt[ 3,:]
 
-            r_fromref = cv2.Rodrigues(R_fromref)[0]
+        r_fromref = cv2.Rodrigues(R_fromref)[0].ravel()
 
-        self.extrinsics = nps.glue( r_fromref, t_fromref )
+        self._extrinsics = nps.glue( r_fromref, t_fromref, axis=-1 )
         return True
 
