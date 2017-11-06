@@ -9,13 +9,12 @@ import re
 import glob
 import cPickle as pickle
 
-sys.path[:0] = ('/home/dima/src_boats/stereo-server/analyses',)
-import camera_models
 
 sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
 import mrcal
 import utils
-
+import cameramodel
+import cahvor
 
 
 
@@ -442,16 +441,16 @@ def make_seed(inputs):
                              inputs['dot_spacing'])
     return intrinsics,extrinsics,frames
 
-def solve_monocular(inputs, index=None):
+def solve_monocular(inputs, distortions=False):
 
     intrinsics,extrinsics,frames = make_seed(inputs)
     observations = inputs['dots']
 
     # done with everything. Run the calibration, in several passes.
     projected = \
-        utils.project_points(intrinsics, extrinsics, frames,
+        projections.project_points(intrinsics, extrinsics, frames,
                              inputs['dot_spacing'], Nwant)
-    err = utils.compute_reproj_error(projected, observations,
+    err = projections.compute_reproj_error(projected, observations,
                                      inputs['indices_frame_camera'], Nwant)
 
     norm2_err = nps.inner(err.ravel(), err.ravel())
@@ -946,9 +945,9 @@ intrinsics,extrinsics,frames,inputs = join_inputs_and_solutions(separate_inputs,
 
 
 # projected = \
-#     utils.project_points(intrinsics, extrinsics, frames,
+#     projections.project_points(intrinsics, extrinsics, frames,
 #                          inputs['dot_spacing'], Nwant)
-# err = utils.compute_reproj_error(projected, inputs['dots'],
+# err = projections.compute_reproj_error(projected, inputs['dots'],
 #                                  inputs['indices_frame_camera'], Nwant)
 # norm2_err_perimage = nps.inner( nps.clump(err,n=-3),  nps.clump(err,n=-3))
 # rms_err_perimage   = np.sqrt( norm2_err_perimage / (Nwant*Nwant) )
@@ -1022,16 +1021,22 @@ Rt_r1 = nps.glue(Rr1, tr1, axis=-2)
 
 
 dir_to = '/tmp'
-c0 = camera_models.assemble_cahvor(intrinsics[0], Rt_r0)
-c1 = camera_models.assemble_cahvor(intrinsics[1], Rt_r1)
-camera_models.write_cahvor('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 0), c0)
-camera_models.write_cahvor('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 1), c1)
+c0 = cameramodel()
+c0.intrinsics((distortion_model, intrinsics[0]))
+c0.extrinsics_Rt(True, Rt_r0)
+cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 0), c0)
+
+c1 = cameramodel()
+c1.intrinsics((distortion_model, intrinsics[1]))
+c1.extrinsics_Rt(True, Rt_r1)
+cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 1), c0)
 
 
 
 
 # # and write out the resulting cahvor files
-# cahvor = [ camera_models.assemble_cahvor( intrinsics[i], extrinsics[i-1] if i >= 1 else None ) \
+# cahvor = [ cameramodel( intrinsics=intrinsics[i],
+#                         extrinsics_rt_toref=extrinsics[i-1] if i >= 1 else None ) \
 #            for i in xrange(inputs['Ncameras']) ]
 
 # # graft
@@ -1044,7 +1049,7 @@ camera_models.write_cahvor('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 1),
 #                            c)
 
 # image_corrected = \
-#     utils.undistort_image(intrinsics.ravel(),
+#     projections.undistort_image(intrinsics.ravel(),
 #                           "/tmp/input-00012-{}-{}.jpg". \
 #                           format(pair_want, "left" if camera_want == 0 else "right"))
 # imagefile_corrected = "/tmp/input-00012-{}-{}_undistorted.jpg". \

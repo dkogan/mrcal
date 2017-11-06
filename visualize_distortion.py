@@ -8,10 +8,49 @@ import cPickle as pickle
 import re
 import cv2
 
-sys.path[:0] = ('/home/dima/src_boats/stereo-server/analyses',)
-import camera_models
+import cameramodel
 
 import utils
+
+
+
+
+def visualize_distortion_vector_field(model):
+    r'''Visualize the distortion effect of a set of intrinsic
+
+    This function renders the distortion vector field
+    '''
+
+    intrinsics = cahvor.cahvor(model).intrinsics()
+
+    N = 20
+    W,H = [2*center for center in intrinsics[1][2:4]]
+
+    # get the input and output grids of shape Nwidth,Nheight,2
+    grid, dgrid = distortion_map__to_warped(intrinsics,
+                                            np.linspace(0,W,N),
+                                            np.linspace(0,H,N))
+
+    # shape: N*N,2
+    grid  = nps.clump(grid,  n=2)
+    dgrid = nps.clump(dgrid, n=2)
+
+    delta = dgrid-grid
+#    delta *= 1000
+    gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
+              {'with': 'vectors size screen 0.01,20 fixed filled',
+               'tuplesize': 4,
+               }),
+             (grid[:,0], grid[:,1],
+              {'with': 'points',
+               'tuplesize': 2,
+               }),
+             _xrange=(0,W), _yrange=(H,0))
+
+    import time
+    time.sleep(100000)
+
+
 
 cahvorfile = sys.argv[1]
 try:
@@ -22,7 +61,7 @@ except:
 
 if imagefile is None:
     # no image file is given. Draw the vector field
-    utils.visualize_distortion_vector_field(cahvorfile)
+    visualize_distortion_vector_field(cahvorfile)
 else:
     m = re.match("(.*)\.([a-z][a-z][a-z])$", imagefile)
     if not m:
