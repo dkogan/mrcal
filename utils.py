@@ -6,12 +6,8 @@ import gnuplotlib as gp
 import sys
 import re
 import cv2
-import cPickle as pickle
-import scipy.optimize
 
-sys.path[:0] = ('/home/dima/jpl/stereo-server/analyses',)
-import camera_models
-
+sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
 import mrcal
 
 import mrpose
@@ -97,251 +93,6 @@ def align3d_procrustes(A, B, vectors=False):
 
     return nps.glue( R, t.ravel(), axis=-2)
 
-def cahvor_warp_distort(p, fx, fy, cx, cy, *distortions):
-    r'''Apply a CAHVOR warp to an un-distorted point
-
-    Given intrinsic parameters of a CAHVOR model and a pinhole-projected
-    point(s) numpy array of shape (..., 2), return the projected point(s) that
-    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
-
-    This function can broadcast the points array
-
-    '''
-
-    theta, phi, r0, r1, r2 = distortions
-
-    # p is a 2d point. Convert to a 3d point
-    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
-                        (p[..., 1] - cy)/fy,
-                        np.ones( p.shape[:-1])),
-                0, -1 )
-    o = np.array( (np.sin(phi) * np.cos(theta),
-                   np.sin(phi) * np.sin(theta),
-                   np.cos(phi) ))
-
-    # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
-    # omega/norm(p)
-    omega = nps.inner(p,o)
-
-    # tau = 1/cos^2 - 1 = inner(p,p)/(omega*omega) - 1 =
-    #     = tan^2
-    tau   = nps.inner(p,p) / (omega*omega) - 1.0
-    mu    = r0 + tau*r1 + tau*tau*r2
-    p     = p*(nps.dummy(mu,-1)+1.0) - nps.dummy(mu*omega, -1)*o
-
-    # now I apply a normal projection to the warped 3d point p
-    return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
-
-
-def opencv_warp_distort(p, fx, fy, cx, cy, *distortions):
-    r'''Apply an OPENCV warp to an un-distorted point
-
-    Given intrinsic parameters of an OPENCV model and a pinhole-projected
-    point(s) numpy array of shape (..., 2), return the projected point(s) that
-    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
-
-    This function can broadcast the points array
-
-    '''
-
-    # opencv wants an Nx3 input array and an Nx2 output array. numpy
-    # broadcasting rules allow any number of leading dimensions as long as
-    # they're compatible. I squash the leading dimensions at the start, and put
-    # them back when done
-
-    dims_broadcast = p.shape[:-1]
-    p = nps.clump(p, n=len(p.shape)-1)
-
-    # p is a 2d point. Convert to a 3d point
-    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
-                        (p[..., 1] - cy)/fy,
-                        np.ones( p.shape[:-1])),
-                0, -1 )
-
-    A = np.array(((fx,  0, cx),
-                  ( 0, fy, cy),
-                  ( 0,  0,  1)))
-
-    out,_ = cv2.projectPoints(p, np.zeros((3,)), np.zeros((3,)), A, distortions)
-    out = out[:,0,:]
-
-    out_dims = dims_broadcast + (2,)
-    out = out.reshape(out_dims)
-    return out
-
-def warp_distort(distortion_model, p, fx, fy, cx, cy, *distortions):
-    r'''Un-apply a distortion warp: undistort a point
-
-    This is a model-generic function. We use the given distortion_model: a
-    string that says what the values in 'distortions' mean. The supported values
-    are defined in the DISTORTION_LIST macro in mrcal.h. At the time of this
-    writing, the supported values are
-
-      DISTORTION_NONE
-      DISTORTION_OPENCV4
-      DISTORTION_OPENCV5
-      DISTORTION_OPENCV8
-      DISTORTION_CAHVOR
-
-    Given intrinsic parameters of a model and a pinhole-projected point(s) numpy
-    array of shape (..., 2), return the projected point(s) that we'd get without
-    distortion. We ASSUME THE SAME fx,fy,cx,cy
-
-    This function can broadcast the points array.
-
-    Note that this function has an iterative solver and is thus SLOW. This is
-    the "backwards" direction. Most of the time you want ..._warp_distort().
-
-    '''
-
-    Ndistortions = mrcal.getNdistortionParams(distortion_model)
-    if len(distortions) != Ndistortions:
-        raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values".format(distortion_model, Ndistortions, len(distortions)))
-
-    if distortion_model == "DISTORTION_NONE":
-        return p
-
-    if re.search("CAHVOR", distortion_model):
-        return cahvor_warp_distort(p, fx, fy, cx, cy, *distortions)
-    elif re.search("OPENCV", distortion_model):
-        return opencv_warp_distort(p, fx, fy, cx, cy, *distortions)
-    else:
-        raise Exception("I don't know how to warp distortion_model {}".format(distortion_model))
-
-def warp_undistort(distortion_model, p, fx, fy, cx, cy, *distortions):
-    r'''Un-apply a CAHVOR warp: undistort a point
-
-    This is a model-generic function. We use the given distortion_model: a
-    string that says what the values in 'distortions' mean. The supported values
-    are defined in the DISTORTION_LIST macro in mrcal.h. At the time of this
-    writing, the supported values are
-
-      DISTORTION_NONE
-      DISTORTION_OPENCV4
-      DISTORTION_OPENCV5
-      DISTORTION_OPENCV8
-      DISTORTION_CAHVOR
-
-    Given intrinsic parameters of a model and a pinhole-projected point(s) numpy
-    array of shape (..., 2), return the projected point(s) that we'd get without
-    distortion. We ASSUME THE SAME fx,fy,cx,cy
-
-    This function can broadcast the points array.
-
-    Note that this function has an iterative solver and is thus SLOW. This is
-    the "backwards" direction. Most of the time you want warp_distort().
-
-    '''
-
-    Ndistortions = mrcal.getNdistortionParams(distortion_model)
-    if len(distortions) != Ndistortions:
-        raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values", distortion_model, Ndistortions, len(distortions))
-
-    if distortion_model == "DISTORTION_NONE":
-        return p
-
-    if   re.search("CAHVOR", distortion_model): distort = cahvor_warp_distort
-    elif re.search("OPENCV", distortion_model): distort = opencv_warp_distort
-    else:
-        raise Exception("I don't know how to warp distortion_model {}".format(distortion_model))
-
-
-
-    # I could make this much more efficient: precompute lots of stuff, use
-    # gradients, etc, etc. I can also optimize each point separately. But that
-    # would make the code messy and require more work. This functions decently
-    # well and I leave it.
-    def f(p0):
-        '''Optimization functions'''
-        N = len(p0.ravel()) / 2
-        p1 = distort(p0.reshape(N,2), fx,fy,cx,cy, *distortions)
-        return p1.ravel() - p.ravel()
-
-    p1 = scipy.optimize.leastsq(f, p.ravel())[0]
-    return np.array(p1).reshape(p.shape)
-
-def cahvor_warp_undistort(*args):
-    r'''Un-apply a CAHVOR warp: undistort a point
-
-    Given intrinsic parameters of a CAHVOR model and a pinhole-projected
-    point(s) numpy array of shape (..., 2), return the projected point(s) that
-    we'd get without distortion. We ASSUME THE SAME fx,fy,cx,cy
-
-    This function can broadcast the points array.
-
-    Note that this function has an iterative solver and is thus SLOW. This is
-    the "backwards" direction. Most of the time you want cahvor_warp_distort().
-
-    '''
-    return warp_undistort("DISTORTION_CAHVOR", *args)
-
-
-
-# @nps.broadcast_define( ((3,),('Nintrinsics',)),
-#                        (2,), )
-def project_local3d(distortion_model, intrinsics, p):
-    r'''Projects 3D point(s) using the given camera intrinsics
-
-    This function is broadcastable, but not with nps.broadcast_define() because
-    the python loop-over-p could be slow. The computations here are simple
-    enough for numpy to handle all the broadcasting at the C level, so I let it
-    do that.
-
-    Inputs:
-
-    - distortion_model: a string that says what the values in the intrinsics
-      array mean. The supported values are defined in the DISTORTION_LIST macro
-      in mrcal.h. At the time of this writing, the supported values are
-
-        DISTORTION_NONE
-        DISTORTION_OPENCV4
-        DISTORTION_OPENCV5
-        DISTORTION_OPENCV8
-        DISTORTION_CAHVOR
-
-    - intrinsics: a numpy array containing
-      - fx
-      - fy
-      - cx
-      - cy
-      - distortion-specific values
-
-    - p a 3D point in the camera coord system
-
-    '''
-
-    def project_one_cam(intrinsics, p):
-
-        p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
-        return warp_distort(distortion_model, p2d, *intrinsics)
-
-
-    # manually broadcast over intrinsics[]. The broadcast over p happens
-    # implicitly.
-    #
-    # intrinsics shape I support: (a,b,c,..., Nintrinsics)
-    # In my use case, at most one of a,b,c,... is != 1
-    idims_not1 = [ i for i in xrange(len(intrinsics.shape)-1) if intrinsics.shape[i] != 1 ]
-    if len(idims_not1) > 1:
-        raise Exception("More than 1D worth of broadcasting for the intrinsics not implemented")
-
-    if len(idims_not1) == 0:
-        return project_one_cam(intrinsics.ravel(), p)
-
-    idim_broadcast = idims_not1[0] - len(intrinsics.shape)
-    Nbroadcast = intrinsics.shape[idim_broadcast]
-    if p.shape[idim_broadcast] != Nbroadcast:
-        raise Exception("Inconsistent dimensionality for broadcast at idim {}. p.shape: {} and intrinsics.shape: {}".format(idim_broadcast, p.shape, intrinsics.shape))
-
-    psplit     = nps.mv(p,          idim_broadcast, 0)
-    intrinsics = nps.mv(intrinsics, idim_broadcast, 0)
-
-    return \
-        nps.mv( nps.cat(*[ project_one_cam(intrinsics[i].ravel(),
-                                           psplit[i])
-                           for i in xrange(Nbroadcast)]),
-                0, idim_broadcast )
-
 
 
 @nps.broadcast_define( ((3,3),),
@@ -382,170 +133,6 @@ def get_full_object(W, H, dot_spacing):
     return full_object * dot_spacing
 
 
-def ingest_cahvor(model):
-    r'''Reutnrs a cahvor model from a variety of representations
-
-    The input should be any of
-
-    - a file containing a CAHVOR model
-    - a python file object from which such a model could be read
-    - a dict representation you get when you parse_cahvor() such a file
-
-    The output is a cahvor dict
-    '''
-
-    model_file = None
-
-    if isinstance(model, str):
-        model = open(model, 'r')
-        model_file = model
-
-    if isinstance(model, file):
-        model = camera_models.parse_cahvor(model)
-
-    if model_file is not None:
-        model_file.close()
-
-    if isinstance(model, dict):
-        return model
-
-    raise Exception("Input must be a string, a file, a dict or a numpy array.")
-
-
-def ingest_intrinsics(model):
-    r'''Reads cahvor intrinsics from a variety of representations
-
-    The input should be any of
-
-    - a file containing a CAHVOR model
-    - a python file object from which such a model could be read
-    - a dict representation you get when you parse_cahvor() such a file
-    - a numpy array containing the intrinsics.
-
-    The output is a numpy array containing the intrinsics
-    '''
-
-    if not isinstance(model, np.ndarray):
-        model = ingest_cahvor(model)
-        model = camera_models.get_intrinsics(model)
-
-    if not isinstance(model, np.ndarray):
-        raise Exception("Input must be a string, a file, a dict or a numpy array")
-
-    if len(model) == 4:
-        return model
-    if len(model) == 9:
-        return model
-    if len(model) == 12:
-        return model
-    if len(model) == 8:
-        return model
-
-    raise Exception("Intrinsics vector MUST have length 4 or 9. Instead got {}".format(len(model)))
-
-
-def distortion_map__to_warped(model, w, h):
-    r'''Returns the pre and post distortion map of a model
-
-    Takes in
-
-    - a cahvor model (in a number of representations)
-    - a sampling spacing on the x axis
-    - a sampling spacing on the y axis
-
-    Produces two arrays of shape Nwidth,Nheight,2:
-
-    - grid: a meshgrid of the sampling spacings given as inputs. This refers to the
-      UNDISTORTED image
-
-    - dgrid: a meshgrid where each point in grid had the distortion corrected.
-      This refers to the DISTORTED image
-
-    '''
-
-    intrinsics = ingest_intrinsics(model)
-
-    # shape: Nwidth,Nheight,2
-    grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
-
-    if len(intrinsics) == 4 or len(intrinsics) == 9:
-        dgrid = cahvor_warp_distort(grid, *intrinsics)
-    elif len(intrinsics) == 12 or len(intrinsics) == 8:
-        dgrid = opencv_warp_distort(grid, *intrinsics)
-    return grid, dgrid
-
-def visualize_distortion_vector_field(model):
-    r'''Visualize the distortion effect of a set of intrinsic
-
-    This function renders the distortion vector field
-
-    The input should either be a file containing a CAHVOR model, a python file
-    object from which such a model could be read, the dict representation you
-    get when you parse_cahvor() on such a file OR a numpy array containing the
-    intrinsics
-
-    '''
-
-    intrinsics = ingest_intrinsics(model)
-
-    N = 20
-    W,H = [2*center for center in intrinsics[2:4]]
-
-    # get the input and output grids of shape Nwidth,Nheight,2
-    grid, dgrid = distortion_map__to_warped(intrinsics,
-                                            np.linspace(0,W,N),
-                                            np.linspace(0,H,N))
-
-    # shape: N*N,2
-    grid  = nps.clump(grid,  n=2)
-    dgrid = nps.clump(dgrid, n=2)
-
-    delta = dgrid-grid
-    gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
-              {'with': 'vectors size screen 0.01,20 fixed filled',
-               'tuplesize': 4,
-               }),
-             (grid[:,0], grid[:,1],
-              {'with': 'points',
-               'tuplesize': 2,
-               }),
-             _xrange=(0,W), _yrange=(H,0))
-
-    import time
-    time.sleep(100000)
-
-def undistort_image(model, image):
-    r'''Visualize the distortion effect of a set of intrinsic
-
-    This function warps an image to remove the distortion.
-
-    The input should either be a file containing a CAHVOR model, a python file
-    object from which such a model could be read, the dict representation you
-    get when you parse_cahvor() on such a file OR a numpy array containing the
-    intrinsics.
-
-    An image is also input (could be a filename or an array). An array image is
-    output.
-
-    '''
-
-    intrinsics = ingest_intrinsics(model)
-
-    if not isinstance(image, np.ndarray):
-        image = cv2.imread(image)
-
-    H,W = image.shape[:2]
-    _,mapxy = distortion_map__to_warped(intrinsics,
-                                        np.arange(W), np.arange(H))
-    mapx = mapxy[:,:,0].astype(np.float32)
-    mapy = mapxy[:,:,1].astype(np.float32)
-
-    remapped = cv2.remap(image,
-                         nps.transpose(mapx),
-                         nps.transpose(mapy),
-                         cv2.INTER_LINEAR)
-    return remapped
-
 def homography_atinfinity_map( w, h, m0, m1 ):
     r'''Compute that 1<-0 at-infinity homography for two cahvor models
 
@@ -579,9 +166,9 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     '''
 
     def get_components(m):
-        m = ingest_cahvor(m)
-        e = camera_models.get_extrinsics_Rt_toref(m)
-        fx,fy,cx,cy = camera_models.cahvor_fxy_cxy(m)
+        m = cahvor(m)
+        e = m.extrinsics_Rt(True)
+        fx,fy,cx,cy = m.intrinsics()[1][:4]
         return e[:3,:],fx,fy,cx,cy
 
     Rr0,fx0,fy0,cx0,cy0 = get_components(m0)
@@ -620,7 +207,7 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     p03d_y = nps.inner(R10[:2,1], p1xy3d) + R10[2,1]
     p03d_z = nps.inner(R10[:2,2], p1xy3d) + R10[2,2]
 
-    # Project_Local3d. shape: Nwidth,Nheight,2
+    # project_local3d. shape: Nwidth,Nheight,2
     p0xy = nps.mv(nps.cat(p03d_x,p03d_y) / p03d_z, 0,-1)
 
     # Input Pixel coords. shape: Nwidth,Nheight,2
@@ -667,7 +254,6 @@ def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
     axes = np.array([ mrpose.vec3_transform(transform, x) for x in axes ])
 
     axes_forplotting = extend_axes_for_plotting(axes)
-
     l_axes = tuple(nps.transpose(axes_forplotting)) + \
         ({'with': 'vectors', 'tuplesize': 6},)
 
@@ -697,57 +283,6 @@ def pose__pq_from_rt(rt):
     R = Rodrigues_toR_broadcasted(r)
     q = mrpose.quat_from_mat33d(R)
     return mrpose.pose3_set(p,q)
-
-
-def project_points(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant):
-    r'''Takes in the same arguments as mrcal.optimize(), and returns all the
-    projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)'''
-
-    object_ref = get_full_object(Nwant, Nwant, dot_spacing)
-    Rf = Rodrigues_toR_broadcasted(frames[:,:3])
-    Rf = nps.mv(Rf,           0, -5)
-    tf = nps.mv(frames[:,3:], 0, -5)
-
-    # object in the cam0 coord system. shape=(Nframes, 1, Nwant, Nwant, 3)
-    object_cam0 = nps.matmult( object_ref, nps.transpose(Rf)) + tf
-
-    Rc = Rodrigues_toR_broadcasted(extrinsics[:,:3])
-    Rc = nps.mv(Rc,               0, -4)
-    tc = nps.mv(extrinsics[:,3:], 0, -4)
-
-    # object in the OTHER camera coord systems. shape=(Nframes, Ncameras-1, Nwant, Nwant, 3)
-    object_cam_others = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
-
-    # object in the ALL camera coord systems. shape=(Nframes, Ncameras, Nwant, Nwant, 3)
-    object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
-
-    # I now project_local3d all of these
-    intrinsics = nps.mv(intrinsics, 0, -4)
-
-    # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
-    return project_local3d( distortion_model, intrinsics, object_cam )
-
-def compute_reproj_error(projected, observations, indices_frame_camera, Nwant):
-    r'''Given
-
-    - projected (shape [Nframes,Ncameras,Nwant,Nwant,2])
-    - observations (shape [Nframes,Nwant,Nwant,2])
-    - indices_frame_camera (shape [Nobservations,2])
-
-    Return the reprojection error for each point: shape
-    [Nobservations,Nwant,Nwant,2]
-
-    '''
-
-    Nframes               = projected.shape[0]
-    Nobservations         = indices_frame_camera.shape[0]
-    err                   = np.zeros((Nobservations,Nwant,Nwant,2))
-    for i_observation in xrange(Nobservations):
-        i_frame, i_camera = indices_frame_camera[i_observation]
-
-        err[i_observation] = observations[i_observation] - projected[i_frame,i_camera]
-
-    return err
 
 
 def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observations,
@@ -787,6 +322,10 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
         err = observations[i_observations, ...] - project_local3d(distortion_model, intrinsics[i_camera, ...], object_cam)
         err = nps.clump(err, n=-3)
         rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
+        # igood = rms <  0.4
+        # ibad  = rms >= 0.4
+        # rms[igood] = 0
+        # rms[ibad] = 1
         object_cam0 = nps.glue( object_cam0,
                                 nps.dummy( nps.mv(rms, -1, -3) * np.ones((Nwant,Nwant)),
                                            -1 ),
@@ -814,6 +353,29 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
 
     import time
     time.sleep(100000)
+
+    print frames.shape
+    print object_cam0.shape
+    print observations.shape
+    # # object in the OTHER camera coord systems. shape=(Nframes, Ncameras-1, Nwant, Nwant, 3)
+    # object_cam_others = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
+
+    # # object in the ALL camera coord systems. shape=(Nframes, Ncameras, Nwant, Nwant, 3)
+    # object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
+
+    # # I now project_local3d all of these
+    # intrinsics = nps.mv(intrinsics, 0, -4)
+
+    # # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
+    # return project_local3d( object_cam, intrinsics )
+
+
+
+    # obj = get_full_object()
+    # convert to cam0
+    # convert to cam n
+    # colors = get_fit
+
 
 @nps.broadcast_define( (('Nw','Nh',2),),
                        ())
