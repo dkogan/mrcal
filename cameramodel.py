@@ -229,7 +229,7 @@ class cameramodel:
                 if k in kwargs:
                     N += 1
             if N != 1 or len(kwargs) != 2:
-                raise Exception("No f was given, so we MUST have gotten an 'intrinsics' kwarg and one of {}"format(extrinsics_keys))
+                raise Exception("No f was given, so we MUST have gotten an 'intrinsics' kwarg and one of {}".format(extrinsics_keys))
 
             self.intrinsics(kwargs['intrinsics'])
             if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])

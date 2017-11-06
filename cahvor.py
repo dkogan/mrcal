@@ -6,6 +6,7 @@ import numpy     as np
 import numpysane as nps
 
 import cameramodel
+import mrcal
 
 import mrpose
 
@@ -186,10 +187,10 @@ def _write(f, m):
     H  = fx*Hp + A*cx
     V  = fy*Vp + A*cy
 
-    f.write(("{} =" + (" {:15.10f}" * N) + "\n").format('C', *C))
-    f.write(("{} =" + (" {:15.10f}" * N) + "\n").format('A', *A))
-    f.write(("{} =" + (" {:15.10f}" * N) + "\n").format('H', *H))
-    f.write(("{} =" + (" {:15.10f}" * N) + "\n").format('V', *V))
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('C', *C))
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('A', *A))
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('H', *H))
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('V', *V))
 
     if distortion_model == 'DISTORTION_CAHVOR':
         theta,phi,R0,R1,R2 = intrinsics[4:]
@@ -197,11 +198,12 @@ def _write(f, m):
         sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
         O = nps.matmult( R_toref, nps.transpose(np.array(( sph*cth, sph*sth,  cph ))) ).ravel()
         R = np.array((R0, R1, R2))
-        f.write(("{} =" + (" {:15.10f}" * N) + "\n").format('O', *O))
-        f.write(("{} =" + (" {:15.10f}" * N) + "\n").format('R', *R))
+        f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *O))
+        f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))
 
     elif re.match('DISTORTION_OPENCV*', distortion_model):
-        f.write(("{} =" + (" {:15.10f}" * N) + "\n").format(distortion_model, *intrinsics[4:]))
+        Ndistortions = mrcal.getNdistortionParams(distortion_model)
+        f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(distortion_model, *intrinsics[4:]))
     elif len(intrinsics) != 4:
         raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, distortion_model={}".format(len(intrinsics), distortion_model))
     Hs,Vs,Hc,Vc = intrinsics[:4]
