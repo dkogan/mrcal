@@ -17,7 +17,10 @@ LDLIBS    += $(LDLIBS_CV)
 
 LDLIBS    += -ldogleg
 
-CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers
+CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
+
+
+
 
 # Python docstring rules. I construct these from plain ASCII files to handle
 # line wrapping
@@ -36,6 +39,6 @@ EXTRA_CLEAN += build
 all: build/lib.linux-x86_64-2.7/mrcal.so
 
 
-test_cahvor.o: CFLAGS += -Wno-unused-variable -Wno-unused-parameter
+
 
 include /usr/include/mrbuild/Makefile.common
