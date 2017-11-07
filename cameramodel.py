@@ -393,3 +393,18 @@ class cameramodel:
         self._extrinsics = nps.glue( r_fromref, t_fromref, axis=-1 )
         return True
 
+
+    def set_cookie(self, cookie):
+        r'''Store some arbitrary cookie for somebody to use later
+
+        This data means nothing to me, but the caller may want it'''
+        self._cookie = cookie
+
+    def get_cookie(self):
+        r'''Retrive some arbitrary cookie from an earlier set_cookie
+
+        This data means nothing to me, but the caller may want it'''
+        try:
+            return self._cookie
+        except:
+            return None

@@ -140,6 +140,9 @@ def _read(f):
                              axis = -1)))
     m.extrinsics_Rt(True, nps.glue(R_toref,t_toref, axis=-2))
 
+    # I write the whole thing into my structure so that I can pull it out later
+    m.set_cookie(x)
+
     return m
 
 def read(f):
@@ -164,7 +167,11 @@ def _write(f, m):
 
     '''
 
-    f.write('# this is hard-coded:\nDimensions = 3904 3904\n')
+    cahvor = m.get_cookie()
+    if cahvor is not None and 'Dimensions' in cahvor:
+        f.write('Dimensions = {} {}\n'.format(cahvor['Dimensions'][0], cahvor['Dimensions'][1]))
+    else:
+        f.write('# this is hard-coded:\nDimensions = 3904 3904\n')
 
     distortion_model,intrinsics = m.intrinsics()
     if distortion_model == 'DISTORTION_CAHVOR':
