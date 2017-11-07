@@ -86,7 +86,7 @@ def opencv_warp_distort(p, fx, fy, cx, cy, *distortions):
     out = out.reshape(out_dims)
     return out
 
-def warp_distort(distortion_model, p, fx, fy, cx, cy, *distortions):
+def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a distortion warp: undistort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -125,7 +125,7 @@ def warp_distort(distortion_model, p, fx, fy, cx, cy, *distortions):
     else:
         raise Exception("I don't know how to warp distortion_model {}".format(distortion_model))
 
-def warp_undistort(distortion_model, p, fx, fy, cx, cy, *distortions):
+def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a CAHVOR warp: undistort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -179,7 +179,7 @@ def warp_undistort(distortion_model, p, fx, fy, cx, cy, *distortions):
 
 # @nps.broadcast_define( ((3,),('Nintrinsics',)),
 #                        (2,), )
-def project_local3d(distortion_model, intrinsics, p):
+def project(p, distortion_model, intrinsics):
     r'''Projects 3D point(s) using the given camera intrinsics
 
     This function is broadcastable, but not with nps.broadcast_define() because
@@ -214,7 +214,7 @@ def project_local3d(distortion_model, intrinsics, p):
     def project_one_cam(intrinsics, p):
 
         p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
-        return warp_distort(distortion_model, p2d, *intrinsics)
+        return warp_distort(p2d, distortion_model, *intrinsics)
 
 
     # manually broadcast over intrinsics[]. The broadcast over p happens
@@ -242,6 +242,25 @@ def project_local3d(distortion_model, intrinsics, p):
                                            psplit[i])
                            for i in xrange(Nbroadcast)]),
                 0, idim_broadcast )
+
+def unproject(p, distortion_model, fx, fy, cx, cy, *distortions):
+    r'''Computes unit vector(s) corresponding to pixel observation(s)
+
+    This function is broadcastable over p (using numpy primitives intead of
+    nps.broadcast_define() to avoid a slow python broadcasting loop).
+
+    '''
+
+    p = warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
+
+    # shape = (..., 2)
+    P = (p - np.array((cx,cy))) / np.array((fx,fy))
+
+    # I append a 1. shape = (..., 3)
+    P = nps.glue(P, np.ones( P.shape[:-1] + (1,) ), axis=-1)
+
+    # normalize each vector
+    return P / nps.dummy(np.sqrt(nps.inner(P,P)), -1)
 
 def distortion_map__to_warped(intrinsics, w, h):
     r'''Returns the pre and post distortion map of a model
@@ -298,7 +317,7 @@ def undistort_image(model, image):
                          cv2.INTER_LINEAR)
     return remapped
 
-def project_points(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant):
+def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all the
     projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)'''
 
@@ -320,13 +339,13 @@ def project_points(distortion_model, intrinsics, extrinsics, frames, dot_spacing
     # object in the ALL camera coord systems. shape=(Nframes, Ncameras, Nwant, Nwant, 3)
     object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
 
-    # I now project_local3d all of these
+    # I now project all of these
     intrinsics = nps.mv(intrinsics, 0, -4)
 
     # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
-    return project_local3d( distortion_model, intrinsics, object_cam )
+    return project( object_cam, distortion_model, intrinsics )
 
-def compute_reproj_error(projected, observations, indices_frame_camera, Nwant):
+def calobservations_compute_reproj_error(projected, observations, indices_frame_camera, Nwant):
     r'''Given
 
     - projected (shape [Nframes,Ncameras,Nwant,Nwant,2])
@@ -347,5 +366,4 @@ def compute_reproj_error(projected, observations, indices_frame_camera, Nwant):
         err[i_observation] = observations[i_observation] - projected[i_frame,i_camera]
 
     return err
-
 

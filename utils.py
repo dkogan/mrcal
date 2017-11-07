@@ -207,7 +207,7 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     p03d_y = nps.inner(R10[:2,1], p1xy3d) + R10[2,1]
     p03d_z = nps.inner(R10[:2,2], p1xy3d) + R10[2,2]
 
-    # project_local3d. shape: Nwidth,Nheight,2
+    # project. shape: Nwidth,Nheight,2
     p0xy = nps.mv(nps.cat(p03d_x,p03d_y) / p03d_z, 0,-1)
 
     # Input Pixel coords. shape: Nwidth,Nheight,2
@@ -319,7 +319,7 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
 
             object_cam = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
 
-        err = observations[i_observations, ...] - project_local3d(distortion_model, intrinsics[i_camera, ...], object_cam)
+        err = observations[i_observations, ...] - project(object_cam, distortion_model, intrinsics[i_camera, ...])
         err = nps.clump(err, n=-3)
         rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
         # igood = rms <  0.4
@@ -363,11 +363,11 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
     # # object in the ALL camera coord systems. shape=(Nframes, Ncameras, Nwant, Nwant, 3)
     # object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
 
-    # # I now project_local3d all of these
+    # # I now project all of these
     # intrinsics = nps.mv(intrinsics, 0, -4)
 
     # # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
-    # return project_local3d( object_cam, intrinsics )
+    # return project( object_cam, intrinsics )
 
 
 
