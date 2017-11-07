@@ -67,7 +67,23 @@ def _validateIntrinsics(i):
     return True
 
 
-def invert_Rt(R,t):
+def Rt_from_rt(rt):
+    r'''Convert an rt pose to an Rt pose'''
+
+    r = rt[:3]
+    t = rt[3:]
+    R = cv2.Rodrigues(r)[0]
+    return nps.glue( R, t, axis=-2)
+
+def rt_from_Rt(Rt):
+    r'''Convert an Rt pose to an rt pose'''
+
+    R = Rt[:3,:]
+    t = Rt[ 3,:]
+    r = cv2.Rodrigues(R)[0].ravel()
+    return nps.glue( r, t, axis=-1)
+
+def invert_Rt(Rt):
     r'''Given a (R,t) transformation, return the inverse transformation
 
     I need to reverse the transformation:
@@ -75,10 +91,38 @@ def invert_Rt(R,t):
 
     '''
 
+    R = Rt[:3,:]
+    t = Rt[ 3,:]
+
     t = -nps.matmult(t, R)
     R = nps.transpose(R)
-    return (R,t)
+    return nps.glue(R,t, axis=-2)
 
+def invert_rt(rt):
+    r'''Given a (r,t) transformation, return the inverse transformation
+    '''
+
+    return rt_from_Rt(invert_Rt(Rt_from_rt(rt)))
+
+def compose_Rt(Rt1, Rt2):
+    r'''Composes two Rt transformations
+
+    y = R1(R2 x + t2) + t1 = R1 R2 x + R1 t2 + t1
+    '''
+    R1 = Rt1[:3,:]
+    t1 = Rt1[ 3,:]
+    R2 = Rt2[:3,:]
+    t2 = Rt2[ 3,:]
+
+    R = nps.matmult(R1,R2)
+    t = nps.matmult(t2, nps.transpose(R1)) + t1
+    return nps.glue(R,t, axis=-2)
+
+def compose_rt(rt1, rt2):
+    r'''Composes two rt transformations
+    '''
+    return rt_from_Rt( compose_Rt( Rt_from_rt(rt1),
+                                   Rt_from_rt(rt2)))
 
 class cameramodel:
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
@@ -309,16 +353,7 @@ class cameramodel:
             # getter
             if not toref:
                 return self._extrinsics
-
-            rt_fromref = self._extrinsics
-            r_fromref  = rt_fromref[:3]
-            t_fromref  = rt_fromref[3:]
-
-            R_fromref = cv2.Rodrigues(r_fromref)[0]
-
-            R_toref,t_toref = invert_Rt(R_fromref, t_fromref)
-            r_toref = cv2.Rodrigues(R_toref)[0].ravel()
-            return nps.glue(r_toref, t_toref, axis=-1)
+            return invert_rt(self._extrinsics)
 
 
         # setter
@@ -326,15 +361,7 @@ class cameramodel:
             self._extrinsics = rt
             return True
 
-        rt_toref = rt
-        r_toref  = rt_toref[:3]
-        t_toref  = rt_toref[3:]
-
-        R_toref = cv2.Rodrigues(r_toref)[0]
-
-        R_fromref,t_fromref = invert_Rt(R_toref, t_toref)
-        r_fromref = cv2.Rodrigues(R_fromref)[0].ravel()
-        self._extrinsics = nps.glue(r_fromref, t_fromref, axis=-1)
+        self._extrinsics = invert_rt(rt)
         return True
 
 
@@ -366,31 +393,19 @@ class cameramodel:
         if Rt is None:
             # getter
             rt_fromref = self._extrinsics
-            r_fromref  = rt_fromref[:3]
-            t_fromref  = rt_fromref[3:]
-
-            R_fromref = cv2.Rodrigues(r_fromref)[0]
-
+            Rt_fromref = Rt_from_rt(rt_fromref)
             if not toref:
-                return nps.glue(R_fromref, t_fromref, axis=-2)
-
-            R_toref,t_toref = invert_Rt(R_fromref, t_fromref)
-            return nps.glue(R_toref, t_toref, axis=-2)
+                return Rt_fromref
+            return invert_Rt(Rt_fromref)
 
 
         # setter
         if toref:
-            R_toref = Rt[:3,:]
-            t_toref = Rt[ 3,:]
+            Rt_fromref = invert_Rt(Rt)
+            self._extrinsics = rt_from_Rt(Rt_fromref)
+            return True
 
-            R_fromref,t_fromref = invert_Rt(R_toref, t_toref)
-        else:
-            R_fromref = Rt[:3,:]
-            t_fromref = Rt[ 3,:]
-
-        r_fromref = cv2.Rodrigues(R_fromref)[0].ravel()
-
-        self._extrinsics = nps.glue( r_fromref, t_fromref, axis=-1 )
+        self._extrinsics = rt_from_Rt(Rt)
         return True
 
 
