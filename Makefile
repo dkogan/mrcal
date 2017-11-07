@@ -35,7 +35,7 @@ EXTRA_CLEAN += *.docstring.h
 # it into the inner (python-specific) Makefile, so I "build -f" to forcefully
 # rebuild everything. Like I said, this is stupid.
 build/lib.%/mrcal.so: mrcal_pywrap.c $(addsuffix .h,$(wildcard *.docstring)) mrcal.h libmrcal.so
-	python setup.py build -f
+	CFLAGS='$(CPPFLAGS)' python setup.py build -f
 EXTRA_CLEAN += build
 all: build/lib.linux-x86_64-2.7/mrcal.so
 
