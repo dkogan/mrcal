@@ -81,10 +81,6 @@ Args:
   DISTORTION_OPENCV5
   DISTORTION_OPENCV8
   DISTORTION_CAHVOR
-  DISTORTION_CAHVORE
-
-  Not all of these may be supported. Currently most of the work went to support
-  DISTORTION_NONE and DISTORTION_CAHVOR
 
 - do_optimize_intrinsic_core: optional boolean, defaults to True. Whether
   fx,fy,cx,cy should be optimized

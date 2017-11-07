@@ -9,6 +9,6 @@ parameters there are. Currently I support
   DISTORTION_OPENCV5
   DISTORTION_OPENCV8
   DISTORTION_CAHVOR
-  DISTORTION_CAHVORE
 
-The full list can be obtained by passing an invalid string
+The full list can be obtained by passing an invalid string or calling
+mrcal.getSupportedDistortionModels()
