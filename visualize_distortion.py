@@ -8,9 +8,8 @@ import cPickle as pickle
 import re
 import cv2
 
-import cameramodel
-
-import utils
+import cahvor
+import projections
 
 
 
@@ -21,15 +20,15 @@ def visualize_distortion_vector_field(model):
     This function renders the distortion vector field
     '''
 
-    intrinsics = cahvor.cahvor(model).intrinsics()
+    intrinsics = cahvor.read(model).intrinsics()
 
     N = 20
     W,H = [2*center for center in intrinsics[1][2:4]]
 
     # get the input and output grids of shape Nwidth,Nheight,2
-    grid, dgrid = distortion_map__to_warped(intrinsics,
-                                            np.linspace(0,W,N),
-                                            np.linspace(0,H,N))
+    grid, dgrid = projections.distortion_map__to_warped(intrinsics,
+                                                        np.linspace(0,W,N),
+                                                        np.linspace(0,H,N))
 
     # shape: N*N,2
     grid  = nps.clump(grid,  n=2)
@@ -68,7 +67,7 @@ else:
         raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(imagefile))
 
     image_corrected = \
-        utils.undistort_image(cahvorfile, imagefile)
+        projections.undistort_image(cahvor.read(cahvorfile), imagefile)
 
     imagefile_corrected = "{}_undistorted.{}".format(m.group(1),m.group(2))
     cv2.imwrite(imagefile_corrected, image_corrected)
