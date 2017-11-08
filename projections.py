@@ -111,6 +111,9 @@ def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
 
     '''
 
+    if p is None or p.size == 0: return p
+
+
     Ndistortions = mrcal.getNdistortionParams(distortion_model)
     if len(distortions) != Ndistortions:
         raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values".format(distortion_model, Ndistortions, len(distortions)))
@@ -149,6 +152,9 @@ def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     the "backwards" direction. Most of the time you want warp_distort().
 
     '''
+
+    if p is None or p.size == 0: return p
+
 
     Ndistortions = mrcal.getNdistortionParams(distortion_model)
     if len(distortions) != Ndistortions:
@@ -211,6 +217,9 @@ def project(p, distortion_model, intrinsics):
 
     '''
 
+    if p is None or p.size == 0: return p
+
+
     def project_one_cam(intrinsics, p):
 
         p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
@@ -250,6 +259,9 @@ def unproject(p, distortion_model, fx, fy, cx, cy, *distortions):
     nps.broadcast_define() to avoid a slow python broadcasting loop).
 
     '''
+
+    if p is None or p.size == 0: return p
+
 
     p = warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
 
