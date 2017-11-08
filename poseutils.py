@@ -2,6 +2,7 @@
 
 import numpy as np
 import numpysane as nps
+import cv2
 
 
 def Rt_from_rt(rt):
