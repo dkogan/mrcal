@@ -18,7 +18,6 @@ from mrcal import poseutils
 import gnuplotlib as gp
 
 
-# I should be able to look at these WITHOUT a transforms.txt
 
 
 r'''This tool reads in stereo calibration files (the .cahvor files and the
