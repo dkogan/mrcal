@@ -16,12 +16,12 @@ BuildRequires: opencv-devel
 BuildRequires: python-devel
 BuildRequires: python-libs
 BuildRequires: python-setuptools
+BuildRequires: libminimath-devel
 BuildRequires: mrbuild
 
-Requires:      mr-pose
-Requires:      numpysane
-Requires:      gnuplotlib
-Requires:      python
+Requires: numpysane
+Requires: gnuplotlib
+Requires: python
 
 %description
 Calibration library
@@ -46,7 +46,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %doc
-%{_bindir}/*
 %{_libdir}/*.so.*
 %{python2_sitelib}/*
 
