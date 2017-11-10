@@ -7,9 +7,8 @@ import sys
 import re
 import cv2
 
-import mrpose
 import mrcal
-
+import poseutils
 
 
 @nps.broadcast_define( (('N',3), ('N',3),),
@@ -229,9 +228,8 @@ def extend_axes_for_plotting(axes):
     out = nps.glue( out, axes[1:,:] - axes[0,:], axis=-1)
     return out
 
-# from visualize_extrinsic. please unduplicate. I changed the length of the
-# drawn x axis. I'm coloring the pairs separately in the other function
-def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
+
+def gen_plot_axes(transforms, label, color = 0, scale = 1.0, label_offset = None):
     r'''Given a list of transforms (applied to the reference set of axes in reverse
     order) and a label, return a list of plotting directives gnuplotlib
     understands.
@@ -245,15 +243,16 @@ def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
                       (0,1,0),
                       (0,0,2),), dtype=float ) * scale
 
-    transform = mrpose.pose3_ident()
+    transform = poseutils.identity_Rt()
 
     for x in transforms:
-        transform = mrpose.pose3_mul(transform, x)
-    axes = np.array([ mrpose.vec3_transform(transform, x) for x in axes ])
+        transform = poseutils.compose_Rt(transform, x)
+    axes = np.array([ poseutils.transform_point_Rt(transform, x) for x in axes ])
 
     axes_forplotting = extend_axes_for_plotting(axes)
+
     l_axes = tuple(nps.transpose(axes_forplotting)) + \
-        ({'with': 'vectors', 'tuplesize': 6},)
+        ({'with': 'vectors linecolor {}'.format(color), 'tuplesize': 6},)
 
     l_labels = tuple(nps.transpose(axes*1.01 + \
                                    (label_offset if label_offset is not None else 0))) + \
@@ -261,26 +260,6 @@ def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
                    'x', 'y', 'z')),
          {'with': 'labels', 'tuplesize': 4},)
     return l_axes, l_labels
-
-
-
-@nps.broadcast_define( ((6,),),
-                       (7,))
-def pose__pq_from_rt(rt):
-    r'''Converts a pose from an rt to a pq representation
-
-    Input is a (6,) numpy array containing a 3d rodrigues rotation and a 3d
-    translation
-
-    Output is a pose_t object numpy array containing a 3d translation and a 4d
-    quaternion
-
-    '''
-    p = rt[3:]
-    r = rt[:3]
-    R = Rodrigues_toR_broadcasted(r)
-    q = mrpose.quat_from_mat33d(R)
-    return mrpose.pose3_set(p,q)
 
 
 def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observations,
@@ -330,8 +309,8 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
                                 axis = -1)
 
     object_cam0 = nps.clump( nps.mv(object_cam0, -1, -4), n=-2)
-    cam0_axes_labels = gen_plot_axes((mrpose.pose3_ident(),), 'cam0')
-    cam_axes_labels  = [gen_plot_axes( (mrpose.pose3_inv(pose__pq_from_rt(extrinsics[i])),),
+    cam0_axes_labels = gen_plot_axes((poseutils.identity_Rt(),), 'cam0')
+    cam_axes_labels  = [gen_plot_axes( (poseutils.invert_Rt(Rt_from_rt(extrinsics[i])),),
                                         'cam{}'.format(i+1)) for i in range(0,extrinsics.shape[-2])]
 
 
@@ -351,29 +330,6 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
 
     import time
     time.sleep(100000)
-
-    print frames.shape
-    print object_cam0.shape
-    print observations.shape
-    # # object in the OTHER camera coord systems. shape=(Nframes, Ncameras-1, Nwant, Nwant, 3)
-    # object_cam_others = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
-
-    # # object in the ALL camera coord systems. shape=(Nframes, Ncameras, Nwant, Nwant, 3)
-    # object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
-
-    # # I now project all of these
-    # intrinsics = nps.mv(intrinsics, 0, -4)
-
-    # # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
-    # return project( object_cam, intrinsics )
-
-
-
-    # obj = get_full_object()
-    # convert to cam0
-    # convert to cam n
-    # colors = get_fit
-
 
 @nps.broadcast_define( (('Nw','Nh',2),),
                        ())

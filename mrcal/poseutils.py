@@ -94,3 +94,29 @@ def transform_point_Rt(Rt, x):
 def transform_point_rt(rt, x):
     r'''Transforms a given point by a given rt transformation'''
     return transform_point_Rt(Rt_from_rt(rt))
+
+
+def R_from_quat(q):
+    r'''Rotation matrix from a unit quaternion
+
+    This is mostly for compatibility with some old stuff. I don't really use
+    quaternions
+
+    '''
+
+    # From the expression in wikipedia
+    r,i,j,k = q[:]
+
+    ii = i*i
+    ij = i*j
+    ik = i*k
+    ir = i*r
+    jj = j*j
+    jk = j*k
+    jr = j*r
+    kk = k*k
+    kr = k*r
+
+    return np.array((( 1-2*(jj+kk),   2*(ij-kr),   2*(ik+jr)),
+                     (   2*(ij+kr), 1-2*(ii+kk),   2*(jk-ir)),
+                     (   2*(ik-jr),   2*(jk+ir), 1-2*(ii+jj))))

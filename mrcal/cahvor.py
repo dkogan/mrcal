@@ -6,9 +6,9 @@ import numpy     as np
 import numpysane as nps
 
 import cameramodel
+import poseutils
 import mrcal
 
-from mrpose import quat_to_mat33d
 
 r'''A wrapper around mrcal.cameramodel to interface with JPL's CAHVOR files and
 transforms.txt files'''
@@ -245,7 +245,7 @@ def Rt_from_pq(pq):
 
     p = pq[:3]
     q = pq[3:]
-    R = quat_to_mat33d(q)
+    R = poseutils.R_from_quat(q)
     return nps.glue(R,p, axis=-2)
 
 

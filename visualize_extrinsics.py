@@ -9,6 +9,7 @@ import re
 from mrcal import cameramodel
 from mrcal import cahvor
 from mrcal import poseutils
+from mrcal import utils
 
 
 # I need at least gnuplotlib 0.16. That version fixed label plotting. Don't know
@@ -144,38 +145,6 @@ this into a 3x6 array that can be gnuplotted "with vectors"
     out = nps.glue( out, axes[1:,:] - axes[0,:], axis=-1)
     return out
 
-def gen_plot_axes(transforms, label, color = 0, scale = 1.0, label_offset = None):
-    r'''Given a list of transforms (applied to the reference set of axes in reverse
-    order) and a label, return a list of plotting directives gnuplotlib
-    understands.
-
-    Transforms are in reverse order so a point x being transformed as A*B*C*x
-    can be represented as a transforms list (A,B,C)
-
-    '''
-    axes = np.array( ((0,0,0),
-                      (1,0,0),
-                      (0,1,0),
-                      (0,0,1),), dtype=float ) * scale
-
-    transform = poseutils.identity_Rt()
-
-    for x in transforms:
-        transform = poseutils.compose_Rt(transform, x)
-    axes = np.array([ poseutils.transform_point_Rt(transform, x) for x in axes ])
-
-    axes_forplotting = extend_axes_for_plotting(axes)
-
-    l_axes = tuple(nps.transpose(axes_forplotting)) + \
-        ({'with': 'vectors linecolor {}'.format(color), 'tuplesize': 6},)
-
-    l_labels = tuple(nps.transpose(axes*1.01 + \
-                                   (label_offset if label_offset is not None else 0))) + \
-        (np.array((label,
-                   'x', 'y', 'z')),
-         {'with': 'labels', 'tuplesize': 4},)
-    return l_axes, l_labels
-
 def gen_pair_axes(pairs, global_from_ins):
     r'''Given all my camera pairs, generate a list of tuples that can be passed to
 gnuplotlib to plot my world'''
@@ -189,28 +158,29 @@ gnuplotlib to plot my world
 
         def gen_one_cam_axes(icam, cam, ins_from_camera):
 
-            return gen_plot_axes( (global_from_ins,
-                                   ins_from_camera,
-                                   cam.extrinsics_Rt(True)),
+            return utils.gen_plot_axes( (global_from_ins,
+                                         ins_from_camera,
+                                         cam.extrinsics_Rt(True)),
 
-                                  'pair{}-camera{}'.format(ipair, icam),
-                                  color = ipair+1,
-                                  scale = 0.5,
-                                  label_offset=0.05)
+                                        'pair{}-camera{}'.format(ipair, icam),
+                                        color = ipair+1,
+                                        scale = 0.5,
+                                        label_offset=0.05)
 
 
         individual_cam_axes = (e for icam in (0,1) for e in gen_one_cam_axes(icam, pair[icam], pair['ins_from_camera']))
-        pair_axes           = gen_plot_axes( (global_from_ins, pair['ins_from_camera']),
-                                             'pair{}'.format(ipair),
-                                             color = ipair+1,
-                                             scale = 0.75)
+        pair_axes           = \
+            utils.gen_plot_axes( (global_from_ins, pair['ins_from_camera']),
+                                 'pair{}'.format(ipair),
+                                 color = ipair+1,
+                                 scale = 0.75)
 
         return (e for axes in (individual_cam_axes,pair_axes) for e in axes)
 
     return (a for ipair,pair in pairs.items() for a in gen_one_pair_axes(ipair, pair))
 
 def gen_ins_axes(global_from_ins):
-    return gen_plot_axes( (global_from_ins,), "INS")
+    return utils.gen_plot_axes( (global_from_ins,), "INS")
 
 
 
