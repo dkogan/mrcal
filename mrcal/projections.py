@@ -9,8 +9,6 @@ import cv2
 import scipy.optimize
 
 import utils
-
-sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
 import mrcal
 
 

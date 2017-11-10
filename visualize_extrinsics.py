@@ -6,9 +6,9 @@ import sys
 import argparse
 import re
 
-import cameramodel
-import cahvor
-import poseutils
+from mrcal import cameramodel
+from mrcal import cahvor
+from mrcal import poseutils
 
 
 # I need at least gnuplotlib 0.16. That version fixed label plotting. Don't know

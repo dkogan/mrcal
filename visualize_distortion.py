@@ -8,8 +8,8 @@ import cPickle as pickle
 import re
 import cv2
 
-import cahvor
-import projections
+from mrcal import cahvor
+from mrcal import projections
 
 
 

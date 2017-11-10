@@ -1,17 +1,15 @@
 #!/usr/bin/python2
 
+import sys
 import numpy as np
 import numpysane as nps
 import cv2
 import re
 import cPickle as pickle
 
-import cahvor
-
-import sys
-sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
+from mrcal import cahvor
+from mrcal import utils
 import mrcal
-import utils
 
 
 

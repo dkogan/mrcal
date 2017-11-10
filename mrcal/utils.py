@@ -7,10 +7,8 @@ import sys
 import re
 import cv2
 
-sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
-import mrcal
-
 import mrpose
+import mrcal
 
 
 
