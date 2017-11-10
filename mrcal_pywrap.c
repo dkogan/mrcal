@@ -648,7 +648,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-PyMODINIT_FUNC initmrcal(void)
+PyMODINIT_FUNC init_mrcal(void)
 {
     static const char optimize_docstring[] =
 #include "optimize.docstring.h"
@@ -669,8 +669,8 @@ PyMODINIT_FUNC initmrcal(void)
           {}
         };
 
-    PyImport_AddModule("mrcal");
-    Py_InitModule3("mrcal", methods,
+    PyImport_AddModule("_mrcal");
+    Py_InitModule3("_mrcal", methods,
                    "Calibration and SFM routines");
 
     import_array();
