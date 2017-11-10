@@ -20,8 +20,6 @@ LDLIBS    += -ldogleg
 CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 
 DIST_INCLUDE    += basic_points.h mrcal.h
-DIST_BIN_EXCEPT := *
-DIST_PY2_MODULES := mrcal
 
 
 
@@ -31,25 +29,47 @@ DIST_PY2_MODULES := mrcal
 	< $^ sed 's/^/"/; s/$$/\\n"/;' > $@
 EXTRA_CLEAN += *.docstring.h
 
-# The python extension library is handled by its own little build system. This
-# is stupid, but that's how these people did it. Oh, and since this is
-# effectively a recursive build, the proper dependency information doesn't make
-# it into the inner (python-specific) Makefile, so I "build -f" to forcefully
-# rebuild everything. Like I said, this is stupid.
-build/lib.%/_mrcal.so: mrcal_pywrap.c $(addsuffix .h,$(wildcard *.docstring)) mrcal.h libmrcal.so
-	CFLAGS='$(CPPFLAGS)' python setup.py build -f
+
+
+# I build the python extension module without any setuptools or anything.
+# Instead I ask python about the build flags it likes, and build the DSO
+# normally using those flags
+#
+# The python libraries (compiled ones and ones written in python all live in
+# mrcal/). So 'import mrcal' pulls in the writte-in-C library, and something
+# like 'import mrcal.cahvor' imports a python library. The C library is actually
+# called _mrcal, but mrcal/__init__.py pulls that into the mrcal namespace
+define PYVARS_SCRIPT :=
+import sysconfig
+import re
+
+for v in ("CC","CFLAGS","CCSHARED","INCLUDEPY","BLDSHARED","LDFLAGS"):
+    print re.sub("[\t ]+", "__whitespace__", "PY_{}:={}".format(v, sysconfig.get_config_var(v)))
+endef
+PYVARS := $(shell python -c '$(PYVARS_SCRIPT)')
+$(foreach v,$(PYVARS),$(eval $(subst __whitespace__, ,$v)))
+
+
+mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
+mrcal_pywrap.o: CFLAGS += $(wordlist 2,$(words $(PY_CC)),$(PY_CC)) $(PY_CFLAGS) $(PY_CCSHARED) -I$(PY_INCLUDEPY) --std=gnu99
+
+mrcal/_mrcal.so: mrcal_pywrap.o libmrcal.so
+	$(PY_BLDSHARED) $(PY_LDFLAGS) $< -lmrcal -o $@ -L$(abspath .) -Wl,-rpath=$(abspath .)
 
 # The python libraries (compiled ones and ones written in python all live in
 # mrcal/). So 'import mrcal' pulls in the writte-in-C library, and something
 # like 'import mrcal.cahvor' imports a python library. The C library is actually
 # called _mrcal, but mrcal/__init__.py pulls that into the mrcal namespace
-mrcal/_mrcal.so: build/lib.linux-x86_64-2.7/_mrcal.so
-	ln -fs ../$< $@
 
+DIST_PY2_MODULES := mrcal
 all: mrcal/_mrcal.so
 
-EXTRA_CLEAN += build mrcal/_mrcal.so
 
+
+
+
+
+EXTRA_CLEAN += mrcal/*.so
 
 
 include /usr/include/mrbuild/Makefile.common

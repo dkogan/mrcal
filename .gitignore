@@ -6,6 +6,5 @@
 
 core
 test_gradients
-build/
 *.pyc
 *.pickle

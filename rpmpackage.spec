@@ -15,7 +15,6 @@ BuildRequires: lapack-devel
 BuildRequires: opencv-devel
 BuildRequires: python-devel
 BuildRequires: python-libs
-BuildRequires: python-setuptools
 BuildRequires: libminimath-devel
 BuildRequires: mrbuild
 
