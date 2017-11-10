@@ -1,24 +1,23 @@
 #!/usr/bin/python2
 
-import sys
 import numpy as np
 import numpysane as nps
-import gnuplotlib as gp
 import cv2
 import re
-import glob
 import cPickle as pickle
 
+import cahvor
 
+import sys
 sys.path[:0] = ('build/lib.linux-x86_64-2.7/',)
 import mrcal
 import utils
-import cameramodel
-import cahvor
 
 
 
 
+
+np.set_printoptions(linewidth=1e10) # no line breaks
 
 
 
@@ -34,7 +33,7 @@ sys.excepthook = ultratb.FormattedTB(mode='Plain',
 
 
 # stuff the user may want to set
-pair_want   = 1
+pair_want   = 0
 
 
 
@@ -48,40 +47,9 @@ Nwant             = 10
 
 
 
-np.set_printoptions(linewidth=1e10) # no line breaks
-
-#datafile_asciilog='viet_norfolk_joint.asciilog'
-#datafile_asciilog='/home/dima/data/cal-2017-09-01-drydock/big.sorted.asciilog'
-# < /home/dima/data/cal-2017-09-01-drydock/big.asciilog perl -ne '($cam,$pair,$frame) = m{^.*?/input-(left|right)-([01])-0*([0-9]+?)\.jpg}; ($frameprefix) = m{/frames([0-9]+)/}; $frame = $frameprefix*1000000 + $frame if defined $frameprefix; if( !defined $cam ) {print;} else { if($cam eq "left") {$cam=0;} else {$cam=1;} $not_header_marker = /jpg -/ ? "1zzz" : "0zzz"; print "$frame $pair $cam $not_header_marker $_";}' | sort | sed 's/.*zzz //g' > /home/dima/data/cal-2017-09-01-drydock/big.sorted.asciilog
-
-
-
-
-
-
-
-
-#datafile_asciilog='viet_norfolk_joint.asciilog'
-
-if Nwant == 10:
-    datafile_asciilog='/tmp/seahunter_code/cal-2017-09-01-drydock/big.sorted.asciilog'
-elif Nwant == 2:
-    datafile_asciilog='/tmp/seahunter_code/cal-2017-09-01-drydock/big.sorted.2x2.reordered.asciilog'
-
-
-
-
-# < /home/dima/data/cal-2017-09-01-drydock/big.asciilog perl -ne '($cam,$pair,$frame) = m{^.*?/input-(left|right)-([01])-0*([0-9]+?)\.jpg}; ($frameprefix) = m{/frames([0-9]+)/}; $frame = $frameprefix*1000000 + $frame if defined $frameprefix; if( !defined $cam ) {print;} else { if($cam eq "left") {$cam=0;} else {$cam=1;} $not_header_marker = /jpg -/ ? "1zzz" : "0zzz"; print "$frame $pair $cam $not_header_marker $_";}' | sort | sed 's/.*zzz //g' > /home/dima/data/cal-2017-09-01-drydock/big.sorted.asciilog
-
-# if defined, we will use this:
-# datadir_stcal = '/home/dima/data/cal_data_2017_07_14/lfc4/' # for old dot files
-
-
-
-
-
-
-
+#datafile_asciilog='/home/dima/data/cal-2017-10-26/chessboard.asciilog'
+#datafile_asciilog='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-44-21/dots.asciilog'
+datafile_asciilog='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-00-07/dots.asciilog'
 
 
 
@@ -97,26 +65,26 @@ def estimate_local_calobject_poses( indices_frame_camera, \
                                     dots, dot_spacing, focal, imager_size ):
     r"""Estimates pose of observed object in a single-camera view
 
-Given observations, and an estimate of camera intrinsics (focal lengths, imager
-size) computes an estimate of the pose of the calibration object in respect to
-the camera for each frame. This assumes that all frames are independent and all
-cameras are independent. This assumes a pinhole camera.
+    Given observations, and an estimate of camera intrinsics (focal lengths,
+    imager size) computes an estimate of the pose of the calibration object in
+    respect to the camera for each frame. This assumes that all frames are
+    independent and all cameras are independent. This assumes a pinhole camera.
 
-This function is a wrapper around the solvePnP() openCV call, which does all the
-work.
+    This function is a wrapper around the solvePnP() openCV call, which does all
+    the work.
 
-The observations are given in a numpy array with axes:
+    The observations are given in a numpy array with axes:
 
-  (iframe, idot_x, idot_y, idot2d_xy)
+      (iframe, idot_x, idot_y, idot2d_xy)
 
-So as an example, the observed pixel coord of the dot (3,4) in frame index 5 is
-the 2-vector dots[5,3,4,:]
+    So as an example, the observed pixel coord of the dot (3,4) in frame index 5
+    is the 2-vector dots[5,3,4,:]
 
-Missing observations are given as negative pixel coords.
+    Missing observations are given as negative pixel coords.
 
-This function returns an (Nobservations,4,3) array, with the observations
-aligned with the dots and indices_frame_camera arrays. Each observation slice is
-(4,3) in glue(R, t, axis=-2)
+    This function returns an (Nobservations,4,3) array, with the observations
+    aligned with the dots and indices_frame_camera arrays. Each observation
+    slice is (4,3) in glue(R, t, axis=-2)
 
     """
 
@@ -152,8 +120,8 @@ aligned with the dots and indices_frame_camera arrays. Each observation slice is
         if tvec[2] <= 0:
             raise Exception("solvePnP says that tvec.z <= 0. Maybe needs a flip, but please examine this")
 
-        Rt_all[i_observation, :3, :] = utils.Rodrigues_toR_broadcasted(rvec.ravel())
-        Rt_all[i_observation,  3, :] = tvec.ravel()
+        Rt_all[i_observation, :, :] = poseutils.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+
 
     return Rt_all
 
@@ -161,14 +129,14 @@ def estimate_camera_poses( calobject_poses_Rt, indices_frame_camera, \
                            dots, dot_spacing, Ncameras):
     r'''Estimates camera poses in respect to each other
 
-We are given poses of the calibration object in respect to each observing
-camera. We also have multiple cameras observing the same calibration object at
-the same time, and we have local poses for each. We can thus compute the
-relative camera pose from these observations.
+    We are given poses of the calibration object in respect to each observing
+    camera. We also have multiple cameras observing the same calibration object
+    at the same time, and we have local poses for each. We can thus compute the
+    relative camera pose from these observations.
 
-We have many frames that have different observations from the same set of
-fixed-relative-pose cameras, so we compute the relative camera pose to optimize
-the observations
+    We have many frames that have different observations from the same set of
+    fixed-relative-pose cameras, so we compute the relative camera pose to
+    optimize the observations
 
     '''
 
@@ -261,54 +229,47 @@ the observations
 def estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt, indices_frame_camera, dot_spacing):
     r'''We're given
 
-calobject_poses_Rt:
+    calobject_poses_Rt:
 
-  an array of dimensions (Nobservations,4,3) that contains a
-  calobject-to-camera transformation estimate, for each observation of the board
+      an array of dimensions (Nobservations,4,3) that contains a
+      calobject-to-camera transformation estimate, for each observation of the
+      board
 
-camera_poses_Rt:
+    camera_poses_Rt:
 
-  an array of dimensions (Ncameras-1,4,3) that contains a camerai-to-camera0
-  transformation estimate. camera0-to-camera0 is the identity, so this isn't
-  stored
+      an array of dimensions (Ncameras-1,4,3) that contains a camerai-to-camera0
+      transformation estimate. camera0-to-camera0 is the identity, so this isn't
+      stored
 
-indices_frame_camera:
+    indices_frame_camera:
 
-  an array of shape (Nobservations,2) that indicates which frame and which
-  camera has observed the board
+      an array of shape (Nobservations,2) that indicates which frame and which
+      camera has observed the board
 
-With this data, I return an array of shape (Nframes,6) that contains an estimate
-of the pose of each frame, in the camera0 coord system. Each row is (r,t) where
-r is a Rodrigues rotation and t is a translation that map points in the
-calobject coord system to that of camera 0
+    With this data, I return an array of shape (Nframes,6) that contains an
+    estimate of the pose of each frame, in the camera0 coord system. Each row is
+    (r,t) where r is a Rodrigues rotation and t is a translation that map points
+    in the calobject coord system to that of camera 0
 
     '''
 
 
     def process(i_observation0, i_observation1):
         R'''Given a range of observations corresponding to the same frame, estimate the
-frame pose'''
+        frame pose'''
 
-        def get_camera0Tboard(i_observation):
+        def T_camera_board(i_observation):
+            r'''Transform from the board coords to the camera coords'''
             i_frame,i_camera = indices_frame_camera[i_observation, ...]
 
-            Rf = calobject_poses_Rt[i_observation, :3, :]
-            tf = calobject_poses_Rt[i_observation,  3, :]
+            Rt_f = calobject_poses_Rt[i_observation, :,:]
             if i_camera == 0:
-                return Rf,tf
+                return Rt_f
 
-            # cameraiTcamera0 camera0Tboard = cameraiTboard
-            # I need camera0Tboard = inv(cameraiTcamera0) cameraiTboard
-            # camera_poses_Rt    is inv(cameraiTcamera0)
-            # calobject_poses_Rt is cameraiTboard
-            Rtcam = camera_poses_Rt[i_camera-1, ...]
-            Rcam  = Rtcam[:3,:]
-            tcam  = Rtcam[ 3,:]
+            # T_cami_cam0 T_cam0_board = T_cami_board
+            Rt_cam = camera_poses_Rt[i_camera-1, ...]
 
-            # Rcam( Rframe *x + tframe) + tcam = Rcam Rframe x + Rcam tframe + tcam
-            R = nps.matmult(Rcam, Rf)
-            t = nps.matmult( Rcam, nps.transpose(tf)).ravel() + tcam
-            return R,t
+            return poseutils.compose_Rt( Rt_cam, Rt_f)
 
 
         # frame poses should map FROM the frame coord system TO the ref coord
@@ -316,10 +277,7 @@ frame pose'''
 
         # special case: if there's a single observation, I just use it
         if i_observation1 - i_observation0 == 1:
-            R,t = get_camera0Tboard(i_observation0)
-            return nps.glue( utils.Rodrigues_tor_broadcasted(R),
-                             t,
-                             axis=-1 )
+            return T_camera_board(i_observation0)
 
         # Multiple cameras have observed the object for this frame. I have an
         # estimate of these for each camera. I merge them in a lame way: I
@@ -329,9 +287,8 @@ frame pose'''
 
         sum_obj_unproj = obj*0
         for i_observation in xrange(i_observation0, i_observation1):
-            R,t = get_camera0Tboard(i_observation)
-
-            sum_obj_unproj += (nps.matmult(R, nps.dummy(obj, -1)) + nps.transpose(t))[..., 0]
+            Rt = T_camera_board(i_observation)
+            sum_obj_unproj += poseutils.transform_point_Rt(Rt, obj)
 
         mean = sum_obj_unproj / (i_observation1 - i_observation0)
 
@@ -340,12 +297,7 @@ frame pose'''
         # transform both to shape = (N*N, 3)
         obj  = nps.clump(obj,  n=2)
         mean = nps.clump(mean, n=2)
-        Rt = utils.align3d_procrustes( mean, obj )
-        R = Rt[:3,:]
-        t = Rt[3 ,:]
-        return nps.glue( utils.Rodrigues_tor_broadcasted(R),
-                         t,
-                         axis=-1 )
+        return utils.align3d_procrustes( mean, obj )
 
 
 
@@ -361,15 +313,15 @@ frame pose'''
 
         if i_frame != i_frame_current:
             if i_observation_framestart >= 0:
-                rt = process(i_observation_framestart, i_observation)
-                frame_poses_rt = nps.glue(frame_poses_rt, rt, axis=-2)
+                Rt = process(i_observation_framestart, i_observation)
+                frame_poses_rt = nps.glue(frame_poses_rt, poseutils.rt_from_Rt(Rt), axis=-2)
 
             i_observation_framestart = i_observation
             i_frame_current = i_frame
 
     if i_observation_framestart >= 0:
-        rt = process(i_observation_framestart, indices_frame_camera.shape[0])
-        frame_poses_rt = nps.glue(frame_poses_rt, rt, axis=-2)
+        Rt = process(i_observation_framestart, indices_frame_camera.shape[0])
+        frame_poses_rt = nps.glue(frame_poses_rt, poseutils.rt_from_Rt(Rt), axis=-2)
 
     return frame_poses_rt
 
@@ -414,7 +366,7 @@ def make_seed(inputs):
     # align3d_procrustes() does the rest
     #
     # I get transformations that map points in 1-Nth camera coord system to 0th
-    # camera coord system. R,t have dimensions (N-1,3,3) and (N-1,3) respectively
+    # camera coord system. Rt have dimensions (N-1,4,3)
     camera_poses_Rt = estimate_camera_poses( calobject_poses_Rt,
                                              inputs['indices_frame_camera'],
                                              inputs['dots'],
@@ -423,15 +375,9 @@ def make_seed(inputs):
 
     if len(camera_poses_Rt):
         # extrinsics should map FROM the ref coord system TO the coord system of the
-        # camera in question. This is backwards from what I have. To flip:
-        #
-        # R*x + t = x'    ->     x = Rt x' - Rt t
-        R = camera_poses_Rt[..., :3, :]
-        t = camera_poses_Rt[...,  3, :]
-        extrinsics = nps.atleast_dims( nps.glue( utils.Rodrigues_tor_broadcasted(nps.transpose(R)),
-                                                 -nps.matmult( nps.dummy(t,-2), R )[..., 0, :],
-                                                 axis=-1 ),
-                                       -2)
+        # camera in question. This is backwards from what I have
+        extrinsics = nps.atleast_dims( poseutils.rt_from_Rt(poseutils.invert_Rt(camera_poses_Rt)),
+                                       -2 )
     else:
         extrinsics = np.zeros((0,6))
 
@@ -448,9 +394,9 @@ def solve_monocular(inputs, distortions=False):
 
     # done with everything. Run the calibration, in several passes.
     projected = \
-        projections.project_points(intrinsics, extrinsics, frames,
+        projections.calobservations_project(intrinsics, extrinsics, frames,
                              inputs['dot_spacing'], Nwant)
-    err = projections.compute_reproj_error(projected, observations,
+    err = projections.calobservations_compute_reproj_error(projected, observations,
                                      inputs['indices_frame_camera'], Nwant)
 
     norm2_err = nps.inner(err.ravel(), err.ravel())
@@ -463,44 +409,18 @@ def solve_monocular(inputs, distortions=False):
     indices_point_camera_points = np.zeros((0,2), dtype=np.int32)
     points                      = np.zeros((0,3), dtype=float)
 
-    # distortion_model = "DISTORTION_NONE"
-    # mrcal.optimize(intrinsics, extrinsics, frames, points,
-    #                observations, inputs['indices_frame_camera'],
-    #                observations_point, indices_point_camera_points,
-    #                distortion_model, False, False )
-
-    # distortion_model = "DISTORTION_NONE"
-    # mrcal.optimize(intrinsics, extrinsics, frames, points,
-    #                observations, inputs['indices_frame_camera'],
-    #                observations_point, indices_point_camera_points,
-    #                distortion_model, True, False )
-
-
-    distortion_model = "DISTORTION_CAHVOR"
-    Ndistortions = mrcal.getNdistortionParams(distortion_model)
-    intrinsics = nps.glue( intrinsics, np.random.random((inputs['Ncameras'], Ndistortions))*1e-4, axis=-1 )
-
+    distortion_model = "DISTORTION_NONE"
     mrcal.optimize(intrinsics, extrinsics, frames, points,
                    observations, inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, False, True)
+                   distortion_model, False, False )
 
-    # skip = [0,  21, 717, 718, 719, 720, 721, 722, 723, 724] # 0-0
-    # skip = [0, 816, 817, 822]                               # 0-1
-    if index == 0:
-        skip = [0, 818, 819, 820, 821, 822, 823, 824, 825, 826] # 1-0
-    elif index == 1:
-        skip = [468, 469, 705, 706] # 1-1
-    else:
-        skip = None
+    distortion_model = "DISTORTION_NONE"
+    mrcal.optimize(intrinsics, extrinsics, frames, points,
+                   observations, inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, True, False )
 
-    if skip:
-        print "culling worst"
-        mrcal.optimize(intrinsics, extrinsics, frames, points,
-                       observations, inputs['indices_frame_camera'],
-                       observations_point, indices_point_camera_points,
-                       distortion_model, False, True,
-                       skip, None)
     return intrinsics,frames
 
 def _read_dots_stcal(datadir):
@@ -660,6 +580,15 @@ def _read_dots_asciilog(datafile):
                 dot_spacing = float(m.group(6))
                 Ndetected   = int(m.group(7))
                 return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
+            m = re.match('([^ ]*/(rfc|lfc)[^ ]*/stcal-([0-9]+)-(left|right)\.[a-z][a-z][a-z]) ({f}) ({f}) {Nwant} {Nwant} ({d}) - - - - - -\n$'.format(f=re_f, d=re_d,Nwant=Nwant), l)
+            if m:
+                path        = m.group(1)
+                i_frame     = int(m.group(3))
+                i_pair      = 0 if m.group(2) == 'lfc'  else 1
+                i_camera    = 0 if m.group(4) == 'left' else 1
+                dot_spacing = float(m.group(6))
+                Ndetected   = int(m.group(7))
+                return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
             raise Exception("Couldn't parse image header line '{}'".format(l))
 
 
@@ -699,8 +628,8 @@ def _read_dots_asciilog(datafile):
                 dot2d_x, dot2d_y  = [float(x) for x in lf[10:12]]
 
                 # I only accept complete observations of the cal board for now
-                idot_x_want = int(point_index / 10)
-                idot_y_want = point_index - idot_x_want*10
+                idot_y_want = int(point_index / 10)
+                idot_x_want = point_index - idot_y_want*10
 
                 if datafile_asciilog[0]=='v':
                     idot_x_want,idot_y_want = idot_y_want,idot_x_want
@@ -859,13 +788,13 @@ def split_inputs_by_camera(inputs):
 
     return [filter_inputs_for_camera(inputs, camera) for camera in xrange(Ncameras)]
 
-
 def join_inputs_and_solutions(separate_inputs, joint_intrinsics_frames, rt_cam1_fromref):
     r'''Joins two separate-camera inputs into a single one
 
     The output of this function is not going to be solvable: there're no
-    observation that tie the cameras together in any way. But such measurements
-    can be added to the output of this function
+    observation that tie the cameras together in any way, so the Hessian
+    wouldn't have full rank. But such measurements can be added to the output of
+    this function
 
     '''
     Ncameras = len(separate_inputs)
@@ -924,80 +853,102 @@ else:
     with open(cachefile_dots, 'w') as f:
         pickle.dump( inputs, f, protocol=2)
 
-separate_inputs = split_inputs_by_camera(inputs)
 
 
 
 
-if 0:
-    joint_intrinsics_frames = [solve_monocular(separate_inputs[index], index) \
-                               for index in xrange(len(separate_inputs))]
-    with open('/tmp/joint.pickle', 'w') as f:
-        pickle.dump( joint_intrinsics_frames, f, protocol=2)
-else:
-    with open('/tmp/joint.pickle', 'r') as f:
-        joint_intrinsics_frames = pickle.load(f)
 
 
 
-rt_cam1_fromref = np.array((0,0,0, -2.0, 0, 0), dtype=float)
-intrinsics,extrinsics,frames,inputs = join_inputs_and_solutions(separate_inputs, joint_intrinsics_frames, rt_cam1_fromref)
 
 
-# projected = \
-#     projections.project_points(intrinsics, extrinsics, frames,
-#                          inputs['dot_spacing'], Nwant)
-# err = projections.compute_reproj_error(projected, inputs['dots'],
-#                                  inputs['indices_frame_camera'], Nwant)
-# norm2_err_perimage = nps.inner( nps.clump(err,n=-3),  nps.clump(err,n=-3))
-# rms_err_perimage   = np.sqrt( norm2_err_perimage / (Nwant*Nwant) )
 
-# I now have a joint optimization problem. Two cameras, with completely
-# independent observations. I add a few joint observations.
-#
-# I'm looking at frame 12 pair 1 of stereo-2017-09-15-Fri-14-58-34
-observations_point = \
-    np.array(( # left, right images in the clouds
-        (690,   1223, 30000.0), (678,   1203, 30000.0),
-        (177,   1291, 30000.0), (184,   1279, 30000.0),
-        (3769,  1060, 30000.0), (3759,   997, 30000.0),
-        (2939,  1173, 30000.0), (2915,  1120, 30000.0),
+distortion_model = "DISTORTION_NONE"
 
-        # left-right images on the fiducials.
-        # Bow-right and then center-right
-        ( 898,1787,  9.3), ( 94, 1771, 11.3),
-        (2306,2437,  2.9), (248, 2436,  3.9)))
+intrinsics,extrinsics,frames = make_seed(inputs)
+observations = inputs['dots']
 
-indices_point_camera_points = np.array(((0,0), (0,1),
-                                        (1,0), (1,1),
-                                        (2,0), (2,1),
-                                        (3,0), (3,1),
-                                        (4,0), (4,1),
-                                        (5,0), (5,1)), dtype=np.int32)
+# done with everything. Run the calibration, in several passes.
+projected = \
+    projections.calobservations_project(distortion_model, intrinsics, extrinsics, frames,
+                         inputs['dot_spacing'], Nwant)
+err = projections.calobservations_compute_reproj_error(projected, observations,
+                                 inputs['indices_frame_camera'], Nwant)
 
-# I seed all the points to be 20m ahead. Good enough
-Npoints = indices_point_camera_points[-1,0] + 1
-points = np.zeros((Npoints,3), dtype=float)
-points[:,2] = 20
+norm2_err = nps.inner(err.ravel(), err.ravel())
+rms_err   = np.sqrt( norm2_err / (err.ravel().shape[0]/2) )
+print "rms: {}".format(rms_err)
 
-cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair_want)
-if False:
-    mrcal.optimize(intrinsics, extrinsics, frames, points,
-                   inputs['dots'], inputs['indices_frame_camera'],
-                   observations_point, indices_point_camera_points,
-                   "DISTORTION_CAHVOR", False, False,
-                   None, None)
 
-    mrcal.optimize(intrinsics, extrinsics, frames, points,
-                   inputs['dots'], inputs['indices_frame_camera'],
-                   observations_point, indices_point_camera_points,
-                   "DISTORTION_CAHVOR", True, True,
-                   None, None)
-    with open(cachefile_solution, 'w') as f:
-        pickle.dump( (intrinsics, extrinsics, frames, points, inputs), f, protocol=2)
-else:
-    with open(cachefile_solution, 'r') as f:
-        (intrinsics, extrinsics, frames, points, inputs) = pickle.load(f)
+
+observations_point          = np.zeros((0,3), dtype=float)
+indices_point_camera_points = np.zeros((0,2), dtype=np.int32)
+points                      = np.zeros((0,3), dtype=float)
+
+distortion_model = "DISTORTION_NONE"
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               observations, inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, False, False )
+
+distortion_model = "DISTORTION_NONE"
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               observations, inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, True, False )
+
+
+print "done with {}".format(distortion_model)
+
+Ndistortions0 = mrcal.getNdistortionParams(distortion_model)
+distortion_model = "DISTORTION_CAHVOR"
+Ndistortions = mrcal.getNdistortionParams(distortion_model)
+Ndistortions_delta = Ndistortions - Ndistortions0
+intrinsics = nps.glue( intrinsics, np.random.random((inputs['Ncameras'], Ndistortions_delta))*1e-5, axis=-1 )
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               inputs['dots'], inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, False, True)
+print "done with {}, optimizing DISTORTIONS".format(distortion_model)
+
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               inputs['dots'], inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, True, False)
+print "done with {}, optimizing CORE".format(distortion_model)
+
+
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               inputs['dots'], inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, False, True)
+print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
+
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               inputs['dots'], inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, True, False)
+print "done with {}, optimizing CORE".format(distortion_model)
+
+
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               inputs['dots'], inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, False, True)
+print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
+
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               inputs['dots'], inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, True, False)
+print "done with {}, optimizing CORE".format(distortion_model)
+
+
+mrcal.optimize(intrinsics, extrinsics, frames, points,
+               inputs['dots'], inputs['indices_frame_camera'],
+               observations_point, indices_point_camera_points,
+               distortion_model, False, True)
+print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 
 
@@ -1007,66 +958,32 @@ Rt_r0 = np.array([[ 0.,  0.,  1.],
                   [ 1.,  0.,  0.],
                   [ 0.,  1.,  0.],
                   [ 0.,  0.,  0.]])
-Rr0 = Rt_r0[:3,:]
-tr0 = Rt_r0[ 3,:]
+rt_10 = extrinsics
+Rt_r1 = poseutils.compose_Rt(Rt_r0,
+                             poseutils.invert_Rt( poseutils.Rt_from_rt(rt_10)))
 
-# Tr1 = Tr0 T01 -> Rr0 R01 x + Rr0 t01 + tr0
-R10 = utils.Rodrigues_toR_broadcasted(extrinsics[0,:3])
-t10 = extrinsics[0,3:]
-t01 = -nps.matmult(t10, R10)
-Rr1 = nps.matmult(Rr0, nps.transpose(R10))
-tr1 = nps.matmult(t01, nps.transpose(Rr0)) + tr0
 
-Rt_r1 = nps.glue(Rr1, tr1, axis=-2)
+
 
 
 dir_to = '/tmp'
-c0 = cameramodel()
-c0.intrinsics((distortion_model, intrinsics[0]))
-c0.extrinsics_Rt(True, Rt_r0)
+c0 = cameramodel( intrinsics          = (distortion_model, intrinsics[0]),
+                  extrinsics_Rt_toref = Rt_r0 )
+
+c1 = cameramodel( intrinsics          = (distortion_model, intrinsics[1]),
+                  extrinsics_Rt_toref = Rt_r1 )
+
 cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 0), c0)
-
-c1 = cameramodel()
-c1.intrinsics((distortion_model, intrinsics[1]))
-c1.extrinsics_Rt(True, Rt_r1)
-cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 1), c0)
+cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 1), c1)
 
 
 
-
-# # and write out the resulting cahvor files
-# cahvor = [ cameramodel( intrinsics=intrinsics[i],
-#                         extrinsics_rt_toref=extrinsics[i-1] if i >= 1 else None ) \
-#            for i in xrange(inputs['Ncameras']) ]
-
-# # graft
-# dir_from = '/tmp/seahuntercal_graft2'
-# dir_to   = '/tmp/seahuntercal_graft3'
-# cref = camera_models.parse_cahvor('{}/camera{}-{}.cahvor'.format(dir_from, pair_want, camera_want))
-# eref = camera_models.get_extrinsics_Rt_toref(cref)
-# c = camera_models.assemble_cahvor(intrinsics[0],eref)
-# camera_models.write_cahvor('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, camera_want),
-#                            c)
-
-# image_corrected = \
-#     projections.undistort_image(intrinsics.ravel(),
-#                           "/tmp/input-00012-{}-{}.jpg". \
-#                           format(pair_want, "left" if camera_want == 0 else "right"))
-# imagefile_corrected = "/tmp/input-00012-{}-{}_undistorted.jpg". \
-#     format(pair_want, "left" if camera_want == 0 else "right")
-
-
-# cv2.imwrite(imagefile_corrected, image_corrected)
-
-# gp.plot( (image_corrected[1200:1500,:,0], {'with': 'image', 'tuplesize': 3}),
-#          yinv=1 )
-# import time
-# time.sleep(2000)
-# sys.exit()
-
-
-
-
-
-# # camera_models.write_cahvor( "camera{}-0.cahvor".format(pair_want), cahvor[0] )
-# # camera_models.write_cahvor( "camera{}-1.cahvor".format(pair_want), cahvor[1] )
+calibration_result = {'distortion_model': distortion_model,
+                      'intrinsics':       intrinsics,
+                      'extrinsics':       extrinsics,
+                      'frames':           frames,
+                      'points':           points,
+                      'inputs':           inputs}
+cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair_want)
+with open(cachefile_solution, 'w') as f:
+    pickle.dump( calibration_result, f, protocol=2)
