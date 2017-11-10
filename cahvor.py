@@ -8,7 +8,7 @@ import numpysane as nps
 import cameramodel
 import mrcal
 
-import mrpose
+from mrpose import quat_to_mat33d
 
 r'''A wrapper around mrcal.cameramodel to interface with JPL's CAHVOR files and
 transforms.txt files'''
@@ -232,7 +232,7 @@ def write(f, m):
 
     return _write(f, m)
 
-def _Rt_from_pq(pq):
+def Rt_from_pq(pq):
     r'''Converts a pq transformation to an Rt transformation
 
     pq is a 7-long array: a 3-long translation followed by a 4-long unit
@@ -245,14 +245,13 @@ def _Rt_from_pq(pq):
 
     p = pq[:3]
     q = pq[3:]
-    R = mrpose.quat_to_mat33d(q)
+    R = quat_to_mat33d(q)
     return nps.glue(R,p, axis=-2)
 
 
-def parse_transforms(f):
+def read_transforms(f):
     r'''Reads a file (a filename string, or a file-like object: an iterable
-    containing lines of text) into a transforms dict,
-    and returns the dict
+    containing lines of text) into a transforms dict, and returns the dict
 
     '''
 
@@ -285,7 +284,7 @@ def parse_transforms(f):
             if x['veh_from_ins'] is not None:
                 raise("'{}' is corrupt: more than one 'ins2veh'".format(f.name))
 
-            x['veh_from_ins'] = _Rt_from_pq( np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)),
+            x['veh_from_ins'] = Rt_from_pq( np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)),
                                                        float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7)))))
             continue
 
@@ -297,7 +296,7 @@ def parse_transforms(f):
             if x['ins_from_camera'].get(i) is not None:
                 raise("'{}' is corrupt: more than one 'cam2ins'[{}]".format(f.name, i))
 
-            x['ins_from_camera'][i] = _Rt_from_pq( np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)),
+            x['ins_from_camera'][i] = Rt_from_pq( np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)),
                                                              float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8)))))
             continue
 
@@ -312,26 +311,4 @@ def parse_transforms(f):
         f.close()
 
     return x
-
-def parse_and_consolidate(transforms, cahvors):
-    transforms = parse_transforms(transforms)
-
-    for i_pair in cahvors.keys():
-        cahvors[i_pair] = [parse_cahvor(m) for m in cahvors[i_pair]]
-
-    pair_ids = sorted(transforms['ins_from_camera'].keys())
-    if pair_ids != sorted(cahvors.keys()):
-        raise Exception("Mismatched camera pair IDs. transforms.txt knows about pairs {}, but I have cahvors for pairs {}".format(pair_ids,cahvors.keys()))
-
-    pairs = {}
-    for i in pair_ids:
-        pair = {'ins_from_camera': transforms['ins_from_camera'][i]}
-
-        for icam in range(len(cahvors[i])):
-            pair[icam] = cahvors[i][icam]
-        pairs[i] = pair
-
-    veh_from_ins = transforms['veh_from_ins']
-
-    return pairs,veh_from_ins
 

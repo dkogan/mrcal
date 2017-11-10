@@ -5,16 +5,20 @@ import numpysane as nps
 import sys
 import argparse
 import re
-import camera_models
-import mrpose
 
-# I need at least gnuplotlib 0.16 (got {}). That version fixed label plotting.
-# Don't know how to ask python to check. Tried
+import cameramodel
+import cahvor
+import poseutils
+
+
+# I need at least gnuplotlib 0.16. That version fixed label plotting. Don't know
+# how to ask python to check. Tried
 # pkg_resources.get_distribution("gnuplotlib").version, but that reports the
 # wrong value
 import gnuplotlib as gp
 
 
+# I should be able to look at these WITHOUT a transforms.txt
 
 
 r'''This tool reads in stereo calibration files (the .cahvor files and the
@@ -51,11 +55,11 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
         raise Exception("A directory OR calibration files must given; not neither")
 
     if args.dir:
-        transforms = open('{}/transforms.txt'.format(args.dir[0]), 'r')
-        cahvors = { 0: [open('{}/camera{}-{}.cahvor'.format(args.dir[0], 0, 0), 'r'),
-                        open('{}/camera{}-{}.cahvor'.format(args.dir[0], 0, 1), 'r')],
-                    1: [open('{}/camera{}-{}.cahvor'.format(args.dir[0], 1, 0), 'r'),
-                        open('{}/camera{}-{}.cahvor'.format(args.dir[0], 1, 1), 'r')] }
+        transforms = '{}/transforms.txt'.format(args.dir[0])
+        cahvors = { 0: ['{}/camera0-0.cahvor'.format(args.dir[0]),
+                        '{}/camera0-1.cahvor'.format(args.dir[0])],
+                    1: ['{}/camera1-0.cahvor'.format(args.dir[0]),
+                        '{}/camera1-1.cahvor'.format(args.dir[0])] }
 
     else:
         transforms = [f for f in args.cal_file if re.match('(?:.*/)?transforms.txt$', f.name)]
@@ -88,22 +92,47 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
         i_wld_from_pair = int(args.wld_from_pair[0])
         p = np.array([float(x) for x in args.wld_from_pair[1:4]])
         q = np.array([float(x) for x in args.wld_from_pair[4:]])
+
         if np.abs(nps.inner(q,q) - 1) > 1e-5:
             raise Exception("wld_from_pair given a non-unit quaternion rotation: {}".format(q))
-        wld_from_pair = nps.glue(p,q, axis=-1)
+        wld_from_pair = cahvor.Rt_from_pq(nps.glue(p,q, axis=-1))
 
     if args.wld_from_ins:
         p = np.array([float(x) for x in args.wld_from_ins[:3]])
         q = np.array([float(x) for x in args.wld_from_ins[3:]])
         if np.abs(nps.inner(q,q) - 1) > 1e-5:
             raise Exception("wld_from_ins given a non-unit quaternion rotation: {}".format(q))
-        wld_from_ins = nps.glue(p,q, axis=-1)
+        wld_from_ins = cahvor.Rt_from_pq(nps.glue(p,q, axis=-1))
 
     return transforms,cahvors,wld_from_ins,i_wld_from_pair,wld_from_pair
 
+
+def parse_and_consolidate(transforms, models):
+    transforms = cahvor.read_transforms(transforms)
+
+    for i_pair in models.keys():
+        models[i_pair] = [cahvor.read(m) for m in models[i_pair]]
+
+    pair_ids = sorted(transforms['ins_from_camera'].keys())
+    if pair_ids != sorted(models.keys()):
+        raise Exception("Mismatched camera pair IDs. transforms.txt knows about pairs {}, but I have models for pairs {}".format(pair_ids,models.keys()))
+
+    pairs = {}
+    for i in pair_ids:
+        pair = {'ins_from_camera': transforms['ins_from_camera'][i]}
+
+        for icam in range(len(models[i])):
+            pair[icam] = models[i][icam]
+        pairs[i] = pair
+
+    veh_from_ins = transforms['veh_from_ins']
+
+    return pairs,veh_from_ins
+
+
 def extend_axes_for_plotting(axes):
     r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
-this into a 3x6 array that can be gnuplotted "with vectors", and into a 
+this into a 3x6 array that can be gnuplotted "with vectors"
 
     '''
 
@@ -116,12 +145,13 @@ this into a 3x6 array that can be gnuplotted "with vectors", and into a
     out = nps.glue( out, axes[1:,:] - axes[0,:], axis=-1)
     return out
 
-def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
+def gen_plot_axes(transforms, label, color = 0, scale = 1.0, label_offset = None):
     r'''Given a list of transforms (applied to the reference set of axes in reverse
-order) and a label, return a list of plotting directives gnuplotlib understands.
+    order) and a label, return a list of plotting directives gnuplotlib
+    understands.
 
-Transforms are in reverse order so a point x being transformed as A*B*C*x can be
-represented as a transforms list (A,B,C)
+    Transforms are in reverse order so a point x being transformed as A*B*C*x
+    can be represented as a transforms list (A,B,C)
 
     '''
     axes = np.array( ((0,0,0),
@@ -129,15 +159,16 @@ represented as a transforms list (A,B,C)
                       (0,1,0),
                       (0,0,1),), dtype=float ) * scale
 
-    transform = mrpose.pose3_ident()
+    transform = poseutils.identity_Rt()
+
     for x in transforms:
-        transform = mrpose.pose3_mul(transform, x)
-    axes = np.array([ mrpose.vec3_transform(transform, x) for x in axes ])
+        transform = poseutils.compose_Rt(transform, x)
+    axes = np.array([ poseutils.transform_point_Rt(transform, x) for x in axes ])
 
     axes_forplotting = extend_axes_for_plotting(axes)
 
     l_axes = tuple(nps.transpose(axes_forplotting)) + \
-        ({'with': 'vectors', 'tuplesize': 6},)
+        ({'with': 'vectors linecolor {}'.format(color), 'tuplesize': 6},)
 
     l_labels = tuple(nps.transpose(axes*1.01 + \
                                    (label_offset if label_offset is not None else 0))) + \
@@ -161,9 +192,10 @@ gnuplotlib to plot my world
 
             return gen_plot_axes( (global_from_ins,
                                    ins_from_camera,
-                                   camera_models.cahvor_pair_from_camera(cam)),
+                                   cam.extrinsics_Rt(True)),
 
                                   'pair{}-camera{}'.format(ipair, icam),
+                                  color = ipair+1,
                                   scale = 0.5,
                                   label_offset=0.05)
 
@@ -171,6 +203,7 @@ gnuplotlib to plot my world
         individual_cam_axes = (e for icam in (0,1) for e in gen_one_cam_axes(icam, pair[icam], pair['ins_from_camera']))
         pair_axes           = gen_plot_axes( (global_from_ins, pair['ins_from_camera']),
                                              'pair{}'.format(ipair),
+                                             color = ipair+1,
                                              scale = 0.75)
 
         return (e for axes in (individual_cam_axes,pair_axes) for e in axes)
@@ -188,8 +221,8 @@ def gen_ins_axes(global_from_ins):
 transforms,cahvors, \
     wld_from_ins,i_wld_from_pair,wld_from_pair = parse_args()
 
-pairs,veh_from_ins = camera_models.parse_and_consolidate(transforms, cahvors)
-
+# if I don't do --dir but specify the stuff individually, transforms becomes [<file>], and parse_and_consolidate() then barfs
+pairs,veh_from_ins = parse_and_consolidate(transforms, cahvors)
 if wld_from_pair is not None:
     wld_from_ins = pose3_mul(wld_from_pair, pose3_inv(pairs[i_wld_from_pair]['ins_from_camera']))
 
