@@ -61,3 +61,21 @@ def compose_rt(rt1, rt2):
     '''
     return rt_from_Rt( compose_Rt( Rt_from_rt(rt1),
                                    Rt_from_rt(rt2)))
+
+def identity_Rt():
+    r'''Returns an identity Rt transform'''
+    return nps.glue( np.eye(3), np.zeros(3), axis=-2)
+
+def identity_rt():
+    r'''Returns an identity rt transform'''
+    return np.zeros(6, dtype=float)
+
+def transform_point_Rt(Rt, x):
+    r'''Transforms a given point by a given Rt transformation'''
+    R = Rt[:3,:]
+    t = Rt[ 3,:]
+    return nps.matmult(x, nps.transpose(R)) + t
+
+def transform_point_rt(rt, x):
+    r'''Transforms a given point by a given rt transformation'''
+    return transform_point_Rt(Rt_from_rt(rt))
