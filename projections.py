@@ -312,7 +312,7 @@ def undistort_image(model, image):
 
     '''
 
-    intrinsics = cahvor.cahvor(model).intrinsics()
+    intrinsics = model.intrinsics()
 
     if not isinstance(image, np.ndarray):
         image = cv2.imread(image)
