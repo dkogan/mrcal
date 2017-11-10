@@ -7,7 +7,7 @@ import numpy     as np
 import numpysane as nps
 import numbers
 
-import mrcal
+import optimizer
 import poseutils
 
 
@@ -51,7 +51,7 @@ def _validateIntrinsics(i):
     intrinsics       = i[1]
 
     # If this fails, I keep the exception and let it fall through
-    Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
+    Ndistortions_want = optimizer.getNdistortionParams(distortion_model)
 
     try:
         Ndistortions_have = len(intrinsics) - 4
@@ -79,8 +79,8 @@ class cameramodel:
         center pixel
 
       - Some representation of the camera distortion. Multiple distortion models
-        are supported. mrcal.getSupportedDistortionModels() returns a list of
-        supported models.
+        are supported. mrcal.optimizer.getSupportedDistortionModels() returns a
+        list of supported models.
 
     - The extrinsics: the pose of this camera in respect to SOME reference
       coordinate system. The meaning of this coordinate system is defined by the
@@ -249,8 +249,8 @@ class cameramodel:
         i is a tuple (distortion_model, parameters):
 
         - distortion_model is a string for the specific distortion model we're
-          using. mrcal.getSupportedDistortionModels() returns a list of
-          supported models.
+          using. mrcal.optimizer.getSupportedDistortionModels() returns a list
+          of supported models.
 
         - parameters is a numpy array of distortion parameters. The first 4
           values are the pinhole-camera parameters: (fx,fy,cx,cy). The following

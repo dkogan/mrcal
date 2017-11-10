@@ -54,16 +54,11 @@ $(foreach v,$(PYVARS),$(eval $(subst __whitespace__, ,$v)))
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal_pywrap.o: CFLAGS += $(wordlist 2,$(words $(PY_CC)),$(PY_CC)) $(PY_CFLAGS) $(PY_CCSHARED) -I$(PY_INCLUDEPY) --std=gnu99
 
-mrcal/_mrcal.so: mrcal_pywrap.o libmrcal.so
+mrcal/optimizer.so: mrcal_pywrap.o libmrcal.so
 	$(PY_BLDSHARED) $(PY_LDFLAGS) $< -lmrcal -o $@ -L$(abspath .) -Wl,-rpath=$(abspath .)
 
-# The python libraries (compiled ones and ones written in python all live in
-# mrcal/). So 'import mrcal' pulls in the writte-in-C library, and something
-# like 'import mrcal.cahvor' imports a python library. The C library is actually
-# called _mrcal, but mrcal/__init__.py pulls that into the mrcal namespace
-
 DIST_PY2_MODULES := mrcal
-all: mrcal/_mrcal.so
+all: mrcal/optimizer.so
 
 
 

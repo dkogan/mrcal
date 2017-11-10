@@ -9,7 +9,7 @@ import cPickle as pickle
 
 from mrcal import cahvor
 from mrcal import utils
-import mrcal
+import mrcal.optimizer
 
 
 
@@ -408,13 +408,13 @@ def solve_monocular(inputs, distortions=False):
     points                      = np.zeros((0,3), dtype=float)
 
     distortion_model = "DISTORTION_NONE"
-    mrcal.optimize(intrinsics, extrinsics, frames, points,
+    optimizer.optimize(intrinsics, extrinsics, frames, points,
                    observations, inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
                    distortion_model, False, False )
 
     distortion_model = "DISTORTION_NONE"
-    mrcal.optimize(intrinsics, extrinsics, frames, points,
+    optimizer.optimize(intrinsics, extrinsics, frames, points,
                    observations, inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
                    distortion_model, True, False )
@@ -884,13 +884,13 @@ indices_point_camera_points = np.zeros((0,2), dtype=np.int32)
 points                      = np.zeros((0,3), dtype=float)
 
 distortion_model = "DISTORTION_NONE"
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                observations, inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, False, False )
 
 distortion_model = "DISTORTION_NONE"
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                observations, inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, True, False )
@@ -898,51 +898,51 @@ mrcal.optimize(intrinsics, extrinsics, frames, points,
 
 print "done with {}".format(distortion_model)
 
-Ndistortions0 = mrcal.getNdistortionParams(distortion_model)
+Ndistortions0 = optimizer.getNdistortionParams(distortion_model)
 distortion_model = "DISTORTION_CAHVOR"
-Ndistortions = mrcal.getNdistortionParams(distortion_model)
+Ndistortions = optimizer.getNdistortionParams(distortion_model)
 Ndistortions_delta = Ndistortions - Ndistortions0
 intrinsics = nps.glue( intrinsics, np.random.random((inputs['Ncameras'], Ndistortions_delta))*1e-5, axis=-1 )
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                inputs['dots'], inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, False, True)
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                inputs['dots'], inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, True, False)
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                inputs['dots'], inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, False, True)
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                inputs['dots'], inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, True, False)
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                inputs['dots'], inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, False, True)
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                inputs['dots'], inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, True, False)
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
-mrcal.optimize(intrinsics, extrinsics, frames, points,
+optimizer.optimize(intrinsics, extrinsics, frames, points,
                inputs['dots'], inputs['indices_frame_camera'],
                observations_point, indices_point_camera_points,
                distortion_model, False, True)

@@ -7,7 +7,7 @@ import sys
 import re
 import cv2
 
-import mrcal
+import optimizer
 import poseutils
 
 
@@ -266,8 +266,9 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
                        indices_frame_camera, dot_spacing, Nwant, i_camera=None):
     r'''Plot the best-estimate 3d poses of a hypothesis calibration
 
-    The inputs are the same as to mrcal.optimize(). If i_camera is not None, the
-    visualization is colored by the reprojection-error-quality of the fit
+    The inputs are the same as to mrcal.optimizer.optimize(). If i_camera is not
+    None, the visualization is colored by the reprojection-error-quality of the
+    fit
 
     '''
 
