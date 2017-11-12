@@ -112,7 +112,7 @@ def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     if p is None or p.size == 0: return p
 
 
-    Ndistortions = mrcal.getNdistortionParams(distortion_model)
+    Ndistortions = optimizer.getNdistortionParams(distortion_model)
     if len(distortions) != Ndistortions:
         raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values".format(distortion_model, Ndistortions, len(distortions)))
 

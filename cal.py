@@ -9,7 +9,10 @@ import cPickle as pickle
 
 from mrcal import cahvor
 from mrcal import utils
-import mrcal.optimizer
+from mrcal import poseutils
+from mrcal import projections
+from mrcal import cameramodel
+import mrcal.optimizer as optimizer
 
 
 
@@ -956,7 +959,7 @@ Rt_r0 = np.array([[ 0.,  0.,  1.],
                   [ 1.,  0.,  0.],
                   [ 0.,  1.,  0.],
                   [ 0.,  0.,  0.]])
-rt_10 = extrinsics
+rt_10 = extrinsics.ravel()
 Rt_r1 = poseutils.compose_Rt(Rt_r0,
                              poseutils.invert_Rt( poseutils.Rt_from_rt(rt_10)))
 
@@ -965,11 +968,11 @@ Rt_r1 = poseutils.compose_Rt(Rt_r0,
 
 
 dir_to = '/tmp'
-c0 = cameramodel( intrinsics          = (distortion_model, intrinsics[0]),
-                  extrinsics_Rt_toref = Rt_r0 )
+c0 = cameramodel.cameramodel( intrinsics          = (distortion_model, intrinsics[0]),
+                              extrinsics_Rt_toref = Rt_r0 )
 
-c1 = cameramodel( intrinsics          = (distortion_model, intrinsics[1]),
-                  extrinsics_Rt_toref = Rt_r1 )
+c1 = cameramodel.cameramodel( intrinsics          = (distortion_model, intrinsics[1]),
+                              extrinsics_Rt_toref = Rt_r1 )
 
 cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 0), c0)
 cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 1), c1)
