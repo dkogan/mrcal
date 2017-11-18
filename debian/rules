@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+
+# Needed for cross-building. This isn't supported by the Debian cross-building
+# tools yet, but will be at some point:
+#
+#   https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=853881
+export PKG_CONFIG := $(DEB_HOST_GNU_TYPE)-pkg-config
+
+%:
+	dh $@ --with python2

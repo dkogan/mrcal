@@ -1,0 +1,10 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
+Upstream-Contact: Dima Kogan, <Dmitriy.Kogan@jpl.nasa.gov>
+Upstream-Name: mrcal
+
+Files: *
+Copyright: 2017, California Institute of Technology
+License: Proprietary
+
+License: Proprietary license. May not distribute without a license
