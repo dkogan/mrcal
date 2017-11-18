@@ -8,3 +8,7 @@ export PKG_CONFIG := $(DEB_HOST_GNU_TYPE)-pkg-config
 
 %:
 	dh $@ --with python2
+
+override_dh_python2:
+	dh_numpy
+	dh_python2
