@@ -215,7 +215,10 @@ def project(p, distortion_model, intrinsics):
 
     '''
 
-    if p is None or p.size == 0: return p
+    if p is None: return p
+    if p.size == 0:
+        s = p.shape
+        return np.zeros(s[:-1] + (2,))
 
 
     def project_one_cam(intrinsics, p):
@@ -258,7 +261,10 @@ def unproject(p, distortion_model, fx, fy, cx, cy, *distortions):
 
     '''
 
-    if p is None or p.size == 0: return p
+    if p is None: return p
+    if p.size == 0:
+        s = p.shape
+        return np.zeros(s[:-1] + (3,))
 
 
     p = warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
