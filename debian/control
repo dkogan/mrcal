@@ -2,11 +2,12 @@ Source: mrcal
 Priority: optional
 Section: devel
 Build-Depends: debhelper (>= 9), mrbuild (>= 0.51), dh-python,
- python-all-dev,
+ libpython-all-dev,
  libminimath-dev,
  libdogleg-dev,
- libopencv-calib3d-dev,
- python-numpy
+ libopencv-dev,
+ python-numpy,
+ pkg-config
 Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
 Standards-Version: 3.9.8
 Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
