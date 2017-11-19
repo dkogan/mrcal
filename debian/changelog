@@ -1,3 +1,9 @@
+mrcal (0.4) unstable; urgency=medium
+
+  * Minor upstream update
+
+ -- Dima Kogan <dkogan@debian.org>  Sun, 19 Nov 2017 01:45:15 -0800
+
 mrcal (0.3) stretch; urgency=medium
 
   * first Debian package build
