@@ -1,5 +1,5 @@
-mrcal (0.2) stretch; urgency=medium
+mrcal (0.3) stretch; urgency=medium
 
   * first Debian package build
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Fri, 17 Nov 2017 10:35:22 -0800
+ -- Dima Kogan <dkogan@debian.org>  Sat, 18 Nov 2017 20:02:59 -0800
