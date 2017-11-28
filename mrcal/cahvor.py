@@ -99,7 +99,6 @@ def _read(f):
         distortion_model = 'DISTORTION_NONE'
     else:
         # CAHVOR
-        distortion_model = 'DISTORTION_CAHVOR'
 
         Hp,Vp = _HVs_HVc_HVp(x)[-2:]
         R_toref = nps.transpose( nps.cat( Hp,
@@ -130,8 +129,10 @@ def _read(f):
 
         if theta == 0 and phi == 0:
             distortions = np.array(())
+            distortion_model = 'DISTORTION_NONE'
         else:
             distortions = np.array((theta,phi,R0,R1,R2))
+            distortion_model = 'DISTORTION_CAHVOR'
 
     m = cameramodel.cameramodel()
     m.intrinsics( (distortion_model,
