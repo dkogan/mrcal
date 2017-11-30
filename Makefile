@@ -30,19 +30,14 @@ DIST_BIN := visualize_extrinsics.py
 	< $^ sed 's/^/"/; s/$$/\\n"/;' > $@
 EXTRA_CLEAN += *.docstring.h
 
-# The python libraries (compiled ones and ones written in python all live in
-# mrcal/).
-
-# The compilation flags are all the stuff python told us about. Some of its
-# flags live inside its CC variable, so I pull those out. I also pull out the
-# optimization flag, since I want THIS build system to control it
 mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS)
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 
 mrcal/optimizer.so: mrcal_pywrap.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
-# mrcal/ is a python2 module
+# The python libraries (compiled ones and ones written in python) all live in
+# mrcal/
 DIST_PY2_MODULES := mrcal
 
 all: mrcal/optimizer.so
