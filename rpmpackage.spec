@@ -16,7 +16,7 @@ BuildRequires: opencv-devel
 BuildRequires: python-devel
 BuildRequires: python-libs
 BuildRequires: libminimath-devel
-BuildRequires: mrbuild >= 0.50
+BuildRequires: mrbuild >= 0.53
 
 Requires: numpysane
 Requires: gnuplotlib
