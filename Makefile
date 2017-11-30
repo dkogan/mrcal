@@ -39,10 +39,8 @@ EXTRA_CLEAN += *.docstring.h
 mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS) --std=gnu99
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 
-# I add an RPATH to the python extension DSO so that it runs in-tree. mrbuild
-# will pull it out at install time
 mrcal/optimizer.so: mrcal_pywrap.o libmrcal.so
-	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@ -L$(abspath .) -Wl,-rpath=$(abspath .)
+	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
 # mrcal/ is a python2 module
 DIST_PY2_MODULES := mrcal
