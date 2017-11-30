@@ -57,7 +57,7 @@ Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          ${python:Depends},
          python-gnuplotlib, python-numpysane
-Provides: ${python:Provides} 
+Provides: ${python:Provides}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
