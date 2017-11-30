@@ -36,7 +36,7 @@ EXTRA_CLEAN += *.docstring.h
 # The compilation flags are all the stuff python told us about. Some of its
 # flags live inside its CC variable, so I pull those out. I also pull out the
 # optimization flag, since I want THIS build system to control it
-mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS) --std=gnu99
+mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS)
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 
 mrcal/optimizer.so: mrcal_pywrap.o libmrcal.so
