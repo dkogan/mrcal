@@ -48,9 +48,9 @@ Nwant             = 10
 
 
 
-#datafile_asciilog='/home/dima/data/cal-2017-10-26/chessboard.asciilog'
-#datafile_asciilog='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-44-21/dots.asciilog'
-datafile_asciilog='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-00-07/dots.asciilog'
+#datafile='/home/dima/data/cal-2017-10-26/chessboard.asciilog'
+#datafile='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-44-21/dots.asciilog'
+datafile='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-00-07/dots.asciilog'
 
 
 
@@ -424,125 +424,7 @@ def solve_monocular(inputs, distortions=False):
 
     return intrinsics,frames
 
-def _read_dots_stcal(datadir):
-
-    raise Exception("This is still coded to assume stereo PAIRS. Update to use discrete cameras")
-    def read_observations_from_file__old_dot(filename, which):
-        r"""Parses the xxx.dots from the old stcal tool
-
-        Given a xxx.dots file produced with stcal, read the observations into a
-        numpy array. Returns this numpy array and a list of metadata.
-
-        The array has axes: (iframe, idot_y, idot_x, idot2d_xy)
-
-        So as an example, the observed pixel coord of the dot (3,4) in frame
-        index 5 is the 2-vector dots[5,3,4,:]
-
-        The metadata is a dictionary, containing the dimensions of the imager,
-        and the indices of frames that the numpy array contains
-
-        """
-
-        with open(filename, 'r') as f:
-            for l in f:
-                if re.match('# Format: jplv$',
-                            l):
-                    break
-            else:
-                raise Exception('No explicit "Format: jplv" when reading {}'.format(filename))
-
-            # Data. Axes: (iframe, idot_y, idot_x, idot2d_xy)
-            # So the observed pixel coord of the dot (3,4) in frame index 5 is
-            # the 2-vector dots[5,3,4,:]
-            dots       = np.array( (), dtype=float)
-            inputs   = {'frames': [],
-                          'imager_size': None,
-                          'dot_spacing': None,
-                          'Nwant'      : Nwant}
-            cur_frame  = None
-            cur_iframe = None
-
-            for l in f:
-                if l[0] == '\n' or l[0] == '#':
-                    continue
-
-                m = re.match('IMAGE ({u}) ({u})'.format(u=re_u),
-                             l)
-                if m:
-                    if inputs['imager_size'] is not None:
-                        raise Exception('Got line "{}", but already have width, height'.format(l))
-                    inputs['imager_size'] = (int(m.group(1)), int(m.group(2)))
-                    continue
-
-                m = re.match('DOT ({s}) (stcal-({u})-({s}).pnm) FIX ({u}) ({u}) ({u}) ({f}) ({f}) IMG ({f}) ({f})'.format(f=re_f, u=re_u, d=re_d, s=re_s), l)
-                if m:
-                    if which != m.group(1):
-                        raise Exception("Reading file {}: expected '{}' frames, but got '{}". \
-                                        format(filename, which, m.group(1)))
-                    if which != m.group(4):
-                        raise Exception("Reading file {}: expected '{}' frames, but got image file '{}". \
-                                        format(filename, which, m.group(2)))
-                    frame  = int(m.group(3))
-                    iframe = int(m.group(5))
-                    idot   = (int(   m.group(6)),  int(  m.group(7)))
-                    dot3d  = (float( m.group(8)),  float(m.group(9)))
-                    dot2d  = np.array(( float(m.group(10)), float(m.group(11))))
-
-                    if cur_iframe == iframe and \
-                       cur_frame  != frame:
-                        raise Exception('frame changed, but iframe did not')
-                    if cur_frame  == frame and \
-                       cur_iframe != iframe:
-                        raise Exception('iframe changed, but frame did not')
-                    if cur_iframe is None and iframe != 0:
-                        raise Exception('iframe should start at 0')
-
-                    if cur_iframe != iframe:
-                        if cur_iframe is not None and cur_iframe+1 != iframe:
-                            raise Exception('non-consecutive frame index...')
-                        if cur_frame is not None and cur_frame >= frame:
-                            raise Exception('non-increasing frame number...')
-
-                        cur_frame,cur_iframe = frame,iframe
-                        dots = nps.glue( dots,
-                                         np.zeros((Nwant,Nwant,2), dtype=float) - 1,
-                                         axis=-4 )
-                        inputs['frames'].append(frame)
-
-                    dot_spacing = np.array(dot3d, dtype=float) / np.array(idot, dtype=float)
-                    if inputs['dot_spacing'] is None:
-                        inputs['dot_spacing'] = dot_spacing
-                    else:
-                        if np.max( np.abs(inputs['dot_spacing'] - dot_spacing) ) > 1e-4:
-                            raise Exception("Inconsistent dot spacing. Previously saw {} but now have {}". \
-                                            format(inputs['dot_spacing'], dot_spacing))
-
-                    dots[-1, idot[1]-1, idot[0]-1,:] = dot2d
-                    continue
-
-                raise Exception('Got unknown line "{}"'.format(l))
-
-        return dots, inputs
-
-
-
-
-    dots            = {}
-    inputs        = {'Nwant': Nwant}
-
-    for fil in ('{}/stcal-left.dots' .format(datadir),
-                '{}/stcal-right.dots'.format(datadir)):
-        m = re.match( '.*-(left|right)\.dots$', fil)
-        if not m: raise Exception("Can't tell if '{}' is left or right".format(fil))
-        which = m.group(1)
-
-        d,m             = read_observations_from_file__old_dot( fil, which )
-        dots    [which] = d
-        inputs[which] = m
-
-    return dots,inputs
-
-def _read_dots_asciilog(datafile):
+def read_dots(datafile):
     r'''Read an asciilog dots file produced by cdas-find-dots
 
     cdas-find-dots lives in the cdas-core project.
@@ -631,9 +513,6 @@ def _read_dots_asciilog(datafile):
                 # I only accept complete observations of the cal board for now
                 idot_y_want = int(point_index / 10)
                 idot_x_want = point_index - idot_y_want*10
-
-                if datafile_asciilog[0]=='v':
-                    idot_x_want,idot_y_want = idot_y_want,idot_x_want
 
                 if idot_x != idot_x_want or idot_y != idot_y_want:
                     raise Exception("Unexpected dot index. Line: '{}'".format(l))
@@ -750,11 +629,7 @@ def _read_dots_asciilog(datafile):
         inputs['paths']                = paths
         inputs['dots']                 = dots
         return inputs
-def read_dots():
-    try:
-        return _read_dots_stcal(datadir_stcal)
-    except:
-        return _read_dots_asciilog(datafile_asciilog)
+
 
 def filter_inputs_for_camera(inputs, camera_want):
     r'''Return a subset of the input, containing only the given camera
@@ -850,7 +725,7 @@ if( read_cache_dots ):
     with open(cachefile_dots, 'r') as f:
         inputs = pickle.load(f)
 else:
-    inputs = read_dots()
+    inputs = read_dots(datafile)
     with open(cachefile_dots, 'w') as f:
         pickle.dump( inputs, f, protocol=2)
 
