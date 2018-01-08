@@ -60,8 +60,6 @@ re_u = '\d+'
 re_d = '[-+]?\d+'
 re_s = '.+'
 
-
-
 def estimate_local_calobject_poses( indices_frame_camera, \
                                     dots, dot_spacing, focal, imager_size ):
     r"""Estimates pose of observed object in a single-camera view
@@ -128,7 +126,7 @@ def estimate_local_calobject_poses( indices_frame_camera, \
 
 def estimate_camera_poses( calobject_poses_Rt, indices_frame_camera, \
                            dots, dot_spacing, Ncameras):
-    r'''Estimates camera poses in respect to each other
+    r'''Estimate camera poses in respect to each other
 
     We are given poses of the calibration object in respect to each observing
     camera. We also have multiple cameras observing the same calibration object
@@ -228,7 +226,9 @@ def estimate_camera_poses( calobject_poses_Rt, indices_frame_camera, \
     return Rt
 
 def estimate_frame_poses(calobject_poses_Rt, camera_poses_Rt, indices_frame_camera, dot_spacing):
-    r'''We're given
+    r'''Estimate poses of the calibration object observations
+
+    We're given
 
     calobject_poses_Rt:
 
@@ -543,7 +543,7 @@ def _read_dots_stcal(datadir):
     return dots,inputs
 
 def _read_dots_asciilog(datafile):
-    r'''Reads an asciilog dots file produced by cdas-find-dots
+    r'''Read an asciilog dots file produced by cdas-find-dots
 
     cdas-find-dots lives in the cdas-core project.
 
@@ -757,7 +757,7 @@ def read_dots():
         return _read_dots_asciilog(datafile_asciilog)
 
 def filter_inputs_for_camera(inputs, camera_want):
-    r'''Returns a subset of the input, containing only the given camera
+    r'''Return a subset of the input, containing only the given camera
 
     Note that the resulting frames and cameras are renumbered to fill in
     gaps. The output is going to contain ONLY camera 0
@@ -783,14 +783,14 @@ def filter_inputs_for_camera(inputs, camera_want):
     return out
 
 def split_inputs_by_camera(inputs):
-    r'''Splits a single joint input into separate ones, for each camera'''
+    r'''Split a single joint input into separate ones, for each camera'''
 
     Ncameras = inputs['Ncameras']
 
     return [filter_inputs_for_camera(inputs, camera) for camera in xrange(Ncameras)]
 
 def join_inputs_and_solutions(separate_inputs, joint_intrinsics_frames, rt_cam1_fromref):
-    r'''Joins two separate-camera inputs into a single one
+    r'''Join two separate-camera inputs into a single one
 
     The output of this function is not going to be solvable: there're no
     observation that tie the cameras together in any way, so the Hessian
