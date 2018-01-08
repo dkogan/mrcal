@@ -5,7 +5,9 @@ import numpy as np
 import numpysane as nps
 import cv2
 import re
+import argparse
 import cPickle as pickle
+import os
 
 from mrcal import cahvor
 from mrcal import utils
@@ -16,10 +18,28 @@ import mrcal.optimizer as optimizer
 
 
 
+r'''Special-case tool to calibrate ONE stereo pair
+
+Synopsis:
+
+  $ calibrate_camera_pair.py --pair 0 --out /tmp chessboard.asciilog
+
+  ... lots of output as the solve runs ...
+  done with DISTORTION_CAHVOR, optimizing DISTORTIONS again
+  Wrote /tmp/camera0-0.cahvor
+  Wrote /tmp/camera0-1.cahvor
+
+
+This tools uses the generic mrcal platform to solve this specific common
+problem. Run --help for the list of commandline options
+
+'''
+
+
+
 
 
 np.set_printoptions(linewidth=1e10) # no line breaks
-
 
 
 from IPython.core import ultratb
@@ -28,29 +48,55 @@ sys.excepthook = ultratb.FormattedTB(mode='Plain',
 
 
 
+Nwant = None
 
 
 
 
 
-# stuff the user may want to set
-pair_want   = 0
 
 
+def parse_args():
+    parser = \
+        argparse.ArgumentParser(description = \
+r'''This tool solves the special-case-but-common problem of calibrating ONE PAIR of cameras
+given a time-series of chessboard observations''')
+    parser.add_argument('--pair',
+                        nargs=1,
+                        type=int,
+                        required=True,
+                        help='Which pair we are calibrating. The input datafile may have several')
+    parser.add_argument('--focal',
+                        nargs=1,
+                        type=float,
+                        default=[1970],
+                        help='Initial estimate of the focal length, in pixels')
+    parser.add_argument('--imagersize',
+                        nargs=2,
+                        default=(3904,3904),
+                        help='Size of the imager. Used to extimate the coordinates of the center pixel')
+    parser.add_argument('--out',
+                        type=lambda d: d if os.path.isdir(d) else \
+                                parser.error("--out requires an existing directory as the arg, but got '{}".format(d)),
+                        nargs=1,
+                        required=True,
+                        metavar='DIR',
+                        help='Directory for the output')
+    parser.add_argument('datafile',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("datafile must be an existing readable file, but got '{}".format(f)),
+                        nargs=1,
+                        help='asciilog file that describes the chessboard corner detections')
 
-read_cache_dots = False
+    args = parser.parse_args()
 
-focal_estimate    = 1970 # pixels
-imager_w_estimate = 3904
-Nwant             = 10
+    return { 'datafile':       args.datafile[0],
+             'pair_want':      args.pair[0],
+             'focal_estimate': args.focal[0],
+             'imager_size':    args.imagersize,
+             'dir_to':         args.out[0] }
 
 
-
-
-
-#datafile='/home/dima/data/cal-2017-10-26/chessboard.asciilog'
-#datafile='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-44-21/dots.asciilog'
-datafile='/home/dima/data/cal-2017-11-03/stereo-2017-11-03-Fri-14-00-07/dots.asciilog'
 
 
 
@@ -92,8 +138,8 @@ def estimate_local_calobject_poses( indices_frame_camera, \
     # this wastes memory, but makes it easier to keep track of which data goes
     # with what
     Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
-    camera_matrix = np.array((( focal[0], 0,        imager_size[0]/2), \
-                              (        0, focal[1], imager_size[1]/2), \
+    camera_matrix = np.array((( focal[0], 0,        (imager_size[0] - 1)/2), \
+                              (        0, focal[1], (imager_size[1] - 1)/2), \
                               (        0,        0,                 1)))
 
     full_object = utils.get_full_object(Nwant, Nwant, dot_spacing)
@@ -424,7 +470,7 @@ def solve_monocular(inputs, distortions=False):
 
     return intrinsics,frames
 
-def read_dots(datafile):
+def read_dots(datafile, pair_want, focal_estimate, imager_size):
     r'''Read an asciilog dots file produced by cdas-find-dots
 
     cdas-find-dots lives in the cdas-core project.
@@ -442,37 +488,58 @@ def read_dots(datafile):
     def get_next_dots(f):
 
         def parse_image_header(l):
+            global Nwant
+
             # Two image formats are possible:
             #   frame00002-pair1-cam0.jpg
             #   input-right-0-02093.jpg
-            m = re.match('([^ ]*/frame([0-9]+)-pair([01])-cam([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) {Nwant} {Nwant} ({d}) - - - - - -\n$'.format(f=re_f, d=re_d, Nwant=Nwant), l)
-            if m:
-                path        = m.group(1)
-                i_frame     = int(m.group(2))
-                i_pair      = int(m.group(3))
-                i_camera    = int(m.group(4))
-                dot_spacing = float(m.group(6))
-                Ndetected   = int(m.group(7))
-                return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
-            m = re.match('([^ ]*/input-(left|right)-([01])-([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) {Nwant} {Nwant} ({d}) - - - - - -\n$'.format(f=re_f, d=re_d,Nwant=Nwant), l)
-            if m:
-                path        = m.group(1)
-                i_frame     = int(m.group(4))
-                i_pair      = int(m.group(3))
-                i_camera    = 0 if m.group(2) == 'left' else 1
-                dot_spacing = float(m.group(6))
-                Ndetected   = int(m.group(7))
-                return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
-            m = re.match('([^ ]*/(rfc|lfc)[^ ]*/stcal-([0-9]+)-(left|right)\.[a-z][a-z][a-z]) ({f}) ({f}) {Nwant} {Nwant} ({d}) - - - - - -\n$'.format(f=re_f, d=re_d,Nwant=Nwant), l)
-            if m:
-                path        = m.group(1)
-                i_frame     = int(m.group(3))
-                i_pair      = 0 if m.group(2) == 'lfc'  else 1
-                i_camera    = 0 if m.group(4) == 'left' else 1
-                dot_spacing = float(m.group(6))
-                Ndetected   = int(m.group(7))
-                return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
-            raise Exception("Couldn't parse image header line '{}'".format(l))
+            while True:
+                m = re.match('([^ ]*/frame([0-9]+)-pair([01])-cam([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) ({d}) ({d}) ({d}) - - - - - -\n$'.format(f=re_f, d=re_d, Nwant=Nwant), l)
+                if m:
+                    path        = m.group(1)
+                    i_frame     = int(m.group(2))
+                    i_pair      = int(m.group(3))
+                    i_camera    = int(m.group(4))
+                    Nwant_w     = int(m.group(7))
+                    Nwant_h     = int(m.group(8))
+                    dot_spacing = float(m.group(6))
+                    Ndetected   = int(m.group(9))
+                    break
+
+                m = re.match('([^ ]*/input-(left|right)-([01])-([0-9]+)\.[a-z][a-z][a-z]) ({f}) ({f}) ({d}) ({d}) ({d}) - - - - - -\n$'.format(f=re_f, d=re_d,Nwant=Nwant), l)
+                if m:
+                    path        = m.group(1)
+                    i_frame     = int(m.group(4))
+                    i_pair      = int(m.group(3))
+                    i_camera    = 0 if m.group(2) == 'left' else 1
+                    Nwant_w     = int(m.group(7))
+                    Nwant_h     = int(m.group(8))
+                    dot_spacing = float(m.group(6))
+                    Ndetected   = int(m.group(9))
+                    break
+
+                m = re.match('([^ ]*/(rfc|lfc)[^ ]*/stcal-([0-9]+)-(left|right)\.[a-z][a-z][a-z]) ({f}) ({f}) ({d}) ({d}) ({d}) - - - - - -\n$'.format(f=re_f, d=re_d,Nwant=Nwant), l)
+                if m:
+                    path        = m.group(1)
+                    i_frame     = int(m.group(3))
+                    i_pair      = 0 if m.group(2) == 'lfc'  else 1
+                    i_camera    = 0 if m.group(4) == 'left' else 1
+                    Nwant_w     = int(m.group(7))
+                    Nwant_h     = int(m.group(8))
+                    dot_spacing = float(m.group(6))
+                    Ndetected   = int(m.group(9))
+                    break
+
+                raise Exception("Couldn't parse image header line '{}'".format(l))
+
+            if Nwant_w != Nwant_h:
+                raise Exception("I'm assuming a square calibration target, but got {}x{}".format(Nwant_w,Nwant_h))
+            if Nwant is None:
+                Nwant = Nwant_h
+            elif Nwant_w != Nwant:
+                raise Exception("Got inconsistent Nwant: {}. Previously-seen Nwant: {}".format(Nwant_w,Nwant))
+            return path,i_frame,i_pair,i_camera,dot_spacing,Ndetected
+
 
 
 
@@ -536,9 +603,8 @@ def read_dots(datafile):
     indices_frame_camera = np.array((), dtype=np.int32)
 
     paths = []
-    inputs = { 'imager_size':    (imager_w_estimate, imager_w_estimate),
-                 'focal_estimate': (focal_estimate, focal_estimate),
-                 'Nwant':          Nwant}
+    inputs = { 'imager_size':    imager_size,
+               'focal_estimate': (focal_estimate, focal_estimate) }
 
     i_frame_consecutive   = -1
     i_frame_last          = -1
@@ -643,7 +709,6 @@ def filter_inputs_for_camera(inputs, camera_want):
     out = {}
     out['focal_estimate'] = inputs['focal_estimate']
     out['dot_spacing']    = inputs['dot_spacing']
-    out['Nwant']          = inputs['Nwant']
     out['imager_size']    = inputs['imager_size']
     out['Ncameras']       = 1
     out['paths']          = np.array(inputs['paths'])[i]
@@ -680,7 +745,6 @@ def join_inputs_and_solutions(separate_inputs, joint_intrinsics_frames, rt_cam1_
     out = {}
     out['focal_estimate'] = separate_inputs[0]['focal_estimate']
     out['dot_spacing']    = separate_inputs[0]['dot_spacing']
-    out['Nwant']          = separate_inputs[0]['Nwant']
     out['imager_size']    = separate_inputs[0]['imager_size']
     out['Ncameras']       = Ncameras
     out['paths']          = nps.glue(*[separate_inputs[i]['paths'] for i in xrange(Ncameras)], axis=-1)
@@ -720,14 +784,6 @@ def join_inputs_and_solutions(separate_inputs, joint_intrinsics_frames, rt_cam1_
     return intrinsics, nps.dummy(rt_cam1_fromref, -2), frames, out
 
 
-cachefile_dots = 'mrcal.dots.pair{}.pickle'.format(pair_want)
-if( read_cache_dots ):
-    with open(cachefile_dots, 'r') as f:
-        inputs = pickle.load(f)
-else:
-    inputs = read_dots(datafile)
-    with open(cachefile_dots, 'w') as f:
-        pickle.dump( inputs, f, protocol=2)
 
 
 
@@ -735,7 +791,12 @@ else:
 
 
 
+args = parse_args()
 
+inputs = read_dots(args['datafile'],
+                   args['pair_want'],
+                   args['focal_estimate'],
+                   args['imager_size'])
 
 
 
@@ -842,15 +903,20 @@ Rt_r1 = poseutils.compose_Rt(Rt_r0,
 
 
 
-dir_to = '/tmp'
-c0 = cameramodel.cameramodel( intrinsics          = (distortion_model, intrinsics[0]),
-                              extrinsics_Rt_toref = Rt_r0 )
+c0 = cameramodel( intrinsics          = (distortion_model, intrinsics[0]),
+                  extrinsics_Rt_toref = Rt_r0 )
 
-c1 = cameramodel.cameramodel( intrinsics          = (distortion_model, intrinsics[1]),
-                              extrinsics_Rt_toref = Rt_r1 )
+c1 = cameramodel( intrinsics          = (distortion_model, intrinsics[1]),
+                  extrinsics_Rt_toref = Rt_r1 )
 
-cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 0), c0)
-cahvor.write('{}/camera{}-{}.cahvor'.format(dir_to, pair_want, 1), c1)
+with open('{}/camera{}-{}.cahvor'.format(args['dir_to'], args['pair_want'], 0), 'w') as f:
+    print "Wrote {}".format(f.name)
+    f.write("## generated with {}\n\n".format(sys.argv))
+    cahvor.write(f, c0)
+with open('{}/camera{}-{}.cahvor'.format(args['dir_to'], args['pair_want'], 1), 'w') as f:
+    print "Wrote {}".format(f.name)
+    f.write("## generated with {}\n\n".format(sys.argv))
+    cahvor.write(f, c1)
 
 
 
@@ -860,6 +926,7 @@ calibration_result = {'distortion_model': distortion_model,
                       'frames':           frames,
                       'points':           points,
                       'inputs':           inputs}
-cachefile_solution = 'mrcal.solution.pair{}.pickle'.format(pair_want)
+cachefile_solution = '{}/mrcal.solution.pair{}.pickle'.format(args['dir_to'], args['pair_want'])
 with open(cachefile_solution, 'w') as f:
     pickle.dump( calibration_result, f, protocol=2)
+print "Wrote {}".format(cachefile_solution)
