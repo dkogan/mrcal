@@ -28,7 +28,7 @@ def _validateExtrinsics(e):
     if N != 6:
         raise Exception("Valid extrinsics are an iterable of len 6")
 
-    for x in extrinsics:
+    for x in e:
         if not isinstance(x, numbers.Number):
             raise Exception("All extrinsics elements should be numeric, but '{}' isn't".format(x))
 
@@ -96,12 +96,13 @@ class cameramodel:
         r'''Writes out this camera model to an open file'''
 
         _validateIntrinsics(self._intrinsics)
-        _validateExtrinsics(self._intrinsics)
+        _validateExtrinsics(self._extrinsics)
 
         f.write("distortion_model = {}\n".format(self._intrinsics[0]))
         f.write("\n")
 
         N = len(self._intrinsics[1])
+        f.write("# intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
         f.write(("intrinsics =" + (" {:15.10f}" * N) + "\n").format(*self._intrinsics[1]))
         f.write("\n")
 
@@ -366,3 +367,4 @@ class cameramodel:
             return self._cookie
         except:
             return None
+
