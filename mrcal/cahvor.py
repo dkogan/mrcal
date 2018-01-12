@@ -230,7 +230,7 @@ def _write(f, m):
 
     if re.match('DISTORTION_CAHVOR', distortion_model):
         # CAHVOR(E)
-        theta,phi,R0,R1,R2 = intrinsics[4:]
+        theta,phi,R0,R1,R2 = intrinsics[4:9]
 
         sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
         O = nps.matmult( R_toref, nps.transpose(np.array(( sph*cth, sph*sth,  cph ))) ).ravel()
@@ -239,7 +239,7 @@ def _write(f, m):
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))
 
         if 'DISTORTION_CAHVORE' == distortion_model:
-            E = np.array((E0, E1, E2))
+            E = intrinsics[9:]
             f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *E))
 
     elif re.match('DISTORTION_OPENCV*', distortion_model):
