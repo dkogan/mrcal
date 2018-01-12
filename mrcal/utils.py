@@ -355,3 +355,32 @@ def get_observation_size(obs):
     dy = c[:,1].max() - c[:,1].min()
 
     return max(dx,dy)
+
+
+def _get_correspondences_from_hugin(f):
+    r'''Reads correspondences from a hugin .pto file
+
+    Returns an (N,4) numpy array containing (x1,y1, x2,y2) rows
+
+    The input is an opened file'''
+
+    p = np.array((), dtype=float)
+    for l in f:
+        m = re.match('^c .* x([0-9e\.-]+) y([0-9e\.-]+) X([0-9e\.-]+) Y([0-9e\.-]+)', l)
+        if m:
+            p = nps.glue(p, np.array([m.group(i+1) for i in xrange(4)], dtype=float),
+                         axis=-2)
+    return p
+
+def get_correspondences_from_hugin(f):
+    r'''Reads correspondences from a hugin .pto file
+
+    Returns an (N,4) numpy array containing (x1,y1, x2,y2) rows
+
+    The input is a filename or an opened file'''
+
+    if type(f) is str:
+        with open(f, 'r') as openedfile:
+            return _get_correspondences_from_hugin(openedfile)
+
+    return _get_correspondences_from_hugin(f)
