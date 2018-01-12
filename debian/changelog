@@ -1,3 +1,9 @@
+mrcal (0.7) unstable; urgency=medium
+
+  * limited cahvore support
+
+ -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Thu, 11 Jan 2018 18:02:48 -0800
+
 mrcal (0.6) unstable; urgency=medium
 
   * Minor upstream release
