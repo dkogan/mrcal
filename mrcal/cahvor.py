@@ -55,7 +55,7 @@ def _read(f):
         if re.match('^\s*#|^\s*$', l):
             continue
 
-        m = re.match('\s*(\w+)\s*=\s*(.+?)\s*\n?$'.format(u=re_u),
+        m = re.match('\s*(\w+)\s*=\s*(.+?)\s*\n?$',
                      l, flags=re.I)
         if m:
             key = m.group(1)
@@ -71,7 +71,7 @@ def _read(f):
             x[i] = float(x[i])
 
     # I parse the fields I know I care about into numpy arrays
-    for i in ('Dimensions','C','A','H','V','O','R',
+    for i in ('Dimensions','C','A','H','V','O','R','E',
               'DISTORTION_OPENCV4', 'DISTORTION_OPENCV5', 'DISTORTION_OPENCV8'):
         if i in x:
             if re.match('[0-9\s]+$', x[i]): totype = int
@@ -98,7 +98,17 @@ def _read(f):
         distortions = np.array(())
         distortion_model = 'DISTORTION_NONE'
     else:
-        # CAHVOR
+        # CAHVOR(E)
+
+        if 'Model' not in x:
+            raise Exception('Cahvor file {} LOOKS like a cahvor(e), but lacks the "Model = ..."'.format(f.name))
+
+        m = re.match('CAHVORE3,([0-9\.e-]+)\s*=\s*general',x['Model'])
+        if m:
+            is_cahvore = True
+            cahvore_linearity = float(m.group(1))
+        else:
+            is_cahvore = False
 
         Hp,Vp = _HVs_HVc_HVp(x)[-2:]
         R_toref = nps.transpose( nps.cat( Hp,
@@ -119,20 +129,36 @@ def _read(f):
                 theta = np.arctan2(o[1], o[0])
                 phi   = np.arcsin( np.sqrt( norm2_oxy ) )
 
-        if abs(phi) < 1e-8 and \
-           ( 'R' not in x or np.linalg.norm(x['R']) < 1e-8):
-            # pinhole
-            theta = 0
-            phi   = 0
-        else:
+        if is_cahvore:
+            # CAHVORE
+            if 'E' not in x:
+                raise Exception('Cahvor file {} LOOKS like a cahvore, but lacks the E'.format(f.name))
             R0,R1,R2 = x['R'].ravel()
+            E0,E1,E2 = x['E'].ravel()
 
-        if theta == 0 and phi == 0:
-            distortions = np.array(())
-            distortion_model = 'DISTORTION_NONE'
+            distortions      = np.array((theta,phi,R0,R1,R2,E0,E1,E2,cahvore_linearity))
+            distortion_model = 'DISTORTION_CAHVORE'
+
         else:
-            distortions = np.array((theta,phi,R0,R1,R2))
-            distortion_model = 'DISTORTION_CAHVOR'
+            # CAHVOR
+            if 'E' in x:
+                raise Exception('Cahvor file {} LOOKS like a cahvor, but has an E'.format(f.name))
+
+            if abs(phi) < 1e-8 and \
+               ( 'R' not in x or np.linalg.norm(x['R']) < 1e-8):
+                # pinhole
+                theta = 0
+                phi   = 0
+            else:
+                R0,R1,R2 = x['R'].ravel()
+
+            if theta == 0 and phi == 0:
+                distortions = np.array(())
+                distortion_model = 'DISTORTION_NONE'
+            else:
+                distortions = np.array((theta,phi,R0,R1,R2))
+                distortion_model = 'DISTORTION_CAHVOR'
+
 
     m = cameramodel.cameramodel()
     m.intrinsics( (distortion_model,
@@ -177,6 +203,8 @@ def _write(f, m):
     distortion_model,intrinsics = m.intrinsics()
     if distortion_model == 'DISTORTION_CAHVOR':
         f.write("Model = CAHVOR = perspective, distortion\n")
+    elif distortion_model == 'DISTORTION_CAHVORE':
+        f.write("Model = CAHVORE3,{} = general\n".format(intrinsics[4+5+3]))
     elif re.match('DISTORTION_(OPENCV.*|NONE)', distortion_model):
         f.write("Model = CAHV = perspective, linear\n")
     else:
@@ -200,7 +228,8 @@ def _write(f, m):
     f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('H', *H))
     f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('V', *V))
 
-    if distortion_model == 'DISTORTION_CAHVOR':
+    if re.match('DISTORTION_CAHVOR', distortion_model):
+        # CAHVOR(E)
         theta,phi,R0,R1,R2 = intrinsics[4:]
 
         sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
@@ -208,6 +237,10 @@ def _write(f, m):
         R = np.array((R0, R1, R2))
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *O))
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))
+
+        if 'DISTORTION_CAHVORE' == distortion_model:
+            E = np.array((E0, E1, E2))
+            f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *E))
 
     elif re.match('DISTORTION_OPENCV*', distortion_model):
         Ndistortions = optimizer.getNdistortionParams(distortion_model)

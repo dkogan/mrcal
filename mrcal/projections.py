@@ -12,6 +12,14 @@ import utils
 import optimizer
 
 
+
+def _get_distortion_function(model):
+    if "DISTORTION_CAHVOR"  == model:       return cahvor_warp_distort
+    if "DISTORTION_CAHVORE" == model:       return cahvore_warp_distort
+    if re.match("DISTORTION_OPENCV",model): return opencv_warp_distort
+    raise Exception("Unknown distortion model {}".format(intrinsics[0]))
+
+
 def cahvor_warp_distort(p, fx, fy, cx, cy, *distortions):
     r'''Apply a CAHVOR warp to an un-distorted point
 
@@ -46,6 +54,108 @@ def cahvor_warp_distort(p, fx, fy, cx, cy, *distortions):
 
     # now I apply a normal projection to the warped 3d point p
     return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+
+@nps.broadcast_define( ((2,), (),(),(),(), (),(),(),(),(), (),(),(),(),),
+                       (2,), )
+def cahvore_warp_distort(p, fx, fy, cx, cy, *distortions):
+    r'''Apply a CAHVORE warp to an un-distorted point
+
+    Given intrinsic parameters of a CAHVORE model and a pinhole-projected
+    point(s) numpy array of shape (..., 2), return the projected point(s) that
+    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
+
+    This function has an implemented-in-python inner newton-raphson loop. AND
+    this function broadcasts in python, so it is SLOW!
+
+    '''
+
+    theta, phi, r0, r1, r2, e0, e1, e2, linearity = distortions
+
+    # p is a 2d point. Convert to a 3d point
+    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
+                        (p[..., 1] - cy)/fy,
+                        np.ones( p.shape[:-1])),
+                0, -1 )
+    o = np.array( (np.sin(phi) * np.cos(theta),
+                   np.sin(phi) * np.sin(theta),
+                   np.cos(phi) ))
+
+    # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
+    # omega/norm(p)
+    omega = nps.inner(p,o)
+
+
+
+    # Basic Computations
+
+    # Calculate initial terms
+    u = omega * o
+    l3 = p - u
+    l  = np.sqrt(nps.inner(l3, l3))
+
+    # Calculate theta using Newton's Method
+    # FROM THIS POINT ON theta HAS A DIFFERENT MEANING THAN BEFORE
+    theta = np.arctan2(l, omega)
+
+    for inewton in xrange(100):
+	# Compute terms from the current value of theta
+	costh = np.cos(theta)
+	sinth = np.sin(theta)
+	theta2 = theta * theta
+	theta3 = theta * theta2
+	theta4 = theta * theta3
+	upsilon = omega*costh + l*sinth \
+		- (1     - costh) * (e0 +  e1*theta2 +   e2*theta4) \
+		- (theta - sinth) * (      2*e1*theta  + 4*e2*theta3)
+
+	# Update theta
+	dtheta = ( \
+		omega*sinth - l*costh \
+		- (theta - sinth) * (e0 + e1*theta2 + e2*theta4) \
+		) / upsilon
+	theta -= dtheta
+
+	# Check exit criterion from last update
+	if abs(dtheta) < 1e-8:
+	    break
+    else:
+        raise Exception("too many iterations")
+
+    # got a theta
+
+    # Check the value of theta
+    if theta * abs(linearity) > np.pi/2.:
+        raise Exception("theta out of bounds")
+
+    # Approximations for small theta
+    if theta < 1e-8:
+        pass # p is good enough in this case
+
+    # Full calculations
+    else:
+	linth = linearity * theta
+	if linearity < -1e-15:
+	    chi = np.sin(linth) / linearity
+	elif linearity > 1e-15:
+	    chi = np.tan(linth) / linearity
+	else:
+	    chi = theta
+
+	chi2 = chi * chi
+	chi3 = chi * chi2
+	chi4 = chi * chi3
+
+	zetap = l / chi
+
+	mu = r0 + r1*chi2 + r2*chi4
+
+        u  = zetap * o
+        v  = (1. + mu)*l3
+        p = u + v
+
+    # now I apply a normal projection to the warped 3d point p
+    return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+
 
 def opencv_warp_distort(p, fx, fy, cx, cy, *distortions):
     r'''Apply an OPENCV warp to an un-distorted point
@@ -97,6 +207,7 @@ def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
       DISTORTION_OPENCV5
       DISTORTION_OPENCV8
       DISTORTION_CAHVOR
+      DISTORTION_CAHVORE
 
     Given intrinsic parameters of a model and a pinhole-projected point(s) numpy
     array of shape (..., 2), return the projected point(s) that we'd get without
@@ -119,12 +230,8 @@ def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     if distortion_model == "DISTORTION_NONE":
         return p
 
-    if re.search("CAHVOR", distortion_model):
-        return cahvor_warp_distort(p, fx, fy, cx, cy, *distortions)
-    elif re.search("OPENCV", distortion_model):
-        return opencv_warp_distort(p, fx, fy, cx, cy, *distortions)
-    else:
-        raise Exception("I don't know how to warp distortion_model {}".format(distortion_model))
+    distort = _get_distortion_function(intrinsics[0])
+    return distort(p, fx, fy, cx, cy, *distortions)
 
 def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a CAHVOR warp: undistort a point
@@ -139,6 +246,7 @@ def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
       DISTORTION_OPENCV5
       DISTORTION_OPENCV8
       DISTORTION_CAHVOR
+      DISTORTION_CAHVORE
 
     Given intrinsic parameters of a model and a pinhole-projected point(s) numpy
     array of shape (..., 2), return the projected point(s) that we'd get without
@@ -161,12 +269,7 @@ def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     if distortion_model == "DISTORTION_NONE":
         return p
 
-    if   re.search("CAHVOR", distortion_model): distort = cahvor_warp_distort
-    elif re.search("OPENCV", distortion_model): distort = opencv_warp_distort
-    else:
-        raise Exception("I don't know how to warp distortion_model {}".format(distortion_model))
-
-
+    distort = _get_distortion_function(distortion_model)
 
     # I could make this much more efficient: precompute lots of stuff, use
     # gradients, etc, etc. I can also optimize each point separately. But that
@@ -203,6 +306,7 @@ def project(p, distortion_model, intrinsics):
         DISTORTION_OPENCV5
         DISTORTION_OPENCV8
         DISTORTION_CAHVOR
+        DISTORTION_CAHVORE
 
     - intrinsics: a numpy array containing
       - fx
@@ -300,10 +404,8 @@ def distortion_map__to_warped(intrinsics, w, h):
     # shape: Nwidth,Nheight,2
     grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
-    if re.match("DISTORTION_CAHVOR",intrinsics[0]):
-        dgrid = cahvor_warp_distort(grid, *intrinsics[1])
-    elif re.match("DISTORTION_OPENCV",intrinsics[0]):
-        dgrid = opencv_warp_distort(grid, *intrinsics[1])
+    distort = _get_distortion_function(intrinsics[0])
+    dgrid = distort(grid, *intrinsics[1])
     return grid, dgrid
 
 def undistort_image(model, image):
