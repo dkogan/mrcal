@@ -69,6 +69,12 @@ def cahvore_warp_distort(p, fx, fy, cx, cy, *distortions):
 
     '''
 
+    # This comes from cmod_cahvore_3d_to_2d_general() in
+    # m-jplv/libcmod/cmod_cahvore.c
+    #
+    # The lack of documentation heer comes directly from the lack of
+    # documentation in that function.
+
     theta, phi, r0, r1, r2, e0, e1, e2, linearity = distortions
 
     # p is a 2d point. Convert to a 3d point
