@@ -319,7 +319,7 @@ def read_transforms(f):
                 raise("'{}' is corrupt: more than one 'ins2veh'".format(f.name))
 
             x['veh_from_ins'] = Rt_from_pq( np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)),
-                                                       float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7)))))
+                                                      float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7)))))
             continue
 
         m = re.match('\s*cam2ins\s*\[({u})\]\s*=\s*{p}\s*{q}\s*\n?$'.
@@ -331,7 +331,7 @@ def read_transforms(f):
                 raise("'{}' is corrupt: more than one 'cam2ins'[{}]".format(f.name, i))
 
             x['ins_from_camera'][i] = Rt_from_pq( np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)),
-                                                             float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8)))))
+                                                            float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8)))))
             continue
 
         raise Exception("'transforms.txt': I only know about 'ins2veh' and 'cam2ins' lines. Got '{}'".
