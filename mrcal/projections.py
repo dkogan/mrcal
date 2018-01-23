@@ -14,13 +14,13 @@ import optimizer
 
 
 def _get_distortion_function(model):
-    if "DISTORTION_CAHVOR"  == model:       return cahvor_warp_distort
-    if "DISTORTION_CAHVORE" == model:       return cahvore_warp_distort
-    if re.match("DISTORTION_OPENCV",model): return opencv_warp_distort
+    if "DISTORTION_CAHVOR"  == model:       return cahvor_distort
+    if "DISTORTION_CAHVORE" == model:       return cahvore_distort
+    if re.match("DISTORTION_OPENCV",model): return opencv_distort
     raise Exception("Unknown distortion model {}".format(intrinsics[0]))
 
 
-def cahvor_warp_distort(p, fx, fy, cx, cy, *distortions):
+def cahvor_distort(p, fx, fy, cx, cy, *distortions):
     r'''Apply a CAHVOR warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVOR model and a pinhole-projected
@@ -57,7 +57,7 @@ def cahvor_warp_distort(p, fx, fy, cx, cy, *distortions):
 
 @nps.broadcast_define( ((2,), (),(),(),(), (),(),(),(),(), (),(),(),(),),
                        (2,), )
-def cahvore_warp_distort(p, fx, fy, cx, cy, *distortions):
+def cahvore_distort(p, fx, fy, cx, cy, *distortions):
     r'''Apply a CAHVORE warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVORE model and a pinhole-projected
@@ -163,7 +163,7 @@ def cahvore_warp_distort(p, fx, fy, cx, cy, *distortions):
     return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
 
 
-def opencv_warp_distort(p, fx, fy, cx, cy, *distortions):
+def opencv_distort(p, fx, fy, cx, cy, *distortions):
     r'''Apply an OPENCV warp to an un-distorted point
 
     Given intrinsic parameters of an OPENCV model and a pinhole-projected
@@ -200,7 +200,7 @@ def opencv_warp_distort(p, fx, fy, cx, cy, *distortions):
     out = out.reshape(out_dims)
     return out
 
-def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
+def distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a distortion warp: undistort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -233,10 +233,10 @@ def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     if distortion_model == "DISTORTION_NONE":
         return p
 
-    distort = _get_distortion_function(distortion_model)
-    return distort(p, fx, fy, cx, cy, *distortions)
+    distort_function = _get_distortion_function(distortion_model)
+    return distort_function(p, fx, fy, cx, cy, *distortions)
 
-def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
+def undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a CAHVOR warp: undistort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -258,7 +258,7 @@ def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     This function can broadcast the points array.
 
     Note that this function has an iterative solver and is thus SLOW. This is
-    the "backwards" direction. Most of the time you want warp_distort().
+    the "backwards" direction. Most of the time you want distort().
 
     '''
 
@@ -272,7 +272,7 @@ def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     if distortion_model == "DISTORTION_NONE":
         return p
 
-    distort = _get_distortion_function(distortion_model)
+    distort_function = _get_distortion_function(distortion_model)
 
     # I could make this much more efficient: precompute lots of stuff, use
     # gradients, etc, etc. I can also optimize each point separately. But that
@@ -281,7 +281,7 @@ def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     def f(p0):
         '''Optimization functions'''
         N = len(p0.ravel()) / 2
-        p1 = distort(p0.reshape(N,2), fx,fy,cx,cy, *distortions)
+        p1 = distort_function(p0.reshape(N,2), fx,fy,cx,cy, *distortions)
         return p1.ravel() - p.ravel()
 
     p1 = scipy.optimize.leastsq(f, p.ravel())[0]
@@ -331,7 +331,7 @@ def project(p, distortion_model, intrinsics):
     def project_one_cam(intrinsics, p):
 
         p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
-        return warp_distort(p2d, distortion_model, *intrinsics)
+        return distort(p2d, distortion_model, *intrinsics)
 
 
     # manually broadcast over intrinsics[]. The broadcast over p happens
@@ -374,7 +374,7 @@ def unproject(p, distortion_model, fx, fy, cx, cy, *distortions):
         return np.zeros(s[:-1] + (3,))
 
 
-    p = warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
+    p = undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
 
     # shape = (..., 2)
     P = (p - np.array((cx,cy))) / np.array((fx,fy))
@@ -407,8 +407,8 @@ def distortion_map__to_warped(intrinsics, w, h):
     # shape: Nwidth,Nheight,2
     grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
-    distort = _get_distortion_function(intrinsics[0])
-    dgrid = distort(grid, *intrinsics[1])
+    distort_function = _get_distortion_function(intrinsics[0])
+    dgrid = distort_function(grid, *intrinsics[1])
     return grid, dgrid
 
 def undistort_image(model, image):
