@@ -200,8 +200,8 @@ def opencv_distort(p, fx, fy, cx, cy, *distortions):
     out = out.reshape(out_dims)
     return out
 
-def distort(p, distortion_model, fx, fy, cx, cy, *distortions):
-    r'''Un-apply a distortion warp: undistort a point
+def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
+    r'''Apply a distortion warp: distort a point
 
     This is a model-generic function. We use the given distortion_model: a
     string that says what the values in 'distortions' mean. The supported values
@@ -216,7 +216,7 @@ def distort(p, distortion_model, fx, fy, cx, cy, *distortions):
       DISTORTION_CAHVORE
 
     Given intrinsic parameters of a model and a pinhole-projected point(s) numpy
-    array of shape (..., 2), return the projected point(s) that we'd get without
+    array of shape (..., 2), return the projected point(s) that we'd get with
     distortion. We ASSUME THE SAME fx,fy,cx,cy
 
     This function can broadcast the points array.
@@ -236,7 +236,7 @@ def distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     distort_function = _get_distortion_function(distortion_model)
     return distort_function(p, fx, fy, cx, cy, *distortions)
 
-def undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
+def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a CAHVOR warp: undistort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -251,9 +251,9 @@ def undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
       DISTORTION_CAHVOR
       DISTORTION_CAHVORE
 
-    Given intrinsic parameters of a model and a pinhole-projected point(s) numpy
-    array of shape (..., 2), return the projected point(s) that we'd get without
-    distortion. We ASSUME THE SAME fx,fy,cx,cy
+    Given intrinsic parameters of a model and a projected and distorted point(s)
+    numpy array of shape (..., 2), return the projected point(s) that we'd get
+    without distortion. We ASSUME THE SAME fx,fy,cx,cy
 
     This function can broadcast the points array.
 
@@ -331,7 +331,7 @@ def project(p, distortion_model, intrinsics):
     def project_one_cam(intrinsics, p):
 
         p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
-        return distort(p2d, distortion_model, *intrinsics)
+        return _distort(p2d, intrinsics[0], *intrinsics)
 
 
     # manually broadcast over intrinsics[]. The broadcast over p happens
@@ -374,7 +374,7 @@ def unproject(p, distortion_model, fx, fy, cx, cy, *distortions):
         return np.zeros(s[:-1] + (3,))
 
 
-    p = undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
+    p = _undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
 
     # shape = (..., 2)
     P = (p - np.array((cx,cy))) / np.array((fx,fy))
