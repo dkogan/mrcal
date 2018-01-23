@@ -221,9 +221,6 @@ def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
 
     This function can broadcast the points array.
 
-    Note that this function has an iterative solver and is thus SLOW. This is
-    the "backwards" direction. Most of the time you want ..._warp_distort().
-
     '''
 
     if p is None or p.size == 0: return p
