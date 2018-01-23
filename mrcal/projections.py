@@ -289,15 +289,31 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
 
 # @nps.broadcast_define( ((3,),('Nintrinsics',)),
 #                        (2,), )
-def project(p, distortion_model, intrinsics):
+def project(p, intrinsics_or_distortionmodel, intrinsics=None):
     r'''Projects 3D point(s) using the given camera intrinsics
 
-    This function is broadcastable, but not with nps.broadcast_define() because
-    the python loop-over-p could be slow. The computations here are simple
-    enough for numpy to handle all the broadcasting at the C level, so I let it
-    do that.
+    This function is broadcastable (over both points and intrinsics), but not
+    with nps.broadcast_define() because the python loop over p could be slow.
+    The computations here are simple enough for numpy to handle all the
+    broadcasting at the C level, so I let it do that.
 
-    Inputs:
+    Two interface types are supported:
+
+    - project(p, distortion_model, intrinsics)
+
+      Here 'intrinsics' are the parameters in a numpy array, so this invocation
+      allows broadcasting over these intrinsics
+
+    - project(p, intrinsics)
+
+      Here intrinsics is a tuple (distortion_model, intrinsics_parameters), so
+      you can do something like
+
+        project(p, cameramodel("abc.cameramodel").intrinsics())
+
+    Both invocations ingest three pieces of data:
+
+    - p 3D point(s) in the camera coord system
 
     - distortion_model: a string that says what the values in the intrinsics
       array mean. The supported values are reported by
@@ -318,9 +334,13 @@ def project(p, distortion_model, intrinsics):
       - cy
       - distortion-specific values
 
-    - p a 3D point in the camera coord system
-
     '''
+
+    if intrinsics is None:
+        distortion_model = intrinsics_or_distortionmodel[0]
+        intrinsics       = intrinsics_or_distortionmodel[1]
+    else:
+        distortion_model = intrinsics_or_distortionmodel
 
     if p is None: return p
     if p.size == 0:
@@ -360,13 +380,59 @@ def project(p, distortion_model, intrinsics):
                            for i in xrange(Nbroadcast)]),
                 0, idim_broadcast )
 
-def unproject(p, distortion_model, fx, fy, cx, cy, *distortions):
+def unproject(p, intrinsics_or_distortionmodel, intrinsics=None):
     r'''Computes unit vector(s) corresponding to pixel observation(s)
 
     This function is broadcastable over p (using numpy primitives intead of
     nps.broadcast_define() to avoid a slow python broadcasting loop).
 
+    This function is NOT broadcastable over the intrinsics
+
+    Two interface types are supported:
+
+    - unproject(p, distortion_model, intrinsics)
+
+      Here 'intrinsics' are the parameters in a numpy array, so this invocation
+      allows broadcasting over these intrinsics
+
+    - unproject(p, intrinsics)
+
+      Here intrinsics is a tuple (distortion_model, intrinsics_parameters), so
+      you can do something like
+
+        unproject(p, cameramodel("abc.cameramodel").intrinsics())
+
+    Both invocations ingest three pieces of data:
+
+    - p 2D pixel coordinate(s)
+
+    - distortion_model: a string that says what the values in the intrinsics
+      array mean. The supported values are reported by
+      mrcal.optimizer.getSupportedDistortionModels(). At the time of this
+      writing, the supported values are
+
+        DISTORTION_NONE
+        DISTORTION_OPENCV4
+        DISTORTION_OPENCV5
+        DISTORTION_OPENCV8
+        DISTORTION_CAHVOR
+        DISTORTION_CAHVORE
+
+    - intrinsics: a numpy array containing
+      - fx
+      - fy
+      - cx
+      - cy
+      - distortion-specific values
+
     '''
+
+
+    if intrinsics is None:
+        distortion_model = intrinsics_or_distortionmodel[0]
+        intrinsics       = intrinsics_or_distortionmodel[1]
+    else:
+        distortion_model = intrinsics_or_distortionmodel
 
     if p is None: return p
     if p.size == 0:
@@ -374,7 +440,7 @@ def unproject(p, distortion_model, fx, fy, cx, cy, *distortions):
         return np.zeros(s[:-1] + (3,))
 
 
-    p = _undistort(p, distortion_model, fx, fy, cx, cy, *distortions)
+    p = _undistort(p, distortion_model, *intrinsics)
 
     # shape = (..., 2)
     P = (p - np.array((cx,cy))) / np.array((fx,fy))
