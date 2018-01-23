@@ -1,3 +1,14 @@
+mrcal (0.9) unstable; urgency=medium
+
+  * Cleaned up projections.(un)distort and (un)project
+
+    - (un)distort are no longer public, since (un)project is similar and
+      much clearer in what it does
+
+    - (un)project argument-parsing normalized and simplified
+
+ -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Tue, 23 Jan 2018 12:11:50 -0800
+
 mrcal (0.8) unstable; urgency=medium
 
   * added utility function to read correspondences from hugin
