@@ -351,7 +351,7 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None):
     def project_one_cam(intrinsics, p):
 
         p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
-        return _distort(p2d, intrinsics[0], *intrinsics)
+        return _distort(p2d, distortion_model, *intrinsics)
 
 
     # manually broadcast over intrinsics[]. The broadcast over p happens
