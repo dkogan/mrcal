@@ -5,6 +5,7 @@ import numpysane as nps
 import sys
 import argparse
 import re
+import os.path
 
 from mrcal import cameramodel
 from mrcal import cahvor
@@ -56,6 +57,9 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
 
     if args.dir:
         transforms = '{}/transforms.txt'.format(args.dir[0])
+        if not os.path.isfile(transforms):
+            transforms = None
+
         cahvors = { 0: ['{}/camera0-0.cahvor'.format(args.dir[0]),
                         '{}/camera0-1.cahvor'.format(args.dir[0])],
                     1: ['{}/camera1-0.cahvor'.format(args.dir[0]),
@@ -63,9 +67,12 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
 
     else:
         transforms = [f for f in args.cal_file if re.match('(?:.*/)?transforms.txt$', f.name)]
-        if len(transforms) != 1:
-            raise Exception("Exactly one transforms.txt should have been given")
-        transforms = transforms[0]
+        if len(transforms) > 1:
+            raise Exception("At most one transforms.txt should have been given")
+        try:
+            transforms = transforms[0]
+        except:
+            transforms = None
 
         cahvors = {}
         for f in args.cal_file:
@@ -108,7 +115,15 @@ rot.{uxyz}. Exclusive with --wld_from_ins''')
 
 
 def parse_and_consolidate(transforms, models):
-    transforms = cahvor.read_transforms(transforms)
+    if transforms is not None:
+        transforms = cahvor.read_transforms(transforms)
+    else:
+        Rt_ident = nps.glue( np.eye(3), np.zeros(3), axis=-2)
+        # no transforms.txt. Use an identity transform for everything
+        transforms = {'ins_from_camera': {},
+                      'veh_from_ins': Rt_ident }
+        for i_pair in models.keys():
+            transforms['ins_from_camera'][i_pair] = Rt_ident
 
     for i_pair in models.keys():
         models[i_pair] = [cahvor.read(m) for m in models[i_pair]]
