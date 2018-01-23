@@ -101,7 +101,7 @@ def _read(f):
         # CAHVOR(E)
 
         if 'Model' not in x:
-            raise Exception('Cahvor file {} LOOKS like a cahvor(e), but lacks the "Model = ..."'.format(f.name))
+            x['Model'] = ''
 
         m = re.match('CAHVORE3,([0-9\.e-]+)\s*=\s*general',x['Model'])
         if m:
