@@ -1058,6 +1058,9 @@ double mrcal_optimize( // out, in (seed on input)
 
                            void*           cookie __attribute__ ((unused)) )
     {
+        double norm2_error = 0.0;
+
+
         // I could unpack_solver_state() here, but I don't want to waste the
         // memory, so I scale stuff as I need it
 
@@ -1162,6 +1165,7 @@ double mrcal_optimize( // out, in (seed on input)
 
                         Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
+                        norm2_error += err*err;
 
                         // I want these gradient values to be computed in
                         // monotonically-increasing order of variable index. I don't
@@ -1224,6 +1228,7 @@ double mrcal_optimize( // out, in (seed on input)
 
                         Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
+                        norm2_error += err*err;
 
                         if( optimization_variable_choice.do_optimize_intrinsic_core )
                             for(int i=0; i<N_INTRINSICS_CORE; i++)
@@ -1334,6 +1339,7 @@ double mrcal_optimize( // out, in (seed on input)
 
                     Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
+                    norm2_error += err*err;
 
                     // I want these gradient values to be computed in
                     // monotonically-increasing order of variable index. I don't
@@ -1389,6 +1395,7 @@ double mrcal_optimize( // out, in (seed on input)
 
                         Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
+                        norm2_error += err*err;
 
                         double scale = SCALE_POSITION_POINT * DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M/dist;
                         STORE_JACOBIAN3( i_var_point,
@@ -1429,6 +1436,7 @@ double mrcal_optimize( // out, in (seed on input)
 
                         Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
+                        norm2_error += err*err;
 
                         // pt_cam.x       = Rc[row0]*point*SCALE + tc
                         // d(pt_cam.x)/dr = d(Rc[row0])/drc*point*SCALE
@@ -1494,6 +1502,7 @@ double mrcal_optimize( // out, in (seed on input)
 
                     Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
+                    norm2_error += err*err;
 
                     if( optimization_variable_choice.do_optimize_intrinsic_core )
                         for(int i=0; i<N_INTRINSICS_CORE; i++)
@@ -1528,6 +1537,7 @@ double mrcal_optimize( // out, in (seed on input)
 
                     Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
+                    norm2_error += err*err;
 
                     if(i_camera != 0)
                     {
@@ -1552,6 +1562,10 @@ double mrcal_optimize( // out, in (seed on input)
             // needs to try again with a smaller step
             if( have_invalid_point )
                 *x *= 1e6;
+
+            // this is just for diagnostics. Should probably do this only in a
+            // #if of some sort. This sqrt() does no useful work
+            fprintf(stderr, "RMS: %f\n", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
         }
     }
 
