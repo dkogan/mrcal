@@ -233,7 +233,7 @@ def warp_distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     if distortion_model == "DISTORTION_NONE":
         return p
 
-    distort = _get_distortion_function(intrinsics[0])
+    distort = _get_distortion_function(distortion_model)
     return distort(p, fx, fy, cx, cy, *distortions)
 
 def warp_undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
