@@ -439,8 +439,9 @@ def unproject(p, intrinsics_or_distortionmodel, intrinsics=None):
         s = p.shape
         return np.zeros(s[:-1] + (3,))
 
-
     p = _undistort(p, distortion_model, *intrinsics)
+
+    (fx, fy, cx, cy) = intrinsics[:4]
 
     # shape = (..., 2)
     P = (p - np.array((cx,cy))) / np.array((fx,fy))
