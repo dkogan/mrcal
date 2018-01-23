@@ -1017,9 +1017,9 @@ double mrcal_optimize( // out, in (seed on input)
     // These were derived empirically, seeking high accuracy, fast convergence
     // and without serious concern for performance. I looked only at a single
     // frame. Tweak them please
-    dogleg_setThresholds(0,1e-15,1e-15);
-    dogleg_setMaxIterations(1000);
-    dogleg_setTrustregionUpdateParameters(0.1, 0.15, 4.0, 0.75);
+    dogleg_setThresholds(0, 1e-6, 0);
+    dogleg_setMaxIterations(300);
+    //dogleg_setTrustregionUpdateParameters(0.1, 0.15, 4.0, 0.75);
 
 
     const int Nstate        = get_Nstate(Ncameras, Nframes, Npoints,
