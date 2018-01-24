@@ -107,7 +107,7 @@ given a time-series of chessboard observations''')
              'focal_estimate': args.focal[0],
              'imager_size':    args.imagersize,
              'dir_to':         args.out[0],
-             'calibration_object_spacing': args.object_spacing[0]}
+             'calibration_object_spacing': args.object_spacing[0],
              'calibration_object_width_n': args.object_width_n[0]}
 
 
