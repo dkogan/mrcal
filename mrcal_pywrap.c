@@ -25,6 +25,7 @@ static bool optimize_validate_args( // out
                                     PyArrayObject* indices_point_camera_points,
                                     PyObject*      skipped_observations_board,
                                     PyObject*      skipped_observations_point,
+                                    PyObject*      calibration_object_spacing,
                                     PyObject*      distortion_model_string)
 {
     if( PyArray_NDIM(intrinsics) != 2 )
@@ -267,6 +268,26 @@ static bool optimize_validate_args( // out
             iskip_last = iskip;
         }
     }
+
+    // calibration_object_spacing must be > 0 OR we have to not be using a
+    // calibration board
+    if( NobservationsBoard > 0 )
+    {
+        if(!PyFloat_Check(calibration_object_spacing))
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
+            return false;
+        }
+
+        double c_calibration_object_spacing =
+            c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
+        if( c_calibration_object_spacing <= 0.0 )
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -389,6 +410,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "do_optimize_intrinsic_distortions",
                         "skipped_observations_board",
                         "skipped_observations_point",
+                        "calibration_object_spacing",
+
                         NULL};
 
     PyObject* distortion_model_string           = NULL;
@@ -396,8 +419,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* do_optimize_intrinsic_distortions = Py_True;
     PyObject* skipped_observations_board        = NULL;
     PyObject* skipped_observations_point        = NULL;
+    PyObject* calibration_object_spacing        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOO",
                                      keywords,
                                      PyArray_Converter, &intrinsics,
                                      PyArray_Converter, &extrinsics,
@@ -413,7 +437,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &do_optimize_intrinsic_core,
                                      &do_optimize_intrinsic_distortions,
                                      &skipped_observations_board,
-                                     &skipped_observations_point))
+                                     &skipped_observations_point,
+                                     &calibration_object_spacing))
         goto done;
 
     enum distortion_model_t distortion_model;
@@ -429,6 +454,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                 indices_point_camera_points,
                                 skipped_observations_board,
                                 skipped_observations_point,
+                                calibration_object_spacing,
                                 distortion_model_string))
         goto done;
 
@@ -606,6 +632,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             }
         }
 
+        double c_calibration_object_spacing = 0.0;
+        if(PyFloat_Check(calibration_object_spacing))
+            c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
+
+
 
 
 
@@ -627,7 +658,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
                         false,
                         distortion_model,
-                        optimization_variable_choice);
+                        optimization_variable_choice,
+
+                        c_calibration_object_spacing);
     }
 
     Py_INCREF(Py_None);

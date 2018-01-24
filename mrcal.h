@@ -10,7 +10,10 @@
 #warning generalize to other calibration objects
 #define CALOBJECT_W                    10
 #define NUM_POINTS_IN_CALOBJECT        (CALOBJECT_W*CALOBJECT_W)
-#define CALIBRATION_OBJECT_DOT_SPACING (4.0 * 2.54 / 100.0) /* 4 inches */
+
+
+
+
 
 
 // unconstrained 6DOF pose containing a rodrigues rotation and a translation
@@ -119,4 +122,6 @@ double mrcal_optimize( // out, in (seed on input)
 
                       bool check_gradient,
                       enum distortion_model_t distortion_model,
-                      struct mrcal_variable_select optimization_variable_choice );
+                      struct mrcal_variable_select optimization_variable_choice,
+
+                      double calibration_object_spacing);

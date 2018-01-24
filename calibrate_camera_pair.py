@@ -82,11 +82,18 @@ given a time-series of chessboard observations''')
                         required=True,
                         metavar='DIR',
                         help='Directory for the output')
+    parser.add_argument('--object-spacing',
+                        nargs=1,
+                        required=True,
+                        type=float,
+                        help='Width of each square in the calibration board, in meters')
+
     parser.add_argument('datafile',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("datafile must be an existing readable file, but got '{}".format(f)),
                         nargs=1,
                         help='asciilog file that describes the chessboard corner detections')
+
 
     args = parser.parse_args()
 
@@ -94,7 +101,8 @@ given a time-series of chessboard observations''')
              'pair_want':      args.pair[0],
              'focal_estimate': args.focal[0],
              'imager_size':    args.imagersize,
-             'dir_to':         args.out[0] }
+             'dir_to':         args.out[0],
+             'calibration_object_spacing': args.object_spacing[0]}
 
 
 
@@ -458,15 +466,17 @@ def solve_monocular(inputs, distortions=False):
 
     distortion_model = "DISTORTION_NONE"
     optimizer.optimize(intrinsics, extrinsics, frames, points,
-                   observations, inputs['indices_frame_camera'],
-                   observations_point, indices_point_camera_points,
-                   distortion_model, False, False )
+                       observations, inputs['indices_frame_camera'],
+                       observations_point, indices_point_camera_points,
+                       distortion_model, False, False,
+                       calibration_object_spacing=calibration_object_spacing)
 
     distortion_model = "DISTORTION_NONE"
     optimizer.optimize(intrinsics, extrinsics, frames, points,
-                   observations, inputs['indices_frame_camera'],
-                   observations_point, indices_point_camera_points,
-                   distortion_model, True, False )
+                       observations, inputs['indices_frame_camera'],
+                       observations_point, indices_point_camera_points,
+                       distortion_model, True, False,
+                       calibration_object_spacing=calibration_object_spacing)
 
     return intrinsics,frames
 
@@ -824,15 +834,17 @@ points                      = np.zeros((0,3), dtype=float)
 
 distortion_model = "DISTORTION_NONE"
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               observations, inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, False, False )
+                   observations, inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, False, False,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 
 distortion_model = "DISTORTION_NONE"
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               observations, inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, True, False )
+                   observations, inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, True, False,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 
 
 print "done with {}".format(distortion_model)
@@ -843,48 +855,55 @@ Ndistortions = optimizer.getNdistortionParams(distortion_model)
 Ndistortions_delta = Ndistortions - Ndistortions0
 intrinsics = nps.glue( intrinsics, np.random.random((inputs['Ncameras'], Ndistortions_delta))*1e-5, axis=-1 )
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               inputs['dots'], inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, False, True)
+                   inputs['dots'], inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, False, True,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               inputs['dots'], inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, True, False)
+                   inputs['dots'], inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, True, False,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               inputs['dots'], inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, False, True)
+                   inputs['dots'], inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, False, True,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               inputs['dots'], inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, True, False)
+                   inputs['dots'], inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, True, False,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               inputs['dots'], inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, False, True)
+                   inputs['dots'], inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, False, True,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               inputs['dots'], inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, True, False)
+                   inputs['dots'], inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, True, False,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
-               inputs['dots'], inputs['indices_frame_camera'],
-               observations_point, indices_point_camera_points,
-               distortion_model, False, True)
+                   inputs['dots'], inputs['indices_frame_camera'],
+                   observations_point, indices_point_camera_points,
+                   distortion_model, False, True,
+                   calibration_object_spacing=args['calibration_object_spacing'])
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 

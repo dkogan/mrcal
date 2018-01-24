@@ -130,7 +130,9 @@ int main(int argc, char* argv[] )
 
                     true,
                     distortion_model,
-                    optimization_variable_choice);
+                    optimization_variable_choice,
+
+                    1.0);
 
     return 0;
 }

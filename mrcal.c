@@ -136,13 +136,14 @@ static int getNintrinsicOptimizationParams(struct mrcal_variable_select optimiza
     return N;
 }
 
-static union point3_t get_refobject_point(int i_pt)
+static union point3_t get_refobject_point(int i_pt,
+                                          double calibration_object_spacing)
 {
     int y = i_pt / CALOBJECT_W;
     int x = i_pt - y*CALOBJECT_W;
 
-    union point3_t pt = {.x = (double)x* CALIBRATION_OBJECT_DOT_SPACING,
-                         .y = (double)y* CALIBRATION_OBJECT_DOT_SPACING,
+    union point3_t pt = {.x = (double)x* calibration_object_spacing,
+                         .y = (double)y* calibration_object_spacing,
                          .z = 0.0 };
     return pt;
 }
@@ -238,7 +239,9 @@ static union point2_t project( // out
                               // thus not filled-in, and
                               // p_frame_rt_unitscale[0..2] will not be
                               // referenced
-                              int i_pt )
+                              int i_pt,
+
+                              double calibration_object_spacing)
 {
     int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
 
@@ -299,7 +302,10 @@ static union point2_t project( // out
     CvMat tf = cvMat(3,1, CV_64FC1, &_tf);
     CvMat rf = cvMat(3,1, CV_64FC1, &_rf);
 
-    union point3_t pt_ref = i_pt >= 0 ? get_refobject_point(i_pt) : (union point3_t){};
+    union point3_t pt_ref =
+        i_pt >= 0 ? get_refobject_point(i_pt,
+                                        calibration_object_spacing)
+        : (union point3_t){};
 
     if(!camera_at_identity)
     {
@@ -1007,7 +1013,9 @@ double mrcal_optimize( // out, in (seed on input)
 
                       bool check_gradient,
                       enum distortion_model_t distortion_model,
-                      struct mrcal_variable_select optimization_variable_choice )
+                      struct mrcal_variable_select optimization_variable_choice,
+
+                      double calibration_object_spacing)
 {
 #if defined VERBOSE && VERBOSE
     dogleg_setDebug(100);
@@ -1143,7 +1151,8 @@ double mrcal_optimize( // out, in (seed on input)
                             p_camera_rt, p_frame_rt,
                             i_camera == 0,
                             distortion_model, optimization_variable_choice,
-                            i_pt);
+                            i_pt,
+                            calibration_object_spacing);
 
                 const union point2_t* pt_observed = &observation->px[i_pt];
 
@@ -1325,7 +1334,8 @@ double mrcal_optimize( // out, in (seed on input)
 
                         i_camera == 0,
                         distortion_model, optimization_variable_choice,
-                        -1);
+                        -1,
+                        calibration_object_spacing);
 
             const union point2_t* pt_observed = &observation->px;
 
