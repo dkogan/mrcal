@@ -96,3 +96,7 @@ Args:
 
 - calibration_object_spacing: the width of each square in a calibration
   board. Can be omitted if we have no board observations, just points
+
+- calibration_object_width_n: the calibration board is square, with this many
+  points on each side. Can be omitted if we have no board observations, just
+  points

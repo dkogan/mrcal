@@ -88,7 +88,8 @@ int main(int argc, char* argv[] )
 
     // Dummy point observations. All use the same array, but this doesn't matter
     // for this test anyway
-    union point2_t observations_px[NUM_POINTS_IN_CALOBJECT] = {};
+#define calibration_object_width_n 10 /* arbitrary */
+    union point2_t observations_px[calibration_object_width_n*calibration_object_width_n] = {};
 
     struct observation_board_t observations_board[] =
         { {.i_camera = 0, .i_frame = 0, .px = observations_px},
@@ -132,7 +133,7 @@ int main(int argc, char* argv[] )
                     distortion_model,
                     optimization_variable_choice,
 
-                    1.0);
+                    1.0, calibration_object_width_n);
 
     return 0;
 }

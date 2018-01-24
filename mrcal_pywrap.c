@@ -8,8 +8,6 @@
 #include "mrcal.h"
 
 
-#define Nwant CALOBJECT_W
-
 
 static bool optimize_validate_args( // out
                                     enum distortion_model_t* distortion_model,
@@ -26,6 +24,7 @@ static bool optimize_validate_args( // out
                                     PyObject*      skipped_observations_board,
                                     PyObject*      skipped_observations_point,
                                     PyObject*      calibration_object_spacing,
+                                    PyObject*      calibration_object_width_n,
                                     PyObject*      distortion_model_string)
 {
     if( PyArray_NDIM(intrinsics) != 2 )
@@ -109,11 +108,47 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(indices_frame_camera_board)[0]);
         return false;
     }
-    if( Nwant != PyArray_DIMS(observations_board)[1] ||
-        Nwant != PyArray_DIMS(observations_board)[2] ||
+
+    // calibration_object_spacing and calibration_object_width_n must be > 0 OR
+    // we have to not be using a calibration board
+    int c_calibration_object_width_n = 0;
+    if( NobservationsBoard > 0 )
+    {
+        if(!PyFloat_Check(calibration_object_spacing))
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
+            return false;
+        }
+
+        double c_calibration_object_spacing =
+            PyFloat_AS_DOUBLE(calibration_object_spacing);
+        if( c_calibration_object_spacing <= 0.0 )
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
+            return false;
+        }
+
+        if(!PyInt_Check(calibration_object_width_n))
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_width_n MUST be a valid int > 0");
+            return false;
+        }
+
+        c_calibration_object_width_n = (int)PyInt_AS_LONG(calibration_object_width_n);
+        if( c_calibration_object_width_n <= 0 )
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_width_n MUST be a valid int > 0");
+            return false;
+        }
+    }
+
+
+    if( c_calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
+        c_calibration_object_width_n != PyArray_DIMS(observations_board)[2] ||
         2  != PyArray_DIMS(observations_board)[3] )
     {
-        PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (Nwant,Nwant,2). Instead got (%ld,%ld,%ld)",
+        PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,2). Instead got (%ld,%ld,%ld)",
+                     c_calibration_object_width_n, c_calibration_object_width_n,
                      PyArray_DIMS(observations_board)[1],
                      PyArray_DIMS(observations_board)[2],
                      PyArray_DIMS(observations_board)[3]);
@@ -269,25 +304,6 @@ static bool optimize_validate_args( // out
         }
     }
 
-    // calibration_object_spacing must be > 0 OR we have to not be using a
-    // calibration board
-    if( NobservationsBoard > 0 )
-    {
-        if(!PyFloat_Check(calibration_object_spacing))
-        {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
-            return false;
-        }
-
-        double c_calibration_object_spacing =
-            c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
-        if( c_calibration_object_spacing <= 0.0 )
-        {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -411,6 +427,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "skipped_observations_board",
                         "skipped_observations_point",
                         "calibration_object_spacing",
+                        "calibration_object_width_n",
 
                         NULL};
 
@@ -420,8 +437,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* skipped_observations_board        = NULL;
     PyObject* skipped_observations_point        = NULL;
     PyObject* calibration_object_spacing        = NULL;
+    PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOOO",
                                      keywords,
                                      PyArray_Converter, &intrinsics,
                                      PyArray_Converter, &extrinsics,
@@ -438,7 +456,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &do_optimize_intrinsic_distortions,
                                      &skipped_observations_board,
                                      &skipped_observations_point,
-                                     &calibration_object_spacing))
+                                     &calibration_object_spacing,
+                                     &calibration_object_width_n))
         goto done;
 
     enum distortion_model_t distortion_model;
@@ -455,6 +474,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                 skipped_observations_board,
                                 skipped_observations_point,
                                 calibration_object_spacing,
+                                calibration_object_width_n,
                                 distortion_model_string))
         goto done;
 
@@ -464,6 +484,15 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         int Npoints            = PyArray_DIMS(points)[0];
         int NobservationsBoard = PyArray_DIMS(observations_board)[0];
         int NobservationsPoint = PyArray_DIMS(observations_point)[0];
+
+
+        double c_calibration_object_spacing = 0.0;
+        if(PyFloat_Check(calibration_object_spacing))
+            c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
+        int c_calibration_object_width_n = 0;
+        if(PyInt_Check(calibration_object_width_n))
+            c_calibration_object_width_n = (int)PyInt_AS_LONG(calibration_object_width_n);
+
 
         // The checks in optimize_validate_args() make sure these casts are kosher
         struct intrinsics_t* c_intrinsics = (struct intrinsics_t*)PyArray_DATA(intrinsics);
@@ -496,7 +525,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
             c_observations_board[i_observation].i_camera         = i_camera;
             c_observations_board[i_observation].i_frame          = i_frame;
-            c_observations_board[i_observation].px               = &((union point2_t*)PyArray_DATA(observations_board))[Nwant*Nwant*i_observation];
+            c_observations_board[i_observation].px               = &((union point2_t*)PyArray_DATA(observations_board))[c_calibration_object_width_n*c_calibration_object_width_n*i_observation];
 
             // I skip this frame if I skip ALL observations of this frame
             if( i_frame_current_skipped >= 0 &&
@@ -632,10 +661,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             }
         }
 
-        double c_calibration_object_spacing = 0.0;
-        if(PyFloat_Check(calibration_object_spacing))
-            c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
-
 
 
 
@@ -660,7 +685,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         distortion_model,
                         optimization_variable_choice,
 
-                        c_calibration_object_spacing);
+                        c_calibration_object_spacing,
+                        c_calibration_object_width_n);
     }
 
     Py_INCREF(Py_None);

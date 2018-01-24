@@ -7,12 +7,6 @@
 
 
 
-#warning generalize to other calibration objects
-#define CALOBJECT_W                    10
-#define NUM_POINTS_IN_CALOBJECT        (CALOBJECT_W*CALOBJECT_W)
-
-
-
 
 
 
@@ -124,4 +118,5 @@ double mrcal_optimize( // out, in (seed on input)
                       enum distortion_model_t distortion_model,
                       struct mrcal_variable_select optimization_variable_choice,
 
-                      double calibration_object_spacing);
+                      double calibration_object_spacing,
+                      int calibration_object_width_n);

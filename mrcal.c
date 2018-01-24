@@ -137,10 +137,11 @@ static int getNintrinsicOptimizationParams(struct mrcal_variable_select optimiza
 }
 
 static union point3_t get_refobject_point(int i_pt,
-                                          double calibration_object_spacing)
+                                          double calibration_object_spacing,
+                                          int    calibration_object_width_n)
 {
-    int y = i_pt / CALOBJECT_W;
-    int x = i_pt - y*CALOBJECT_W;
+    int y = i_pt / calibration_object_width_n;
+    int x = i_pt - y*calibration_object_width_n;
 
     union point3_t pt = {.x = (double)x* calibration_object_spacing,
                          .y = (double)y* calibration_object_spacing,
@@ -161,10 +162,14 @@ static int get_Nstate(int Ncameras, int Nframes, int Npoints,
 
 static int get_Nmeasurements(int NobservationsBoard,
                              const struct observation_point_t* observations_point,
-                             int NobservationsPoint)
+                             int NobservationsPoint,
+                             int calibration_object_width_n)
 {
     // *2 because I have separate x and y measurements
-    int Nmeas = NobservationsBoard * NUM_POINTS_IN_CALOBJECT * 2;
+    int Nmeas =
+        NobservationsBoard *
+        calibration_object_width_n*calibration_object_width_n *
+        2;
 
     // *2 because I have separate x and y measurements
     Nmeas += NobservationsPoint * 2;
@@ -180,7 +185,8 @@ static int get_N_j_nonzero( const struct observation_board_t* observations_board
                             const struct observation_point_t* observations_point,
                             int NobservationsPoint,
                             struct mrcal_variable_select optimization_variable_choice,
-                            enum distortion_model_t distortion_model)
+                            enum distortion_model_t distortion_model,
+                            int calibration_object_width_n)
 {
     // each observation depends on all the parameters for THAT frame and for
     // THAT camera. Camera0 doesn't have extrinsics, so I need to loop through
@@ -193,7 +199,7 @@ static int get_N_j_nonzero( const struct observation_board_t* observations_board
     for(int i=0; i<NobservationsBoard; i++)
         if(observations_board[i].i_camera == 0)
             N -= 6;
-    N *= NUM_POINTS_IN_CALOBJECT*2; // *2 because I have separate x and y measurements
+    N *= 2*calibration_object_width_n*calibration_object_width_n; // *2 because I have separate x and y measurements
 
     // Now the point observations
     for(int i=0; i<NobservationsPoint; i++)
@@ -241,7 +247,8 @@ static union point2_t project( // out
                               // referenced
                               int i_pt,
 
-                              double calibration_object_spacing)
+                              double calibration_object_spacing,
+                              int    calibration_object_width_n)
 {
     int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
 
@@ -304,7 +311,8 @@ static union point2_t project( // out
 
     union point3_t pt_ref =
         i_pt >= 0 ? get_refobject_point(i_pt,
-                                        calibration_object_spacing)
+                                        calibration_object_spacing,
+                                        calibration_object_width_n)
         : (union point3_t){};
 
     if(!camera_at_identity)
@@ -1015,7 +1023,8 @@ double mrcal_optimize( // out, in (seed on input)
                       enum distortion_model_t distortion_model,
                       struct mrcal_variable_select optimization_variable_choice,
 
-                      double calibration_object_spacing)
+                      double calibration_object_spacing,
+                      int calibration_object_width_n)
 {
 #if defined VERBOSE && VERBOSE
     dogleg_setDebug(100);
@@ -1034,11 +1043,13 @@ double mrcal_optimize( // out, in (seed on input)
                                          optimization_variable_choice,
                                          distortion_model);
     const int Nmeasurements = get_Nmeasurements(NobservationsBoard,
-                                                observations_point, NobservationsPoint);
+                                                observations_point, NobservationsPoint,
+                                                calibration_object_width_n);
     const int N_j_nonzero   = get_N_j_nonzero(observations_board, NobservationsBoard,
                                               observations_point, NobservationsPoint,
                                               optimization_variable_choice,
-                                              distortion_model);
+                                              distortion_model,
+                                              calibration_object_width_n);
 
     const int Ndistortions = mrcal_getNdistortionParams(distortion_model);
 
@@ -1127,7 +1138,7 @@ double mrcal_optimize( // out, in (seed on input)
                 p_intrinsic_distortions = &intrinsics_unitscale[i_camera * getNintrinsicParams(distortion_model) + N_INTRINSICS_CORE];
 
             for(int i_pt=0;
-                i_pt < NUM_POINTS_IN_CALOBJECT;
+                i_pt < calibration_object_width_n*calibration_object_width_n;
                 i_pt++)
             {
                 // these are computed in respect to the unit-scale parameters
@@ -1152,7 +1163,8 @@ double mrcal_optimize( // out, in (seed on input)
                             i_camera == 0,
                             distortion_model, optimization_variable_choice,
                             i_pt,
-                            calibration_object_spacing);
+                            calibration_object_spacing,
+                            calibration_object_width_n);
 
                 const union point2_t* pt_observed = &observation->px[i_pt];
 
@@ -1335,7 +1347,8 @@ double mrcal_optimize( // out, in (seed on input)
                         i_camera == 0,
                         distortion_model, optimization_variable_choice,
                         -1,
-                        calibration_object_spacing);
+                        calibration_object_spacing,
+                        calibration_object_width_n);
 
             const union point2_t* pt_observed = &observation->px;
 
