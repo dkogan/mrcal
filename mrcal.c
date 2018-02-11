@@ -154,10 +154,17 @@ static int get_Nstate(int Ncameras, int Nframes, int Npoints,
                       enum distortion_model_t distortion_model)
 {
     return
-        (Ncameras-1) * 6 + // camera extrinsics
-        Nframes      * 6 + // frame poses
-        Npoints      * 3 + // individual observed points
-        Ncameras * getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model); // camera intrinsics
+        // camera extrinsics
+        (optimization_variable_choice.do_optimize_extrinsics ? ((Ncameras-1) * 6) : 0) +
+
+        // frame poses
+        (optimization_variable_choice.do_optimize_frames ? (Nframes * 6) : 0) +
+
+        // individual observed points
+        (optimization_variable_choice.do_optimize_frames ? (Npoints * 3) : 0) +
+
+        // camera intrinsics
+        (Ncameras * getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model));
 }
 
 static int get_Nmeasurements(int NobservationsBoard,
@@ -195,31 +202,37 @@ static int get_N_j_nonzero( const struct observation_board_t* observations_board
     // initial estimate counts extrinsics for camera0, which need to be
     // subtracted off
     int Nintrinsics = getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model);
-    int N = NobservationsBoard * (6 + 6 + Nintrinsics);
-    for(int i=0; i<NobservationsBoard; i++)
-        if(observations_board[i].i_camera == 0)
-            N -= 6;
+    int N = NobservationsBoard * ( (optimization_variable_choice.do_optimize_frames     ? 6 : 0) +
+                                   (optimization_variable_choice.do_optimize_extrinsics ? 6 : 0) +
+                                   + Nintrinsics );
+    if(optimization_variable_choice.do_optimize_extrinsics)
+        for(int i=0; i<NobservationsBoard; i++)
+            if(observations_board[i].i_camera == 0)
+                N -= 6;
     N *= 2*calibration_object_width_n*calibration_object_width_n; // *2 because I have separate x and y measurements
 
     // Now the point observations
     for(int i=0; i<NobservationsPoint; i++)
     {
-        if(observations_point[i].i_camera == 0)
-            N += 2*(Nintrinsics + 3);
-        else
-            N += 2*(6+Nintrinsics + 3);
+        N += 2*Nintrinsics;
+        if(optimization_variable_choice.do_optimize_frames)
+            N += 2*3;
+        if( optimization_variable_choice.do_optimize_extrinsics &&
+            observations_point[i].i_camera != 0 )
+            N += 2*6;
 
         if(observations_point[i].dist > 0)
         {
-            if(observations_point[i].i_camera == 0)
+            if(optimization_variable_choice.do_optimize_frames)
                 N += 3;
-            else
-                N += 6 + 3;
+
+            if( optimization_variable_choice.do_optimize_extrinsics &&
+                observations_point[i].i_camera != 0 )
+                N += 6;
         }
     }
     return N;
 }
-
 
 #warning maybe this should project multiple points at a time?
 static union point2_t project( // out
@@ -236,9 +249,8 @@ static union point2_t project( // out
                               const double* p_intrinsic_distortions_unitscale,
                               const double* p_camera_rt_unitscale,
                               const double* p_frame_rt_unitscale,
-                              bool camera_at_identity,
+                              bool camera_at_identity, // if true, p_camera_rt_unitscale is unused
                               enum distortion_model_t distortion_model,
-                              struct mrcal_variable_select optimization_variable_choice,
 
                               // point index. If <0, a point at the origin is
                               // assumed, dxy_drframe is expected to be NULL and
@@ -395,17 +407,20 @@ static union point2_t project( // out
         CvMat dpdf = cvMat(2,2, CV_64FC1, _dpdf);
         // instead I do this ^^^^^^^^^^^^^^^^
 
-        CvMat dpddistortions = cvMat(2, NdistortionParams, CV_64FC1, dxy_dintrinsic_distortions);
+        CvMat dpddistortions;
 
         CvMat* p_dpdf;
         CvMat* p_dpddistortions;
 
-        if( optimization_variable_choice.do_optimize_intrinsic_core )
+        if( dxy_dintrinsic_core != NULL )
             p_dpdf = &dpdf;
         else
             p_dpdf = NULL;
-        if( optimization_variable_choice.do_optimize_intrinsic_distortions )
+        if( dxy_dintrinsic_distortions != NULL )
+        {
+            dpddistortions = cvMat(2, NdistortionParams, CV_64FC1, dxy_dintrinsic_distortions);
             p_dpddistortions = &dpddistortions;
+        }
         else
             p_dpddistortions = NULL;
 
@@ -421,7 +436,7 @@ static union point2_t project( // out
                          0 );
 
 
-        if( optimization_variable_choice.do_optimize_intrinsic_core )
+        if( dxy_dintrinsic_core != NULL )
         {
             struct intrinsics_t* dxy_dintrinsics0 = (struct intrinsics_t*)dxy_dintrinsic_core;
             struct intrinsics_t* dxy_dintrinsics1 = (struct intrinsics_t*)&dxy_dintrinsic_core[N_INTRINSICS_CORE];
@@ -437,7 +452,7 @@ static union point2_t project( // out
         }
 
 
-        if( optimization_variable_choice.do_optimize_intrinsic_distortions )
+        if( dxy_dintrinsic_distortions != NULL )
             for(int i=0; i<NdistortionParams; i++)
             {
                 dxy_dintrinsic_distortions[i                    ] *= SCALE_DISTORTION;
@@ -445,47 +460,54 @@ static union point2_t project( // out
             }
 
 
-        if(!camera_at_identity)
+        if( dxy_drcamera != NULL || dxy_drframe != NULL ||
+            dxy_dtcamera != NULL || dxy_dtframe != NULL )
         {
-            // I do this multiple times, one each for {r,t}{camera,frame}
-            void propagate(// out
-                           union point3_t* dxy_dparam,
-
-                           // in
-                           const double* _d_rj_dparam,
-                           const double* _d_tj_dparam,
-
-                           // I want the gradients in respect to the unit-scale params
-                           double scale_param)
+            if(!camera_at_identity)
             {
-                // I have dproj/drj and dproj/dtj
-                // I want dproj/drc, dproj/dtc, dproj/drf, dprof/dtf
-                //
-                // dproj_drc = dproj/drj drj_drc + dproj/dtj dtj_drc
+                // I do this multiple times, one each for {r,t}{camera,frame}
+                void propagate(// out
+                               union point3_t* dxy_dparam,
 
-                mul_genN3_gen33_vout_scaled  (2, _dxy_drj, _d_rj_dparam, dxy_dparam[0].xyz, scale_param);
-                mul_genN3_gen33_vaccum_scaled(2, _dxy_dtj, _d_tj_dparam, dxy_dparam[0].xyz, scale_param);
-            }
+                               // in
+                               const double* _d_rj_dparam,
+                               const double* _d_tj_dparam,
 
-            propagate( dxy_drcamera, _d_rj_rc, _d_tj_rc, SCALE_ROTATION_CAMERA    );
-            propagate( dxy_dtcamera, _d_rj_tc, _d_tj_tc, SCALE_TRANSLATION_CAMERA );
-            propagate( dxy_dtframe,  _d_rj_tf, _d_tj_tf, SCALE_TRANSLATION_FRAME  );
-            if(dxy_drframe)
-                propagate( dxy_drframe,  _d_rj_rf, _d_tj_rf, SCALE_ROTATION_FRAME     );
-        }
-        else
-        {
-            // My gradient is already computed, I just need to scale it
-
-            for(int i=0; i<3; i++)
-            {
-                dxy_dtframe[0].xyz[i] = _dxy_dtj[i + 3*0] * SCALE_TRANSLATION_FRAME;
-                dxy_dtframe[1].xyz[i] = _dxy_dtj[i + 3*1] * SCALE_TRANSLATION_FRAME;
-                if(dxy_drframe)
+                               // I want the gradients in respect to the unit-scale params
+                               double scale_param)
                 {
-                    dxy_drframe[0].xyz[i] = _dxy_drj[i + 3*0] * SCALE_ROTATION_FRAME;
-                    dxy_drframe[1].xyz[i] = _dxy_drj[i + 3*1] * SCALE_ROTATION_FRAME;
+                    if( dxy_dparam == NULL ) return;
+
+                    // I have dproj/drj and dproj/dtj
+                    // I want dproj/drc, dproj/dtc, dproj/drf, dprof/dtf
+                    //
+                    // dproj_drc = dproj/drj drj_drc + dproj/dtj dtj_drc
+
+                    mul_genN3_gen33_vout_scaled  (2, _dxy_drj, _d_rj_dparam, dxy_dparam[0].xyz, scale_param);
+                    mul_genN3_gen33_vaccum_scaled(2, _dxy_dtj, _d_tj_dparam, dxy_dparam[0].xyz, scale_param);
                 }
+
+                propagate( dxy_drcamera, _d_rj_rc, _d_tj_rc, SCALE_ROTATION_CAMERA    );
+                propagate( dxy_dtcamera, _d_rj_tc, _d_tj_tc, SCALE_TRANSLATION_CAMERA );
+                propagate( dxy_dtframe,  _d_rj_tf, _d_tj_tf, SCALE_TRANSLATION_FRAME  );
+                propagate( dxy_drframe,  _d_rj_rf, _d_tj_rf, SCALE_ROTATION_FRAME     );
+            }
+            else
+            {
+                // My gradient is already computed, I just need to scale it
+
+                if(dxy_dtframe)
+                    for(int i=0; i<3; i++)
+                    {
+                        dxy_dtframe[0].xyz[i] = _dxy_dtj[i + 3*0] * SCALE_TRANSLATION_FRAME;
+                        dxy_dtframe[1].xyz[i] = _dxy_dtj[i + 3*1] * SCALE_TRANSLATION_FRAME;
+                    }
+                if(dxy_drframe)
+                    for(int i=0; i<3; i++)
+                    {
+                        dxy_drframe[0].xyz[i] = _dxy_drj[i + 3*0] * SCALE_ROTATION_FRAME;
+                        dxy_drframe[1].xyz[i] = _dxy_drj[i + 3*1] * SCALE_ROTATION_FRAME;
+                    }
             }
         }
 
@@ -621,7 +643,7 @@ static union point2_t project( // out
         intrinsic_core->center_xy[1] * SCALE_INTRINSICS_CENTER_PIXEL;
 
     // I have the projection, and I now need to propagate the gradients
-    if( optimization_variable_choice.do_optimize_intrinsic_core)
+    if( dxy_dintrinsic_core != NULL )
     {
         struct intrinsics_t* dxy_dintrinsics0 = (struct intrinsics_t*)dxy_dintrinsic_core;
         struct intrinsics_t* dxy_dintrinsics1 = (struct intrinsics_t*)&dxy_dintrinsic_core[N_INTRINSICS_CORE];
@@ -639,7 +661,7 @@ static union point2_t project( // out
         dxy_dintrinsics1->center_xy[1] = SCALE_INTRINSICS_CENTER_PIXEL;
     }
 
-    if( optimization_variable_choice.do_optimize_intrinsic_distortions)
+    if( dxy_dintrinsic_distortions != NULL )
         for(int i=0; i<NdistortionParams; i++)
         {
             const double dx = dxyz_ddistortion[i + 0*NdistortionParams];
@@ -659,6 +681,8 @@ static union point2_t project( // out
                        // I want the gradients in respect to the unit-scale params
                        double scale_param)
         {
+            if( dxy_dparam == NULL ) return;
+
             // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
             // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
@@ -696,8 +720,7 @@ static union point2_t project( // out
         propagate( dxy_drcamera, _d_rj_rc, _d_tj_rc, SCALE_ROTATION_CAMERA    );
         propagate( dxy_dtcamera, _d_rj_tc, _d_tj_tc, SCALE_TRANSLATION_CAMERA );
         propagate( dxy_dtframe,  _d_rj_tf, _d_tj_tf, SCALE_TRANSLATION_FRAME  );
-        if( dxy_drframe )
-            propagate( dxy_drframe,  _d_rj_rf, _d_tj_rf, SCALE_ROTATION_FRAME     );
+        propagate( dxy_drframe,  _d_rj_rf, _d_tj_rf, SCALE_ROTATION_FRAME     );
     }
     else
     {
@@ -706,6 +729,8 @@ static union point2_t project( // out
                          // I want the gradients in respect to the unit-scale params
                          double scale_param)
         {
+            if( dxy_dparam == NULL ) return;
+
             // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
             // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
@@ -740,6 +765,8 @@ static union point2_t project( // out
                          // I want the gradients in respect to the unit-scale params
                          double scale_param)
         {
+            if( dxy_dparam == NULL ) return;
+
             // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
             // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
@@ -770,8 +797,7 @@ static union point2_t project( // out
             }
         }
 
-        if( dxy_drframe )
-            propagate_r( dxy_drframe, SCALE_ROTATION_FRAME     );
+        propagate_r( dxy_drframe, SCALE_ROTATION_FRAME     );
         propagate_t( dxy_dtframe, SCALE_TRANSLATION_FRAME  );
     }
     return pt_out;
@@ -847,34 +873,39 @@ static void pack_solver_state( // out
                                              distortion_model, optimization_variable_choice,
                                              Ncameras );
 
-    for(int i_camera=1; i_camera < Ncameras; i_camera++)
-    {
-        p[i_state++] = extrinsics[i_camera-1].r.xyz[0] / SCALE_ROTATION_CAMERA;
-        p[i_state++] = extrinsics[i_camera-1].r.xyz[1] / SCALE_ROTATION_CAMERA;
-        p[i_state++] = extrinsics[i_camera-1].r.xyz[2] / SCALE_ROTATION_CAMERA;
+    if( optimization_variable_choice.do_optimize_extrinsics )
+        for(int i_camera=1; i_camera < Ncameras; i_camera++)
+        {
+            p[i_state++] = extrinsics[i_camera-1].r.xyz[0] / SCALE_ROTATION_CAMERA;
+            p[i_state++] = extrinsics[i_camera-1].r.xyz[1] / SCALE_ROTATION_CAMERA;
+            p[i_state++] = extrinsics[i_camera-1].r.xyz[2] / SCALE_ROTATION_CAMERA;
 
-        p[i_state++] = extrinsics[i_camera-1].t.xyz[0] / SCALE_TRANSLATION_CAMERA;
-        p[i_state++] = extrinsics[i_camera-1].t.xyz[1] / SCALE_TRANSLATION_CAMERA;
-        p[i_state++] = extrinsics[i_camera-1].t.xyz[2] / SCALE_TRANSLATION_CAMERA;
+            p[i_state++] = extrinsics[i_camera-1].t.xyz[0] / SCALE_TRANSLATION_CAMERA;
+            p[i_state++] = extrinsics[i_camera-1].t.xyz[1] / SCALE_TRANSLATION_CAMERA;
+            p[i_state++] = extrinsics[i_camera-1].t.xyz[2] / SCALE_TRANSLATION_CAMERA;
+        }
+
+    if( optimization_variable_choice.do_optimize_frames )
+    {
+        for(int i_frame = 0; i_frame < Nframes; i_frame++)
+        {
+            p[i_state++] = frames[i_frame].r.xyz[0] / SCALE_ROTATION_FRAME;
+            p[i_state++] = frames[i_frame].r.xyz[1] / SCALE_ROTATION_FRAME;
+            p[i_state++] = frames[i_frame].r.xyz[2] / SCALE_ROTATION_FRAME;
+
+            p[i_state++] = frames[i_frame].t.xyz[0] / SCALE_TRANSLATION_FRAME;
+            p[i_state++] = frames[i_frame].t.xyz[1] / SCALE_TRANSLATION_FRAME;
+            p[i_state++] = frames[i_frame].t.xyz[2] / SCALE_TRANSLATION_FRAME;
+        }
+
+        for(int i_point = 0; i_point < Npoints; i_point++)
+        {
+            p[i_state++] = points[i_point].xyz[0] / SCALE_POSITION_POINT;
+            p[i_state++] = points[i_point].xyz[1] / SCALE_POSITION_POINT;
+            p[i_state++] = points[i_point].xyz[2] / SCALE_POSITION_POINT;
+        }
     }
 
-    for(int i_frame = 0; i_frame < Nframes; i_frame++)
-    {
-        p[i_state++] = frames[i_frame].r.xyz[0] / SCALE_ROTATION_FRAME;
-        p[i_state++] = frames[i_frame].r.xyz[1] / SCALE_ROTATION_FRAME;
-        p[i_state++] = frames[i_frame].r.xyz[2] / SCALE_ROTATION_FRAME;
-
-        p[i_state++] = frames[i_frame].t.xyz[0] / SCALE_TRANSLATION_FRAME;
-        p[i_state++] = frames[i_frame].t.xyz[1] / SCALE_TRANSLATION_FRAME;
-        p[i_state++] = frames[i_frame].t.xyz[2] / SCALE_TRANSLATION_FRAME;
-    }
-
-    for(int i_point = 0; i_point < Npoints; i_point++)
-    {
-        p[i_state++] = points[i_point].xyz[0] / SCALE_POSITION_POINT;
-        p[i_state++] = points[i_point].xyz[1] / SCALE_POSITION_POINT;
-        p[i_state++] = points[i_point].xyz[2] / SCALE_POSITION_POINT;
-    }
     assert(i_state == Nstate_ref);
 }
 
@@ -916,35 +947,39 @@ static void unpack_solver_state( // out
         intrinsics = (struct intrinsics_t*)&((double*)intrinsics)[Nintrinsics];
     }
 
-    for(int i_camera=1; i_camera < Ncameras; i_camera++)
+    if( optimization_variable_choice.do_optimize_extrinsics )
+        for(int i_camera=1; i_camera < Ncameras; i_camera++)
+        {
+            // extrinsics first so that the intrinsics are evenly spaced and
+            // state_index_rt_intrinsics() can be branchless
+            extrinsics[i_camera-1].r.xyz[0] = p[i_state++] * SCALE_ROTATION_CAMERA;
+            extrinsics[i_camera-1].r.xyz[1] = p[i_state++] * SCALE_ROTATION_CAMERA;
+            extrinsics[i_camera-1].r.xyz[2] = p[i_state++] * SCALE_ROTATION_CAMERA;
+
+            extrinsics[i_camera-1].t.xyz[0] = p[i_state++] * SCALE_TRANSLATION_CAMERA;
+            extrinsics[i_camera-1].t.xyz[1] = p[i_state++] * SCALE_TRANSLATION_CAMERA;
+            extrinsics[i_camera-1].t.xyz[2] = p[i_state++] * SCALE_TRANSLATION_CAMERA;
+        }
+
+    if( optimization_variable_choice.do_optimize_frames )
     {
-        // extrinsics first so that the intrinsics are evenly spaced and
-        // state_index_rt_intrinsics() can be branchless
-        extrinsics[i_camera-1].r.xyz[0] = p[i_state++] * SCALE_ROTATION_CAMERA;
-        extrinsics[i_camera-1].r.xyz[1] = p[i_state++] * SCALE_ROTATION_CAMERA;
-        extrinsics[i_camera-1].r.xyz[2] = p[i_state++] * SCALE_ROTATION_CAMERA;
+        for(int i_frame = 0; i_frame < Nframes; i_frame++)
+        {
+            frames[i_frame].r.xyz[0] = p[i_state++] * SCALE_ROTATION_FRAME;
+            frames[i_frame].r.xyz[1] = p[i_state++] * SCALE_ROTATION_FRAME;
+            frames[i_frame].r.xyz[2] = p[i_state++] * SCALE_ROTATION_FRAME;
 
-        extrinsics[i_camera-1].t.xyz[0] = p[i_state++] * SCALE_TRANSLATION_CAMERA;
-        extrinsics[i_camera-1].t.xyz[1] = p[i_state++] * SCALE_TRANSLATION_CAMERA;
-        extrinsics[i_camera-1].t.xyz[2] = p[i_state++] * SCALE_TRANSLATION_CAMERA;
-    }
+            frames[i_frame].t.xyz[0] = p[i_state++] * SCALE_TRANSLATION_FRAME;
+            frames[i_frame].t.xyz[1] = p[i_state++] * SCALE_TRANSLATION_FRAME;
+            frames[i_frame].t.xyz[2] = p[i_state++] * SCALE_TRANSLATION_FRAME;
+        }
 
-    for(int i_frame = 0; i_frame < Nframes; i_frame++)
-    {
-        frames[i_frame].r.xyz[0] = p[i_state++] * SCALE_ROTATION_FRAME;
-        frames[i_frame].r.xyz[1] = p[i_state++] * SCALE_ROTATION_FRAME;
-        frames[i_frame].r.xyz[2] = p[i_state++] * SCALE_ROTATION_FRAME;
-
-        frames[i_frame].t.xyz[0] = p[i_state++] * SCALE_TRANSLATION_FRAME;
-        frames[i_frame].t.xyz[1] = p[i_state++] * SCALE_TRANSLATION_FRAME;
-        frames[i_frame].t.xyz[2] = p[i_state++] * SCALE_TRANSLATION_FRAME;
-    }
-
-    for(int i_point = 0; i_point < Npoints; i_point++)
-    {
-        points[i_point].xyz[0] = p[i_state++] * SCALE_POSITION_POINT;
-        points[i_point].xyz[1] = p[i_state++] * SCALE_POSITION_POINT;
-        points[i_point].xyz[2] = p[i_state++] * SCALE_POSITION_POINT;
+        for(int i_point = 0; i_point < Npoints; i_point++)
+        {
+            points[i_point].xyz[0] = p[i_state++] * SCALE_POSITION_POINT;
+            points[i_point].xyz[1] = p[i_state++] * SCALE_POSITION_POINT;
+            points[i_point].xyz[2] = p[i_state++] * SCALE_POSITION_POINT;
+        }
     }
 
     assert(i_state == Nstate_ref);
@@ -970,28 +1005,29 @@ static int state_index_camera_rt(int i_camera, int Ncameras,
                                  struct mrcal_variable_select optimization_variable_choice,
                                  enum distortion_model_t distortion_model)
 {
-    // returns the variable index for the extrinsics-followed-by-intrinsics of a
-    // given camera. Note that for i_camera==0 there are no extrinsics, so the
-    // returned value will be negative, and the intrinsics live at index=0
-    return
-        getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model)*Ncameras +
-        (i_camera-1)*6;
+    // returns a bogus value if i_camera==0. This camera has not state, and is
+    // assumed to be at identity. The caller must know to not use the return
+    // value in that case
+    int i = getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model)*Ncameras;
+    return i + (i_camera-1)*6;
 }
 static int state_index_frame_rt(int i_frame, int Ncameras,
                                 struct mrcal_variable_select optimization_variable_choice,
                                 enum distortion_model_t distortion_model)
 {
     return
-        Ncameras * (getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model) + 6) - 6 +
-        i_frame*6;
+        Ncameras * getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model) +
+        (optimization_variable_choice.do_optimize_extrinsics ? ((Ncameras-1) * 6) : 0) +
+        i_frame * 6;
 }
 static int state_index_point(int i_point, int Nframes, int Ncameras,
                              struct mrcal_variable_select optimization_variable_choice,
                              enum distortion_model_t distortion_model)
 {
     return
-        Ncameras * (getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model) + 6) - 6 +
-        Nframes * 6 +
+        Ncameras * getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model) +
+        (optimization_variable_choice.do_optimize_extrinsics ? ((Ncameras-1) * 6) : 0) +
+        (Nframes * 6) +
         i_point*3;
 }
 
@@ -1121,6 +1157,7 @@ double mrcal_optimize( // out, in (seed on input)
             const int i_camera = observation->i_camera;
             const int i_frame  = observation->i_frame;
 
+            // Some of these are bogus if optimization_variable_choice says they're inactive
             const int     i_var_intrinsic_core        = state_index_intrinsic_core(i_camera, optimization_variable_choice, distortion_model);
             const int     i_var_intrinsic_distortions = state_index_intrinsic_distortions(i_camera, optimization_variable_choice, distortion_model);
             const int     i_var_camera_rt             = state_index_camera_rt (i_camera, Ncameras, optimization_variable_choice, distortion_model);
@@ -1150,18 +1187,26 @@ double mrcal_optimize( // out, in (seed on input)
                 union point3_t dxy_drframe [2];
                 union point3_t dxy_dtframe [2];
 
+
+
                 union point2_t pt_hypothesis =
-                    project(dxy_dintrinsic_core,
-                            dxy_dintrinsic_distortions,
-                            dxy_drcamera,
-                            dxy_dtcamera,
-                            dxy_drframe,
-                            dxy_dtframe,
+                    project(optimization_variable_choice.do_optimize_intrinsic_core ?
+                              dxy_dintrinsic_core : NULL,
+                            optimization_variable_choice.do_optimize_intrinsic_distortions ?
+                              dxy_dintrinsic_distortions : NULL,
+                            optimization_variable_choice.do_optimize_extrinsics ?
+                              dxy_drcamera : NULL,
+                            optimization_variable_choice.do_optimize_extrinsics ?
+                              dxy_dtcamera : NULL,
+                            optimization_variable_choice.do_optimize_frames ?
+                              dxy_drframe : NULL,
+                            optimization_variable_choice.do_optimize_frames ?
+                              dxy_dtframe : NULL,
                             p_intrinsic_core,
                             p_intrinsic_distortions,
                             p_camera_rt, p_frame_rt,
                             i_camera == 0,
-                            distortion_model, optimization_variable_choice,
+                            distortion_model,
                             i_pt,
                             calibration_object_spacing,
                             calibration_object_width_n);
@@ -1203,26 +1248,30 @@ double mrcal_optimize( // out, in (seed on input)
                                 STORE_JACOBIAN( i_var_intrinsic_distortions + i,
                                                 dxy_dintrinsic_distortions[i_xy * Ndistortions + i] );
 
-                        if( i_camera != 0 )
-                        {
-                            STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                             dxy_drcamera[i_xy].xyz[0],
-                                             dxy_drcamera[i_xy].xyz[1],
-                                             dxy_drcamera[i_xy].xyz[2]);
-                            STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                             dxy_dtcamera[i_xy].xyz[0],
-                                             dxy_dtcamera[i_xy].xyz[1],
-                                             dxy_dtcamera[i_xy].xyz[2]);
-                        }
+                        if( optimization_variable_choice.do_optimize_extrinsics )
+                            if( i_camera != 0 )
+                            {
+                                STORE_JACOBIAN3( i_var_camera_rt + 0,
+                                                 dxy_drcamera[i_xy].xyz[0],
+                                                 dxy_drcamera[i_xy].xyz[1],
+                                                 dxy_drcamera[i_xy].xyz[2]);
+                                STORE_JACOBIAN3( i_var_camera_rt + 3,
+                                                 dxy_dtcamera[i_xy].xyz[0],
+                                                 dxy_dtcamera[i_xy].xyz[1],
+                                                 dxy_dtcamera[i_xy].xyz[2]);
+                            }
 
-                        STORE_JACOBIAN3( i_var_frame_rt + 0,
-                                         dxy_drframe[i_xy].xyz[0],
-                                         dxy_drframe[i_xy].xyz[1],
-                                         dxy_drframe[i_xy].xyz[2]);
-                        STORE_JACOBIAN3( i_var_frame_rt + 3,
-                                         dxy_dtframe[i_xy].xyz[0],
-                                         dxy_dtframe[i_xy].xyz[1],
-                                         dxy_dtframe[i_xy].xyz[2]);
+                        if( optimization_variable_choice.do_optimize_frames )
+                        {
+                            STORE_JACOBIAN3( i_var_frame_rt + 0,
+                                             dxy_drframe[i_xy].xyz[0],
+                                             dxy_drframe[i_xy].xyz[1],
+                                             dxy_drframe[i_xy].xyz[2]);
+                            STORE_JACOBIAN3( i_var_frame_rt + 3,
+                                             dxy_dtframe[i_xy].xyz[0],
+                                             dxy_dtframe[i_xy].xyz[1],
+                                             dxy_dtframe[i_xy].xyz[2]);
+                        }
 
                         iMeasurement++;
                     }
@@ -1259,19 +1308,23 @@ double mrcal_optimize( // out, in (seed on input)
                             for(int i=0; i<Ndistortions; i++)
                                 STORE_JACOBIAN( i_var_intrinsic_distortions + i, 0.0 );
 
-                        if( i_camera != 0 )
-                        {
-                            STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
-                            STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
-                        }
+                        if( optimization_variable_choice.do_optimize_extrinsics )
+                            if( i_camera != 0 )
+                            {
+                                STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
+                                STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
+                            }
 
-                        const double dframe = observation->skip_frame ? 1.0 : 0.0;
-                        // Arbitrary differences between the dimensions to keep
-                        // my Hessian non-singular. This is 100% arbitrary. I'm
-                        // skipping these measurements so these variables
-                        // actually don't affect the computation at all
-                        STORE_JACOBIAN3( i_var_frame_rt + 0, dframe*1.1, dframe*1.2, dframe*1.3);
-                        STORE_JACOBIAN3( i_var_frame_rt + 3, dframe*1.4, dframe*1.5, dframe*1.6);
+                        if( optimization_variable_choice.do_optimize_frames )
+                        {
+                            const double dframe = observation->skip_frame ? 1.0 : 0.0;
+                            // Arbitrary differences between the dimensions to keep
+                            // my Hessian non-singular. This is 100% arbitrary. I'm
+                            // skipping these measurements so these variables
+                            // actually don't affect the computation at all
+                            STORE_JACOBIAN3( i_var_frame_rt + 0, dframe*1.1, dframe*1.2, dframe*1.3);
+                            STORE_JACOBIAN3( i_var_frame_rt + 3, dframe*1.4, dframe*1.5, dframe*1.6);
+                        }
 
                         iMeasurement++;
                     }
@@ -1329,12 +1382,18 @@ double mrcal_optimize( // out, in (seed on input)
             union point3_t dxy_dpoint  [2];
 
             union point2_t pt_hypothesis =
-                project(dxy_dintrinsic_core,
-                        dxy_dintrinsic_distortions,
-                        dxy_drcamera,
-                        dxy_dtcamera,
+                project(optimization_variable_choice.do_optimize_intrinsic_core ?
+                          dxy_dintrinsic_core        : NULL,
+                        optimization_variable_choice.do_optimize_intrinsic_distortions ?
+                          dxy_dintrinsic_distortions : NULL,
+
+                        optimization_variable_choice.do_optimize_extrinsics ?
+                          dxy_drcamera : NULL,
+                        optimization_variable_choice.do_optimize_extrinsics ?
+                          dxy_dtcamera : NULL,
                         NULL, // frame rotation. I only have a point position
-                        dxy_dpoint,
+                        optimization_variable_choice.do_optimize_frames ?
+                          dxy_dpoint : NULL,
                         p_intrinsic_core,
                         p_intrinsic_distortions,
                         p_camera_rt,
@@ -1345,7 +1404,7 @@ double mrcal_optimize( // out, in (seed on input)
                         &p_point[-3],
 
                         i_camera == 0,
-                        distortion_model, optimization_variable_choice,
+                        distortion_model,
                         -1,
                         calibration_object_spacing,
                         calibration_object_width_n);
@@ -1379,22 +1438,24 @@ double mrcal_optimize( // out, in (seed on input)
                             STORE_JACOBIAN( i_var_intrinsic_distortions + i,
                                             dxy_dintrinsic_distortions[i_xy * Ndistortions + i] );
 
-                    if( i_camera != 0 )
-                    {
-                        STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                         dxy_drcamera[i_xy].xyz[0],
-                                         dxy_drcamera[i_xy].xyz[1],
-                                         dxy_drcamera[i_xy].xyz[2]);
-                        STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                         dxy_dtcamera[i_xy].xyz[0],
-                                         dxy_dtcamera[i_xy].xyz[1],
-                                         dxy_dtcamera[i_xy].xyz[2]);
-                    }
+                    if( optimization_variable_choice.do_optimize_extrinsics )
+                        if( i_camera != 0 )
+                        {
+                            STORE_JACOBIAN3( i_var_camera_rt + 0,
+                                             dxy_drcamera[i_xy].xyz[0],
+                                             dxy_drcamera[i_xy].xyz[1],
+                                             dxy_drcamera[i_xy].xyz[2]);
+                            STORE_JACOBIAN3( i_var_camera_rt + 3,
+                                             dxy_dtcamera[i_xy].xyz[0],
+                                             dxy_dtcamera[i_xy].xyz[1],
+                                             dxy_dtcamera[i_xy].xyz[2]);
+                        }
 
-                    STORE_JACOBIAN3( i_var_point,
-                                     dxy_dpoint[i_xy].xyz[0],
-                                     dxy_dpoint[i_xy].xyz[1],
-                                     dxy_dpoint[i_xy].xyz[2]);
+                    if( optimization_variable_choice.do_optimize_frames )
+                        STORE_JACOBIAN3( i_var_point,
+                                         dxy_dpoint[i_xy].xyz[0],
+                                         dxy_dpoint[i_xy].xyz[1],
+                                         dxy_dpoint[i_xy].xyz[2]);
 
                     iMeasurement++;
                 }
@@ -1420,11 +1481,15 @@ double mrcal_optimize( // out, in (seed on input)
                         x[iMeasurement] = err;
                         norm2_error += err*err;
 
-                        double scale = SCALE_POSITION_POINT * DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M/dist;
-                        STORE_JACOBIAN3( i_var_point,
-                                         scale*p_point[0],
-                                         scale*p_point[1],
-                                         scale*p_point[2] );
+                        if( optimization_variable_choice.do_optimize_frames )
+                        {
+                            double scale = SCALE_POSITION_POINT * DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M/dist;
+                            STORE_JACOBIAN3( i_var_point,
+                                             scale*p_point[0],
+                                             scale*p_point[1],
+                                             scale*p_point[2] );
+                        }
+
                         iMeasurement++;
                     }
                     else
@@ -1461,52 +1526,57 @@ double mrcal_optimize( // out, in (seed on input)
                         x[iMeasurement] = err;
                         norm2_error += err*err;
 
-                        // pt_cam.x       = Rc[row0]*point*SCALE + tc
-                        // d(pt_cam.x)/dr = d(Rc[row0])/drc*point*SCALE
-                        // d(Rc[row0])/drc is 3x3 matrix at &_d_Rc_rc[0]
-                        double d_ptcamx_dr[3];
-                        double d_ptcamy_dr[3];
-                        double d_ptcamz_dr[3];
-                        mul_vec3_gen33_vout_scaled( p_point, &_d_Rc_rc[9*0], d_ptcamx_dr, SCALE_POSITION_POINT );
-                        mul_vec3_gen33_vout_scaled( p_point, &_d_Rc_rc[9*1], d_ptcamy_dr, SCALE_POSITION_POINT );
-                        mul_vec3_gen33_vout_scaled( p_point, &_d_Rc_rc[9*2], d_ptcamz_dr, SCALE_POSITION_POINT );
+                        if( optimization_variable_choice.do_optimize_extrinsics )
+                        {
+                            // pt_cam.x       = Rc[row0]*point*SCALE + tc
+                            // d(pt_cam.x)/dr = d(Rc[row0])/drc*point*SCALE
+                            // d(Rc[row0])/drc is 3x3 matrix at &_d_Rc_rc[0]
+                            double d_ptcamx_dr[3];
+                            double d_ptcamy_dr[3];
+                            double d_ptcamz_dr[3];
+                            mul_vec3_gen33_vout_scaled( p_point, &_d_Rc_rc[9*0], d_ptcamx_dr, SCALE_POSITION_POINT );
+                            mul_vec3_gen33_vout_scaled( p_point, &_d_Rc_rc[9*1], d_ptcamy_dr, SCALE_POSITION_POINT );
+                            mul_vec3_gen33_vout_scaled( p_point, &_d_Rc_rc[9*2], d_ptcamz_dr, SCALE_POSITION_POINT );
 
-                        STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
-                                         SCALE_ROTATION_CAMERA*
-                                         dist_recip*( pt_cam.x*d_ptcamx_dr[0] +
-                                                      pt_cam.y*d_ptcamy_dr[0] +
-                                                      pt_cam.z*d_ptcamz_dr[0] ),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
-                                         SCALE_ROTATION_CAMERA*
-                                         dist_recip*( pt_cam.x*d_ptcamx_dr[1] +
-                                                      pt_cam.y*d_ptcamy_dr[1] +
-                                                      pt_cam.z*d_ptcamz_dr[1] ),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
-                                         SCALE_ROTATION_CAMERA*
-                                         dist_recip*( pt_cam.x*d_ptcamx_dr[2] +
-                                                      pt_cam.y*d_ptcamy_dr[2] +
-                                                      pt_cam.z*d_ptcamz_dr[2] ) );
-                        STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*pt_cam.x,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*pt_cam.y,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*pt_cam.z );
-                        STORE_JACOBIAN3( i_var_point,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_POSITION_POINT*
-                                         dist_recip*(pt_cam.x*_Rc[0] + pt_cam.y*_Rc[3] + pt_cam.z*_Rc[6]),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_POSITION_POINT*
-                                         dist_recip*(pt_cam.x*_Rc[1] + pt_cam.y*_Rc[4] + pt_cam.z*_Rc[7]),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_POSITION_POINT*
-                                         dist_recip*(pt_cam.x*_Rc[2] + pt_cam.y*_Rc[5] + pt_cam.z*_Rc[8]) );
+                            STORE_JACOBIAN3( i_var_camera_rt + 0,
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
+                                             SCALE_ROTATION_CAMERA*
+                                             dist_recip*( pt_cam.x*d_ptcamx_dr[0] +
+                                                          pt_cam.y*d_ptcamy_dr[0] +
+                                                          pt_cam.z*d_ptcamz_dr[0] ),
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
+                                             SCALE_ROTATION_CAMERA*
+                                             dist_recip*( pt_cam.x*d_ptcamx_dr[1] +
+                                                          pt_cam.y*d_ptcamy_dr[1] +
+                                                          pt_cam.z*d_ptcamz_dr[1] ),
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
+                                             SCALE_ROTATION_CAMERA*
+                                             dist_recip*( pt_cam.x*d_ptcamx_dr[2] +
+                                                          pt_cam.y*d_ptcamy_dr[2] +
+                                                          pt_cam.z*d_ptcamz_dr[2] ) );
+                            STORE_JACOBIAN3( i_var_camera_rt + 3,
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
+                                             SCALE_TRANSLATION_CAMERA*
+                                             dist_recip*pt_cam.x,
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
+                                             SCALE_TRANSLATION_CAMERA*
+                                             dist_recip*pt_cam.y,
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
+                                             SCALE_TRANSLATION_CAMERA*
+                                             dist_recip*pt_cam.z );
+                        }
+
+                        if( optimization_variable_choice.do_optimize_frames )
+                            STORE_JACOBIAN3( i_var_point,
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
+                                             SCALE_POSITION_POINT*
+                                             dist_recip*(pt_cam.x*_Rc[0] + pt_cam.y*_Rc[3] + pt_cam.z*_Rc[6]),
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
+                                             SCALE_POSITION_POINT*
+                                             dist_recip*(pt_cam.x*_Rc[1] + pt_cam.y*_Rc[4] + pt_cam.z*_Rc[7]),
+                                             DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
+                                             SCALE_POSITION_POINT*
+                                             dist_recip*(pt_cam.x*_Rc[2] + pt_cam.y*_Rc[5] + pt_cam.z*_Rc[8]) );
                         iMeasurement++;
                     }
                 }
@@ -1537,18 +1607,22 @@ double mrcal_optimize( // out, in (seed on input)
                             STORE_JACOBIAN( i_var_intrinsic_distortions + i,
                                             0.0 );
 
-                    if( i_camera != 0 )
-                    {
-                        STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
-                        STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
-                    }
+                    if( optimization_variable_choice.do_optimize_extrinsics )
+                        if( i_camera != 0 )
+                        {
+                            STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
+                            STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
+                        }
 
-                    const double dpoint = observation->skip_point ? 1.0 : 0.0;
-                    // Arbitrary differences between the dimensions to keep
-                    // my Hessian non-singular. This is 100% arbitrary. I'm
-                    // skipping these measurements so these variables
-                    // actually don't affect the computation at all
-                    STORE_JACOBIAN3( i_var_point + 0, dpoint*1.1, dpoint*1.2, dpoint*1.3);
+                    if( optimization_variable_choice.do_optimize_frames )
+                    {
+                        const double dpoint = observation->skip_point ? 1.0 : 0.0;
+                        // Arbitrary differences between the dimensions to keep
+                        // my Hessian non-singular. This is 100% arbitrary. I'm
+                        // skipping these measurements so these variables
+                        // actually don't affect the computation at all
+                        STORE_JACOBIAN3( i_var_point + 0, dpoint*1.1, dpoint*1.2, dpoint*1.3);
+                    }
 
                     iMeasurement++;
                 }
@@ -1562,12 +1636,14 @@ double mrcal_optimize( // out, in (seed on input)
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
-                    if(i_camera != 0)
-                    {
-                        STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
-                        STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
-                    }
-                    STORE_JACOBIAN3( i_var_point, 0.0, 0.0, 0.0);
+                    if( optimization_variable_choice.do_optimize_extrinsics )
+                        if(i_camera != 0)
+                        {
+                            STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
+                            STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
+                        }
+                    if( optimization_variable_choice.do_optimize_frames )
+                        STORE_JACOBIAN3( i_var_point, 0.0, 0.0, 0.0);
                     iMeasurement++;
                 }
             }

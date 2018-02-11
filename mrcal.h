@@ -88,6 +88,8 @@ struct mrcal_variable_select
 {
     bool do_optimize_intrinsic_core        : 1;
     bool do_optimize_intrinsic_distortions : 1;
+    bool do_optimize_extrinsics            : 1;
+    bool do_optimize_frames                : 1;
 };
 
 double mrcal_optimize( // out, in (seed on input)
