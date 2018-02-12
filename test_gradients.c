@@ -8,9 +8,18 @@
 
 int main(int argc, char* argv[] )
 {
-    const char* usage = "Usage: %s DISTORTION_XXX [no-]optimize-intrinsic-core [no-]optimize-intrinsic-distortions\n";
+    const char* usage = "Usage: %s DISTORTION_XXX optimizing_list\n"
+        "\n"
+        "optimizing_list is a list of parameters we're optimizing. This is some of:\n"
+        "  intrinsic-core\n"
+        "  intrinsic-distortions\n"
+        "  extrinsics\n"
+        "  frames\n"
+        "  all\n"
+        "\n"
+        "'all' is a shorthand that includes all the others.\n";
 
-    if( argc != 4 )
+    if( argc < 3 )
     {
         fprintf(stderr, usage, argv[0]);
         return 1;
@@ -26,29 +35,42 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    struct mrcal_variable_select optimization_variable_choice =
-        { .do_optimize_intrinsic_core        = true,
-          .do_optimize_intrinsic_distortions = true,
-          .do_optimize_extrinsics            = true,
-          .do_optimize_frames                = true };
+    struct mrcal_variable_select optimization_variable_choice = {};
 
-    if     ( 0 == strcmp("optimize-intrinsic-core",    argv[2]) )
-        optimization_variable_choice.do_optimize_intrinsic_core = true;
-    else if( 0 == strcmp("no-optimize-intrinsic-core", argv[2]) )
-        optimization_variable_choice.do_optimize_intrinsic_core = false;
-    else
+    for(int iarg = 2; iarg < argc; iarg++)
     {
-        fprintf(stderr, "I must be passed either 'optimize-intrinsic-core' or 'no-optimize-intrinsic-core'\n");
-        return 1;
-    }
+        if( 0 == strcmp(argv[iarg], "all") )
+        {
+            optimization_variable_choice.do_optimize_intrinsic_core        = true;
+            optimization_variable_choice.do_optimize_intrinsic_distortions = true;
+            optimization_variable_choice.do_optimize_extrinsics            = true;
+            optimization_variable_choice.do_optimize_frames                = true;
+            break;
+        }
 
-    if     ( 0 == strcmp("optimize-intrinsic-distortions",    argv[3]) )
-        optimization_variable_choice.do_optimize_intrinsic_distortions = true;
-    else if( 0 == strcmp("no-optimize-intrinsic-distortions", argv[3]) )
-        optimization_variable_choice.do_optimize_intrinsic_distortions = false;
-    else
-    {
-        fprintf(stderr, "I must be passed either 'optimize-intrinsic-distortions' or 'no-optimize-intrinsic-distortions'\n");
+        if( 0 == strcmp(argv[iarg], "intrinsic-core") )
+        {
+            optimization_variable_choice.do_optimize_intrinsic_core = true;
+            continue;
+        }
+        if( 0 == strcmp(argv[iarg], "intrinsic-distortions") )
+        {
+            optimization_variable_choice.do_optimize_intrinsic_distortions = true;
+            continue;
+        }
+        if( 0 == strcmp(argv[iarg], "extrinsics") )
+        {
+            optimization_variable_choice.do_optimize_extrinsics = true;
+            continue;
+        }
+        if( 0 == strcmp(argv[iarg], "frames") )
+        {
+            optimization_variable_choice.do_optimize_frames = true;
+            continue;
+        }
+
+        fprintf(stderr, "Unknown optimization variable '%s'. Giving up.\n\n", argv[iarg]);
+        fprintf(stderr, usage, argv[0]);
         return 1;
     }
 
