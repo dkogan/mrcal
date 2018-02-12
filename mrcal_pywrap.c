@@ -495,10 +495,10 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
         // The checks in optimize_validate_args() make sure these casts are kosher
-        struct intrinsics_t* c_intrinsics = (struct intrinsics_t*)PyArray_DATA(intrinsics);
-        struct pose_t*       c_extrinsics = (struct pose_t*)      PyArray_DATA(extrinsics);
-        struct pose_t*       c_frames     = (struct pose_t*)      PyArray_DATA(frames);
-        union  point3_t*     c_points     = (union  point3_t*)    PyArray_DATA(points);
+        double*              c_intrinsics = (double*)         PyArray_DATA(intrinsics);
+        struct pose_t*       c_extrinsics = (struct pose_t*)  PyArray_DATA(extrinsics);
+        struct pose_t*       c_frames     = (struct pose_t*)  PyArray_DATA(frames);
+        union  point3_t*     c_points     = (union  point3_t*)PyArray_DATA(points);
 
 
 

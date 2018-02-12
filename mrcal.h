@@ -49,16 +49,12 @@ struct observation_point_t
 
 
 
-#define INTRINSICS_CORE                         \
-    double focal_xy [2];                        \
-    double center_xy[2]
-
-struct intrinsics_t
+struct intrinsics_core_t
 {
-    INTRINSICS_CORE;
-    double distortions[];
+    double focal_xy [2];
+    double center_xy[2];
 };
-#define N_INTRINSICS_CORE 4
+#define N_INTRINSICS_CORE ((int)(sizeof(struct intrinsics_core_t)/sizeof(double)))
 
 
 // names of distortion models, number of distortion parameters
@@ -73,11 +69,6 @@ struct intrinsics_t
 #define LIST_WITH_COMMA(s,n) s,
 enum distortion_model_t
     { DISTORTION_LIST( LIST_WITH_COMMA ) DISTORTION_INVALID };
-
-#define DECLARE_CUSTOM_INTRINSICS(s,n) \
-    struct intrinsics_ ## s ## _t { INTRINSICS_CORE; double distortions[n]; };
-DISTORTION_LIST( DECLARE_CUSTOM_INTRINSICS )
-
 
 const char*             mrcal_distortion_model_name       ( enum distortion_model_t model );
 enum distortion_model_t mrcal_distortion_model_from_name  ( const char* name );
@@ -97,12 +88,11 @@ double mrcal_optimize( // out, in (seed on input)
                       // These are the state. I don't have a state_t because Ncameras
                       // and Nframes aren't known at compile time.
                       //
-                      // camera_intrinsics is struct intrinsics_t: a
-                      // concatenation of the intrinsics core and the distortion
-                      // params. The specific distortion parameters may vary,
-                      // depending on distortion_model, so this is a
-                      // variable-length structure
-                      struct intrinsics_t* camera_intrinsics,  // Ncameras of these
+                      // camera_intrinsics is a concatenation of the intrinsics
+                      // core and the distortion params. The specific distortion
+                      // parameters may vary, depending on distortion_model, so
+                      // this is a variable-length structure
+                      double*              camera_intrinsics,  // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
                       struct pose_t*       camera_extrinsics,  // Ncameras-1 of these. Transform FROM camera0 frame
                       struct pose_t*       frames,             // Nframes of these.    Transform TO   camera0 frame
                       union  point3_t*     points,             // Npoints of these.    In the camera0 frame

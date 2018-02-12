@@ -26,7 +26,11 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    struct mrcal_variable_select optimization_variable_choice;
+    struct mrcal_variable_select optimization_variable_choice =
+        { .do_optimize_intrinsic_core        = true,
+          .do_optimize_intrinsic_distortions = true,
+          .do_optimize_extrinsics            = true,
+          .do_optimize_frames                = true };
 
     if     ( 0 == strcmp("optimize-intrinsic-core",    argv[2]) )
         optimization_variable_choice.do_optimize_intrinsic_core = true;
@@ -47,28 +51,6 @@ int main(int argc, char* argv[] )
         fprintf(stderr, "I must be passed either 'optimize-intrinsic-distortions' or 'no-optimize-intrinsic-distortions'\n");
         return 1;
     }
-
-    // I define all possible intrinsics arrays, and use the proper one later on.
-    // This is required because sizeof(intrinsic) varies depending on the type
-#define DECLARE_SPECIFIC_INTRINSIC(s,n)                         \
-    __attribute__((unused))                                     \
-        struct intrinsics_ ## s ## _t intrinsics ## s[] =       \
-        { {.focal_xy  = { 2000.3, 1900.5},                      \
-           .center_xy = { 1800.3, 1790.2} },                    \
-          {.focal_xy  = { 2100.2, 2130.4},                      \
-           .center_xy = { 1830.3, 1810.2} } };
-    DISTORTION_LIST(DECLARE_SPECIFIC_INTRINSIC)
-
-    int Ncameras = sizeof(intrinsicsDISTORTION_NONE)/sizeof(intrinsicsDISTORTION_NONE[0]);
-
-#define SET_SPECIFIC_DISTORTION(s,n)                                    \
-    for(int j=0; j<n; j++)                                              \
-        intrinsics ## s[i].distortions[j] = 0.0005 * (double)(i + Ncameras*j);
-    for(int i=0; i<Ncameras; i++)
-    {
-        DISTORTION_LIST(SET_SPECIFIC_DISTORTION);
-    }
-
 
 
     struct pose_t extrinsics[] =
@@ -107,17 +89,31 @@ int main(int argc, char* argv[] )
           {.i_camera = 1, .i_point = 1, .px = {}, .dist = 180.0} };
     int NobservationsPoint = sizeof(observations_point)/sizeof(observations_point[0]);
 
-#define PICK_SPECIFIC_INTRINSICS(s,n) case s: intrinsics_specific = (struct intrinsics_t*)intrinsics ## s; break;
-    struct intrinsics_t* intrinsics_specific;
-    switch(distortion_model)
-    {
-        DISTORTION_LIST(PICK_SPECIFIC_INTRINSICS)
 
-    default:
-        assert(0);
-    }
+    int Ncameras = sizeof(extrinsics)/sizeof(extrinsics[0]) + 1;
 
-    mrcal_optimize( intrinsics_specific,
+    int Ndistortion = mrcal_getNdistortionParams(distortion_model);
+    int Nintrinsics = Ndistortion + N_INTRINSICS_CORE;
+    double intrinsics[Ncameras * Nintrinsics];
+
+    struct intrinsics_core_t* intrinsics_core = (struct intrinsics_core_t*)intrinsics;
+    intrinsics_core->focal_xy [0] = 2000.3;
+    intrinsics_core->focal_xy [1] = 1900.5;
+    intrinsics_core->center_xy[0] = 1800.3;
+    intrinsics_core->center_xy[1] = 1790.2;
+
+    intrinsics_core = (struct intrinsics_core_t*)(&intrinsics[Nintrinsics]);
+    intrinsics_core->focal_xy [0] = 2100.2;
+    intrinsics_core->focal_xy [1] = 2130.4;
+    intrinsics_core->center_xy[0] = 1830.3;
+    intrinsics_core->center_xy[1] = 1810.2;
+
+    for(int i=0; i<Ncameras; i++)
+        for(int j=0; j<Ndistortion; j++)
+            intrinsics[Nintrinsics * i + N_INTRINSICS_CORE + j] = 0.0005 * (double)(i + Ncameras*j);
+
+
+    mrcal_optimize( intrinsics,
                     extrinsics,
                     frames,
                     points,
