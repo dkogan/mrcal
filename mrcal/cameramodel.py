@@ -67,6 +67,25 @@ def _validateIntrinsics(i):
 
     return True
 
+
+def _validateDimensions(d):
+    r'''Raises an exception if the given dimensions are invalid'''
+
+    # need two integers
+    try:
+        N = len(d)
+        if N != 2:
+            raise Exception()
+        if d[0] <= 0 or d[1] <= 0:
+            raise Exception()
+        if d[0] != int(d[0]) or d[1] != int(d[1]):
+            raise Exception()
+    except:
+        raise Exception("Dimensions must be an iterable of two positive integers")
+
+    return True
+
+
 class cameramodel:
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
 
@@ -111,6 +130,11 @@ class cameramodel:
         f.write(("extrinsics =" + (" {:.10f}" * N) + "\n").format(*self._extrinsics))
         f.write("\n")
 
+        if self._dimensions is not None:
+            N = 2
+            f.write(("dimensions =" + (" {:d}" * N) + "\n").format(*(int(x) for x in self._dimensions)))
+            f.write("\n")
+
 
     def _read_and_parse(self, f):
         r'''Reads in a model from an open file'''
@@ -123,6 +147,7 @@ class cameramodel:
         distortion_model  = None
         intrinsics_values = None
         extrinsics        = None
+        dimensions        = None
 
         for l in f:
             # skip comments and blank lines
@@ -146,14 +171,19 @@ class cameramodel:
                 if intrinsics_values is not None:
                     raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
                                     format('intrinsics', intrinsics_values, value))
-                intrinsics_values = np.array([float(x) for x in value.split(', \t')])
+                intrinsics_values = np.array([float(x) for x in value.split()])
             elif key == 'extrinsics':
                 if extrinsics is not None:
                     raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
                                     format('extrinsics', extrinsics, value))
-                extrinsics = np.array([float(x) for x in value.split(', \t')])
+                extrinsics = np.array([float(x) for x in value.split()])
+            elif key == 'dimensions':
+                if dimensions is not None:
+                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
+                                    format('dimensions', dimensions, value))
+                dimensions = np.array([float(x) for x in value.split()])
             else:
-                raise Exception("Unknown key '{}'. I only know about 'distortion_model', 'intrinsics', 'extrinsics'".format(key))
+                raise Exception("Unknown key '{}'. I only know about 'distortion_model', 'intrinsics', 'extrinsics', 'dimensions'".format(key))
 
         if distortion_model is None:
             raise Exception("Unspecified distortion_model")
@@ -161,13 +191,16 @@ class cameramodel:
             raise Exception("Unspecified intrinsics")
         if extrinsics is None:
             raise Exception("Unspecified extrinsics")
+        # dimensions are optional
 
         intrinsics = (distortion_model, intrinsics_values)
-        _validateIntrinsics(intrinsics_values)
-        _validateIntrinsics(extrinsics)
+        _validateIntrinsics(intrinsics)
+        _validateExtrinsics(extrinsics)
+        _validateDimensions(dimensions)
 
         self._intrinsics = intrinsics
         self._extrinsics = extrinsics
+        self._dimensions = dimensions
 
 
     def __init__(self, f=None, **kwargs):
@@ -353,11 +386,31 @@ class cameramodel:
         return True
 
 
+    def dimensions(self, d=None):
+        r'''Get or set the imager dimensions in this model
+
+        if d is None: this is a getter; otherwise a setter.
+
+        d is some sort of iterable of two numbers.
+
+        The dimensions aren't used for very much and 99% of the time they can be
+        omitted.
+
+        '''
+
+        if d is None:
+            return self._dimensions
+
+        _validateDimensions(d)
+        self._dimensions = d
+
+
     def set_cookie(self, cookie):
         r'''Store some arbitrary cookie for somebody to use later
 
         This data means nothing to me, but the caller may want it'''
         self._cookie = cookie
+
 
     def get_cookie(self):
         r'''Retrive some arbitrary cookie from an earlier set_cookie
@@ -367,4 +420,3 @@ class cameramodel:
             return self._cookie
         except:
             return None
-
