@@ -41,10 +41,7 @@ int main(int argc, char* argv[] )
     {
         if( 0 == strcmp(argv[iarg], "all") )
         {
-            optimization_variable_choice.do_optimize_intrinsic_core        = true;
-            optimization_variable_choice.do_optimize_intrinsic_distortions = true;
-            optimization_variable_choice.do_optimize_extrinsics            = true;
-            optimization_variable_choice.do_optimize_frames                = true;
+            optimization_variable_choice = DO_OPTIMIZE_ALL;
             break;
         }
 

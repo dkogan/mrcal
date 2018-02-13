@@ -82,6 +82,11 @@ struct mrcal_variable_select
     bool do_optimize_extrinsics            : 1;
     bool do_optimize_frames                : 1;
 };
+#define DO_OPTIMIZE_ALL ((struct mrcal_variable_select) { .do_optimize_intrinsic_core        = true, \
+                                                          .do_optimize_intrinsic_distortions = true, \
+                                                          .do_optimize_extrinsics            = true, \
+                                                          .do_optimize_frames                = true})
+
 
 double mrcal_optimize( // out, in (seed on input)
 
