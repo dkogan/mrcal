@@ -140,19 +140,19 @@ static bool optimize_validate_args( // out
             PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_width_n MUST be a valid int > 0");
             return false;
         }
-    }
 
 
-    if( c_calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
-        c_calibration_object_width_n != PyArray_DIMS(observations_board)[2] ||
-        2  != PyArray_DIMS(observations_board)[3] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,2). Instead got (%ld,%ld,%ld)",
-                     c_calibration_object_width_n, c_calibration_object_width_n,
-                     PyArray_DIMS(observations_board)[1],
-                     PyArray_DIMS(observations_board)[2],
-                     PyArray_DIMS(observations_board)[3]);
-        return false;
+        if( c_calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
+            c_calibration_object_width_n != PyArray_DIMS(observations_board)[2] ||
+            2  != PyArray_DIMS(observations_board)[3] )
+        {
+            PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,2). Instead got (%ld,%ld,%ld)",
+                         c_calibration_object_width_n, c_calibration_object_width_n,
+                         PyArray_DIMS(observations_board)[1],
+                         PyArray_DIMS(observations_board)[2],
+                         PyArray_DIMS(observations_board)[3]);
+            return false;
+        }
     }
 
     long int NobservationsPoint = PyArray_DIMS(observations_point)[0];
@@ -182,38 +182,35 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    if( !PyArray_IS_C_CONTIGUOUS(intrinsics)         ||
-        !PyArray_IS_C_CONTIGUOUS(extrinsics)         ||
-        !PyArray_IS_C_CONTIGUOUS(frames)             ||
-        !PyArray_IS_C_CONTIGUOUS(points)             ||
-        !PyArray_IS_C_CONTIGUOUS(observations_board) ||
-        !PyArray_IS_C_CONTIGUOUS(observations_point) )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays");
-        return false;
-    }
+#define CHECK_CONTIGUOUS(x) do {                                        \
+    if( !PyArray_IS_C_CONTIGUOUS(x) )                                   \
+    {                                                                   \
+        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays (" #x ")"); \
+        return false;                                                   \
+    } } while(0)
+
+    CHECK_CONTIGUOUS(intrinsics);
+    CHECK_CONTIGUOUS(extrinsics);
+    CHECK_CONTIGUOUS(frames);
+    CHECK_CONTIGUOUS(points);
+    CHECK_CONTIGUOUS(observations_board);
+    CHECK_CONTIGUOUS(observations_point);
+
 
     if( PyArray_TYPE(indices_frame_camera_board)   != NPY_INT )
     {
         PyErr_SetString(PyExc_RuntimeError, "indices_frame_camera_board must contain int data");
         return false;
     }
-    if( !PyArray_IS_C_CONTIGUOUS(indices_frame_camera_board) )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays");
-        return false;
-    }
+    CHECK_CONTIGUOUS(indices_frame_camera_board);
 
     if( PyArray_TYPE(indices_point_camera_points)   != NPY_INT )
     {
         PyErr_SetString(PyExc_RuntimeError, "indices_point_camera_points must contain int data");
         return false;
     }
-    if( !PyArray_IS_C_CONTIGUOUS(indices_point_camera_points) )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays");
-        return false;
-    }
+    CHECK_CONTIGUOUS(indices_point_camera_points);
+
 
     const char* distortion_model_cstring =
         PyString_AsString(distortion_model_string);
@@ -305,6 +302,8 @@ static bool optimize_validate_args( // out
     }
 
     return true;
+
+#undef CHECK_CONTIGUOUS
 }
 
 static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
@@ -379,6 +378,19 @@ static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+// just like PyArray_Converter(), but leave None as None
+static
+int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
+{
+    if(obj == Py_None)
+    {
+        *address = Py_None;
+        Py_INCREF(Py_None);
+        return 1;
+    }
+    return PyArray_Converter(obj,address);
+}
+
 static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* kwargs)
@@ -445,14 +457,14 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      "O&O&O&O&O&O&O&O&S|OOOOOOOO",
                                      keywords,
-                                     PyArray_Converter, &intrinsics,
-                                     PyArray_Converter, &extrinsics,
-                                     PyArray_Converter, &frames,
-                                     PyArray_Converter, &points,
-                                     PyArray_Converter, &observations_board,
-                                     PyArray_Converter, &indices_frame_camera_board,
-                                     PyArray_Converter, &observations_point,
-                                     PyArray_Converter, &indices_point_camera_points,
+                                     PyArray_Converter_leaveNone, &intrinsics,
+                                     PyArray_Converter_leaveNone, &extrinsics,
+                                     PyArray_Converter_leaveNone, &frames,
+                                     PyArray_Converter_leaveNone, &points,
+                                     PyArray_Converter_leaveNone, &observations_board,
+                                     PyArray_Converter_leaveNone, &indices_frame_camera_board,
+                                     PyArray_Converter_leaveNone, &observations_point,
+                                     PyArray_Converter_leaveNone, &indices_point_camera_points,
 
                                      &distortion_model_string,
 
@@ -465,6 +477,41 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &calibration_object_spacing,
                                      &calibration_object_width_n))
         goto done;
+
+
+    // Some of my input arguments can be empty (None). The code all assumes that
+    // everything is a properly-dimensions numpy array, with "empty" meaning
+    // some dimension is 0. Here I make this conversion. The user can pass None,
+    // and we still do the right thing.
+    //
+    // There's a silly implementation detail here: if you have a preprocessor
+    // macro M(x), and you pass it M({1,2,3}), the preprocessor see 3 separate
+    // args, not 1. That's why I have a __VA_ARGS__ here and why I instantiate a
+    // separate dims[] (PyArray_SimpleNew is a macro too)
+#define SET_SIZE0_IF_NONE(x, type, ...)                                 \
+    ({                                                                  \
+        if( x == NULL || Py_None == (PyObject*)x )                      \
+        {                                                               \
+            if( x != NULL ) Py_DECREF(x);                               \
+            npy_intp dims[] = {__VA_ARGS__};                            \
+            x = (PyArrayObject*)PyArray_SimpleNew(sizeof(dims)/sizeof(dims[0]), \
+                                                  dims, type);          \
+        }                                                               \
+    })
+
+    SET_SIZE0_IF_NONE(extrinsics,                 NPY_DOUBLE, 0,6);
+
+    SET_SIZE0_IF_NONE(frames,                     NPY_DOUBLE, 0,6);
+    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,2);
+    SET_SIZE0_IF_NONE(indices_frame_camera_board, NPY_INT,    0,2);
+
+    SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
+    SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,3);
+    SET_SIZE0_IF_NONE(indices_point_camera_points,NPY_INT,    0,2);
+#undef SET_NULL_IF_NONE
+
+
+
 
     enum distortion_model_t distortion_model;
     if( !optimize_validate_args(&distortion_model,
@@ -493,11 +540,15 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
         double c_calibration_object_spacing = 0.0;
-        if(PyFloat_Check(calibration_object_spacing))
-            c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
-        int c_calibration_object_width_n = 0;
-        if(PyInt_Check(calibration_object_width_n))
-            c_calibration_object_width_n = (int)PyInt_AS_LONG(calibration_object_width_n);
+        int    c_calibration_object_width_n = 0;
+
+        if( NobservationsBoard )
+        {
+            if(PyFloat_Check(calibration_object_spacing))
+                c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
+            if(PyInt_Check(calibration_object_width_n))
+                c_calibration_object_width_n = (int)PyInt_AS_LONG(calibration_object_width_n);
+        }
 
 
         // The checks in optimize_validate_args() make sure these casts are kosher
@@ -700,12 +751,16 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     result = Py_None;
 
  done:
-    if(intrinsics)         Py_DECREF(intrinsics);
-    if(extrinsics)         Py_DECREF(extrinsics);
-    if(frames)             Py_DECREF(frames);
-    if(points)             Py_DECREF(points);
-    if(observations_board) Py_DECREF(observations_board);
-    if(observations_point) Py_DECREF(observations_point);
+    if(intrinsics)                  Py_DECREF(intrinsics);
+    if(extrinsics)                  Py_DECREF(extrinsics);
+    if(frames)                      Py_DECREF(frames);
+    if(points)                      Py_DECREF(points);
+    if(observations_board)          Py_DECREF(observations_board);
+    if(observations_point)          Py_DECREF(observations_point);
+    if(observations_board)          Py_DECREF(observations_board);
+    if(indices_frame_camera_board)  Py_DECREF(indices_frame_camera_board);
+    if(observations_point)          Py_DECREF(observations_point);
+    if(indices_point_camera_points) Py_DECREF(indices_point_camera_points);
 
     if( 0 != sigaction(SIGINT,
                        &sigaction_old, NULL ))

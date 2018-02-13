@@ -35,6 +35,8 @@ Args:
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
+  If we only have one camera, pass either None or np.zeros((0,6))
+
 - frames: array of dims (Nframes, 6). The poses of the calibration object over
   time. Each pose is given as 6 values: a rodrigues rotation vector followed by
   a translation. This represents a transformation FROM the coord system of the
@@ -44,6 +46,8 @@ Args:
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
+  If we don't have any frames, pass either None or np.zeros((0,6))
+
 - points: array of dims (Npoints, 3). The estimated positions of discrete points
   we're observing. These positions are represented in the reference coord
   system.
@@ -51,11 +55,14 @@ Args:
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- observations_board: array of dims (NobservationsBoard, 10, 10, 2). These are
-  the observed (x,y) pixel coordinates of the dots in the calibration object.
-  Subpixel interpolation is assumed, so these contain 64-bit floating point
-  values, like all the other data. The frame and camera that produced these
-  observations are given in the indices_frame_camera array
+- observations_board: array of dims (NobservationsBoard,
+                                     calibration_object_width_n,
+                                     calibration_object_width_n,
+                                     2).
+  These are the observed (x,y) pixel coordinates of the dots in the calibration
+  object. Subpixel interpolation is assumed, so these contain 64-bit floating
+  point values, like all the other data. The frame and camera that produced
+  these observations are given in the indices_frame_camera array
 
 - indices_frame_camera_board: array of dims (NobservationsBoard, 2). For each
   observation these are an (i_frame,i_camera) tuple. The frame indices and
