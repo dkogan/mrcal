@@ -103,12 +103,12 @@ class cameramodel:
 
         N = len(self._intrinsics[1])
         f.write("# intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
-        f.write(("intrinsics =" + (" {:15.10f}" * N) + "\n").format(*self._intrinsics[1]))
+        f.write(("intrinsics =" + (" {:.10f}" * N) + "\n").format(*self._intrinsics[1]))
         f.write("\n")
 
         N = len(self._extrinsics)
         f.write("# extrinsics are rt_fromref\n")
-        f.write(("extrinsics =" + (" {:15.10f}" * N) + "\n").format(*self._extrinsics))
+        f.write(("extrinsics =" + (" {:.10f}" * N) + "\n").format(*self._extrinsics))
         f.write("\n")
 
 
