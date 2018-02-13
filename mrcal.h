@@ -86,6 +86,11 @@ struct mrcal_variable_select
                                                           .do_optimize_intrinsic_distortions = true, \
                                                           .do_optimize_extrinsics            = true, \
                                                           .do_optimize_frames                = true})
+#define IS_OPTIMIZE_NONE(x)                     \
+    (!(x).do_optimize_intrinsic_core &&         \
+     !(x).do_optimize_intrinsic_distortions &&  \
+     !(x).do_optimize_extrinsics &&             \
+     !(x).do_optimize_frames)
 
 
 double mrcal_optimize( // out, in (seed on input)

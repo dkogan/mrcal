@@ -424,6 +424,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         // optional kwargs
                         "do_optimize_intrinsic_core",
                         "do_optimize_intrinsic_distortions",
+                        "do_optimize_extrinsics",
+                        "do_optimize_frames",
                         "skipped_observations_board",
                         "skipped_observations_point",
                         "calibration_object_spacing",
@@ -434,12 +436,14 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* distortion_model_string           = NULL;
     PyObject* do_optimize_intrinsic_core        = Py_True;
     PyObject* do_optimize_intrinsic_distortions = Py_True;
+    PyObject* do_optimize_extrinsics            = Py_True;
+    PyObject* do_optimize_frames                = Py_True;
     PyObject* skipped_observations_board        = NULL;
     PyObject* skipped_observations_point        = NULL;
     PyObject* calibration_object_spacing        = NULL;
     PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOOOOO",
                                      keywords,
                                      PyArray_Converter, &intrinsics,
                                      PyArray_Converter, &extrinsics,
@@ -454,6 +458,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
                                      &do_optimize_intrinsic_core,
                                      &do_optimize_intrinsic_distortions,
+                                     &do_optimize_extrinsics,
+                                     &do_optimize_frames,
                                      &skipped_observations_board,
                                      &skipped_observations_point,
                                      &calibration_object_spacing,
@@ -665,11 +671,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-        struct mrcal_variable_select optimization_variable_choice;
-        optimization_variable_choice.do_optimize_intrinsic_core =
-            PyObject_IsTrue(do_optimize_intrinsic_core);
-        optimization_variable_choice.do_optimize_intrinsic_distortions =
-            PyObject_IsTrue(do_optimize_intrinsic_distortions);
+        struct mrcal_variable_select optimization_variable_choice = {};
+        optimization_variable_choice.do_optimize_intrinsic_core = PyObject_IsTrue(do_optimize_intrinsic_core);
+        optimization_variable_choice.do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions);
+        optimization_variable_choice.do_optimize_extrinsics = PyObject_IsTrue(do_optimize_extrinsics);
+        optimization_variable_choice.do_optimize_frames = PyObject_IsTrue(do_optimize_frames);
+
         mrcal_optimize( c_intrinsics,
                         c_extrinsics,
                         c_frames,

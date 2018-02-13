@@ -82,11 +82,14 @@ Args:
   DISTORTION_OPENCV8
   DISTORTION_CAHVOR
 
-- do_optimize_intrinsic_core: optional boolean, defaults to True. Whether
-  fx,fy,cx,cy should be optimized
+- do_optimize_intrinsic_core
+- do_optimize_intrinsic_distortions
+- do_optimize_extrinsics
+- do_optimize_frames
 
-- do_optimize_intrinsic_distortions: optional boolean, defaults to True. Whether
-  the distortions should be optimized
+  optional booleans. Indicate whether to optimize a specific set of variables.
+  The intrinsics core is fx,fy,cx,cy. These all default to True so if we specify
+  none of these, we will optimize ALL the variables.
 
 - skipped_observations_board: list of integers for the board observations that
   we don't care about. Defaults to None: don't skip anything

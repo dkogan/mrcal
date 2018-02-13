@@ -1087,6 +1087,9 @@ double mrcal_optimize( // out, in (seed on input)
                       double calibration_object_spacing,
                       int calibration_object_width_n)
 {
+    if( IS_OPTIMIZE_NONE(optimization_variable_choice) )
+        fprintf(stderr, "Warning: Not optimizing any of our variables\n");
+
 #if defined VERBOSE && VERBOSE
     dogleg_setDebug(100);
 #endif

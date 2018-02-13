@@ -474,17 +474,23 @@ def solve_monocular(inputs, distortions=False):
     optimizer.optimize(intrinsics, extrinsics, frames, points,
                        observations, inputs['indices_frame_camera'],
                        observations_point, indices_point_camera_points,
-                       distortion_model, False, False,
-                       calibration_object_width_n=calibration_object_width_n,
-                       calibration_object_spacing=calibration_object_spacing)
+                       distortion_model,
+
+                       do_optimize_intrinsic_core        = False,
+                       do_optimize_intrinsic_distortions = False,
+                       calibration_object_width_n        = calibration_object_width_n,
+                       calibration_object_spacing        = calibration_object_spacing)
 
     distortion_model = "DISTORTION_NONE"
     optimizer.optimize(intrinsics, extrinsics, frames, points,
                        observations, inputs['indices_frame_camera'],
                        observations_point, indices_point_camera_points,
-                       distortion_model, True, False,
-                       calibration_object_spacing=calibration_object_spacing,
-                       calibration_object_width_n=calibration_object_width_n)
+                       distortion_model,
+
+                       do_optimize_intrinsic_core        = True,
+                       do_optimize_intrinsic_distortions = True,
+                       calibration_object_spacing        = calibration_object_spacing,
+                       calibration_object_width_n        = calibration_object_width_n)
 
     return intrinsics,frames
 
@@ -844,17 +850,23 @@ distortion_model = "DISTORTION_NONE"
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    observations, inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, False, False,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_distortions = False,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 
 distortion_model = "DISTORTION_NONE"
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    observations, inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, True, False,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = True,
+                   do_optimize_intrinsic_distortions = False,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 
 
 print "done with {}".format(distortion_model)
@@ -867,60 +879,81 @@ intrinsics = nps.glue( intrinsics, np.random.random((inputs['Ncameras'], Ndistor
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    inputs['dots'], inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, False, True,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_distortions = True,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    inputs['dots'], inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, True, False,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = True,
+                   do_optimize_intrinsic_distortions = False,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    inputs['dots'], inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, False, True,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_distortions = True,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    inputs['dots'], inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, True, False,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = True,
+                   do_optimize_intrinsic_distortions = False,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    inputs['dots'], inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, False, True,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_distortions = True,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    inputs['dots'], inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, True, False,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = True,
+                   do_optimize_intrinsic_distortions = False,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
 optimizer.optimize(intrinsics, extrinsics, frames, points,
                    inputs['dots'], inputs['indices_frame_camera'],
                    observations_point, indices_point_camera_points,
-                   distortion_model, False, True,
-                   calibration_object_spacing=args['calibration_object_spacing'],
-                   calibration_object_width_n=args['calibration_object_width_n'])
+                   distortion_model,
+
+                   do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_distortions = True,
+                   calibration_object_spacing        = args['calibration_object_spacing'],
+                   calibration_object_width_n        = args['calibration_object_width_n'])
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 
