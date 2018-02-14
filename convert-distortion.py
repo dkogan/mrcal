@@ -41,6 +41,7 @@ given a time-series of chessboard observations''')
                         help='The target distortion model')
 
     parser.add_argument('--viz',
+                        action='store_true',
                         help='''Visualize the difference''')
 
     parser.add_argument('--margin',
