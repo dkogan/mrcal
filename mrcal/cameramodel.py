@@ -213,13 +213,15 @@ class cameramodel:
         intrinsics (None initially; will need to be set later), and identity
         extrinsics
 
-        if f is none and we have kwargs: required 'intrinsics' kwarg has the
-        intrinsic, and we have extrinsics in one of
+        if f is none and we have kwargs:
 
-        - extrinsics_Rt_toref
-        - extrinsics_Rt_fromref
-        - extrinsics_rt_toref
-        - extrinsics_rt_fromref
+        - required 'intrinsics' kwarg has the intrinsic
+        - extrinsics in one of these kwargs:
+          - 'extrinsics_Rt_toref'
+          - 'extrinsics_Rt_fromref'
+          - 'extrinsics_rt_toref'
+          - 'extrinsics_rt_fromref'
+        - dimensions are in the 'dimensions' kwargs, but are optional
 
         '''
 
@@ -249,14 +251,21 @@ class cameramodel:
             for k in extrinsics_keys:
                 if k in kwargs:
                     N += 1
-            if N != 1 or len(kwargs) != 2:
-                raise Exception("No f was given, so we MUST have gotten an 'intrinsics' kwarg and one of {}".format(extrinsics_keys))
+            if N != 1:
+                raise Exception("No f was given, so we MUST have gotten one of {}".format(extrinsics_keys))
+            if not (len(kwargs) == 2 or (len(kwargs) == 3 and 'dimensions' in kwargs)):
+                raise Exception("No f was given, so we MUST have gotten 'intrinsics', 'extrinsics_...' and optionally, 'dimensions'. Instead we got '{}'".format(kwargs))
 
             self.intrinsics(kwargs['intrinsics'])
             if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
             if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt(False, kwargs['extrinsics_Rt_fromref'])
             if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt(True,  kwargs['extrinsics_rt_toref'  ])
             if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt(False, kwargs['extrinsics_rt_fromref'])
+
+            if 'dimensions' in kwargs:
+                self.dimensions(kwargs['dimensions'])
+            else:
+                self._dimensions = None
 
 
 
