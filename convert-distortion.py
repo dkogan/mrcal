@@ -21,7 +21,8 @@ Synopsis:
   $ convert_distortion --viz --to DISTORTION_OPENCV4 left.cameramodel > left.opencv4.cameramodel
 
   ... lots of output as the solve runs ...
-  libdogleg at dogleg.c:1064: success! took 2 iterations
+  libdogleg at dogleg.c:1064: success! took 10 iterations
+  RMS error of the solution: 3.40256580058 pixels.
 
   ... a plot pops up showing the vector field of the difference ...
 '''
@@ -158,6 +159,14 @@ m_to = cameramodel( intrinsics            = (distortionmodel_to, intrinsics_to_v
                     extrinsics_rt_fromref = m.extrinsics_rt(False),
                     dimensions            = dims )
 
+pxy_solved = projections.project( v,
+                                  (distortionmodel_to, intrinsics_to_values))
+diff = pxy_solved - pxy
+
+sys.stderr.write("RMS error of the solution: {} pixels.\n". \
+                 format(np.sqrt(np.mean(nps.inner(diff, diff)))))
+
+
 if iscahvor:
     cahvor.write(sys.stdout, m_to)
 else:
@@ -167,10 +176,6 @@ else:
 if args.viz:
 
     import gnuplotlib as gp
-
-    pxy_solved = projections.project( v,
-                                      (distortionmodel_to, intrinsics_to_values))
-    diff = pxy_solved - pxy
 
     gp.plot( pxy[:,0], pxy[:,1], diff[:,0], diff[:,1],
              _with='vectors size screen 0.005,10 fixed lw 2',
