@@ -43,6 +43,13 @@ given a time-series of chessboard observations''')
     parser.add_argument('--viz',
                         help='''Visualize the difference''')
 
+    parser.add_argument('--margin',
+                        required=False,
+                        default=0,
+                        type=int,
+                        help='''Where to run the solve. A (usually positive) value of x means look in a
+                        window from (x,x) to (W-x,H-x)''')
+
     parser.add_argument('cameramodel',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("datafile must be an existing readable file, but got '{}".format(f)),
@@ -105,8 +112,8 @@ if dims is None:
 N       = 10
 Npoints = N*N
 
-px = np.linspace(0, dims[0]-1, N)
-py = np.linspace(0, dims[1]-1, N)
+px = np.linspace(args.margin, dims[0]-1-args.margin, N)
+py = np.linspace(args.margin, dims[1]-1-args.margin, N)
 
 # pxy is (N*N, 2). Each slice of pxy[:] is an (x,y) pixel coord
 pxy = nps.transpose(nps.clump( nps.cat(*np.meshgrid(px,py)), n=-2))
