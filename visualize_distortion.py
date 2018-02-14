@@ -8,6 +8,7 @@ import cPickle as pickle
 import re
 import cv2
 
+from mrcal import cameramodel
 from mrcal import cahvor
 from mrcal import projections
 
@@ -20,7 +21,7 @@ def visualize_distortion_vector_field(model):
     This function renders the distortion vector field
     '''
 
-    intrinsics = cahvor.read(model).intrinsics()
+    intrinsics = model.intrinsics()
 
     N = 20
     W,H = [2*center for center in intrinsics[1][2:4]]
@@ -51,7 +52,12 @@ def visualize_distortion_vector_field(model):
 
 
 
-cahvorfile = sys.argv[1]
+modelfile = sys.argv[1]
+if re.match(".*\.cahvor$", modelfile):
+    model = cahvor.read(modelfile)
+else:
+    model = cameramodel(modelfile)
+
 try:
     imagefile = sys.argv[2]
 except:
@@ -60,14 +66,14 @@ except:
 
 if imagefile is None:
     # no image file is given. Draw the vector field
-    visualize_distortion_vector_field(cahvorfile)
+    visualize_distortion_vector_field(model)
 else:
     m = re.match("(.*)\.([a-z][a-z][a-z])$", imagefile)
     if not m:
         raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(imagefile))
 
     image_corrected = \
-        projections.undistort_image(cahvor.read(cahvorfile), imagefile)
+        projections.undistort_image(model, imagefile)
 
     imagefile_corrected = "{}_undistorted.{}".format(m.group(1),m.group(2))
     cv2.imwrite(imagefile_corrected, image_corrected)
