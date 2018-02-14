@@ -61,6 +61,13 @@ given a time-series of chessboard observations''')
 
     return parser.parse_args()
 
+def writemodel(m):
+    print("========== CAMERAMODEL =========")
+    m.write(sys.stdout)
+    print("")
+
+    print("========== CAHVOR MODEL =========")
+    cahvor.write(sys.stdout, m)
 
 
 
@@ -84,11 +91,8 @@ distortionmodel_from = intrinsics_from[0]
 
 if distortionmodel_from == distortionmodel_to:
     sys.stderr.write("Input and output have the same distortion model: {}. Returning the input\n".format(distortionmodel_to))
-    sys.stderr.write("print a compatible error metric here: 0")
-    if iscahvor:
-        cahvor.write(sys.stdout, m)
-    else:
-        m.write(sys.stdout)
+    sys.stderr.write("RMS error of the solution: 0 pixels.\n")
+    writemodel(m)
     sys.exit(0)
 
 
@@ -167,11 +171,7 @@ sys.stderr.write("RMS error of the solution: {} pixels.\n". \
                  format(np.sqrt(np.mean(nps.inner(diff, diff)))))
 
 
-if iscahvor:
-    cahvor.write(sys.stdout, m_to)
-else:
-    m_to.write(sys.stdout)
-
+writemodel(m_to)
 
 if args.viz:
 
