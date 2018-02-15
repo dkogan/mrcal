@@ -4,9 +4,7 @@ import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
 import sys
-import cPickle as pickle
 import re
-import cv2
 
 from mrcal import cameramodel
 from mrcal import cahvor

@@ -2,7 +2,6 @@
 
 import numpy as np
 import numpysane as nps
-import gnuplotlib as gp
 import sys
 import re
 import cv2
