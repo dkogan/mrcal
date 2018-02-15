@@ -1,18 +1,5 @@
 #!/usr/bin/python2
 
-import sys
-import numpy as np
-import numpysane as nps
-import cv2
-import re
-import argparse
-import cPickle as pickle
-import os
-
-from mrcal import cahvor
-from mrcal import projections
-from mrcal import cameramodel
-import mrcal.optimizer as optimizer
 
 r'''Converts a camera model from one distortion model to another
 
@@ -29,13 +16,27 @@ Synopsis:
 
 
 
+import sys
+import numpy as np
+import numpysane as nps
+import cv2
+import re
+import argparse
+import cPickle as pickle
+import os
+
+from mrcal import cahvor
+from mrcal import projections
+from mrcal import cameramodel
+import mrcal.optimizer as optimizer
+
+
 
 def parse_args():
 
     parser = \
-        argparse.ArgumentParser(description = \
-r'''This tool solves the special-case-but-common problem of calibrating ONE PAIR of cameras
-given a time-series of chessboard observations''')
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--to',
                         required=True,
                         type=str,

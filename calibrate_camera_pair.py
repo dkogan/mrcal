@@ -1,23 +1,5 @@
 #!/usr/bin/python2
 
-import sys
-import numpy as np
-import numpysane as nps
-import cv2
-import re
-import argparse
-import cPickle as pickle
-import os
-
-from mrcal import cahvor
-from mrcal import utils
-from mrcal import poseutils
-from mrcal import projections
-from mrcal import cameramodel
-import mrcal.optimizer as optimizer
-
-
-
 r'''Special-case tool to calibrate ONE stereo pair
 
 Synopsis:
@@ -34,6 +16,24 @@ This tools uses the generic mrcal platform to solve this specific common
 problem. Run --help for the list of commandline options
 
 '''
+
+
+import sys
+import numpy as np
+import numpysane as nps
+import cv2
+import re
+import argparse
+import cPickle as pickle
+import os
+
+from mrcal import cahvor
+from mrcal import utils
+from mrcal import poseutils
+from mrcal import projections
+from mrcal import cameramodel
+import mrcal.optimizer as optimizer
+
 
 
 
@@ -58,9 +58,8 @@ Nwant = None
 
 def parse_args():
     parser = \
-        argparse.ArgumentParser(description = \
-r'''This tool solves the special-case-but-common problem of calibrating ONE PAIR of cameras
-given a time-series of chessboard observations''')
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--pair',
                         nargs=1,
                         type=int,
