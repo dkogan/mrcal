@@ -17,7 +17,7 @@ def _get_distortion_function(model):
     if "DISTORTION_CAHVORE" == model:       return cahvore_distort
     if "DISTORTION_NONE"    == model:       return lambda p, *args: p
     if re.match("DISTORTION_OPENCV",model): return opencv_distort
-    raise Exception("Unknown distortion model {}".format(intrinsics[0]))
+    raise Exception("Unknown distortion model {}".format(model))
 
 
 def cahvor_distort(p, fx, fy, cx, cy, *distortions):
