@@ -478,7 +478,7 @@ def distortion_map__to_warped(intrinsics, w, h):
     return grid, dgrid
 
 def undistort_image(model, image):
-    r'''Visualize the distortion effect of a set of intrinsic
+    r'''Visualize the distortion effect of a set of intrinsics
 
     This function warps an image to remove the distortion.
 
