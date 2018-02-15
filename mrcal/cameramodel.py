@@ -86,7 +86,7 @@ def _validateDimensions(d):
     return True
 
 
-class cameramodel:
+class cameramodel(object):
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
 
     For ONE camera this class represents
