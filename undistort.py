@@ -23,6 +23,9 @@ center pixel values as the original, but no distortions. Thus the undistorted
 images might cut out chunks of the original, or leave empty borders on the
 edges.
 
+A tool with similar usefulness is visualize-distortions.py. That tool renders a
+vector field so that we can see the effect of a distortion model.
+
 '''
 
 
