@@ -76,7 +76,7 @@ def parse_args():
                         help='Size of the imager. Used to extimate the coordinates of the center pixel')
     parser.add_argument('--out',
                         type=lambda d: d if os.path.isdir(d) else \
-                                parser.error("--out requires an existing directory as the arg, but got '{}".format(d)),
+                                parser.error("--out requires an existing directory as the arg, but got '{}'".format(d)),
                         nargs=1,
                         required=True,
                         metavar='DIR',
@@ -94,7 +94,7 @@ def parse_args():
 
     parser.add_argument('datafile',
                         type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("datafile must be an existing readable file, but got '{}".format(f)),
+                                parser.error("datafile must be an existing readable file, but got '{}'".format(f)),
                         nargs=1,
                         help='asciilog file that describes the chessboard corner detections')
 
@@ -648,7 +648,7 @@ def read_dots(datafile, pair_want, focal_estimate, imager_size):
 
         l = next(f)
         if l != '# path fixture_size_m fixture_space_m fixture_cols fixture_rows num_dots_detected dot_fixture_col dot_fixture_row dot_fixture_physical_x dot_fixture_physical_y dot_image_col dot_image_row\n':
-            raise Exception("Unexpected legend in '{}'. Got: '{}".format(datafile,l))
+            raise Exception("Unexpected legend in '{}'. Got: '{}'".format(datafile,l))
 
         while True:
             path,i_frame,i_pair,i_camera,dot_spacing,dots_here = get_next_dots(f)

@@ -55,7 +55,7 @@ def parse_args():
 
     parser.add_argument('cameramodel',
                         type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}".format(f)),
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         nargs=1,
                         help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')

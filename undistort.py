@@ -53,7 +53,7 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--model',
                         type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}".format(f)),
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         required=True,
                         nargs=1,
                         help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
@@ -61,7 +61,7 @@ def parse_args():
 
     parser.add_argument('image',
                         type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The images must be readable files, but got '{}".format(f)),
+                                parser.error("The images must be readable files, but got '{}'".format(f)),
                         nargs='+',
                         help='''Images to undistort''')
 
