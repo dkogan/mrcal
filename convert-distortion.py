@@ -55,7 +55,7 @@ def parse_args():
 
     parser.add_argument('cameramodel',
                         type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("datafile must be an existing readable file, but got '{}".format(f)),
+                                parser.error("The cameramodel must be an existing readable file, but got '{}".format(f)),
                         nargs=1,
                         help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
@@ -179,9 +179,10 @@ if args.viz:
     import gnuplotlib as gp
 
     gp.plot( pxy[:,0], pxy[:,1], diff[:,0], diff[:,1],
-             _with='vectors size screen 0.005,10 fixed lw 2',
+             _with='vectors size screen 0.005,10 fixed filled',
              tuplesize=4,
-             xrange=[-50,dims[0]+50],
-             yrange=[dims[1]+50, -50])
+             xrange=(-50,dims[0]+50),
+             yrange=(dims[1]+50, -50),
+             _set='object 1 rectangle from 0,0 to {},{} fillstyle empty'. format(*dims))
     import time
     time.sleep(100000)
