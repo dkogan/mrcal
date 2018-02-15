@@ -203,11 +203,11 @@ class cameramodel(object):
         self._dimensions = dimensions
 
 
-    def __init__(self, f=None, **kwargs):
+    def __init__(self, file_or_model=None, **kwargs):
         r'''Initializes a new camera-model object
 
-        If f is not None: we read the camera model from a filename, a pre-opened
-        file or from another camera model
+        If file_or_model is not None: we read the camera model from a filename,
+        a pre-opened file or from another camera model (copy constructor)
 
         If f is None and kwargs is empty: we init the model with invalid
         intrinsics (None initially; will need to be set later), and identity
@@ -226,35 +226,39 @@ class cameramodel(object):
         '''
 
         if len(kwargs) == 0:
-            if f is None:
+            if file_or_model is None:
                 self._extrinsics = np.zeros(6)
                 self._intrinsics = None
 
-            elif type(f) is cameramodel:
-                self = f
+            elif type(file_or_model) is cameramodel:
+                import copy
+                self._dimensions = copy.deepcopy(file_or_model._dimensions)
+                self._extrinsics = copy.deepcopy(file_or_model._extrinsics)
+                self._intrinsics = copy.deepcopy(file_or_model._intrinsics)
 
-            elif type(f) is str:
-                with open(f, 'r') as openedfile:
+
+            elif type(file_or_model) is str:
+                with open(file_or_model, 'r') as openedfile:
                     self._read_and_parse(openedfile)
 
             else:
-                self._read_and_parse(f)
+                self._read_and_parse(file_or_model)
 
         else:
-            if f is not None:
-                raise Exception("We have kwargs AND f. These are supposed to be mutually exclusive")
+            if file_or_model is not None:
+                raise Exception("We have kwargs AND file_or_model. These are supposed to be mutually exclusive")
 
             if 'intrinsics' not in kwargs:
-                raise Exception("No f was given, so we MUST have gotten an 'intrinsics' kwarg")
+                raise Exception("No file_or_model was given, so we MUST have gotten an 'intrinsics' kwarg")
             N=0
             extrinsics_keys=('extrinsics_Rt_toref','extrinsics_Rt_fromref','extrinsics_rt_toref','extrinsics_rt_fromref')
             for k in extrinsics_keys:
                 if k in kwargs:
                     N += 1
             if N != 1:
-                raise Exception("No f was given, so we MUST have gotten one of {}".format(extrinsics_keys))
+                raise Exception("No file_or_model was given, so we MUST have gotten one of {}".format(extrinsics_keys))
             if not (len(kwargs) == 2 or (len(kwargs) == 3 and 'dimensions' in kwargs)):
-                raise Exception("No f was given, so we MUST have gotten 'intrinsics', 'extrinsics_...' and optionally, 'dimensions'. Instead we got '{}'".format(kwargs))
+                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...' and optionally, 'dimensions'. Instead we got '{}'".format(kwargs))
 
             self.intrinsics(kwargs['intrinsics'])
             if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
