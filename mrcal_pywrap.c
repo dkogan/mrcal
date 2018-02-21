@@ -756,7 +756,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     if(frames)                      Py_DECREF(frames);
     if(points)                      Py_DECREF(points);
     if(observations_board)          Py_DECREF(observations_board);
-    if(observations_point)          Py_DECREF(observations_point);
     if(indices_frame_camera_board)  Py_DECREF(indices_frame_camera_board);
     if(observations_point)          Py_DECREF(observations_point);
     if(indices_point_camera_points) Py_DECREF(indices_point_camera_points);
