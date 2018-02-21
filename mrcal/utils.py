@@ -2,7 +2,6 @@
 
 import numpy as np
 import numpysane as nps
-import gnuplotlib as gp
 import sys
 import re
 import cv2
@@ -327,6 +326,7 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
     curves.append( tuple(list(object_cam0) + [object_curveopts,]))
 
     # Need ascii=1 because I'm plotting labels.
+    import gnuplotlib as gp
     gp.plot(*curves, _3d=1, square=1, ascii=1 )
 
     import time
