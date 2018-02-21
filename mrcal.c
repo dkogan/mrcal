@@ -998,14 +998,14 @@ static void unpack_solver_state( // out
 
     if( optimization_variable_choice.do_optimize_extrinsics )
         for(int i_camera=1; i_camera < Ncameras; i_camera++)
-            i_state = unpack_solver_state_extrinsics_one( &extrinsics[i_camera-1], &p[i_state] );
+            i_state += unpack_solver_state_extrinsics_one( &extrinsics[i_camera-1], &p[i_state] );
 
     if( optimization_variable_choice.do_optimize_frames )
     {
         for(int i_frame = 0; i_frame < Nframes; i_frame++)
-            i_state = unpack_solver_state_framert_one( &frames[i_frame], &p[i_state] );
+            i_state += unpack_solver_state_framert_one( &frames[i_frame], &p[i_state] );
         for(int i_point = 0; i_point < Npoints; i_point++)
-            i_state = unpack_solver_state_point_one( &points[i_point], &p[i_state] );
+            i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
     }
 
     assert(i_state == Nstate_ref);
