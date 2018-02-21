@@ -30,7 +30,8 @@ Package: mrcal
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          python-mrcal (= ${binary:Version}), python,
-         python-gnuplotlib, python-numpysane
+         python-gnuplotlib, python-numpysane,
+         mrgingham (>= 1.4)
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
