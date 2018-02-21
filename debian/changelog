@@ -1,3 +1,9 @@
+mrcal (0.12) unstable; urgency=medium
+
+  * Lots of various updates
+
+ -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Wed, 21 Feb 2018 12:54:11 -0800
+
 mrcal (0.11) unstable; urgency=medium
 
   * Uninteresting bug fix
