@@ -307,7 +307,7 @@ static union point2_t project( // out
     const double zero3[3] = {};
     // removing const, but that's just because OpenCV's API is incomplete. It IS
     // const
-    CvMat rf = cvMat(3,1, CV_64FC1, (double*)(i_pt == 0 ? zero3 : frame_rt->r.xyz));
+    CvMat rf = cvMat(3,1, CV_64FC1, (double*)(i_pt <= 0 ? zero3 : frame_rt->r.xyz));
     CvMat tf = cvMat(3,1, CV_64FC1, (double*)frame_rt->t.xyz);
 
     union point3_t pt_ref =
