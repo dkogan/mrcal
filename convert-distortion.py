@@ -5,13 +5,50 @@ r'''Converts a camera model from one distortion model to another
 
 Synopsis:
 
-  $ convert_distortion --viz --to DISTORTION_OPENCV4 left.cameramodel > left.opencv4.cameramodel
+  $ convert-distortion --viz --to DISTORTION_OPENCV4 left.cameramodel > left.opencv4.cameramodel
 
   ... lots of output as the solve runs ...
   libdogleg at dogleg.c:1064: success! took 10 iterations
   RMS error of the solution: 3.40256580058 pixels.
 
   ... a plot pops up showing the vector field of the difference ...
+
+
+Description:
+
+This is a tool to convert a given camera model from one distortion models to
+another. The input and output models have identical extrinsics and an identical
+intrinsic core (focal lengths, center pixel coords). The ONLY differing part is
+the distortion coefficients.
+
+While the distortion models all exist to solve the same problem, the different
+representations don't map to one another perfectly, so this tool seeks to find
+the best fit only. It does this by sampling a number of points in the imager,
+converting them to observation vectors in the camera coordinate system (using
+the given camera model), and then fitting a new camera model (with a different
+distortions) that matches the observation vectors to the source imager
+coordinates.
+
+Note that the distortion model implementations are usually optimized in the
+'undistort' direction, not the 'distort' direction, so the step of converting
+the target imager coordinates to observation vectors can be slow. This is highly
+dependent on the camera model specifically. CAHVORE especially is glacial. This
+can be mitigated somewhat by a better implementation, but in the meantime,
+please be patient.
+
+Camera models have originally been computed by a calibration procedure that
+takes as input a number of point observations, and the resulting models are only
+valid in an area where those observations were available; it's an extrapolation
+everywhere else. This is generally OK, and we try to cover the whole imager when
+calibrating cameras. Models with high distortions (CAHVORE, OPENCV8) generally
+have quickly-increasing effects towards the edges of the imager, and the
+distortions represented by these models at the extreme edges of the imager are
+often not reliable, since the initial calibration data is rarely available at
+the extreme edges. Thus using points at the extreme edges to fit another model
+is often counterproductive, and I provide the --margin commandline option for
+this case. convert-distortion --margin N will avoid N pixels at the edge of the
+imager for fitting purposes.
+
 '''
 
 
