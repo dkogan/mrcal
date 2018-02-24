@@ -59,7 +59,6 @@ import numpysane as nps
 import cv2
 import re
 import argparse
-import cPickle as pickle
 import os
 
 from mrcal import cahvor
