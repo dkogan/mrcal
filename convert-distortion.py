@@ -152,7 +152,7 @@ if dims is None:
 
 
 ### I sample the pixels in an NxN grid
-N       = 6
+N       = 20
 Npoints = N*N
 
 px = np.linspace(args.margin, dims[0]-1-args.margin, N)
