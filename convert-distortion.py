@@ -164,50 +164,60 @@ pxy = nps.transpose(nps.clump( nps.cat(*np.meshgrid(px,py)), n=-2))
 ### I unproject this, with broadcasting
 v = projections.unproject( pxy, m.intrinsics() )
 
+
 ### Solve!
-# random seed for the new intrinsics
-intrinsics_core = m.intrinsics()[1][:4]
-distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-6
-intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
-                                 axis=-2)
 
-# range-less points
-observations_points = nps.glue(pxy, -np.ones((Npoints, 1),), axis=-1)
-observations_points = np.ascontiguousarray(observations_points) # must be contiguous. optimizer.optimize() should really be more lax here
+### I solve the optimization a number of times with different random seed
+### values, taking the best-fitting results. This is required for the richer
+### models such as DISTORTION_OPENCV8
+err_rms_best = 1e10
+intrinsics_values_best = np.array(())
+for i in xrange(40): # this many trials
+    # random seed for the new intrinsics
+    intrinsics_core = m.intrinsics()[1][:4]
+    distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-8 # random initial seed
+    intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
+                                     axis=-2)
+    # range-less points
+    observations_points = nps.glue(pxy, -np.ones((Npoints, 1),), axis=-1)
+    observations_points = np.ascontiguousarray(observations_points) # must be contiguous. optimizer.optimize() should really be more lax here
 
-# Which points we're observing. This is dense and kinda silly for this
-# application. Each slice is (i_point,i_camera)
-indices_points = nps.transpose(nps.glue(np.arange(Npoints,    dtype=np.int32),
-                                        np.zeros ((Npoints,), dtype=np.int32), axis=-2))
-indices_points = np.ascontiguousarray(indices_points) # must be contiguous. optimizer.optimize() should really be more lax here
+    # Which points we're observing. This is dense and kinda silly for this
+    # application. Each slice is (i_point,i_camera)
+    indices_points = nps.transpose(nps.glue(np.arange(Npoints,    dtype=np.int32),
+                                            np.zeros ((Npoints,), dtype=np.int32), axis=-2))
+    indices_points = np.ascontiguousarray(indices_points) # must be contiguous. optimizer.optimize() should really be more lax here
 
-optimizer.optimize(intrinsics_to_values,
-                   None, # no extrinsics. Just one camera
-                   None, # no frames. Just points
-                   v,
-                   None, # no board observations
-                   None, # no board observations
-                   observations_points,
-                   indices_points,
-                   distortionmodel_to,
+    optimizer.optimize(intrinsics_to_values,
+                       None, # no extrinsics. Just one camera
+                       None, # no frames. Just points
+                       v,
+                       None, # no board observations
+                       None, # no board observations
+                       observations_points,
+                       indices_points,
+                       distortionmodel_to,
 
-                   do_optimize_intrinsic_core        = True,
-                   do_optimize_intrinsic_distortions = True,
-                   do_optimize_extrinsics            = False,
-                   do_optimize_frames                = False)
+                       do_optimize_intrinsic_core        = False,
+                       do_optimize_intrinsic_distortions = True,
+                       do_optimize_extrinsics            = False,
+                       do_optimize_frames                = False)
 
-m_to = cameramodel( intrinsics            = (distortionmodel_to, intrinsics_to_values.ravel()),
+    pxy_solved = projections.project( v,
+                                      (distortionmodel_to, intrinsics_to_values))
+    diff = pxy_solved - pxy
+    err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
+    sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
+    if err_rms < err_rms_best:
+        err_rms_best = err_rms
+        intrinsics_values_best = np.array(intrinsics_to_values)
+
+
+
+sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
+m_to = cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
                     extrinsics_rt_fromref = m.extrinsics_rt(False),
                     dimensions            = dims )
-
-pxy_solved = projections.project( v,
-                                  (distortionmodel_to, intrinsics_to_values))
-diff = pxy_solved - pxy
-
-sys.stderr.write("RMS error of the solution: {} pixels.\n". \
-                 format(np.sqrt(np.mean(nps.inner(diff, diff)))))
-
-
 writemodel(m_to)
 
 if args.viz:
