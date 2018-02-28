@@ -190,11 +190,11 @@ def read(f):
 
     return _read(f)
 
-def _write(f, m):
-    r'''Writes a cameramodel as a .cahvor to a writeable file object
+def _write(f, m, note=None):
+    r'''Writes a cameramodel as a .cahvor to a writeable file object'''
 
-    '''
-
+    if note is not None:
+        f.write('# ' + note + '\n')
     d = m.dimensions()
     if d is not None:
         f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
@@ -257,13 +257,12 @@ def _write(f, m):
 
     return True
 
-def write(f, m):
-    r'''Writes a cameramodel as a .cahvor to a filename or a writeable file object
-    '''
+def write(f, m, note=None):
+    r'''Writes a cameramodel as a .cahvor to a filename or a writeable file object'''
 
     if type(f) is str:
         with open(f, 'w') as openedfile:
-            return _write(openedfile, m)
+            return _write(openedfile, m, note)
 
     return _write(f, m)
 

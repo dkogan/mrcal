@@ -111,8 +111,11 @@ class cameramodel(object):
     '''
 
 
-    def _write(self, f):
+    def _write(self, f, note=None):
         r'''Writes out this camera model to an open file'''
+
+        if note is not None:
+            f.write('# ' + note + '\n')
 
         _validateIntrinsics(self._intrinsics)
         _validateExtrinsics(self._extrinsics)
@@ -273,7 +276,7 @@ class cameramodel(object):
 
 
 
-    def write(self, f):
+    def write(self, f, note=None):
         r'''Writes out this camera model
 
         We write to the given filename or a given pre-opened file.
@@ -282,10 +285,10 @@ class cameramodel(object):
 
         if type(f) is str:
             with open(f, 'w') as openedfile:
-                self._write( openedfile )
+                self._write( openedfile, note )
 
         else:
-            self._write( f )
+            self._write( f, note )
 
 
     def intrinsics(self, i=None):
