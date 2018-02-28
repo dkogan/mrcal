@@ -4,7 +4,7 @@ r'''Calibrate some synchronized cameras
 
 Synopsis:
 
-  $ calibrate-cameras.py --focal 2000 --imagersize 2448 2048 --outdir /tmp --object-spacing 0.015555555555555557 --object-width-n 10 '~paulo/*.png'
+  $ calibrate-cameras.py --focal 2000 --imagersize 2448 2048 --outdir /tmp --object-spacing 0.01 --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
 
 
   ... lots of output as the solve runs ...
@@ -13,7 +13,7 @@ Synopsis:
   Wrote /tmp/camera0-1.cahvor
 
 
-This tools uses the generic mrcal platform to solve this specific common
+This tools uses the generic mrcal platform to solve this common specific
 problem. Run --help for the list of commandline options
 
 '''
@@ -76,10 +76,18 @@ def parse_args():
                                 parser.error("--dots-cache requires an existing, readable file as the arg, but got '{}'".format(f)),
                         required=False,
                         help='Allows us to pass in already-computed chessboard centers')
+
     parser.add_argument('--muse-extrinsics',
+                        action='store_true',
                         required=False,
                         default=False,
                         help='''Apply MUSE's non-identity rotation for camera0''')
+
+    parser.add_argument('--explore',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='''After the solve open an interactive shell to examine the solution''')
 
     parser.add_argument('images',
                         type=str,
@@ -245,7 +253,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None):
             args_mrgingham.extend(globs)
 
             sys.stderr.write("Computing chessboard corners from {}\n".format(globs))
-            sys.stderr.write("Command:  {}\n".format(' '.join(pipes.quote(s) for s in args_mrgingham)))
+            sys.stderr.write("Command (output can be passed to --dots-cache): {}\n".format(' '.join(pipes.quote(s) for s in args_mrgingham)))
 
             dots_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             pipe = dots_output.stdout
@@ -738,7 +746,7 @@ print "done with {}".format(distortion_model)
 
 Ndistortions0      = optimizer.getNdistortionParams(distortion_model)
 
-distortion_model   = "DISTORTION_CAHVOR"
+distortion_model   = "DISTORTION_OPENCV4"
 Ndistortions       = optimizer.getNdistortionParams(distortion_model)
 Ndistortions_delta = Ndistortions - Ndistortions0
 intrinsics         = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions_delta))*1e-5, axis=-1 )
@@ -824,6 +832,8 @@ print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 
 
+
+# Write the output models
 for i_camera in xrange(Ncameras):
     if args.muse_extrinsics:
         Rt_r0 = np.array([[ 0.,  0.,  1.],
@@ -846,49 +856,79 @@ for i_camera in xrange(Ncameras):
     c = cameramodel( intrinsics          = (distortion_model, intrinsics[i_camera,:]),
                      extrinsics_Rt_toref = Rt_rx )
 
-    with open('{}/camera-{}.cahvor'.format(args.outdir, i_camera), 'w') as f:
-        print "Wrote {}".format(f.name)
-        f.write("## generated with {}\n\n".format(sys.argv))
-        cahvor.write(f, c)
+    cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
+    cahvor.write(cahvorfile, c,
+                 "generated with {}\n\n".format(sys.argv))
+    print "Wrote {}".format(cahvorfile)
+
+    cameramodelfile = '{}/camera-{}.cameramodel'.format(args.outdir, i_camera)
+    c.write(cameramodelfile,
+            "generated with {}\n\n".format(sys.argv))
+    print "Wrote {}".format(cameramodelfile)
+
+if args.explore:
+    import gnuplotlib as gp
 
 
-projected = projections.calobservations_project(distortion_model, intrinsics, extrinsics, frames, object_spacing, object_width_n)
-err       = projections.calobservations_compute_reproj_error(projected, observations,
-                                                             indices_frame_camera, object_width_n)
-norm2_err_perimage = nps.inner( nps.clump(err,n=-3),
-                                nps.clump(err,n=-3) )
-rms_err_perimage   = np.sqrt( norm2_err_perimage / (object_width_n*object_width_n) )
+    projected = projections.calobservations_project(distortion_model, intrinsics, extrinsics, frames, object_spacing, object_width_n)
+    err       = projections.calobservations_compute_reproj_error(projected, observations,
+                                                                 indices_frame_camera, object_width_n)
+    norm2_err_perimage = nps.inner( nps.clump(err,n=-3),
+                                    nps.clump(err,n=-3) )
+    rms_err_perimage   = np.sqrt( norm2_err_perimage / (object_width_n*object_width_n) )
 
-i_observations_worst = list(reversed(np.argsort(rms_err_perimage)))
-print "worst observations: {}".format(i_observations_worst[:100])
-print "worst frame_camera indices and RMS:\n{}".format(nps.glue( indices_frame_camera[i_observations_worst,:],
-                                                                nps.transpose(rms_err_perimage[i_observations_worst]), axis = -1))
-print "worst image paths: {}".format([paths[p] for p in i_observations_worst])
+    i_observations_worst = list(reversed(np.argsort(rms_err_perimage)))
+    print "worst observations: {}".format(i_observations_worst[:100])
+    print "worst frame_camera indices and RMS:\n{}".format(nps.glue( indices_frame_camera[i_observations_worst,:],
+                                                                    nps.transpose(rms_err_perimage[i_observations_worst]), axis = -1))
+    print "worst image paths: {}".format([paths[p] for p in i_observations_worst])
+
+    print "\nTo visualize the i-th worst image, call show(i)\n\n"
+
+    def show(i):
+        i_observation = i_observations_worst[i]
+
+        obs = nps.clump( observations[i_observation], n=2)
+        i_frame,i_camera = indices_frame_camera[i_observation]
+        reproj = nps.clump( projected[i_frame,i_camera], n=2)
+
+        # zrange = frames[inputs['indices_frame_camera'][:,0], 5]
+
+        # gp.plot(utils.get_observation_size(observations),
+        #         rms_err_perimage,
+        #         _with='points pt 7 ps 2', xlabel="size", ylabel="rms")
+        # import time
+        # time.sleep(1000)
+        # sys.exit()
+
+        # gp.plot( zrange,
+        #          rms_err_perimage,
+        #          _with='points pt 7 ps 2', xlabel="zrange", ylabel="rms err")
+        # import time
+        # time.sleep(1000)
+        # sys.exit()
+
+        # gp.plot(utils.get_observation_size(observations),
+        #         zrange,
+        #         _with='points pt 7 ps 2', xlabel="size", ylabel="zrange",
+        #         xmin=0, ymin=0)
+        # import time
+        # time.sleep(1000)
+        # sys.exit()
+
+        # error per dot
+        err = np.sqrt(nps.inner(reproj - obs,
+                                reproj - obs))
+
+        gp.plot( (reproj[:,0], reproj[:,1], err,
+                  {'with': 'points pt 7 ps 2 palette', 'legend': 'reprojection error', 'tuplesize': 3}),
+                 (obs   [:,0], obs   [:,1], {'with': 'points', 'legend': 'observed'}),
+                 (reproj[:,0], reproj[:,1], {'with': 'points', 'legend': 'hypothesis'}),
+                 rgbimage=paths[i_observation],
+                 square=1,cbmin=0,
+                 _set='autoscale noextend',
+                 title='Worst case. i_frame={}, i_observation={}, i_camera={}, path={}'.format( i_frame, i_observation, i_camera, paths[i_observation]))
 
 
-
-
-
-
-i_observation = i_observations_worst[0]
-
-obs = nps.clump( observations[i_observation], n=2)
-i_frame,i_camera = indices_frame_camera[i_observation]
-reproj = nps.clump( projected[i_frame,i_camera], n=2)
-
-# error per dot
-err = np.sqrt(nps.inner(reproj - obs,
-                        reproj - obs))
-
-import gnuplotlib as gp
-gp.plot( (reproj[:,0], reproj[:,1], err,
-          {'with': 'points pt 7 ps 2 palette', 'legend': 'reprojection error', 'tuplesize': 3}),
-         (obs   [:,0], obs   [:,1], {'with': 'points', 'legend': 'observed'}),
-         (reproj[:,0], reproj[:,1], {'with': 'points', 'legend': 'hypothesis'}),
-         rgbimage=paths[i_observation],
-         square=1,cbmin=0,
-         _set='autoscale noextend',
-         title='Worst case. i_frame={}, i_observation={}, i_camera={}, path={}'.format( i_frame, i_observation, i_camera, paths[i_observation]))
-import time
-time.sleep(10000)
-
+    import IPython
+    IPython.embed()
