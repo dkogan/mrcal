@@ -193,7 +193,7 @@ def opencv_distort(p, fx, fy, cx, cy, *distortions):
                   ( 0, fy, cy),
                   ( 0,  0,  1)))
 
-    out,_ = cv2.projectPoints(p, np.zeros((3,)), np.zeros((3,)), A, distortions)
+    out,_ = cv2.projectPoints(nps.atleast_dims(p,-2), np.zeros((3,)), np.zeros((3,)), A, distortions)
     out = out[:,0,:]
 
     out_dims = dims_broadcast + (2,)
