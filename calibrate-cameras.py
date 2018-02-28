@@ -192,7 +192,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None):
     encode the instantaneous frame numbers. This function invokes the chessboard
     finder to compute the point coordinates, and returns a tuple
 
-      observations, indices_frame_camera
+      observations, indices_frame_camera, files_sorted
 
     where observations is an (N,object-width-n,object-width-n,2) array
     describing N board observations where the board has dimensions
@@ -200,6 +200,8 @@ def get_observations(Nw, Nh, globs, dots_vnl=None):
 
     indices_frame_camera is an (N,2) array of integers where each observation is
     (index_frame,index_camera)
+
+    files_sorted is a list of paths of images corresponding to the observations
 
     '''
 
@@ -328,7 +330,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None):
                                 mapping_file_dots[f].reshape(Nh,Nw,2),
                                 axis=-4)
 
-    return observations, indices_frame_camera
+    return observations, indices_frame_camera, files_sorted
 
 
 def estimate_local_calobject_poses( indices_frame_camera, \
@@ -679,41 +681,32 @@ if len(args.images) > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(N))
 
-args.images = [os.path.expanduser(g) for g in args.images]
-Ncameras = len(args.images)
+images         = [os.path.expanduser(g) for g in args.images]
+object_spacing = args.object_spacing
+object_width_n = args.object_width_n
 
-observations, indices_frame_camera = get_observations(args.object_width_n,
-                                                      args.object_width_n,
-                                                      args.images,
-                                                      args.dots_cache)
+
+Ncameras = len(images)
+
+observations, indices_frame_camera,paths = \
+    get_observations(object_width_n,
+                     object_width_n,
+                     images,
+                     args.dots_cache)
 
 inputs = {'imagersize':           args.imagersize,
           'focal_estimate':       args.focal,
           'Ncameras':             Ncameras,
           'indices_frame_camera': indices_frame_camera,
           'dots':                 observations,
-          'dot_spacing':          args.object_spacing,
-          'object_width_n':       args.object_width_n}
+          'dot_spacing':          object_spacing,
+          'object_width_n':       object_width_n}
 
 
-
-distortion_model = "DISTORTION_NONE"
 
 intrinsics,extrinsics,frames = make_seed(inputs)
 
 # done with everything. Run the calibration, in several passes.
-projected = \
-    projections.calobservations_project(distortion_model, intrinsics, extrinsics, frames,
-                                        args.object_spacing, args.object_width_n)
-err = projections.calobservations_compute_reproj_error(projected, observations,
-                                                       indices_frame_camera, args.object_width_n)
-
-norm2_err = nps.inner(err.ravel(), err.ravel())
-rms_err   = np.sqrt( norm2_err / (err.ravel().shape[0]/2) )
-print "rms: {}".format(rms_err)
-
-
-
 
 distortion_model = "DISTORTION_NONE"
 optimizer.optimize(intrinsics, extrinsics, frames, None,
@@ -723,8 +716,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = False,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 
 distortion_model = "DISTORTION_NONE"
 optimizer.optimize(intrinsics, extrinsics, frames, None,
@@ -734,14 +727,14 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = True,
                    do_optimize_intrinsic_distortions = False,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 
 print "done with {}".format(distortion_model)
 
 Ndistortions0      = optimizer.getNdistortionParams(distortion_model)
 
-distortion_model   = "DISTORTION_OPENCV4"
+distortion_model   = "DISTORTION_CAHVOR"
 Ndistortions       = optimizer.getNdistortionParams(distortion_model)
 Ndistortions_delta = Ndistortions - Ndistortions0
 intrinsics         = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions_delta))*1e-5, axis=-1 )
@@ -752,8 +745,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = True,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, None,
@@ -763,8 +756,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = True,
                    do_optimize_intrinsic_distortions = False,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
@@ -775,8 +768,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = True,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, None,
@@ -786,8 +779,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = True,
                    do_optimize_intrinsic_distortions = False,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
@@ -798,8 +791,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = True,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 optimizer.optimize(intrinsics, extrinsics, frames, None,
@@ -809,8 +802,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = True,
                    do_optimize_intrinsic_distortions = False,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 print "done with {}, optimizing CORE".format(distortion_model)
 
 
@@ -821,8 +814,8 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
 
                    do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = True,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n)
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n)
 print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 
@@ -848,3 +841,45 @@ for i_camera in xrange(Ncameras):
         print "Wrote {}".format(f.name)
         f.write("## generated with {}\n\n".format(sys.argv))
         cahvor.write(f, c)
+
+
+projected = projections.calobservations_project(distortion_model, intrinsics, extrinsics, frames, object_spacing, object_width_n)
+err       = projections.calobservations_compute_reproj_error(projected, observations,
+                                                             indices_frame_camera, object_width_n)
+norm2_err_perimage = nps.inner( nps.clump(err,n=-3),
+                                nps.clump(err,n=-3) )
+rms_err_perimage   = np.sqrt( norm2_err_perimage / (object_width_n*object_width_n) )
+
+i_observations_worst = list(reversed(np.argsort(rms_err_perimage)))
+print "worst observations: {}".format(i_observations_worst[:100])
+print "worst frame_camera indices and RMS:\n{}".format(nps.glue( indices_frame_camera[i_observations_worst,:],
+                                                                nps.transpose(rms_err_perimage[i_observations_worst]), axis = -1))
+print "worst image paths: {}".format([paths[p] for p in i_observations_worst])
+
+
+
+
+
+
+i_observation = i_observations_worst[0]
+
+obs = nps.clump( observations[i_observation], n=2)
+i_frame,i_camera = indices_frame_camera[i_observation]
+reproj = nps.clump( projected[i_frame,i_camera], n=2)
+
+# error per dot
+err = np.sqrt(nps.inner(reproj - obs,
+                        reproj - obs))
+
+import gnuplotlib as gp
+gp.plot( (reproj[:,0], reproj[:,1], err,
+          {'with': 'points pt 7 ps 2 palette', 'legend': 'reprojection error', 'tuplesize': 3}),
+         (obs   [:,0], obs   [:,1], {'with': 'points', 'legend': 'observed'}),
+         (reproj[:,0], reproj[:,1], {'with': 'points', 'legend': 'hypothesis'}),
+         rgbimage=paths[i_observation],
+         square=1,cbmin=0,
+         _set='autoscale noextend',
+         title='Worst case. i_frame={}, i_observation={}, i_camera={}, path={}'.format( i_frame, i_observation, i_camera, paths[i_observation]))
+import time
+time.sleep(10000)
+
