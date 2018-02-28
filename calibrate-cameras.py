@@ -4,7 +4,7 @@ r'''Calibrate some synchronized cameras
 
 Synopsis:
 
-  $ calibrate-cameras.py --focal 2000 --imagersize 2448 2048 --outdir /tmp --object-spacing 0.015555555555555557 --object-width-n 10 ~paulo/*.png'
+  $ calibrate-cameras.py --focal 2000 --imagersize 2448 2048 --outdir /tmp --object-spacing 0.015555555555555557 --object-width-n 10 '~paulo/*.png'
 
 
   ... lots of output as the solve runs ...
