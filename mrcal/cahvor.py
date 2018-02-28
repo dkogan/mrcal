@@ -85,6 +85,7 @@ def _read(f):
                             format(f.name, k))
 
 
+    is_cahvor_or_cahvore = False
     if   'DISTORTION_OPENCV8' in x:
         distortions = x["DISTORTION_OPENCV8"]
         distortion_model = 'DISTORTION_OPENCV8'
@@ -98,24 +99,26 @@ def _read(f):
         distortions = np.array(())
         distortion_model = 'DISTORTION_NONE'
     else:
-        # CAHVOR(E)
+        is_cahvor_or_cahvore = True
 
-        if 'Model' not in x:
-            x['Model'] = ''
+    # get extrinsics from cahvor
+    if 'Model' not in x:
+        x['Model'] = ''
 
-        m = re.match('CAHVORE3,([0-9\.e-]+)\s*=\s*general',x['Model'])
-        if m:
-            is_cahvore = True
-            cahvore_linearity = float(m.group(1))
-        else:
-            is_cahvore = False
+    m = re.match('CAHVORE3,([0-9\.e-]+)\s*=\s*general',x['Model'])
+    if m:
+        is_cahvore = True
+        cahvore_linearity = float(m.group(1))
+    else:
+        is_cahvore = False
 
-        Hp,Vp = _HVs_HVc_HVp(x)[-2:]
-        R_toref = nps.transpose( nps.cat( Hp,
-                                          Vp,
-                                          x['A'] ))
-        t_toref = x['C']
+    Hp,Vp = _HVs_HVc_HVp(x)[-2:]
+    R_toref = nps.transpose( nps.cat( Hp,
+                                      Vp,
+                                      x['A'] ))
+    t_toref = x['C']
 
+    if is_cahvor_or_cahvore:
         if 'O' not in x:
             theta = 0
             phi   = 0
@@ -158,7 +161,6 @@ def _read(f):
             else:
                 distortions = np.array((theta,phi,R0,R1,R2))
                 distortion_model = 'DISTORTION_CAHVOR'
-
 
     m = cameramodel.cameramodel()
     m.intrinsics( (distortion_model,
