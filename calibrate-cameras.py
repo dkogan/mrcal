@@ -76,6 +76,10 @@ def parse_args():
                                 parser.error("--dots-cache requires an existing, readable file as the arg, but got '{}'".format(f)),
                         required=False,
                         help='Allows us to pass in already-computed chessboard centers')
+    parser.add_argument('--muse-extrinsics',
+                        required=False,
+                        default=False,
+                        help='''Apply MUSE's non-identity rotation for camera0''')
 
     parser.add_argument('images',
                         type=str,
@@ -821,12 +825,17 @@ print "done with {}, optimizing DISTORTIONS again".format(distortion_model)
 
 
 for i_camera in xrange(Ncameras):
-    # I have a calibration. We want non-identity intrinsics for some reason, so I do
-    # that
-    Rt_r0 = np.array([[ 0.,  0.,  1.],
-                      [ 1.,  0.,  0.],
-                      [ 0.,  1.,  0.],
-                      [ 0.,  0.,  0.]])
+    if args.muse_extrinsics:
+        Rt_r0 = np.array([[ 0.,  0.,  1.],
+                          [ 1.,  0.,  0.],
+                          [ 0.,  1.,  0.],
+                          [ 0.,  0.,  0.]])
+    else:
+        Rt_r0 = np.array([[ 1.,  0.,  0.],
+                          [ 0.,  1.,  0.],
+                          [ 0.,  0.,  1.],
+                          [ 0.,  0.,  0.]])
+
     if i_camera >= 1:
         rt_x0 = extrinsics[i_camera-1,:].ravel()
     else:
