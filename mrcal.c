@@ -1057,7 +1057,8 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
         i_point*3;
 }
 
-double mrcal_optimize( // out, in (seed on input)
+struct mrcal_stats_t
+mrcal_optimize( // out, in (seed on input)
 
                       // These are the state. I don't have a state_t because Ncameras
                       // and Nframes aren't known at compile time
@@ -1780,8 +1781,8 @@ double mrcal_optimize( // out, in (seed on input)
                                 Nstate, Nmeasurements, N_j_nonzero,
                                 &optimizerCallback, NULL);
 
-    // Return RMS reprojection error
-
-    // /2 because I have separate x and y measurements
-    return sqrt(norm2_error / ((double)Nmeasurements / 2.0));
+    struct mrcal_stats_t stats = {.rms_reproj_error__pixels =
+                                  // /2 because I have separate x and y measurements
+                                  sqrt(norm2_error / ((double)Nmeasurements / 2.0))};
+    return stats;
 }

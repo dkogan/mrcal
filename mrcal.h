@@ -93,7 +93,19 @@ struct mrcal_variable_select
      !(x).do_optimize_frames)
 
 
-double mrcal_optimize( // out, in (seed on input)
+
+#define MRCAL_STATS_ITEM(_)                                 \
+    _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble)
+
+#define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
+
+struct mrcal_stats_t
+{
+    MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_DEFINE)
+};
+
+struct mrcal_stats_t
+mrcal_optimize( // out, in (seed on input)
 
                       // These are the state. I don't have a state_t because Ncameras
                       // and Nframes aren't known at compile time.

@@ -405,6 +405,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* indices_frame_camera_board  = NULL;
     PyArrayObject* observations_point          = NULL;
     PyArrayObject* indices_point_camera_points = NULL;
+    PyObject*      pystats                     = NULL;
 
     // Python is silly. There's some nuance about signal handling where it sets
     // a SIGINT (ctrl-c) handler to just set a flag, and the python layer then
@@ -514,23 +515,21 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
     enum distortion_model_t distortion_model;
-    if( !optimize_validate_args(&distortion_model,
+    if( optimize_validate_args(&distortion_model,
 
-                                intrinsics,
-                                extrinsics,
-                                frames,
-                                points,
-                                observations_board,
-                                indices_frame_camera_board,
-                                observations_point,
-                                indices_point_camera_points,
-                                skipped_observations_board,
-                                skipped_observations_point,
-                                calibration_object_spacing,
-                                calibration_object_width_n,
-                                distortion_model_string))
-        goto done;
-
+                               intrinsics,
+                               extrinsics,
+                               frames,
+                               points,
+                               observations_board,
+                               indices_frame_camera_board,
+                               observations_point,
+                               indices_point_camera_points,
+                               skipped_observations_board,
+                               skipped_observations_point,
+                               calibration_object_spacing,
+                               calibration_object_width_n,
+                               distortion_model_string))
     {
         int Ncameras           = PyArray_DIMS(intrinsics)[0];
         int Nframes            = PyArray_DIMS(frames)[0];
@@ -728,6 +727,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         optimization_variable_choice.do_optimize_extrinsics = PyObject_IsTrue(do_optimize_extrinsics);
         optimization_variable_choice.do_optimize_frames = PyObject_IsTrue(do_optimize_frames);
 
+        struct mrcal_stats_t stats =
         mrcal_optimize( c_intrinsics,
                         c_extrinsics,
                         c_frames,
@@ -745,10 +745,38 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
                         c_calibration_object_spacing,
                         c_calibration_object_width_n);
-    }
+        pystats = PyDict_New();
+        if(pystats == NULL)
+        {
+            PyErr_SetString(PyExc_RuntimeError, "PyDict_New() failed!");
+            goto done;
+        }
+#define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)     \
+        {                                                               \
+            PyObject* obj = pyconverter( (type)stats.name);             \
+            if( obj == NULL)                                            \
+            {                                                           \
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't make PyObject for '" #name "'"); \
+                goto done;                                              \
+            }                                                           \
+                                                                        \
+            if( 0 != PyDict_SetItemString(pystats, #name, obj) )        \
+            {                                                           \
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict '" #name "'"); \
+                Py_DECREF(obj);                                         \
+                goto done;                                              \
+            }                                                           \
+        }
+        MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
 
-    Py_INCREF(Py_None);
-    result = Py_None;
+        result = pystats;
+        Py_INCREF(result);
+    }
+    else
+    {
+        Py_INCREF(Py_None);
+        result = Py_None;
+    }
 
  done:
     if(intrinsics)                  Py_DECREF(intrinsics);
@@ -759,6 +787,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     if(indices_frame_camera_board)  Py_DECREF(indices_frame_camera_board);
     if(observations_point)          Py_DECREF(observations_point);
     if(indices_point_camera_points) Py_DECREF(indices_point_camera_points);
+    if(pystats)                     Py_DECREF(pystats);
 
     if( 0 != sigaction(SIGINT,
                        &sigaction_old, NULL ))
