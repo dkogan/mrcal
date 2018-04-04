@@ -211,7 +211,6 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     return p1, p0xy
 
 
-# from visualize_extrinsic. please unduplicate
 def extend_axes_for_plotting(axes):
     r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
     this into a 3x6 array that can be gnuplotted "with vectors"

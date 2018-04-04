@@ -21,7 +21,6 @@ CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers -Wno-unused-variable -W
 
 DIST_INCLUDE    += basic_points.h mrcal.h
 DIST_BIN :=					\
-	visualize_extrinsics.py			\
 	calibrate-cameras.py			\
 	convert-distortion.py			\
 	redistort.py				\
@@ -49,4 +48,5 @@ all: mrcal/optimizer.so
 EXTRA_CLEAN += mrcal/*.so
 
 
-include /usr/include/mrbuild/Makefile.common
+#include /usr/include/mrbuild/Makefile.common
+include ../mrbuild/Makefile.common
