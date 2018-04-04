@@ -16,7 +16,7 @@ Synopsis:
 
 Description:
 
-This is a tool to convert a given camera model from one distortion models to
+This is a tool to convert a given camera model from one distortion model to
 another. The input and output models have identical extrinsics and an identical
 intrinsic core (focal lengths, center pixel coords). The ONLY differing part is
 the distortion coefficients.
