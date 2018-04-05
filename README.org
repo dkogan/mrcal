@@ -1,0 +1,117 @@
+* Synopsis
+
+#+BEGIN_EXAMPLE
+$ calibrate-cameras.py --focal 2000 --imagersize 2448 2048 
+                       --outdir /tmp --object-spacing 0.01
+                       --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
+
+... lots of output as the solve runs ...
+Wrote /tmp/camera0-0.cahvor
+Wrote /tmp/camera0-1.cahvor
+#+END_EXAMPLE
+
+* Summary
+
+Mrcal is a generic toolkit to solve calibration and SFM-like problems.
+Functionality related to this problems is exposes as a set of python libraries.
+Both CAHVOR and OpenCV distortion models are fully supported; CAHVORE is
+partially supported. The toolkit includes:
+
+- Some libraries:
+  - =libmrcal=: A flexible solver core written in C that solves the underlying
+    optimization problem
+  - =mrcal.optimizer=: a Python interface to this core
+  - =mrcal.cameramodel=: a Python library to read/write camera models
+  - =mrcal.cahvor=: a Python library to read/write camera models in cahvor format:
+    this is for legacy compatibility
+  - =mrcal.poseutils=: a Python library to manipulate 3D poses
+  - =mrcal.projections=: a Python library to (un)project and (un)distort data
+- Some tools:
+  - =calibrate-cameras=: calibrates N cameras
+  - =convert-distortions=: fits one distortion model to another
+  - =visualize-distortions=: plot a vector field to show the effects of a
+    specific model
+  - =undistort-image=: Given image(s) and a distortion model, produces a new set
+    of images that have removed the distortion
+  - =redistort-points=: Given two distortion models and a set of points, maps
+    them from one distortion model to the other
+
+These libraries and tools make it easy to both produce calibrations in many ways
+and to manipulate them by moving stuff around, grafting various
+intrinsics/extrinsics, etc.
+
+* Description
+
+** Pose representations
+
+Various parts of the toolkit have preferred representations of pose, and
+=mrcal.poseutils= has functions to convert between them. Available
+representations are:
+
+- =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
+  (1,3) translation vector
+
+- =rt=: a (6) numpy array with a (3) vector representing a Rodrigues rotation
+  concatenated with another (3) vector, representing a rotation.
+
+Each of these represents a transformation rotate(x) + t.
+
+A Rodrigues rotation vector r represents a rotation of length(r) radians around
+an axis in the direction r. Converting between R and r is done via the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues
+rotation formula]]. This is implemented in OpenCV Python function =cv2.Rodrigues=.
+For translating /poses/, not just rotations, use =mrcal.poseutils.Rt_from_rt()=
+and =mrcal.poseutils.rt_from_Rt()=.
+
+** Model files
+
+The toolkit supports two different representations of a camera model on disk:
+
+- =.cameramodel=: the "preferred" format. This is a simple text representation
+  that has clear sections for the distortion model, pinhole intrinsics,
+  distortions, and an extrinsic pose. The pose is represented as =rt_fromref=:
+  an =rt= transformation /from/ the reference coordinate system /to/ the
+  coordinate system of this camera.
+
+- =.cahvor=: the legacy format. This exists for compatibility for existing JPL
+  tools. This is also a text format. It mixes extrinsics and intrinsics, which
+  makes it difficult for humans to interpret the numbers. Furthermore, it
+  includes some redundant and constrained data that makes manipulations by
+  humans difficult: impossible and/or contradictory models can easily result.
+
+** Distortion models
+
+Distortion models are specified as elements of =enum distortion_model_t= (in C)
+or, as strings that match the entries of that enum (in Python). Currently I
+support all CAHVOR flavors and all models implemented in OpenCV. A limitation is
+that the solver core does not support CAHVORE, so use the OpenCV models if a
+high-distoriton model is required. Currently the supported models are:
+
+- =DISTORTION_NONE=
+- =DISTORTION_OPENCV4=
+- =DISTORTION_OPENCV5=
+- =DISTORTION_OPENCV8=
+- =DISTORTION_CAHVOR=
+- =DISTORTION_CAHVORE=
+
+** Calibration object
+
+When running a camera calibration, the first step involves converting an image
+containing an observed calibration object into a set of observation pixels.
+Mrcal is a purely geometrical toolkit, so it outsources this vision problem to
+another library: =[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/][mrgingham]]=. That library strongly suggests using a particular
+calibration object; see its documentation for more details.
+
+
+* Repository
+
+https://github.jpl.nasa.gov/maritime-robotics/mrcal/
+
+* Author
+
+Dima Kogan (=Dmitriy.Kogan@jpl.nasa.gov=)
+
+* License and copyright
+
+All of this is currently proprietary. Do not distribute outside of JPL
+
+Copyright 2016-2018 California Institute of Technology
