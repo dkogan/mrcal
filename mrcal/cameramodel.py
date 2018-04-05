@@ -1,5 +1,8 @@
 #!/usr/bin/python2
 
+r'''A module that provides a 'cameramodel' class to read/write/manipulate camera
+models'''
+
 import cv2
 import re
 
@@ -10,9 +13,6 @@ import numbers
 import optimizer
 import poseutils
 
-
-r'''A module that provides a 'cameramodel' class to read/write/manipulate camera
-models'''
 
 
 def _validateExtrinsics(e):
