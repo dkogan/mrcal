@@ -24,7 +24,7 @@ DIST_BIN :=					\
 	calibrate-cameras			\
 	convert-distortion			\
 	visualize-distortion			\
-	redistort				\
+	redistort-points			\
 	undistort-image
 
 

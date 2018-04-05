@@ -4,20 +4,20 @@ r'''Converts distorted points from one model to another
 
 Synopsis:
 
-  $ redistort.py --from pinhole.cameramodel --to fisheye.cameramodel < input.vnl > output.vnl
+  $ redistort-points --from pinhole.cameramodel --to fisheye.cameramodel < input.vnl > output.vnl
 
 This tool takes a set of pixel observations corresponding to one camera model,
 and converts them to corresponding observations in another model. This is useful
 in conjunction with the undistort.py tool. An envisioned usage:
 
-- undistort.py --model fisheye.cameramodel input.png
+- undistort-points --model fisheye.cameramodel input.png
   This produces an undistorted image and a corresponding pinhole camera model.
 
 - Run some sort of feature-detection thing on the input_undistorted.png thing we
   just made. This feature-detection thing can make geometric assumptions that
   wouldn't hold in the distorted image
 
-- redistort.py to convert the pixel coords we got from the feature detector back
+- redistort-points to convert the pixel coords we got from the feature detector back
   into the space of the original image
 
 The input data comes in on standard input, and the output data goes out on
