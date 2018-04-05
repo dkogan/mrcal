@@ -25,7 +25,7 @@ DIST_BIN :=					\
 	convert-distortion			\
 	visualize-distortion			\
 	redistort				\
-	undistort
+	undistort-image
 
 
 

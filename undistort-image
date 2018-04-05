@@ -4,7 +4,7 @@ r'''Un-distorts image(s)
 
 Synopsis:
 
-  $ undistort.py --model left.cameramodel im1.png im2.png
+  $ undistort-image --model left.cameramodel im1.png im2.png
   ========== CAMERAMODEL =========
   ... corresponding pinhole mrcal-native model
   ========== CAHVOR MODEL =========
