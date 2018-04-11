@@ -67,6 +67,10 @@ def parse_args():
                         type=int,
                         required=True,
                         help='How many points the calibration board has per side')
+    parser.add_argument('--distortion-model',
+                        required=False,
+                        default='DISTORTION_OPENCV4',
+                        help='''Which distortion model we're using. By default I use DISTORTION_OPENCV4''')
     parser.add_argument('--jobs|-j',
                         type=int,
                         default=1,
@@ -746,7 +750,7 @@ print "done with {}".format(distortion_model)
 
 Ndistortions0      = optimizer.getNdistortionParams(distortion_model)
 
-distortion_model   = "DISTORTION_OPENCV4"
+distortion_model   = args.distortion_model
 Ndistortions       = optimizer.getNdistortionParams(distortion_model)
 Ndistortions_delta = Ndistortions - Ndistortions0
 intrinsics         = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions_delta))*1e-5, axis=-1 )
