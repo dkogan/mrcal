@@ -63,6 +63,8 @@ struct intrinsics_core_t
     _(DISTORTION_OPENCV4, 4)                    \
     _(DISTORTION_OPENCV5, 5)                    \
     _(DISTORTION_OPENCV8, 8)                    \
+    _(DISTORTION_OPENCV12,12) /* available in OpenCV >= 3.0.0) */ \
+    _(DISTORTION_OPENCV14,14) /* available in OpenCV >= 3.1.0) */ \
     _(DISTORTION_CAHVOR,  5)                    \
     _(DISTORTION_CAHVORE, 9) /* CAHVORE is CAHVOR + E + linearity */
 

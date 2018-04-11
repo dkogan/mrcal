@@ -87,6 +87,8 @@ Args:
   DISTORTION_OPENCV4
   DISTORTION_OPENCV5
   DISTORTION_OPENCV8
+  DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
+  DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
   DISTORTION_CAHVOR
 
 - do_optimize_intrinsic_core

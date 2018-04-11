@@ -212,6 +212,8 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
       DISTORTION_OPENCV4
       DISTORTION_OPENCV5
       DISTORTION_OPENCV8
+      DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
+      DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
       DISTORTION_CAHVOR
       DISTORTION_CAHVORE
 
@@ -248,6 +250,8 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
       DISTORTION_OPENCV4
       DISTORTION_OPENCV5
       DISTORTION_OPENCV8
+      DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
+      DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
       DISTORTION_CAHVOR
       DISTORTION_CAHVORE
 
@@ -324,6 +328,8 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None):
         DISTORTION_OPENCV4
         DISTORTION_OPENCV5
         DISTORTION_OPENCV8
+        DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
+        DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
         DISTORTION_CAHVOR
         DISTORTION_CAHVORE
 
@@ -415,6 +421,8 @@ def unproject(p, intrinsics_or_distortionmodel, intrinsics=None):
         DISTORTION_OPENCV4
         DISTORTION_OPENCV5
         DISTORTION_OPENCV8
+        DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
+        DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
         DISTORTION_CAHVOR
         DISTORTION_CAHVORE
 

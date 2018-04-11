@@ -72,7 +72,11 @@ def _read(f):
 
     # I parse the fields I know I care about into numpy arrays
     for i in ('Dimensions','C','A','H','V','O','R','E',
-              'DISTORTION_OPENCV4', 'DISTORTION_OPENCV5', 'DISTORTION_OPENCV8'):
+              'DISTORTION_OPENCV4',
+              'DISTORTION_OPENCV5',
+              'DISTORTION_OPENCV8',
+              'DISTORTION_OPENCV12',
+              'DISTORTION_OPENCV14'):
         if i in x:
             if re.match('[0-9\s]+$', x[i]): totype = int
             else:                           totype = float
@@ -86,7 +90,13 @@ def _read(f):
 
 
     is_cahvor_or_cahvore = False
-    if   'DISTORTION_OPENCV8' in x:
+    if   'DISTORTION_OPENCV14' in x:
+        distortions = x["DISTORTION_OPENCV14"]
+        distortion_model = 'DISTORTION_OPENCV14'
+    elif 'DISTORTION_OPENCV12' in x:
+        distortions = x["DISTORTION_OPENCV12"]
+        distortion_model = 'DISTORTION_OPENCV12'
+    elif 'DISTORTION_OPENCV8' in x:
         distortions = x["DISTORTION_OPENCV8"]
         distortion_model = 'DISTORTION_OPENCV8'
     elif 'DISTORTION_OPENCV5' in x:

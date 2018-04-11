@@ -40,7 +40,7 @@ Camera models have originally been computed by a calibration procedure that
 takes as input a number of point observations, and the resulting models are only
 valid in an area where those observations were available; it's an extrapolation
 everywhere else. This is generally OK, and we try to cover the whole imager when
-calibrating cameras. Models with high distortions (CAHVORE, OPENCV8) generally
+calibrating cameras. Models with high distortions (CAHVORE, OPENCV >= 8) generally
 have quickly-increasing effects towards the edges of the imager, and the
 distortions represented by these models at the extreme edges of the imager are
 often not reliable, since the initial calibration data is rarely available at
