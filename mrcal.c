@@ -6,8 +6,10 @@
 #include <minimath.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <math.h>
+#include <string.h>
 
-#include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/calib3d/calib3d_c.h>
 #include <dogleg.h>
 
 #include "mrcal.h"
