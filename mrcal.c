@@ -169,10 +169,12 @@ static int get_Nstate(int Ncameras, int Nframes, int Npoints,
         (Ncameras * getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model));
 }
 
-static int get_Nmeasurements(int NobservationsBoard,
+static int get_Nmeasurements(int Ncameras, int NobservationsBoard,
                              const struct observation_point_t* observations_point,
                              int NobservationsPoint,
-                             int calibration_object_width_n)
+                             int calibration_object_width_n,
+                             struct mrcal_variable_select optimization_variable_choice,
+                             enum distortion_model_t distortion_model)
 {
     // *2 because I have separate x and y measurements
     int Nmeas =
@@ -186,10 +188,16 @@ static int get_Nmeasurements(int NobservationsBoard,
     // known-distance measurements
     for(int i=0; i<NobservationsPoint; i++)
         if(observations_point[i].dist > 0.0) Nmeas++;
+
+    // regularization
+    if(optimization_variable_choice.do_optimize_intrinsic_distortions)
+        Nmeas += mrcal_getNdistortionParams(distortion_model) * Ncameras;
+
     return Nmeas;
 }
 
-static int get_N_j_nonzero( const struct observation_board_t* observations_board,
+static int get_N_j_nonzero( int Ncameras,
+                            const struct observation_board_t* observations_board,
                             int NobservationsBoard,
                             const struct observation_point_t* observations_point,
                             int NobservationsPoint,
@@ -233,6 +241,11 @@ static int get_N_j_nonzero( const struct observation_board_t* observations_board
                 N += 6;
         }
     }
+
+    // regularization
+    if(optimization_variable_choice.do_optimize_intrinsic_distortions)
+        N += mrcal_getNdistortionParams(distortion_model) * Ncameras;
+
     return N;
 }
 
@@ -1111,10 +1124,13 @@ mrcal_optimize( // out, in (seed on input)
     const int Nstate        = get_Nstate(Ncameras, Nframes, Npoints,
                                          optimization_variable_choice,
                                          distortion_model);
-    const int Nmeasurements = get_Nmeasurements(NobservationsBoard,
+    const int Nmeasurements = get_Nmeasurements(Ncameras, NobservationsBoard,
                                                 observations_point, NobservationsPoint,
-                                                calibration_object_width_n);
-    const int N_j_nonzero   = get_N_j_nonzero(observations_board, NobservationsBoard,
+                                                calibration_object_width_n,
+                                                optimization_variable_choice,
+                                                distortion_model);
+    const int N_j_nonzero   = get_N_j_nonzero(Ncameras,
+                                              observations_board, NobservationsBoard,
                                               observations_point, NobservationsPoint,
                                               optimization_variable_choice,
                                               distortion_model,
@@ -1166,6 +1182,22 @@ mrcal_optimize( // out, in (seed on input)
 
 
 
+
+
+        // unpack the state for this observation as a combination of the
+        // state and the seed, depending on what we're optimizing, exactly
+        struct intrinsics_core_t intrinsic_cores[Ncameras];
+        double distortionss[Ncameras][Ndistortions];
+        for(int i_camera=0; i_camera<Ncameras; i_camera++)
+        {
+            const int i_var_intrinsic_core =
+                state_index_intrinsic_core(i_camera, optimization_variable_choice, distortion_model);
+            unpack_solver_state_intrinsics_onecamera(&intrinsic_cores[i_camera], distortionss[i_camera],
+                                                     &packed_state[ i_var_intrinsic_core ],
+                                                     Ndistortions,
+                                                     optimization_variable_choice );
+        }
+
         for(int i_observation_board = 0;
             i_observation_board < NobservationsBoard;
             i_observation_board++)
@@ -1188,16 +1220,12 @@ mrcal_optimize( // out, in (seed on input)
 
             // unpack the state for this observation as a combination of the
             // state and the seed, depending on what we're optimizing, exactly
-            struct intrinsics_core_t intrinsic_core;
-            double distortions[Ndistortions];
+            struct intrinsics_core_t* intrinsic_core = &intrinsic_cores[i_camera];
+            double* distortions = distortionss[i_camera];
             struct pose_t camera_rt;
             struct pose_t frame_rt;
-            unpack_solver_state_intrinsics_onecamera(&intrinsic_core, distortions,
-                                                     &packed_state[ i_var_intrinsic_core ],
-                                                     Ndistortions,
-                                                     optimization_variable_choice );
             if(!optimization_variable_choice.do_optimize_intrinsic_core)
-                memcpy( &intrinsic_core,
+                memcpy( intrinsic_core,
                         &intrinsics[(N_INTRINSICS_CORE+Ndistortions)*i_camera],
                         N_INTRINSICS_CORE*sizeof(double) );
             if(!optimization_variable_choice.do_optimize_intrinsic_distortions)
@@ -1242,7 +1270,7 @@ mrcal_optimize( // out, in (seed on input)
                               dxy_drframe : NULL,
                             optimization_variable_choice.do_optimize_frames ?
                               dxy_dtframe : NULL,
-                            &intrinsic_core, distortions,
+                            intrinsic_core, distortions,
                             &camera_rt, &frame_rt,
                             i_camera == 0,
                             distortion_model,
@@ -1396,16 +1424,13 @@ mrcal_optimize( // out, in (seed on input)
             const int     i_var_point                 = state_index_point     (i_point,  Nframes, Ncameras, optimization_variable_choice, distortion_model);
             // unpack the state for this observation as a combination of the
             // state and the seed, depending on what we're optimizing, exactly
-            struct intrinsics_core_t intrinsic_core;
-            double distortions[Ndistortions];
+            struct intrinsics_core_t* intrinsic_core = &intrinsic_cores[i_camera];
+            double* distortions = distortionss[i_camera];
             struct pose_t camera_rt;
             union  point3_t point;
-            unpack_solver_state_intrinsics_onecamera(&intrinsic_core, distortions,
-                                                     &packed_state[ i_var_intrinsic_core ],
-                                                     Ndistortions,
-                                                     optimization_variable_choice );
+
             if(!optimization_variable_choice.do_optimize_intrinsic_core)
-                memcpy( &intrinsic_core,
+                memcpy( intrinsic_core,
                         &intrinsics[(N_INTRINSICS_CORE+Ndistortions)*i_camera],
                         N_INTRINSICS_CORE*sizeof(double) );
             if(!optimization_variable_choice.do_optimize_intrinsic_distortions)
@@ -1458,7 +1483,7 @@ mrcal_optimize( // out, in (seed on input)
                         NULL, // frame rotation. I only have a point position
                         optimization_variable_choice.do_optimize_frames ?
                           dxy_dpoint : NULL,
-                        &intrinsic_core, distortions,
+                        intrinsic_core, distortions,
                         &camera_rt,
 
                         // I only have the point position, so the 'rt' memory
@@ -1712,6 +1737,52 @@ mrcal_optimize( // out, in (seed on input)
             }
 
         }
+
+        // regularization terms. I favor smaller distortion parameters
+        if(optimization_variable_choice.do_optimize_intrinsic_distortions)
+        {
+            double scale_distortion_regularization =
+                ({
+                    // I want a "low" value relative to the rest of the cost
+                    // function:
+                    //
+                    //   Nmeasurements_rest*normal_pixel_error =
+                    //   Nmeasurements_regularization*normal_regularization_error*scale*LARGE
+                    int    Nmeasurements_regularization    = Ncameras*Ndistortions;
+                    int    Nmeasurements_nonregularization = Nmeasurements - Nmeasurements_regularization;
+                    double normal_pixel_error              = 1.0;
+
+                    // completely made up. Probably should be different for each
+                    // distortion term and for each distortion model
+                    double normal_regularization_error = 10.0;
+
+                    (double)Nmeasurements_nonregularization*normal_pixel_error/
+                        ( (double)Nmeasurements_regularization * normal_regularization_error * 1000.0);
+                });
+
+            for(int i_camera=0; i_camera<Ncameras; i_camera++)
+            {
+                const int i_var_intrinsic_distortions =
+                    state_index_intrinsic_distortions(i_camera, optimization_variable_choice, distortion_model);
+
+                for(int j=0; j<Ndistortions; j++)
+                {
+                    const double err = distortionss[i_camera][j] * scale_distortion_regularization;
+
+                    Jrowptr[iMeasurement] = iJacobian;
+                    x[iMeasurement] = err;
+                    norm2_error += err*err;
+
+                    STORE_JACOBIAN( i_var_intrinsic_distortions + j,
+                                    scale_distortion_regularization * SCALE_DISTORTION );
+                    iMeasurement++;
+                }
+            }
+        }
+
+
+
+
 
         // required to indicate the end of the jacobian matrix
         if( !reportFitMsg )
