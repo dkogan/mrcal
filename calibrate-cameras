@@ -206,7 +206,7 @@ def get_mapping_file_framecamera(files_per_camera):
         mapping.update(zip(files_per_camera[icamera], [(iframe,icamera) for iframe in framenumbers]))
     return mapping
 
-def get_observations(Nw, Nh, globs, dots_vnl=None):
+def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
     r'''Computes the point observations and returns them in a usable form
 
     We are given globs of images (one glob per camera), where the filenames
@@ -226,7 +226,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None):
 
     '''
 
-    def get_dot_observations(Nw, Nh, globs, dots_vnl=None):
+    def get_dot_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
         r'''Invokes mrgingham to get dot observations
 
         Returns a dict mapping from filename to a numpy array with a full grid
@@ -279,8 +279,9 @@ def get_observations(Nw, Nh, globs, dots_vnl=None):
                 if Nw*Nh != context['grid'].size/2:
                     raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
                                     format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size/2))
-                accum_files(context['f'])
-                mapping[context['f']] = context['grid']
+                if context['f'] not in exclude:
+                    accum_files(context['f'])
+                    mapping[context['f']] = context['grid']
                 context['f']    = ''
                 context['grid'] = np.array(())
 
@@ -324,7 +325,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None):
     #               push indices_frame_camera
 
     # inputs[camera][image] = (image_filename, frame_number)
-    mapping_file_dots,files_per_camera = get_dot_observations(Nw, Nh, globs, dots_vnl)
+    mapping_file_dots,files_per_camera = get_dot_observations(Nw, Nh, globs, dots_vnl, exclude)
     mapping_file_framecamera           = get_mapping_file_framecamera(files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
