@@ -399,10 +399,11 @@ def estimate_local_calobject_poses( indices_frame_camera, \
         i = (d[..., 0] >= 0) * (d[..., 1] >= 0)
         d = d[i,:]
 
-        observations = d[:,:2]
-        ref_object   = d[:,2:]
-        result,rvec,tvec = cv2.solvePnP(ref_object  [..., np.newaxis],
-                                        observations[..., np.newaxis],
+        # copying because cv2.solvePnP() requires contiguous memory apparently
+        observations = np.array(d[:,:2][..., np.newaxis])
+        ref_object   = np.array(d[:,2:][..., np.newaxis])
+        result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
+                                        np.array(observations),
                                         camera_matrix, None)
         if not result:
             raise Exception("solvePnP failed!")
