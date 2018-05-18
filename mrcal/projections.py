@@ -279,17 +279,23 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     distort_function = _get_distortion_function(distortion_model)
 
     # I could make this much more efficient: precompute lots of stuff, use
-    # gradients, etc, etc. I can also optimize each point separately. But that
-    # would make the code messy and require more work. This functions decently
-    # well and I leave it.
-    def f(p0):
-        '''Optimization functions'''
-        N = len(p0.ravel()) / 2
-        p1 = distort_function(p0.reshape(N,2), fx,fy,cx,cy, *distortions)
-        return p1.ravel() - p.ravel()
+    # gradients, etc, etc. This functions decently well and I leave it.
 
-    p1 = scipy.optimize.leastsq(f, p.ravel())[0]
-    return np.array(p1).reshape(p.shape)
+    # I optimize each point separately because the internal optimization
+    # algorithm doesn't know that each point is independent, so if I optimized
+    # it all together, it would solve a dense linear system whose size is linear
+    # in Npoints. The computation time thus would be much slower than
+    # linear(Npoints)
+    @nps.broadcast_define( ((2,),), )
+    def undistort_this(p0):
+        def f(pundistorted):
+            '''Optimization functions'''
+            pdistorted = distort_function(pundistorted, fx,fy,cx,cy, *distortions)
+            return pdistorted - p0
+        p1 = scipy.optimize.leastsq(f, p0)[0]
+        return np.array(p1)
+
+    return undistort_this(p)
 
 # @nps.broadcast_define( ((3,),('Nintrinsics',)),
 #                        (2,), )
