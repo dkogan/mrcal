@@ -53,6 +53,10 @@ def parse_args():
                         default = 1.0,
                         help='''Scale the vectors by this factor. Default is 1.0 (report the truth), but this is often too small to see''')
 
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Optional arg to write the vector field to a file on disk''')
+
     parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
@@ -90,6 +94,12 @@ dgrid = nps.clump(dgrid, n=2)
 
 delta = dgrid-grid
 delta *= args.scale
+
+plotkwargs = dict( _xrange=(-50,W+50),
+                   _yrange=(H+50, -50),
+                   _set='object 1 rectangle from 0,0 to {},{} fillstyle empty'.format(W,H) )
+if args.hardcopy is not None:
+    plotkwargs['hardcopy'] = args.hardcopy
 gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
           {'with': 'vectors size screen 0.005,10 fixed filled',
            'tuplesize': 4,
@@ -98,10 +108,8 @@ gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
           {'with': 'points',
            'tuplesize': 2,
            }),
-         _xrange=(-50,W+50),
-         _yrange=(H+50, -50),
-         _set='object 1 rectangle from 0,0 to {},{} fillstyle empty'. \
-         format(W,H))
+         **plotkwargs )
 
-import time
-time.sleep(100000)
+if args.hardcopy is None:
+    import time
+    time.sleep(100000)
