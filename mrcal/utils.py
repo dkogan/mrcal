@@ -383,3 +383,111 @@ def get_correspondences_from_hugin(f):
             return _get_correspondences_from_hugin(openedfile)
 
     return _get_correspondences_from_hugin(f)
+
+
+def get_mapping_file_framecamera(files_per_camera):
+    r'''Parse image filenames to get the frame numbers
+
+    I take in a list of image paths per camera. I return a list:
+
+    - a dict that maps each image filename to (framenumber,cameraindex)
+    - a string for the prefix of the FIRST set of images
+    - a string for the suffix of the FIRST set of images
+
+    '''
+
+    def get_longest_leading_trailing_substrings(strings):
+        r'''Given a list of strings, returns the length of the longest leading and
+        trailing substring common to all the strings
+
+        Main use case is to take in strings such as
+
+          a/b/c/frame001.png
+          a/b/c/frame002.png
+          a/b/c/frame003.png
+
+        and return ("a/b/c/frame00", ".png")
+
+        '''
+
+        # These feel inefficient, especially being written in python. There's
+        # probably some built-in primitive I'm not seeing
+        def longest_leading_substring(a,b):
+            for i in xrange(len(a)):
+                if i >= len(b) or a[i] != b[i]:
+                    return a[:i]
+            return a
+        def longest_trailing_substring(a,b):
+            for i in xrange(len(a)):
+                if i >= len(b) or a[-i-1] != b[-i-1]:
+                    if i == 0:
+                        return ''
+                    return a[-i:]
+            return a
+
+        if not strings:
+            return (None,None)
+
+        leading  = strings[0]
+        trailing = strings[0]
+
+        for s in strings[1:]:
+            leading  = longest_leading_substring (leading,s)
+            trailing = longest_trailing_substring(trailing,s)
+        return leading,trailing
+
+    def pull_framenumbers(files):
+
+        leading,trailing = get_longest_leading_trailing_substrings(files)
+        Nleading  = len(leading)
+        Ntrailing = len(trailing)
+
+        # I now have leading and trailing substrings. I make sure that all the stuff
+        # between the leading and trailing strings is numeric
+
+        # needed because I want s[i:-0] to mean s[i:], but that doesn't work, but
+        # s[i:None] does
+        Itrailing = -Ntrailing if Ntrailing > 0 else None
+        for f in files:
+            if not re.match("^[0-9]+$", f[Nleading:Itrailing]):
+                raise Exception(("Image filenames MUST be of the form 'something..number..something'\n" +   \
+                                 "where the somethings are common to all the filenames. File '{}'\n" + \
+                                 "has a non-numeric middle: '{}'. The somethings are: '{}' and '{}'\n" + \
+                                 "Did you forget to pass globs for each camera separately?"). \
+                                format(f, f[Nleading:Itrailing],
+                                       leading, trailing))
+
+        # Alrighty. The centers are all numeric. I gather all the digits around the
+        # centers, and I'm done
+        m = re.match("^(.*?)([0-9]*)$", leading)
+        if m:
+            pre_numeric = m.group(2)
+            leading     = m.group(1)
+        else:
+            pre_numeric = ''
+
+        m = re.match("^([0-9]*)(.*?)$", trailing)
+        if m:
+            post_numeric = m.group(1)
+            trailing     = m.group(2)
+        else:
+            post_numeric = ''
+
+        return [int(pre_numeric + f[Nleading:Itrailing] + post_numeric) for f in files], leading, trailing
+
+
+
+
+    Ncameras = len(files_per_camera)
+    mapping = {}
+    prefix0 = None
+    suffix0 = None
+    for icamera in xrange(Ncameras):
+        if len(files_per_camera[icamera]) <= 1:
+            raise Exception("Camera {} has <=1 images".format(icamera))
+        framenumbers, leading, trailing = pull_framenumbers(files_per_camera[icamera])
+        if framenumbers is not None:
+            if prefix0 is None: prefix0 = leading
+            if suffix0 is None: suffix0 = trailing
+            mapping.update(zip(files_per_camera[icamera], [(iframe,icamera) for iframe in framenumbers]))
+    return mapping, prefix0, suffix0
