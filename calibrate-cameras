@@ -725,6 +725,7 @@ for i_camera in xrange(Ncameras):
                           [ 0.,  1.,  0.],
                           [ 0.,  0.,  0.]])
     else:
+        # identity
         Rt_r0 = np.array([[ 1.,  0.,  0.],
                           [ 0.,  1.,  0.],
                           [ 0.,  0.,  1.],
