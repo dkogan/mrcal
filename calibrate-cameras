@@ -346,25 +346,41 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
 
     '''
 
-    # This is a bit of a hack. I look at the correspondence of camera0 to camera
-    # i for i in 1:N-1. I ignore all correspondences between cameras i,j if i!=0
-    # and j!=0. Good enough for now
-    full_object = utils.get_full_object(Nwant, Nwant, dot_spacing)
-    Rt = np.array(())
 
 
-    for i_camera in xrange(1,Ncameras):
+
+    def compute_pairwise_Rt(icam_to, icam_from):
+
+        # I want to assume that icam_from > icam_to. If it's not true, compute the
+        # opposite transform, and invert
+        if icam_to > icam_from:
+            Rt = compute_pairwise_Rt(icam_from, icam_to)
+            return poseutils.invert_Rt(Rt)
+
+        if icam_to == icam_from:
+            raise Exception("Got icam_to == icam_from ( = {} ). This was probably a mistake".format(icam_to))
+
+        # Now I KNOW that icam_from > icam_to
+
+
+        Nobservations = indices_frame_camera.shape[0]
+
+        # This is a hack. I look at the correspondence of camera0 to camera i for i
+        # in 1:N-1. I ignore all correspondences between cameras i,j if i!=0 and
+        # j!=0. Good enough for now
+        full_object = utils.get_full_object(Nwant, Nwant, dot_spacing)
+
         A = np.array(())
         B = np.array(())
 
         # I traverse my observation list, and pick out observations from frames
-        # that had data from both camera 0 and camera i
+        # that had data from both my cameras
         i_frame_last = -1
         d0  = None
         d1  = None
         Rt0 = None
         Rt1 = None
-        for i_observation in xrange(dots.shape[0]):
+        for i_observation in xrange(Nobservations):
             i_frame_this,i_camera_this = indices_frame_camera[i_observation, ...]
             if i_frame_this != i_frame_last:
                 d0  = None
@@ -373,20 +389,24 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                 Rt1 = None
                 i_frame_last = i_frame_this
 
-            if i_camera_this == 0:
+            # The cameras appear in order. And above I made sure that icam_from >
+            # icam_to, so I take advantage of that here
+            if i_camera_this == icam_to:
                 if Rt0 is not None:
-                    raise Exception("Saw multiple camera0 observations in frame {}".format(i_frame_this))
+                    raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
+                                                                                            i_frame_this))
                 Rt0 = calobject_poses_local_Rt[i_observation, ...]
                 d0  = dots[i_observation, ...]
-            if i_camera_this == i_camera:
+            elif i_camera_this == icam_from:
+                if Rt0 is None: # have camera1 observation, but not camera0
+                    continue
+
                 if Rt1 is not None:
                     raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
                                                                                             i_frame_this))
                 Rt1 = calobject_poses_local_Rt[i_observation, ...]
                 d1  = dots[i_observation, ...]
 
-                if Rt0 is None: # have camera1 observation, but not camera0
-                    continue
 
 
                 # d looks at one frame and has shape (Nwant,Nwant,7). Each row is
@@ -427,10 +447,13 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                 B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt1[:3,:])) + Rt1[3,:],
                              axis = -2)
 
-        Rt = nps.glue(Rt, utils.align3d_procrustes(A, B),
-                      axis=-3)
+        return utils.align3d_procrustes(A, B)
+
+    Rt = nps.cat( *[compute_pairwise_Rt(0, i_camera) for i_camera in xrange(1,Ncameras) ] )
 
     return Rt
+
+
 
 def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_frame_camera, dot_spacing,
                          Nwant):
