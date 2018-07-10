@@ -106,7 +106,11 @@ def parse_args():
                         the form xxxNNNyyy where xxx and yyy are common to all
                         images in the set, and NNN varies. This NNN is a frame
                         number, and identical frame numbers across different
-                        globs signify a time-synchronized observation.''')
+                        globs signify a time-synchronized observation. I.e. you
+                        can pass 'left*.jpg' and 'right*.jpg' to find images
+                        'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
+                        'right1.jpg', ...''')
+
 
 
     return parser.parse_args()
