@@ -765,12 +765,28 @@ if args.explore:
     print "worst observations: {}".format(i_observations_worst[:100])
     print "worst frame_camera indices and RMS:\n{}".format(nps.glue( indices_frame_camera[i_observations_worst,:],
                                                                     nps.transpose(rms_err_perimage[i_observations_worst]), axis = -1))
+
     print "worst image paths: {}".format([paths[p] for p in i_observations_worst])
 
-    print "\nTo visualize the i-th worst image, call show(i)\n\n"
+    print "\nTo visualize the i-th worst image, call show_worst(i)\n\n"
 
-    def show(i):
-        i_observation = i_observations_worst[i]
+    i_observation_from_path = {}
+    for i_observation in xrange(len(observations)):
+        i_observation_from_path[ paths[i_observation] ] = i_observation
+
+    def show(observation):
+        r'''Visualize calibration errors
+
+        Takes either an integer (observation index) or a string (path)
+
+        '''
+
+        if isinstance(observation, int):
+            i_observation = observation
+        elif isinstance(observation, str):
+            i_observation = i_observation_from_path[observation]
+        else:
+            raise Exception("observation should be a string or an integer; got type(observation) = {}".format(type(observation)))
 
         obs = nps.clump( observations[i_observation], n=2)
         i_frame,i_camera = indices_frame_camera[i_observation]
@@ -811,7 +827,10 @@ if args.explore:
                  rgbimage=paths[i_observation],
                  square=1,cbmin=0,
                  _set='autoscale noextend',
-                 title='Worst case. i_frame={}, i_observation={}, i_camera={}, path={}'.format( i_frame, i_observation, i_camera, paths[i_observation]))
+                 title='Worst case. i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS={}'.format( i_observation, i_frame, i_camera, paths[i_observation], rms_err_perimage[i_observation]))
+
+    def show_worst(i):
+        show( i_observations_worst[i] )
 
 
     import IPython
