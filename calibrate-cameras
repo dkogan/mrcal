@@ -685,7 +685,6 @@ if args.seed is None:
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n)
 
-    distortion_model = "DISTORTION_NONE"
     optimizer.optimize(intrinsics, extrinsics, frames, None,
                        observations, indices_frame_camera,
                        None, None,
