@@ -29,6 +29,7 @@ import fnmatch
 import re
 import subprocess
 import pipes
+import heapq
 
 from mrcal import cahvor
 from mrcal import utils
@@ -345,9 +346,23 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
     optimize the observations
 
     '''
+    # I need to compute an estimate of the pose of each camera in the coordinate
+    # system of camera0. This is only possible if there're enough overlapping
+    # observations. For instance if camera1 has overlapping observations with
+    # camera2, but neight overlap with camera0, then I can't relate camera1,2 to
+    # camera0. However if camera2 has overlap with camera2, then I can compute
+    # the relative pose of camera2 from its overlapping observations with
+    # camera0. And I can compute the camera1-camera2 pose from its overlapping
+    # data, and then transform to the camera0 coord system using the
+    # previously-computed camera2-camera0 pose
+    #
+    # I do this by solving a shortest-path problem using Dijkstra's algorithm to
+    # find a set of pair overlaps between cameras that leads to camera0. I favor
+    # edges with large numbers of shared observed frames
 
-
-
+    # list of camera-i to camera-0 transforms. I keep doing stuff until this
+    # list is full of valid data
+    Rt_0c = [None] * (Ncameras-1)
 
     def compute_pairwise_Rt(icam_to, icam_from):
 
@@ -449,9 +464,127 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
 
         return utils.align3d_procrustes(A, B)
 
-    Rt = nps.cat( *[compute_pairwise_Rt(0, i_camera) for i_camera in xrange(1,Ncameras) ] )
 
-    return Rt
+    def compute_connectivity_matrix():
+        r'''Returns a connectivity matrix of camera observations
+
+        Returns a symmetric (Ncamera,Ncamera) matrix of integers, where each
+        entry contains the number of frames containing overlapping observations
+        for that pair of cameras
+
+        '''
+
+        camera_connectivity = np.zeros( (Ncameras,Ncameras), dtype=int )
+        def finish_frame(i0, i1):
+            for ic0 in xrange(i0, i1):
+                for ic1 in xrange(ic0+1, i1+1):
+                    camera_connectivity[indices_frame_camera[ic0,1], indices_frame_camera[ic1,1]] += 1
+                    camera_connectivity[indices_frame_camera[ic1,1], indices_frame_camera[ic0,1]] += 1
+
+        f_current       = -1
+        i_start_current = -1
+
+        for i in xrange(len(indices_frame_camera)):
+            f,c = indices_frame_camera[i]
+            if f < f_current:
+                raise Exception("I'm assuming the frame indices are increasing monotonically")
+            if f > f_current:
+                # first camera in this observation
+                f_current = f
+                if i_start_current >= 0:
+                    finish_frame(i_start_current, i-1)
+                i_start_current = i
+        finish_frame(i_start_current, len(indices_frame_camera)-1)
+        return camera_connectivity
+
+
+    shared_frames = compute_connectivity_matrix()
+
+    class Node:
+        def __init__(self, camera_idx):
+            self.camera_idx    = camera_idx
+            self.from_idx      = -1
+            self.cost_to_node  = None
+
+        def __lt__(self, other):
+            return self.cost_to_node < other.cost_to_node
+
+        def visit(self):
+            '''Dijkstra's algorithm'''
+            self.finish()
+
+            for neighbor_idx in xrange(Ncameras):
+                if neighbor_idx == self.camera_idx                  or \
+                   shared_frames[neighbor_idx,self.camera_idx] == 0:
+                    continue
+                neighbor = nodes[neighbor_idx]
+
+                if neighbor.visited():
+                    continue
+
+                cost_edge = Node.compute_edge_cost(shared_frames[neighbor_idx,self.camera_idx])
+
+                cost_to_neighbor_via_node = self.cost_to_node + cost_edge
+                if not neighbor.seen():
+                    neighbor.cost_to_node = cost_to_neighbor_via_node
+                    neighbor.from_idx     = self.camera_idx
+                    heapq.heappush(heap, neighbor)
+                else:
+                    if cost_to_neighbor_via_node < neighbor.cost_to_node:
+                        neighbor.cost_to_node = cost_to_neighbor_via_node
+                        neighbor.from_idx     = self.camera_idx
+                        heapq.heapify(heap) # is this the most efficient "update" call?
+
+        def finish(self):
+            '''A shortest path was found'''
+            if self.camera_idx == 0:
+                # This is the reference camera. Nothing to do
+                return
+
+            Rt_fc = compute_pairwise_Rt(self.from_idx, self.camera_idx)
+
+            if self.from_idx == 0:
+                Rt_0c[self.camera_idx-1] = Rt_fc
+                return
+
+            Rt_0f = Rt_0c[self.from_idx-1]
+            Rt_0c[self.camera_idx-1] = poseutils.compose_Rt( Rt_0f, Rt_fc)
+
+        def visited(self):
+            '''Returns True if this node went through the heap and has then been visited'''
+            return self.camera_idx == 0 or Rt_0c[self.camera_idx-1] is not None
+
+        def seen(self):
+            '''Returns True if this node has been in the heap'''
+            return self.cost_to_node is not None
+
+        @staticmethod
+        def compute_edge_cost(shared_frames):
+            # I want to MINIMIZE cost, so I MAXIMIZE the shared frames count and
+            # MINIMIZE the hop count. Furthermore, I really want to minimize the
+            # number of hops, so that's worth many shared frames.
+            cost = 100000 - shared_frames
+            assert(cost > 0) # dijkstra's algorithm requires this to be true
+            return cost
+
+
+
+    nodes = [Node(i) for i in xrange(Ncameras)]
+    nodes[0].cost_to_node = 0
+    heap = []
+
+    nodes[0].visit()
+    while heap:
+        node_top = heapq.heappop(heap)
+        node_top.visit()
+
+    if any([x is None for x in Rt_0c]):
+        raise Exception("ERROR: Don't have complete camera observations overlap!\n" +
+                        ("Past-camera-0 Rt:\n{}\n".format(Rt_0c))                   +
+                        ("Shared observations matrix:\n{}\n".format(shared_frames)))
+
+
+    return nps.cat(*Rt_0c)
 
 
 
