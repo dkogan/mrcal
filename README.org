@@ -13,7 +13,7 @@ Wrote /tmp/camera0-1.cahvor
 * Summary
 
 Mrcal is a generic toolkit to solve calibration and SFM-like problems.
-Functionality related to this problems is exposes as a set of python libraries.
+Functionality related to these problems is exposed as a set of python libraries.
 Both CAHVOR and OpenCV distortion models are fully supported; CAHVORE is
 partially supported. The toolkit includes:
 
