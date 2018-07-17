@@ -1077,33 +1077,33 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
 struct mrcal_stats_t
 mrcal_optimize( // out, in (seed on input)
 
-                      // These are the state. I don't have a state_t because Ncameras
-                      // and Nframes aren't known at compile time
-                      //
-                      // intrinsics is a concatenation of the intrinsics core
-                      // and the distortion params. The specific distortion
-                      // parameters may vary, depending on distortion_model, so
-                      // this is a variable-length structure
-                      double*              intrinsics, // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
-                      struct pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
-                      struct pose_t*       frames,     // Nframes of these.    Transform TO   camera0 frame
-                      union  point3_t*     points,     // Npoints of these.    In the camera0 frame
+                // These are the state. I don't have a state_t because Ncameras
+                // and Nframes aren't known at compile time
+                //
+                // intrinsics is a concatenation of the intrinsics core
+                // and the distortion params. The specific distortion
+                // parameters may vary, depending on distortion_model, so
+                // this is a variable-length structure
+                double*              intrinsics, // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
+                struct pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
+                struct pose_t*       frames,     // Nframes of these.    Transform TO   camera0 frame
+                union  point3_t*     points,     // Npoints of these.    In the camera0 frame
 
-                      // in
-                      int Ncameras, int Nframes, int Npoints,
+                // in
+                int Ncameras, int Nframes, int Npoints,
 
-                      const struct observation_board_t* observations_board,
-                      int NobservationsBoard,
+                const struct observation_board_t* observations_board,
+                int NobservationsBoard,
 
-                      const struct observation_point_t* observations_point,
-                      int NobservationsPoint,
+                const struct observation_point_t* observations_point,
+                int NobservationsPoint,
 
-                      bool check_gradient,
-                      enum distortion_model_t distortion_model,
-                      struct mrcal_variable_select optimization_variable_choice,
+                bool check_gradient,
+                enum distortion_model_t distortion_model,
+                struct mrcal_variable_select optimization_variable_choice,
 
-                      double calibration_object_spacing,
-                      int calibration_object_width_n)
+                double calibration_object_spacing,
+                int calibration_object_width_n)
 {
     if( IS_OPTIMIZE_NONE(optimization_variable_choice) )
         fprintf(stderr, "Warning: Not optimizing any of our variables\n");
