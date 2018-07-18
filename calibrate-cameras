@@ -1145,6 +1145,7 @@ if args.explore:
         Erms = np.sqrt(trace(Vdprojection))
 
         plots.append(gp.gnuplotlib(_3d=1,
+                                   unset='grid',
                                    set=['xrange noextend',
                                         'yrange noextend reverse',
                                         'view equal xy',
