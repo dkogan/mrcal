@@ -969,6 +969,116 @@ if args.explore:
         show( i_observations_worst[i] )
 
 
+    # I visualize the intrinsics uncertainty due to uncertainty in the input
+    # image coordinates of chessboard corners. A part of this computation was
+    # done in the mrcal core, and intermediate results are available in MMt =
+    # stats['intrinsic_covariances']. Comment from the mrcal core:
+    #
+    #     This function is part of sensitivity analysis to quantify how much errors in
+    #     the input pixel observations affect our solution. A "good" solution will not
+    #     be very sensitive: measurement noise doesn't affect the solution very much.
+    #
+    #     I minimize a cost function E = norm2(x) where x is the measurements. Some
+    #     elements of x depend on inputs, and some don't (regularization for instance).
+    #     I perturb the inputs, reoptimize (assuming everything is linear) and look
+    #     what happens to the state p. I'm at an optimum p*:
+    #
+    #       dE/dp (p=p*) = Jt x (p=p*) = 0
+    #
+    #     I perturb the inputs:
+    #
+    #       E(x(p+dp, m+dm)) = norm2( x + J dp + dx/dm dm)
+    #
+    #     And I reoptimize:
+    #
+    #       dE/ddp ~ ( x + J dp + dx/dm dm)t J = 0
+    #
+    #     I'm at an optimum, so Jtx = 0, so
+    #
+    #       -Jt dx/dm dm = JtJ dp
+    #
+    #     So if I perturb my input observation vector m by dm, the resulting effect on
+    #     the parameters is dp = M dm
+    #
+    #       where M = -inv(JtJ) Jt dx/dm
+    #
+    #     In order to be useful I need to do something with M. Let's say I want to
+    #     quantify how precise our optimal intrinsics are. Ultimately these are always
+    #     used in a projection operation. So given a 3d observation vector v, I project
+    #     it onto our image plane:
+    #
+    #       q = project(v, intrinsics)
+    #
+    #     I assume an independent, gaussian noise on my input observations, and for a
+    #     set of given observation vectors v, I compute the effect on the projection.
+    #
+    #       dq = dprojection/dintrinsics dintrinsics
+    #
+    #     dprojection/dintrinsics comes from cvProjectPoints2()
+    #     dintrinsics is the shift in our optimal state: M dm
+    #
+    #     If dm represents noise of the zero-mean, independent, gaussian variety, then
+    #     dp is also zero-mean gaussian, but no longer independent.
+    #
+    #       Var(dp) = M Var(dm) Mt = M Mt s^2
+    #
+    #     where s is the standard deviation of the noise of each parameter in dm.
+    #
+    #     The intrinsics of each camera have 3 components:
+    #
+    #     - f: focal lengths
+    #     - c: center pixel coord
+    #     - d: distortion parameters
+    #
+    #     Let me define dprojection/df = F, dprojection/dc = C, dprojection/dd = D.
+    #     These all come from cvProjectPoints2().
+    #
+    #     Rewriting the projection equation I get
+    #
+    #       q = project(v,  f,c,d)
+    #       dq = F df + C dc + D dd
+    #
+    #     df,dc,dd are random variables that come from dp.
+    #
+    #       Var(dq) = F Covar(df,df) Ft +
+    #                 C Covar(dc,dc) Ct +
+    #                 D Covar(dd,dd) Dt +
+    #                 F Covar(df,dc) Ct +
+    #                 F Covar(df,dd) Dt +
+    #                 C Covar(dc,df) Ft +
+    #                 C Covar(dc,dd) Dt +
+    #                 D Covar(dd,df) Ft +
+    #                 D Covar(dd,dc) Ct
+    #
+    #     Covar(dx,dy) are all submatrices of the larger Var(dp) matrix we computed
+    #     above: M Mt s^2.
+    #
+    #     Here I look ONLY at the interactions of intrinsic parameters for a particular
+    #     camera with OTHER intrinsic parameters of the same camera. I ignore
+    #     cross-camera interactions and interactions with other parameters, such as the
+    #     frame poses and extrinsics.
+    #
+    #     For mrcal, the measurements are
+    #
+    #     1. reprojection errors of chessboard grid observations
+    #     2. reprojection errors of individual point observations
+    #     3. range errors for points with known range
+    #     4. regularization terms
+    #
+    #     The observed pixel measurements come into play directly into 1 and 2 above,
+    #     but NOT 3 and 4. So
+    #
+    #       dx/dm = [ I ]
+    #               [ 0 ]
+    #
+    #     I thus ignore measurements past the observation set.
+    #
+    #     My matrices are large and sparse. Thus I compute the blocks of M Mt that I
+    #     need here, and return these densely to the upper levels (python). These
+    #     callers will then use these dense matrices to finish the computation
+    #
+    #       M Mt = sum(outer(col(M), col(M)))
+    #       col(M) = -solve(JtJ, row(J))
 
 
     W,H=intrinsics[0,2:4]*2
