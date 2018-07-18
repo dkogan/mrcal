@@ -159,8 +159,8 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
             for i_camera in xrange(Ncameras):
                 if fnmatch.fnmatch(f, globs[i_camera]):
                     files_per_camera[i_camera].append(f)
-                    return
-            raise Exception("File '{}' didn't match any of the globs '{}'".format(f,globs))
+                    return True
+            return False
 
 
 
@@ -190,8 +190,8 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
                     raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
                                     format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size/2))
                 if context['f'] not in exclude:
-                    accum_files(context['f'])
-                    mapping[context['f']] = context['grid']
+                    if accum_files(context['f']):
+                        mapping[context['f']] = context['grid']
                 context['f']    = ''
                 context['grid'] = np.array(())
 
