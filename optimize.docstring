@@ -112,3 +112,6 @@ Args:
 - calibration_object_width_n: the calibration board is square, with this many
   points on each side. Can be omitted if we have no board observations, just
   points
+
+We return a dict with various metrics describing the computation we just
+performed

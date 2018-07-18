@@ -72,10 +72,6 @@ struct intrinsics_core_t
 enum distortion_model_t
     { DISTORTION_LIST( LIST_WITH_COMMA ) DISTORTION_INVALID };
 
-const char*             mrcal_distortion_model_name       ( enum distortion_model_t model );
-enum distortion_model_t mrcal_distortion_model_from_name  ( const char* name );
-int                     mrcal_getNdistortionParams        ( const enum distortion_model_t m );
-const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
 
 struct mrcal_variable_select
 {
@@ -95,6 +91,16 @@ struct mrcal_variable_select
      !(x).do_optimize_frames)
 
 
+const char*             mrcal_distortion_model_name       ( enum distortion_model_t model );
+enum distortion_model_t mrcal_distortion_model_from_name  ( const char* name );
+int                     mrcal_getNdistortionParams        ( const enum distortion_model_t m );
+int                     mrcal_getNintrinsicParams         ( const enum distortion_model_t m );
+int                     mrcal_getNintrinsicOptimizationParams
+                          ( struct mrcal_variable_select optimization_variable_choice,
+                            enum distortion_model_t m );
+const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
+
+
 
 #define MRCAL_STATS_ITEM(_)                                 \
     _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble)
@@ -107,7 +113,11 @@ struct mrcal_stats_t
 };
 
 struct mrcal_stats_t
-mrcal_optimize( // out, in (seed on input)
+mrcal_optimize( // out
+                double* x_final,               // may be NULL. Exists for debugging only
+                double* intrinsic_covariances, // may be NULL. Exists for debugging only
+
+                // out, in (seed on input)
 
                 // These are the state. I don't have a state_t because Ncameras
                 // and Nframes aren't known at compile time.
@@ -136,3 +146,10 @@ mrcal_optimize( // out, in (seed on input)
 
                 double calibration_object_spacing,
                 int calibration_object_width_n);
+
+int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
+                           const struct observation_point_t* observations_point,
+                           int NobservationsPoint,
+                           int calibration_object_width_n,
+                           struct mrcal_variable_select optimization_variable_choice,
+                           enum distortion_model_t distortion_model);

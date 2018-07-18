@@ -121,11 +121,11 @@ const char* const* mrcal_getSupportedDistortionModels( void )
     return names;
 }
 
-static int getNintrinsicParams(enum distortion_model_t distortion_model)
+int mrcal_getNintrinsicParams(enum distortion_model_t m)
 {
     return
         N_INTRINSICS_CORE +
-        mrcal_getNdistortionParams(distortion_model);
+        mrcal_getNdistortionParams(m);
 }
 static int getNintrinsicOptimizationParams(struct mrcal_variable_select optimization_variable_choice,
                                            enum distortion_model_t distortion_model)
@@ -136,6 +136,12 @@ static int getNintrinsicOptimizationParams(struct mrcal_variable_select optimiza
     if( optimization_variable_choice.do_optimize_intrinsic_core )
         N += N_INTRINSICS_CORE;
     return N;
+}
+int mrcal_getNintrinsicOptimizationParams(struct mrcal_variable_select optimization_variable_choice,
+                                          enum distortion_model_t distortion_model)
+{
+    return getNintrinsicOptimizationParams(optimization_variable_choice,
+                                           distortion_model);
 }
 
 static union point3_t get_refobject_point(int i_pt,
@@ -169,12 +175,9 @@ static int get_Nstate(int Ncameras, int Nframes, int Npoints,
         (Ncameras * getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model));
 }
 
-static int get_Nmeasurements(int Ncameras, int NobservationsBoard,
-                             const struct observation_point_t* observations_point,
-                             int NobservationsPoint,
-                             int calibration_object_width_n,
-                             struct mrcal_variable_select optimization_variable_choice,
-                             enum distortion_model_t distortion_model)
+static int getNmeasurements_observationsonly(int NobservationsBoard,
+                                             int NobservationsPoint,
+                                             int calibration_object_width_n)
 {
     // *2 because I have separate x and y measurements
     int Nmeas =
@@ -184,7 +187,19 @@ static int get_Nmeasurements(int Ncameras, int NobservationsBoard,
 
     // *2 because I have separate x and y measurements
     Nmeas += NobservationsPoint * 2;
+    return Nmeas;
+}
 
+int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
+                           const struct observation_point_t* observations_point,
+                           int NobservationsPoint,
+                           int calibration_object_width_n,
+                           struct mrcal_variable_select optimization_variable_choice,
+                           enum distortion_model_t distortion_model)
+{
+    int Nmeas = getNmeasurements_observationsonly(NobservationsBoard,
+                                                  NobservationsPoint,
+                                                  calibration_object_width_n);
     // known-distance measurements
     for(int i=0; i<NobservationsPoint; i++)
         if(observations_point[i].dist > 0.0) Nmeas++;
@@ -1074,8 +1089,293 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
         i_point*3;
 }
 
+// This function is part of sensitivity analysis to quantify how much errors in
+// the input pixel observations affect our solution. A "good" solution will not
+// be very sensitive: measurement noise doesn't affect the solution very much.
+//
+// I minimize a cost function E = norm2(x) where x is the measurements. Some
+// elements of x depend on inputs, and some don't (regularization for instance).
+// I perturb the inputs, reoptimize (assuming everything is linear) and look
+// what happens to the state p. I'm at an optimum p*:
+//
+//   dE/dp (p=p*) = Jt x (p=p*) = 0
+//
+// I perturb the inputs:
+//
+//   E(x(p+dp, m+dm)) = norm2( x + J dp + dx/dm dm)
+//
+// And I reoptimize:
+//
+//   dE/ddp ~ ( x + J dp + dx/dm dm)t J = 0
+//
+// I'm at an optimum, so Jtx = 0, so
+//
+//   -Jt dx/dm dm = JtJ dp
+//
+// So if I perturb my input observation vector m by dm, the resulting effect on
+// the parameters is dp = M dm
+//
+//   where M = -inv(JtJ) Jt dx/dm
+//
+// In order to be useful I need to do something with M. Let's say I want to
+// quantify how precise our optimal intrinsics are. Ultimately these are always
+// used in a projection operation. So given a 3d observation vector v, I project
+// it onto our image plane:
+//
+//   q = project(v, intrinsics)
+//
+// I assume an independent, gaussian noise on my input observations, and for a
+// set of given observation vectors v, I compute the effect on the projection.
+//
+//   dq = dprojection/dintrinsics dintrinsics
+//
+// dprojection/dintrinsics comes from cvProjectPoints2()
+// dintrinsics is the shift in our optimal state: M dm
+//
+// If dm represents noise of the zero-mean, independent, gaussian variety, then
+// dp is also zero-mean gaussian, but no longer independent.
+//
+//   Var(dp) = M Var(dm) Mt = M Mt s^2
+//
+// where s is the standard deviation of the noise of each parameter in dm.
+//
+// The intrinsics of each camera have 3 components:
+//
+// - f: focal lengths
+// - c: center pixel coord
+// - d: distortion parameters
+//
+// Let me define dprojection/df = F, dprojection/dc = C, dprojection/dd = D.
+// These all come from cvProjectPoints2().
+//
+// Rewriting the projection equation I get
+//
+//   q = project(v,  f,c,d)
+//   dq = F df + C dc + D dd
+//
+// df,dc,dd are random variables that come from dp.
+//
+//   Var(dq) = F Covar(df,df) Ft +
+//             C Covar(dc,dc) Ct +
+//             D Covar(dd,dd) Dt +
+//             F Covar(df,dc) Ct +
+//             F Covar(df,dd) Dt +
+//             C Covar(dc,df) Ft +
+//             C Covar(dc,dd) Dt +
+//             D Covar(dd,df) Ft +
+//             D Covar(dd,dc) Ct
+//
+// Covar(dx,dy) are all submatrices of the larger Var(dp) matrix we computed
+// above: M Mt s^2.
+//
+// Here I look ONLY at the interactions of intrinsic parameters for a particular
+// camera with OTHER intrinsic parameters of the same camera. I ignore
+// cross-camera interactions and interactions with other parameters, such as the
+// frame poses and extrinsics.
+//
+// For mrcal, the measurements are
+//
+// 1. reprojection errors of chessboard grid observations
+// 2. reprojection errors of individual point observations
+// 3. range errors for points with known range
+// 4. regularization terms
+//
+// The observed pixel measurements come into play directly into 1 and 2 above,
+// but NOT 3 and 4. So
+//
+//   dx/dm = [ I ]
+//           [ 0 ]
+//
+// I thus ignore measurements past the observation set.
+//
+// My matrices are large and sparse. Thus I compute the blocks of M Mt that I
+// need here, and return these densely to the upper levels (python). These
+// callers will then use these dense matrices to finish the computation
+//
+//   M Mt = sum(outer(col(M), col(M)))
+//   col(M) = -solve(JtJ, row(J))
+static bool computeConfidence_MMt(// out
+                                  // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
+                                  double* MMt_intrinsics,
+
+                                  // in
+                                  enum distortion_model_t distortion_model,
+                                  struct mrcal_variable_select optimization_variable_choice,
+                                  int Ncameras,
+                                  int NobservationsBoard,
+                                  int NobservationsPoint,
+                                  int calibration_object_width_n,
+
+                                  dogleg_solverContext_t* solverCtx)
+{
+    // for reading cholmod_sparse
+#define P(A, index) ((unsigned int*)((A)->p))[index]
+#define I(A, index) ((unsigned int*)((A)->i))[index]
+#define X(A, index) ((double*      )((A)->x))[index]
+
+
+    cholmod_sparse* Jt     = solverCtx->beforeStep->Jt;
+    int             Nstate = Jt->nrow;
+    int             Nmeas  = Jt->ncol;
+
+    // I will repeatedly solve the system JtJ x = v. CHOLMOD can do this for me
+    // quickly, if I pre-analyze and pre-factorize JtJ. I do this here, and then
+    // just do the cholmod_solve() in the loop. I just ran the solver, so the
+    // analysis and factorization are almost certainly already done. But just in
+    // case...
+    {
+        if(solverCtx->factorization == NULL)
+        {
+            solverCtx->factorization = cholmod_analyze(Jt, &solverCtx->common);
+            fprintf(stderr, "Couldn't factor JtJ\n");
+            return false;
+        }
+
+        assert( cholmod_factorize(Jt, solverCtx->factorization, &solverCtx->common) );
+        if(solverCtx->factorization->minor != solverCtx->factorization->n)
+        {
+            fprintf(stderr, "Got singular JtJ!\n");
+            return false;
+        }
+    }
+
+    // cholmod_spsolve works in chunks of 4, so I do this in chunks of 4 too. I
+    // pass it rows of J, 4 at a time. I don't actually allocate anything, rather
+    // using views into Jt. So I copy the Jt structure and use that
+    const int chunk_size = 4;
+    cholmod_sparse Jt_slice = *Jt;
+    Jt_slice.ncol = chunk_size;
+
+    // As described above, I'm looking at what input noise does, so I only look at
+    // the measurements that pertain to the input observations directly. In mrcal,
+    // this is the leading ones, before the range errors and the regularization
+    int Nintrinsics_per_camera =
+        getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model);
+    int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
+                                                               NobservationsPoint,
+                                                               calibration_object_width_n);
+
+    memset(MMt_intrinsics, 0,
+           Ncameras*Nintrinsics_per_camera* Nintrinsics_per_camera*sizeof(double));
+
+
+    // A test that this function works correctly. I dump a DENSE representation
+    // of J into a file. Then I read it in python, compute MMt from it, and make
+    // sure that the MMt I obtained from this function matches. Doing this
+    // densely is very slow, but easy, and good-enough for verification
+    /*
+    static int count = 0;
+    char logfilename[128];
+    sprintf(logfilename, "/tmp/J%d_%d_%d.dat",count,Jt->ncol,Jt->nrow);
+    count++;
+    FILE* fp = fopen(logfilename, "w");
+    double* Jrow;
+    Jrow = malloc(Jt->nrow*sizeof(double));
+    for(unsigned int icol=0; icol<Jt->ncol; icol++)
+    {
+        memset(Jrow, 0, Jt->nrow*sizeof(double));
+
+        for(unsigned int i=P(Jt, icol); i<P(Jt, icol+1); i++)
+        {
+            int irow = I(Jt,i);
+            double x = X(Jt,i);
+            Jrow[irow] = x;
+        }
+        // I write binary data. numpy is WAY too slow if I do it in ascii
+        fwrite(Jrow,sizeof(double),Jt->nrow,fp);
+    }
+    fclose(fp);
+    free(Jrow);
+
+    // On the python end, I validate thusly:
+
+    // J     = np.fromfile("/tmp/J1_37008_760.dat").reshape(37008,760)
+    // pinvJ = np.linalg.pinv(J)
+    // pinvJ = pinvJ[:,:-8] # dx/dm ignores regularization measurements
+    // MMt_dense   = nps.matmult(pinvJ, nps.transpose(pinvJ))
+    // MMt0 = MMt_dense[0:8,0:8]
+    // MMt1 = MMt_dense[8:16,8:16]
+    //
+    // In [25]: np.linalg.norm(MMt0 - MMt[0,:,:])
+    // Out[25]: 1.4947344824339893e-12
+    //
+    // In [26]: np.linalg.norm(MMt1 - MMt[1,:,:])
+    // Out[26]: 4.223914927650401e-12
+
+    */
+
+
+
+
+    for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
+    {
+        if( i_meas + chunk_size > Nmeas_observations )
+            // at the end, we could have one chunk with less that chunk_size columns
+            Jt_slice.ncol = Nmeas_observations - i_meas;
+
+        cholmod_sparse* M =
+            cholmod_spsolve( CHOLMOD_A, solverCtx->factorization,
+                             &Jt_slice,
+                             &solverCtx->common);
+
+        // I now have chunk_size columns of M. I accumulate sum of the outer
+        // products. This is symmetric, but I store both halves; for now
+        for(unsigned int icol=0; icol<M->ncol; icol++)
+        {
+            for(unsigned int i0=P(M, icol); i0<P(M, icol+1); i0++)
+            {
+                int irow0 = I(M,i0);
+                int icam0 = irow0 / Nintrinsics_per_camera;
+                if( icam0 >= Ncameras )
+                    // not a camera intrinsic parameter
+                    continue;
+
+                double x0 = X(M,i0);
+                int i_intrinsics0 = irow0 - icam0*Nintrinsics_per_camera;
+
+                // special-case process the diagonal param
+                MMt_intrinsics[icam0*Nintrinsics_per_camera*Nintrinsics_per_camera +
+                               (Nintrinsics_per_camera+1)*i_intrinsics0] += x0*x0;
+
+                // Now the off-diagonal
+                for(unsigned int i1=i0+1; i1<P(M, icol+1); i1++)
+                {
+                    int irow1 = I(M,i1);
+                    int icam1 = irow1 / Nintrinsics_per_camera;
+
+                    // I want to look at each camera individually, so I ignore the
+                    // interactions between the parameters across cameras
+                    if( icam0 != icam1 )
+                        continue;
+
+                    double x1 = X(M,i1);
+                    double x0x1 = x0*x1;
+                    int i_intrinsics1 = irow1 - icam1*Nintrinsics_per_camera;
+
+                    double* MMt_thiscam = &MMt_intrinsics[icam0*Nintrinsics_per_camera*Nintrinsics_per_camera];
+                    MMt_thiscam[Nintrinsics_per_camera*i_intrinsics0 + i_intrinsics1] += x0x1;
+                    MMt_thiscam[Nintrinsics_per_camera*i_intrinsics1 + i_intrinsics0] += x0x1;
+                }
+            }
+        }
+
+        cholmod_free_sparse(&M, &solverCtx->common);
+
+        Jt_slice.p = (void*)&P(&Jt_slice,chunk_size);
+    }
+
+#undef P
+#undef I
+#undef X
+    return true;
+}
+
 struct mrcal_stats_t
-mrcal_optimize( // out, in (seed on input)
+mrcal_optimize( // out
+                double* x_final,               // may be NULL. Exists for debugging only
+                double* intrinsic_covariances, // may be NULL. Exists for debugging only
+
+                // out, in (seed on input)
 
                 // These are the state. I don't have a state_t because Ncameras
                 // and Nframes aren't known at compile time
@@ -1124,11 +1424,11 @@ mrcal_optimize( // out, in (seed on input)
     const int Nstate        = get_Nstate(Ncameras, Nframes, Npoints,
                                          optimization_variable_choice,
                                          distortion_model);
-    const int Nmeasurements = get_Nmeasurements(Ncameras, NobservationsBoard,
-                                                observations_point, NobservationsPoint,
-                                                calibration_object_width_n,
-                                                optimization_variable_choice,
-                                                distortion_model);
+    const int Nmeasurements = mrcal_getNmeasurements(Ncameras, NobservationsBoard,
+                                                     observations_point, NobservationsPoint,
+                                                     calibration_object_width_n,
+                                                     optimization_variable_choice,
+                                                     distortion_model);
     const int N_j_nonzero   = get_N_j_nonzero(Ncameras,
                                               observations_board, NobservationsBoard,
                                               observations_point, NobservationsPoint,
@@ -1809,6 +2109,7 @@ mrcal_optimize( // out, in (seed on input)
 
 
 
+    dogleg_solverContext_t* solver_context = NULL;
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       intrinsics,
@@ -1831,7 +2132,7 @@ mrcal_optimize( // out, in (seed on input)
 
         norm2_error = dogleg_optimize(packed_state,
                                       Nstate, Nmeasurements, N_j_nonzero,
-                                      &optimizerCallback, NULL, NULL);
+                                      &optimizerCallback, NULL, &solver_context);
 
         // Done. I have the final state. I spit it back out
         unpack_solver_state( intrinsics, // Ncameras of these
@@ -1859,5 +2160,30 @@ mrcal_optimize( // out, in (seed on input)
     struct mrcal_stats_t stats = {.rms_reproj_error__pixels =
                                   // /2 because I have separate x and y measurements
                                   sqrt(norm2_error / ((double)Nmeasurements / 2.0))};
+    if(x_final)
+        memcpy(x_final, solver_context->beforeStep->x, Nmeasurements*sizeof(double));
+
+    if( intrinsic_covariances )
+    {
+        bool result =
+            computeConfidence_MMt(// out
+                                  // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
+                                  intrinsic_covariances,
+
+                                  // in
+                                  distortion_model,
+                                  optimization_variable_choice,
+                                  Ncameras,
+                                  NobservationsBoard,
+                                  NobservationsPoint,
+                                  calibration_object_width_n,
+
+                                  solver_context);
+        if(!result)
+            fprintf(stderr, "Failed to compute MMt.\n");
+    }
+    if( solver_context )
+        dogleg_freeContext(&solver_context);
+
     return stats;
 }

@@ -407,6 +407,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* indices_point_camera_points = NULL;
     PyObject*      pystats                     = NULL;
 
+    PyArrayObject* x_final                     = NULL;
+    PyArrayObject* intrinsic_covariances       = NULL;
+
     // Python is silly. There's some nuance about signal handling where it sets
     // a SIGINT (ctrl-c) handler to just set a flag, and the python layer then
     // reads this flag and does the thing. Here I'm running C code, so SIGINT
@@ -727,8 +730,30 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         optimization_variable_choice.do_optimize_extrinsics = PyObject_IsTrue(do_optimize_extrinsics);
         optimization_variable_choice.do_optimize_frames = PyObject_IsTrue(do_optimize_frames);
 
+        int Nmeasurements = mrcal_getNmeasurements(Ncameras, NobservationsBoard,
+                                                   c_observations_point, NobservationsPoint,
+                                                   c_calibration_object_width_n,
+                                                   optimization_variable_choice,
+                                                   distortion_model);
+
+        x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
+        double* c_x_final = PyArray_DATA(x_final);
+
+        int Nintrinsics = mrcal_getNintrinsicOptimizationParams(optimization_variable_choice,
+                                                                distortion_model);
+        double* c_intrinsic_covariances = NULL;
+        if(Nintrinsics != 0)
+        {
+            intrinsic_covariances =
+                (PyArrayObject*)PyArray_SimpleNew(3,
+                                                  ((npy_intp[]){Ncameras,Nintrinsics,Nintrinsics}), NPY_DOUBLE);
+            c_intrinsic_covariances = PyArray_DATA(intrinsic_covariances);
+        }
+
         struct mrcal_stats_t stats =
-        mrcal_optimize( c_intrinsics,
+        mrcal_optimize( c_x_final,
+                        c_intrinsic_covariances,
+                        c_intrinsics,
                         c_extrinsics,
                         c_frames,
                         c_points,
@@ -769,6 +794,20 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         }
         MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
 
+        if( 0 != PyDict_SetItemString(pystats, "x",
+                                      (PyObject*)x_final) )
+        {
+            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'x'");
+            goto done;
+        }
+        if( intrinsic_covariances &&
+            0 != PyDict_SetItemString(pystats, "intrinsic_covariances",
+                                      (PyObject*)intrinsic_covariances) )
+        {
+            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'intrinsic_covariances'");
+            goto done;
+        }
+
         result = pystats;
         Py_INCREF(result);
     }
@@ -787,6 +826,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     if(indices_frame_camera_board)  Py_DECREF(indices_frame_camera_board);
     if(observations_point)          Py_DECREF(observations_point);
     if(indices_point_camera_points) Py_DECREF(indices_point_camera_points);
+    if(x_final)                     Py_DECREF(x_final);
+    if(intrinsic_covariances)       Py_DECREF(intrinsic_covariances);
     if(pystats)                     Py_DECREF(pystats);
 
     if( 0 != sigaction(SIGINT,

@@ -132,7 +132,8 @@ int main(int argc, char* argv[] )
             intrinsics[Nintrinsics * i + N_INTRINSICS_CORE + j] = 0.0005 * (double)(i + Ncameras*j);
 
 
-    mrcal_optimize( intrinsics,
+    mrcal_optimize( NULL, NULL,
+                    intrinsics,
                     extrinsics,
                     frames,
                     points,
