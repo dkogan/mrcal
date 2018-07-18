@@ -818,7 +818,7 @@ if args.seed is None:
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n)
 
-    optimizer.optimize(intrinsics, extrinsics, frames, None,
+    stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
                        observations, indices_frame_camera,
                        None, None,
                        distortion_model,
@@ -827,6 +827,7 @@ if args.seed is None:
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n)
 
+    MMt = stats['intrinsic_covariances']
     print "done with {}".format(distortion_model)
 
 # final pass
@@ -836,7 +837,7 @@ distortion_model   = args.distortion_model
 Ndistortions       = optimizer.getNdistortionParams(distortion_model)
 Ndistortions_delta = Ndistortions - Ndistortions0
 intrinsics         = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions_delta))*1e-5, axis=-1 )
-optimizer.optimize(intrinsics, extrinsics, frames, None,
+stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
                    observations, indices_frame_camera,
                    None, None,
                    distortion_model,
@@ -844,6 +845,7 @@ optimizer.optimize(intrinsics, extrinsics, frames, None,
                    do_optimize_intrinsic_distortions = True,
                    calibration_object_spacing        = object_spacing,
                    calibration_object_width_n        = object_width_n)
+MMt = stats['intrinsic_covariances']
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 
@@ -966,6 +968,87 @@ if args.explore:
     def show_worst(i):
         show( i_observations_worst[i] )
 
+
+
+
+    W,H=intrinsics[0,2:4]*2
+    gridn = 20
+    w = np.linspace(0,W,gridn)
+    h = np.linspace(0,H,gridn)
+    # shape: Nwidth,Nheight,2
+    grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+    # shape: Nwidth,Nheight,3
+    V = projections.unproject(grid, c.intrinsics())
+
+    plots = []
+    for i_camera in xrange(len(intrinsics)):
+
+        fxy         = intrinsics[i_camera, 0:2]
+        cxy         = intrinsics[i_camera, 2:4]
+        distortions = intrinsics[i_camera, 4: ]
+
+        camera_matrix = np.array(((fxy[0], 0,      cxy[0]),
+                                  (0,      fxy[1], cxy[1]),
+                                  (0,      0,      1)))
+
+        imagePoints,jacobian = \
+            cv2.projectPoints(V.reshape(gridn*gridn,3), # 3d vectors to project
+                              np.zeros(3), np.zeros(3), # no extrinsics
+                              camera_matrix, distortions)
+
+        imagePoints = imagePoints.reshape(gridn,gridn,2)
+        jacobian    = jacobian.reshape(gridn,gridn, 2, jacobian.shape[1])
+
+        F = jacobian[..., 6: 8]
+        C = jacobian[..., 8:10]
+        D = jacobian[..., 10: ]
+
+        Cff = MMt[i_camera, 0:2, 0:2]
+        Cfc = MMt[i_camera, 0:2, 2:4]
+        Cfd = MMt[i_camera, 0:2, 4:]
+        Ccf = MMt[i_camera, 2:4, 0:2]
+        Ccc = MMt[i_camera, 2:4, 2:4]
+        Ccd = MMt[i_camera, 2:4, 4:]
+        Cdf = MMt[i_camera, 4:,  0:2]
+        Cdc = MMt[i_camera, 4:,  2:4]
+        Cdd = MMt[i_camera, 4:,  4:]
+
+        # shape Nwidth,Nheight,2,2: each slice is a 2x2 covariance
+        Vdprojection = \
+            nps.matmult(F,Cff,nps.transpose(F)) + \
+            nps.matmult(F,Cfc,nps.transpose(C)) + \
+            nps.matmult(F,Cfd,nps.transpose(D)) + \
+            nps.matmult(C,Ccf,nps.transpose(F)) + \
+            nps.matmult(C,Ccc,nps.transpose(C)) + \
+            nps.matmult(C,Ccd,nps.transpose(D)) + \
+            nps.matmult(D,Cdf,nps.transpose(F)) + \
+            nps.matmult(D,Cdc,nps.transpose(C)) + \
+            nps.matmult(D,Cdd,nps.transpose(D))
+
+        # Let x be a 0-mean normally-distributed 2-vector with covariance V.
+        # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
+
+        @nps.broadcast_define( (('n','n'),), ())
+        def trace(x):
+            return np.trace(x)
+        Erms = np.sqrt(trace(Vdprojection))
+
+        plots.append(gp.gnuplotlib(_3d=1,
+                                   set=['xrange noextend',
+                                        'yrange noextend reverse',
+                                        'view equal xy',
+                                        'view map',
+                                        'contour surface',
+                                        'cntrparam levels incremental 10,-0.1,0'],
+                                   title="Camera {}".format(i_camera)))
+
+        # Currently "with image" can't produce contours. I work around this, by
+        # plotting the data a second time.
+        # Yuck.
+        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+        plots[-1].plot( (Erms, dict(               tuplesize=3, _with='image')),
+                        (Erms, dict(legend="Erms", tuplesize=3, _with='lines nosurface')))
 
     import IPython
     IPython.embed()
