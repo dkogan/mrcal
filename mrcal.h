@@ -141,6 +141,7 @@ mrcal_optimize( // out
                 int NobservationsPoint,
 
                 bool check_gradient,
+                bool VERBOSE,
                 enum distortion_model_t distortion_model,
                 struct mrcal_variable_select optimization_variable_choice,
 

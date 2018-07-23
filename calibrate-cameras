@@ -816,7 +816,8 @@ if args.seed is None:
                        do_optimize_intrinsic_core        = False,
                        do_optimize_intrinsic_distortions = False,
                        calibration_object_spacing        = object_spacing,
-                       calibration_object_width_n        = object_width_n)
+                       calibration_object_width_n        = object_width_n,
+                       VERBOSE                           = False)
 
     stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
                        observations, indices_frame_camera,
@@ -825,7 +826,8 @@ if args.seed is None:
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = False,
                        calibration_object_spacing        = object_spacing,
-                       calibration_object_width_n        = object_width_n)
+                       calibration_object_width_n        = object_width_n,
+                       VERBOSE                           = False)
 
     MMt = stats['intrinsic_covariances']
     print "done with {}".format(distortion_model)
@@ -838,13 +840,14 @@ Ndistortions       = optimizer.getNdistortionParams(distortion_model)
 Ndistortions_delta = Ndistortions - Ndistortions0
 intrinsics         = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions_delta))*1e-5, axis=-1 )
 stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
-                   observations, indices_frame_camera,
-                   None, None,
-                   distortion_model,
-                   do_optimize_intrinsic_core        = True,
-                   do_optimize_intrinsic_distortions = True,
-                   calibration_object_spacing        = object_spacing,
-                   calibration_object_width_n        = object_width_n)
+                           observations, indices_frame_camera,
+                           None, None,
+                           distortion_model,
+                           do_optimize_intrinsic_core        = True,
+                           do_optimize_intrinsic_distortions = True,
+                           calibration_object_spacing        = object_spacing,
+                           calibration_object_width_n        = object_width_n,
+                           VERBOSE                           = True)
 MMt = stats['intrinsic_covariances']
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 

@@ -406,6 +406,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* observations_point          = NULL;
     PyArrayObject* indices_point_camera_points = NULL;
     PyObject*      pystats                     = NULL;
+    PyObject*      VERBOSE                     = NULL;
 
     PyArrayObject* x_final                     = NULL;
     PyArrayObject* intrinsic_covariances       = NULL;
@@ -446,6 +447,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "skipped_observations_point",
                         "calibration_object_spacing",
                         "calibration_object_width_n",
+                        "VERBOSE",
 
                         NULL};
 
@@ -459,7 +461,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* calibration_object_spacing        = NULL;
     PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOOOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOO",
                                      keywords,
                                      PyArray_Converter_leaveNone, &intrinsics,
                                      PyArray_Converter_leaveNone, &extrinsics,
@@ -479,7 +481,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &skipped_observations_board,
                                      &skipped_observations_point,
                                      &calibration_object_spacing,
-                                     &calibration_object_width_n))
+                                     &calibration_object_width_n,
+                                     &VERBOSE))
         goto done;
 
 
@@ -765,6 +768,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         NobservationsPoint,
 
                         false,
+                        PyObject_IsTrue(VERBOSE),
                         distortion_model,
                         optimization_variable_choice,
 

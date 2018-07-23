@@ -146,6 +146,7 @@ int main(int argc, char* argv[] )
                     NobservationsPoint,
 
                     true,
+                    false,
                     distortion_model,
                     optimization_variable_choice,
 

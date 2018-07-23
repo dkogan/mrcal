@@ -14,9 +14,6 @@
 
 #include "mrcal.h"
 
-#define VERBOSE 1
-
-
 #warning terminology: measurement and observation are the same?
 
 #warning kill this comment?
@@ -1399,6 +1396,7 @@ mrcal_optimize( // out
                 int NobservationsPoint,
 
                 bool check_gradient,
+                bool VERBOSE,
                 enum distortion_model_t distortion_model,
                 struct mrcal_variable_select optimization_variable_choice,
 
@@ -1408,9 +1406,8 @@ mrcal_optimize( // out
     if( IS_OPTIMIZE_NONE(optimization_variable_choice) )
         fprintf(stderr, "Warning: Not optimizing any of our variables\n");
 
-#if defined VERBOSE && VERBOSE
-    dogleg_setDebug(100);
-#endif
+    if(VERBOSE)
+        dogleg_setDebug(100);
 
 #warning update these parameters
     // These were derived empirically, seeking high accuracy, fast convergence
@@ -1755,11 +1752,10 @@ mrcal_optimize( // out
             if( point.z <= 0.0 || point.z >= POINT_MAXZ )
             {
                 have_invalid_point = true;
-#if defined VERBOSE && VERBOSE
-                fprintf(stderr, "Saw invalid point distance: z = %f! obs/point/cam: %d %d %d\n",
-                        point.z,
-                        i_observation_point, i_point, i_camera);
-#endif
+                if(VERBOSE)
+                    fprintf(stderr, "Saw invalid point distance: z = %f! obs/point/cam: %d %d %d\n",
+                            point.z,
+                            i_observation_point, i_point, i_camera);
             }
 
             // these are computed in respect to the unit-scale parameters
@@ -2123,11 +2119,12 @@ mrcal_optimize( // out
     double norm2_error = -1.0;
     if( !check_gradient )
     {
-#if defined VERBOSE && VERBOSE
-        reportFitMsg = "Before";
+        if(VERBOSE)
+        {
+            reportFitMsg = "Before";
 #warning hook this up
-        //        optimizerCallback(packed_state, NULL, NULL, NULL);
-#endif
+            //        optimizerCallback(packed_state, NULL, NULL, NULL);
+        }
         reportFitMsg = NULL;
 
         norm2_error = dogleg_optimize(packed_state,
@@ -2145,11 +2142,12 @@ mrcal_optimize( // out
                              Ncameras, Nframes, Npoints, Nstate);
 
 
-#if defined VERBOSE && VERBOSE
-        reportFitMsg = "After";
+        if(VERBOSE)
+        {
+            reportFitMsg = "After";
 #warning hook this up
-        //        optimizerCallback(packed_state, NULL, NULL, NULL);
-#endif
+            //        optimizerCallback(packed_state, NULL, NULL, NULL);
+        }
     }
     else
         for(int ivar=0; ivar<Nstate; ivar++)
