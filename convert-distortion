@@ -78,6 +78,10 @@ def parse_args():
                         type=str,
                         help='The target distortion model')
 
+    parser.add_argument('--verbose',
+                        action='store_true',
+                        help='''Report the solver details''')
+
     parser.add_argument('--viz',
                         action='store_true',
                         help='''Visualize the difference''')
@@ -201,7 +205,8 @@ for i in xrange(40): # this many trials
                        do_optimize_intrinsic_core        = False,
                        do_optimize_intrinsic_distortions = True,
                        do_optimize_extrinsics            = False,
-                       do_optimize_frames                = False)
+                       do_optimize_frames                = False,
+                       VERBOSE                           = args.verbose)
 
     pxy_solved = projections.project( v,
                                       (distortionmodel_to, intrinsics_to_values))
