@@ -1240,8 +1240,15 @@ static bool computeConfidence_MMt(// out
     // pass it rows of J, 4 at a time. I don't actually allocate anything, rather
     // using views into Jt. So I copy the Jt structure and use that
     const int chunk_size = 4;
-    cholmod_sparse Jt_slice = *Jt;
-    Jt_slice.ncol = chunk_size;
+
+    cholmod_dense* Jt_slice =
+        cholmod_allocate_dense( Jt->nrow,
+                                chunk_size,
+                                Jt->nrow,
+                                CHOLMOD_REAL,
+                                &solverCtx->common );
+
+
 
     // As described above, I'm looking at what input noise does, so I only look at
     // the measurements that pertain to the input observations directly. In mrcal,
@@ -1302,32 +1309,51 @@ static bool computeConfidence_MMt(// out
     */
 
 
-
-
     for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
     {
-        if( i_meas + chunk_size > Nmeas_observations )
-            // at the end, we could have one chunk with less that chunk_size columns
-            Jt_slice.ncol = Nmeas_observations - i_meas;
+        // sparse to dense for a chunk of Jt
+        memset( Jt_slice->x, 0, Jt_slice->nrow*chunk_size*sizeof(double) );
+        for(unsigned int icol=0; icol<chunk_size; icol++)
+        {
+            if( (int)(i_meas + icol) >= Nmeas_observations )
+            {
+                // at the end, we could have one chunk with less that chunk_size
+                // columns
+                Jt_slice->ncol = icol;
+                break;
+            }
 
-        cholmod_sparse* M =
-            cholmod_spsolve( CHOLMOD_A, solverCtx->factorization,
-                             &Jt_slice,
-                             &solverCtx->common);
+            for(unsigned int i0=P(Jt, icol+i_meas); i0<P(Jt, icol+i_meas+1); i0++)
+            {
+                int irow = I(Jt,i0);
+                double x0 = X(Jt,i0);
+                ((double*)Jt_slice->x)[irow + icol*Jt_slice->nrow] = x0;
+            }
+        }
+
+        // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
+        // dense. cholmod doesn't have functions for this exact case. so I use
+        // the dense-sparse-dense function, and densify the input. Instead of
+        // sparse-sparse-sparse and the densifying the output. This feels like
+        // it'd be more efficient
+        cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+                                          Jt_slice,
+                                          &solverCtx->common);
+
 
         // I now have chunk_size columns of M. I accumulate sum of the outer
         // products. This is symmetric, but I store both halves; for now
         for(unsigned int icol=0; icol<M->ncol; icol++)
         {
-            for(unsigned int i0=P(M, icol); i0<P(M, icol+1); i0++)
+            for(unsigned int irow0=0; irow0<M->nrow; irow0++)
             {
-                int irow0 = I(M,i0);
+                double x0 = ((double*)(M->x))[irow0 + icol*M->nrow];
+
                 int icam0 = irow0 / Nintrinsics_per_camera;
                 if( icam0 >= Ncameras )
                     // not a camera intrinsic parameter
                     continue;
 
-                double x0 = X(M,i0);
                 int i_intrinsics0 = irow0 - icam0*Nintrinsics_per_camera;
 
                 // special-case process the diagonal param
@@ -1335,9 +1361,8 @@ static bool computeConfidence_MMt(// out
                                (Nintrinsics_per_camera+1)*i_intrinsics0] += x0*x0;
 
                 // Now the off-diagonal
-                for(unsigned int i1=i0+1; i1<P(M, icol+1); i1++)
+                for(unsigned int irow1=irow0+1; irow1<M->nrow; irow1++)
                 {
-                    int irow1 = I(M,i1);
                     int icam1 = irow1 / Nintrinsics_per_camera;
 
                     // I want to look at each camera individually, so I ignore the
@@ -1345,7 +1370,7 @@ static bool computeConfidence_MMt(// out
                     if( icam0 != icam1 )
                         continue;
 
-                    double x1 = X(M,i1);
+                    double x1 = ((double*)(M->x))[irow1 + icol*M->nrow];
                     double x0x1 = x0*x1;
                     int i_intrinsics1 = irow1 - icam1*Nintrinsics_per_camera;
 
@@ -1356,14 +1381,16 @@ static bool computeConfidence_MMt(// out
             }
         }
 
-        cholmod_free_sparse(&M, &solverCtx->common);
-
-        Jt_slice.p = (void*)&P(&Jt_slice,chunk_size);
+        cholmod_free_dense (&M, &solverCtx->common);
     }
 
 #undef P
 #undef I
 #undef X
+
+    Jt_slice->ncol = chunk_size; // I manually reset this earlier; put it back
+    cholmod_free_dense(&Jt_slice, &solverCtx->common);
+
     return true;
 }
 
