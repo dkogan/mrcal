@@ -1095,7 +1095,7 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
 // I perturb the inputs, reoptimize (assuming everything is linear) and look
 // what happens to the state p. I'm at an optimum p*:
 //
-//   dE/dp (p=p*) = Jt x (p=p*) = 0
+//   dE/dp (p=p*) = 2 Jt x (p=p*) = 0
 //
 // I perturb the inputs:
 //
@@ -1178,10 +1178,10 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
 // 4. regularization terms
 //
 // The observed pixel measurements come into play directly into 1 and 2 above,
-// but NOT 3 and 4. So
+// but NOT 3 and 4. Let's say I'm doing ordinary least squares, so x = f(p) - m
 //
-//   dx/dm = [ I ]
-//           [ 0 ]
+//   dx/dm = [ -I ]
+//           [  0 ]
 //
 // I thus ignore measurements past the observation set.
 //
@@ -1190,7 +1190,7 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
 // callers will then use these dense matrices to finish the computation
 //
 //   M Mt = sum(outer(col(M), col(M)))
-//   col(M) = -solve(JtJ, row(J))
+//   col(M) = solve(JtJ, row(J))
 static bool computeConfidence_MMt(// out
                                   // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
                                   double* MMt_intrinsics,
