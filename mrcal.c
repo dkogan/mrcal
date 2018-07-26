@@ -1039,6 +1039,42 @@ static void unpack_solver_state( // out
 
     assert(i_state == Nstate_ref);
 }
+// Same as above, but packs/unpacks a vector instead of structures
+static void unpack_solver_state_vector( // out, in
+                                       double* p, // unitless state on input,
+                                                  // scaled, meaningful state on
+                                                  // output
+
+                                       // in
+                                       const enum distortion_model_t distortion_model,
+                                       struct mrcal_variable_select optimization_variable_choice,
+                                       int Ncameras, int Nframes, int Npoints)
+{
+    int i_state = unpack_solver_state_intrinsics(p,
+                                                 p, distortion_model, optimization_variable_choice, Ncameras);
+
+    if( optimization_variable_choice.do_optimize_extrinsics )
+    {
+        static_assert( offsetof(struct pose_t, r) == 0,
+                       "pose_t has expected structure");
+        static_assert( offsetof(struct pose_t, t) == 3*sizeof(double),
+                       "pose_t has expected structure");
+
+        struct pose_t* extrinsics = (struct pose_t*)(&p[i_state]);
+        for(int i_camera=1; i_camera < Ncameras; i_camera++)
+            i_state += unpack_solver_state_extrinsics_one( &extrinsics[i_camera-1], &p[i_state] );
+    }
+
+    if( optimization_variable_choice.do_optimize_frames )
+    {
+        struct pose_t* frames = (struct pose_t*)(&p[i_state]);
+        for(int i_frame = 0; i_frame < Nframes; i_frame++)
+            i_state += unpack_solver_state_framert_one( &frames[i_frame], &p[i_state] );
+        union point3_t* points = (union point3_t*)(&p[i_state]);
+        for(int i_point = 0; i_point < Npoints; i_point++)
+            i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
+    }
+}
 
 static int state_index_intrinsic_core(int i_camera,
                                       struct mrcal_variable_select optimization_variable_choice,
