@@ -1,9 +1,9 @@
 * Synopsis
 
 #+BEGIN_EXAMPLE
-$ calibrate-camerasy --focal 2000 --imagersize 2448 2048 
-                     --outdir /tmp --object-spacing 0.01
-                     --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
+$ calibrate-cameras --focal 2000 --imagersize 2448 2048
+                    --outdir /tmp --object-spacing 0.01
+                    --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
 
 ... lots of output as the solve runs ...
 Wrote /tmp/camera0-0.cahvor
