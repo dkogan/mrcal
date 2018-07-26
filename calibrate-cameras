@@ -30,6 +30,8 @@ import re
 import subprocess
 import pipes
 import heapq
+from tempfile import mkstemp
+import shutil
 
 from mrcal import cahvor
 from mrcal import utils
@@ -82,10 +84,10 @@ def parse_args():
                         default=1,
                         help='How much parallelization we want. Like GNU make')
     parser.add_argument('--dots-cache',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("--dots-cache requires an existing, readable file as the arg, but got '{}'".format(f)),
+                        type=lambda f: f if os.path.isfile(f) or not os.path.isdir(f) else \
+                                parser.error("--dots-cache requires an existing, readable file as the arg or a non-existing path, but got '{}'".format(f)),
                         required=False,
-                        help='Allows us to pass in already-computed chessboard centers')
+                        help='Path to read corner-finder data from or (if path does not exist) to write data to')
 
     parser.add_argument('--muse-extrinsics',
                         action='store_true',
@@ -136,18 +138,28 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
 
     '''
 
-    def get_dot_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
+    def get_dot_observations(Nw, Nh, globs, dots_vnl, exclude=set()):
         r'''Invokes mrgingham to get dot observations
 
         Returns a dict mapping from filename to a numpy array with a full grid
         of dot observations. If no grid was observed in a particular image, the
         relevant dict entry is empty
 
-        This function takes an optional dots_vnl argument. If given, this is
-        cached chessboard-finder results. The globs are then used to match image
-        paths in this file, NOT on disk. If dots_vnl. is not None then we don't
-        even need to have the original images
+        The dots_vnl argument is for caching corner-finder results. This can be
+        None if we want to ignore this. Otherwise, this is treated as a path to
+        a file on disk. If this file exists:
 
+            The corner coordinates are read from this file instead of being
+            computed. We don't need to actually have the images stored on disk.
+
+        If this file does not exist:
+
+            We process the images to compute the corner coordinates. Before we
+            compute the calibration off these coordinates, we create the cache
+            file and store this data there. Thus a subsequent identical
+            invocation of calibrate-cameras will see this file as existing, and
+            will automatically use the data it contains instead of recomputing
+            the corner coordinates
         '''
 
         Ncameras = len(globs)
@@ -163,21 +175,37 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
             return False
 
 
-
-        if dots_vnl is None:
+        pipe_dots_write_fd          = None
+        pipe_dots_write_tmpfilename = None
+        if dots_vnl is not None and os.path.isdir(dots_vnl):
+            raise Exception("Given cache path '{}' is a directory. Must be a file or must not exist". \
+                            format(dots_vnl))
+        if dots_vnl is None or not os.path.isfile(dots_vnl):
+            # Need to compute the dot coords. And maybe need to save them into a
+            # cache file too
             if Nw != 10 or Nh != 10:
                 raise Exception("mrgingham currently accepts ONLY 10x10 grids")
 
             args_mrgingham = ['mrgingham_from_image', '--chessboard', '--blur', '3', '--clahe', '--jobs', '10']
             args_mrgingham.extend(globs)
 
-            sys.stderr.write("Computing chessboard corners from {}\n".format(globs))
-            sys.stderr.write("Command (output can be passed to --dots-cache): {}\n".format(' '.join(pipes.quote(s) for s in args_mrgingham)))
+            sys.stderr.write("Computing chessboard corners by running:\n   {}\n". \
+                             format(' '.join(pipes.quote(s) for s in args_mrgingham)))
+            if dots_vnl is not None:
+                # need to save the dots into a cache. I want to do this
+                # atomically: if the dot-finding is interrupted I don't want to
+                # be writing incomplete results, so I write to a temporary file
+                # and then rename when done
+                pipe_dots_write_fd,pipe_dots_write_tmpfilename = mkstemp('.vnl')
+                sys.stderr.write("Will save corners to '{}'\n".format(dots_vnl))
 
             dots_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            pipe = dots_output.stdout
+            pipe_dots_read = dots_output.stdout
+            computing_dots = True
         else:
-            pipe = open(dots_vnl, 'r')
+            # Have an existing cache file. Just read it
+            pipe_dots_read = open(dots_vnl, 'r')
+            computing_dots = False
 
 
         mapping = {}
@@ -195,7 +223,10 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
                 context['f']    = ''
                 context['grid'] = np.array(())
 
-        for line in pipe:
+        for line in pipe_dots_read:
+            if pipe_dots_write_fd is not None:
+                os.write(pipe_dots_write_fd, line)
+
             if line[0] == '#':
                 continue
             m = re.match('(\S+)\s+(.*?)$', line)
@@ -213,14 +244,18 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
                                        axis=-2)
         finish()
 
-        if dots_vnl is None:
-            sys.stderr.write("Done computing chessboard corners from {}\n".format(globs))
+        if computing_dots:
+            sys.stderr.write("Done computing chessboard corners\n")
 
             if dots_output.wait() != 0:
                 err = dots_output.stderr.read()
                 raise Exception("mrgingham_from_image failed: {}".format(err))
+            if pipe_dots_write_fd is not None:
+                os.close(pipe_dots_write_fd)
+                shutil.move(pipe_dots_write_tmpfilename, dots_vnl)
         else:
-            pipe.close()
+            pipe_dots_read.close()
+
         return mapping,files_per_camera
 
 
