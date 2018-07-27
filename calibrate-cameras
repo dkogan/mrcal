@@ -4,7 +4,7 @@ r'''Calibrate some synchronized cameras
 
 Synopsis:
 
-  $ calibrate-cameras --focal 2000 --imagersize 2448 2048 --outdir /tmp --object-spacing 0.01 --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
+  $ calibrate-cameras --focal 2000 --outdir /tmp --object-spacing 0.01 --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
 
 
   ... lots of output as the solve runs ...
@@ -32,6 +32,7 @@ import pipes
 import heapq
 from tempfile import mkstemp
 import shutil
+import glob
 
 from mrcal import cahvor
 from mrcal import utils
@@ -52,11 +53,6 @@ def parse_args():
                         default=1970,
                         required=True,
                         help='Initial estimate of the focal length, in pixels')
-    parser.add_argument('--imagersize',
-                        nargs=2,
-                        type=int,
-                        default=(3904,3904),
-                        help='Size of the imager. Used to extimate the coordinates of the center pixel')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
                                 parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
@@ -301,7 +297,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
 
 
 def estimate_local_calobject_poses( indices_frame_camera, \
-                                    dots, dot_spacing, focal, imagersize,
+                                    dots, dot_spacing, focal, imagersizes,
                                     Nwant):
     r"""Estimates pose of observed object in a single-camera view
 
@@ -333,13 +329,16 @@ def estimate_local_calobject_poses( indices_frame_camera, \
     # this wastes memory, but makes it easier to keep track of which data goes
     # with what
     Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
-    camera_matrix = np.array((( focal, 0,        (imagersize[0] - 1)/2), \
-                              (        0, focal, (imagersize[1] - 1)/2), \
-                              (        0,        0,                 1)))
 
     full_object = utils.get_full_object(Nwant, Nwant, dot_spacing)
 
-    for i_observation in xrange(dots.shape[0]):
+    for i_observation in xrange(Nobservations):
+
+        i_camera   = indices_frame_camera[i_observation,1]
+        imagersize = imagersizes[i_camera]
+        camera_matrix = np.array((( focal, 0,        (imagersize[0] - 1)/2), \
+                                  (        0, focal, (imagersize[1] - 1)/2), \
+                                  (        0,        0,                 1)))
         d = dots[i_observation, ...]
 
         d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
@@ -730,7 +729,7 @@ def make_seed(inputs, model_seed):
 
 
     def make_intrinsics_vector(i_camera, inputs):
-        imager_w,imager_h = inputs['imagersize']
+        imager_w,imager_h = inputs['imagersizes'][i_camera]
         return np.array( (inputs['focal_estimate'], inputs['focal_estimate'],
                           float(imager_w-1)/2.,
                           float(imager_h-1)/2.))
@@ -759,7 +758,7 @@ def make_seed(inputs, model_seed):
                                         inputs['dots'],
                                         inputs['dot_spacing'],
                                         inputs['focal_estimate'],
-                                        inputs['imagersize'],
+                                        inputs['imagersizes'],
                                         inputs['object_width_n'])
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
@@ -796,6 +795,26 @@ def make_seed(inputs, model_seed):
     return intrinsics,extrinsics,frames
 
 
+def get_imagersize_one(g):
+    r'''Returns the imager dimensions for a given image glob
+
+    This reports the size for ONE camera
+
+    I only look at the first match. It is assumed that all the images matching
+    this glob have the same dimensions.
+
+    Note that if I didn't do this, then you wouldn't need to keep the images
+    around after the dots cache has been computed. This function requires (some
+    of) the images even with a cache. Should reconsider maybe.
+
+    '''
+    files = glob.glob(g)
+    if len(files) == 0:
+        raise Exception("Glob '{}' matched no files. I need this for the imager size".format(g))
+
+    img = cv2.imread(files[0]);
+    h,w = img.shape[:2]
+    return [w,h]
 
 
 
@@ -804,6 +823,9 @@ def make_seed(inputs, model_seed):
 
 
 args = parse_args()
+# expand ~/ into $HOME/
+args.images = [os.path.expanduser(g) for g in args.images]
+
 Ncameras = len(args.images)
 if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
@@ -814,18 +836,19 @@ if args.seed is not None:
     args.seed = cameramodel(args.seed)
 
 
-images         = [os.path.expanduser(g) for g in args.images]
 object_spacing = args.object_spacing
 object_width_n = args.object_width_n
-
 
 observations, indices_frame_camera,paths = \
     get_observations(object_width_n,
                      object_width_n,
-                     images,
+                     args.images,
                      args.dots_cache)
 
-inputs = {'imagersize':           args.imagersize,
+# list of imager dimensions; one per camera
+imagersizes = [get_imagersize_one(g) for g in args.images]
+
+inputs = {'imagersizes':          imagersizes,
           'focal_estimate':       args.focal,
           'Ncameras':             Ncameras,
           'indices_frame_camera': indices_frame_camera,
@@ -912,7 +935,8 @@ for i_camera in xrange(Ncameras):
                                  poseutils.invert_Rt( poseutils.Rt_from_rt(rt_x0)))
 
     c = cameramodel( intrinsics          = (distortion_model, intrinsics[i_camera,:]),
-                     extrinsics_Rt_toref = Rt_rx )
+                     extrinsics_Rt_toref = Rt_rx,
+                     dimensions          = imagersizes[i_camera])
 
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
     cahvor.write(cahvorfile, c,
