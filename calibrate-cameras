@@ -75,10 +75,11 @@ def parse_args():
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("--seed requires an existing, readable file as the arg, but got '{}'".format(f)),
                         help='''Model to use as a seed. This works ONLY if we have exactly one camera''')
-    parser.add_argument('--jobs|-j',
+    parser.add_argument('--jobs', '-j',
                         type=int,
                         default=1,
-                        help='How much parallelization we want. Like GNU make')
+                        help='''How much parallelization we want. Like GNU make. Affects only the chessboard
+                        corner finder. If we are reading a cache file, this does nothing''')
     parser.add_argument('--dots-cache',
                         type=lambda f: f if os.path.isfile(f) or not os.path.isdir(f) else \
                                 parser.error("--dots-cache requires an existing, readable file as the arg or a non-existing path, but got '{}'".format(f)),
@@ -114,7 +115,7 @@ def parse_args():
 
     return parser.parse_args()
 
-def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
+def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
     r'''Computes the point observations and returns them in a usable form
 
     We are given globs of images (one glob per camera), where the filenames
@@ -182,7 +183,8 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, exclude=set()):
             if Nw != 10 or Nh != 10:
                 raise Exception("mrgingham currently accepts ONLY 10x10 grids")
 
-            args_mrgingham = ['mrgingham_from_image', '--chessboard', '--blur', '3', '--clahe', '--jobs', '10']
+            args_mrgingham = ['mrgingham_from_image', '--chessboard', '--blur', '3', '--clahe', '--jobs',
+                              str(jobs)]
             args_mrgingham.extend(globs)
 
             sys.stderr.write("Computing chessboard corners by running:\n   {}\n". \
@@ -843,7 +845,8 @@ observations, indices_frame_camera,paths = \
     get_observations(object_width_n,
                      object_width_n,
                      args.images,
-                     args.dots_cache)
+                     args.dots_cache,
+                     jobs = args.jobs)
 
 # list of imager dimensions; one per camera
 imagersizes = [get_imagersize_one(g) for g in args.images]
