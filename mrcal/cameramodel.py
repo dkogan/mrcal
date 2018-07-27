@@ -1,14 +1,14 @@
 #!/usr/bin/python2
 
 r'''A module that provides a 'cameramodel' class to read/write/manipulate camera
-models'''
+models.
 
-import cv2
-import re
+'''
 
-import numpy     as np
-import numpysane as nps
+import sys
+import numpy as np
 import numbers
+import ast
 
 import optimizer
 import poseutils
@@ -106,10 +106,33 @@ class cameramodel(object):
       user of this class: this class itself does not care
 
     This class provides facilities to read/write models, and to get/set the
-    various parameters
+    various parameters.
 
+    The format of a .cameramodel file is a python dictionary that we eval. A
+    sample valid .cameramodel:
+
+        # generated with ...
+        { 'distortion_model': DISTORTION_OPENCV8',
+
+          # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+          'intrinsics': [1766.0712405930,
+                         1765.8925266865,
+                         1944.0664501036,
+                         1064.5231421210,
+                         2.1648025156,
+                         -1.1851581377,
+                         -0.0000931342,
+                         0.0007782462,
+                         -0.2351910903,
+                         2.4460295029,
+                         -0.6697132481,
+                         -0.6284355415],
+
+          # extrinsics are rt_fromref
+          'extrinsics' = [0,0,0,0,0,0],
+          'dimensions' = [3840,2160]
+        }
     '''
-
 
     def _write(self, f, note=None):
         r'''Writes out this camera model to an open file'''
@@ -120,90 +143,56 @@ class cameramodel(object):
         _validateIntrinsics(self._intrinsics)
         _validateExtrinsics(self._extrinsics)
 
-        f.write("distortion_model = {}\n".format(self._intrinsics[0]))
+        # I write this out manually instead of using repr for the whole thing
+        # because I want to preserve key ordering
+        f.write("{\n")
+        f.write("    'distortion_model':  '{}',\n".format(self._intrinsics[0]))
         f.write("\n")
 
         N = len(self._intrinsics[1])
-        f.write("# intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
-        f.write(("intrinsics =" + (" {:.10f}" * N) + "\n").format(*self._intrinsics[1]))
+        f.write("    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
+        f.write(("    'intrinsics': [" + (" {:.10f}," * N) + "],\n").format(*self._intrinsics[1]))
         f.write("\n")
 
         N = len(self._extrinsics)
-        f.write("# extrinsics are rt_fromref\n")
-        f.write(("extrinsics =" + (" {:.10f}" * N) + "\n").format(*self._extrinsics))
+        f.write("    # extrinsics are rt_fromref\n")
+        f.write(("    'extrinsics': [" + (" {:.10f}," * N) + "],\n").format(*self._extrinsics))
         f.write("\n")
 
         N = 2
-        f.write(("dimensions =" + (" {:d}" * N) + "\n").format(*(int(x) for x in self._dimensions)))
-        f.write("\n")
+        f.write(("    'dimensions': [" + (" {:d}," * N) + "]\n").format(*(int(x) for x in self._dimensions)))
+        f.write("}\n")
 
 
-    def _read_and_parse(self, f):
+    def _read_into_self(self, f):
         r'''Reads in a model from an open file'''
 
-        re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-        re_u = '\d+'
-        re_d = '[-+]?\d+'
-        re_s = '.+'
+        s = ''.join(f)
 
-        distortion_model  = None
-        intrinsics_values = None
-        extrinsics        = None
-        dimensions        = None
-
-        for l in f:
-            # skip comments and blank lines
-            if re.match('^\s*#|^\s*$', l):
-                continue
-
-            # all valid lines look like 'key = value'. I allow lots of
-            # whitespace, and (value) works too.
-            m = re.match('\s*(\w+)\s*=\s*\(?\s*(.+?)\s*\)?\s*\n?$', l)
-            if not m:
-                raise Exception("All valid non-comment, non-empty lines should be parseable as key=value, but got '{}'".format(l))
-
-            key   = m.group(1)
-            value = m.group(2)
-            if key == 'distortion_model':
-                if distortion_model is not None:
-                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
-                                    format('distortion_model', distortion_model, value))
-                distortion_model = value
-            elif key == 'intrinsics':
-                if intrinsics_values is not None:
-                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
-                                    format('intrinsics', intrinsics_values, value))
-                intrinsics_values = np.array([float(x) for x in value.split()])
-            elif key == 'extrinsics':
-                if extrinsics is not None:
-                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
-                                    format('extrinsics', extrinsics, value))
-                extrinsics = np.array([float(x) for x in value.split()])
-            elif key == 'dimensions':
-                if dimensions is not None:
-                    raise Exception("Duplicate value for '{}' had '{}' and got new '{}'". \
-                                    format('dimensions', dimensions, value))
-                dimensions = np.array([float(x) for x in value.split()])
+        try:
+            model = ast.literal_eval(s)
+        except:
+            name = f.name
+            if name is None:
+                sys.stderr.write("Failed to parse cameramodel!\n")
             else:
-                raise Exception("Unknown key '{}'. I only know about 'distortion_model', 'intrinsics', 'extrinsics', 'dimensions'".format(key))
+                sys.stderr.write("Failed to parse cameramodel '{}'\n".format(name))
+            raise
 
-        if distortion_model is None:
-            raise Exception("Unspecified distortion_model")
-        if intrinsics_values is None:
-            raise Exception("Unspecified intrinsics")
-        if extrinsics is None:
-            raise Exception("Unspecified extrinsics")
-        if dimensions is None:
-            raise Exception("Unspecified dimensions")
+        keys_known    = set(('distortion_model', 'intrinsics', 'extrinsics', 'dimensions'))
+        keys_received = set(model.keys())
+        if keys_received < keys_known:
+            raise Exception("Model must have at least these keys: '{}'. Instead I got '{}'". \
+                            format(keys_known, keys_received))
 
-        intrinsics = (distortion_model, intrinsics_values)
+        intrinsics = (model['distortion_model'], model['intrinsics'])
         _validateIntrinsics(intrinsics)
-        _validateExtrinsics(extrinsics)
-        _validateDimensions(dimensions)
+        _validateExtrinsics(model['extrinsics'])
+        _validateDimensions(model['dimensions'])
 
         self._intrinsics = intrinsics
-        self._extrinsics = extrinsics
-        self._dimensions = dimensions
+        self._extrinsics = model['extrinsics']
+        self._dimensions = model['dimensions']
 
 
     def __init__(self, file_or_model=None, **kwargs):
@@ -242,10 +231,10 @@ class cameramodel(object):
 
             elif type(file_or_model) is str:
                 with open(file_or_model, 'r') as openedfile:
-                    self._read_and_parse(openedfile)
+                    self._read_into_self(openedfile)
 
             else:
-                self._read_and_parse(file_or_model)
+                self._read_into_self(file_or_model)
 
         else:
             if file_or_model is not None:
