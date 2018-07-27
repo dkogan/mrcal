@@ -133,10 +133,9 @@ class cameramodel(object):
         f.write(("extrinsics =" + (" {:.10f}" * N) + "\n").format(*self._extrinsics))
         f.write("\n")
 
-        if self._dimensions is not None:
-            N = 2
-            f.write(("dimensions =" + (" {:d}" * N) + "\n").format(*(int(x) for x in self._dimensions)))
-            f.write("\n")
+        N = 2
+        f.write(("dimensions =" + (" {:d}" * N) + "\n").format(*(int(x) for x in self._dimensions)))
+        f.write("\n")
 
 
     def _read_and_parse(self, f):
@@ -194,7 +193,8 @@ class cameramodel(object):
             raise Exception("Unspecified intrinsics")
         if extrinsics is None:
             raise Exception("Unspecified extrinsics")
-        # dimensions are optional
+        if dimensions is None:
+            raise Exception("Unspecified dimensions")
 
         intrinsics = (distortion_model, intrinsics_values)
         _validateIntrinsics(intrinsics)
@@ -224,7 +224,7 @@ class cameramodel(object):
           - 'extrinsics_Rt_fromref'
           - 'extrinsics_rt_toref'
           - 'extrinsics_rt_fromref'
-        - dimensions are in the 'dimensions' kwargs, but are optional
+        - dimensions are in the 'dimensions' kwargs
 
         '''
 
@@ -260,8 +260,8 @@ class cameramodel(object):
                     N += 1
             if N != 1:
                 raise Exception("No file_or_model was given, so we MUST have gotten one of {}".format(extrinsics_keys))
-            if not (len(kwargs) == 2 or (len(kwargs) == 3 and 'dimensions' in kwargs)):
-                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...' and optionally, 'dimensions'. Instead we got '{}'".format(kwargs))
+            if not (len(kwargs) == 3 and 'dimensions' in kwargs):
+                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...' and 'dimensions'. Instead we got '{}'".format(kwargs))
 
             self.intrinsics(kwargs['intrinsics'])
             if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
@@ -269,11 +269,7 @@ class cameramodel(object):
             if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt(True,  kwargs['extrinsics_rt_toref'  ])
             if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt(False, kwargs['extrinsics_rt_fromref'])
 
-            if 'dimensions' in kwargs:
-                self.dimensions(kwargs['dimensions'])
-            else:
-                self._dimensions = None
-
+            self.dimensions(kwargs['dimensions'])
 
 
     def write(self, f, note=None):

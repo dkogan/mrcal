@@ -208,10 +208,7 @@ def _write(f, m, note=None):
     if note is not None:
         f.write('# ' + note + '\n')
     d = m.dimensions()
-    if d is not None:
-        f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
-    else:
-        f.write('# this is arbitrary and hard-coded:\nDimensions = 3904 3904\n')
+    f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 
     distortion_model,intrinsics = m.intrinsics()
     if distortion_model == 'DISTORTION_CAHVOR':
