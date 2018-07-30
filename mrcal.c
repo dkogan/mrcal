@@ -1227,6 +1227,13 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
 //
 //   M Mt = sum(outer(col(M), col(M)))
 //   col(M) = solve(JtJ, row(J))
+//
+// Note that libdogleg sees everything in the unitless space of scaled
+// parameters, and I want this scaling business to be contained in the C code,
+// and to not leak out to python. Let's say I have parameters p and their
+// unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. From
+// above I have Var(dp*) = M* M*t s^2. So Var(dp) = D M* M*t D s^2. So when
+// talking to the upper level, I need to report M = DM*.
 static bool computeConfidence_MMt(// out
                                   // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
                                   double* MMt_intrinsics,
@@ -1381,6 +1388,15 @@ static bool computeConfidence_MMt(// out
         // products. This is symmetric, but I store both halves; for now
         for(unsigned int icol=0; icol<M->ncol; icol++)
         {
+            // The M I have here is a unitless, scaled M*. I need to scale it to get
+            // M. See comment above.
+            unpack_solver_state_vector( &((double*)(M->x))[icol*M->nrow],
+                                        distortion_model,
+                                        optimization_variable_choice,
+                                        Ncameras, Nframes, Npoints);
+
+
+
             for(unsigned int irow0=0; irow0<M->nrow; irow0++)
             {
                 double x0 = ((double*)(M->x))[irow0 + icol*M->nrow];
