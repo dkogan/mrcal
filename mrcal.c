@@ -1244,6 +1244,7 @@ static bool computeConfidence_MMt(// out
                                   int Ncameras,
                                   int NobservationsBoard,
                                   int NobservationsPoint,
+                                  int Nframes, int Npoints,
                                   int calibration_object_width_n,
 
                                   dogleg_solverContext_t* solverCtx)
@@ -1282,7 +1283,7 @@ static bool computeConfidence_MMt(// out
     // cholmod_spsolve works in chunks of 4, so I do this in chunks of 4 too. I
     // pass it rows of J, 4 at a time. I don't actually allocate anything, rather
     // using views into Jt. So I copy the Jt structure and use that
-    const int chunk_size = 4;
+    const unsigned int chunk_size = 4;
 
     cholmod_dense* Jt_slice =
         cholmod_allocate_dense( Jt->nrow,
@@ -1306,36 +1307,54 @@ static bool computeConfidence_MMt(// out
            Ncameras*Nintrinsics_per_camera* Nintrinsics_per_camera*sizeof(double));
 
 
+
+
+
+
+    // make sure the linearized expressions that look at the effects on E
+    // and p from perturbations on m are correct
+#define DEBUG_CHECK_LINEAR_EXPRESSIONS 0
+
+    // if those expressions are correct, I use the linearized expressions to
+    // look at the distribution of E, as dm is perturbed. I have an analytic
+    // expression that I want to double-check with the sampling
+#define DEBUG_CHECK_E_DISTRIBUTION     0
+
+#if defined DEBUG_CHECK_LINEAR_EXPRESSIONS && DEBUG_CHECK_LINEAR_EXPRESSIONS && defined DEBUG_CHECK_E_DISTRIBUTION && DEBUG_CHECK_E_DISTRIBUTION
+#error "No. Check one thing at a time. Do DEBUG_CHECK_LINEAR_EXPRESSIONS and then DEBUG_CHECK_E_DISTRIBUTION"
+#endif
+
+
+#if defined DEBUG_CHECK_LINEAR_EXPRESSIONS && DEBUG_CHECK_LINEAR_EXPRESSIONS
     // A test that this function works correctly. I dump a DENSE representation
     // of J into a file. Then I read it in python, compute MMt from it, and make
     // sure that the MMt I obtained from this function matches. Doing this
     // densely is very slow, but easy, and good-enough for verification
-    /*
-    static int count = 0;
-    char logfilename[128];
-    sprintf(logfilename, "/tmp/J%d_%d_%d.dat",count,Jt->ncol,Jt->nrow);
-    count++;
-    FILE* fp = fopen(logfilename, "w");
-    double* Jrow;
-    Jrow = malloc(Jt->nrow*sizeof(double));
-    for(unsigned int icol=0; icol<Jt->ncol; icol++)
+    static int count_Joutput = 0;
+    if(count_Joutput == 1)
     {
-        memset(Jrow, 0, Jt->nrow*sizeof(double));
-
-        for(unsigned int i=P(Jt, icol); i<P(Jt, icol+1); i++)
+        char logfilename[128];
+        sprintf(logfilename, "/tmp/J%d_%d_%d.dat",count_Joutput,(int)Jt->ncol,(int)Jt->nrow);
+        FILE* fp = fopen(logfilename, "w");
+        double* Jrow;
+        Jrow = malloc(Jt->nrow*sizeof(double));
+        for(unsigned int icol=0; icol<Jt->ncol; icol++)
         {
-            int irow = I(Jt,i);
-            double x = X(Jt,i);
-            Jrow[irow] = x;
+            memset(Jrow, 0, Jt->nrow*sizeof(double));
+            for(unsigned int i=P(Jt, icol); i<P(Jt, icol+1); i++)
+            {
+                int irow = I(Jt,i);
+                double x = X(Jt,i);
+                Jrow[irow] = x;
+            }
+            // I write binary data. numpy is WAY too slow if I do it in ascii
+            fwrite(Jrow,sizeof(double),Jt->nrow,fp);
         }
-        // I write binary data. numpy is WAY too slow if I do it in ascii
-        fwrite(Jrow,sizeof(double),Jt->nrow,fp);
+        fclose(fp);
+        free(Jrow);
     }
-    fclose(fp);
-    free(Jrow);
-
+    count_Joutput++;
     // On the python end, I validate thusly:
-
     // J     = np.fromfile("/tmp/J1_37008_760.dat").reshape(37008,760)
     // pinvJ = np.linalg.pinv(J)
     // pinvJ = pinvJ[:,:-8] # dx/dm ignores regularization measurements
@@ -1348,8 +1367,7 @@ static bool computeConfidence_MMt(// out
     //
     // In [26]: np.linalg.norm(MMt1 - MMt[1,:,:])
     // Out[26]: 4.223914927650401e-12
-
-    */
+#endif
 
 
     for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
@@ -1436,14 +1454,194 @@ static bool computeConfidence_MMt(// out
         cholmod_free_dense (&M, &solverCtx->common);
     }
 
-#undef P
-#undef I
-#undef X
-
     Jt_slice->ncol = chunk_size; // I manually reset this earlier; put it back
     cholmod_free_dense(&Jt_slice, &solverCtx->common);
 
+
+
+
+
+#if (defined DEBUG_CHECK_LINEAR_EXPRESSIONS && DEBUG_CHECK_LINEAR_EXPRESSIONS) || (defined DEBUG_CHECK_E_DISTRIBUTION && DEBUG_CHECK_E_DISTRIBUTION)
+    static int count = 0;
+    if(count == 1)
+    {
+        double rms(const double* x, const double* dx, int N)
+        {
+            double E = 0;
+            for(int i=0;i<N;i++)
+            {
+                double _x = x[i];
+                if(dx) _x += dx[i];
+                E += _x*_x;
+            }
+            return sqrt(E/(double)N*2.0);
+        }
+        double randn(void)
+        {
+            // mostly from wikipedia
+            static bool generate = false;
+            static double z1;
+            double z0;
+            generate = !generate;
+
+            if (!generate)
+                return z1;
+
+            double u1 = (double)rand() / (double)RAND_MAX;
+            double u2 = (double)rand() / (double)RAND_MAX;
+
+            double sq = sqrt(-2.0 * log(u1));
+            double s,c;
+            sincos(2.0*M_PI * u2, &s,&c);
+            z0 = sq * c;
+            z1 = sq * s;
+            return z0;
+        }
+        // from libdogleg
+        void mul_spmatrix_densevector(double* dest,
+                                      const cholmod_sparse* A, const double* x)
+        {
+            memset(dest, 0, sizeof(double) * A->nrow);
+            for(unsigned int i=0; i<A->ncol; i++)
+            {
+                for(unsigned int j=P(A, i); j<P(A, i+1); j++)
+                {
+                    int row = I(A, j);
+                    dest[row] += x[i] * X(A, j);
+                }
+            }
+        }
+        void mul_densevector_spmatrix(double* dest,
+                                      const double* x, const cholmod_sparse* A)
+        {
+            memset(dest, 0, sizeof(double) * A->ncol);
+            for(unsigned int i=0; i<A->ncol; i++)
+            {
+                for(unsigned int j=P(A, i); j<P(A, i+1); j++)
+                {
+                    int row = I(A, j);
+                    dest[i] += X(A, j) * x[row];
+                }
+            }
+        }
+        __attribute__((unused))
+        void writevector( const char* filename, double* x, int N )
+        {
+            FILE* fp = fopen(filename, "w");
+            assert(fp);
+            for(int i=0; i<N; i++)
+                fprintf(fp, "%g\n", x[i]);
+            fclose(fp);
+            fprintf(stderr, "wrote '%s'\n", filename);
+        }
+
+
+        double* x  = solverCtx->beforeStep->x;
+        double  E0 = rms(x,NULL,Nmeas);
+
+        // apply noise to get dm
+        // dx                 = (JM-I)dm
+        // JM                 = J inv(JtJ) Jt
+        double* dm            = calloc(Nmeas,sizeof(double));
+        double* dx            = calloc(Nmeas,sizeof(double));
+        double* Jtdm          = calloc(Nstate,sizeof(double));
+        double* dx_hypothesis = calloc(Nmeas,sizeof(double));
+        double* dp_unpacked   = calloc(Nmeas,sizeof(double));
+        cholmod_dense _Jtdm = { .nrow = Nstate,
+                                .ncol = 1,
+                                .nzmax = Nstate,
+                                .d = Nstate,
+                                .x = Jtdm,
+                                .xtype = CHOLMOD_REAL,
+                                .dtype = CHOLMOD_DOUBLE };
+        FILE* fp_E = fopen("/tmp/E", "w");
+        fprintf(fp_E, "# observed linear quadratic both\n");
+
+        // verification. Jt_x should be 0
+        // double *Jt_x = malloc(Nstate*sizeof(double));
+        // mul_spmatrix_densevector(Jt_x, Jt, x);
+        // writevector("/tmp/Jt_x", Jt_x, Nstate);
+        // fclose(fp_Jt_x);
+
+
+        // I write the unperturbed E0 first
+        fprintf(fp_E, "%g %g %g %g\n",E0,E0,E0,E0);
+
+        for(int i=0; i<10000; i++)
+        {
+            // leave the last Nmeas-Nmeas_observations always at 0
+            for(int j=0; j<Nmeas_observations; j++)
+                dm[j] = randn()*1;
+            mul_spmatrix_densevector(Jtdm, Jt, dm);
+            cholmod_dense* dp = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+                                               &_Jtdm,
+                                               &solverCtx->common);
+            mul_densevector_spmatrix(dx_hypothesis, (double*)(dp->x), Jt);
+            for(int j=0; j<Nmeas; j++)
+                dx[j] = (dx_hypothesis[j] - dm[j]);
+
+#if defined DEBUG_CHECK_E_DISTRIBUTION && DEBUG_CHECK_E_DISTRIBUTION
+            double E1 = rms(x,dx,Nmeas);
+
+            // dx = (JM-I)dm
+            // E1 = norm2(x+dx) = norm2(x) + norm2(dx) + 2*inner(x,dx) =
+            //      E0 + norm2(dx) + 2*inner(x,dx)
+            //
+            // I separate this into the terms linear and quadratic in dx to see
+            // if I can ignore the quadratic. I would assume that I can just
+            // look at the linear terms to get dE (which will then be gaussian),
+            // but the numbers don't match
+            double dlinear    = 0;
+            double dquadratic = 0;
+            double norm2x     = 0.0;
+            for(int i=0; i<Nmeas; i++)
+            {
+                dlinear    += x [i]*dx[i];
+                dquadratic += dx[i]*dx[i];
+                norm2x     += x [i]*x [i];
+            }
+            dlinear *= 2.0;
+
+            fprintf(fp_E, "%g %g %g %g\n",
+                    E1,
+                    sqrt((norm2x + dlinear)/((double)Nmeas/2.0)),
+                    sqrt((norm2x + dquadratic)/((double)Nmeas/2.0)),
+                    sqrt((norm2x + dlinear + dquadratic)/((double)Nmeas/2.0)));
+            cholmod_free_dense(&dp, &solverCtx->common);
+#else
+            writevector("/tmp/dm",dm,Nmeas);
+            writevector("/tmp/Jtdm", Jtdm, Nstate);
+
+            writevector("/tmp/dp_packed",     dp->x,         Nstate);
+            unpack_solver_state_vector( (double*)(dp->x),
+                                        distortion_model,
+                                        optimization_variable_choice,
+                                        Ncameras, Nframes, Npoints);
+            writevector("/tmp/dp", dp->x, Nstate); // unpacked
+
+            writevector("/tmp/dx_hypothesis", dx_hypothesis, Nmeas);
+            writevector("/tmp/dx",            dx,            Nmeas);
+            cholmod_free_dense(&dp, &solverCtx->common);
+            break;
+#endif
+        }
+        fclose(fp_E);
+        free(Jtdm);
+        free(dm);
+        free(dx);
+        free(dx_hypothesis);
+        free(dp_unpacked);
+    }
+    count++;
+#endif
+
+
+
     return true;
+
+#undef P
+#undef I
+#undef X
 }
 
 struct mrcal_stats_t
@@ -2253,6 +2451,7 @@ mrcal_optimize( // out
                                   Ncameras,
                                   NobservationsBoard,
                                   NobservationsPoint,
+                                  Nframes, Npoints,
                                   calibration_object_width_n,
 
                                   solver_context);
