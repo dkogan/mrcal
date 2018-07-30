@@ -1401,7 +1401,6 @@ static bool computeConfidence_MMt(// out
                                           Jt_slice,
                                           &solverCtx->common);
 
-
         // I now have chunk_size columns of M. I accumulate sum of the outer
         // products. This is symmetric, but I store both halves; for now
         for(unsigned int icol=0; icol<M->ncol; icol++)
