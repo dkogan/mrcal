@@ -943,12 +943,12 @@ for i_camera in xrange(Ncameras):
 
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
     cahvor.write(cahvorfile, c,
-                 "generated with {}\n\n".format(sys.argv))
+                 "generated with {}\n".format(sys.argv))
     print "Wrote {}".format(cahvorfile)
 
     cameramodelfile = '{}/camera-{}.cameramodel'.format(args.outdir, i_camera)
     c.write(cameramodelfile,
-            "generated with {}\n\n".format(sys.argv))
+            "generated with {}\n".format(sys.argv))
     print "Wrote {}".format(cameramodelfile)
 
 if args.explore:
