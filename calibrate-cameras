@@ -1028,7 +1028,7 @@ if args.explore:
                  rgbimage=paths[i_observation],
                  square=1,cbmin=0,
                  _set='autoscale noextend',
-                 title='Worst case. i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS={}'.format( i_observation, i_frame, i_camera, paths[i_observation], rms_err_perimage[i_observation]))
+                 title='i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS={}'.format( i_observation, i_frame, i_camera, paths[i_observation], rms_err_perimage[i_observation]))
 
     def show_worst(i):
         show( i_observations_worst[i] )
