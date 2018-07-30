@@ -1666,7 +1666,7 @@ mrcal_optimize( // out
 
                         if( reportFitMsg )
                         {
-                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %f\n",
+                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %g\n",
                                     reportFitMsg,
                                     i_observation_board, i_frame, i_camera, i_pt, err);
                             continue;
@@ -1740,7 +1740,7 @@ mrcal_optimize( // out
 
                         if( reportFitMsg )
                         {
-                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %f\n",
+                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %g\n",
                                     reportFitMsg,
                                     i_observation_board, i_frame, i_camera, i_pt, err);
                             continue;
@@ -1832,7 +1832,7 @@ mrcal_optimize( // out
             {
                 have_invalid_point = true;
                 if(VERBOSE)
-                    fprintf(stderr, "Saw invalid point distance: z = %f! obs/point/cam: %d %d %d\n",
+                    fprintf(stderr, "Saw invalid point distance: z = %g! obs/point/cam: %d %d %d\n",
                             point.z,
                             i_observation_point, i_point, i_camera);
             }
@@ -2173,7 +2173,7 @@ mrcal_optimize( // out
 
             // this is just for diagnostics. Should probably do this only in a
             // #if of some sort. This sqrt() does no useful work
-            fprintf(stderr, "RMS: %f\n", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
+            fprintf(stderr, "RMS: %g\n", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
         }
     }
 
