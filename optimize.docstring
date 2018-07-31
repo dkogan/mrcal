@@ -113,5 +113,8 @@ Args:
   points on each side. Can be omitted if we have no board observations, just
   points
 
+- VERBOSE: if True, write out all sorts of diagnostic data to STDERR. Optional;
+  defaults to False
+
 We return a dict with various metrics describing the computation we just
 performed
