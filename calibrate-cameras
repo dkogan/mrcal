@@ -1154,30 +1154,17 @@ if args.explore:
     grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
     # shape: Nwidth,Nheight,3
-    V = projections.unproject(grid, c.intrinsics())
+    V = projections.unproject(grid, distortion_model, intrinsics[0])
 
     plots = []
     for i_camera in xrange(len(intrinsics)):
 
-        fxy         = intrinsics[i_camera, 0:2]
-        cxy         = intrinsics[i_camera, 2:4]
-        distortions = intrinsics[i_camera, 4: ]
-
-        camera_matrix = np.array(((fxy[0], 0,      cxy[0]),
-                                  (0,      fxy[1], cxy[1]),
-                                  (0,      0,      1)))
-
-        imagePoints,jacobian = \
-            cv2.projectPoints(V.reshape(gridn*gridn,3), # 3d vectors to project
-                              np.zeros(3), np.zeros(3), # no extrinsics
-                              camera_matrix, distortions)
-
-        imagePoints = imagePoints.reshape(gridn,gridn,2)
-        jacobian    = jacobian.reshape(gridn,gridn, 2, jacobian.shape[1])
-
-        F = jacobian[..., 6: 8]
-        C = jacobian[..., 8:10]
-        D = jacobian[..., 10: ]
+        p = projections.project(V, distortion_model, intrinsics[i_camera], get_gradients=True)
+        imagePoints = p[..., 0]
+        F = p[..., 1:3]
+        C = p[..., 3:5]
+        C = p[..., 3:5]
+        D = p[..., 5:]
 
         Cff = MMt[i_camera, 0:2, 0:2]
         Cfc = MMt[i_camera, 0:2, 2:4]

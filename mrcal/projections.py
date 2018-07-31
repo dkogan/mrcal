@@ -15,21 +15,35 @@ import optimizer
 def _get_distortion_function(model):
     if "DISTORTION_CAHVOR"  == model:       return cahvor_distort
     if "DISTORTION_CAHVORE" == model:       return cahvore_distort
-    if "DISTORTION_NONE"    == model:       return lambda p, *args: p
+    if "DISTORTION_NONE"    == model:       return pinhole_distort
     if re.match("DISTORTION_OPENCV",model): return opencv_distort
     raise Exception("Unknown distortion model {}".format(model))
 
 
-def cahvor_distort(p, fx, fy, cx, cy, *distortions):
+def cahvor_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply a CAHVOR warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVOR model and a pinhole-projected
     point(s) numpy array of shape (..., 2), return the projected point(s) that
     we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
 
+    The only allowed kwarg is 'get_gradients'. It is optional and defaults to
+    False. if(get_gradients) then each output slice has dimensions
+    (2,1+Nintrinsics+2) instead of just (2,). Each slice is
+
+      [[x,dx/dintrinsics,dx/dp],
+       [y,dy/dintrinsics,dy/dp]]
+
     This function can broadcast the points array
 
     '''
+
+    if not (len(kwargs) == 0 or \
+         ( len(kwargs) == 1 and kwargs.keys()[0] == 'get_gradients')):
+        raise Exception("The only allowed optional kwarg is 'get_gradients")
+    get_gradients = \
+        len(kwargs) == 1 and \
+         kwargs['get_gradients']
 
     theta, phi, r0, r1, r2 = distortions
 
@@ -53,11 +67,16 @@ def cahvor_distort(p, fx, fy, cx, cy, *distortions):
     p     = p*(nps.dummy(mu,-1)+1.0) - nps.dummy(mu*omega, -1)*o
 
     # now I apply a normal projection to the warped 3d point p
-    return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+    out = np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+
+    if get_gradients:
+        raise Exception("Not yet implemented")
+
+    return out
 
 @nps.broadcast_define( ((2,), (),(),(),(), (),(),(),(),(), (),(),(),(),),
                        (2,), )
-def cahvore_distort(p, fx, fy, cx, cy, *distortions):
+def _cahvore_distort(p, fx, fy, cx, cy, *distortions):
     r'''Apply a CAHVORE warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVORE model and a pinhole-projected
@@ -162,45 +181,156 @@ def cahvore_distort(p, fx, fy, cx, cy, *distortions):
     # now I apply a normal projection to the warped 3d point p
     return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
 
+def cahvore_distort(*args, **kwargs):
+    r'''Apply a CAHVORE warp to an un-distorted point
 
-def opencv_distort(p, fx, fy, cx, cy, *distortions):
+    Given intrinsic parameters of a CAHVORE model and a pinhole-projected
+    point(s) numpy array of shape (..., 2), return the projected point(s) that
+    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
+
+    This function has an implemented-in-python inner newton-raphson loop. AND
+    this function broadcasts in python, so it is SLOW!
+
+    The only allowed kwarg is 'get_gradients'. It is optional and defaults to
+    False.
+    '''
+
+    if not (len(kwargs) == 0 or \
+         ( len(kwargs) == 1 and kwargs.keys()[0] == 'get_gradients')):
+        raise Exception("The only allowed optional kwarg is 'get_gradients")
+    get_gradients = \
+        len(kwargs) == 1 and \
+         kwargs['get_gradients']
+
+    if get_gradients:
+        raise Exception("CAHVORE doesn't support gradients. Yet?")
+    return _cahvore_distort(*args)
+
+def opencv_distort(p2d, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply an OPENCV warp to an un-distorted point
 
     Given intrinsic parameters of an OPENCV model and a pinhole-projected
     point(s) numpy array of shape (..., 2), return the projected point(s) that
     we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
 
+    The only allowed kwarg is 'get_gradients'. It is optional and defaults to
+    False. if(get_gradients) then each output slice has dimensions
+    (2,1+Nintrinsics+2) instead of just (2,). Each slice is
+
+      [[x,dx/dintrinsics,dx/dp],
+       [y,dy/dintrinsics,dy/dp]]
+
     This function can broadcast the points array
 
     '''
+
+    if not (len(kwargs) == 0 or \
+         ( len(kwargs) == 1 and kwargs.keys()[0] == 'get_gradients')):
+        raise Exception("The only allowed optional kwarg is 'get_gradients")
+    get_gradients = \
+        len(kwargs) == 1 and \
+         kwargs['get_gradients']
 
     # opencv wants an Nx3 input array and an Nx2 output array. numpy
     # broadcasting rules allow any number of leading dimensions as long as
     # they're compatible. I squash the leading dimensions at the start, and put
     # them back when done
 
-
-    dims_broadcast = p.shape[:-1]
-    p = nps.clump(p, n=len(p.shape)-1)
-
-    # p is a 2d point. Convert to a 3d point
-    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
-                        (p[..., 1] - cy)/fy,
-                        np.ones( p.shape[:-1])),
+    # p2d is a 2d point. Convert to a 3d point
+    p3d = nps.mv( nps.cat((p2d[..., 0] - cx)/fx,
+                          (p2d[..., 1] - cy)/fy,
+                          np.ones( p2d.shape[:-1])),
                 0, -1 )
+    p3d_orig = p3d
+
+    dims_broadcast = p3d.shape[:-1]
+    p3d = nps.clump(p3d, n=len(p3d.shape)-1)
+
 
     A = np.array(((fx,  0, cx),
                   ( 0, fy, cy),
                   ( 0,  0,  1)))
 
-    out,_ = cv2.projectPoints(nps.atleast_dims(p,-2), np.zeros((3,)), np.zeros((3,)), A, distortions)
+    out,gradients = cv2.projectPoints(nps.atleast_dims(p3d,-2), np.zeros((3,)), np.zeros((3,)), A, distortions)
     out = out[:,0,:]
 
     out_dims = dims_broadcast + (2,)
     out = out.reshape(out_dims)
+
+    if get_gradients:
+        # I reshape the gradients to my desired shape, and ignore the gradients
+        # in respect to r,t
+        #
+        # The gradients here are looking at proj(p3d). p3d(p) = [(p-c)/f, 1]. So
+        # dproj/df   = dproj/df + dproj/dp3d*dp3d/df
+        # dproj/dp2d =            dproj/dp3d*dp3d/dp2d
+        #
+        # dproj/p3d is equivalent to
+        # dproj/dt
+        Nintrinsics = 4 + len(distortions)
+        gradients = gradients.reshape(out_dims + (Nintrinsics+6,))
+
+        dproj_dp3d = gradients[..., 3:6] # dim (..., 2,3)
+        gradients  = gradients[..., 6:]
+
+        dp3d_dp2d = nps.glue(np.diag(np.array((1.0/fx, 1.0/fy))),
+                             np.zeros((2,)),
+                             axis=-2)
+        dproj_dp2d = nps.matmult( dproj_dp3d, dp3d_dp2d )
+
+        out = nps.glue( nps.dummy(out,-1),
+                        gradients,
+                        dproj_dp2d,
+                        axis=-1)
+        dproj_df = out[...,  1:3]
+        dproj_dc = out[...,  3:5]
+
+        p3d0_df = -nps.mv(nps.cat(p3d_orig[..., 0]/fx, p3d_orig[..., 0]*0),  0, -1)
+        p3d1_df = -nps.mv(nps.cat(p3d_orig[..., 0]*0,  p3d_orig[..., 1]/fy), 0, -1)
+        p3d01_df = nps.mv(nps.cat(p3d0_df, p3d1_df), 0, -2)
+
+        dproj_df += nps.matmult(dproj_dp3d[...,:2], p3d01_df)
+        dproj_dc += nps.matmult(dproj_dp3d[...,:2], np.diag(-1./np.array((fx,fy))))
+
     return out
 
-def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
+def pinhole_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
+    r'''Apply an no-op warp to an un-distorted point
+
+    A pinhole model has no distortion. Do nothing.
+
+    The only allowed kwarg is 'get_gradients'. It is optional and defaults to
+    False. if(get_gradients) then each output slice has dimensions
+    (2,1+Nintrinsics+2) instead of just (2,). Each slice is
+
+      [[x,dx/dintrinsics,dx/dp],
+       [y,dy/dintrinsics,dy/dp]]
+
+    '''
+
+    if not (len(kwargs) == 0 or \
+         ( len(kwargs) == 1 and kwargs.keys()[0] == 'get_gradients')):
+        raise Exception("The only allowed optional kwarg is 'get_gradients")
+    get_gradients = \
+        len(kwargs) == 1 and \
+         kwargs['get_gradients']
+
+    if not get_gradients:
+        return p
+
+    dims_broadcast = p.shape[:-1]
+
+    # dproj/dp = identity
+    # But I need to broadcast these, so I generate N identities, and reshape
+    Nidentities = p.size/2
+    identities = nps.cat(*((np.eye(2),) * Nidentities)).reshape(dims_broadcast + (2,2))
+
+    return nps.glue( nps.dummy(p,-1),
+                     np.zeros(dims_broadcast + (2,4,)),
+                     identities,
+                     axis=-1)
+
+def _distort(p, distortion_model, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply a distortion warp: distort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -221,9 +351,23 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     array of shape (..., 2), return the projected point(s) that we'd get with
     distortion. We ASSUME THE SAME fx,fy,cx,cy
 
+    The only allowed kwarg is 'get_gradients'. It is optional and defaults to
+    False. if(get_gradients) then each output slice has dimensions
+    (2,1+Nintrinsics) instead of just (2,). Each slice is
+
+      [[x,dx/dintrinsics],
+       [y,dy/dintrinsics]]
+
     This function can broadcast the points array.
 
     '''
+
+    if not (len(kwargs) == 0 or \
+         ( len(kwargs) == 1 and kwargs.keys()[0] == 'get_gradients')):
+        raise Exception("The only allowed optional kwarg is 'get_gradients")
+    get_gradients = \
+        len(kwargs) == 1 and \
+         kwargs['get_gradients']
 
     if p is None or p.size == 0: return p
 
@@ -236,7 +380,7 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
         return p
 
     distort_function = _get_distortion_function(distortion_model)
-    return distort_function(p, fx, fy, cx, cy, *distortions)
+    return distort_function(p, fx, fy, cx, cy, *distortions, get_gradients=get_gradients)
 
 def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a CAHVOR warp: undistort a point
@@ -299,7 +443,7 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
 
 # @nps.broadcast_define( ((3,),('Nintrinsics',)),
 #                        (2,), )
-def project(p, intrinsics_or_distortionmodel, intrinsics=None):
+def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=False):
     r'''Projects 3D point(s) using the given camera intrinsics
 
     This function is broadcastable (over both points and intrinsics), but not
@@ -346,6 +490,12 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None):
       - cy
       - distortion-specific values
 
+    if(get_gradients) then each output slice has dimensions (2,1+Nintrinsics+2)
+    instead of just (2,). Each slice is
+
+      [[x,dx/dintrinsics,dx/dp],
+       [y,dy/dintrinsics,dy/dp]]
+
     '''
 
     if intrinsics is None:
@@ -362,9 +512,28 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None):
 
     def project_one_cam(intrinsics, p):
 
-        p2d = p[..., :2]/p[..., (2,)] * intrinsics[:2] + intrinsics[2:4]
-        return _distort(p2d, distortion_model, *intrinsics)
+        fxy = intrinsics[:2]
+        cxy = intrinsics[2:4]
+        p2d = p[..., :2]/p[..., (2,)] * fxy + cxy
+        out = _distort(p2d, distortion_model, *intrinsics, get_gradients=get_gradients)
+        if not get_gradients:
+            return out
 
+        # The gradients here are looking at 2D distort(p2d).
+        #
+        # p2d = p01/p2*f + c
+        #
+        # dproj/df = dproj/df + dproj/dp2d*dp2d/df
+        dproj_df   = out[...,  1:3]
+        dproj_dc   = out[...,  3:5]
+        dproj_dp2d = out[..., -2: ]
+        dp2d_dfx    = nps.mv(nps.cat( p[..., 0]/p[..., 2], p[..., 0]*0 ), 0, -1)
+        dp2d_dfy    = nps.mv(nps.cat( p[..., 0]*0, p[..., 1]/p[..., 2] ), 0, -1)
+        dp2d_df     = nps.mv(nps.cat(dp2d_dfx,dp2d_dfy), 0,-2)
+        dproj_df += nps.matmult(dproj_dp2d, dp2d_df)
+        dproj_dc += dproj_dp2d
+        out = out[..., :-2]
+        return out
 
     # manually broadcast over intrinsics[]. The broadcast over p happens
     # implicitly.
