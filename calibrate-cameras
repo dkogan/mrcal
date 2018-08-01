@@ -1147,7 +1147,7 @@ if args.explore:
 
 
     W,H=intrinsics[0,2:4]*2
-    gridn = 20
+    gridn = 40
     w = np.linspace(0,W,gridn)
     h = np.linspace(0,H,gridn)
     # shape: Nwidth,Nheight,2
