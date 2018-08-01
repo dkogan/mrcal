@@ -82,6 +82,9 @@ calibration and sfm formulations are a little different
 #warning make this not arbitrary
 #define SCALE_DISTORTION              2.0
 
+#define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define MSG_IF_VERBOSE(...) do { if(VERBOSE) MSG( __VA_ARGS__ ); } while(0)
+
 
 
 const char* mrcal_distortion_model_name( enum distortion_model_t model )
@@ -617,9 +620,9 @@ static union point2_t project( // out
     else
     {
         d_distortion_xyz = NULL;
-        fprintf(stderr, "Unhandled distortion model: %d (%s)\n",
-                distortion_model,
-                mrcal_distortion_model_name(distortion_model));
+        MSG("Unhandled distortion model: %d (%s)",
+            distortion_model,
+            mrcal_distortion_model_name(distortion_model));
         assert(0);
     }
 
@@ -1268,14 +1271,14 @@ static bool computeConfidence_MMt(// out
         if(solverCtx->factorization == NULL)
         {
             solverCtx->factorization = cholmod_analyze(Jt, &solverCtx->common);
-            fprintf(stderr, "Couldn't factor JtJ\n");
+            MSG("Couldn't factor JtJ");
             return false;
         }
 
         assert( cholmod_factorize(Jt, solverCtx->factorization, &solverCtx->common) );
         if(solverCtx->factorization->minor != solverCtx->factorization->n)
         {
-            fprintf(stderr, "Got singular JtJ!\n");
+            MSG("Got singular JtJ!");
             return false;
         }
     }
@@ -1531,7 +1534,7 @@ static bool computeConfidence_MMt(// out
             for(int i=0; i<N; i++)
                 fprintf(fp, "%g\n", x[i]);
             fclose(fp);
-            fprintf(stderr, "wrote '%s'\n", filename);
+            MSG("wrote '%s'", filename);
         }
 
 
@@ -1680,7 +1683,7 @@ mrcal_optimize( // out
                 int calibration_object_width_n)
 {
     if( IS_OPTIMIZE_NONE(optimization_variable_choice) )
-        fprintf(stderr, "Warning: Not optimizing any of our variables\n");
+        MSG("Warning: Not optimizing any of our variables");
 
     if(VERBOSE)
         dogleg_setDebug(100);
@@ -1863,9 +1866,9 @@ mrcal_optimize( // out
 
                         if( reportFitMsg )
                         {
-                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %g\n",
-                                    reportFitMsg,
-                                    i_observation_board, i_frame, i_camera, i_pt, err);
+                            MSG("%s: obs/frame/cam/dot: %d %d %d %d err: %g",
+                                reportFitMsg,
+                                i_observation_board, i_frame, i_camera, i_pt, err);
                             continue;
                         }
 
@@ -1937,9 +1940,9 @@ mrcal_optimize( // out
 
                         if( reportFitMsg )
                         {
-                            fprintf(stderr, "%s: obs/frame/cam/dot: %d %d %d %d err: %g\n",
-                                    reportFitMsg,
-                                    i_observation_board, i_frame, i_camera, i_pt, err);
+                            MSG( "%s: obs/frame/cam/dot: %d %d %d %d err: %g",
+                                 reportFitMsg,
+                                 i_observation_board, i_frame, i_camera, i_pt, err);
                             continue;
                         }
 
@@ -2029,9 +2032,9 @@ mrcal_optimize( // out
             {
                 have_invalid_point = true;
                 if(VERBOSE)
-                    fprintf(stderr, "Saw invalid point distance: z = %g! obs/point/cam: %d %d %d\n",
-                            point.z,
-                            i_observation_point, i_point, i_camera);
+                    MSG( "Saw invalid point distance: z = %g! obs/point/cam: %d %d %d",
+                         point.z,
+                         i_observation_point, i_point, i_camera);
             }
 
             // these are computed in respect to the unit-scale parameters
@@ -2370,7 +2373,7 @@ mrcal_optimize( // out
 
             // this is just for diagnostics. Should probably do this only in a
             // #if of some sort. This sqrt() does no useful work
-            fprintf(stderr, "RMS: %g\n", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
+            MSG("RMS: %g", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
         }
     }
 
@@ -2455,7 +2458,7 @@ mrcal_optimize( // out
 
                                   solver_context);
         if(!result)
-            fprintf(stderr, "Failed to compute MMt.\n");
+            MSG("Failed to compute MMt.");
     }
     if( solver_context )
         dogleg_freeContext(&solver_context);
