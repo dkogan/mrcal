@@ -102,8 +102,9 @@ const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-term
 
 
 
-#define MRCAL_STATS_ITEM(_)                                 \
-    _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble)
+#define MRCAL_STATS_ITEM(_)                                             \
+    _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble)   \
+    _(int,            Noutliers,                  PyLong_FromLong)
 
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
 
@@ -142,6 +143,8 @@ mrcal_optimize( // out
 
                 bool check_gradient,
                 bool VERBOSE,
+                const bool skip_outlier_rejection,
+
                 enum distortion_model_t distortion_model,
                 struct mrcal_variable_select optimization_variable_choice,
 

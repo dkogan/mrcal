@@ -1302,6 +1302,7 @@ static bool computeConfidence_MMt(// out
     // this is the leading ones, before the range errors and the regularization
     int Nintrinsics_per_camera =
         getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model);
+#warning assumes the point range errors sit AFTER all the reprojection errors
     int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
                                                                NobservationsPoint,
                                                                calibration_object_width_n);
@@ -1676,6 +1677,8 @@ mrcal_optimize( // out
 
                 bool check_gradient,
                 bool VERBOSE,
+                const bool skip_outlier_rejection,
+
                 enum distortion_model_t distortion_model,
                 struct mrcal_variable_select optimization_variable_choice,
 
@@ -1713,6 +1716,24 @@ mrcal_optimize( // out
                                               calibration_object_width_n);
 
     const int Ndistortions = mrcal_getNdistortionParams(distortion_model);
+
+    struct dogleg_outliers_t* markedOutliers = malloc(Nmeasurements*sizeof(struct dogleg_outliers_t));
+    if(markedOutliers == NULL)
+    {
+        MSG("Failed to allocate markedOutliers!");
+        return (struct mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
+    memset(markedOutliers, 0, Nmeasurements*sizeof(markedOutliers[0]));
+    // Never throw out known ranges as outliers
+#warning assumes the point range errors sit AFTER all the reprojection errors
+    for(int i=getNmeasurements_observationsonly(NobservationsBoard,
+                                                NobservationsPoint,
+                                                calibration_object_width_n);
+        i<Nmeasurements;
+        i++)
+    {
+        markedOutliers[i].ignoreForOutliers = true;
+    }
 
     const char* reportFitMsg = NULL;
 
@@ -1856,7 +1877,11 @@ mrcal_optimize( // out
 
                 const union point2_t* pt_observed = &observation->px[i_pt];
 
-                if(!observation->skip_observation)
+                if(!observation->skip_observation &&
+
+                   // If one measurement is an outlier, I skip both the x and y
+                   // components of it
+                   !markedOutliers[iMeasurement].marked)
                 {
                     // I have my two measurements (dx, dy). I propagate their
                     // gradient and store them
@@ -2074,7 +2099,12 @@ mrcal_optimize( // out
 
             const union point2_t* pt_observed = &observation->px;
 
-            if(!observation->skip_observation)
+            if(!observation->skip_observation &&
+
+               // If one measurement is an outlier, I skip both the x and y
+               // components of it
+#warning "this does not treat point range errors correctly. Would work much better if the reference ranges lived after all the reprojection errors. or if range-ful points lived after all the range-less points; and the range-less points could be outliers but range-ful ones could not"
+               !markedOutliers[iMeasurement].marked)
             {
                 // I have my two measurements (dx, dy). I propagate their
                 // gradient and store them
@@ -2310,7 +2340,6 @@ mrcal_optimize( // out
                     iMeasurement++;
                 }
             }
-
         }
 
         // regularization terms. I favor smaller distortion parameters
@@ -2396,6 +2425,8 @@ mrcal_optimize( // out
                       Ncameras, Nframes, Npoints, Nstate);
 
     double norm2_error = -1.0;
+    struct mrcal_stats_t stats = {.rms_reproj_error__pixels = -1.0 };
+
     if( !check_gradient )
     {
         if(VERBOSE)
@@ -2406,9 +2437,22 @@ mrcal_optimize( // out
         }
         reportFitMsg = NULL;
 
-        norm2_error = dogleg_optimize(packed_state,
-                                      Nstate, Nmeasurements, N_j_nonzero,
-                                      &optimizerCallback, NULL, &solver_context);
+        double getConfidence(int i_exclude_feature)
+        {
+            return 1.0;
+        }
+
+
+        do
+        {
+            norm2_error = dogleg_optimize(packed_state,
+                                          Nstate, Nmeasurements, N_j_nonzero,
+                                          &optimizerCallback, NULL, &solver_context);
+        } while( !skip_outlier_rejection &&
+                 dogleg_markOutliers(markedOutliers,
+                                     &stats.Noutliers,
+                                     getConfidence,
+                                     solver_context->beforeStep, solver_context) );
 
         // Done. I have the final state. I spit it back out
         unpack_solver_state( intrinsics, // Ncameras of these
@@ -2423,6 +2467,10 @@ mrcal_optimize( // out
 
         if(VERBOSE)
         {
+            // These are for debug reporting
+            dogleg_reportOutliers(getConfidence,
+                                  solver_context->beforeStep, solver_context);
+
             reportFitMsg = "After";
 #warning hook this up
             //        optimizerCallback(packed_state, NULL, NULL, NULL);
@@ -2434,9 +2482,10 @@ mrcal_optimize( // out
                                 Nstate, Nmeasurements, N_j_nonzero,
                                 &optimizerCallback, NULL);
 
-    struct mrcal_stats_t stats = {.rms_reproj_error__pixels =
-                                  // /2 because I have separate x and y measurements
-                                  sqrt(norm2_error / ((double)Nmeasurements / 2.0))};
+    stats.rms_reproj_error__pixels =
+        // /2 because I have separate x and y measurements
+        sqrt(norm2_error / ((double)Nmeasurements / 2.0));
+
     if(x_final)
         memcpy(x_final, solver_context->beforeStep->x, Nmeasurements*sizeof(double));
 
@@ -2463,5 +2512,6 @@ mrcal_optimize( // out
     if( solver_context )
         dogleg_freeContext(&solver_context);
 
+    free(markedOutliers);
     return stats;
 }

@@ -407,6 +407,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* indices_point_camera_points = NULL;
     PyObject*      pystats                     = NULL;
     PyObject*      VERBOSE                     = NULL;
+    PyObject*      skip_outlier_rejection      = NULL;
 
     PyArrayObject* x_final                     = NULL;
     PyArrayObject* intrinsic_covariances       = NULL;
@@ -448,6 +449,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "calibration_object_spacing",
                         "calibration_object_width_n",
                         "VERBOSE",
+                        "skip_outlier_rejection",
 
                         NULL};
 
@@ -461,7 +463,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* calibration_object_spacing        = NULL;
     PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOO",
                                      keywords,
                                      PyArray_Converter_leaveNone, &intrinsics,
                                      PyArray_Converter_leaveNone, &extrinsics,
@@ -482,7 +484,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &skipped_observations_point,
                                      &calibration_object_spacing,
                                      &calibration_object_width_n,
-                                     &VERBOSE))
+                                     &VERBOSE,
+                                     &skip_outlier_rejection))
         goto done;
 
 
@@ -768,7 +771,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         NobservationsPoint,
 
                         false,
-                        PyObject_IsTrue(VERBOSE),
+                        VERBOSE &&                PyObject_IsTrue(VERBOSE),
+                        skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                         distortion_model,
                         optimization_variable_choice,
 

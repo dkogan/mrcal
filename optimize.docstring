@@ -116,5 +116,8 @@ Args:
 - VERBOSE: if True, write out all sorts of diagnostic data to STDERR. Optional;
   defaults to False
 
+- skip_outlier_rejection: if True, don't bother with detecting or rejecting
+  outliers. Optional; defaults to False
+
 We return a dict with various metrics describing the computation we just
 performed

@@ -147,6 +147,7 @@ int main(int argc, char* argv[] )
 
                     true,
                     false,
+                    true,
                     distortion_model,
                     optimization_variable_choice,
 
