@@ -49,5 +49,4 @@ all: mrcal/optimizer.so
 EXTRA_CLEAN += mrcal/*.so
 
 
-#include /usr/include/mrbuild/Makefile.common
-include ../mrbuild/Makefile.common
+include /usr/include/mrbuild/Makefile.common
