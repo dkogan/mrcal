@@ -119,5 +119,8 @@ Args:
 - skip_outlier_rejection: if True, don't bother with detecting or rejecting
   outliers. Optional; defaults to False
 
+- skip_regularization: if True, don't include regularization terms in the
+  solver. Optional; defaults to False
+
 We return a dict with various metrics describing the computation we just
 performed

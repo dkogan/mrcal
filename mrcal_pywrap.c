@@ -408,6 +408,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject*      pystats                     = NULL;
     PyObject*      VERBOSE                     = NULL;
     PyObject*      skip_outlier_rejection      = NULL;
+    PyObject*      skip_regularization         = NULL;
 
     PyArrayObject* x_final                     = NULL;
     PyArrayObject* intrinsic_covariances       = NULL;
@@ -450,6 +451,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "calibration_object_width_n",
                         "VERBOSE",
                         "skip_outlier_rejection",
+                        "skip_regularization",
 
                         NULL};
 
@@ -463,7 +465,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* calibration_object_spacing        = NULL;
     PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOOO",
                                      keywords,
                                      PyArray_Converter_leaveNone, &intrinsics,
                                      PyArray_Converter_leaveNone, &extrinsics,
@@ -485,7 +487,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &calibration_object_spacing,
                                      &calibration_object_width_n,
                                      &VERBOSE,
-                                     &skip_outlier_rejection))
+                                     &skip_outlier_rejection,
+                                     &skip_regularization))
         goto done;
 
 
@@ -730,11 +733,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-        struct mrcal_variable_select optimization_variable_choice = {};
-        optimization_variable_choice.do_optimize_intrinsic_core = PyObject_IsTrue(do_optimize_intrinsic_core);
+        struct mrcal_variable_select optimization_variable_choice      = {};
+        optimization_variable_choice.do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core);
         optimization_variable_choice.do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions);
-        optimization_variable_choice.do_optimize_extrinsics = PyObject_IsTrue(do_optimize_extrinsics);
-        optimization_variable_choice.do_optimize_frames = PyObject_IsTrue(do_optimize_frames);
+        optimization_variable_choice.do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics);
+        optimization_variable_choice.do_optimize_frames                = PyObject_IsTrue(do_optimize_frames);
+        optimization_variable_choice.do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization);
 
         int Nmeasurements = mrcal_getNmeasurements(Ncameras, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,

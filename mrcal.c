@@ -205,8 +205,11 @@ int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
         if(observations_point[i].dist > 0.0) Nmeas++;
 
     // regularization
-    if(optimization_variable_choice.do_optimize_intrinsic_distortions)
+    if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
+       !optimization_variable_choice.do_skip_regularization)
+    {
         Nmeas += mrcal_getNdistortionParams(distortion_model) * Ncameras;
+    }
 
     return Nmeas;
 }
@@ -258,7 +261,8 @@ static int get_N_j_nonzero( int Ncameras,
     }
 
     // regularization
-    if(optimization_variable_choice.do_optimize_intrinsic_distortions)
+    if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
+       !optimization_variable_choice.do_skip_regularization)
         N += mrcal_getNdistortionParams(distortion_model) * Ncameras;
 
     return N;
@@ -2343,7 +2347,8 @@ mrcal_optimize( // out
         }
 
         // regularization terms. I favor smaller distortion parameters
-        if(optimization_variable_choice.do_optimize_intrinsic_distortions)
+        if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
+           !optimization_variable_choice.do_skip_regularization)
         {
             double scale_distortion_regularization =
                 ({
