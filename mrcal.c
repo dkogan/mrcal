@@ -1721,23 +1721,18 @@ mrcal_optimize( // out
 
     const int Ndistortions = mrcal_getNdistortionParams(distortion_model);
 
-    struct dogleg_outliers_t* markedOutliers = malloc(Nmeasurements*sizeof(struct dogleg_outliers_t));
+    const int Npoints_fromBoards =
+        NobservationsBoard *
+        calibration_object_width_n*calibration_object_width_n;
+
+#warning "outliers only work with board observations for now. I assume consecutive xy measurements, but points can have xyr sprinkled in there. I should make the range-full points always follow the range-less points. Then this will work"
+    struct dogleg_outliers_t* markedOutliers = malloc(Npoints_fromBoards*sizeof(struct dogleg_outliers_t));
     if(markedOutliers == NULL)
     {
         MSG("Failed to allocate markedOutliers!");
         return (struct mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
-    memset(markedOutliers, 0, Nmeasurements*sizeof(markedOutliers[0]));
-    // Never throw out known ranges as outliers
-#warning assumes the point range errors sit AFTER all the reprojection errors
-    for(int i=getNmeasurements_observationsonly(NobservationsBoard,
-                                                NobservationsPoint,
-                                                calibration_object_width_n);
-        i<Nmeasurements;
-        i++)
-    {
-        markedOutliers[i].ignoreForOutliers = true;
-    }
+    memset(markedOutliers, 0, Npoints_fromBoards*sizeof(markedOutliers[0]));
 
     const char* reportFitMsg = NULL;
 
@@ -1883,9 +1878,9 @@ mrcal_optimize( // out
 
                 if(!observation->skip_observation &&
 
-                   // If one measurement is an outlier, I skip both the x and y
-                   // components of it
-                   !markedOutliers[iMeasurement].marked)
+                   // /2 because I look at measurement GROUPS here, not discrete
+                   // measurements
+                   !markedOutliers[iMeasurement/2].marked)
                 {
                     // I have my two measurements (dx, dy). I propagate their
                     // gradient and store them
@@ -2103,12 +2098,9 @@ mrcal_optimize( // out
 
             const union point2_t* pt_observed = &observation->px;
 
-            if(!observation->skip_observation &&
-
-               // If one measurement is an outlier, I skip both the x and y
-               // components of it
-#warning "this does not treat point range errors correctly. Would work much better if the reference ranges lived after all the reprojection errors. or if range-ful points lived after all the range-less points; and the range-less points could be outliers but range-ful ones could not"
-               !markedOutliers[iMeasurement].marked)
+            if(!observation->skip_observation
+#warning "no outlier rejection on points yet; see warning above"
+               )
             {
                 // I have my two measurements (dx, dy). I propagate their
                 // gradient and store them
@@ -2442,7 +2434,7 @@ mrcal_optimize( // out
         }
         reportFitMsg = NULL;
 
-        double getConfidence(int i_exclude_feature)
+        double getConfidence(int i_exclude_group)
         {
             return 1.0;
         }
@@ -2457,6 +2449,7 @@ mrcal_optimize( // out
                  dogleg_markOutliers(markedOutliers,
                                      &stats.Noutliers,
                                      getConfidence,
+                                     2, Npoints_fromBoards,
                                      solver_context->beforeStep, solver_context) );
 
         // Done. I have the final state. I spit it back out
@@ -2474,6 +2467,7 @@ mrcal_optimize( // out
         {
             // These are for debug reporting
             dogleg_reportOutliers(getConfidence,
+                                  2, Npoints_fromBoards,
                                   solver_context->beforeStep, solver_context);
 
             reportFitMsg = "After";
