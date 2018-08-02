@@ -963,13 +963,10 @@ if args.explore:
     rms_err_perimage   = np.sqrt( norm2_err_perimage / (object_width_n*object_width_n) )
 
     i_observations_worst = list(reversed(np.argsort(rms_err_perimage)))
-    print "worst observations: {}".format(i_observations_worst[:100])
-    print "worst frame_camera indices and RMS:\n{}".format(nps.glue( indices_frame_camera[i_observations_worst,:],
-                                                                    nps.transpose(rms_err_perimage[i_observations_worst]), axis = -1))
+    print "To visualize the i-th worst image, call show_worst(i)\n\n"
 
-    print "worst image paths: {}".format([paths[p] for p in i_observations_worst])
 
-    print "\nTo visualize the i-th worst image, call show_worst(i)\n\n"
+
 
     i_observation_from_path = {}
     for i_observation in xrange(len(observations)):
