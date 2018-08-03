@@ -904,6 +904,65 @@ static void pack_solver_state( // out
     assert(i_state == Nstate_ref);
 }
 
+// Same as above, but packs/unpacks a vector instead of structures
+static void pack_solver_state_vector( // out, in
+                                     double* p, // unitless state on input,
+                                                // scaled, meaningful state on
+                                                // output
+
+                                     // in
+                                     const enum distortion_model_t distortion_model,
+                                     struct mrcal_variable_select optimization_variable_choice,
+                                     int Ncameras, int Nframes, int Npoints)
+{
+    int i_state = 0;
+
+    i_state += pack_solver_state_intrinsics( p, p,
+                                             distortion_model, optimization_variable_choice,
+                                             Ncameras );
+
+    static_assert( offsetof(struct pose_t, r) == 0,
+                   "pose_t has expected structure");
+    static_assert( offsetof(struct pose_t, t) == 3*sizeof(double),
+                   "pose_t has expected structure");
+    if( optimization_variable_choice.do_optimize_extrinsics )
+        for(int i_camera=1; i_camera < Ncameras; i_camera++)
+        {
+            struct pose_t* extrinsics = (struct pose_t*)(&p[i_state]);
+
+            p[i_state++] = extrinsics->r.xyz[0] / SCALE_ROTATION_CAMERA;
+            p[i_state++] = extrinsics->r.xyz[1] / SCALE_ROTATION_CAMERA;
+            p[i_state++] = extrinsics->r.xyz[2] / SCALE_ROTATION_CAMERA;
+
+            p[i_state++] = extrinsics->t.xyz[0] / SCALE_TRANSLATION_CAMERA;
+            p[i_state++] = extrinsics->t.xyz[1] / SCALE_TRANSLATION_CAMERA;
+            p[i_state++] = extrinsics->t.xyz[2] / SCALE_TRANSLATION_CAMERA;
+        }
+
+    if( optimization_variable_choice.do_optimize_frames )
+    {
+        for(int i_frame = 0; i_frame < Nframes; i_frame++)
+        {
+            struct pose_t* frames = (struct pose_t*)(&p[i_state]);
+            p[i_state++] = frames->r.xyz[0] / SCALE_ROTATION_FRAME;
+            p[i_state++] = frames->r.xyz[1] / SCALE_ROTATION_FRAME;
+            p[i_state++] = frames->r.xyz[2] / SCALE_ROTATION_FRAME;
+
+            p[i_state++] = frames->t.xyz[0] / SCALE_TRANSLATION_FRAME;
+            p[i_state++] = frames->t.xyz[1] / SCALE_TRANSLATION_FRAME;
+            p[i_state++] = frames->t.xyz[2] / SCALE_TRANSLATION_FRAME;
+        }
+
+        for(int i_point = 0; i_point < Npoints; i_point++)
+        {
+            union point3_t* points = (union point3_t*)(&p[i_state]);
+            p[i_state++] = points->xyz[0] / SCALE_POSITION_POINT;
+            p[i_state++] = points->xyz[1] / SCALE_POSITION_POINT;
+            p[i_state++] = points->xyz[2] / SCALE_POSITION_POINT;
+        }
+    }
+}
+
 static int unpack_solver_state_intrinsics_onecamera( // out
                                                     struct intrinsics_core_t* intrinsics_core,
                                                     double* distortions,
@@ -1355,6 +1414,11 @@ static bool computeConfidence_MMt(// out
                 double x = X(Jt,i);
                 Jrow[irow] = x;
             }
+            // J has units 1/p, so to UNPACK p I PACK 1/p
+            pack_solver_state_vector( Jrow,
+                                      distortion_model,
+                                      optimization_variable_choice,
+                                      Ncameras, Nframes, Npoints);
             // I write binary data. numpy is WAY too slow if I do it in ascii
             fwrite(Jrow,sizeof(double),Jt->nrow,fp);
         }
@@ -1370,10 +1434,10 @@ static bool computeConfidence_MMt(// out
     // MMt0 = MMt_dense[0:8,0:8]
     // MMt1 = MMt_dense[8:16,8:16]
     //
-    // In [25]: np.linalg.norm(MMt0 - MMt[0,:,:])
+    // In [25]: np.linalg.norm(MMt0 - stats['intrinsic_covariances'][0,:,:])
     // Out[25]: 1.4947344824339893e-12
     //
-    // In [26]: np.linalg.norm(MMt1 - MMt[1,:,:])
+    // In [26]: np.linalg.norm(MMt1 - stats['intrinsic_covariances'][1,:,:])
     // Out[26]: 4.223914927650401e-12
 #endif
 
@@ -1553,7 +1617,6 @@ static bool computeConfidence_MMt(// out
         double* dx            = calloc(Nmeas,sizeof(double));
         double* Jtdm          = calloc(Nstate,sizeof(double));
         double* dx_hypothesis = calloc(Nmeas,sizeof(double));
-        double* dp_unpacked   = calloc(Nmeas,sizeof(double));
         cholmod_dense _Jtdm = { .nrow = Nstate,
                                 .ncol = 1,
                                 .nzmax = Nstate,
@@ -1619,7 +1682,6 @@ static bool computeConfidence_MMt(// out
             writevector("/tmp/dm",dm,Nmeas);
             writevector("/tmp/Jtdm", Jtdm, Nstate);
 
-            writevector("/tmp/dp_packed",     dp->x,         Nstate);
             unpack_solver_state_vector( (double*)(dp->x),
                                         distortion_model,
                                         optimization_variable_choice,
@@ -1637,7 +1699,6 @@ static bool computeConfidence_MMt(// out
         free(dm);
         free(dx);
         free(dx_hypothesis);
-        free(dp_unpacked);
     }
     count++;
 #endif

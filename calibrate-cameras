@@ -1244,7 +1244,6 @@ Potential things to look at:
         # dm            = np.loadtxt("/tmp/dm")
         # Jtdm          = np.loadtxt("/tmp/Jtdm")
         # dp            = np.loadtxt("/tmp/dp")
-        # dp_packed     = np.loadtxt("/tmp/dp_packed")
         # dx_hypothesis = np.loadtxt("/tmp/dx_hypothesis")
         # dx            = np.loadtxt("/tmp/dx")
 
@@ -1277,12 +1276,12 @@ Potential things to look at:
         # dp_observed = p1-p0
         # dx_observed = x1-x0
 
-        # J             = np.fromfile("/tmp/J1_17804_542.dat").reshape(17804,542)
-        # pinvJ         = np.linalg.pinv(J)
-        # dp_packed_ref = nps.matmult(pinvJ, nps.transpose(dm)).ravel()
+        # J      = np.fromfile("/tmp/J1_17804_542.dat").reshape(17804,542)
+        # pinvJ  = np.linalg.pinv(J)
+        # dp_ref = nps.matmult(pinvJ, nps.transpose(dm)).ravel()
 
         # gp.plot(nps.cat(dp,            dp_observed), legend=np.array(("computed",   "observed")), title="dp")
-        # gp.plot(nps.cat(dp_packed_ref, dp_packed),   legend=np.array(("packed-ref", "packed")),   title="dp")
+        # gp.plot(nps.cat(dp,            dp_ref),      legend=np.array(("computed",   "reference")),title="dp")
         # gp.plot(nps.cat(dx,            dx_observed), legend=np.array(("computed",   "observed")), title="dx")
 
 
