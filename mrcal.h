@@ -116,8 +116,13 @@ struct mrcal_stats_t
 
 struct mrcal_stats_t
 mrcal_optimize( // out
-                double* x_final,               // may be NULL. Exists for debugging only
-                double* intrinsic_covariances, // may be NULL. Exists for debugging only
+                // These may be NULL. They're for diagnostic reporting to the
+                // caller
+                double* x_final,
+                double* intrinsic_covariances,
+                // Buffer should be at least Npoints long. stats->Noutliers
+                // elements will be filled in
+                int*    outlier_indices_final,
 
                 // out, in (seed on input)
 

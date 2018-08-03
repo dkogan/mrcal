@@ -1653,8 +1653,13 @@ static bool computeConfidence_MMt(// out
 
 struct mrcal_stats_t
 mrcal_optimize( // out
-                double* x_final,               // may be NULL. Exists for debugging only
-                double* intrinsic_covariances, // may be NULL. Exists for debugging only
+                // These may be NULL. They're for diagnostic reporting to the
+                // caller
+                double* x_final,
+                double* intrinsic_covariances,
+                // Buffer should be at least Npoints long. stats->Noutliers
+                // elements will be filled in
+                int*    outlier_indices_final,
 
                 // out, in (seed on input)
 
@@ -2508,6 +2513,16 @@ mrcal_optimize( // out
         if(!result)
             MSG("Failed to compute MMt.");
     }
+    if(outlier_indices_final)
+    {
+        int ioutlier = 0;
+        for(int iFeature=0; iFeature<Npoints_fromBoards; iFeature++)
+            if( markedOutliers[iFeature].marked )
+                outlier_indices_final[ioutlier++] = iFeature;
+
+        assert(ioutlier == stats.Noutliers);
+    }
+
     if( solver_context )
         dogleg_freeContext(&solver_context);
 
