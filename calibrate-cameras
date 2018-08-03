@@ -956,16 +956,15 @@ if args.explore:
 
 
     print r'''Calibration results REPL.
-    Potential things to look at:
+Potential things to look at:
 
-      show_reprojection_errors_worst(i_observation_in_order_from_worst)
-      show_intrinsics_map()
-      i_observations_worst
-      rms_err_all_points_perimage
-      rms_err_ignoring_outliers_perimage
-      paths[i_observations_worst[0]]
-
-    '''
+   show_reprojection_errors_worst(i_observation_in_order_from_worst)
+   show_intrinsics_map()
+   i_observations_worst
+   rms_err_all_points_perimage
+   rms_err_ignoring_outliers_perimage
+   paths[i_observations_worst[0]]
+'''
 
 
     projected = projections.calobservations_project(distortion_model, intrinsics, extrinsics, frames, object_spacing, object_width_n)
@@ -1004,30 +1003,6 @@ if args.explore:
         i_frame,i_camera = indices_frame_camera[i_observation]
         reproj           = nps.clump( projected[i_frame,i_camera], n=2)
 
-        # zrange = frames[inputs['indices_frame_camera'][:,0], 5]
-
-        # gp.plot(utils.get_observation_size(observations),
-        #         rms_err_all_points_perimage,
-        #         _with='points pt 7 ps 2', xlabel="size", ylabel="rms")
-        # import time
-        # time.sleep(1000)
-        # sys.exit()
-
-        # gp.plot( zrange,
-        #          rms_err_all_points_perimage,
-        #          _with='points pt 7 ps 2', xlabel="zrange", ylabel="rms err")
-        # import time
-        # time.sleep(1000)
-        # sys.exit()
-
-        # gp.plot(utils.get_observation_size(observations),
-        #         zrange,
-        #         _with='points pt 7 ps 2', xlabel="size", ylabel="zrange",
-        #         xmin=0, ymin=0)
-        # import time
-        # time.sleep(1000)
-        # sys.exit()
-
         # error per dot
         err = np.sqrt(nps.inner(reproj - obs,
                                 reproj - obs))
@@ -1047,7 +1022,7 @@ if args.explore:
     def show_reprojection_errors_worst(i):
         show_reprojection_errors( i_observations_worst[i] )
 
-    plots = []
+    plots_intrinsics_sensitivity = [None] * Ncameras
     def show_intrinsics_map(i_camera = None, gridn = 40):
         r'''Visualize intrinsics uncertainty
 
@@ -1175,7 +1150,9 @@ if args.explore:
 
 
 
-        global plots
+        print 'need to use the input sigma, need to label plots better'
+
+        global plots_intrinsics_sensitivity
         i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics))
         for i_camera in i_camera_all:
 
@@ -1224,26 +1201,124 @@ if args.explore:
                 return np.trace(x)
             Erms = np.sqrt(trace(Vdprojection))
 
-            plots.append(gp.gnuplotlib(_3d=1,
-                                       unset='grid',
-                                       set=['xrange noextend',
-                                            'yrange noextend reverse',
-                                            'view equal xy',
-                                            'view map',
-                                            'contour surface',
-                                            'cntrparam levels incremental 10,-0.2,0'],
-                                       zrange=[0,5],
-                                       cbrange=[0,5],
-                                       title="Camera {}".format(i_camera)))
+            if plots_intrinsics_sensitivity[i_camera] is None:
+                plots_intrinsics_sensitivity[i_camera] = \
+                    gp.gnuplotlib(_3d=1,
+                                  unset='grid',
+                                  set=['xrange noextend',
+                                       'yrange noextend reverse',
+                                       'view equal xy',
+                                       'view map',
+                                       'contour surface',
+                                       'cntrparam levels incremental 10,-0.2,0'],
+                                  zrange=[0,5],
+                                  cbrange=[0,5],
+                                  title="Camera {}".format(i_camera))
 
             # Currently "with image" can't produce contours. I work around this, by
             # plotting the data a second time.
             # Yuck.
             # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-            plots[-1].plot( (Erms, dict(               tuplesize=3, _with='image')),
-                            (Erms, dict(legend="Erms", tuplesize=3, _with='lines')))
+            plots_intrinsics_sensitivity[i_camera]. \
+                plot( (Erms, dict(               tuplesize=3, _with='image')),
+                      (Erms, dict(legend="Erms", tuplesize=3, _with='lines')))
 
 
+        # These all test the confidence computations using the debugging exports
+        # from computeConfidence_MMt() in mrcal.c
+
+        # E0 = nps.inner(x,x)
+        # E0_rms = np.sqrt(E0/(x.shape[0]/2))
+        # mu_sumofsquares = E0
+        # s_sumofsquares  = 2*np.sqrt(E0)
+        # mu_meanofsquares = mu_sumofsquares/(x.shape[0]/2)
+        # s_meanofsquares  = s_sumofsquares /(x.shape[0]/2)
+
+        # gp.plot( equation='1./sqrt(2.*pi*{var})*exp(-({x_meanofsquares}-{mu})**2. / (2.*{var}))*2*x'. \
+        #          format(x_meanofsquares = '(x*x)',
+        #                 mu  = mu_meanofsquares,
+        #                 var = s_meanofsquares*s_meanofsquares),
+        #          _xrange=[0,E0_rms*2],
+        #          _set='samples 1000')
+
+        # dm            = np.loadtxt("/tmp/dm")
+        # Jtdm          = np.loadtxt("/tmp/Jtdm")
+        # dp            = np.loadtxt("/tmp/dp")
+        # dp_packed     = np.loadtxt("/tmp/dp_packed")
+        # dx_hypothesis = np.loadtxt("/tmp/dx_hypothesis")
+        # dx            = np.loadtxt("/tmp/dx")
+
+        # observations += dm[:-4].reshape(89,10,10,2)
+        # intrinsics0 = np.copy(intrinsics)
+        # frames0     = np.copy(frames)
+        # p0          = nps.glue( intrinsics.ravel(),
+        #                         frames.ravel(),
+        #                         axis=-1)
+
+        # stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
+        #                            observations, indices_frame_camera,
+        #                            None, None,
+        #                            distortion_model,
+        #                            do_optimize_intrinsic_core        = True,
+        #                            do_optimize_intrinsic_distortions = True,
+        #                            calibration_object_spacing        = object_spacing,
+        #                            calibration_object_width_n        = object_width_n,
+        #                            VERBOSE                           = True)
+
+        # p1          = nps.glue( intrinsics.ravel(),
+        #                         frames.ravel(),
+        #                         axis=-1)
+        # x0 = x
+        # x1 = stats['x']
+        # E0 = np.sqrt(nps.inner(x0,x0)/(x.shape[0]/2))
+        # E1 = np.sqrt(nps.inner(x1,x1)/(x.shape[0]/2))
+
+
+        # dp_observed = p1-p0
+        # dx_observed = x1-x0
+
+        # J             = np.fromfile("/tmp/J1_17804_542.dat").reshape(17804,542)
+        # pinvJ         = np.linalg.pinv(J)
+        # dp_packed_ref = nps.matmult(pinvJ, nps.transpose(dm)).ravel()
+
+        # gp.plot(nps.cat(dp,            dp_observed), legend=np.array(("computed",   "observed")), title="dp")
+        # gp.plot(nps.cat(dp_packed_ref, dp_packed),   legend=np.array(("packed-ref", "packed")),   title="dp")
+        # gp.plot(nps.cat(dx,            dx_observed), legend=np.array(("computed",   "observed")), title="dx")
+
+
+    def show_all_errors(i_camera, ignore_outliers=True, vectorfield=False):
+        r'''Visualize the full distribution of reprojection errors
+
+        i_camera is the camera in question
+
+        if ignore_outliers: we show the ignored-outlier distribution. Otherwise
+        we show the distribution for all our data
+
+        if vectorfield: we render a vectorfield from the observation point
+        showing the residual as a vector. else: we render only the residual as a
+        scatter plot
+
+        '''
+
+        err = err_ignoring_outliers if ignore_outliers else err_all_points
+
+        idx = indices_frame_camera[:,1] == i_camera
+        err = nps.clump(err         [idx, ...], n=3)
+        obs = nps.clump(observations[idx, ...], n=3)
+
+        if vectorfield:
+            # Same thing as a vector field, color-coded by absolute error
+            W,H=imagersizes[i_camera]
+            gp.plot( obs[:,0], obs[:,1],
+                     err[:,0], err[:,1],
+                     np.sqrt(nps.inner(err,err)),
+                     _with='vectors size screen 0.005,10 fixed filled palette',
+                     tuplesize=5, square=1,
+                     _xrange=[0,W], yrange=[H,0])
+        else:
+            # Reprojection error distribution
+            gp.plot( err[:,0], err[:,1],
+                     _with='points', square=1)
 
 
 
