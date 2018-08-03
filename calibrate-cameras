@@ -1221,8 +1221,7 @@ Potential things to look at:
             # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
             plots_intrinsics_sensitivity[i_camera]. \
                 plot( (Erms, dict(               tuplesize=3, _with='image')),
-                      (Erms, dict(legend="Erms", tuplesize=3, _with='lines')))
-
+                      (Erms, dict(legend="Erms", tuplesize=3, _with='lines nosurface')))
 
         # These all test the confidence computations using the debugging exports
         # from computeConfidence_MMt() in mrcal.c
