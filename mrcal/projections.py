@@ -718,25 +718,37 @@ def calobservations_project(distortion_model, intrinsics, extrinsics, frames, do
     # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
     return project( object_cam, distortion_model, intrinsics )
 
-def calobservations_compute_reproj_error(projected, observations, indices_frame_camera, Nwant):
-    r'''Given
+def calobservations_compute_reproj_error(projected, observations, indices_frame_camera, Nwant,
+                                         outlier_indices = np.array(())):
+    r'''Computes reprojection errors when calibrating with board observations
+
+    Given
 
     - projected (shape [Nframes,Ncameras,Nwant,Nwant,2])
     - observations (shape [Nframes,Nwant,Nwant,2])
     - indices_frame_camera (shape [Nobservations,2])
+    - outlier_indices, a list of point indices that were deemed to be outliers.
+      These are plain integers indexing the flattened observations array, but
+      one per POINT, not (x,y) independently
 
-    Return the reprojection error for each point: shape
-    [Nobservations,Nwant,Nwant,2]
+    Return (err_all_points,err_ignoring_outliers). Each is the reprojection
+    error for each point: shape [Nobservations,Nwant,Nwant,2]. One includes the
+    outliers in the returned errors, and the other does not
 
     '''
 
     Nframes               = projected.shape[0]
     Nobservations         = indices_frame_camera.shape[0]
-    err                   = np.zeros((Nobservations,Nwant,Nwant,2))
+    err_all_points        = np.zeros((Nobservations,Nwant,Nwant,2))
+
     for i_observation in xrange(Nobservations):
         i_frame, i_camera = indices_frame_camera[i_observation]
 
-        err[i_observation] = observations[i_observation] - projected[i_frame,i_camera]
+        err_all_points[i_observation] = projected[i_frame,i_camera] - observations[i_observation]
 
-    return err
+    err_ignoring_outliers = err_all_points.copy()
+    err_ignoring_outliers.ravel()[outlier_indices*2  ] = 0
+    err_ignoring_outliers.ravel()[outlier_indices*2+1] = 0
+
+    return err_all_points,err_ignoring_outliers
 
