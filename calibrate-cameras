@@ -918,6 +918,89 @@ print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 
 
+
+def get_random_subset(ratio, frames, observations, indices_frame_camera):
+    r'''Returns a random subset of observations'''
+
+    N = int(round(ratio * len(observations)))
+    indices = np.sort(np.random.choice(len(observations), N, replace=False))
+
+    observations_new         = observations        [indices, ...].copy()
+    indices_frame_camera_new = indices_frame_camera[indices, ...].copy()
+
+    # I now collapse newly-missing frames and build the frame indices
+    indices_frames = []
+    iframe_old_last = -1
+    iframe_new_last = -1
+    for iobs_new in xrange(len(indices_frame_camera_new)):
+        iframe_old = indices_frame_camera_new[iobs_new,0]
+        if iframe_old != iframe_old_last:
+            # Saw new frame. The iframe in the data is going to be
+            # non-consecutive, so I adjust it to become consecutive. And I then
+            # update the mapping
+            iframe_new_last += 1
+            iframe_old_last = iframe_old
+
+            indices_frames.append(iframe_old)
+        indices_frame_camera_new[iobs_new,0] = iframe_new_last
+
+    frames_new = frames[indices_frames, ...].copy()
+    return frames_new, observations_new, indices_frame_camera_new
+
+
+def get_projection_uncertainty(v, distortion_model, intrinsics, MMt):
+    r'''Computes the uncertainty in a projection of a 3D point
+
+    Given a (broadcastable) 3D vector, and the MMt matrix for a
+    given camera, returns the expected value of the deviation from
+    center of the projected point that would result from noise in
+    the calibration observations. See comment in
+    show_intrinsics_map() for derivation
+
+    '''
+    p = projections.project(V, distortion_model, intrinsics, get_gradients=True)
+    imagePoints = p[..., 0]
+    F           = p[..., 1:3]
+    C           = p[..., 3:5]
+    D           = p[..., 5: ]
+
+    Cff = MMt[0:2, 0:2]
+    Cfc = MMt[0:2, 2:4]
+    Cfd = MMt[0:2, 4: ]
+    Ccf = MMt[2:4, 0:2]
+    Ccc = MMt[2:4, 2:4]
+    Ccd = MMt[2:4, 4: ]
+    Cdf = MMt[4:,  0:2]
+    Cdc = MMt[4:,  2:4]
+    Cdd = MMt[4:,  4: ]
+
+    # shape Nwidth,Nheight,2,2: each slice is a 2x2 covariance
+    Vdprojection = \
+        nps.matmult(F,Cff,nps.transpose(F)) + \
+        nps.matmult(F,Cfc,nps.transpose(C)) + \
+        nps.matmult(F,Cfd,nps.transpose(D)) + \
+        nps.matmult(C,Ccf,nps.transpose(F)) + \
+        nps.matmult(C,Ccc,nps.transpose(C)) + \
+        nps.matmult(C,Ccd,nps.transpose(D)) + \
+        nps.matmult(D,Cdf,nps.transpose(F)) + \
+        nps.matmult(D,Cdc,nps.transpose(C)) + \
+        nps.matmult(D,Cdd,nps.transpose(D))
+
+    # Let x be a 0-mean normally-distributed 2-vector with covariance V.
+    # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
+
+    @nps.broadcast_define( (('n','n'),), ())
+    def trace(x):
+        return np.trace(x)
+    Expected_projection_shift = np.sqrt(trace(Vdprojection))
+    return Expected_projection_shift
+
+
+
+
+
+
+
 # Write the output models
 for i_camera in xrange(Ncameras):
     if args.muse_extrinsics:
@@ -1164,42 +1247,7 @@ Potential things to look at:
 
             # shape: Nwidth,Nheight,3
             V = projections.unproject(grid, distortion_model, intrinsics[i_camera])
-
-            p = projections.project(V, distortion_model, intrinsics[i_camera], get_gradients=True)
-            imagePoints = p[..., 0]
-            F           = p[..., 1:3]
-            C           = p[..., 3:5]
-            D           = p[..., 5: ]
-
-            Cff = MMt[i_camera, 0:2, 0:2]
-            Cfc = MMt[i_camera, 0:2, 2:4]
-            Cfd = MMt[i_camera, 0:2, 4: ]
-            Ccf = MMt[i_camera, 2:4, 0:2]
-            Ccc = MMt[i_camera, 2:4, 2:4]
-            Ccd = MMt[i_camera, 2:4, 4: ]
-            Cdf = MMt[i_camera, 4:,  0:2]
-            Cdc = MMt[i_camera, 4:,  2:4]
-            Cdd = MMt[i_camera, 4:,  4: ]
-
-            # shape Nwidth,Nheight,2,2: each slice is a 2x2 covariance
-            Vdprojection = \
-                nps.matmult(F,Cff,nps.transpose(F)) + \
-                nps.matmult(F,Cfc,nps.transpose(C)) + \
-                nps.matmult(F,Cfd,nps.transpose(D)) + \
-                nps.matmult(C,Ccf,nps.transpose(F)) + \
-                nps.matmult(C,Ccc,nps.transpose(C)) + \
-                nps.matmult(C,Ccd,nps.transpose(D)) + \
-                nps.matmult(D,Cdf,nps.transpose(F)) + \
-                nps.matmult(D,Cdc,nps.transpose(C)) + \
-                nps.matmult(D,Cdd,nps.transpose(D))
-
-            # Let x be a 0-mean normally-distributed 2-vector with covariance V.
-            # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
-
-            @nps.broadcast_define( (('n','n'),), ())
-            def trace(x):
-                return np.trace(x)
-            Erms = np.sqrt(trace(Vdprojection))
+            Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics[i_camera], MMt[i_camera])
 
             if plots_intrinsics_sensitivity[i_camera] is None:
                 plots_intrinsics_sensitivity[i_camera] = \
@@ -1220,8 +1268,8 @@ Potential things to look at:
             # Yuck.
             # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
             plots_intrinsics_sensitivity[i_camera]. \
-                plot( (Erms, dict(               tuplesize=3, _with='image')),
-                      (Erms, dict(legend="Erms", tuplesize=3, _with='lines nosurface')))
+                plot( (Expected_projection_shift, dict(               tuplesize=3, _with='image',           using=using)),
+                      (Expected_projection_shift, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
 
     def check_confidence_computations():
         r'''These all test the confidence computations using the debugging exports
