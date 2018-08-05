@@ -1150,8 +1150,6 @@ Potential things to look at:
 
 
 
-        print 'need to use the input sigma, need to label plots better'
-
         global plots_intrinsics_sensitivity
         i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics))
         for i_camera in i_camera_all:
