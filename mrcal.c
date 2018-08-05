@@ -1613,6 +1613,7 @@ static bool computeConfidence_MMt(// out
         // apply noise to get dm
         // dx                 = (JM-I)dm
         // JM                 = J inv(JtJ) Jt
+        double* p             = calloc(Nstate,sizeof(double));
         double* dm            = calloc(Nmeas,sizeof(double));
         double* dx            = calloc(Nmeas,sizeof(double));
         double* Jtdm          = calloc(Nstate,sizeof(double));
@@ -1637,6 +1638,9 @@ static bool computeConfidence_MMt(// out
         // I write the unperturbed E0 first
         fprintf(fp_E, "%g %g %g %g\n",E0,E0,E0,E0);
 
+        // I run a whole lotta randomized trials to make sure the observed
+        // distributions match the analytical expressions. Those tests are in
+        // calibrate-cameras
         for(int i=0; i<10000; i++)
         {
             // leave the last Nmeas-Nmeas_observations always at 0
@@ -1690,11 +1694,46 @@ static bool computeConfidence_MMt(// out
 
             writevector("/tmp/dx_hypothesis", dx_hypothesis, Nmeas);
             writevector("/tmp/dx",            dx,            Nmeas);
+
+            // Now I project before and after the perturbation
+            memcpy(p, solverCtx->beforeStep->p, Nstate*sizeof(double));
+            unpack_solver_state_vector( p,
+                                        distortion_model,
+                                        optimization_variable_choice,
+                                        Ncameras, Nframes, Npoints);
+
+            struct pose_t frame = {.t = {.xyz={-0.81691696, -0.02852554,  0.57604945}}};
+            union point2_t v0 =  project( NULL,NULL,NULL,NULL,NULL,NULL,
+                                          // in
+                                          (const struct intrinsics_core_t*)(&p[0]),
+                                          &p[4],
+                                          NULL,
+                                          &frame,
+                                          true,
+                                          distortion_model,
+                                          -1,
+                                          1.0, 10);
+            for(int i=0; i<Nstate; i++)
+                p[i] += ((double*)dp->x)[i];
+            union point2_t v1 =  project( NULL,NULL,NULL,NULL,NULL,NULL,
+                                          // in
+                                          (const struct intrinsics_core_t*)(&p[0]),
+                                          &p[4],
+                                          NULL,
+                                          &frame,
+                                          true,
+                                          distortion_model,
+                                          -1,
+                                          1.0, 10);
+            fprintf(stderr, "proj before: %.10f %10f\n", v0.x, v0.y);
+            fprintf(stderr, "proj after:  %.10f %10f\n", v1.x, v1.y);
+            fprintf(stderr, "proj diff:   %.10f %10f\n", v1.x-v0.x, v1.y-v0.y);
             cholmod_free_dense(&dp, &solverCtx->common);
             break;
 #endif
         }
         fclose(fp_E);
+        free(p);
         free(Jtdm);
         free(dm);
         free(dx);
