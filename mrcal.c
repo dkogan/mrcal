@@ -2506,11 +2506,19 @@ mrcal_optimize( // out
         }
 
 
+        bool firstpass = true;
         do
         {
             norm2_error = dogleg_optimize(packed_state,
                                           Nstate, Nmeasurements, N_j_nonzero,
                                           &optimizerCallback, NULL, &solver_context);
+            if(firstpass && VERBOSE)
+                // These are for debug reporting
+                dogleg_reportOutliers(getConfidence,
+                                      2, Npoints_fromBoards,
+                                      solver_context->beforeStep, solver_context);
+            firstpass = false;
+
         } while( !skip_outlier_rejection &&
                  dogleg_markOutliers(markedOutliers,
                                      &stats.Noutliers,
@@ -2531,11 +2539,6 @@ mrcal_optimize( // out
 
         if(VERBOSE)
         {
-            // These are for debug reporting
-            dogleg_reportOutliers(getConfidence,
-                                  2, Npoints_fromBoards,
-                                  solver_context->beforeStep, solver_context);
-
             reportFitMsg = "After";
 #warning hook this up
             //        optimizerCallback(packed_state, NULL, NULL, NULL);
