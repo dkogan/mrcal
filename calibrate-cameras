@@ -878,6 +878,7 @@ if args.seed is None:
                        do_optimize_intrinsic_distortions = False,
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n,
+                       skip_outlier_rejection            = True,
                        VERBOSE                           = False)
 
     stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
@@ -888,9 +889,9 @@ if args.seed is None:
                        do_optimize_intrinsic_distortions = False,
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n,
+                       skip_outlier_rejection            = True,
                        VERBOSE                           = False)
 
-    MMt = stats['intrinsic_covariances']
     print "done with {}".format(distortion_model)
 
 # final pass
@@ -908,6 +909,7 @@ stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
                            do_optimize_intrinsic_distortions = True,
                            calibration_object_spacing        = object_spacing,
                            calibration_object_width_n        = object_width_n,
+                           skip_outlier_rejection            = True,
                            VERBOSE                           = True)
 MMt = stats['intrinsic_covariances']
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
