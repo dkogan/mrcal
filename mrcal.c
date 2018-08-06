@@ -2614,7 +2614,14 @@ mrcal_optimize( // out
 
                                   solver_context);
         if(!result)
+        {
             MSG("Failed to compute MMt.");
+            double nan = strtod("NAN", NULL);
+            int Nintrinsics_per_camera =
+                getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model);
+            for(int i=0; i<Ncameras*Nintrinsics_per_camera*Nintrinsics_per_camera; i++)
+                intrinsic_covariances[i] = nan;
+        }
     }
     if(outlier_indices_final)
     {
