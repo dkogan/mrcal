@@ -1287,8 +1287,8 @@ Potential things to look at:
                 plots_intrinsics_sensitivity[i_camera] = \
                     gp.gnuplotlib(_3d=1,
                                   unset='grid',
-                                  set=['xrange noextend',
-                                       'yrange noextend reverse',
+                                  set=['xrange [:] noextend',
+                                       'yrange [:] noextend reverse',
                                        'view equal xy',
                                        'view map',
                                        'contour surface',
