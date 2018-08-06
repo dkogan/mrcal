@@ -892,7 +892,7 @@ if args.seed is None:
                        skip_outlier_rejection            = True,
                        VERBOSE                           = False)
 
-    print "done with {}".format(distortion_model)
+    print "done with the seed"
 
 # final pass
 Ndistortions0      = optimizer.getNdistortionParams(distortion_model)
