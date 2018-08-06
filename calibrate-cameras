@@ -981,7 +981,7 @@ print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 
 
-def get_projection_uncertainty(v, distortion_model, intrinsics, MMt):
+def get_projection_uncertainty(V, distortion_model, intrinsics, MMt):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Given a (broadcastable) 3D vector, and the MMt matrix for a
