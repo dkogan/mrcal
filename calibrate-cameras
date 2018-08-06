@@ -1078,6 +1078,7 @@ Potential things to look at:
 
    show_reprojection_errors_worst(i_observation_in_order_from_worst)
    show_intrinsics_map()
+   show_all_errors(i_camera, ignore_outliers=True, vectorfield=False)
    i_observations_worst
    rms_err_all_points_perimage
    rms_err_ignoring_outliers_perimage
