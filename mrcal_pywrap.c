@@ -529,21 +529,23 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
     enum distortion_model_t distortion_model;
-    if( optimize_validate_args(&distortion_model,
+    if( !optimize_validate_args(&distortion_model,
 
-                               intrinsics,
-                               extrinsics,
-                               frames,
-                               points,
-                               observations_board,
-                               indices_frame_camera_board,
-                               observations_point,
-                               indices_point_camera_points,
-                               skipped_observations_board,
-                               skipped_observations_point,
-                               calibration_object_spacing,
-                               calibration_object_width_n,
-                               distortion_model_string))
+                                intrinsics,
+                                extrinsics,
+                                frames,
+                                points,
+                                observations_board,
+                                indices_frame_camera_board,
+                                observations_point,
+                                indices_point_camera_points,
+                                skipped_observations_board,
+                                skipped_observations_point,
+                                calibration_object_spacing,
+                                calibration_object_width_n,
+                                distortion_model_string))
+        goto done;
+
     {
         int Ncameras           = PyArray_DIMS(intrinsics)[0];
         int Nframes            = PyArray_DIMS(frames)[0];
@@ -797,7 +799,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             PyErr_SetString(PyExc_RuntimeError, "PyDict_New() failed!");
             goto done;
         }
-#define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)     \
+    #define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)     \
         {                                                               \
             PyObject* obj = pyconverter( (type)stats.name);             \
             if( obj == NULL)                                            \
@@ -849,11 +851,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         result = pystats;
         Py_INCREF(result);
-    }
-    else
-    {
-        Py_INCREF(Py_None);
-        result = Py_None;
     }
 
  done:
