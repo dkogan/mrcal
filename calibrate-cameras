@@ -820,6 +820,65 @@ def get_imagersize_one(g):
 
 
 
+def get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera):
+    r'''Returns a subset of observations from observation indices
+
+    Observations are stored across 3 variables:
+
+    - frames
+    - observations
+    - indices_frame_camera
+
+    These must all be self-consistent. This function takes in the desired
+    observation indices to keep, and returns copies of all 3 variables that
+    contain the requested subset of data and are consistent with each other
+
+    '''
+
+
+    observations_new         = observations        [indices, ...].copy()
+    indices_frame_camera_new = indices_frame_camera[indices, ...].copy()
+
+    # I now collapse newly-missing frames and build the frame indices
+    indices_frames = []
+    iframe_old_last = -1
+    iframe_new_last = -1
+    for iobs_new in xrange(len(indices_frame_camera_new)):
+        iframe_old = indices_frame_camera_new[iobs_new,0]
+        if iframe_old != iframe_old_last:
+            # Saw new frame. The iframe in the data is going to be
+            # non-consecutive, so I adjust it to become consecutive. And I then
+            # update the mapping
+            iframe_new_last += 1
+            iframe_old_last = iframe_old
+
+            indices_frames.append(iframe_old)
+        indices_frame_camera_new[iobs_new,0] = iframe_new_last
+
+    frames_new = frames[indices_frames, ...].copy()
+    return frames_new, observations_new, indices_frame_camera_new
+
+def get_observation_subset__random(ratio, frames, observations, indices_frame_camera):
+    r'''Returns a random subset of observations'''
+
+    N = int(round(ratio * len(observations)))
+    indices = np.sort(np.random.choice(len(observations), N, replace=False))
+
+    return get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera)
+
+def get_observation_subset__right_of_threshold(point_x_threshold, frames, observations, indices_frame_camera):
+    r'''Returns a subset of observations where all points are right of some threshold
+
+    This throws out all observations that lie COMPLETELY to the left of the
+    threshold
+
+    '''
+
+    indices = np.array([i for i in xrange(len(observations)) if np.any(observations[i,:,:,0] >= point_x_threshold)], dtype=int)
+    return get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera)
+
+
+
 
 
 
@@ -919,33 +978,7 @@ print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 
 
-def get_random_subset(ratio, frames, observations, indices_frame_camera):
-    r'''Returns a random subset of observations'''
 
-    N = int(round(ratio * len(observations)))
-    indices = np.sort(np.random.choice(len(observations), N, replace=False))
-
-    observations_new         = observations        [indices, ...].copy()
-    indices_frame_camera_new = indices_frame_camera[indices, ...].copy()
-
-    # I now collapse newly-missing frames and build the frame indices
-    indices_frames = []
-    iframe_old_last = -1
-    iframe_new_last = -1
-    for iobs_new in xrange(len(indices_frame_camera_new)):
-        iframe_old = indices_frame_camera_new[iobs_new,0]
-        if iframe_old != iframe_old_last:
-            # Saw new frame. The iframe in the data is going to be
-            # non-consecutive, so I adjust it to become consecutive. And I then
-            # update the mapping
-            iframe_new_last += 1
-            iframe_old_last = iframe_old
-
-            indices_frames.append(iframe_old)
-        indices_frame_camera_new[iobs_new,0] = iframe_new_last
-
-    frames_new = frames[indices_frames, ...].copy()
-    return frames_new, observations_new, indices_frame_camera_new
 
 
 def get_projection_uncertainty(v, distortion_model, intrinsics, MMt):
