@@ -112,7 +112,7 @@ class cameramodel(object):
     sample valid .cameramodel:
 
         # generated with ...
-        { 'distortion_model': DISTORTION_OPENCV8',
+        { 'distortion_model': 'DISTORTION_OPENCV8',
 
           # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
           'intrinsics': [1766.0712405930,
@@ -129,8 +129,8 @@ class cameramodel(object):
                          -0.6284355415],
 
           # extrinsics are rt_fromref
-          'extrinsics' = [0,0,0,0,0,0],
-          'dimensions' = [3840,2160]
+          'extrinsics': [0,0,0,0,0,0],
+          'dimensions': [3840,2160]
         }
     '''
 
