@@ -212,7 +212,7 @@ class cameramodel(object):
             f.write("    'covariance_intrinsics': [\n")
             for row in self._covariance_intrinsics:
                 f.write(("    [" + (" {:.10f}," * Nintrinsics) + "],\n").format(*row))
-            f.write("]\n\n")
+            f.write("],\n\n")
 
         N = len(self._extrinsics)
         f.write("    # extrinsics are rt_fromref\n")
