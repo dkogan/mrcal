@@ -31,6 +31,7 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          python-mrcal (= ${binary:Version}), python,
          python-gnuplotlib, python-numpysane,
+         python-scipy,  python-ipython,
          mrgingham (>= 1.4)
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
@@ -57,7 +58,8 @@ Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          ${python:Depends},
-         python-gnuplotlib, python-numpysane
+         python-gnuplotlib, python-numpysane,
+         python-scipy,  python-ipython
 Provides: ${python:Provides}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
