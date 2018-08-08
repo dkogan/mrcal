@@ -41,6 +41,11 @@ def parse_args():
                         default = 40,
                         help='''How densely we should sample the imager. By default we report a 40x40 grid''')
 
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the plot''')
+
     parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
@@ -61,7 +66,8 @@ distortion_model,intrinsics = model.intrinsics()
 plot = utils.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               model.covariance_intrinsics(),
                                               model.dimensions(),
-                                              args.gridn)
+                                              args.gridn,
+                                              extratitle=args.extratitle)
 
 import time
 time.sleep(1000000)
