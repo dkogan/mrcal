@@ -958,22 +958,30 @@ inputs = {'imagersizes':          imagersizes,
           'dots':                 observations,
           'dot_spacing':          object_spacing,
           'object_width_n':       object_width_n}
-
-
-
 intrinsics,extrinsics,frames = make_seed(inputs, args.seed)
-distortion_model = intrinsics[0]
-intrinsics       = intrinsics[1]
+
+
+
+print "Starting the solve"
+print "Distortion model: {}".format(args.distortion_model)
+if args.skip_outlier_rejection:
+    print "We are NOT rejecting outliers"
+else:
+    print "We ARE rejecting outliers"
+if args.skip_regularization:
+    print "We are NOT applying regularization in the solver"
+else:
+    print "We ARE applying regularization in the solver"
+
 
 # done with everything. Run the calibration, in several passes. If we were given
 # a seed, I presumably have an estimate of the solution, so I skip straight to
 # the final pass
 if args.seed is None:
-    distortion_model = "DISTORTION_NONE"
-    optimizer.optimize(intrinsics, extrinsics, frames, None,
+    optimizer.optimize(intrinsics[1], extrinsics, frames, None,
                        observations, indices_frame_camera,
                        None, None,
-                       distortion_model,
+                       intrinsics[0],
                        do_optimize_intrinsic_core        = False,
                        do_optimize_intrinsic_distortions = False,
                        calibration_object_spacing        = object_spacing,
@@ -981,10 +989,10 @@ if args.seed is None:
                        skip_outlier_rejection            = True,
                        VERBOSE                           = False)
 
-    stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
+    stats = optimizer.optimize(intrinsics[1], extrinsics, frames, None,
                        observations, indices_frame_camera,
                        None, None,
-                       distortion_model,
+                       intrinsics[0],
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = False,
                        calibration_object_spacing        = object_spacing,
@@ -992,17 +1000,18 @@ if args.seed is None:
                        skip_outlier_rejection            = True,
                        VERBOSE                           = False)
 
-# final pass
-Ndistortions0      = optimizer.getNdistortionParams(distortion_model)
+intrinsics = (args.distortion_model,
+              nps.glue( intrinsics[1],
+                        np.random.random((Ncameras,
+                                          optimizer.getNdistortionParams(args.distortion_model) -
+                                          optimizer.getNdistortionParams(intrinsics[0])        ))*1e-5,
+                        axis=-1 ))
 
-distortion_model   = args.distortion_model
-Ndistortions       = optimizer.getNdistortionParams(distortion_model)
-Ndistortions_delta = Ndistortions - Ndistortions0
-intrinsics         = nps.glue( intrinsics, np.random.random((Ncameras, Ndistortions_delta))*1e-5, axis=-1 )
-stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
+
+stats = optimizer.optimize(intrinsics[1], extrinsics, frames, None,
                            observations, indices_frame_camera,
                            None, None,
-                           distortion_model,
+                           intrinsics[0],
                            do_optimize_intrinsic_core        = True,
                            do_optimize_intrinsic_distortions = True,
                            calibration_object_spacing        = object_spacing,
@@ -1016,6 +1025,10 @@ MMt = stats['intrinsic_covariances']  \
 
 print "Done!"
 print "RMS reprojection error: {} pixels".format(stats['rms_reproj_error__pixels'])
+print "Noutliers: {} out of {} total points: {:.01f}% of the data". \
+    format(stats['Noutliers'],
+           object_width_n*object_width_n*len(observations),
+           100.0 * stats['Noutliers'] / (object_width_n*object_width_n*len(observations)))
 print "Expected projection uncertainty due to input pixel observations."
 print "  This is an (Ncameras,5) matrix. For each camera we look at the"
 print "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order."
@@ -1033,10 +1046,10 @@ for i_camera in xrange(Ncameras):
 
     # 3D vectors we're projecting
     # shape (Ncameras, 5, 3)
-    V = nps.cat( *[ projections.unproject(v[i_camera, ...], distortion_model, intrinsics[i_camera]) \
+    V = nps.cat( *[ projections.unproject(v[i_camera, ...], args.distortion_model, intrinsics[1][i_camera]) \
                     for i_camera in xrange(Ncameras)] )
     Expected_projection_shift[i_camera, :] = \
-        utils.get_projection_uncertainty(V, distortion_model, intrinsics[i_camera], MMt)
+        utils.get_projection_uncertainty(V, args.distortion_model, intrinsics[1][i_camera], MMt)
 print Expected_projection_shift
 
 
@@ -1070,7 +1083,7 @@ for i_camera in xrange(Ncameras):
     Rt_rx = poseutils.compose_Rt(Rt_r0,
                                  poseutils.invert_Rt( poseutils.Rt_from_rt(rt_x0)))
 
-    c = cameramodel( intrinsics            = (distortion_model, intrinsics[i_camera,:]),
+    c = cameramodel( intrinsics            = (args.distortion_model, intrinsics[1][i_camera,:]),
                      extrinsics_Rt_toref   = Rt_rx,
                      dimensions            = imagersizes[i_camera],
                      covariance_intrinsics = MMt[i_camera, ...])
@@ -1103,7 +1116,7 @@ Potential things to look at:
 '''
 
 
-    projected = projections.calobservations_project(distortion_model, intrinsics, extrinsics, frames, object_spacing, object_width_n)
+    projected = projections.calobservations_project(args.distortion_model, intrinsics[1], extrinsics, frames, object_spacing, object_width_n)
     err_all_points,err_ignoring_outliers = projections.calobservations_compute_reproj_error(projected, observations,
                                                                                             indices_frame_camera, object_width_n,
                                                                                             stats['outlier_indices'])
@@ -1196,24 +1209,24 @@ Potential things to look at:
         dx            = np.loadtxt("/tmp/dx")
 
         observations += dm.reshape(116,10,10,2)
-        intrinsics0 = np.copy(intrinsics)
+        intrinsics0 = np.copy(intrinsics[1])
         frames0     = np.copy(frames)
-        p0          = nps.glue( intrinsics.ravel(),
+        p0          = nps.glue( intrinsics[1].ravel(),
                                 frames.ravel(),
                                 axis=-1)
 
         J      = np.fromfile("/tmp/J1_23200_704.dat").reshape(23200,704)
         M      = np.linalg.pinv(J)
         MMt_ref = nps.matmult(M,nps.transpose(M))
-        Nintrinsics = intrinsics.shape[-1]
+        Nintrinsics = intrinsics[1].shape[-1]
         print "MMt difference should be 0: {}".format(np.linalg.norm(MMt[i_camera]/args.observed_pixel_uncertainty/args.observed_pixel_uncertainty -
                                                                      MMt_ref[Nintrinsics*i_camera:Nintrinsics*(i_camera+1),
                                                                              Nintrinsics*i_camera:Nintrinsics*(i_camera+1)]))
 
-        stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
+        stats = optimizer.optimize(intrinsics[1], extrinsics, frames, None,
                                    observations, indices_frame_camera,
                                    None, None,
-                                   distortion_model,
+                                   args.distortion_model,
                                    do_optimize_intrinsic_core        = True,
                                    do_optimize_intrinsic_distortions = True,
                                    calibration_object_spacing        = object_spacing,
@@ -1222,11 +1235,11 @@ Potential things to look at:
                                    skip_outlier_rejection            = True,
                                    skip_regularization               = True)
 
-        p1          = nps.glue( intrinsics.ravel(),
+        p1          = nps.glue( intrinsics[1].ravel(),
                                 frames.ravel(),
                                 axis=-1)
         x1 = stats['x']
-        intrinsics1 = intrinsics
+        intrinsics1 = intrinsics[1]
         E0 = np.sqrt(nps.inner(x0,x0)/(x0.shape[0]/2))
         E1 = np.sqrt(nps.inner(x1,x1)/(x0.shape[0]/2))
 
@@ -1249,12 +1262,12 @@ Potential things to look at:
         # dq = F df + C dc + D dd =
         #    = (F Mf + C Mc + D Md) dm
         v    = np.array((-0.81691696, -0.02852554,  0.57604945))
-        p    = projections.project(v, distortion_model, intrinsics0[i_camera], get_gradients=True)
+        p    = projections.project(v, args.distortion_model, intrinsics0[i_camera], get_gradients=True)
         q0   = p[..., 0]
         F    = p[..., 1:3]
         C    = p[..., 3:5]
         D    = p[..., 5: ]
-        q1   = projections.project(v, distortion_model, intrinsics1[i_camera], get_gradients=False)
+        q1   = projections.project(v, args.distortion_model, intrinsics1[i_camera], get_gradients=False)
         Mf = M[Nintrinsics*i_camera+0 : Nintrinsics*i_camera+2,   :]
         Mc = M[Nintrinsics*i_camera+2 : Nintrinsics*i_camera+4,   :]
         Md = M[Nintrinsics*i_camera+4 : Nintrinsics*(i_camera+1) ,:]
@@ -1305,13 +1318,13 @@ Potential things to look at:
     plots_intrinsics_sensitivity = [None] * Ncameras
     def show_intrinsics_map(i_camera = None, gridn = 40):
         global plots_intrinsics_sensitivity
-        i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics))
+        i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
         for i_camera in i_camera_all:
             plots_intrinsics_sensitivity[i_camera] = \
-                utils.visualize_intrinsics_uncertainty(distortion_model,
-                                                       intrinsics  [i_camera],
-                                                       MMt         [i_camera],
-                                                       imagersizes [i_camera])
+                utils.visualize_intrinsics_uncertainty(args.distortion_model,
+                                                       intrinsics[1][i_camera],
+                                                       MMt          [i_camera],
+                                                       imagersizes  [i_camera])
 
     import IPython
     IPython.embed()
