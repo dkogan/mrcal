@@ -1983,7 +1983,7 @@ mrcal_optimize( // out
 
                 if(!observation->skip_observation &&
 
-                   // /2 because I look at measurement GROUPS here, not discrete
+                   // /2 because I look at FEATURES here, not discrete
                    // measurements
                    !markedOutliers[iMeasurement/2].marked)
                 {
@@ -2539,7 +2539,7 @@ mrcal_optimize( // out
         }
         reportFitMsg = NULL;
 
-        double getConfidence(int i_exclude_group)
+        double getConfidence(int i_exclude_feature)
         {
             return 1.0;
         }
