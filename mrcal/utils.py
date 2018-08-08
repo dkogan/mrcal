@@ -374,7 +374,12 @@ def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intri
             nps.matmult(D,Cdc,nps.transpose(C)) + \
             nps.matmult(D,Cdd,nps.transpose(D))
 
-    # Let x be a 0-mean normally-distributed 2-vector with covariance V.
+    # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
+    # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
+    # an arbitrary covariance, instead of sI (which is what the Rayleigh
+    # distribution expects). I thus compute sqrt(E(norm2(x))) instead of
+    # E(sqrt(norm2(x))). Hopefully that's close enough
+    #
     # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
     @nps.broadcast_define( (('n','n'),), ())
     def trace(x):
