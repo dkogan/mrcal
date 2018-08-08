@@ -98,6 +98,26 @@ def parse_args():
                         default=False,
                         help='''After the solve open an interactive shell to examine the solution''')
 
+    def positive_float(string):
+        try:
+            value = float(string)
+        except:
+            raise argparse.ArgumentTypeError("argument MUST be positive. Got '{}'".format(string))
+        if value <= 0:
+            raise argparse.ArgumentTypeError("argument MUST be positive. Got '{}'".format(string))
+        return value
+    parser.add_argument('--observed-pixel-uncertainty',
+                        type=positive_float,
+                        required=True,
+                        help='''The standard deviation of x and y pixel coordinates of the input
+                        observations. The distribution of the inputs is assumed
+                        to be gaussian, with the standard deviation specified by
+                        this argument. Note: this is the x and y standard
+                        deviation, treated independently. If each of these is s,
+                        then the LENGTH of the deviation of each pixel is a
+                        Rayleigh distribution with expected value s*sqrt(pi/2) ~
+                        s*1.25''')
+
     parser.add_argument('images',
                         type=str,
                         nargs='+',
@@ -968,9 +988,12 @@ stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
                            do_optimize_intrinsic_distortions = True,
                            calibration_object_spacing        = object_spacing,
                            calibration_object_width_n        = object_width_n,
-                           skip_outlier_rejection            = True,
-                           VERBOSE                           = True)
-MMt = stats['intrinsic_covariances']
+                           skip_outlier_rejection            = False,
+                           skip_regularization               = False,
+                           VERBOSE                           = False)
+MMt = stats['intrinsic_covariances']  \
+    * args.observed_pixel_uncertainty \
+    * args.observed_pixel_uncertainty
 print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
 
@@ -1141,7 +1164,7 @@ Potential things to look at:
         M      = np.linalg.pinv(J)
         MMt_ref = nps.matmult(M,nps.transpose(M))
         Nintrinsics = intrinsics.shape[-1]
-        print "MMt difference should be 0: {}".format(np.linalg.norm(MMt[i_camera] -
+        print "MMt difference should be 0: {}".format(np.linalg.norm(MMt[i_camera]/args.observed_pixel_uncertainty/args.observed_pixel_uncertainty -
                                                                      MMt_ref[Nintrinsics*i_camera:Nintrinsics*(i_camera+1),
                                                                              Nintrinsics*i_camera:Nintrinsics*(i_camera+1)]))
 
