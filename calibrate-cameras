@@ -1261,6 +1261,16 @@ Potential things to look at:
                      _with='points', square=1)
 
 
+    plots_intrinsics_sensitivity = [None] * Ncameras
+    def show_intrinsics_map(i_camera = None, gridn = 40):
+        global plots_intrinsics_sensitivity
+        i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics))
+        for i_camera in i_camera_all:
+            plots_intrinsics_sensitivity[i_camera] = \
+                utils.visualize_intrinsics_uncertainty(distortion_model,
+                                                       intrinsics  [i_camera],
+                                                       MMt         [i_camera],
+                                                       imagersizes [i_camera])
 
     import IPython
     IPython.embed()
