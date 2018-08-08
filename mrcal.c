@@ -2504,7 +2504,7 @@ mrcal_optimize( // out
 
             // this is just for diagnostics. Should probably do this only in a
             // #if of some sort. This sqrt() does no useful work
-            MSG("RMS: %g", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
+            MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
         }
     }
 
