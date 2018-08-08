@@ -74,16 +74,9 @@ if re.match(".*\.cahvor$", args.model[0]):
 else:
     model = cameramodel(args.model[0])
 
-
-intrinsics = model.intrinsics()
-
-dims = model.dimensions()
-if dims is None:
-    sys.stderr.write("Warning: imager dimensions not available. Using centerpixel*2\n")
-    dims = model.intrinsics()[1][2:4] * 2
-W,H = dims
-
 # get the input and output grids of shape Nwidth,Nheight,2
+W,H = model.dimensions()
+intrinsics = model.intrinsics()
 grid, dgrid = projections.distortion_map__to_warped(intrinsics,
                                                     np.linspace(0,W,args.gridn),
                                                     np.linspace(0,H,args.gridn))
