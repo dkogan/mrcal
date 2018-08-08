@@ -1140,8 +1140,10 @@ Potential things to look at:
         show_reprojection_errors( i_observations_worst[i] )
 
     def check_confidence_computations():
-        r'''These all test the confidence computations using the debugging exports
-        from computeConfidence_MMt() in mrcal.c'''
+        r'''These all test the confidence computations using the debugging exports from
+        computeConfidence_MMt() in mrcal.c. It's all for debugging.
+
+        '''
 
         # E0 = nps.inner(x,x)
         # E0_rms = np.sqrt(E0/(x.shape[0]/2))
