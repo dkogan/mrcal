@@ -1032,7 +1032,7 @@ print "Noutliers: {} out of {} total points: {:.01f}% of the data". \
 print "Expected projection uncertainty due to input pixel observations."
 print "  This is an (Ncameras,5) matrix. For each camera we look at the"
 print "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order."
-print "  The corners are 10% inside the image. The reporeted numbers are 'expected projection"
+print "  The corners are 10% inside the image. The reported numbers are 'expected projection"
 print "  error', measured in pixels."
 Expected_projection_shift = np.zeros((Ncameras, 5))
 for i_camera in xrange(Ncameras):
