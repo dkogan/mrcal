@@ -784,6 +784,7 @@ def make_seed(inputs, model_seed):
                                      for i_camera in xrange(inputs['Ncameras'])] )
         intrinsics = ('DISTORTION_NONE', intrinsics_data)
     else:
+        print "--seed probably doesn't work currently. What does it do for Ncameras>1"
         intrinsics = list(model_seed.intrinsics())
         intrinsics[1] = nps.dummy(intrinsics[1], -2) # add 'cameras' dimension of length 1
 
