@@ -242,15 +242,15 @@ class cameramodel(object):
         else:
             covariance_intrinsics = None
 
-        intrinsics = (model['distortion_model'], model['intrinsics'])
+        intrinsics = (model['distortion_model'], np.array(model['intrinsics']))
         _validateIntrinsics(intrinsics, covariance_intrinsics)
         _validateExtrinsics(model['extrinsics'])
         _validateDimensions(model['dimensions'])
 
         self._intrinsics            = intrinsics
         self._covariance_intrinsics = covariance_intrinsics
-        self._extrinsics            = model['extrinsics']
-        self._dimensions            = model['dimensions']
+        self._extrinsics            = np.array(model['extrinsics'])
+        self._dimensions            = np.array(model['dimensions'])
 
 
     def __init__(self, file_or_model=None, **kwargs):
