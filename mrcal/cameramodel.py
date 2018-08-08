@@ -35,8 +35,8 @@ def _validateExtrinsics(e):
     return True
 
 
-def _validateIntrinsics(i):
-    r'''Raises an exception if the given intrinsics are invalid'''
+def _validateIntrinsics(i, MMt):
+    r'''Raises an exception if the given intrinsics, covariances are invalid'''
 
     try:
         N = len(i)
@@ -65,19 +65,11 @@ def _validateIntrinsics(i):
         if not isinstance(x, numbers.Number):
             raise Exception("All intrinsics elements should be numeric, but '{}' isn't".format(x))
 
-    return True
 
+    if MMt is None:
+        return True;
 
-def _validateCovarianceIntrinsics(distortion_model, MMt):
-    r'''Raises an exception if the given covariance is invalid.
-
-    This needs to be a symmetric, positive-semi-definite matrix of shape
-    (Nintrinsics,Nintrinsics)
-
-    '''
-    # If this fails, I keep the exception and let it fall through
-    Ndistortions_want = optimizer.getNdistortionParams(distortion_model)
-    Nintrinsics = Ndistortions_want+4
+    Nintrinsics = len(intrinsics)
 
     try:
         s = MMt.shape
@@ -183,11 +175,8 @@ class cameramodel(object):
         if note is not None:
             f.write('# ' + note + '\n')
 
-        _validateIntrinsics(self._intrinsics)
-        if self._covariance_intrinsics is not None:
-            distortion_model = self._intrinsics[0]
-            _validateCovarianceIntrinsics(distortion_model,
-                                          self._covariance_intrinsics)
+        _validateIntrinsics(self._intrinsics,
+                            self._covariance_intrinsics)
         _validateExtrinsics(self._extrinsics)
 
         # I write this out manually instead of using repr for the whole thing
@@ -248,20 +237,20 @@ class cameramodel(object):
             raise Exception("Model must have at least these keys: '{}'. Instead I got '{}'". \
                             format(keys_required, keys_received))
 
+        if 'covariance_intrinsics' in model:
+            covariance_intrinsics = np.array(model['covariance_intrinsics'])
+        else:
+            covariance_intrinsics = None
+
         intrinsics = (model['distortion_model'], model['intrinsics'])
-        _validateIntrinsics(intrinsics)
+        _validateIntrinsics(intrinsics, covariance_intrinsics)
         _validateExtrinsics(model['extrinsics'])
         _validateDimensions(model['dimensions'])
 
-        self._intrinsics = intrinsics
-        self._extrinsics = model['extrinsics']
-        self._dimensions = model['dimensions']
-        if 'covariance_intrinsics' in model:
-            c = np.array(model['covariance_intrinsics'])
-            _validateCovarianceIntrinsics(model['distortion_model'], c)
-            self._covariance_intrinsics = c
-        else:
-            self._covariance_intrinsics = None
+        self._intrinsics            = intrinsics
+        self._covariance_intrinsics = covariance_intrinsics
+        self._extrinsics            = model['extrinsics']
+        self._dimensions            = model['dimensions']
 
 
     def __init__(self, file_or_model=None, **kwargs):
@@ -377,12 +366,15 @@ class cameramodel(object):
           values represent the lens distortion. The number and meaning of these
           parameters depends on the distortion model we're using
 
+        Note that this function resets the covariance, if we have one.
+
         '''
 
         if i is None:
             return self._intrinsics
 
-        _validateIntrinsics(i)
+        self._covariance_intrinsics = None
+        _validateIntrinsics(i, self._covariance_intrinsics)
         self._intrinsics = i
 
 
@@ -503,8 +495,7 @@ class cameramodel(object):
         if c is None:
             return self._covariance_intrinsics
 
-        distortion_model = self.intrinsics()[0]
-        _validateCovarianceIntrinsics(distortion_model, c)
+        _validateIntrinsics(self._intrinsics, c)
         self._covariance_intrinsics = c
 
 
