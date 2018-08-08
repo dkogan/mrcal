@@ -1012,11 +1012,31 @@ stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
 MMt = stats['intrinsic_covariances']  \
     * args.observed_pixel_uncertainty \
     * args.observed_pixel_uncertainty
-print "done with {}, optimizing DISTORTIONS".format(distortion_model)
 
+print "Done!"
+print "RMS reprojection error: {} pixels".format(stats['rms_reproj_error__pixels'])
+print "Expected projection uncertainty due to input pixel observations."
+print "  This is an (Ncameras,5) matrix. For each camera we look at the"
+print "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order."
+print "  The corners are 10% inside the image. The reporeted numbers are 'expected projection"
+print "  error', measured in pixels."
+Expected_projection_shift = np.zeros((Ncameras, 5))
+for i_camera in xrange(Ncameras):
 
+    v = nps.cat( *[np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+                             (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+                             (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+                             (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+                             (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1]))) \
+                   for i_camera in xrange(Ncameras)])
 
-
+    # 3D vectors we're projecting
+    # shape (Ncameras, 5, 3)
+    V = nps.cat( *[ projections.unproject(v[i_camera, ...], distortion_model, intrinsics[i_camera]) \
+                    for i_camera in xrange(Ncameras)] )
+    Expected_projection_shift[i_camera, :] = \
+        utils.get_projection_uncertainty(V, distortion_model, intrinsics[i_camera], MMt)
+print Expected_projection_shift
 
 
 
