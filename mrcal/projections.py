@@ -376,7 +376,7 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions, **kwargs):
     if len(distortions) != Ndistortions:
         raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values".format(distortion_model, Ndistortions, len(distortions)))
 
-    if distortion_model == "DISTORTION_NONE":
+    if distortion_model == "DISTORTION_NONE" and not get_gradients:
         return p
 
     distort_function = _get_distortion_function(distortion_model)
