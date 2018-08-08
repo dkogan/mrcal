@@ -92,6 +92,26 @@ def parse_args():
                         default=False,
                         help='''Apply MUSE's non-identity rotation for camera0''')
 
+    parser.add_argument('--skip-regularization',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='''By default we apply regularization to the solver. This option turns that
+off''')
+
+    parser.add_argument('--skip-outlier-rejection',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='''By default we throw out outliers. This option turns that off''')
+
+    parser.add_argument('--verbose-solver',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='''By default the final stage of the solver doesn't say much. This option turns
+on verbosity to get lots of diagnostics.''')
+
     parser.add_argument('--explore',
                         action='store_true',
                         required=False,
@@ -988,9 +1008,9 @@ stats = optimizer.optimize(intrinsics, extrinsics, frames, None,
                            do_optimize_intrinsic_distortions = True,
                            calibration_object_spacing        = object_spacing,
                            calibration_object_width_n        = object_width_n,
-                           skip_outlier_rejection            = False,
-                           skip_regularization               = False,
-                           VERBOSE                           = False)
+                           skip_outlier_rejection            = args.skip_outlier_rejection,
+                           skip_regularization               = args.skip_regularization,
+                           VERBOSE                           = args.verbose_solver)
 MMt = stats['intrinsic_covariances']  \
     * args.observed_pixel_uncertainty \
     * args.observed_pixel_uncertainty
