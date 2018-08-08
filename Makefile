@@ -36,6 +36,11 @@ DIST_BIN :=					\
 	< $^ sed 's/^/"/; s/$$/\\n"/;' > $@
 EXTRA_CLEAN += *.docstring.h
 
+# In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
+# and the compiler complains. But that's how Python does it! So I tell the
+# compiler to chill
+mrcal_pywrap.o: CFLAGS += -Wno-cast-function-type
+
 mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS)
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 
