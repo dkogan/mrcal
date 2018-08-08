@@ -995,29 +995,33 @@ def get_projection_uncertainty(V, distortion_model, intrinsics, MMt):
     imagePoints = p[..., 0]
     F           = p[..., 1:3]
     C           = p[..., 3:5]
-    D           = p[..., 5: ]
 
     Cff = MMt[0:2, 0:2]
     Cfc = MMt[0:2, 2:4]
-    Cfd = MMt[0:2, 4: ]
     Ccf = MMt[2:4, 0:2]
     Ccc = MMt[2:4, 2:4]
-    Ccd = MMt[2:4, 4: ]
-    Cdf = MMt[4:,  0:2]
-    Cdc = MMt[4:,  2:4]
-    Cdd = MMt[4:,  4: ]
 
     # shape Nwidth,Nheight,2,2: each slice is a 2x2 covariance
     Vdprojection = \
         nps.matmult(F,Cff,nps.transpose(F)) + \
         nps.matmult(F,Cfc,nps.transpose(C)) + \
-        nps.matmult(F,Cfd,nps.transpose(D)) + \
         nps.matmult(C,Ccf,nps.transpose(F)) + \
-        nps.matmult(C,Ccc,nps.transpose(C)) + \
-        nps.matmult(C,Ccd,nps.transpose(D)) + \
-        nps.matmult(D,Cdf,nps.transpose(F)) + \
-        nps.matmult(D,Cdc,nps.transpose(C)) + \
-        nps.matmult(D,Cdd,nps.transpose(D))
+        nps.matmult(C,Ccc,nps.transpose(C))
+
+
+    if distortion_model != 'DISTORTION_NONE':
+        D = p[..., 5: ]
+        Cfd = MMt[0:2, 4: ]
+        Ccd = MMt[2:4, 4: ]
+        Cdc = MMt[4:,  2:4]
+        Cdd = MMt[4:,  4: ]
+        Cdf = MMt[4:,  0:2]
+        Vdprojection += \
+            nps.matmult(F,Cfd,nps.transpose(D)) + \
+            nps.matmult(C,Ccd,nps.transpose(D)) + \
+            nps.matmult(D,Cdf,nps.transpose(F)) + \
+            nps.matmult(D,Cdc,nps.transpose(C)) + \
+            nps.matmult(D,Cdd,nps.transpose(D))
 
     # Let x be a 0-mean normally-distributed 2-vector with covariance V.
     # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
