@@ -4,7 +4,7 @@ r'''Renders a vector field to visualize the effect of a model
 
 Synopsis:
 
-  $ visualize_distortion.py left.cameramodel
+  $ visualize-distortion left.cameramodel
   ... a plot pops up showing the vector field
 
 This allows us to visually see what a distortion model does. Depending on the
@@ -61,7 +61,7 @@ def parse_args():
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         nargs=1,
-                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
+                        help='''Input camera model. Assumed to be mrcal native, unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
 
     return parser.parse_args()
