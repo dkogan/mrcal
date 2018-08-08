@@ -529,7 +529,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_in
                            'contour surface',
                            'cntrparam levels incremental 10,-0.2,0'],
                       _xrange=[0,W],
-                      yrange=[H,0],
+                      _yrange=[H,0],
                       cbrange=[0,5],
                       ascii=1,
                       title=title)
@@ -540,7 +540,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_in
     # plotting the data a second time.
     # Yuck.
     # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-    plot.plot( (Expected_projection_shift, dict(               tuplesize=3, _with='image',                                using=using)),
+    plot.plot( (Expected_projection_shift, dict(                                    tuplesize=3, _with='image',           using=using)),
                (Expected_projection_shift, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
     return plot
 
