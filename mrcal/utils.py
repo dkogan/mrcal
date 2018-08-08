@@ -383,8 +383,8 @@ def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intri
     return Expected_projection_shift
 
 
-def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_intrinsics, imagersize, gridn,
-                                     extratitle = None):
+def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_intrinsics, imagersize,
+                                     gridn = 40, extratitle = None):
     r'''A calibration process produces the best-fitting camera parameters (intrinsics
     and extrinsics) and a covariance matrix representing the uncertainty in
     these parameters. When we use the intrinsics to project 3D points into the
