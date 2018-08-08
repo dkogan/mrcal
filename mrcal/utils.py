@@ -347,10 +347,10 @@ def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intri
     F           = p[..., 1:3]
     C           = p[..., 3:5]
 
-    Cff = covariance_intrinsics[0:2, 0:2]
-    Cfc = covariance_intrinsics[0:2, 2:4]
-    Ccf = covariance_intrinsics[2:4, 0:2]
-    Ccc = covariance_intrinsics[2:4, 2:4]
+    Cff = covariance_intrinsics[..., 0:2, 0:2]
+    Cfc = covariance_intrinsics[..., 0:2, 2:4]
+    Ccf = covariance_intrinsics[..., 2:4, 0:2]
+    Ccc = covariance_intrinsics[..., 2:4, 2:4]
 
     # shape Nwidth,Nheight,2,2: each slice is a 2x2 covariance
     Vdprojection = \
@@ -362,11 +362,11 @@ def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intri
 
     if distortion_model != 'DISTORTION_NONE':
         D = p[..., 5: ]
-        Cfd = covariance_intrinsics[0:2, 4: ]
-        Ccd = covariance_intrinsics[2:4, 4: ]
-        Cdc = covariance_intrinsics[4:,  2:4]
-        Cdd = covariance_intrinsics[4:,  4: ]
-        Cdf = covariance_intrinsics[4:,  0:2]
+        Cfd = covariance_intrinsics[..., 0:2, 4: ]
+        Ccd = covariance_intrinsics[..., 2:4, 4: ]
+        Cdc = covariance_intrinsics[..., 4:,  2:4]
+        Cdd = covariance_intrinsics[..., 4:,  4: ]
+        Cdf = covariance_intrinsics[..., 4:,  0:2]
         Vdprojection += \
             nps.matmult(F,Cfd,nps.transpose(D)) + \
             nps.matmult(C,Ccd,nps.transpose(D)) + \
