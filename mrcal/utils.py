@@ -8,6 +8,7 @@ import cv2
 
 import optimizer
 import poseutils
+import projections
 
 
 @nps.broadcast_define( (('N',3), ('N',3),),
@@ -326,10 +327,223 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
 
     # Need ascii=1 because I'm plotting labels.
     import gnuplotlib as gp
-    gp.plot(*curves, _3d=1, square=1, ascii=1 )
+    plot = gp.gnuplotlib(_3d=1, square=1, ascii=1 )
+    plot.plot(*curves)
+    return plot
 
-    import time
-    time.sleep(100000)
+
+def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intrinsics):
+    r'''Computes the uncertainty in a projection of a 3D point
+
+    Given a (broadcastable) 3D vector, and the covariance matrix for the
+    intrinsics, returns the expected value of the deviation from center of the
+    projected point that would result from noise in the calibration
+    observations. See comment in visualize_intrinsics_uncertainty() for
+    derivation
+
+    '''
+    p = projections.project(V, distortion_model, intrinsics, get_gradients=True)
+    imagePoints = p[..., 0]
+    F           = p[..., 1:3]
+    C           = p[..., 3:5]
+
+    Cff = covariance_intrinsics[0:2, 0:2]
+    Cfc = covariance_intrinsics[0:2, 2:4]
+    Ccf = covariance_intrinsics[2:4, 0:2]
+    Ccc = covariance_intrinsics[2:4, 2:4]
+
+    # shape Nwidth,Nheight,2,2: each slice is a 2x2 covariance
+    Vdprojection = \
+        nps.matmult(F,Cff,nps.transpose(F)) + \
+        nps.matmult(F,Cfc,nps.transpose(C)) + \
+        nps.matmult(C,Ccf,nps.transpose(F)) + \
+        nps.matmult(C,Ccc,nps.transpose(C))
+
+
+    if distortion_model != 'DISTORTION_NONE':
+        D = p[..., 5: ]
+        Cfd = covariance_intrinsics[0:2, 4: ]
+        Ccd = covariance_intrinsics[2:4, 4: ]
+        Cdc = covariance_intrinsics[4:,  2:4]
+        Cdd = covariance_intrinsics[4:,  4: ]
+        Cdf = covariance_intrinsics[4:,  0:2]
+        Vdprojection += \
+            nps.matmult(F,Cfd,nps.transpose(D)) + \
+            nps.matmult(C,Ccd,nps.transpose(D)) + \
+            nps.matmult(D,Cdf,nps.transpose(F)) + \
+            nps.matmult(D,Cdc,nps.transpose(C)) + \
+            nps.matmult(D,Cdd,nps.transpose(D))
+
+    # Let x be a 0-mean normally-distributed 2-vector with covariance V.
+    # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
+    @nps.broadcast_define( (('n','n'),), ())
+    def trace(x):
+        return np.trace(x)
+    Expected_projection_shift = np.sqrt(trace(Vdprojection))
+    return Expected_projection_shift
+
+
+def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_intrinsics, imagersize, gridn,
+                                     extratitle = None):
+    r'''A calibration process produces the best-fitting camera parameters (intrinsics
+    and extrinsics) and a covariance matrix representing the uncertainty in
+    these parameters. When we use the intrinsics to project 3D points into the
+    image plane, this intrinsics uncertainty creates an uncertainty in the
+    resulting projection point. This tool plots the expected value of this
+    projection error across the imager. Areas with a high expected projection
+    error are unreliable for further work.
+
+    Comment from the mrcal core:
+
+        This is part of sensitivity analysis to quantify how much errors in the
+        input pixel observations affect our solution. A "good" solution will not be
+        very sensitive: measurement noise doesn't affect the solution very much.
+
+        I minimize a cost function E = norm2(x) where x is the measurements. Some
+        elements of x depend on inputs, and some don't (regularization for instance).
+        I perturb the inputs, reoptimize (assuming everything is linear) and look
+        what happens to the state p. I'm at an optimum p*:
+
+          dE/dp (p=p*) = 2 Jt x (p=p*) = 0
+
+        I perturb the inputs:
+
+          E(x(p+dp, m+dm)) = norm2( x + J dp + dx/dm dm)
+
+        And I reoptimize:
+
+          dE/ddp ~ ( x + J dp + dx/dm dm)t J = 0
+
+        I'm at an optimum, so Jtx = 0, so
+
+          -Jt dx/dm dm = JtJ dp
+
+        So if I perturb my input observation vector m by dm, the resulting effect on
+        the parameters is dp = M dm
+
+          where M = -inv(JtJ) Jt dx/dm
+
+        In order to be useful I need to do something with M. Let's say I want to
+        quantify how precise our optimal intrinsics are. Ultimately these are always
+        used in a projection operation. So given a 3d observation vector v, I project
+        it onto our image plane:
+
+          q = project(v, intrinsics)
+
+        I assume an independent, gaussian noise on my input observations, and for a
+        set of given observation vectors v, I compute the effect on the projection.
+
+          dq = dprojection/dintrinsics dintrinsics
+
+        dprojection/dintrinsics comes from cvProjectPoints2()
+        dintrinsics is the shift in our optimal state: M dm
+
+        If dm represents noise of the zero-mean, independent, gaussian variety, then
+        dp is also zero-mean gaussian, but no longer independent.
+
+          Var(dp) = M Var(dm) Mt = M Mt s^2
+
+        where s is the standard deviation of the noise of each parameter in dm.
+
+        The intrinsics of each camera have 3 components:
+
+        - f: focal lengths
+        - c: center pixel coord
+        - d: distortion parameters
+
+        Let me define dprojection/df = F, dprojection/dc = C, dprojection/dd = D.
+        These all come from cvProjectPoints2().
+
+        Rewriting the projection equation I get
+
+          q = project(v,  f,c,d)
+          dq = F df + C dc + D dd
+
+        df,dc,dd are random variables that come from dp.
+
+          Var(dq) = F Covar(df,df) Ft +
+                    C Covar(dc,dc) Ct +
+                    D Covar(dd,dd) Dt +
+                    F Covar(df,dc) Ct +
+                    F Covar(df,dd) Dt +
+                    C Covar(dc,df) Ft +
+                    C Covar(dc,dd) Dt +
+                    D Covar(dd,df) Ft +
+                    D Covar(dd,dc) Ct
+
+        Covar(dx,dy) are all submatrices of the larger Var(dp) matrix we computed
+        above: M Mt s^2.
+
+        Here I look ONLY at the interactions of intrinsic parameters for a particular
+        camera with OTHER intrinsic parameters of the same camera. I ignore
+        cross-camera interactions and interactions with other parameters, such as the
+        frame poses and extrinsics.
+
+        For mrcal, the measurements are
+
+        1. reprojection errors of chessboard grid observations
+        2. reprojection errors of individual point observations
+        3. range errors for points with known range
+        4. regularization terms
+
+        The observed pixel measurements come into play directly into 1 and 2 above,
+        but NOT 3 and 4. Let's say I'm doing ordinary least squares, so x = f(p) - m
+
+          dx/dm = [ -I ]
+                  [  0 ]
+
+        I thus ignore measurements past the observation set.
+
+        My matrices are large and sparse. Thus I compute the blocks of M Mt that I
+        need here, and return these densely to the upper levels (python). These
+        callers will then use these dense matrices to finish the computation
+
+          M Mt = sum(outer(col(M), col(M)))
+          col(M) = solve(JtJ, row(J))
+
+    '''
+
+    import gnuplotlib as gp
+
+    W,H=imagersize
+    w = np.linspace(0,W-1,gridn)
+    h = np.linspace(0,H-1,gridn)
+    # shape: Nwidth,Nheight,2
+    grid = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+    # shape: Nwidth,Nheight,3
+    V = projections.unproject(grid, distortion_model, intrinsics)
+    Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intrinsics)
+
+    title = "Projection uncertainty"
+    if extratitle is not None:
+        title += ": " + extratitle
+
+    plot = \
+        gp.gnuplotlib(_3d=1,
+                      unset='grid',
+                      set=['xrange [:] noextend',
+                           'yrange [:] noextend reverse',
+                           'view equal xy',
+                           'view map',
+                           'contour surface',
+                           'cntrparam levels incremental 10,-0.2,0'],
+                      _xrange=[0,W],
+                      yrange=[H,0],
+                      cbrange=[0,5],
+                      ascii=1,
+                      title=title)
+
+    using='($1*{}):($2*{}):3'.format((W-1)/(gridn-1), (H-1)/(gridn-1))
+
+    # Currently "with image" can't produce contours. I work around this, by
+    # plotting the data a second time.
+    # Yuck.
+    # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+    plot.plot( (Expected_projection_shift, dict(               tuplesize=3, _with='image',                                using=using)),
+               (Expected_projection_shift, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
+    return plot
+
 
 @nps.broadcast_define( (('Nw','Nh',2),),
                        ())

@@ -1,0 +1,67 @@
+#!/usr/bin/python2
+
+r'''Renders the expected projection error due to calibration uncertainty
+
+Synopsis:
+
+  $ visualize-intrinsics-uncertainty left.cameramodel
+  ... a plot pops up showing the projection uncertainty of the intrinsics in
+  ... this model
+
+A calibration process produces the best-fitting camera parameters (intrinsics
+and extrinsics) and a covariance matrix representing the uncertainty in these
+parameters. When we use the intrinsics to project 3D points into the image
+plane, this intrinsics uncertainty creates an uncertainty in the resulting
+projection point. This tool plots the expected value of this projection error
+across the imager. Areas with a high expected projection error are unreliable
+for further work.
+
+'''
+
+import numpy as np
+import numpysane as nps
+import gnuplotlib as gp
+import sys
+import re
+import argparse
+import os
+
+from mrcal import cameramodel
+from mrcal import utils
+
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--gridn',
+                        type=int,
+                        default = 40,
+                        help='''How densely we should sample the imager. By default we report a 40x40 grid''')
+
+    parser.add_argument('model',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        nargs=1,
+                        help='''Input camera model. Assumed to be mrcal native''')
+
+    return parser.parse_args()
+
+
+
+args  = parse_args()
+model = cameramodel(args.model[0])
+
+if model.covariance_intrinsics() is None:
+    raise Exception("The given camera model doesn't have intrinsics covariances. Can't visualize them.")
+
+distortion_model,intrinsics = model.intrinsics()
+plot = utils.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
+                                              model.covariance_intrinsics(),
+                                              model.dimensions(),
+                                              args.gridn)
+
+import time
+time.sleep(1000000)
