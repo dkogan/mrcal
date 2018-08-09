@@ -41,6 +41,10 @@ def parse_args():
                         contains more information (magnitude AND direction), but
                         is less clear at a glance''')
 
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Write the output to disk, instead of making an interactive plot''')
+
     parser.add_argument('model_from',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
@@ -74,6 +78,8 @@ plot = utils.visualize_intrinsics_diff(distortion_model0, intrinsics0,
                                        m0.dimensions(),
                                        args.gridn,
                                        args.vectorfield,
+                                       hardcopy = args.hardcopy,
                                        extratitle=args.extratitle)
-import time
-time.sleep(1000000)
+if args.hardcopy is None:
+    import time
+    time.sleep(1000000)

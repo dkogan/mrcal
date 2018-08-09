@@ -55,7 +55,7 @@ def parse_args():
 
     parser.add_argument('--hardcopy',
                         type=str,
-                        help='''Optional arg to write the vector field to a file on disk''')
+                        help='''Write the output to disk, instead of an interactive plot''')
 
     parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \

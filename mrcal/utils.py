@@ -388,8 +388,11 @@ def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_
     return Expected_projection_shift
 
 
-def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data, covariance_intrinsics, imagersize,
-                                     gridn = 40, extratitle = None):
+def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
+                                     covariance_intrinsics, imagersize,
+                                     gridn = 40,
+                                     extratitle = None,
+                                     hardcopy = None):
     r'''A calibration process produces the best-fitting camera parameters (intrinsics
     and extrinsics) and a covariance matrix representing the uncertainty in
     these parameters. When we use the intrinsics to project 3D points into the
@@ -524,6 +527,10 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data, covarian
     if extratitle is not None:
         title += ": " + extratitle
 
+    extraplotkwargs = dict(title = title)
+    if hardcopy is not None:
+        extraplotkwargs['hardcopy'] = hardcopy
+
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
@@ -537,7 +544,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data, covarian
                       _yrange=[H,0],
                       cbrange=[0,5],
                       ascii=1,
-                      title=title)
+                      **extraplotkwargs)
 
     using='($1*{}):($2*{}):3'.format((W-1)/(gridn-1), (H-1)/(gridn-1))
 
@@ -555,7 +562,8 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
                               imagersize,
                               gridn = 40,
                               vectorfield = False,
-                              extratitle = None):
+                              extratitle = None,
+                              hardcopy = None):
     r'''Given two intrinsics, show their projection differences
 
     We do this either with a vectorfield or a colormap. The former carries more
@@ -585,9 +593,13 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
     if extratitle is not None:
         title += ": " + extratitle
 
+    extraplotkwargs = dict(title = title)
+    if hardcopy is not None:
+        extraplotkwargs['hardcopy'] = hardcopy
+
     if vectorfield:
         plot = gp.gnuplotlib(square=1, _xrange=[0,W], yrange=[H,0],
-                             title = title)
+                             **extraplotkwargs)
 
         p0      = nps.clump(p0,      n=2)
         p1      = nps.clump(p1,      n=2)
@@ -613,7 +625,7 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
                           _yrange=[H,0],
                           cbrange=[0,10],
                           ascii=1,
-                          title=title)
+                          **extraplotkwargs)
 
         using='($1*{}):($2*{}):3'.format((W-1)/(gridn-1), (H-1)/(gridn-1))
         # Currently "with image" can't produce contours. I work around this, by
