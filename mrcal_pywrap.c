@@ -406,7 +406,7 @@ static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
 }
 
 // return Npoints or <0 on error
-static int project_validate_args( // out
+static bool project_validate_args( // out
                                   enum distortion_model_t* distortion_model,
 
                                   // in
@@ -417,39 +417,33 @@ static int project_validate_args( // out
     if( PyArray_NDIM(intrinsics) != 1 )
     {
         PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
-        return -1;
+        return false;
     }
 
-    int Npoints = -1;
-
-    if( PyArray_NDIM(points) == 1 )
-        Npoints = 1;
-    else if( PyArray_NDIM(points) == 2 )
-        Npoints = PyArray_DIMS(points)[0];
-    else
+    if( PyArray_NDIM(points) < 1 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "'points' must have exactly 1 or 2 dims");
-        return -1;
+        PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
+        return false;
     }
     if( 3 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
     {
         PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 3. Instead got %ld",
                      PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
-        return -1;
+        return false;
     }
 
     if( PyArray_TYPE(intrinsics) != NPY_DOUBLE ||
         PyArray_TYPE(points)     != NPY_DOUBLE )
     {
         PyErr_SetString(PyExc_RuntimeError, "All inputs must contain double-precision floating-point data");
-        return -1;
+        return false;
     }
 
 #define CHECK_CONTIGUOUS(x) do {                                        \
     if( !PyArray_IS_C_CONTIGUOUS(x) )                                   \
     {                                                                   \
         PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays (" #x ")"); \
-        return -1;                                                   \
+        return false;                                                   \
     } } while(0)
 
     CHECK_CONTIGUOUS(intrinsics);
@@ -462,7 +456,7 @@ static int project_validate_args( // out
         PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
                         DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
-        return -1;
+        return false;
     }
 
     *distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
@@ -472,7 +466,7 @@ static int project_validate_args( // out
                      DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
                      distortion_model_cstring);
-        return -1;
+        return false;
     }
 
     int NdistortionParams = mrcal_getNdistortionParams(*distortion_model);
@@ -481,10 +475,10 @@ static int project_validate_args( // out
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
                      N_INTRINSICS_CORE + NdistortionParams,
                      PyArray_DIMS(intrinsics)[1] );
-        return -1;
+        return false;
     }
 
-    return Npoints;
+    return true;
 
 #undef CHECK_CONTIGUOUS
 }
@@ -523,30 +517,42 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
         goto done;
 
     enum distortion_model_t distortion_model;
-    int Npoints =  project_validate_args(&distortion_model,
-                                         points, intrinsics,
-                                         distortion_model_string);
-    if(Npoints < 0) goto done;
+    if(!project_validate_args(&distortion_model,
+                              points, intrinsics,
+                              distortion_model_string))
+        goto done;
 
-    bool singlepoint = ( PyArray_NDIM(points) == 1 );
     int Nintrinsics = PyArray_DIMS(intrinsics)[0];
 
-    if( singlepoint )
+    // poor man's broadcasting of the inputs. I compute the total number of
+    // points by multiplying the extra broadcasted dimensions. And I set up the
+    // outputs to have the appropriate broadcasted dimensions
+    const npy_intp* leading_dims  = PyArray_DIMS(points);
+    int             Nleading_dims = PyArray_NDIM(points)-1;
+    int Npoints = 1;
+    for(int i=0; i<Nleading_dims; i++)
+        Npoints *= leading_dims[i];
     {
-        out = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){2}), NPY_DOUBLE);
+        npy_intp dims[Nleading_dims+2];
+        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
+
+        dims[Nleading_dims + 0] = 2;
+        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
+                                                dims,
+                                                NPY_DOUBLE);
         if( get_gradients )
         {
-            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(2, ((npy_intp[]){2,Nintrinsics}), NPY_DOUBLE);
-            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(2, ((npy_intp[]){2,3}),           NPY_DOUBLE);
-        }
-    }
-    else
-    {
-        out = (PyArrayObject*)PyArray_SimpleNew(2, ((npy_intp[]){Npoints,2}), NPY_DOUBLE);
-        if( get_gradients )
-        {
-            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(3, ((npy_intp[]){Npoints,2,Nintrinsics}), NPY_DOUBLE);
-            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(3, ((npy_intp[]){Npoints,2,3}),           NPY_DOUBLE);
+            dims[Nleading_dims + 0] = 2;
+            dims[Nleading_dims + 1] = Nintrinsics;
+            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
+                                                                dims,
+                                                                NPY_DOUBLE);
+
+            dims[Nleading_dims + 0] = 2;
+            dims[Nleading_dims + 1] = 3;
+            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
+                                                                dims,
+                                                                NPY_DOUBLE);
         }
     }
 
