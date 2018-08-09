@@ -2542,14 +2542,25 @@ mrcal_optimize( // out
 
                 for(int j=0; j<Ndistortions; j++)
                 {
-                    const double err = distortionss[i_camera][j] * scale_distortion_regularization;
-
                     Jrowptr[iMeasurement] = iJacobian;
-                    x[iMeasurement] = err;
-                    norm2_error += err*err;
 
-                    STORE_JACOBIAN( i_var_intrinsic_distortions + j,
-                                    scale_distortion_regularization * SCALE_DISTORTION );
+                    // This is very hoaky. distortion-parameter-0 of a CAHVOR
+                    // model is a direction not a "strength" so it shouldn't be
+                    // regularized. I really shouldn't be special-casing that
+                    // one parameter.
+                    if( distortion_model == DISTORTION_CAHVOR && j == 0 )
+                    {
+                        x[iMeasurement] = 0;
+                        STORE_JACOBIAN( i_var_intrinsic_distortions + j, 0 );
+                    }
+                    else
+                    {
+                        double err = distortionss[i_camera][j] * scale_distortion_regularization;
+                        x[iMeasurement]  = err;
+                        norm2_error     += err*err;
+                        STORE_JACOBIAN( i_var_intrinsic_distortions + j,
+                                        scale_distortion_regularization * SCALE_DISTORTION );
+                    }
                     iMeasurement++;
                 }
             }
