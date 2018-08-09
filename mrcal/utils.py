@@ -295,7 +295,8 @@ def visualize_solution(distortion_model, intrinsics_data, extrinsics, frames, ob
 
             object_cam = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
 
-        err = observations[i_observations, ...] - project(object_cam, distortion_model, intrinsics_data[i_camera, ...])
+        print "double-check this. I don't broadcast over the intrinsics anymore"
+        err = observations[i_observations, ...] - projections.project(object_cam, distortion_model, intrinsics_data[i_camera, ...])
         err = nps.clump(err, n=-3)
         rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
         # igood = rms <  0.4
@@ -341,10 +342,10 @@ def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_
     derivation
 
     '''
-    p = projections.project(V, distortion_model, intrinsics_data, get_gradients=True)
-    imagePoints = p[..., 0]
-    F           = p[..., 1:3]
-    C           = p[..., 3:5]
+    imagePoints,dp_dintrinsics,_ = \
+        projections.project(V, distortion_model, intrinsics_data, get_gradients=True)
+    F = dp_dintrinsics[..., 0:2]
+    C = dp_dintrinsics[..., 2:4]
 
     Cff = covariance_intrinsics[..., 0:2, 0:2]
     Cfc = covariance_intrinsics[..., 0:2, 2:4]
@@ -360,7 +361,7 @@ def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_
 
 
     if distortion_model != 'DISTORTION_NONE':
-        D = p[..., 5: ]
+        D = dp_dintrinsics[..., 4:]
         Cfd = covariance_intrinsics[..., 0:2, 4: ]
         Ccd = covariance_intrinsics[..., 2:4, 4: ]
         Cdc = covariance_intrinsics[..., 4:,  2:4]
