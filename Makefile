@@ -25,6 +25,7 @@ DIST_BIN :=					\
 	convert-distortion			\
 	visualize-distortion			\
 	visualize-intrinsics-uncertainty        \
+	visualize-intrinsics-diff               \
 	redistort-points			\
 	undistort-image
 

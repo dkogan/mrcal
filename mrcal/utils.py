@@ -550,6 +550,81 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_in
     return plot
 
 
+def visualize_intrinsics_diff(distortion_model0, intrinsics0,
+                              distortion_model1, intrinsics1,
+                              imagersize,
+                              gridn = 40,
+                              vectorfield = False,
+                              extratitle = None):
+    r'''Given two intrinsics, show their projection differences
+
+    We do this either with a vectorfield or a colormap. The former carries more
+    information (direction and magnitude), but is less clear at a glance. I
+    default to showing a colormap
+
+    '''
+
+    import gnuplotlib as gp
+
+    W,H=imagersize
+    w = np.linspace(0,W-1,gridn)
+    h = np.linspace(0,H-1,gridn)
+    # shape: Nwidth,Nheight,2
+    p0 = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+    # shape: Nwidth,Nheight,3
+    V  = projections.unproject(p0, distortion_model0, intrinsics0)
+
+    # shape: Nwidth,Nheight,2
+    p1 = projections.project(V, distortion_model1, intrinsics1)
+
+    diff    = p1-p0
+    difflen = np.sqrt(nps.inner(diff, diff))
+
+    title = "Model diff"
+    if extratitle is not None:
+        title += ": " + extratitle
+
+    if vectorfield:
+        plot = gp.gnuplotlib(square=1, _xrange=[0,W], yrange=[H,0],
+                             title = title)
+
+        p0      = nps.clump(p0,      n=2)
+        p1      = nps.clump(p1,      n=2)
+        diff    = nps.clump(diff,    n=2)
+        difflen = nps.clump(difflen, n=2)
+
+        plot.plot( p0  [:,0], p0  [:,1],
+                   diff[:,0], diff[:,1],
+                   difflen,
+                   _with='vectors size screen 0.005,10 fixed filled palette',
+                   tuplesize=5)
+    else:
+        plot = \
+            gp.gnuplotlib(_3d=1,
+                          unset='grid',
+                          set=['xrange [:] noextend',
+                               'yrange [:] noextend reverse',
+                               'view equal xy',
+                               'view map',
+                               'contour surface',
+                               'cntrparam levels incremental 10,-1,0'],
+                          _xrange=[0,W],
+                          _yrange=[H,0],
+                          cbrange=[0,10],
+                          ascii=1,
+                          title=title)
+
+        using='($1*{}):($2*{}):3'.format((W-1)/(gridn-1), (H-1)/(gridn-1))
+        # Currently "with image" can't produce contours. I work around this, by
+        # plotting the data a second time.
+        # Yuck.
+        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+        plot.plot( (difflen, dict(                                    tuplesize=3, _with='image',           using=using)),
+                   (difflen, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
+    return plot
+
+
 @nps.broadcast_define( (('Nw','Nh',2),),
                        ())
 def get_observation_size(obs):

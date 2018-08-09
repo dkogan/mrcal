@@ -1,0 +1,79 @@
+#!/usr/bin/python2
+
+r'''Renders a difference in projection between two models
+
+Synopsis:
+
+  $ visualize-intrinsics-diff before.cameramodel after.cameramodel
+  ... a plot pops up showing how two models differ in their projections
+'''
+
+import sys
+import argparse
+import os
+import re
+
+from mrcal import cameramodel
+from mrcal import cahvor
+from mrcal import utils
+
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--gridn',
+                        type=int,
+                        default = 40,
+                        help='''How densely we should sample the imager. By default we report a 40x40 grid''')
+
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the plot''')
+
+    parser.add_argument('--vectorfield',
+                        action = 'store_true',
+                        default = False,
+                        help='''Plot the diff as a vector field instead of as a heat map. The vector field
+                        contains more information (magnitude AND direction), but
+                        is less clear at a glance''')
+
+    parser.add_argument('model_from',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        nargs=1,
+                        help='''Input camera model.''')
+
+    parser.add_argument('model_to',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        nargs=1,
+                        help='''Input camera model.''')
+
+    return parser.parse_args()
+
+
+
+args = parse_args()
+
+def loadmodel(m):
+    if re.match(".*\.cahvor$", m): return cahvor.read(m)
+    else:                          return cameramodel(m)
+
+m0 = loadmodel(args.model_from[0])
+m1 = loadmodel(args.model_to[0])
+
+distortion_model0,intrinsics0 = m0.intrinsics()
+distortion_model1,intrinsics1 = m1.intrinsics()
+
+plot = utils.visualize_intrinsics_diff(distortion_model0, intrinsics0,
+                                       distortion_model1, intrinsics1,
+                                       m0.dimensions(),
+                                       args.gridn,
+                                       args.vectorfield,
+                                       extratitle=args.extratitle)
+import time
+time.sleep(1000000)
