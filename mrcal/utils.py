@@ -261,7 +261,7 @@ def gen_plot_axes(transforms, label, color = 0, scale = 1.0, label_offset = None
     return l_axes, l_labels
 
 
-def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observations,
+def visualize_solution(distortion_model, intrinsics_data, extrinsics, frames, observations,
                        indices_frame_camera, dot_spacing, Nwant, i_camera=None):
     r'''Plot the best-estimate 3d poses of a hypothesis calibration
 
@@ -296,7 +296,7 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
 
             object_cam = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
 
-        err = observations[i_observations, ...] - project(object_cam, distortion_model, intrinsics[i_camera, ...])
+        err = observations[i_observations, ...] - project(object_cam, distortion_model, intrinsics_data[i_camera, ...])
         err = nps.clump(err, n=-3)
         rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
         # igood = rms <  0.4
@@ -332,7 +332,7 @@ def visualize_solution(distortion_model, intrinsics, extrinsics, frames, observa
     return plot
 
 
-def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intrinsics):
+def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Given a (broadcastable) 3D vector, and the covariance matrix for the
@@ -342,7 +342,7 @@ def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intri
     derivation
 
     '''
-    p = projections.project(V, distortion_model, intrinsics, get_gradients=True)
+    p = projections.project(V, distortion_model, intrinsics_data, get_gradients=True)
     imagePoints = p[..., 0]
     F           = p[..., 1:3]
     C           = p[..., 3:5]
@@ -388,7 +388,7 @@ def get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intri
     return Expected_projection_shift
 
 
-def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_intrinsics, imagersize,
+def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data, covariance_intrinsics, imagersize,
                                      gridn = 40, extratitle = None):
     r'''A calibration process produces the best-fitting camera parameters (intrinsics
     and extrinsics) and a covariance matrix representing the uncertainty in
@@ -517,8 +517,8 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_in
     grid = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
     # shape: Nwidth,Nheight,3
-    V = projections.unproject(grid, distortion_model, intrinsics)
-    Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics, covariance_intrinsics)
+    V = projections.unproject(grid, distortion_model, intrinsics_data)
+    Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
 
     title = "Projection uncertainty"
     if extratitle is not None:
@@ -550,8 +550,8 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics, covariance_in
     return plot
 
 
-def visualize_intrinsics_diff(distortion_model0, intrinsics0,
-                              distortion_model1, intrinsics1,
+def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
+                              distortion_model1, intrinsics_data1,
                               imagersize,
                               gridn = 40,
                               vectorfield = False,
@@ -573,10 +573,10 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics0,
     p0 = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
     # shape: Nwidth,Nheight,3
-    V  = projections.unproject(p0, distortion_model0, intrinsics0)
+    V  = projections.unproject(p0, distortion_model0, intrinsics_data0)
 
     # shape: Nwidth,Nheight,2
-    p1 = projections.project(V, distortion_model1, intrinsics1)
+    p1 = projections.project(V, distortion_model1, intrinsics_data1)
 
     diff    = p1-p0
     difflen = np.sqrt(nps.inner(diff, diff))
