@@ -632,8 +632,8 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
         # plotting the data a second time.
         # Yuck.
         # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot.plot( (difflen, dict(                                    tuplesize=3, _with='image',           using=using)),
-                   (difflen, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
+        plot.plot( (difflen, dict(               tuplesize=3, _with='image',           using=using)),
+                   (difflen, dict(legend="diff", tuplesize=3, _with='lines nosurface', using=using)))
     return plot
 
 
