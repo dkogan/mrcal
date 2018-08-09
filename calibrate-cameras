@@ -39,7 +39,7 @@ from mrcal import utils
 from mrcal import poseutils
 from mrcal import projections
 from mrcal import cameramodel
-import mrcal.optimizer as optimizer
+import mrcal
 
 
 
@@ -978,47 +978,47 @@ else:
 # a seed, I presumably have an estimate of the solution, so I skip straight to
 # the final pass
 if args.seed is None:
-    optimizer.optimize(intrinsics[1], extrinsics, frames, None,
-                       observations, indices_frame_camera,
-                       None, None,
-                       intrinsics[0],
-                       do_optimize_intrinsic_core        = False,
-                       do_optimize_intrinsic_distortions = False,
-                       calibration_object_spacing        = object_spacing,
-                       calibration_object_width_n        = object_width_n,
-                       skip_outlier_rejection            = True,
-                       VERBOSE                           = False)
+    mrcal.optimize(intrinsics[1], extrinsics, frames, None,
+                   observations, indices_frame_camera,
+                   None, None,
+                   intrinsics[0],
+                   do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_distortions = False,
+                   calibration_object_spacing        = object_spacing,
+                   calibration_object_width_n        = object_width_n,
+                   skip_outlier_rejection            = True,
+                   VERBOSE                           = False)
 
-    stats = optimizer.optimize(intrinsics[1], extrinsics, frames, None,
-                       observations, indices_frame_camera,
-                       None, None,
-                       intrinsics[0],
-                       do_optimize_intrinsic_core        = True,
-                       do_optimize_intrinsic_distortions = False,
-                       calibration_object_spacing        = object_spacing,
-                       calibration_object_width_n        = object_width_n,
-                       skip_outlier_rejection            = True,
-                       VERBOSE                           = False)
-
-intrinsics = (args.distortion_model,
-              nps.glue( intrinsics[1],
-                        np.random.random((Ncameras,
-                                          optimizer.getNdistortionParams(args.distortion_model) -
-                                          optimizer.getNdistortionParams(intrinsics[0])        ))*1e-5,
-                        axis=-1 ))
-
-
-stats = optimizer.optimize(intrinsics[1], extrinsics, frames, None,
+    stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                            observations, indices_frame_camera,
                            None, None,
                            intrinsics[0],
                            do_optimize_intrinsic_core        = True,
-                           do_optimize_intrinsic_distortions = True,
+                           do_optimize_intrinsic_distortions = False,
                            calibration_object_spacing        = object_spacing,
                            calibration_object_width_n        = object_width_n,
-                           skip_outlier_rejection            = args.skip_outlier_rejection,
-                           skip_regularization               = args.skip_regularization,
-                           VERBOSE                           = args.verbose_solver)
+                           skip_outlier_rejection            = True,
+                           VERBOSE                           = False)
+
+intrinsics = (args.distortion_model,
+              nps.glue( intrinsics[1],
+                        np.random.random((Ncameras,
+                                          mrcal.getNdistortionParams(args.distortion_model) -
+                                          mrcal.getNdistortionParams(intrinsics[0])        ))*1e-5,
+                        axis=-1 ))
+
+
+stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
+                       observations, indices_frame_camera,
+                       None, None,
+                       intrinsics[0],
+                       do_optimize_intrinsic_core        = True,
+                       do_optimize_intrinsic_distortions = True,
+                       calibration_object_spacing        = object_spacing,
+                       calibration_object_width_n        = object_width_n,
+                       skip_outlier_rejection            = args.skip_outlier_rejection,
+                       skip_regularization               = args.skip_regularization,
+                       VERBOSE                           = args.verbose_solver)
 MMt = stats['intrinsic_covariances']  \
     * args.observed_pixel_uncertainty \
     * args.observed_pixel_uncertainty
@@ -1226,17 +1226,17 @@ Potential things to look at:
                                                                      MMt_ref[Nintrinsics*i_camera:Nintrinsics*(i_camera+1),
                                                                              Nintrinsics*i_camera:Nintrinsics*(i_camera+1)]))
 
-        stats = optimizer.optimize(intrinsics[1], extrinsics, frames, None,
-                                   observations, indices_frame_camera,
-                                   None, None,
-                                   intrinsics[0],
-                                   do_optimize_intrinsic_core        = True,
-                                   do_optimize_intrinsic_distortions = True,
-                                   calibration_object_spacing        = object_spacing,
-                                   calibration_object_width_n        = object_width_n,
-                                   VERBOSE                           = False,
-                                   skip_outlier_rejection            = True,
-                                   skip_regularization               = True)
+        stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
+                               observations, indices_frame_camera,
+                               None, None,
+                               intrinsics[0],
+                               do_optimize_intrinsic_core        = True,
+                               do_optimize_intrinsic_distortions = True,
+                               calibration_object_spacing        = object_spacing,
+                               calibration_object_width_n        = object_width_n,
+                               VERBOSE                           = False,
+                               skip_outlier_rejection            = True,
+                               skip_regularization               = True)
 
         p1          = nps.glue( intrinsics[1].ravel(),
                                 frames.ravel(),

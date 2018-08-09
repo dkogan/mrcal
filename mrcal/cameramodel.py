@@ -10,7 +10,7 @@ import numpy as np
 import numbers
 import ast
 
-import optimizer
+import mrcal
 import poseutils
 
 
@@ -51,7 +51,7 @@ def _validateIntrinsics(i, MMt):
     intrinsics       = i[1]
 
     # If this fails, I keep the exception and let it fall through
-    Ndistortions_want = optimizer.getNdistortionParams(distortion_model)
+    Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
 
     try:
         Ndistortions_have = len(intrinsics) - 4
@@ -127,7 +127,7 @@ class cameramodel(object):
         center pixel
 
       - Some representation of the camera distortion. Multiple distortion models
-        are supported. mrcal.optimizer.getSupportedDistortionModels() returns a
+        are supported. mrcal.getSupportedDistortionModels() returns a
         list of supported models.
 
     - The extrinsics: the pose of this camera in respect to SOME reference
@@ -192,7 +192,7 @@ class cameramodel(object):
 
         if self._covariance_intrinsics is not None:
             distortion_model = self._intrinsics[0]
-            Ndistortions_want = optimizer.getNdistortionParams(distortion_model)
+            Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
             Nintrinsics = Ndistortions_want+4
 
             f.write( r'''    # The intrinsics are represented as a probabilistic quantity: the parameters
@@ -358,7 +358,7 @@ class cameramodel(object):
         i is a tuple (distortion_model, parameters):
 
         - distortion_model is a string for the specific distortion model we're
-          using. mrcal.optimizer.getSupportedDistortionModels() returns a list
+          using. mrcal.getSupportedDistortionModels() returns a list
           of supported models.
 
         - parameters is a numpy array of distortion parameters. The first 4

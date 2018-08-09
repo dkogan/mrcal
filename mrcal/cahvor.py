@@ -7,8 +7,7 @@ import numpysane as nps
 
 import cameramodel
 import poseutils
-import optimizer
-
+import mrcal
 
 r'''A wrapper around mrcal.cameramodel to interface with JPL's CAHVOR files and
 transforms.txt files'''
@@ -253,7 +252,7 @@ def _write(f, m, note=None):
             f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *E))
 
     elif re.match('DISTORTION_OPENCV*', distortion_model):
-        Ndistortions = optimizer.getNdistortionParams(distortion_model)
+        Ndistortions = mrcal.getNdistortionParams(distortion_model)
         f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(distortion_model, *intrinsics[4:]))
     elif len(intrinsics) != 4:
         raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, distortion_model={}".format(len(intrinsics), distortion_model))

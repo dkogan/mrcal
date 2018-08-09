@@ -20,7 +20,7 @@ partially supported. The toolkit includes:
 - Some libraries:
   - =libmrcal=: A flexible solver core written in C that solves the underlying
     optimization problem
-  - =mrcal.optimizer=: a Python interface to this core
+  - =mrcal=: a Python interface to this core. The C function are wrapped here
   - =mrcal.cameramodel=: a Python library to read/write camera models
   - =mrcal.cahvor=: a Python library to read/write camera models in cahvor format:
     this is for legacy compatibility

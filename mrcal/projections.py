@@ -8,7 +8,7 @@ import cv2
 import scipy.optimize
 
 import utils
-import optimizer
+import mrcal
 
 
 
@@ -335,7 +335,7 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions, **kwargs):
 
     This is a model-generic function. We use the given distortion_model: a
     string that says what the values in 'distortions' mean. The supported values
-    are reported by mrcal.optimizer.getSupportedDistortionModels(). At the time
+    are reported by mrcal.getSupportedDistortionModels(). At the time
     of this writing, the supported values are
 
       DISTORTION_NONE
@@ -372,7 +372,7 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions, **kwargs):
     if p is None or p.size == 0: return p
 
 
-    Ndistortions = optimizer.getNdistortionParams(distortion_model)
+    Ndistortions = mrcal.getNdistortionParams(distortion_model)
     if len(distortions) != Ndistortions:
         raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values".format(distortion_model, Ndistortions, len(distortions)))
 
@@ -413,7 +413,7 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     if p is None or p.size == 0: return p
 
 
-    Ndistortions = optimizer.getNdistortionParams(distortion_model)
+    Ndistortions = mrcal.getNdistortionParams(distortion_model)
     if len(distortions) != Ndistortions:
         raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values", distortion_model, Ndistortions, len(distortions))
 
@@ -471,7 +471,7 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=Fal
 
     - distortion_model: a string that says what the values in the intrinsics
       array mean. The supported values are reported by
-      mrcal.optimizer.getSupportedDistortionModels(). At the time of this
+      mrcal.getSupportedDistortionModels(). At the time of this
       writing, the supported values are
 
         DISTORTION_NONE
@@ -589,7 +589,7 @@ def unproject(p, intrinsics_or_distortionmodel, intrinsics=None):
 
     - distortion_model: a string that says what the values in the intrinsics
       array mean. The supported values are reported by
-      mrcal.optimizer.getSupportedDistortionModels(). At the time of this
+      mrcal.getSupportedDistortionModels(). At the time of this
       writing, the supported values are
 
         DISTORTION_NONE
@@ -689,7 +689,7 @@ def undistort_image(model, image):
     return remapped
 
 def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant):
-    r'''Takes in the same arguments as mrcal.optimizer.optimize(), and returns all
+    r'''Takes in the same arguments as mrcal.optimize(), and returns all
     the projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)
 
     '''
