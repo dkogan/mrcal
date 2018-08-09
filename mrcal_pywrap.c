@@ -8,6 +8,28 @@
 #include "mrcal.h"
 
 
+// Python is silly. There's some nuance about signal handling where it sets a
+// SIGINT (ctrl-c) handler to just set a flag, and the python layer then reads
+// this flag and does the thing. Here I'm running C code, so SIGINT would set a
+// flag, but not quit, so I can't interrupt the solver. Thus I reset the SIGINT
+// handler to the default, and put it back to the python-specific version when
+// I'm done
+#define SET_SIGINT() struct sigaction sigaction_old;                    \
+do {                                                                    \
+    if( 0 != sigaction(SIGINT,                                          \
+                       &(struct sigaction){ .sa_handler = SIG_DFL },    \
+                       &sigaction_old) )                                \
+    {                                                                   \
+        PyErr_SetString(PyExc_RuntimeError, "sigaction() failed");      \
+        goto done;                                                      \
+    }                                                                   \
+} while(0)
+#define RESET_SIGINT() do {                                             \
+    if( 0 != sigaction(SIGINT,                                          \
+                       &sigaction_old, NULL ))                          \
+        PyErr_SetString(PyExc_RuntimeError, "sigaction-restore failed"); \
+} while(0)
+
 
 static bool optimize_validate_args( // out
                                     enum distortion_model_t* distortion_model,
@@ -310,6 +332,7 @@ static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
                                       PyObject* args)
 {
     PyObject* result = NULL;
+    SET_SIGINT();
 
     PyObject* distortion_model_string = NULL;
     if(!PyArg_ParseTuple( args, "S", &distortion_model_string ))
@@ -340,6 +363,7 @@ static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
     result = Py_BuildValue("i", Ndistortions);
 
  done:
+    RESET_SIGINT();
     return result;
 }
 
@@ -347,6 +371,7 @@ static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
                                               PyObject* NPY_UNUSED(args))
 {
     PyObject* result = NULL;
+    SET_SIGINT();
     const char* const* names = mrcal_getSupportedDistortionModels();
 
     // I now have a NULL-terminated list of NULL-terminated strings. Get N
@@ -375,6 +400,7 @@ static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
     }
 
  done:
+    RESET_SIGINT();
     return result;
 }
 
@@ -395,6 +421,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* kwargs)
 {
+    SET_SIGINT();
     PyObject* result = NULL;
 
     PyArrayObject* intrinsics                  = NULL;
@@ -413,22 +440,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* x_final                     = NULL;
     PyArrayObject* intrinsic_covariances       = NULL;
     PyArrayObject* outlier_indices_final       = NULL;
-
-
-    // Python is silly. There's some nuance about signal handling where it sets
-    // a SIGINT (ctrl-c) handler to just set a flag, and the python layer then
-    // reads this flag and does the thing. Here I'm running C code, so SIGINT
-    // would set a flag, but not quit, so I can't interrupt the solver. Thus I
-    // reset the SIGINT handler to the default, and put it back to the
-    // python-specific version when I'm done
-    struct sigaction sigaction_old;
-    if( 0 != sigaction(SIGINT,
-                       &(struct sigaction){ .sa_handler = SIG_DFL },
-                       &sigaction_old) )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "sigaction() failed");
-        goto done;
-    }
 
 
     char* keywords[] = {"intrinsics",
@@ -867,10 +878,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     if(outlier_indices_final)       Py_DECREF(outlier_indices_final);
     if(pystats)                     Py_DECREF(pystats);
 
-    if( 0 != sigaction(SIGINT,
-                       &sigaction_old, NULL ))
-        PyErr_SetString(PyExc_RuntimeError, "sigaction-restore failed");
-
+    RESET_SIGINT();
     return result;
 }
 
