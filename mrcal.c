@@ -268,7 +268,7 @@ static int get_N_j_nonzero( int Ncameras,
     return N;
 }
 
-#warning maybe this should project multiple points at a time?
+// internal function used by the optimizer
 static union point2_t project( // out
                               double*         dxy_dintrinsic_core,
                               double*         dxy_dintrinsic_distortions,
@@ -287,8 +287,9 @@ static union point2_t project( // out
 
                               // point index. If <0, a point at the origin is
                               // assumed, dxy_drframe is expected to be NULL and
-                              // thus not filled-in, and frame_rt->r will not
-                              // be referenced
+                              // thus not filled-in, and frame_rt->r will not be
+                              // referenced. And the calibration_object_...
+                              // variables aren't used either
                               int i_pt,
 
                               double calibration_object_spacing,
@@ -794,6 +795,74 @@ static union point2_t project( // out
     return pt_out;
 }
 
+
+// external function. Mostly a wrapper around project()
+void mrcal_project( // out
+                   union point2_t* out,
+
+                   // core, distortions concatenated. Stored as a row-first
+                   // array of shape (N,2,Nintrinsics)
+                   double*         dxy_dintrinsics,
+                   // Stored as a row-first array of shape (N,2). Each element
+                   // of this array is a point3_t
+                   union point3_t* dxy_dp,
+
+                   // in
+                   const union point3_t* p,
+                   int N,
+                   enum distortion_model_t distortion_model,
+                   // core, distortions concatenated
+                   const double* intrinsics)
+{
+    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
+    int Nintrinsics  = Ndistortions + 4;
+
+    for(int i=0; i<N; i++)
+    {
+        struct pose_t frame = {.r = {},
+                               .t = p[i]};
+
+        // The data is laid out differently in mrcal_project() and project(), so
+        // I need to project() into these temporary variables, and then populate
+        // my output array
+        double dxy_dintrinsic_core       [2*4];
+        double dxy_dintrinsic_distortions[2*Ndistortions];
+
+        out[i] = project( dxy_dintrinsics != NULL ? dxy_dintrinsic_core        : NULL,
+                          dxy_dintrinsics != NULL ? dxy_dintrinsic_distortions : NULL,
+                          NULL, NULL, NULL,
+                          dxy_dp,
+
+                          // in
+                          (const struct intrinsics_core_t*)(&intrinsics[0]),
+                          &intrinsics[4],
+                          NULL,
+                          &frame,
+                          true,
+                          distortion_model,
+
+                          -1, 0.0, 0);
+        if(dxy_dintrinsics != NULL)
+        {
+            for(int j=0; j<4; j++)
+            {
+                dxy_dintrinsics[j + 0*Nintrinsics] = dxy_dintrinsic_core[j+0];
+                dxy_dintrinsics[j + 1*Nintrinsics] = dxy_dintrinsic_core[j+4];
+            }
+            for(int j=0; j<Ndistortions; j++)
+            {
+                dxy_dintrinsics[j+4 + 0*Nintrinsics] = dxy_dintrinsic_distortions[j+0           ];
+                dxy_dintrinsics[j+4 + 1*Nintrinsics] = dxy_dintrinsic_distortions[j+Ndistortions];
+            }
+
+            dxy_dintrinsics = &dxy_dintrinsics[2*Nintrinsics];
+        }
+        if(dxy_dp != NULL)
+        {
+            dxy_dp = &dxy_dp[2];
+        }
+    }
+}
 
 // The following functions define/use the layout of the state vector. In general
 // I do:

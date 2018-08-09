@@ -101,6 +101,23 @@ int                     mrcal_getNintrinsicOptimizationParams
                             enum distortion_model_t m );
 const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
 
+void mrcal_project( // out
+                   union point2_t* out,
+
+                   // core, distortions concatenated. Stored as a row-first
+                   // array of shape (N,2,Nintrinsics)
+                   double*         dxy_dintrinsics,
+                   // Stored as a row-first array of shape (N,2). Each element
+                   // of this array is a point3_t
+                   union point3_t* dxy_dp,
+
+                   // in
+                   const union point3_t* p,
+                   int N,
+                   enum distortion_model_t distortion_model,
+                   // core, distortions concatenated
+                   const double* intrinsics);
+
 
 
 #define MRCAL_STATS_ITEM(_)                                             \
