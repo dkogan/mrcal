@@ -1043,19 +1043,16 @@ print "  error', measured in pixels."
 Expected_projection_shift = np.zeros((Ncameras, 5))
 for i_camera in xrange(Ncameras):
 
-    v = nps.cat( *[np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-                             (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-                             (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-                             (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-                             (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1]))) \
-                   for i_camera in xrange(Ncameras)])
-
+    v = np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+                  (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+                  (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+                  (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+                  (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1])))
     # 3D vectors we're projecting
     # shape (Ncameras, 5, 3)
-    V = nps.cat( *[ projections.unproject(v[i_camera, ...], args.distortion_model, intrinsics[1][i_camera]) \
-                    for i_camera in xrange(Ncameras)] )
+    V = projections.unproject(v, intrinsics[0], intrinsics[1][i_camera])
     Expected_projection_shift[i_camera, :] = \
-        utils.get_projection_uncertainty(V, args.distortion_model, intrinsics[1][i_camera], MMt)
+        utils.get_projection_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
 print np.array2string(Expected_projection_shift, precision=2)
 
 
