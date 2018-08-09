@@ -80,7 +80,7 @@ calibration and sfm formulations are a little different
 #define POINT_MAXZ                    50000
 
 #warning make this not arbitrary
-#define SCALE_DISTORTION              2.0
+#define SCALE_DISTORTION              0.1
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define MSG_IF_VERBOSE(...) do { if(VERBOSE) MSG( __VA_ARGS__ ); } while(0)
