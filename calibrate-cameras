@@ -1024,7 +1024,13 @@ MMt = stats['intrinsic_covariances']  \
     * args.observed_pixel_uncertainty
 
 print "Done!"
-print "RMS reprojection error: {} pixels".format(stats['rms_reproj_error__pixels'])
+print "RMS reprojection error: {:.01f} pixels".format(stats['rms_reproj_error__pixels'])
+
+Npoints = object_width_n*object_width_n*len(observations)
+xyerr = stats['x'][:Npoints*2].reshape(Npoints,2)
+worst_point_err = np.sqrt(np.max(nps.inner(xyerr,xyerr)))
+print "Worst reprojection error: {:.01f} pixels".format(worst_point_err)
+
 print "Noutliers: {} out of {} total points: {:.01f}% of the data". \
     format(stats['Noutliers'],
            object_width_n*object_width_n*len(observations),
@@ -1050,7 +1056,7 @@ for i_camera in xrange(Ncameras):
                     for i_camera in xrange(Ncameras)] )
     Expected_projection_shift[i_camera, :] = \
         utils.get_projection_uncertainty(V, args.distortion_model, intrinsics[1][i_camera], MMt)
-print Expected_projection_shift
+print np.array2string(Expected_projection_shift, precision=2)
 
 
 
