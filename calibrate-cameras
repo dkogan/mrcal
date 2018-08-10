@@ -26,7 +26,6 @@ import re
 import argparse
 import os
 import fnmatch
-import re
 import subprocess
 import pipes
 import heapq
