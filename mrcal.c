@@ -1389,6 +1389,8 @@ static bool computeConfidence_MMt(// out
 #define I(A, index) ((unsigned int*)((A)->i))[index]
 #define X(A, index) ((double*      )((A)->x))[index]
 
+    if(NobservationsBoard <= 0)
+        return false;
 
     cholmod_sparse* Jt     = solverCtx->beforeStep->Jt;
     int             Nstate = Jt->nrow;
