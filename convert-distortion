@@ -64,7 +64,7 @@ import os
 from mrcal import cahvor
 from mrcal import projections
 from mrcal import cameramodel
-
+import mrcal
 
 
 def parse_args():
