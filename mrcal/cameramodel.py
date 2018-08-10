@@ -187,7 +187,7 @@ class cameramodel(object):
 
         N = len(self._intrinsics[1])
         f.write("    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
-        f.write(("    'intrinsics': [" + (" {:.10f}," * N) + "],\n").format(*self._intrinsics[1]))
+        f.write(("    'intrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._intrinsics[1]))
         f.write("\n")
 
         if self._covariance_intrinsics is not None:
@@ -200,12 +200,12 @@ class cameramodel(object):
 ''')
             f.write("    'covariance_intrinsics': [\n")
             for row in self._covariance_intrinsics:
-                f.write(("    [" + (" {:.10f}," * Nintrinsics) + "],\n").format(*row))
+                f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))
             f.write("],\n\n")
 
         N = len(self._extrinsics)
         f.write("    # extrinsics are rt_fromref\n")
-        f.write(("    'extrinsics': [" + (" {:.10f}," * N) + "],\n").format(*self._extrinsics))
+        f.write(("    'extrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._extrinsics))
         f.write("\n")
 
         N = 2
