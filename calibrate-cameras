@@ -1330,7 +1330,8 @@ Potential things to look at:
                 utils.visualize_intrinsics_uncertainty(intrinsics[0],
                                                        intrinsics[1][i_camera],
                                                        MMt          [i_camera],
-                                                       imagersizes  [i_camera])
+                                                       imagersizes  [i_camera],
+                                                       extratitle = "Camera {}".format(i_camera))
 
     import IPython
     IPython.embed()
