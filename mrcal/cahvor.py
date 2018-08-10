@@ -79,7 +79,7 @@ def _read(f):
         if i in x:
             if re.match('[0-9\s]+$', x[i]): totype = int
             else:                           totype = float
-            x[i] = np.array( [ totype(v) for v in re.split('\s+', x[i])])
+            x[i] = np.array( [ totype(v) for v in re.split('\s+', x[i])], dtype=totype)
 
     # Now I sanity-check the results and call it done
     for k in ('Dimensions','C','A','H','V'):
@@ -148,7 +148,7 @@ def _read(f):
             R0,R1,R2 = x['R'].ravel()
             E0,E1,E2 = x['E'].ravel()
 
-            distortions      = np.array((theta,phi,R0,R1,R2,E0,E1,E2,cahvore_linearity))
+            distortions      = np.array((theta,phi,R0,R1,R2,E0,E1,E2,cahvore_linearity), dtype=float)
             distortion_model = 'DISTORTION_CAHVORE'
 
         else:
@@ -168,12 +168,12 @@ def _read(f):
                 distortions = np.array(())
                 distortion_model = 'DISTORTION_NONE'
             else:
-                distortions = np.array((theta,phi,R0,R1,R2))
+                distortions = np.array((theta,phi,R0,R1,R2), dtype=float)
                 distortion_model = 'DISTORTION_CAHVOR'
 
     m = cameramodel.cameramodel()
     m.intrinsics( (distortion_model,
-                   nps.glue( np.array(_fxy_cxy(x)),
+                   nps.glue( np.array(_fxy_cxy(x), dtype=float),
                              distortions,
                              axis = -1)))
     m.extrinsics_Rt(True, nps.glue(R_toref,t_toref, axis=-2))
@@ -242,8 +242,8 @@ def _write(f, m, note=None):
         theta,phi,R0,R1,R2 = intrinsics[4:9]
 
         sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
-        O = nps.matmult( R_toref, nps.transpose(np.array(( sph*cth, sph*sth,  cph ))) ).ravel()
-        R = np.array((R0, R1, R2))
+        O = nps.matmult( R_toref, nps.transpose(np.array(( sph*cth, sph*sth,  cph ), dtype=float)) ).ravel()
+        R = np.array((R0, R1, R2), dtype=float)
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *O))
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))
 
