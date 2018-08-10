@@ -207,7 +207,8 @@ for i in xrange(40): # this many trials
                    do_optimize_frames                = False,
                    VERBOSE                           = args.verbose)
     pxy_solved = projections.project( v,
-                                      (distortionmodel_to, intrinsics_to_values))
+                                      distortionmodel_to,
+                                      intrinsics_to_values.ravel())
     diff = pxy_solved - pxy
     err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
     sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
