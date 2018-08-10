@@ -64,6 +64,7 @@ import os
 from mrcal import cahvor
 from mrcal import projections
 from mrcal import cameramodel
+from mrcal import utils
 import mrcal
 
 
@@ -226,13 +227,10 @@ writemodel(m_to)
 
 if args.viz:
 
-    import gnuplotlib as gp
-
-    gp.plot( pxy[:,0], pxy[:,1], diff[:,0], diff[:,1],
-             _with='vectors size screen 0.005,10 fixed filled',
-             tuplesize=4,
-             xrange=(-50,dims[0]+50),
-             yrange=(dims[1]+50, -50),
-             _set='object 1 rectangle from 0,0 to {},{} fillstyle empty'. format(*dims))
+    plot = utils.visualize_intrinsics_diff(m   .intrinsics()[0], m   .intrinsics()[1],
+                                           m_to.intrinsics()[0], m_to.intrinsics()[1],
+                                           m.dimensions(),
+                                           40,
+                                           False)
     import time
     time.sleep(100000)
