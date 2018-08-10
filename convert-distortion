@@ -201,12 +201,11 @@ for i in xrange(40): # this many trials
                    indices_points,
                    distortionmodel_to,
 
-                       do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = True,
                    do_optimize_extrinsics            = False,
                    do_optimize_frames                = False,
                    VERBOSE                           = args.verbose)
-
     pxy_solved = projections.project( v,
                                       (distortionmodel_to, intrinsics_to_values))
     diff = pxy_solved - pxy

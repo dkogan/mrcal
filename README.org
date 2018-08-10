@@ -103,7 +103,6 @@ Mrcal is a purely geometrical toolkit, so it outsources this vision problem to
 another library: [[https://github.jpl.nasa.gov/maritime-robotics/mrgingham/][=mrgingham=]]. That library strongly suggests using a particular
 calibration object; see its documentation for more details.
 
-
 * Repository
 
 https://github.jpl.nasa.gov/maritime-robotics/mrcal/
