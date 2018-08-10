@@ -296,6 +296,15 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
         else:
             pipe_dots_read.close()
 
+        # I can't deal with cameras that have only one frame: the filenames
+        # aren't enough to establish a pattern, so I ignore those. Which is
+        # fine, since a single observation in a camera isn't enough to be useful
+        for i_camera in xrange(len(files_per_camera)):
+            N = len(files_per_camera[i_camera])
+            if N < 2:
+                raise Exception("Found too few ({}; need at least 2) images containing a calibration pattern in camera {}; glob '{}'". \
+                                format(N, i_camera, globs[i_camera]))
+
         return mapping,files_per_camera
 
 
