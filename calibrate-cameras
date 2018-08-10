@@ -1023,22 +1023,22 @@ MMt = stats['intrinsic_covariances']  \
     * args.observed_pixel_uncertainty
 
 print "Done!"
-print "RMS reprojection error: {:.01f} pixels".format(stats['rms_reproj_error__pixels'])
+
+report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
 Npoints = object_width_n*object_width_n*len(observations)
 xyerr = stats['x'][:Npoints*2].reshape(Npoints,2)
 worst_point_err = np.sqrt(np.max(nps.inner(xyerr,xyerr)))
-print "Worst reprojection error: {:.01f} pixels".format(worst_point_err)
-
-print "Noutliers: {} out of {} total points: {:.01f}% of the data". \
+report += "Worst reprojection error: {:.01f} pixels\n".format(worst_point_err)
+report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
            object_width_n*object_width_n*len(observations),
            100.0 * stats['Noutliers'] / (object_width_n*object_width_n*len(observations)))
-print "Expected projection uncertainty due to input pixel observations."
-print "  This is an (Ncameras,5) matrix. For each camera we look at the"
-print "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order."
-print "  The corners are 10% inside the image. The reported numbers are 'expected projection"
-print "  error', measured in pixels."
+report += "Expected projection uncertainty due to input pixel observations.\n"
+report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
+report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
+report += "  The corners are 10% inside the image. The reported numbers are 'expected projection\n"
+report += "  error', measured in pixels.\n"
 Expected_projection_shift = np.zeros((Ncameras, 5))
 for i_camera in xrange(Ncameras):
 
@@ -1052,7 +1052,8 @@ for i_camera in xrange(Ncameras):
     V = projections.unproject(v, intrinsics[0], intrinsics[1][i_camera])
     Expected_projection_shift[i_camera, :] = \
         utils.get_projection_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
-print np.array2string(Expected_projection_shift, precision=2)
+report += np.array2string(Expected_projection_shift, precision=2) + "\n"
+print report
 
 
 
@@ -1066,6 +1067,11 @@ print np.array2string(Expected_projection_shift, precision=2)
 
 # Write the output models
 for i_camera in xrange(Ncameras):
+
+    # The note says how we ran this, and contains the commented-out report
+    note = "generated with {}\n".format(sys.argv)
+    note += re.sub(r"^(.)", r"# \1", report, flags=re.M)
+
     if args.muse_extrinsics:
         Rt_r0 = np.array([[ 0.,  0.,  1.],
                           [ 1.,  0.,  0.],
@@ -1091,13 +1097,11 @@ for i_camera in xrange(Ncameras):
                      covariance_intrinsics = MMt[i_camera, ...])
 
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
-    cahvor.write(cahvorfile, c,
-                 "generated with {}\n".format(sys.argv))
+    cahvor.write(cahvorfile, c, note)
     print "Wrote {}".format(cahvorfile)
 
     cameramodelfile = '{}/camera-{}.cameramodel'.format(args.outdir, i_camera)
-    c.write(cameramodelfile,
-            "generated with {}\n".format(sys.argv))
+    c.write(cameramodelfile, note)
     print "Wrote {}".format(cameramodelfile)
 
 if args.explore:
