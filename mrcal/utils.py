@@ -114,6 +114,22 @@ def Rodrigues_toR_broadcasted(r):
 
     return cv2.Rodrigues(r)[0]
 
+
+def get_ref_calibration_object(W, H, dot_spacing):
+    r'''Returns the geometry of the calibration object in its own coordinate frame
+
+    Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
+    coordinate lives at (y,x,:)
+
+    '''
+
+    xx,yy       = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
+    full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
+                           np.zeros((H,W,1)),
+                           axis=-1) # shape (H,W,3)
+    return full_object * dot_spacing
+
+
 def visualize_solution(intrinsics_data, extrinsics, frames, points,
                        observations_board, indices_frame_camera_board,
                        observations_point,  indices_frame_camera_points,
@@ -150,21 +166,6 @@ def visualize_solution(intrinsics_data, extrinsics, frames, points,
     '''
 
     import gnuplotlib as gp
-
-    def get_calibration_object(W, H, dot_spacing):
-        r'''Returns the geometry of the calibration object in its own coordinate frame
-
-        Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
-        coordinate lives at (y,x,:)
-
-        '''
-
-        xx,yy       = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
-        full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
-                               np.zeros((H,W,1)),
-                               axis=-1) # shape (H,W,3)
-        return full_object * dot_spacing
-
 
     def extend_axes_for_plotting(axes):
         r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
@@ -252,7 +253,7 @@ def visualize_solution(intrinsics_data, extrinsics, frames, points,
         #     frames = frames[i_frames, ...]
 
 
-        calobject_ref = get_calibration_object(Nwant, Nwant, dot_spacing)
+        calobject_ref = get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
         Rf = mrcal.utils.Rodrigues_toR_broadcasted(frames[..., :3])
         Rf = nps.mv(Rf,              0, -4)

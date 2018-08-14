@@ -561,7 +561,7 @@ def calobservations_project(distortion_model, intrinsics, extrinsics, frames, do
 
     '''
 
-    object_ref = utils.get_full_object(Nwant, Nwant, dot_spacing)
+    object_ref = utils.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
     Rf = utils.Rodrigues_toR_broadcasted(frames[:,:3])
     Rf = nps.mv(Rf,           0, -5)
     tf = nps.mv(frames[:,3:], 0, -5)
