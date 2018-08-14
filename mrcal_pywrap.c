@@ -625,7 +625,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "points",
                         "observations_board",
                         "indices_frame_camera_board",
-                        "observation_point",
+                        "observations_point",
                         "indices_point_camera_points",
 
                         "distortion_model",
