@@ -114,19 +114,213 @@ def Rodrigues_toR_broadcasted(r):
 
     return cv2.Rodrigues(r)[0]
 
-def get_full_object(W, H, dot_spacing):
-    r'''Returns the geometry of the calibration object in its own coordinate frame
+def visualize_solution(intrinsics_data, extrinsics, frames, points,
+                       observations_board, indices_frame_camera_board,
+                       observations_point,  indices_frame_camera_points,
+                       distortion_model,
 
-    Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
-    coordinate lives at (y,x,:)
+                       axis_scale = 1.0,
+                       dot_spacing = 0, Nwant = 10, i_camera=None):
+    r'''Plot what a hypothetical 3d calibrated world looks like
+
+    Can be used to visualize the output (or input) of mrcal.optimize(). Not
+    coindicentally, the geometric parameters are all identical to those
+    mrcal.optimize() takes.
+
+    If we don't have any observed calibration boards, observations_board and
+    indices_frame_camera_board should be None
+
+    If we don't have any observed points, observations_point and
+    indices_frame_camera_points should be None
+
+    We should always have at least one camera observing the world, so
+    intrinsics_data should never be None.
+
+    If we have only one camera, extrinsics will not be referenced.
+
+
+
+    COLOR CODING
+
+
+
+    The inputs are the same as to mrcal.optimize(). If i_camera is not None, the
+    visualization is colored by the reprojection-error-quality of the fit
 
     '''
 
-    xx,yy       = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
-    full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
-                           np.zeros((H,W,1)),
-                           axis=-1) # shape (H,W,3)
-    return full_object * dot_spacing
+    import gnuplotlib as gp
+
+    def get_calibration_object(W, H, dot_spacing):
+        r'''Returns the geometry of the calibration object in its own coordinate frame
+
+        Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
+        coordinate lives at (y,x,:)
+
+        '''
+
+        xx,yy       = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
+        full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
+                               np.zeros((H,W,1)),
+                               axis=-1) # shape (H,W,3)
+        return full_object * dot_spacing
+
+
+    def extend_axes_for_plotting(axes):
+        r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
+        this into a 3x6 array that can be gnuplotted "with vectors"
+
+        '''
+
+        # first, copy the center 3 times
+        out = nps.cat( axes[0,:],
+                       axes[0,:],
+                       axes[0,:] )
+
+        # then append just the deviations to each row containing the center
+        out = nps.glue( out, axes[1:,:] - axes[0,:], axis=-1)
+        return out
+
+
+    def gen_plot_axes(transforms, label, color = 0, scale = 1.0, label_offset = None):
+        r'''Given a list of transforms (applied to the reference set of axes in reverse
+        order) and a label, return a list of plotting directives gnuplotlib
+        understands. Each transform is an Rt (4,3) matrix
+
+        Transforms are in reverse order so a point x being transformed as A*B*C*x
+        can be represented as a transforms list (A,B,C).
+
+        '''
+        axes = np.array( ((0,0,0),
+                          (1,0,0),
+                          (0,1,0),
+                          (0,0,2),), dtype=float ) * scale
+
+        transform = poseutils.identity_Rt()
+
+        for x in transforms:
+            transform = poseutils.compose_Rt(transform, x)
+        axes = np.array([ poseutils.transform_point_Rt(transform, x) for x in axes ])
+
+        axes_forplotting = extend_axes_for_plotting(axes)
+
+        l_axes = tuple(nps.transpose(axes_forplotting)) + \
+            ({'with': 'vectors linecolor {}'.format(color), 'tuplesize': 6},)
+
+        l_labels = tuple(nps.transpose(axes*1.01 + \
+                                       (label_offset if label_offset is not None else 0))) + \
+            (np.array((label,
+                       'x', 'y', 'z')),
+             {'with': 'labels', 'tuplesize': 4},)
+        return l_axes, l_labels
+
+
+
+
+    # I need to plot 3 things:
+    #
+    # - Cameras
+    # - Calibration object poses
+    # - Observed points
+    def gen_curves_cameras():
+
+        cam0_axes_labels = gen_plot_axes((poseutils.identity_Rt(),), 'cam0', scale=axis_scale)
+        cam_axes_labels  = [gen_plot_axes((poseutils.invert_Rt(poseutils.Rt_from_rt(extrinsics[i])),),
+                                           'cam{}'.format(i+1),
+                                          scale=axis_scale) for i in range(0,extrinsics.shape[-2])]
+
+        return list(cam0_axes_labels) + [ca for x in cam_axes_labels for ca in x]
+
+
+    def gen_curves_calobjects():
+
+        if observations_board              is None or \
+           indices_frame_camera_board      is None or \
+           len(observations_board)         == 0    or \
+           len(indices_frame_camera_board) == 0:
+            return []
+
+
+        Nobservations = len(indices_frame_camera_board)
+
+        # if i_camera is not None:
+        #     i_observations_frames = [(i_observation,indices_frame_camera_board[i_observation,0]) \
+        #                              for i_observation in xrange(Nobservations) \
+        #                              if indices_frame_camera_board[i_observation,1] == i_camera]
+
+        #     i_observations, i_frames = nps.transpose(np.array(i_observations_frames))
+        #     frames = frames[i_frames, ...]
+
+
+        calobject_ref = get_calibration_object(Nwant, Nwant, dot_spacing)
+
+        Rf = mrcal.utils.Rodrigues_toR_broadcasted(frames[..., :3])
+        Rf = nps.mv(Rf,              0, -4)
+        tf = nps.mv(frames[..., 3:], 0, -4)
+
+        # object in the cam0 coord system. shape=(Nframes, Nwant, Nwant, 3)
+        calobject_cam0 = nps.matmult( calobject_ref, nps.transpose(Rf)) + tf
+
+        # if i_camera is not None:
+        #     # shape=(Nobservations, Nwant, Nwant, 2)
+        #     if i_camera == 0:
+        #         calobject_cam = calobject_cam0
+        #     else:
+        #         Rc = mrcal.utils.Rodrigues_toR_broadcasted(extrinsics[i_camera-1,:3])
+        #         tc = extrinsics[i_camera-1,3:]
+
+        #         calobject_cam = nps.matmult( calobject_cam0, nps.transpose(Rc)) + tc
+
+        #     print "double-check this. I don't broadcast over the intrinsics anymore"
+        #     err = observations[i_observations, ...] - projections.project(calobject_cam, distortion_model, intrinsics_data[i_camera, ...])
+        #     err = nps.clump(err, n=-3)
+        #     rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
+        #     # igood = rms <  0.4
+        #     # ibad  = rms >= 0.4
+        #     # rms[igood] = 0
+        #     # rms[ibad] = 1
+        #     calobject_cam0 = nps.glue( calobject_cam0,
+        #                             nps.dummy( nps.mv(rms, -1, -3) * np.ones((Nwant,Nwant)),
+        #                                        -1 ),
+        #                             axis = -1)
+
+        calobject_cam0 = nps.clump( nps.mv(calobject_cam0, -1, -4), n=-2)
+
+        # if i_camera is not None:
+        #     calobject_curveopts = {'with':'lines palette', 'tuplesize': 4}
+        # else:
+        calobject_curveopts = {'with':'lines', 'tuplesize': 3}
+
+        return tuple(list(calobject_cam0) + [calobject_curveopts,])
+
+
+    def gen_curves_points():
+
+        if observations_point               is None or \
+           indices_frame_camera_points      is None or \
+           len(observations_point)          == 0    or \
+           len(indices_frame_camera_points) == 0:
+            return []
+
+        curveopts = {'with':'points pt 7 ps 2'}
+        return [tuple(list(nps.transpose(points)) + [curveopts,])]
+
+
+
+    curves_cameras    = gen_curves_cameras()
+    curves_calobjects = gen_curves_calobjects()
+    curves_points     = gen_curves_points()
+
+    # Need ascii=1 because I'm plotting labels.
+    plot = gp.gnuplotlib(_3d=1, square=1, ascii=1,
+                         xlabel='x',
+                         ylabel='y',
+                         zlabel='z')
+
+
+
+    plot.plot(*(curves_cameras + curves_calobjects + curves_points))
+    return plot
 
 
 def homography_atinfinity_map( w, h, m0, m1 ):
@@ -209,127 +403,6 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     # Input Pixel coords. shape: Nwidth,Nheight,2
     p0xy = p0xy * np.array((fx0,fy0)) + np.array((cx0,cy0))
     return p1, p0xy
-
-
-def extend_axes_for_plotting(axes):
-    r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
-    this into a 3x6 array that can be gnuplotted "with vectors"
-
-    '''
-
-    # first, copy the center 3 times
-    out = nps.cat( axes[0,:],
-                   axes[0,:],
-                   axes[0,:] )
-
-    # then append just the deviations to each row containing the center
-    out = nps.glue( out, axes[1:,:] - axes[0,:], axis=-1)
-    return out
-
-
-def gen_plot_axes(transforms, label, color = 0, scale = 1.0, label_offset = None):
-    r'''Given a list of transforms (applied to the reference set of axes in reverse
-    order) and a label, return a list of plotting directives gnuplotlib
-    understands.
-
-    Transforms are in reverse order so a point x being transformed as A*B*C*x
-    can be represented as a transforms list (A,B,C)
-
-    '''
-    axes = np.array( ((0,0,0),
-                      (1,0,0),
-                      (0,1,0),
-                      (0,0,2),), dtype=float ) * scale
-
-    transform = poseutils.identity_Rt()
-
-    for x in transforms:
-        transform = poseutils.compose_Rt(transform, x)
-    axes = np.array([ poseutils.transform_point_Rt(transform, x) for x in axes ])
-
-    axes_forplotting = extend_axes_for_plotting(axes)
-
-    l_axes = tuple(nps.transpose(axes_forplotting)) + \
-        ({'with': 'vectors linecolor {}'.format(color), 'tuplesize': 6},)
-
-    l_labels = tuple(nps.transpose(axes*1.01 + \
-                                   (label_offset if label_offset is not None else 0))) + \
-        (np.array((label,
-                   'x', 'y', 'z')),
-         {'with': 'labels', 'tuplesize': 4},)
-    return l_axes, l_labels
-
-
-def visualize_solution(distortion_model, intrinsics_data, extrinsics, frames, observations,
-                       indices_frame_camera, dot_spacing, Nwant, i_camera=None):
-    r'''Plot the best-estimate 3d poses of a hypothesis calibration
-
-    The inputs are the same as to mrcal.optimize(). If i_camera is not
-    None, the visualization is colored by the reprojection-error-quality of the
-    fit
-
-    '''
-
-    Nobservations = len(indices_frame_camera)
-    if i_camera is not None:
-        i_observations_frames = [(i,indices_frame_camera[i,0]) for i in xrange(Nobservations) if indices_frame_camera[i,1] == i_camera]
-        i_observations, i_frames = nps.transpose(np.array(i_observations_frames))
-        frames = frames[i_frames, ...]
-
-
-    object_ref = get_full_object(Nwant, Nwant, dot_spacing)
-
-    Rf = Rodrigues_toR_broadcasted(frames[..., :3])
-    Rf = nps.mv(Rf,           0, -4)
-    tf = nps.mv(frames[..., 3:], 0, -4)
-
-    # object in the cam0 coord system. shape=(Nframes, Nwant, Nwant, 3)
-    object_cam0 = nps.matmult( object_ref, nps.transpose(Rf)) + tf
-    if i_camera is not None:
-        # shape=(Nobservations, Nwant, Nwant, 2)
-        if i_camera == 0:
-            object_cam = object_cam0
-        else:
-            Rc = Rodrigues_toR_broadcasted(extrinsics[i_camera-1,:3])
-            tc = extrinsics[i_camera-1,3:]
-
-            object_cam = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
-
-        print "double-check this. I don't broadcast over the intrinsics anymore"
-        err = observations[i_observations, ...] - projections.project(object_cam, distortion_model, intrinsics_data[i_camera, ...])
-        err = nps.clump(err, n=-3)
-        rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
-        # igood = rms <  0.4
-        # ibad  = rms >= 0.4
-        # rms[igood] = 0
-        # rms[ibad] = 1
-        object_cam0 = nps.glue( object_cam0,
-                                nps.dummy( nps.mv(rms, -1, -3) * np.ones((Nwant,Nwant)),
-                                           -1 ),
-                                axis = -1)
-
-    object_cam0 = nps.clump( nps.mv(object_cam0, -1, -4), n=-2)
-    cam0_axes_labels = gen_plot_axes((poseutils.identity_Rt(),), 'cam0')
-    cam_axes_labels  = [gen_plot_axes( (poseutils.invert_Rt(Rt_from_rt(extrinsics[i])),),
-                                        'cam{}'.format(i+1)) for i in range(0,extrinsics.shape[-2])]
-
-
-    curves = list(cam0_axes_labels) + [ca for x in cam_axes_labels for ca in x]
-
-    if i_camera is not None:
-        object_curveopts = {'with':'lines palette',
-                            'tuplesize': 4}
-    else:
-        object_curveopts = {'with':'lines',
-                            'tuplesize': 3}
-
-    curves.append( tuple(list(object_cam0) + [object_curveopts,]))
-
-    # Need ascii=1 because I'm plotting labels.
-    import gnuplotlib as gp
-    plot = gp.gnuplotlib(_3d=1, square=1, ascii=1 )
-    plot.plot(*curves)
-    return plot
 
 
 def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
