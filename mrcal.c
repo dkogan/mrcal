@@ -2685,6 +2685,11 @@ mrcal_optimize( // out
 
         if(VERBOSE)
         {
+            // These are for debug reporting
+            dogleg_reportOutliers(getConfidence,
+                                  2, Npoints_fromBoards,
+                                  solver_context->beforeStep, solver_context);
+
             reportFitMsg = "After";
 #warning hook this up
             //        optimizerCallback(packed_state, NULL, NULL, NULL);
