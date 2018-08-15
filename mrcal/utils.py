@@ -406,6 +406,34 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     return p1, p0xy
 
 
+def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
+    r'''Reports 3d points that regularly sample the imager
+
+    Synopsis:
+
+        V,p = sample_imager_unproject(gridn, gridn,
+                                      distortion_model, intrinsics_data,
+                                      *imagersize)
+        Expected_projection_shift = \
+          get_projection_uncertainty(V,
+                                     distortion_model, intrinsics_data,
+                                     covariance_intrinsics)
+
+    This is a utility function for the various visualization routines.
+    '''
+
+    w = np.linspace(0,W-1,gridn_x)
+    h = np.linspace(0,H-1,gridn_y)
+
+    # shape: Nwidth,Nheight,2
+    grid = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+    # shape: Nwidth,Nheight,3
+    return \
+        projections.unproject(grid, distortion_model, intrinsics_data), \
+        grid
+
+
 def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
     r'''Computes the uncertainty in a projection of a 3D point
 
@@ -588,13 +616,9 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     import gnuplotlib as gp
 
     W,H=imagersize
-    w = np.linspace(0,W-1,gridn)
-    h = np.linspace(0,H-1,gridn)
-    # shape: Nwidth,Nheight,2
-    grid = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
-
-    # shape: Nwidth,Nheight,3
-    V = projections.unproject(grid, distortion_model, intrinsics_data)
+    V,_ = sample_imager_unproject(gridn, gridn,
+                                  distortion_model, intrinsics_data,
+                                  W, H)
     Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
 
     title = "Projection uncertainty"
@@ -649,13 +673,9 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
     import gnuplotlib as gp
 
     W,H=imagersize
-    w = np.linspace(0,W-1,gridn)
-    h = np.linspace(0,H-1,gridn)
-    # shape: Nwidth,Nheight,2
-    p0 = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
-
-    # shape: Nwidth,Nheight,3
-    V  = projections.unproject(p0, distortion_model0, intrinsics_data0)
+    V,p0 = sample_imager_unproject(gridn, gridn,
+                                   distortion_model0, intrinsics_data0,
+                                   W, H)
 
     # shape: Nwidth,Nheight,2
     p1 = projections.project(V, distortion_model1, intrinsics_data1)
