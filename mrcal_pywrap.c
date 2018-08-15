@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <Python.h>
+#include <structmember.h>
 #include <numpy/arrayobject.h>
 #include <signal.h>
 
@@ -32,6 +33,45 @@ do {                                                                    \
 
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
 
+// Silly wrapper around a solver context and various solver metadata. I need the
+// optimization to be able to keep this, and I need Python to free it as
+// necessary when the refcount drops to 0
+typedef struct {
+    PyObject_HEAD
+    void* ctx;
+    enum distortion_model_t distortion_model;
+    bool do_optimize_intrinsic_core;
+    bool do_optimize_intrinsic_distortions;
+} SolverContext;
+static void SolverContext_free(SolverContext* self)
+{
+    mrcal_free_context(&self->ctx);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+static PyObject* SolverContext_str(SolverContext* self)
+{
+    if(self->ctx == NULL)
+        return PyString_FromString("Empty context");
+    return PyString_FromFormat("Non-empty context made with        %s\n"
+                               "do_optimize_intrinsic_core:        %d\n"
+                               "do_optimize_intrinsic_distortions: %d\n",
+                               mrcal_distortion_model_name(self->distortion_model),
+                               self->do_optimize_intrinsic_core,
+                               self->do_optimize_intrinsic_distortions);
+}
+static PyTypeObject SolverContextType =
+{
+     PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name      = "mrcal.SolverContext",
+    .tp_basicsize = sizeof(SolverContext),
+    .tp_new       = PyType_GenericNew,
+    .tp_dealloc   = (destructor)SolverContext_free,
+    .tp_str       = (reprfunc)SolverContext_str,
+    .tp_repr      = (reprfunc)SolverContext_str,
+    .tp_flags     = Py_TPFLAGS_DEFAULT,
+    .tp_doc       = "Opaque solver context used by mrcal",
+};
+
 
 static bool optimize_validate_args( // out
                                     enum distortion_model_t* distortion_model,
@@ -49,7 +89,8 @@ static bool optimize_validate_args( // out
                                     PyObject*      skipped_observations_point,
                                     PyObject*      calibration_object_spacing,
                                     PyObject*      calibration_object_width_n,
-                                    PyObject*      distortion_model_string)
+                                    PyObject*      distortion_model_string,
+                                    SolverContext* solver_context)
 {
     if( PyArray_NDIM(intrinsics) != 2 )
     {
@@ -324,9 +365,16 @@ static bool optimize_validate_args( // out
         }
     }
 
-    return true;
+    if( !(solver_context == NULL ||
+          (PyObject*)solver_context == Py_None ||
+          Py_TYPE(solver_context) == &SolverContextType) )
+    {
+        PyErr_Format(PyExc_RuntimeError, "solver_context must be None or of type mrcal.SolverContext");
+        return false;
+    }
 
 #undef CHECK_CONTIGUOUS
+    return true;
 }
 
 static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
@@ -613,6 +661,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject*      VERBOSE                     = NULL;
     PyObject*      skip_outlier_rejection      = NULL;
     PyObject*      skip_regularization         = NULL;
+    SolverContext* solver_context              = NULL;
 
     PyArrayObject* x_final                     = NULL;
     PyArrayObject* intrinsic_covariances       = NULL;
@@ -642,6 +691,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "VERBOSE",
                         "skip_outlier_rejection",
                         "skip_regularization",
+                        "solver_context",
 
                         NULL};
 
@@ -655,7 +705,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* calibration_object_spacing        = NULL;
     PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOOOO",
                                      keywords,
                                      PyArray_Converter_leaveNone, &intrinsics,
                                      PyArray_Converter_leaveNone, &extrinsics,
@@ -678,7 +728,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &calibration_object_width_n,
                                      &VERBOSE,
                                      &skip_outlier_rejection,
-                                     &skip_regularization))
+                                     &skip_regularization,
+                                     (PyObject*)&solver_context))
         goto done;
 
 
@@ -731,7 +782,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                 skipped_observations_point,
                                 calibration_object_spacing,
                                 calibration_object_width_n,
-                                distortion_model_string))
+                                distortion_model_string,
+                                solver_context) )
         goto done;
 
     {
@@ -958,10 +1010,23 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         outlier_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
         int* c_outlier_indices_final = PyArray_DATA(outlier_indices_final);
 
+        void** solver_context_optimizer = NULL;
+        if(solver_context != NULL && (PyObject*)solver_context != Py_None)
+        {
+            solver_context_optimizer = &solver_context->ctx;
+            solver_context->distortion_model = distortion_model;
+            solver_context->do_optimize_intrinsic_core =
+                optimization_variable_choice.do_optimize_intrinsic_core;
+            solver_context->do_optimize_intrinsic_distortions =
+                optimization_variable_choice.do_optimize_intrinsic_distortions;
+        }
+
+
         struct mrcal_stats_t stats =
         mrcal_optimize( c_x_final,
                         c_intrinsic_covariances,
                         c_outlier_indices_final,
+                        solver_context_optimizer,
                         c_intrinsics,
                         c_extrinsics,
                         c_frames,
@@ -1084,9 +1149,15 @@ PyMODINIT_FUNC init_mrcal(void)
           {}
         };
 
+    if (PyType_Ready(&SolverContextType) < 0)
+        return;
+
     PyImport_AddModule("_mrcal");
-    Py_InitModule3("_mrcal", methods,
-                   "Calibration and SFM routines");
+    PyObject* module = Py_InitModule3("_mrcal", methods,
+                                      "Calibration and SFM routines");
+
+    Py_INCREF(&SolverContextType);
+    PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
 
     import_array();
 }

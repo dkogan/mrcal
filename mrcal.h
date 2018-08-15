@@ -141,8 +141,18 @@ mrcal_optimize( // out
                 // elements will be filled in
                 int*    outlier_indices_final,
 
-                // out, in (seed on input)
+                // out, in
 
+                // if(_solver_context != NULL) then this is a persistent solver
+                // context. The context is NOT freed on exit.
+                // mrcal_free_context() should be called to release it
+                //
+                // if(*_solver_context != NULL), the given context is reused
+                // if(*_solver_context == NULL), a context is created, and
+                // returned here on exit
+                void** _solver_context,
+
+                // These are a seed on input, solution on output
                 // These are the state. I don't have a state_t because Ncameras
                 // and Nframes aren't known at compile time.
                 //

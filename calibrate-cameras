@@ -1029,7 +1029,9 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        calibration_object_width_n        = object_width_n,
                        skip_outlier_rejection            = args.skip_outlier_rejection,
                        skip_regularization               = args.skip_regularization,
-                       VERBOSE                           = args.verbose_solver)
+                       VERBOSE                           = args.verbose_solver,
+                       solver_context                    = solver_context)
+
 MMt = stats['intrinsic_covariances']  \
     * args.observed_pixel_uncertainty \
     * args.observed_pixel_uncertainty

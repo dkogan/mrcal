@@ -1832,8 +1832,18 @@ mrcal_optimize( // out
                 // elements will be filled in
                 int*    outlier_indices_final,
 
-                // out, in (seed on input)
+                // out, in
 
+                // if(_solver_context != NULL) then this is a persistent solver
+                // context. The context is NOT freed on exit.
+                // mrcal_free_context() should be called to release it
+                //
+                // if(*_solver_context != NULL), the given context is reused
+                // if(*_solver_context == NULL), a context is created, and
+                // returned here on exit
+                void** _solver_context,
+
+                // These are a seed on input, solution on output
                 // These are the state. I don't have a state_t because Ncameras
                 // and Nframes aren't known at compile time
                 //
@@ -2603,7 +2613,13 @@ mrcal_optimize( // out
 
 
 
-    dogleg_solverContext_t* solver_context = NULL;
+    dogleg_solverContext_t*  solver_context = NULL;
+    // If I have a context already, I free it and create it anew later. Ideally
+    // I'd reuse it, but then I'd need to make sure it's valid and such. Too
+    // much work for now
+    if(_solver_context != NULL && *_solver_context != NULL)
+        dogleg_freeContext((dogleg_solverContext_t**)_solver_context);
+
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       intrinsics,
@@ -2639,6 +2655,9 @@ mrcal_optimize( // out
             norm2_error = dogleg_optimize(packed_state,
                                           Nstate, Nmeasurements, N_j_nonzero,
                                           &optimizerCallback, NULL, &solver_context);
+            if(_solver_context != NULL)
+                *_solver_context = solver_context;
+
             if(firstpass && VERBOSE)
                 // These are for debug reporting
                 dogleg_reportOutliers(getConfidence,
@@ -2721,9 +2740,16 @@ mrcal_optimize( // out
         assert(ioutlier == stats.Noutliers);
     }
 
-    if( solver_context )
+    if(_solver_context == NULL && solver_context)
         dogleg_freeContext(&solver_context);
 
     free(markedOutliers);
     return stats;
+}
+void mrcal_free_context(void** ctx)
+{
+    if( *ctx == NULL )
+        return;
+
+    dogleg_freeContext((dogleg_solverContext_t**)ctx);
 }
