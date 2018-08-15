@@ -495,7 +495,11 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      gridn = 40,
                                      extratitle = None,
                                      hardcopy = None):
-    r'''A calibration process produces the best-fitting camera parameters (intrinsics
+    r'''Visualizes the uncertainty in the intrinsics of a camera
+
+    This routine uses the covariance of observed inputs
+
+    A calibration process produces the best-fitting camera parameters (intrinsics
     and extrinsics) and a covariance matrix representing the uncertainty in
     these parameters. When we use the intrinsics to project 3D points into the
     image plane, this intrinsics uncertainty creates an uncertainty in the
