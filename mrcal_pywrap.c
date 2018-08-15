@@ -453,7 +453,6 @@ static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-// return Npoints or <0 on error
 static bool project_validate_args( // out
                                   enum distortion_model_t* distortion_model,
 
