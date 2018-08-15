@@ -2245,6 +2245,11 @@ mrcal_optimize( // out
             union point3_t dxy_dtcamera[2];
             union point3_t dxy_dpoint  [2];
 
+
+            // The array reference [-3] is intented, but the compiler throws a
+            // warning. I silence it here
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
             union point2_t pt_hypothesis =
                 project(optimization_variable_choice.do_optimize_intrinsic_core ?
                           dxy_dintrinsic_core        : NULL,
@@ -2271,6 +2276,7 @@ mrcal_optimize( // out
                         -1,
                         calibration_object_spacing,
                         calibration_object_width_n);
+#pragma GCC diagnostic pop
 
             const union point2_t* pt_observed = &observation->px;
 
