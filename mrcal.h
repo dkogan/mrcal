@@ -68,9 +68,9 @@ struct intrinsics_core_t
     _(DISTORTION_CAHVOR,  5)                    \
     _(DISTORTION_CAHVORE, 9) /* CAHVORE is CAHVOR + E + linearity */
 
-#define LIST_WITH_COMMA(s,n) s,
+#define LIST_WITH_COMMA(s,n) ,s
 enum distortion_model_t
-    { DISTORTION_LIST( LIST_WITH_COMMA ) DISTORTION_INVALID };
+    { DISTORTION_INVALID DISTORTION_LIST( LIST_WITH_COMMA ) };
 
 
 struct mrcal_variable_select
