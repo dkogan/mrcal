@@ -2668,6 +2668,7 @@ mrcal_optimize( // out
         } while( !skip_outlier_rejection &&
                  dogleg_markOutliers(markedOutliers,
                                      &stats.Noutliers,
+                                     &stats.mean_outliers, &stats.stdev_outliers,
                                      getConfidence,
                                      2, Npoints_fromBoards,
                                      solver_context->beforeStep, solver_context) );
