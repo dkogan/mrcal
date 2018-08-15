@@ -1131,7 +1131,6 @@ PyMODINIT_FUNC init_mrcal(void)
         ;
 
 #define PYMETHODDEF_ENTRY(x, args) {#x, (PyCFunction)x, args, x ## _docstring}
-
     static PyMethodDef methods[] =
         { PYMETHODDEF_ENTRY(optimize,                     METH_VARARGS | METH_KEYWORDS),
           PYMETHODDEF_ENTRY(getNdistortionParams,         METH_VARARGS),
