@@ -8,7 +8,7 @@ import cv2
 
 import poseutils
 import projections
-
+from . import mrcal
 
 @nps.broadcast_define( (('N',3), ('N',3),),
                        (4,3), )
@@ -652,6 +652,97 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
     plot.plot( (Expected_projection_shift, dict(                                    tuplesize=3, _with='image',           using=using)),
                (Expected_projection_shift, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
+    return plot
+
+
+def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_data,
+                                                 solver_context, i_camera, observed_pixel_uncertainty,
+                                                 imagersize,
+                                                 gridn = 40,
+                                                 extratitle = None,
+                                                 hardcopy = None):
+    r'''Visualizes the uncertainty in the intrinsics of a camera
+
+    This routine uses the outlierness factor of hypothetical query points
+
+    A calibration process produces the best-fitting camera parameters
+    (intrinsics and extrinsics). I throw out outliers based on an "outlierness"
+    metric. I use the same metric for the uncertainty computation here: if I add
+    a hypothetical observation, and it easily looks outliery, then I have strong
+    consensus in the solution in that region, and my confidence there is high.
+    Conversely, if it takes a lot to make a query point look like an outlier,
+    then the solution is uncertain in that area.
+
+    Comment from the mrcal core:
+
+        I add a hypothetical new measurement, projecting a 3d vector v in the
+        coord system of the camera
+
+          x = project(v) - observation
+
+        I compute the projection now, so I know what the observation should be,
+        and I can set it such that x=0 here. If I do that, x fits the existing
+        data perfectly, and is very un-outliery looking.
+
+        But everything is noisy, so observation will move around, and thus x
+        moves around. I'm assuming the observations are mean-0 gaussian, so I let
+        my x correspondingly also be mean-0 gaussian.
+
+        I then have a quadratic form outlierness_factor = xt B/Nmeasurements x
+        for some known constant N and known symmetric matrix B. I compute the
+        expected value of this quadratic form: E = tr(B/Nmeasurements * Var(x))
+
+        I get B from libdogleg. See
+        dogleg_getOutliernessTrace_newFeature_sparse() for a derivation.
+
+        I'm assuming the noise on the x is independent, so
+
+          Var(x) = observed-pixel-uncertainty^2 I
+
+        And thus E = tr(B) * observed-pixel-uncertainty^2/Nmeasurements
+
+    '''
+
+    import gnuplotlib as gp
+
+    W,H=imagersize
+    V,_ = sample_imager_unproject(gridn, gridn,
+                                  distortion_model, intrinsics_data,
+                                  W, H)
+    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V, i_camera, solver_context) * \
+        observed_pixel_uncertainty * observed_pixel_uncertainty
+
+    title = "Projection uncertainty outlierness"
+    if extratitle is not None:
+        title += ": " + extratitle
+
+    extraplotkwargs = dict(title = title)
+    if hardcopy is not None:
+        extraplotkwargs['hardcopy'] = hardcopy
+
+    plot = \
+        gp.gnuplotlib(_3d=1,
+                      unset='grid',
+                      set=['xrange [:] noextend',
+                           'yrange [:] noextend reverse',
+                           'view equal xy',
+                           'view map',
+                           'contour surface',
+                           'cntrparam levels incremental 10e-3,-0.2e-3,0'],
+                      _xrange=[0,W],
+                      _yrange=[H,0],
+                      cbrange=[0,1e-3],
+                      ascii=1,
+                      **extraplotkwargs)
+
+    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn-1), float(H-1)/(gridn-1))
+
+    # Currently "with image" can't produce contours. I work around this, by
+    # plotting the data a second time.
+    # Yuck.
+    # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+    plot.plot( (Expected_outlierness, dict(                                    tuplesize=3, _with='image',           using=using)),
+               (Expected_outlierness, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
     return plot
 
 

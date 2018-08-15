@@ -1127,6 +1127,7 @@ Potential things to look at:
 
    show_reprojection_errors_worst(i_observation_in_order_from_worst)
    show_intrinsics_map()
+   show_intrinsics_map_outlierness()
    show_all_errors(i_camera, ignore_outliers=True, vectorfield=False)
    stats
    i_observations_worst
@@ -1335,7 +1336,8 @@ Potential things to look at:
                      _with='points', square=1)
 
 
-    plots_intrinsics_sensitivity = [None] * Ncameras
+    plots_intrinsics_sensitivity             = [None] * Ncameras
+    plots_intrinsics_sensitivity_outlierness = [None] * Ncameras
     def show_intrinsics_map(i_camera = None, gridn = 40):
         global plots_intrinsics_sensitivity
         i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
@@ -1346,6 +1348,18 @@ Potential things to look at:
                                                        MMt          [i_camera],
                                                        imagersizes  [i_camera],
                                                        extratitle = "Camera {}".format(i_camera))
+
+    def show_intrinsics_map_outlierness(i_camera = None, gridn = 40):
+        global plots_intrinsics_sensitivity_outlierness
+        i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+        for i_camera in i_camera_all:
+            plots_intrinsics_sensitivity_outlierness[i_camera] = \
+                utils.visualize_intrinsics_uncertainty_outlierness(intrinsics[0],
+                                                                   intrinsics[1][i_camera],
+                                                                   solver_context, i_camera,
+                                                                   args.observed_pixel_uncertainty,
+                                                                   imagersizes  [i_camera],
+                                                                   extratitle = "Camera {}".format(i_camera))
 
     import IPython
     IPython.embed()
