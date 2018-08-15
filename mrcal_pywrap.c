@@ -619,6 +619,99 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+static
+bool queryIntrinsicOutliernessAt_validate_args(PyArrayObject* v,
+                                               int i_camera,
+                                               SolverContext* solver_context)
+{
+    if( PyArray_NDIM(v) < 1 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'v' must have ndims >= 1");
+        return false;
+    }
+    if( 3 != PyArray_DIMS(v)[ PyArray_NDIM(v)-1 ] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "v.shape[-1] MUST be 3. Instead got %ld",
+                     PyArray_DIMS(v)[PyArray_NDIM(v)-1] );
+        return false;
+    }
+
+    CHECK_CONTIGUOUS(v);
+
+    if(i_camera < 0)
+    {
+        PyErr_Format(PyExc_RuntimeError, "i_camera>=0 should be true");
+        return false;
+    }
+
+    if( solver_context == NULL ||
+        (PyObject*)solver_context == Py_None ||
+        Py_TYPE(solver_context) != &SolverContextType)
+    {
+        PyErr_Format(PyExc_RuntimeError, "solver_context must be of type mrcal.SolverContext");
+        return false;
+    }
+    if(((SolverContext*)solver_context)->ctx == NULL)
+    {
+        PyErr_Format(PyExc_RuntimeError, "solver_context must contain a non-empty context");
+        return false;
+    }
+
+    return true;
+}
+
+static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
+                                             PyObject* args,
+                                             PyObject* kwargs)
+{
+    PyObject* result = NULL;
+    SET_SIGINT();
+
+    PyArrayObject* v                       = NULL;
+    SolverContext* solver_context          = NULL;
+    int            i_camera = -1;
+
+    char* keywords[] = {"v",
+                        "i_camera",
+                        "solver_context",
+                        NULL};
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O&iO", keywords,
+                                     PyArray_Converter, &v,
+                                     &i_camera,
+                                     &solver_context))
+        goto done;
+
+    if(!queryIntrinsicOutliernessAt_validate_args(v,
+                                                  i_camera,
+                                                  solver_context))
+        goto done;
+
+    int N = PyArray_SIZE(v) / 3;
+    PyArrayObject* traces = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(v)-1, PyArray_DIMS(v), NPY_DOUBLE);
+    void* ctx = solver_context->ctx;
+    if(!mrcal_queryIntrinsicOutliernessAt((double*)PyArray_DATA(traces),
+                                          solver_context->distortion_model,
+                                          solver_context->do_optimize_intrinsic_core,
+                                          solver_context->do_optimize_intrinsic_distortions,
+                                          i_camera,
+                                          (const union point3_t*)PyArray_DATA(v),
+                                          N,
+                                          ctx))
+    {
+        Py_DECREF(traces);
+        goto done;
+    }
+
+    result = (PyObject*)traces;
+
+ done:
+    RESET_SIGINT();
+    return result;
+}
+
+
 // just like PyArray_Converter(), but leave None as None
 static
 int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
@@ -1128,6 +1221,9 @@ PyMODINIT_FUNC init_mrcal(void)
     static const char project_docstring[] =
 #include "project.docstring.h"
         ;
+    static const char queryIntrinsicOutliernessAt_docstring[] =
+#include "queryIntrinsicOutliernessAt.docstring.h"
+        ;
 
 #define PYMETHODDEF_ENTRY(x, args) {#x, (PyCFunction)x, args, x ## _docstring}
     static PyMethodDef methods[] =
@@ -1135,6 +1231,7 @@ PyMODINIT_FUNC init_mrcal(void)
           PYMETHODDEF_ENTRY(getNdistortionParams,         METH_VARARGS),
           PYMETHODDEF_ENTRY(getSupportedDistortionModels, METH_NOARGS),
           PYMETHODDEF_ENTRY(project,                      METH_VARARGS | METH_KEYWORDS),
+          PYMETHODDEF_ENTRY(queryIntrinsicOutliernessAt,  METH_VARARGS | METH_KEYWORDS),
           {}
         };
 

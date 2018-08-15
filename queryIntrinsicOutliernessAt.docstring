@@ -1,0 +1,29 @@
+Reports the outlierness factor for queried points across the imager
+
+I add a hypothetical new measurement, projecting a 3d vector v in the coord
+system of the camera
+
+  x = project(v) - observation
+
+I compute the projection now, so I know what the observation should be, and I
+can set it such that x=0 here. If I do that, x fits the existing data perfectly,
+and is very un-outliery looking.
+
+But everything is noisy, so observation will move around, and thus x moves
+around. I'm assuming the observations are mean-0 gaussian, so I let my x
+correspondingly also be mean-0 gaussian.
+
+I then have a quadratic form outlierness_factor = xt B/Nmeasurements x for some
+known constant N and known symmetric matrix B. I compute the expected value of
+this quadratic form: E = tr(B/Nmeasurements * Var(x))
+
+Args:
+
+- points: array of dims (..., 3); the query points we're projecting. This
+  supports broadcasting fully, and any leading dimensions are allowed, including
+  none. These are 3D world points in the coord system of the camera.
+
+- i_camera: an integer index for the camera we're querying
+
+- solver_context: a context from the optimization we're asking about. This was
+  given to us by mrcal.optimize()
