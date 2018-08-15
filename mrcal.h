@@ -190,3 +190,5 @@ int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
                            int calibration_object_width_n,
                            struct mrcal_variable_select optimization_variable_choice,
                            enum distortion_model_t distortion_model);
+
+void mrcal_free_context(void** ctx);
