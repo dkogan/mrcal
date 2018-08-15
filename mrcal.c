@@ -2751,6 +2751,127 @@ mrcal_optimize( // out
     free(markedOutliers);
     return stats;
 }
+
+bool mrcal_queryIntrinsicOutliernessAt( // output
+                                       double* traces,
+
+                                       // input
+                                       enum distortion_model_t distortion_model,
+                                       bool do_optimize_intrinsic_core,
+                                       bool do_optimize_intrinsic_distortions,
+                                       int i_camera,
+
+                                       // query vectors (and a count) in the
+                                       // camera coord system. We're
+                                       // projecting these
+                                       const union point3_t* v,
+                                       int N,
+
+                                       // context from the solve we just ran.
+                                       // I need this for the factorized JtJ
+                                       void* _solver_context)
+{
+    // I add a hypothetical new measurement, projecting a 3d vector v in the
+    // coord system of the camera
+    //
+    //   x = project(v) - observation
+    //
+    // I compute the projection now, so I know what the observation should be,
+    // and I can set it such that x=0 here. If I do that, x fits the existing
+    // data perfectly, and is very un-outliery looking.
+    //
+    // But everything is noisy, so observation will move around, and thus x
+    // moves around. I'm assuming the observations are mean-0 gaussian, so I let
+    // my x correspondingly also be mean-0 gaussian.
+    //
+    // I then have a quadratic form outlierness_factor = xt B/Nmeasurements x
+    // for some known constant N and known symmetric matrix B. I compute the
+    // expected value of this quadratic form: E = tr(B/Nmeasurements * Var(x))
+    //
+    // I get B from libdogleg. See
+    // dogleg_getOutliernessTrace_newFeature_sparse() for a derivation.
+    //
+    // I'm assuming the noise on the x is independent, so
+    //
+    //   Var(x) = observed-pixel-uncertainty^2 I
+    //
+    // And thus E = tr(B) * observed-pixel-uncertainty^2/Nmeasurements
+    //
+    // I let the caller scale stuff by observed-pixel-uncertainty. I assume it
+    // is 1 here.
+    if(!do_optimize_intrinsic_core ||
+       !do_optimize_intrinsic_distortions)
+    {
+        MSG("Not implemented unless we're optimizing all the intrinsics; it might work, I just need to think about it");
+        return false;
+    }
+
+
+    struct mrcal_variable_select
+        optimization_variable_choice = {.do_optimize_intrinsic_core        = do_optimize_intrinsic_core,
+                                        .do_optimize_intrinsic_distortions = do_optimize_intrinsic_distortions};
+    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
+    int Nintrinsics = Ndistortions + 4;
+
+
+
+    dogleg_solverContext_t*  solver_context = (dogleg_solverContext_t*)_solver_context;
+    dogleg_operatingPoint_t* op             = solver_context->beforeStep;
+    const double*            p_packed       = op->p;
+    int                      Nmeasurements  = solver_context->Nmeasurements;
+
+    int i_intrinsics = state_index_intrinsic_core(i_camera,
+                                                  optimization_variable_choice,
+                                                  distortion_model);
+    double p[Nintrinsics];
+    unpack_solver_state_intrinsics_onecamera((struct intrinsics_core_t*)p, &p[4],
+                                             &p_packed[i_intrinsics],
+                                             Ndistortions, optimization_variable_choice);
+
+    union point2_t* q = malloc(N*sizeof(union point2_t));
+    assert(q);
+
+    double* dxy_dintrinsics_all = malloc(2*Nintrinsics*N*sizeof(double));
+    assert(dxy_dintrinsics_all);
+
+    mrcal_project(q,
+                  dxy_dintrinsics_all, NULL,
+                  v, N,
+                  distortion_model, p);
+
+    double* dxy_dintrinsics = dxy_dintrinsics_all;
+    for(int i=0; i<N; i++)
+    {
+        // These are the full, unpacked gradients. But the JtJ libdogleg has
+        // is in respect to the scaled, packed ones. Here the state is in
+        // the denominator, so I call the "unpack" function even though I
+        // want to pack the gradients
+        unpack_solver_state_intrinsics_onecamera( (struct intrinsics_core_t*)(&dxy_dintrinsics[0]),
+                                                  &dxy_dintrinsics[4],
+                                                  dxy_dintrinsics, Ndistortions,
+                                                  optimization_variable_choice);
+        dxy_dintrinsics = &dxy_dintrinsics[Nintrinsics];
+
+        unpack_solver_state_intrinsics_onecamera( (struct intrinsics_core_t*)(&dxy_dintrinsics[0]),
+                                                  &dxy_dintrinsics[4],
+                                                  dxy_dintrinsics, Ndistortions,
+                                                  optimization_variable_choice);
+        dxy_dintrinsics = &dxy_dintrinsics[Nintrinsics];
+
+
+        traces[i] =
+            dogleg_getOutliernessTrace_newFeature_sparse(&dxy_dintrinsics[-2*Nintrinsics],
+                                                         i_intrinsics, Nintrinsics, 2,
+                                                         op, solver_context) / (double)Nmeasurements;
+
+    }
+
+    free(q);
+    free(dxy_dintrinsics_all);
+
+    return true;
+}
+
 void mrcal_free_context(void** ctx)
 {
     if( *ctx == NULL )

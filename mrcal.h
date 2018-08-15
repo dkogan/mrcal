@@ -191,4 +191,26 @@ int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
                            struct mrcal_variable_select optimization_variable_choice,
                            enum distortion_model_t distortion_model);
 
+// Given a set of 3d points, returns the expected-value of the outlierness
+// factor, for each, if it was added to the data set with a nominal distribution
+// on the inputs; the caller needs to adjust this to the REAL distribution
+bool mrcal_queryIntrinsicOutliernessAt( // output
+                                       double* traces,
+
+                                       // input
+                                       enum distortion_model_t distortion_model,
+                                       bool do_optimize_intrinsic_core,
+                                       bool do_optimize_intrinsic_distortions,
+                                       int i_camera,
+
+                                       // query vectors (and a count) in the
+                                       // camera coord system. We're
+                                       // projecting these
+                                       const union point3_t* v,
+                                       int N,
+
+                                       // context from the solve we just ran.
+                                       // I need this for the factorized JtJ
+                                       void* _solver_context);
+
 void mrcal_free_context(void** ctx);
