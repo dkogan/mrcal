@@ -33,6 +33,14 @@ do {                                                                    \
 
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
 
+#define CHECK_CONTIGUOUS(x) do {                                        \
+    if( !PyArray_IS_C_CONTIGUOUS(x) )                                   \
+    {                                                                   \
+        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays (" #x ")"); \
+        return false;                                                   \
+    } } while(0)
+
+
 // Silly wrapper around a solver context and various solver metadata. I need the
 // optimization to be able to keep this, and I need Python to free it as
 // necessary when the refcount drops to 0
@@ -247,13 +255,6 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-#define CHECK_CONTIGUOUS(x) do {                                        \
-    if( !PyArray_IS_C_CONTIGUOUS(x) )                                   \
-    {                                                                   \
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays (" #x ")"); \
-        return false;                                                   \
-    } } while(0)
-
     CHECK_CONTIGUOUS(intrinsics);
     CHECK_CONTIGUOUS(extrinsics);
     CHECK_CONTIGUOUS(frames);
@@ -373,7 +374,6 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-#undef CHECK_CONTIGUOUS
     return true;
 }
 
@@ -487,13 +487,6 @@ static bool project_validate_args( // out
         return false;
     }
 
-#define CHECK_CONTIGUOUS(x) do {                                        \
-    if( !PyArray_IS_C_CONTIGUOUS(x) )                                   \
-    {                                                                   \
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays (" #x ")"); \
-        return false;                                                   \
-    } } while(0)
-
     CHECK_CONTIGUOUS(intrinsics);
     CHECK_CONTIGUOUS(points);
 
@@ -527,8 +520,6 @@ static bool project_validate_args( // out
     }
 
     return true;
-
-#undef CHECK_CONTIGUOUS
 }
 
 static PyObject* project(PyObject* NPY_UNUSED(self),
