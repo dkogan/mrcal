@@ -620,7 +620,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                       ascii=1,
                       **extraplotkwargs)
 
-    using='($1*{}):($2*{}):3'.format((W-1)/(gridn-1), (H-1)/(gridn-1))
+    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn-1), float(H-1)/(gridn-1))
 
     # Currently "with image" can't produce contours. I work around this, by
     # plotting the data a second time.
@@ -701,7 +701,7 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
                           ascii=1,
                           **extraplotkwargs)
 
-        using='($1*{}):($2*{}):3'.format((W-1)/(gridn-1), (H-1)/(gridn-1))
+        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn-1), float(H-1)/(gridn-1))
         # Currently "with image" can't produce contours. I work around this, by
         # plotting the data a second time.
         # Yuck.
