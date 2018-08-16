@@ -15,17 +15,19 @@ import mrcal
 def _get_distortion_function(model):
     if "DISTORTION_CAHVOR"  == model:       return cahvor_distort
     if "DISTORTION_CAHVORE" == model:       return cahvore_distort
-    if "DISTORTION_NONE"    == model:       return lambda p, *args: p
+    if "DISTORTION_NONE"    == model:       return lambda p, fx,fy,cx,cy, scale=1.0: p*scale
     if re.match("DISTORTION_OPENCV",model): return opencv_distort
     raise Exception("Unknown distortion model {}".format(model))
 
 
-def cahvor_distort(p, fx, fy, cx, cy, *distortions):
+def cahvor_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply a CAHVOR warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVOR model and a pinhole-projected
     point(s) numpy array of shape (..., 2), return the projected point(s) that
-    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
+    we'd get with distortion. By default we assume the same fx,fy,cx,cy. A scale
+    parameter allows us to scale the size of the output image by scaling the
+    focal lengths
 
     This function can broadcast the points array
 
@@ -34,6 +36,13 @@ def cahvor_distort(p, fx, fy, cx, cy, *distortions):
 
     # this should go away in favor of a model-agnostic function that uses
     # mrcal.project()
+
+    if kwargs:
+        if set(kwargs.keys()) != set((('scale'),),):
+            raise Exception("Only a 'scale' kwarg is allowed")
+        scale = kwargs['scale']
+    else:
+        scale = 1.0
 
     theta, phi, r0, r1, r2 = distortions
 
@@ -57,21 +66,30 @@ def cahvor_distort(p, fx, fy, cx, cy, *distortions):
     p     = p*(nps.dummy(mu,-1)+1.0) - nps.dummy(mu*omega, -1)*o
 
     # now I apply a normal projection to the warped 3d point p
-    return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+    return np.array((fx,fy)) * scale * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
 
 @nps.broadcast_define( ((2,), (),(),(),(), (),(),(),(),(), (),(),(),(),),
                        (2,), )
-def cahvore_distort(p, fx, fy, cx, cy, *distortions):
+def cahvore_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply a CAHVORE warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVORE model and a pinhole-projected
     point(s) numpy array of shape (..., 2), return the projected point(s) that
-    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
+    we'd get with distortion. By default we assume the same fx,fy,cx,cy. A scale
+    parameter allows us to scale the size of the output image by scaling the
+    focal lengths
 
     This function has an implemented-in-python inner newton-raphson loop. AND
     this function broadcasts in python, so it is SLOW!
 
     '''
+
+    if kwargs:
+        if set(kwargs.keys()) != set((('scale'),),):
+            raise Exception("Only a 'scale' kwarg is allowed")
+        scale = kwargs['scale']
+    else:
+        scale = 1.0
 
     # This comes from cmod_cahvore_3d_to_2d_general() in
     # m-jplv/libcmod/cmod_cahvore.c
@@ -164,15 +182,17 @@ def cahvore_distort(p, fx, fy, cx, cy, *distortions):
         p = u + v
 
     # now I apply a normal projection to the warped 3d point p
-    return np.array((fx,fy)) * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+    return np.array((fx,fy)) * scale * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
 
 
-def opencv_distort(p, fx, fy, cx, cy, *distortions):
+def opencv_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply an OPENCV warp to an un-distorted point
 
     Given intrinsic parameters of an OPENCV model and a pinhole-projected
     point(s) numpy array of shape (..., 2), return the projected point(s) that
-    we'd get with distortion. We ASSUME THE SAME fx,fy,cx,cy
+    we'd get with distortion. By default we assume the same fx,fy,cx,cy. A scale
+    parameter allows us to scale the size of the output image by scaling the
+    focal lengths
 
     This function can broadcast the points array
 
@@ -187,6 +207,12 @@ def opencv_distort(p, fx, fy, cx, cy, *distortions):
     # they're compatible. I squash the leading dimensions at the start, and put
     # them back when done
 
+    if kwargs:
+        if set(kwargs.keys()) != set((('scale'),),):
+            raise Exception("Only a 'scale' kwarg is allowed")
+        scale = kwargs['scale']
+    else:
+        scale = 1.0
 
     dims_broadcast = p.shape[:-1]
     p = nps.clump(p, n=len(p.shape)-1)
@@ -197,8 +223,8 @@ def opencv_distort(p, fx, fy, cx, cy, *distortions):
                         np.ones( p.shape[:-1])),
                 0, -1 )
 
-    A = np.array(((fx,  0, cx),
-                  ( 0, fy, cy),
+    A = np.array(((fx*scale,  0, cx),
+                  ( 0, fy*scale, cy),
                   ( 0,  0,  1)))
 
     out,_ = cv2.projectPoints(nps.atleast_dims(p,-2), np.zeros((3,)), np.zeros((3,)), A, distortions)
@@ -502,7 +528,7 @@ def unproject(p, intrinsics_or_distortionmodel, intrinsics=None):
     # normalize each vector
     return P / nps.dummy(np.sqrt(nps.inner(P,P)), -1)
 
-def distortion_map__to_warped(intrinsics, w, h):
+def distortion_map__to_warped(intrinsics, w, h, scale=1.0):
     r'''Returns the pre and post distortion map of a model
 
     Takes in
@@ -525,10 +551,10 @@ def distortion_map__to_warped(intrinsics, w, h):
     grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
     distort_function = _get_distortion_function(intrinsics[0])
-    dgrid = distort_function(grid, *intrinsics[1])
+    dgrid = distort_function(grid, *intrinsics[1], scale=scale)
     return grid, dgrid
 
-def undistort_image(model, image):
+def undistort_image(model, image, scale=1.0):
     r'''Visualize the distortion effect of a set of intrinsics
 
     This function warps an image to remove the distortion.
@@ -545,7 +571,8 @@ def undistort_image(model, image):
 
     H,W = image.shape[:2]
     _,mapxy = distortion_map__to_warped(intrinsics,
-                                        np.arange(W), np.arange(H))
+                                        np.arange(W), np.arange(H),
+                                        scale = scale)
     mapx = mapxy[:,:,0].astype(np.float32)
     mapy = mapxy[:,:,1].astype(np.float32)
 

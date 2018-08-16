@@ -59,6 +59,12 @@ def parse_args():
                         help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
 
+    parser.add_argument('--scale',
+                        type=float,
+                        required=False,
+                        nargs=1,
+                        help='''Pinhole focal length scaling. 1.0 by default''')
+
     parser.add_argument('image',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The images must be readable files, but got '{}'".format(f)),
@@ -114,6 +120,6 @@ writemodel(model_pinhole)
 for imagefile in args.image:
     imagefile_undistorted = target_image_filename(imagefile)
 
-    image_undistorted     = projections.undistort_image(model, imagefile)
+    image_undistorted     = projections.undistort_image(model, imagefile, scale=args.scale[0])
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))
