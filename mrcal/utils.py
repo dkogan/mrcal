@@ -737,7 +737,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                            'view equal xy',
                            'view map',
                            'contour surface',
-                           'cntrparam levels incremental 10e-3,-0.2e-3,0'],
+                           'cntrparam levels incremental 0,0.2,2'],
                       _xrange=[0,W],
                       _yrange=[H,0],
                       cbrange=[0,2],
