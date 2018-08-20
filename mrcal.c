@@ -74,7 +74,7 @@ calibration and sfm formulations are a little different
 
 #define DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M 1.0
 
-// I need to constrain the point motion since it's not well-defined, and cal
+// I need to constrain the point motion since it's not well-defined, and can
 // jump to clearly-incorrect values. This is the distance in front of camera0. I
 // make sure this is positive and not unreasonably high
 #define POINT_MAXZ                    50000
