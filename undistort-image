@@ -109,6 +109,7 @@ else:
 
 model_pinhole = cameramodel(model)
 i = model_pinhole.intrinsics()
+i[1][:2] /= args.scale[0]
 if i[0] == 'DISTORTION_NONE':
     sys.stderr.write("Warning: the mode has no distortions, so the 'undistorted' images will be the same as the input ones\n")
 model_pinhole.intrinsics( ('DISTORTION_NONE',
