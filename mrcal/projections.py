@@ -15,7 +15,7 @@ import mrcal
 def _get_distortion_function(model):
     if "DISTORTION_CAHVOR"  == model:       return cahvor_distort
     if "DISTORTION_CAHVORE" == model:       return cahvore_distort
-    if "DISTORTION_NONE"    == model:       return lambda p, fx,fy,cx,cy, scale=1.0: p*scale
+    if "DISTORTION_NONE"    == model:       return lambda p, fx,fy,cx,cy, scale=1.0: (p - np.array((cx,cy)))*scale + np.array((cx,cy))
     if re.match("DISTORTION_OPENCV",model): return opencv_distort
     raise Exception("Unknown distortion model {}".format(model))
 
