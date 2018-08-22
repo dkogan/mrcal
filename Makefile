@@ -34,7 +34,7 @@ DIST_BIN :=					\
 # Python docstring rules. I construct these from plain ASCII files to handle
 # line wrapping
 %.docstring.h: %.docstring
-	< $^ sed 's/^/"/; s/$$/\\n"/;' > $@
+	< $^ sed 's/"/\\"/g; s/^/"/; s/$$/\\n"/;' > $@
 EXTRA_CLEAN += *.docstring.h
 
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
