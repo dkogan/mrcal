@@ -93,7 +93,7 @@ def transform_point_Rt(Rt, x):
                        (3,), )
 def transform_point_rt(rt, x):
     r'''Transforms a given point by a given rt transformation'''
-    return transform_point_Rt(Rt_from_rt(rt))
+    return transform_point_Rt(Rt_from_rt(rt), x)
 
 
 def R_from_quat(q):
