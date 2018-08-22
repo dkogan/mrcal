@@ -1,5 +1,22 @@
 Invoke the calibration routine
 
+Synopsis:
+
+    stats = mrcal.optimize( intrinsics_data,
+                            extrinsics,
+                            frames, points
+                            observations_board, indices_frame_camera,
+                            observations_point, indices_point_camera_points, 
+
+                            distortion_model,
+                            do_optimize_intrinsic_core        = True,
+                            do_optimize_intrinsic_distortions = True,
+                            calibration_object_spacing        = object_spacing,
+                            calibration_object_width_n        = 10,
+                            skip_outlier_rejection            = False,
+                            skip_regularization               = False,
+                            VERBOSE                           = False)
+
 This is a flexible bundle-adjustment implementation, with outlier rejection and
 some metrics reported back to the user. More than 2 cameras at a time can be
 calibrated, and this routine is flexible-enough to solve SFM problems.

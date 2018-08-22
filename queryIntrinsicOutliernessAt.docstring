@@ -1,5 +1,9 @@
 Reports the outlierness factor for queried points across the imager
 
+Synopsis:
+
+    Work in progress!
+
 I add a hypothetical new measurement, projecting a 3d vector v in the coord
 system of the camera
 
