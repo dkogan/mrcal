@@ -28,11 +28,6 @@ struct observation_board_t
     union point2_t* px; // NUM_POINTS_IN_CALOBJECT of these
 };
 
-// An observation of a point in space. Here each "observation" is two cameras
-// observing the point. The 3d position of the point is NOT given in the
-// parameter vector, but the reprojection error is computed directly from the
-// camera geometry. Optionally, the distance to from each camera to the point is
-// given also. This is optional, and used only if the given distance is > 0.
 struct observation_point_t
 {
     int  i_camera         : 31;
