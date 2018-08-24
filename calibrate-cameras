@@ -206,9 +206,13 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
         for i in xrange(Ncameras):
             files_per_camera.append([])
 
+        # images in dots_vnl have paths relative to where the dots_vnl lives
+        globs = [os.path.abspath(g) for g in globs]
+        dots_dir = os.path.dirname( dots_vnl )
+
         def accum_files(f):
             for i_camera in xrange(Ncameras):
-                if fnmatch.fnmatch(f, globs[i_camera]):
+                if fnmatch.fnmatch(os.path.normpath(os.path.join(dots_dir, f)), globs[i_camera]):
                     files_per_camera[i_camera].append(f)
                     return True
             return False
