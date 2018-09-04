@@ -662,6 +662,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
 def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_data,
                                                  solver_context, i_camera, observed_pixel_uncertainty,
                                                  imagersize,
+                                                 Noutliers,
                                                  gridn = 40,
                                                  extratitle = None,
                                                  hardcopy = None):
@@ -692,9 +693,9 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
         moves around. I'm assuming the observations are mean-0 gaussian, so I let
         my x correspondingly also be mean-0 gaussian.
 
-        I then have a quadratic form outlierness_factor = xt B/Nmeasurements x
+        I then have a quadratic form outlierness_factor = xt B x
         for some known constant N and known symmetric matrix B. I compute the
-        expected value of this quadratic form: E = tr(B/Nmeasurements * Var(x))
+        expected value of this quadratic form: E = tr(B * Var(x))
 
         I get B from libdogleg. See
         dogleg_getOutliernessTrace_newFeature_sparse() for a derivation.
@@ -703,7 +704,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
 
           Var(x) = observed-pixel-uncertainty^2 I
 
-        And thus E = tr(B) * observed-pixel-uncertainty^2/Nmeasurements
+        And thus E = tr(B) * observed-pixel-uncertainty^2
 
     '''
 
@@ -713,7 +714,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     V,_ = sample_imager_unproject(gridn, gridn,
                                   distortion_model, intrinsics_data,
                                   W, H)
-    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V.copy(), i_camera, solver_context) * \
+    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V.copy(), i_camera, solver_context, Noutliers) * \
         observed_pixel_uncertainty * observed_pixel_uncertainty
 
     title = "Projection uncertainty outlierness"

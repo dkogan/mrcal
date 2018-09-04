@@ -1402,7 +1402,8 @@ def show_intrinsics_map_outlierness(i_camera = None, gridn = 40):
                                                                intrinsics[1][i_camera],
                                                                solver_context, i_camera,
                                                                args.observed_pixel_uncertainty,
-                                                               imagersizes  [i_camera],
+                                                               imagersizes[i_camera],
+                                                               stats['Noutliers'],
                                                                extratitle = "Camera {}".format(i_camera))
 
 import IPython
