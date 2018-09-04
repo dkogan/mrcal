@@ -79,8 +79,9 @@ calibration and sfm formulations are a little different
 // make sure this is positive and not unreasonably high
 #define POINT_MAXZ                    50000
 
-#warning make this not arbitrary
-#define SCALE_DISTORTION              0.1
+// This is hard-coded to 1.0; the computation of
+// scale_distortion_regularization below assumes it
+#define SCALE_DISTORTION              1.0
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define MSG_IF_VERBOSE(...) do { if(VERBOSE) MSG( __VA_ARGS__ ); } while(0)
@@ -2530,27 +2531,37 @@ mrcal_optimize( // out
             }
         }
 
-        // regularization terms. I favor smaller distortion parameters
+        // regularization terms for the intrinsics. I favor smaller distortion
+        // parameters
         if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
            !optimization_variable_choice.do_skip_regularization)
         {
             double scale_distortion_regularization =
                 ({
-                    // I want a "low" value relative to the rest of the cost
-                    // function:
+                    // I want the total regularization cost to be low relative
+                    // to the other contributions to the cost. Let's say I want
+                    // regularization to account for ~ 1% of the other error
+                    // contributions
                     //
-                    //   Nmeasurements_rest*normal_pixel_error =
-                    //   Nmeasurements_regularization*normal_regularization_error*scale*LARGE
+                    //   Nmeasurements_rest*normal_pixel_error * 0.01 =
+                    //   Nmeasurements_regularization*normal_regularization_error
                     int    Nmeasurements_regularization    = Ncameras*Ndistortions;
                     int    Nmeasurements_nonregularization = Nmeasurements - Nmeasurements_regularization;
-                    double normal_pixel_error              = 1.0;
+                    double normal_pixel_error_sq              = 1.0;
+                    double normal_distortion_value_sq         = 0.01;
 
-                    // completely made up. Probably should be different for each
-                    // distortion term and for each distortion model
-                    double normal_regularization_error = 10.0;
+                    double expected_total_pixel_error =
+                        (double)Nmeasurements_nonregularization * normal_pixel_error_sq;
+                    double expected_total_regularization_contribution_noscale =
+                        (double)Nmeasurements_regularization * normal_distortion_value_sq;
 
-                    (double)Nmeasurements_nonregularization*normal_pixel_error/
-                        ( (double)Nmeasurements_regularization * normal_regularization_error * 1000.0);
+                    static_assert(SCALE_DISTORTION == 1.0, "SCALE_DISTORTION should be 1.0; the scale_distortion_regularization logic wants that");
+
+                    double scale_sq =
+                        expected_total_pixel_error * 0.01 / expected_total_regularization_contribution_noscale;
+
+                    sqrt(scale_sq);
+
                 });
 
             for(int i_camera=0; i_camera<Ncameras; i_camera++)
