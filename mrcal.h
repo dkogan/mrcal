@@ -117,7 +117,7 @@ void mrcal_project( // out
 
 #define MRCAL_STATS_ITEM(_)                                           \
     _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble) \
-    _(int,            Noutliers,                  PyLong_FromLong)
+    _(int,            Noutliers,                  PyInt_FromLong)
 
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
 
