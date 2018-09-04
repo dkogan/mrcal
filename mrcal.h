@@ -176,6 +176,8 @@ mrcal_optimize( // out
                 enum distortion_model_t distortion_model,
                 struct mrcal_variable_select optimization_variable_choice,
 
+                double testing_cull_points_left_of,
+
                 double calibration_object_spacing,
                 int calibration_object_width_n);
 

@@ -117,6 +117,20 @@ on verbosity to get lots of diagnostics.''')
                         default=False,
                         help='''After the solve open an interactive shell to examine the solution''')
 
+
+    parser.add_argument('--testing-cull-points-left-of',
+                        required=False,
+                        default=-1,
+                        type=float,
+                        help='''For testing. Throw out all observations with x < the given value''')
+    parser.add_argument('--testing-cull-random-observations-ratio',
+                        required=False,
+                        default=-1,
+                        type=float,
+                        help='''For testing. Throw out a random number of board observations. The ratio of
+                        observations is given as the argument. 1.0 = throw out ALL the observations; 0.0
+                        = throw out NONE of the observations''')
+
     def positive_float(string):
         try:
             value = float(string)
@@ -916,10 +930,12 @@ def get_observation_subset__from_indices(indices, frames, observations, indices_
     frames_new = frames[indices_frames, ...].copy()
     return frames_new, observations_new, indices_frame_camera_new
 
-def get_observation_subset__random(ratio, frames, observations, indices_frame_camera):
+def get_observation_subset__random(ratio_cull, frames, observations, indices_frame_camera):
     r'''Returns a random subset of observations'''
 
-    N = int(round(ratio * len(observations)))
+    # keep this many
+    N = int(round((1.0 - ratio_cull) * len(observations)))
+
     indices = np.sort(np.random.choice(len(observations), N, replace=False))
 
     return get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera)
@@ -928,7 +944,7 @@ def get_observation_subset__right_of_threshold(point_x_threshold, frames, observ
     r'''Returns a subset of observations where all points are right of some threshold
 
     This throws out all observations that lie COMPLETELY to the left of the
-    threshold
+    threshold. The mrcal internals handle partial board observations
 
     '''
 
@@ -953,6 +969,10 @@ if args.seed is not None:
     if not Ncameras == 1:
         raise Exception("Currently --seed works only with ONE camera")
     args.seed = cameramodel(args.seed)
+
+if args.testing_cull_points_left_of > 0 and \
+   args.testing_cull_random_observations_ratio >= 0:
+    raise Exception("At most one of {--testing-cull-point-x-threshold, --testing-cull-random-observations-ratio} should be given")
 
 
 object_spacing = args.object_spacing
@@ -1025,12 +1045,24 @@ intrinsics = (args.distortion_model,
                         axis=-1 ))
 
 
+if args.testing_cull_points_left_of > 0:
+    frames, observations, indices_frame_camera = \
+        get_observation_subset__right_of_threshold(args.testing_cull_points_left_of,
+                                                   frames, observations, indices_frame_camera)
+if args.testing_cull_random_observations_ratio >= 0:
+    frames, observations, indices_frame_camera = \
+        get_observation_subset__random(args.testing_cull_random_observations_ratio,
+                                       frames, observations, indices_frame_camera)
+
+
+solver_context = mrcal.SolverContext()
 stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        observations, indices_frame_camera,
                        None, None,
                        intrinsics[0],
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = True,
+                       testing_cull_points_left_of       = args.testing_cull_points_left_of if args.testing_cull_points_left_of > 0 else None,
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n,
                        skip_outlier_rejection            = args.skip_outlier_rejection,

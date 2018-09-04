@@ -151,6 +151,8 @@ int main(int argc, char* argv[] )
                     distortion_model,
                     optimization_variable_choice,
 
+                    -1.0,
+
                     1.0, calibration_object_width_n);
 
     return 0;

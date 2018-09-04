@@ -95,6 +95,7 @@ static bool optimize_validate_args( // out
                                     PyArrayObject* indices_point_camera_points,
                                     PyObject*      skipped_observations_board,
                                     PyObject*      skipped_observations_point,
+                                    PyObject*      testing_cull_points_left_of,
                                     PyObject*      calibration_object_spacing,
                                     PyObject*      calibration_object_width_n,
                                     PyObject*      distortion_model_string,
@@ -187,6 +188,15 @@ static bool optimize_validate_args( // out
     int c_calibration_object_width_n = 0;
     if( NobservationsBoard > 0 )
     {
+        if(testing_cull_points_left_of != NULL    &&
+           testing_cull_points_left_of != Py_None &&
+           !PyFloat_Check(testing_cull_points_left_of))
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so testing_cull_points_left_of MUST be a valid float");
+            return false;
+        }
+
+
         if(!PyFloat_Check(calibration_object_spacing))
         {
             PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
@@ -772,6 +782,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "do_optimize_frames",
                         "skipped_observations_board",
                         "skipped_observations_point",
+                        "testing_cull_points_left_of",
                         "calibration_object_spacing",
                         "calibration_object_width_n",
                         "VERBOSE",
@@ -788,10 +799,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* do_optimize_frames                = Py_True;
     PyObject* skipped_observations_board        = NULL;
     PyObject* skipped_observations_point        = NULL;
+    PyObject* testing_cull_points_left_of       = NULL;
     PyObject* calibration_object_spacing        = NULL;
     PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOOOO",
+                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOOOOO",
                                      keywords,
                                      PyArray_Converter_leaveNone, &intrinsics,
                                      PyArray_Converter_leaveNone, &extrinsics,
@@ -810,6 +822,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &do_optimize_frames,
                                      &skipped_observations_board,
                                      &skipped_observations_point,
+                                     &testing_cull_points_left_of,
                                      &calibration_object_spacing,
                                      &calibration_object_width_n,
                                      &VERBOSE,
@@ -866,6 +879,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                 indices_point_camera_points,
                                 skipped_observations_board,
                                 skipped_observations_point,
+                                testing_cull_points_left_of,
                                 calibration_object_spacing,
                                 calibration_object_width_n,
                                 distortion_model_string,
@@ -880,11 +894,16 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         int NobservationsPoint = PyArray_DIMS(observations_point)[0];
 
 
-        double c_calibration_object_spacing = 0.0;
-        int    c_calibration_object_width_n = 0;
+        double c_testing_cull_points_left_of = -1.0;
+        double c_calibration_object_spacing  = 0.0;
+        int    c_calibration_object_width_n  = 0;
 
         if( NobservationsBoard )
         {
+            if(testing_cull_points_left_of != NULL   &&
+               testing_cull_points_left_of != Py_None &&
+               PyFloat_Check(testing_cull_points_left_of))
+                c_testing_cull_points_left_of = PyFloat_AS_DOUBLE(testing_cull_points_left_of);
             if(PyFloat_Check(calibration_object_spacing))
                 c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
             if(PyInt_Check(calibration_object_width_n))
@@ -1130,6 +1149,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         distortion_model,
                         optimization_variable_choice,
 
+                        c_testing_cull_points_left_of,
                         c_calibration_object_spacing,
                         c_calibration_object_width_n);
         pystats = PyDict_New();
