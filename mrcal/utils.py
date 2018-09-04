@@ -713,7 +713,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     V,_ = sample_imager_unproject(gridn, gridn,
                                   distortion_model, intrinsics_data,
                                   W, H)
-    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V, i_camera, solver_context) * \
+    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V.copy(), i_camera, solver_context) * \
         observed_pixel_uncertainty * observed_pixel_uncertainty
 
     title = "Projection uncertainty outlierness"
