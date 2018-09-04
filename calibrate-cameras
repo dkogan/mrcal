@@ -877,6 +877,7 @@ def get_imagersize_one(g):
 
 
 
+# These are for testing
 def get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera):
     r'''Returns a subset of observations from observation indices
 
