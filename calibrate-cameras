@@ -212,7 +212,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
 
         def accum_files(f):
             for i_camera in xrange(Ncameras):
-                if fnmatch.fnmatch(os.path.normpath(os.path.join(dots_dir, f)), globs[i_camera]):
+                if fnmatch.fnmatch(f, globs[i_camera]):
                     files_per_camera[i_camera].append(f)
                     return True
             return False
@@ -262,8 +262,9 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
                     raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
                                     format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size/2))
                 if context['f'] not in exclude:
-                    if accum_files(context['f']):
-                        mapping[context['f']] = context['grid']
+                    filename_absolute = os.path.normpath(os.path.join(dots_dir, context['f']))
+                    if accum_files(filename_absolute):
+                        mapping[filename_absolute] = context['grid']
                 context['f']    = ''
                 context['grid'] = np.array(())
 
