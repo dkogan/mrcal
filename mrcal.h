@@ -117,9 +117,7 @@ void mrcal_project( // out
 
 #define MRCAL_STATS_ITEM(_)                                           \
     _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble) \
-    _(int,            Noutliers,                  PyLong_FromLong)    \
-    _(double,         mean_outliers,              PyFloat_FromDouble) \
-    _(double,         stdev_outliers,             PyFloat_FromDouble)
+    _(int,            Noutliers,                  PyLong_FromLong)
 
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
 
@@ -205,6 +203,8 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
                                        // projecting these
                                        const union point3_t* v,
                                        int N,
+
+                                       int Noutliers,
 
                                        // context from the solve we just ran.
                                        // I need this for the factorized JtJ

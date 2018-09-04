@@ -2662,13 +2662,13 @@ mrcal_optimize( // out
                 // These are for debug reporting
                 dogleg_reportOutliers(getConfidence,
                                       2, Npoints_fromBoards,
+                                      stats.Noutliers,
                                       solver_context->beforeStep, solver_context);
             firstpass = false;
 
         } while( !skip_outlier_rejection &&
                  dogleg_markOutliers(markedOutliers,
                                      &stats.Noutliers,
-                                     &stats.mean_outliers, &stats.stdev_outliers,
                                      getConfidence,
                                      2, Npoints_fromBoards,
                                      solver_context->beforeStep, solver_context) );
@@ -2689,6 +2689,7 @@ mrcal_optimize( // out
             // These are for debug reporting
             dogleg_reportOutliers(getConfidence,
                                   2, Npoints_fromBoards,
+                                  stats.Noutliers,
                                   solver_context->beforeStep, solver_context);
 
             reportFitMsg = "After";
@@ -2767,6 +2768,8 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
                                        // projecting these
                                        const union point3_t* v,
                                        int N,
+
+                                       int Noutliers,
 
                                        // context from the solve we just ran.
                                        // I need this for the factorized JtJ
@@ -2863,7 +2866,8 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
         traces[i] =
             dogleg_getOutliernessTrace_newFeature_sparse(&dxy_dintrinsics[-2*Nintrinsics],
                                                          i_intrinsics, Nintrinsics, 2,
-                                                         op, solver_context) / (double)Nmeasurements;
+                                                         Noutliers,
+                                                         op, solver_context);
 
     }
 
