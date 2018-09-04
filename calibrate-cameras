@@ -96,7 +96,7 @@ def parse_args():
                         required=False,
                         default=False,
                         help='''By default we apply regularization to the solver. This option turns that
-off''')
+                        off''')
 
     parser.add_argument('--skip-outlier-rejection',
                         action='store_true',
@@ -109,7 +109,7 @@ off''')
                         required=False,
                         default=False,
                         help='''By default the final stage of the solver doesn't say much. This option turns
-on verbosity to get lots of diagnostics.''')
+                        on verbosity to get lots of diagnostics.''')
 
     parser.add_argument('--explore',
                         action='store_true',
@@ -160,8 +160,9 @@ on verbosity to get lots of diagnostics.''')
                         default=-1,
                         type=float,
                         help='''For testing. Throw out a random number of board observations. The ratio of
-                        observations is given as the argument. 1.0 = throw out ALL the observations; 0.0
-                        = throw out NONE of the observations''')
+                        observations is given as the argument. 1.0 = throw out
+                        ALL the observations; 0.0 = throw out NONE of the
+                        observations''')
 
 
 
