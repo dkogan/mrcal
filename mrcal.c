@@ -2259,7 +2259,7 @@ mrcal_optimize( // out
             union point3_t dxy_dpoint  [2];
 
 
-            // The array reference [-3] is intented, but the compiler throws a
+            // The array reference [-3] is intended, but the compiler throws a
             // warning. I silence it here
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
