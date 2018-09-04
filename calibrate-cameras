@@ -117,20 +117,6 @@ on verbosity to get lots of diagnostics.''')
                         default=False,
                         help='''After the solve open an interactive shell to examine the solution''')
 
-
-    parser.add_argument('--testing-cull-points-left-of',
-                        required=False,
-                        default=-1,
-                        type=float,
-                        help='''For testing. Throw out all observations with x < the given value''')
-    parser.add_argument('--testing-cull-random-observations-ratio',
-                        required=False,
-                        default=-1,
-                        type=float,
-                        help='''For testing. Throw out a random number of board observations. The ratio of
-                        observations is given as the argument. 1.0 = throw out ALL the observations; 0.0
-                        = throw out NONE of the observations''')
-
     def positive_float(string):
         try:
             value = float(string)
@@ -163,6 +149,19 @@ on verbosity to get lots of diagnostics.''')
                         can pass 'left*.jpg' and 'right*.jpg' to find images
                         'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
                         'right1.jpg', ...''')
+
+    parser.add_argument('--testing-cull-points-left-of',
+                        required=False,
+                        default=-1,
+                        type=float,
+                        help='''For testing. Throw out all observations with x < the given value''')
+    parser.add_argument('--testing-cull-random-observations-ratio',
+                        required=False,
+                        default=-1,
+                        type=float,
+                        help='''For testing. Throw out a random number of board observations. The ratio of
+                        observations is given as the argument. 1.0 = throw out ALL the observations; 0.0
+                        = throw out NONE of the observations''')
 
 
 
