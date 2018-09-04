@@ -689,7 +689,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
                         NULL};
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&iO|&i", keywords,
+                                     "O&iO|i", keywords,
                                      PyArray_Converter, &v,
                                      &i_camera,
                                      &solver_context,
