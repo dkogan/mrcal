@@ -998,7 +998,6 @@ intrinsics,extrinsics,frames = make_seed(inputs, args.seed)
 
 
 
-print "Starting the solve"
 print "Distortion model: {}".format(args.distortion_model)
 if args.skip_outlier_rejection:
     print "We are NOT rejecting outliers"
