@@ -1132,6 +1132,7 @@ if args.explore:
 Potential things to look at:
 
    show_reprojection_errors_worst(i_observation_in_order_from_worst)
+   show_reprojection_errors(i_observation)
    show_intrinsics_map()
    show_intrinsics_map_outlierness()
    show_all_errors(i_camera, ignore_outliers=True, vectorfield=False)
