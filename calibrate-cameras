@@ -1364,8 +1364,6 @@ Potential things to look at:
                                                                    intrinsics[1][i_camera],
                                                                    solver_context, i_camera,
                                                                    args.observed_pixel_uncertainty,
-                                                                   stats['mean_outliers'],
-                                                                   stats['stdev_outliers'],
                                                                    imagersizes  [i_camera],
                                                                    extratitle = "Camera {}".format(i_camera))
 

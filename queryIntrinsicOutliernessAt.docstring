@@ -31,3 +31,7 @@ Args:
 
 - solver_context: a context from the optimization we're asking about. This was
   given to us by mrcal.optimize()
+
+- Noutliers: optional integer for the current list of known outlier features.
+  This affects the acceptability threshold, and thus the scale of the reported
+  outlierness factor. If omitted, we assume Noutliers==0

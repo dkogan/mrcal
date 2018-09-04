@@ -670,17 +670,20 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     PyArrayObject* v                       = NULL;
     SolverContext* solver_context          = NULL;
     int            i_camera = -1;
+    int            Noutliers = 0;
 
     char* keywords[] = {"v",
                         "i_camera",
                         "solver_context",
+                        "Noutliers",
                         NULL};
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&iO", keywords,
+                                     "O&iO|&i", keywords,
                                      PyArray_Converter, &v,
                                      &i_camera,
-                                     &solver_context))
+                                     &solver_context,
+                                     &Noutliers))
         goto done;
 
     if(!queryIntrinsicOutliernessAt_validate_args(v,
@@ -697,7 +700,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
                                           solver_context->do_optimize_intrinsic_distortions,
                                           i_camera,
                                           (const union point3_t*)PyArray_DATA(v),
-                                          N,
+                                          N, Noutliers,
                                           ctx))
     {
         Py_DECREF(traces);

@@ -661,7 +661,6 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
 def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_data,
                                                  solver_context, i_camera, observed_pixel_uncertainty,
-                                                 mean, stdev,
                                                  imagersize,
                                                  gridn = 40,
                                                  extratitle = None,
@@ -716,10 +715,6 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                   W, H)
     Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V, i_camera, solver_context) * \
         observed_pixel_uncertainty * observed_pixel_uncertainty
-
-    # I visualize this in "standard deviations off the mean outlierness in my
-    # dataset"
-    Expected_outlierness = (Expected_outlierness-mean) / stdev
 
     title = "Projection uncertainty outlierness"
     if extratitle is not None:
