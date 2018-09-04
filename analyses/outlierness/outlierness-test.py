@@ -444,17 +444,17 @@ cooks_threshold  = 4.0 / N
 dimas_threshold2 = cooks_threshold / k_cook2 * k_dima2
 dimas_threshold3 = cooks_threshold / k_cook3 * k_dima3
 
-# show_outlierness(q, metrics2, N, dimas_threshold, cooks_threshold)
+# show_outlierness(q, metrics2, N, dimas_threshold2, cooks_threshold)
 # show_fit(q,f,query,fquery2,Vquery2)
-# show_uncertainty(V2query, expected_outlierness_query2, outlierness2, CooksD, x2, 2)
+# show_uncertainty(Vquery3, metrics3, N, dimas_threshold3, cooks_threshold)
 
 
 # Conclusions:
 #
 # - Cook's 4/N threshold looks reasonable.
 #
-# - For detecting outliers I like my self+others metric. It makes most of the
-#   linear fit look outliery.
+# - For detecting outliers my self+others metric is way too outlier-happy. It
+#   makes most of the linear fit points look outliery
 #
 # - For uncertainty, Dima's self+others is the only query metric that's maybe
-#   usable
+#   usable. It qualitatively a negated and shifted Cook's self+others
