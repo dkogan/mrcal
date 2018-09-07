@@ -13,9 +13,8 @@ import argparse
 import os
 import re
 
-from mrcal import cameramodel
-from mrcal import cahvor
-from mrcal import utils
+import mrcal.cahvor
+import mrcal
 
 
 def parse_args():
@@ -64,8 +63,8 @@ def parse_args():
 args = parse_args()
 
 def loadmodel(m):
-    if re.match(".*\.cahvor$", m): return cahvor.read(m)
-    else:                          return cameramodel(m)
+    if re.match(".*\.cahvor$", m): return mrcal.cahvor.read(m)
+    else:                          return mrcal.cameramodel(m)
 
 m0 = loadmodel(args.model_from[0])
 m1 = loadmodel(args.model_to[0])
@@ -73,7 +72,7 @@ m1 = loadmodel(args.model_to[0])
 distortion_model0,intrinsics0 = m0.intrinsics()
 distortion_model1,intrinsics1 = m1.intrinsics()
 
-plot = utils.visualize_intrinsics_diff(distortion_model0, intrinsics0,
+plot = mrcal.visualize_intrinsics_diff(distortion_model0, intrinsics0,
                                        distortion_model1, intrinsics1,
                                        m0.dimensions(),
                                        args.gridn,

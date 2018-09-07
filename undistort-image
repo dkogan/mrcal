@@ -37,9 +37,8 @@ import cv2
 import argparse
 import os
 
-from mrcal import cameramodel
-from mrcal import cahvor
-from mrcal import projections
+import mrcal.cahvor
+import mrcal
 
 
 
@@ -87,7 +86,7 @@ def writemodel(m):
     print("")
 
     print("========== CAHVOR MODEL =========")
-    cahvor.write(sys.stdout, m)
+    mrcal.cahvor.write(sys.stdout, m)
 
 
 
@@ -103,11 +102,11 @@ for imagefile in args.image:
 
 
 if re.match(".*\.cahvor$", args.model[0]):
-    model = cahvor.read(args.model[0])
+    model = mrcal.cahvor.read(args.model[0])
 else:
-    model = cameramodel(args.model[0])
+    model = mrcal.cameramodel(args.model[0])
 
-model_pinhole = cameramodel(model)
+model_pinhole = mrcal.cameramodel(model)
 i = model_pinhole.intrinsics()
 i[1][:2] /= args.scale[0]
 if i[0] == 'DISTORTION_NONE':
@@ -121,6 +120,6 @@ writemodel(model_pinhole)
 for imagefile in args.image:
     imagefile_undistorted = target_image_filename(imagefile)
 
-    image_undistorted     = projections.undistort_image(model, imagefile, scale=args.scale[0])
+    image_undistorted     = mrcal.undistort_image(model, imagefile, scale=args.scale[0])
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))

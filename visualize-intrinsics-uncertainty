@@ -22,8 +22,7 @@ import sys
 import argparse
 import os
 
-from mrcal import cameramodel
-from mrcal import utils
+import mrcal
 
 
 def parse_args():
@@ -57,13 +56,13 @@ def parse_args():
 
 
 args  = parse_args()
-model = cameramodel(args.model[0])
+model = mrcal.cameramodel(args.model[0])
 
 if model.covariance_intrinsics() is None:
     raise Exception("The given camera model doesn't have intrinsics covariances. Can't visualize them.")
 
 distortion_model,intrinsics = model.intrinsics()
-plot = utils.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
+plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               model.covariance_intrinsics(),
                                               model.dimensions(),
                                               args.gridn,

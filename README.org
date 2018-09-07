@@ -20,12 +20,14 @@ partially supported. The toolkit includes:
 - Some libraries:
   - =libmrcal=: A flexible solver core written in C that solves the underlying
     optimization problem
-  - =mrcal=: a Python interface to this core. The C function are wrapped here
-  - =mrcal.cameramodel=: a Python library to read/write camera models
-  - =mrcal.cahvor=: a Python library to read/write camera models in cahvor format:
-    this is for legacy compatibility
-  - =mrcal.poseutils=: a Python library to manipulate 3D poses
-  - =mrcal.projections=: a Python library to (un)project and (un)distort data
+  - =mrcal=: a Python library that contains (among other things) an interface
+    to this core. Other things provided by the =mrcal= Python library:
+    - functions to read/write camera models
+    - functions to manipulate 3D poses
+    - functions to (un)project and (un)distort data
+  - =mrcal.cahvor=: functions to read/write camera models in cahvor format: this
+    is for legacy compatibility only, so it lives in a separate module
+
 - Some tools:
   - =calibrate-cameras=: calibrates N cameras
   - =convert-distortions=: fits one distortion model to another
@@ -44,9 +46,8 @@ intrinsics/extrinsics, etc.
 
 ** Pose representations
 
-Various parts of the toolkit have preferred representations of pose, and
-=mrcal.poseutils= has functions to convert between them. Available
-representations are:
+Various parts of the toolkit have preferred representations of pose, and =mrcal=
+has functions to convert between them. Available representations are:
 
 - =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
   (1,3) translation vector
@@ -59,8 +60,8 @@ Each of these represents a transformation rotate(x) + t.
 A Rodrigues rotation vector r represents a rotation of length(r) radians around
 an axis in the direction r. Converting between R and r is done via the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues
 rotation formula]]. This is implemented in OpenCV Python function =cv2.Rodrigues=.
-For translating /poses/, not just rotations, use =mrcal.poseutils.Rt_from_rt()=
-and =mrcal.poseutils.rt_from_Rt()=.
+For translating /poses/, not just rotations, use =mrcal.Rt_from_rt()= and
+=mrcal.rt_from_Rt()=.
 
 ** Model files
 

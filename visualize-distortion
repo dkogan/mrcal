@@ -26,9 +26,8 @@ import re
 import argparse
 import os
 
-from mrcal import cameramodel
-from mrcal import cahvor
-from mrcal import projections
+import mrcal.cahvor
+import mrcal
 
 
 
@@ -70,16 +69,16 @@ def parse_args():
 
 args = parse_args()
 if re.match(".*\.cahvor$", args.model[0]):
-    model = cahvor.read(args.model[0])
+    model = mrcal.cahvor.read(args.model[0])
 else:
-    model = cameramodel(args.model[0])
+    model = mrcal.cameramodel(args.model[0])
 
 # get the input and output grids of shape Nwidth,Nheight,2
 W,H = model.dimensions()
 intrinsics = model.intrinsics()
-grid, dgrid = projections.distortion_map__to_warped(intrinsics,
-                                                    np.linspace(0,W,args.gridn),
-                                                    np.linspace(0,H,args.gridn))
+grid, dgrid = mrcal.distortion_map__to_warped(intrinsics,
+                                              np.linspace(0,W,args.gridn),
+                                              np.linspace(0,H,args.gridn))
 
 # shape: gridn*gridn,2
 grid  = nps.clump(grid,  n=2)

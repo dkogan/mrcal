@@ -61,12 +61,8 @@ import re
 import argparse
 import os
 
-from mrcal import cahvor
-from mrcal import projections
-from mrcal import cameramodel
-from mrcal import utils
 import mrcal
-
+import mrcal.cahvor
 
 def parse_args():
 
@@ -108,7 +104,7 @@ def writemodel(m):
     print("")
 
     print("========== CAHVOR MODEL =========")
-    cahvor.write(sys.stdout, m)
+    mrcal.cahvor.write(sys.stdout, m)
 
 
 
@@ -123,9 +119,9 @@ except:
 
 iscahvor = re.match(".*\.cahvor$", args.cameramodel[0])
 if iscahvor:
-    m = cahvor.read(args.cameramodel[0])
+    m = mrcal.cahvor.read(args.cameramodel[0])
 else:
-    m = cameramodel(args.cameramodel[0])
+    m = mrcal.cameramodel(args.cameramodel[0])
 
 intrinsics_from = m.intrinsics()
 distortionmodel_from = intrinsics_from[0]
@@ -166,7 +162,7 @@ py = np.linspace(args.margin, dims[1]-1-args.margin, N)
 pxy = nps.transpose(nps.clump( nps.cat(*np.meshgrid(px,py)), n=-2))
 
 ### I unproject this, with broadcasting
-v = projections.unproject( pxy, m.intrinsics() )
+v = mrcal.unproject( pxy, m.intrinsics() )
 
 
 ### Solve!
@@ -207,9 +203,9 @@ for i in xrange(40): # this many trials
                    do_optimize_extrinsics            = False,
                    do_optimize_frames                = False,
                    VERBOSE                           = args.verbose)
-    pxy_solved = projections.project( v,
-                                      distortionmodel_to,
-                                      intrinsics_to_values.ravel())
+    pxy_solved = mrcal.project( v,
+                                distortionmodel_to,
+                                intrinsics_to_values.ravel())
     diff = pxy_solved - pxy
     err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
     sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
@@ -220,14 +216,14 @@ for i in xrange(40): # this many trials
 
 
 sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
-m_to = cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
-                    extrinsics_rt_fromref = m.extrinsics_rt(False),
-                    dimensions            = dims )
+m_to = mrcal.cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
+                          extrinsics_rt_fromref = m.extrinsics_rt(False),
+                          dimensions            = dims )
 writemodel(m_to)
 
 if args.viz:
 
-    plot = utils.visualize_intrinsics_diff(m   .intrinsics()[0], m   .intrinsics()[1],
+    plot = mrcal.visualize_intrinsics_diff(m   .intrinsics()[0], m   .intrinsics()[1],
                                            m_to.intrinsics()[0], m_to.intrinsics()[1],
                                            m.dimensions(),
                                            40,

@@ -34,10 +34,8 @@ import argparse
 import os
 import re
 
-from mrcal import cameramodel
-from mrcal import cahvor
-from mrcal import projections
-
+import mrcal.cahvor
+import mrcal
 
 
 
@@ -77,19 +75,19 @@ args = parse_args()
 # 'from' is reserved in python
 args_from = getattr(args, 'from')
 if re.match(".*\.cahvor$", args_from[0]):
-    model_from = cahvor.read(args_from[0])
+    model_from = mrcal.cahvor.read(args_from[0])
 else:
-    model_from = cameramodel(args_from[0])
+    model_from = mrcal.cameramodel(args_from[0])
 
 if re.match(".*\.cahvor$", args.to[0]):
-    model_to = cahvor.read(args.to[0])
+    model_to = mrcal.cahvor.read(args.to[0])
 else:
-    model_to = cameramodel(args.to[0])
+    model_to = mrcal.cameramodel(args.to[0])
 
 
 p = np.genfromtxt(sys.stdin)
 
-v = projections.unproject(p, model_from.intrinsics())
-p = projections.project  (v, model_to  .intrinsics())
+v = mrcal.unproject(p, model_from.intrinsics())
+p = mrcal.project  (v, model_to  .intrinsics())
 
 np.savetxt(sys.stdout, p, fmt='%f', header='x y')

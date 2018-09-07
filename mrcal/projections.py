@@ -9,7 +9,7 @@ import scipy.optimize
 
 import utils
 import mrcal
-
+import _mrcal
 
 
 def _get_distortion_function(model):
@@ -35,7 +35,7 @@ def cahvor_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
 
 
     # this should go away in favor of a model-agnostic function that uses
-    # mrcal.project()
+    # _mrcal.project()
 
     if kwargs:
         if set(kwargs.keys()) != set((('scale'),),):
@@ -199,7 +199,7 @@ def opencv_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     '''
 
     # this should go away in favor of a model-agnostic function that uses
-    # mrcal.project()
+    # _mrcal.project()
 
 
     # opencv wants an Nx3 input array and an Nx2 output array. numpy
@@ -340,8 +340,8 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
 def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=False):
     r'''Projects 3D point(s) using the given camera intrinsics
 
-    Most of the time this invokes mrcal.project() directly UNLESS we're using
-    CAHVORE. mrcal.project() does not support CAHVORE, so we implement our own
+    Most of the time this invokes _mrcal.project() directly UNLESS we're using
+    CAHVORE. _mrcal.project() does not support CAHVORE, so we implement our own
     path here. gradients are NOT implemented for CAHVORE
 
     This function is broadcastable over points only.
@@ -413,10 +413,10 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=Fal
             return np.zeros(s[:-1] + (2,))
 
     if distortion_model != 'DISTORTION_CAHVORE':
-        return mrcal.project(np.ascontiguousarray(p),
-                             distortion_model,
-                             intrinsics_data,
-                             get_gradients=get_gradients)
+        return _mrcal.project(np.ascontiguousarray(p),
+                              distortion_model,
+                              intrinsics_data,
+                              get_gradients=get_gradients)
 
     # oof. CAHVORE. Lots of legacy code follows
     if get_gradients:

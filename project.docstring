@@ -2,16 +2,20 @@ Projects a set of 3D camera-frame points to the imager
 
 Synopsis:
 
-    points = mrcal.project( # (N,3) array of 3d points we're projecting
-                            v,
+    points = _mrcal.project( # (N,3) array of 3d points we're projecting
+                             v,
 
-                            distortion_model, intrinsics_data)
+                             distortion_model, intrinsics_data)
 
     # points is now a (N,2) array of pixel coordinates
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and an intrinsic model, this function computes the
 projection, optionally with gradients.
+
+This is the written-in-C function in mrcal.h. There's a higher-level python
+wrapper (available as mrcal.project) that handles broadcasting, and is in
+general the preferred user-facing form
 
 Args:
 
