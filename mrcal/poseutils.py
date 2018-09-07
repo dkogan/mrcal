@@ -81,19 +81,19 @@ def identity_rt():
     r'''Returns an identity rt transform'''
     return np.zeros(6, dtype=float)
 
-@nps.broadcast_define( ((4,3),(3,)),
+@nps.broadcast_define( ((3,),(4,3)),
                        (3,), )
-def transform_point_Rt(Rt, x):
+def transform_point_Rt(x, Rt):
     r'''Transforms a given point by a given Rt transformation'''
     R = Rt[:3,:]
     t = Rt[ 3,:]
     return nps.matmult(x, nps.transpose(R)) + t
 
-@nps.broadcast_define( ((6,),(3,)),
+@nps.broadcast_define( ((3,),(6,)),
                        (3,), )
-def transform_point_rt(rt, x):
+def transform_point_rt(x, rt):
     r'''Transforms a given point by a given rt transformation'''
-    return transform_point_Rt(Rt_from_rt(rt), x)
+    return transform_point_Rt(x, Rt_from_rt(rt))
 
 
 def R_from_quat(q):

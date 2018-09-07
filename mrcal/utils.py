@@ -201,7 +201,7 @@ def visualize_solution(intrinsics_data, extrinsics, frames, points,
 
         for x in transforms:
             transform = poseutils.compose_Rt(transform, x)
-        axes = np.array([ poseutils.transform_point_Rt(transform, x) for x in axes ])
+        axes = np.array([ poseutils.transform_point_Rt(x, transform) for x in axes ])
 
         axes_forplotting = extend_axes_for_plotting(axes)
 
