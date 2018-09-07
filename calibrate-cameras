@@ -218,7 +218,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
 
         # images in dots_vnl have paths relative to where the dots_vnl lives
         globs = [os.path.abspath(g) for g in globs]
-        dots_dir = os.path.dirname( dots_vnl )
+        dots_dir = None if dots_vnl is None else os.path.dirname( dots_vnl )
 
         def accum_files(f):
             for i_camera in xrange(Ncameras):
@@ -272,7 +272,7 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
                     raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
                                     format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size/2))
                 if context['f'] not in exclude:
-                    filename_absolute = os.path.normpath(os.path.join(dots_dir, context['f']))
+                    filename_absolute = os.path.normpath(os.path.join(dots_dir, context['f']) if dots_dir is not None else context['f'])
                     if accum_files(filename_absolute):
                         mapping[filename_absolute] = context['grid']
                 context['f']    = ''
