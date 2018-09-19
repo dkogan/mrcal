@@ -48,6 +48,12 @@ def parse_args():
                         default=1970,
                         required=True,
                         help='Initial estimate of the focal length, in pixels')
+    parser.add_argument('--imagersize',
+                        nargs=2,
+                        type=int,
+                        required=False,
+                        help='''Size of the imager. This is only required if we pass --dots-cache AND if none
+                        of the image files on disk actually exist''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
                                 parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
@@ -864,25 +870,31 @@ def make_seed(inputs, model_seed):
     return intrinsics,extrinsics,frames
 
 
-def get_imagersize_one(g):
+def get_imagersize_one(g, args_imagersize):
     r'''Returns the imager dimensions for a given image glob
 
-    This reports the size for ONE camera
+    This reports the size for ONE camera. I only look at the first match. It is
+    assumed that all the images matching this glob have the same dimensions.
 
-    I only look at the first match. It is assumed that all the images matching
-    this glob have the same dimensions.
-
-    Note that if I didn't do this, then you wouldn't need to keep the images
-    around after the dots cache has been computed. This function requires (some
-    of) the images even with a cache. Should reconsider maybe.
+    If I have a dots cache, then this is the ONLY place where I'd need the
+    images on disk at all. If the user passes --imagersize, then I really don't
+    need the images.
 
     '''
+    if args_imagersize is not None:
+        return args_imagersize
+
     files = glob.glob(g)
     if len(files) == 0:
         raise Exception("Glob '{}' matched no files. I need this for the imager size".format(g))
 
+
     img = cv2.imread(files[0]);
     h,w = img.shape[:2]
+
+    if args_imagersize is not None:
+        if w != args_imagersize[0] or h != args_imagersize[1]:
+            raise Exception("Inconsistent imager size. Cmdline says {}, but image says {}. Since the image exists on disk, you don't need to pass --imagesize at all".format(args_imagersize, [w,h]))
     return [w,h]
 
 
@@ -982,7 +994,7 @@ observations, indices_frame_camera,paths = \
                      jobs = args.jobs)
 
 # list of imager dimensions; one per camera
-imagersizes = [get_imagersize_one(g) for g in args.images]
+imagersizes = [get_imagersize_one(g, args.imagersize) for g in args.images]
 
 inputs = {'imagersizes':          imagersizes,
           'focal_estimate':       args.focal,
