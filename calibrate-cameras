@@ -935,7 +935,7 @@ def get_observation_subset__random(ratio_cull, frames, observations, indices_fra
 
     return get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera)
 
-def get_observation_subset__right_of_threshold(point_x_threshold, frames, observations, indices_frame_camera):
+def get_observation_subset__right_of_threshold(point_x_threshold, frames, observations, indices_frame_camera, object_width_n):
     r'''Returns a subset of observations where all points are right of some threshold
 
     This throws out all observations that lie COMPLETELY to the left of the
@@ -943,7 +943,15 @@ def get_observation_subset__right_of_threshold(point_x_threshold, frames, observ
 
     '''
 
-    indices = np.array([i for i in xrange(len(observations)) if np.any(observations[i,:,:,0] >= point_x_threshold)], dtype=int)
+    # observations that have fewer than this many points are thrown out
+    must_have_at_least_points = object_width_n*2
+
+    def have_enough_points(x):
+        return np.count_nonzero(x) >= must_have_at_least_points
+
+    indices = np.array([i for i in xrange(len(observations)) if \
+                        have_enough_points(observations[i,:,:,0] >= point_x_threshold)],
+                       dtype=int)
     return get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera)
 
 
@@ -1034,7 +1042,8 @@ intrinsics = (args.distortion_model,
 if args.testing_cull_points_left_of > 0:
     frames, observations, indices_frame_camera = \
         get_observation_subset__right_of_threshold(args.testing_cull_points_left_of,
-                                                   frames, observations, indices_frame_camera)
+                                                   frames, observations, indices_frame_camera,
+                                                   args.object_width_n)
 if args.testing_cull_random_observations_ratio >= 0:
     frames, observations, indices_frame_camera = \
         get_observation_subset__random(args.testing_cull_random_observations_ratio,
