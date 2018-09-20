@@ -71,11 +71,6 @@ def parse_args():
                         required=False,
                         default='DISTORTION_OPENCV4',
                         help='''Which distortion model we're using. By default I use DISTORTION_OPENCV4''')
-    parser.add_argument('--seed',
-                        required=False,
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("--seed requires an existing, readable file as the arg, but got '{}'".format(f)),
-                        help='''Model to use as a seed. This works ONLY if we have exactly one camera''')
     parser.add_argument('--jobs', '-j',
                         type=int,
                         default=1,
@@ -798,7 +793,7 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
 
     return frame_poses_rt
 
-def make_seed(inputs, model_seed):
+def make_seed(inputs):
     r'''Generate a solution seed for a given input'''
 
 
@@ -808,17 +803,9 @@ def make_seed(inputs, model_seed):
                           float(imager_w-1)/2.,
                           float(imager_h-1)/2.))
 
-
-
-
-    if model_seed is None:
-        intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera, inputs) \
-                                     for i_camera in xrange(inputs['Ncameras'])] )
-        intrinsics = ('DISTORTION_NONE', intrinsics_data)
-    else:
-        print "--seed probably doesn't work currently. What does it do for Ncameras>1"
-        intrinsics = list(model_seed.intrinsics())
-        intrinsics[1] = nps.dummy(intrinsics[1], -2) # add 'cameras' dimension of length 1
+    intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera, inputs) \
+                                 for i_camera in xrange(inputs['Ncameras'])] )
+    intrinsics = ('DISTORTION_NONE', intrinsics_data)
 
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame
@@ -973,11 +960,6 @@ Ncameras = len(args.images)
 if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
-if args.seed is not None:
-    if not Ncameras == 1:
-        raise Exception("Currently --seed works only with ONE camera")
-    args.seed = mrcal.cameramodel(args.seed)
-
 if args.testing_cull_points_left_of > 0 and \
    args.testing_cull_random_observations_ratio >= 0:
     raise Exception("At most one of {--testing-cull-point-x-threshold, --testing-cull-random-observations-ratio} should be given")
@@ -1003,7 +985,7 @@ inputs = {'imagersizes':          imagersizes,
           'dots':                 observations,
           'dot_spacing':          object_spacing,
           'object_width_n':       object_width_n}
-intrinsics,extrinsics,frames = make_seed(inputs, args.seed)
+intrinsics,extrinsics,frames = make_seed(inputs)
 
 
 
@@ -1018,31 +1000,28 @@ else:
     print "We ARE applying regularization in the solver"
 
 
-# done with everything. Run the calibration, in several passes. If we were given
-# a seed, I presumably have an estimate of the solution, so I skip straight to
-# the final pass
-if args.seed is None:
-    mrcal.optimize(intrinsics[1], extrinsics, frames, None,
-                   observations, indices_frame_camera,
-                   None, None,
-                   intrinsics[0],
-                   do_optimize_intrinsic_core        = False,
-                   do_optimize_intrinsic_distortions = False,
-                   calibration_object_spacing        = object_spacing,
-                   calibration_object_width_n        = object_width_n,
-                   skip_outlier_rejection            = True,
-                   VERBOSE                           = False)
+# done with everything. Run the calibration, in several passes
+mrcal.optimize(intrinsics[1], extrinsics, frames, None,
+               observations, indices_frame_camera,
+               None, None,
+               intrinsics[0],
+               do_optimize_intrinsic_core        = False,
+               do_optimize_intrinsic_distortions = False,
+               calibration_object_spacing        = object_spacing,
+               calibration_object_width_n        = object_width_n,
+               skip_outlier_rejection            = True,
+               VERBOSE                           = False)
 
-    stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
-                           observations, indices_frame_camera,
-                           None, None,
-                           intrinsics[0],
-                           do_optimize_intrinsic_core        = True,
-                           do_optimize_intrinsic_distortions = False,
-                           calibration_object_spacing        = object_spacing,
-                           calibration_object_width_n        = object_width_n,
-                           skip_outlier_rejection            = True,
-                           VERBOSE                           = False)
+stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
+                       observations, indices_frame_camera,
+                       None, None,
+                       intrinsics[0],
+                       do_optimize_intrinsic_core        = True,
+                       do_optimize_intrinsic_distortions = False,
+                       calibration_object_spacing        = object_spacing,
+                       calibration_object_width_n        = object_width_n,
+                       skip_outlier_rejection            = True,
+                       VERBOSE                           = False)
 
 intrinsics = (args.distortion_model,
               nps.glue( intrinsics[1],
