@@ -6,9 +6,7 @@ import sys
 import re
 import cv2
 
-import poseutils
-import projections
-from . import mrcal
+import mrcal
 
 @nps.broadcast_define( (('N',3), ('N',3),),
                        (4,3), )
@@ -197,11 +195,11 @@ def visualize_solution(intrinsics_data, extrinsics, frames, points,
                           (0,1,0),
                           (0,0,2),), dtype=float ) * scale
 
-        transform = poseutils.identity_Rt()
+        transform = mrcal.identity_Rt()
 
         for x in transforms:
-            transform = poseutils.compose_Rt(transform, x)
-        axes = np.array([ poseutils.transform_point_Rt(x, transform) for x in axes ])
+            transform = mrcal.compose_Rt(transform, x)
+        axes = np.array([ mrcal.transform_point_Rt(x, transform) for x in axes ])
 
         axes_forplotting = extend_axes_for_plotting(axes)
 
@@ -225,8 +223,8 @@ def visualize_solution(intrinsics_data, extrinsics, frames, points,
     # - Observed points
     def gen_curves_cameras():
 
-        cam0_axes_labels = gen_plot_axes((poseutils.identity_Rt(),), 'cam0', scale=axis_scale)
-        cam_axes_labels  = [gen_plot_axes((poseutils.invert_Rt(poseutils.Rt_from_rt(extrinsics[i])),),
+        cam0_axes_labels = gen_plot_axes((mrcal.identity_Rt(),), 'cam0', scale=axis_scale)
+        cam_axes_labels  = [gen_plot_axes((mrcal.invert_Rt(mrcal.Rt_from_rt(extrinsics[i])),),
                                            'cam{}'.format(i+1),
                                           scale=axis_scale) for i in range(0,extrinsics.shape[-2])]
 
@@ -273,7 +271,7 @@ def visualize_solution(intrinsics_data, extrinsics, frames, points,
         #         calobject_cam = nps.matmult( calobject_cam0, nps.transpose(Rc)) + tc
 
         #     print "double-check this. I don't broadcast over the intrinsics anymore"
-        #     err = observations[i_observations, ...] - projections.project(calobject_cam, distortion_model, intrinsics_data[i_camera, ...])
+        #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, distortion_model, intrinsics_data[i_camera, ...])
         #     err = nps.clump(err, n=-3)
         #     rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
         #     # igood = rms <  0.4
@@ -430,7 +428,7 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
 
     # shape: Nwidth,Nheight,3
     return \
-        projections.unproject(grid, distortion_model, intrinsics_data), \
+        mrcal.unproject(grid, distortion_model, intrinsics_data), \
         grid
 
 
@@ -445,7 +443,7 @@ def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_
 
     '''
     imagePoints,dp_dintrinsics,_ = \
-        projections.project(V, distortion_model, intrinsics_data, get_gradients=True)
+        mrcal.project(V, distortion_model, intrinsics_data, get_gradients=True)
     F = dp_dintrinsics[..., 0:2]
     C = dp_dintrinsics[..., 2:4]
 
@@ -774,7 +772,7 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
                                    W, H)
 
     # shape: Nwidth,Nheight,2
-    p1 = projections.project(V, distortion_model1, intrinsics_data1)
+    p1 = mrcal.project(V, distortion_model1, intrinsics_data1)
 
     diff    = p1-p0
     difflen = np.sqrt(nps.inner(diff, diff))

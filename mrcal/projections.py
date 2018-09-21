@@ -7,7 +7,6 @@ import re
 import cv2
 import scipy.optimize
 
-import utils
 import mrcal
 import _mrcal
 
@@ -588,15 +587,15 @@ def calobservations_project(distortion_model, intrinsics, extrinsics, frames, do
 
     '''
 
-    object_ref = utils.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
-    Rf = utils.Rodrigues_toR_broadcasted(frames[:,:3])
+    object_ref = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+    Rf = mrcal.Rodrigues_toR_broadcasted(frames[:,:3])
     Rf = nps.mv(Rf,           0, -5)
     tf = nps.mv(frames[:,3:], 0, -5)
 
     # object in the cam0 coord system. shape=(Nframes, 1, Nwant, Nwant, 3)
     object_cam0 = nps.matmult( object_ref, nps.transpose(Rf)) + tf
 
-    Rc = utils.Rodrigues_toR_broadcasted(extrinsics[:,:3])
+    Rc = mrcal.Rodrigues_toR_broadcasted(extrinsics[:,:3])
     Rc = nps.mv(Rc,               0, -4)
     tc = nps.mv(extrinsics[:,3:], 0, -4)
 
