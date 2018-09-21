@@ -1237,14 +1237,25 @@ def show_reprojection_errors(observation):
     nonoutlier_indices_thisobservation = np.ones((object_width_n*object_width_n,),dtype=bool)
     nonoutlier_indices_thisobservation[outlier_indices_thisobservation] = False
     obs_ignoring_outliers = obs[nonoutlier_indices_thisobservation, :]
+
+    imagepath = paths[i_observation]
+    plotkwargs = \
+        dict(square=1,cbmin=0,
+             _set='autoscale noextend',
+             title='i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={}, error_RMS_ignoring_outliers={}'. \
+               format( i_observation, i_frame, i_camera,
+                       paths[i_observation],
+                       rms_err_all_points_perimage[i_observation],
+                       rms_err_ignoring_outliers_perimage[i_observation]))
+    if os.path.isfile(imagepath):
+        # only plot an image overlay if the image exists
+        plotkwargs['rgbimage'] = imagepath
+
     gp.plot( (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], err[nonoutlier_indices_thisobservation],
               {'with': 'points pt 7 ps 2 palette', 'legend': 'reprojection error', 'tuplesize': 3}),
              (obs   [:,0], obs   [:,1], {'with': 'points', 'legend': 'observed'}),
              (reproj[:,0], reproj[:,1], {'with': 'points', 'legend': 'hypothesis'}),
-             rgbimage=paths[i_observation],
-             square=1,cbmin=0,
-             _set='autoscale noextend',
-             title='i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={}, error_RMS_ignoring_outliers={}'.format( i_observation, i_frame, i_camera, paths[i_observation], rms_err_all_points_perimage[i_observation], rms_err_ignoring_outliers_perimage[i_observation]))
+             **plotkwargs)
 
 def show_reprojection_errors_worst(i):
     show_reprojection_errors( i_observations_worst[i] )
