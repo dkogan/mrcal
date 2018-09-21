@@ -1947,22 +1947,24 @@ mrcal_optimize( // out
 #define STORE_JACOBIAN(col, g)                  \
         do                                      \
         {                                       \
-            Jcolidx[ iJacobian ] = col;         \
-            Jval   [ iJacobian ] = g;           \
+            if(Jt) {                            \
+                Jcolidx[ iJacobian ] = col;     \
+                Jval   [ iJacobian ] = g;       \
+            }                                   \
             iJacobian++;                        \
         } while(0)
-#define STORE_JACOBIAN3(col0, g0, g1, g2)       \
-        do                                      \
-        {                                       \
-            Jcolidx[ iJacobian ] = col0+0;      \
-            Jval   [ iJacobian ] = g0;          \
-            iJacobian++;                        \
-            Jcolidx[ iJacobian ] = col0+1;      \
-            Jval   [ iJacobian ] = g1;          \
-            iJacobian++;                        \
-            Jcolidx[ iJacobian ] = col0+2;      \
-            Jval   [ iJacobian ] = g2;          \
-            iJacobian++;                        \
+#define STORE_JACOBIAN3(col0, g0, g1, g2)               \
+        do                                              \
+        {                                               \
+            if(Jt) {                                    \
+                Jcolidx[ iJacobian+0 ] = col0+0;        \
+                Jval   [ iJacobian+0 ] = g0;            \
+                Jcolidx[ iJacobian+1 ] = col0+1;        \
+                Jval   [ iJacobian+1 ] = g1;            \
+                Jcolidx[ iJacobian+2 ] = col0+2;        \
+                Jval   [ iJacobian+2 ] = g2;            \
+            }                                           \
+            iJacobian +=3 ;                             \
         } while(0)
 
 
@@ -2085,7 +2087,7 @@ mrcal_optimize( // out
                             continue;
                         }
 
-                        Jrowptr[iMeasurement] = iJacobian;
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
                         norm2_error += err*err;
 
@@ -2159,7 +2161,7 @@ mrcal_optimize( // out
                             continue;
                         }
 
-                        Jrowptr[iMeasurement] = iJacobian;
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
                         norm2_error += err*err;
 
@@ -2303,7 +2305,7 @@ mrcal_optimize( // out
                 {
                     const double err = pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy];
 
-                    Jrowptr[iMeasurement] = iJacobian;
+                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
@@ -2368,7 +2370,7 @@ mrcal_optimize( // out
                         double err = dist - observation->dist;
                         err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
-                        Jrowptr[iMeasurement] = iJacobian;
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
                         norm2_error += err*err;
 
@@ -2406,7 +2408,7 @@ mrcal_optimize( // out
                         double err = dist - observation->dist;
                         err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
-                        Jrowptr[iMeasurement] = iJacobian;
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
                         x[iMeasurement] = err;
                         norm2_error += err*err;
 
@@ -2477,7 +2479,7 @@ mrcal_optimize( // out
                 {
                     const double err = 0.0;
 
-                    Jrowptr[iMeasurement] = iJacobian;
+                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
@@ -2516,7 +2518,7 @@ mrcal_optimize( // out
                 {
                     const double err = 0.0;
 
-                    Jrowptr[iMeasurement] = iJacobian;
+                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
@@ -2573,7 +2575,7 @@ mrcal_optimize( // out
 
                 for(int j=0; j<Ndistortions; j++)
                 {
-                    Jrowptr[iMeasurement] = iJacobian;
+                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
 
                     // This is very hoaky. distortion-parameter-0 of a CAHVOR
                     // model is a direction not a "strength" so it shouldn't be
@@ -2604,7 +2606,7 @@ mrcal_optimize( // out
         // required to indicate the end of the jacobian matrix
         if( !reportFitMsg )
         {
-            Jrowptr[iMeasurement] = iJacobian;
+            if(Jt) Jrowptr[iMeasurement] = iJacobian;
             assert(iMeasurement == Nmeasurements);
             assert(iJacobian    == N_j_nonzero  );
 
