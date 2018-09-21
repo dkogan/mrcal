@@ -4,17 +4,34 @@ r'''Calibrate some synchronized cameras
 
 Synopsis:
 
-  $ calibrate-cameras --focal 2000 --outdir /tmp --object-spacing 0.01 --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
+  $ calibrate-cameras
+      --dots-cache corners.vnl
+      --focal 1700 --object-spacing 0.01 --object-width-n 10
+      --out /tmp
+      --distortion-model DISTORTION_OPENCV8
+      --observed-pixel-uncertainty 0.5
+      'left*.png' 'right*.png'
 
+    ... lots of output as the solve runs ...
+    Done!
+    RMS reprojection error: 1.9 pixels
+    Worst reprojection error: 7.8 pixels
+    Noutliers: 319 out of 17100 total points: 1.9% of the data
+    Expected projection uncertainty due to input pixel observations.
+      This is an (Ncameras,5) matrix. For each camera we look at the
+      (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.
+      The corners are 10% inside the image. The reported numbers are 'expected projection
+      error', measured in pixels.
+    8.9 8.7 7.5 8.3 0.8
 
-  ... lots of output as the solve runs ...
-  done with DISTORTION_CAHVOR, optimizing DISTORTIONS again
-  Wrote /tmp/camera0-0.cahvor
-  Wrote /tmp/camera0-1.cahvor
+    Wrote /tmp/camera0-0.cahvor
+    Wrote /tmp/camera0-1.cahvor
+    Wrote /tmp/camera0-0.cameramodel
+    Wrote /tmp/camera0-1.cameramodel
 
-
-This tools uses the generic mrcal platform to solve this common specific
-problem. Run --help for the list of commandline options
+Thi tools uses the generic mrcal platform to solve a common specific problem of
+n-camera calibration using observations of a chessboard. Run --help for the list
+of commandline options
 
 '''
 
