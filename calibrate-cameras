@@ -1025,6 +1025,19 @@ else:
     print "We ARE applying regularization in the solver"
 
 
+
+if args.testing_cull_points_left_of > 0:
+    frames, observations, indices_frame_camera = \
+        get_observation_subset__right_of_threshold(args.testing_cull_points_left_of,
+                                                   frames, observations, indices_frame_camera,
+                                                   args.object_width_n)
+if args.testing_cull_random_observations_ratio >= 0:
+    frames, observations, indices_frame_camera = \
+        get_observation_subset__random(args.testing_cull_random_observations_ratio,
+                                       frames, observations, indices_frame_camera)
+
+
+
 # done with everything. Run the calibration, in several passes
 mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                observations, indices_frame_camera,
@@ -1054,18 +1067,6 @@ intrinsics = (args.distortion_model,
                                           mrcal.getNdistortionParams(args.distortion_model) -
                                           mrcal.getNdistortionParams(intrinsics[0])        ))*1e-5,
                         axis=-1 ))
-
-
-if args.testing_cull_points_left_of > 0:
-    frames, observations, indices_frame_camera = \
-        get_observation_subset__right_of_threshold(args.testing_cull_points_left_of,
-                                                   frames, observations, indices_frame_camera,
-                                                   args.object_width_n)
-if args.testing_cull_random_observations_ratio >= 0:
-    frames, observations, indices_frame_camera = \
-        get_observation_subset__random(args.testing_cull_random_observations_ratio,
-                                       frames, observations, indices_frame_camera)
-
 
 solver_context = mrcal.SolverContext()
 stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
