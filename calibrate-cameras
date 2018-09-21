@@ -1241,7 +1241,6 @@ def show_reprojection_errors(observation):
     imagepath = paths[i_observation]
     plotkwargs = \
         dict(square=1,cbmin=0,
-             _set='autoscale noextend',
              title='i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={}, error_RMS_ignoring_outliers={}'. \
                format( i_observation, i_frame, i_camera,
                        paths[i_observation],
@@ -1250,6 +1249,11 @@ def show_reprojection_errors(observation):
     if os.path.isfile(imagepath):
         # only plot an image overlay if the image exists
         plotkwargs['rgbimage'] = imagepath
+        plotkwargs['set']      = 'autoscale noextend'
+    else:
+        W,H=imagersizes[i_camera]
+        plotkwargs['xrange'] = [0,W-1]
+        plotkwargs['yrange'] = [H-1,0]
 
     gp.plot( (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], err[nonoutlier_indices_thisobservation],
               {'with': 'points pt 7 ps 2 palette', 'legend': 'reprojection error', 'tuplesize': 3}),
