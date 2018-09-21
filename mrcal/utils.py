@@ -492,7 +492,8 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      covariance_intrinsics, imagersize,
                                      gridn = 40,
                                      extratitle = None,
-                                     hardcopy = None):
+                                     hardcopy = None,
+                                     extraplotkwargs = {}):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the covariance of observed inputs
@@ -623,23 +624,27 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                   W, H)
     Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
 
-    title = "Projection uncertainty"
-    if extratitle is not None:
-        title += ": " + extratitle
+    if 'title' not in extraplotkwargs:
+        title = "Projection uncertainty"
+        if extratitle is not None:
+            title += ": " + extratitle
+        extraplotkwargs['title'] = title
 
-    extraplotkwargs = dict(title = title)
-    if hardcopy is not None:
+    if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
         extraplotkwargs['hardcopy'] = hardcopy
 
+    if 'set' not in extraplotkwargs:
+        extraplotkwargs['set'] = []
+    extraplotkwargs['set'].extend(['xrange [:] noextend',
+                                   'yrange [:] noextend reverse',
+                                   'view equal xy',
+                                   'view map',
+                                   'contour surface',
+                                   'cntrparam levels incremental 10,-0.2,0'])
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
-                      set=['xrange [:] noextend',
-                           'yrange [:] noextend reverse',
-                           'view equal xy',
-                           'view map',
-                           'contour surface',
-                           'cntrparam levels incremental 10,-0.2,0'],
+
                       _xrange=[0,W],
                       _yrange=[H,0],
                       cbrange=[0,5],
@@ -663,7 +668,8 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                                  Noutliers,
                                                  gridn = 40,
                                                  extratitle = None,
-                                                 hardcopy = None):
+                                                 hardcopy = None,
+                                                 extraplotkwargs = {}):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the outlierness factor of hypothetical query points
@@ -712,26 +718,31 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     V,_ = sample_imager_unproject(gridn, gridn,
                                   distortion_model, intrinsics_data,
                                   W, H)
+
     Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V.copy(), i_camera, solver_context, Noutliers) * \
         observed_pixel_uncertainty * observed_pixel_uncertainty
 
-    title = "Projection uncertainty outlierness"
-    if extratitle is not None:
-        title += ": " + extratitle
+    if 'title' not in extraplotkwargs:
+        title = "Projection uncertainty outlierness"
+        if extratitle is not None:
+            title += ": " + extratitle
+            extraplotkwargs['title'] = title
 
-    extraplotkwargs = dict(title = title)
-    if hardcopy is not None:
+    if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
         extraplotkwargs['hardcopy'] = hardcopy
 
+    if 'set' not in extraplotkwargs:
+        extraplotkwargs['set'] = []
+    extraplotkwargs['set'].extend(['xrange [:] noextend',
+                                   'yrange [:] noextend reverse',
+                                   'view equal xy',
+                                   'view map',
+                                   'contour surface',
+                                   'cntrparam levels incremental 0,0.5,10'])
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
-                      set=['xrange [:] noextend',
-                           'yrange [:] noextend reverse',
-                           'view equal xy',
-                           'view map',
-                           'contour surface',
-                           'cntrparam levels incremental 0,0.2,2'],
+
                       _xrange=[0,W],
                       _yrange=[H,0],
                       cbrange=[0,2],
@@ -755,7 +766,8 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
                               gridn = 40,
                               vectorfield = False,
                               extratitle = None,
-                              hardcopy = None):
+                              hardcopy = None,
+                              extraplotkwargs = {}):
     r'''Given two intrinsics, show their projection differences
 
     We do this either with a vectorfield or a colormap. The former carries more
@@ -777,12 +789,13 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
     diff    = p1-p0
     difflen = np.sqrt(nps.inner(diff, diff))
 
-    title = "Model diff"
-    if extratitle is not None:
-        title += ": " + extratitle
+    if 'title' not in extraplotkwargs:
+        title = "Model diff"
+        if extratitle is not None:
+            title += ": " + extratitle
+            extraplotkwargs['title'] = title
 
-    extraplotkwargs = dict(title = title)
-    if hardcopy is not None:
+    if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
         extraplotkwargs['hardcopy'] = hardcopy
 
     if vectorfield:
@@ -800,15 +813,17 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
                    _with='vectors size screen 0.005,10 fixed filled palette',
                    tuplesize=5)
     else:
+        if 'set' not in extraplotkwargs:
+            extraplotkwargs['set'] = []
+        extraplotkwargs['set'].extend(['xrange [:] noextend',
+                                       'yrange [:] noextend reverse',
+                                       'view equal xy',
+                                       'view map',
+                                       'contour surface',
+                                       'cntrparam levels incremental 10,-1,0'])
         plot = \
             gp.gnuplotlib(_3d=1,
                           unset='grid',
-                          set=['xrange [:] noextend',
-                               'yrange [:] noextend reverse',
-                               'view equal xy',
-                               'view map',
-                               'contour surface',
-                               'cntrparam levels incremental 10,-1,0'],
                           _xrange=[0,W],
                           _yrange=[H,0],
                           cbrange=[0,10],
