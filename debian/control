@@ -32,7 +32,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          python-mrcal (= ${binary:Version}), python,
          python-gnuplotlib, python-numpysane,
          python-scipy,  python-ipython,
-         mrgingham (>= 1.4)
+         mrgingham (>= 1.5)
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
