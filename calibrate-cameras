@@ -290,7 +290,10 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
                     raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
                                     format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size/2))
                 if context['f'] not in exclude:
-                    filename_absolute = os.path.normpath(os.path.join(dots_dir, context['f']) if dots_dir is not None else context['f'])
+                    if dots_dir is not None:
+                        filename_absolute = os.path.abspath(os.path.join(dots_dir, context['f']))
+                    else:
+                        filename_absolute = os.path.normpath(context['f'])
                     if accum_files(filename_absolute):
                         mapping[filename_absolute] = context['grid']
                 context['f']    = ''
