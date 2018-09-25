@@ -29,11 +29,10 @@ x_halfrange         = .3
 y_halfrange         = .2
 z_halfrange         = .05
 
-distortion_model = 'DISTORTION_OPENCV8'
-# intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
-intrinsics = np.array((1761.181055, 1761.250444, 1945.706996, 1067.518797, -0.1266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.1482863541, -0.0562239888, 0.0500223357))
-cam_width  = 3840.
-cam_height = 2160.
+m = mrcal.cameramodel('reference.cameramodel')
+distortion_model = m.intrinsics()[0]
+intrinsics       = m.intrinsics()[1]
+cam_width,cam_height = m.dimensions()
 
 pixel_noise_xy_1stdev = 0.5
 
