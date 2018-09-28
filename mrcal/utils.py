@@ -726,7 +726,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
         title = "Projection uncertainty outlierness"
         if extratitle is not None:
             title += ": " + extratitle
-            extraplotkwargs['title'] = title
+        extraplotkwargs['title'] = title
 
     if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
         extraplotkwargs['hardcopy'] = hardcopy
@@ -793,7 +793,7 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
         title = "Model diff"
         if extratitle is not None:
             title += ": " + extratitle
-            extraplotkwargs['title'] = title
+        extraplotkwargs['title'] = title
 
     if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
         extraplotkwargs['hardcopy'] = hardcopy
