@@ -1098,14 +1098,13 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
         double* c_x_final = PyArray_DATA(x_final);
 
-        int Nintrinsics = mrcal_getNintrinsicOptimizationParams(optimization_variable_choice,
-                                                                distortion_model);
+        int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model);
         double* c_intrinsic_covariances = NULL;
-        if(Nintrinsics != 0)
+        if(Nintrinsics_all != 0)
         {
             intrinsic_covariances =
                 (PyArrayObject*)PyArray_SimpleNew(3,
-                                                  ((npy_intp[]){Ncameras,Nintrinsics,Nintrinsics}), NPY_DOUBLE);
+                                                  ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
             c_intrinsic_covariances = PyArray_DATA(intrinsic_covariances);
         }
 

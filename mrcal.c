@@ -1258,6 +1258,14 @@ static int state_index_point(int i_point, int Nframes, int Ncameras,
         i_point*3;
 }
 
+static int intrinsics_index_from_state_index( int i_intrinsic_state,
+                                              struct mrcal_variable_select optimization_variable_choice )
+{
+    if( optimization_variable_choice.do_optimize_intrinsic_core )
+        return i_intrinsic_state;
+    return i_intrinsic_state+N_INTRINSICS_CORE;
+}
+
 // This function is part of sensitivity analysis to quantify how much errors in
 // the input pixel observations affect our solution. A "good" solution will not
 // be very sensitive: measurement noise doesn't affect the solution very much.
@@ -1393,6 +1401,25 @@ static bool computeConfidence_MMt(// out
     if(NobservationsBoard <= 0)
         return false;
 
+    //Nintrinsics_per_camera_state can be < Nintrinsics_per_camera_all, if we're
+    //locking down some variables with optimization_variable_choice
+    int Nintrinsics_per_camera_all = mrcal_getNintrinsicParams(distortion_model);
+    int Nintrinsics_per_camera_state =
+        getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model);
+#warning assumes the point range errors sit AFTER all the reprojection errors
+    int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
+                                                               NobservationsPoint,
+                                                               calibration_object_width_n);
+    memset(MMt_intrinsics, 0,
+           Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
+
+    if( !optimization_variable_choice.do_optimize_intrinsic_core        &&
+        !optimization_variable_choice.do_optimize_intrinsic_distortions )
+    {
+        // We're not optimizing any of the intrinsics. MMt is 0
+        return true;
+    }
+
     cholmod_sparse* Jt     = solverCtx->beforeStep->Jt;
     int             Nstate = Jt->nrow;
     int             Nmeas  = Jt->ncol;
@@ -1435,18 +1462,6 @@ static bool computeConfidence_MMt(// out
     // As described above, I'm looking at what input noise does, so I only look at
     // the measurements that pertain to the input observations directly. In mrcal,
     // this is the leading ones, before the range errors and the regularization
-    int Nintrinsics_per_camera =
-        getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model);
-#warning assumes the point range errors sit AFTER all the reprojection errors
-    int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
-                                                               NobservationsPoint,
-                                                               calibration_object_width_n);
-
-    memset(MMt_intrinsics, 0,
-           Ncameras*Nintrinsics_per_camera* Nintrinsics_per_camera*sizeof(double));
-
-
-
 
 
 
@@ -1562,21 +1577,22 @@ static bool computeConfidence_MMt(// out
             {
                 double x0 = ((double*)(M->x))[irow0 + icol*M->nrow];
 
-                int icam0 = irow0 / Nintrinsics_per_camera;
+                int icam0 = irow0 / Nintrinsics_per_camera_state;
                 if( icam0 >= Ncameras )
                     // not a camera intrinsic parameter
                     continue;
 
-                int i_intrinsics0 = irow0 - icam0*Nintrinsics_per_camera;
+                int i_intrinsics0 = intrinsics_index_from_state_index( irow0 - icam0*Nintrinsics_per_camera_state,
+                                                                       optimization_variable_choice );
 
                 // special-case process the diagonal param
-                MMt_intrinsics[icam0*Nintrinsics_per_camera*Nintrinsics_per_camera +
-                               (Nintrinsics_per_camera+1)*i_intrinsics0] += x0*x0;
+                MMt_intrinsics[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all +
+                               (Nintrinsics_per_camera_all+1)*i_intrinsics0] += x0*x0;
 
                 // Now the off-diagonal
                 for(unsigned int irow1=irow0+1; irow1<M->nrow; irow1++)
                 {
-                    int icam1 = irow1 / Nintrinsics_per_camera;
+                    int icam1 = irow1 / Nintrinsics_per_camera_state;
 
                     // I want to look at each camera individually, so I ignore the
                     // interactions between the parameters across cameras
@@ -1585,11 +1601,11 @@ static bool computeConfidence_MMt(// out
 
                     double x1 = ((double*)(M->x))[irow1 + icol*M->nrow];
                     double x0x1 = x0*x1;
-                    int i_intrinsics1 = irow1 - icam1*Nintrinsics_per_camera;
-
-                    double* MMt_thiscam = &MMt_intrinsics[icam0*Nintrinsics_per_camera*Nintrinsics_per_camera];
-                    MMt_thiscam[Nintrinsics_per_camera*i_intrinsics0 + i_intrinsics1] += x0x1;
-                    MMt_thiscam[Nintrinsics_per_camera*i_intrinsics1 + i_intrinsics0] += x0x1;
+                    int i_intrinsics1 = intrinsics_index_from_state_index( irow1 - icam1*Nintrinsics_per_camera_state,
+                                                                           optimization_variable_choice );
+                    double* MMt_thiscam = &MMt_intrinsics[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+                    MMt_thiscam[Nintrinsics_per_camera_all*i_intrinsics0 + i_intrinsics1] += x0x1;
+                    MMt_thiscam[Nintrinsics_per_camera_all*i_intrinsics1 + i_intrinsics0] += x0x1;
                 }
             }
         }
@@ -2758,6 +2774,7 @@ mrcal_optimize( // out
 
     if( intrinsic_covariances )
     {
+        int Nintrinsics_per_camera = mrcal_getNintrinsicParams(distortion_model);
         bool result =
             computeConfidence_MMt(// out
                                   // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
@@ -2777,8 +2794,6 @@ mrcal_optimize( // out
         {
             MSG("Failed to compute MMt.");
             double nan = strtod("NAN", NULL);
-            int Nintrinsics_per_camera =
-                getNintrinsicOptimizationParams(optimization_variable_choice, distortion_model);
             for(int i=0; i<Ncameras*Nintrinsics_per_camera*Nintrinsics_per_camera; i++)
                 intrinsic_covariances[i] = nan;
         }
