@@ -22,7 +22,7 @@ Synopsis:
       (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.
       The corners are 10% inside the image. The reported numbers are 'expected projection
       error', measured in pixels.
-    8.9 8.7 7.5 8.3 0.8
+    [[8.9 8.7 7.5 8.3 0.8]]
 
     Wrote /tmp/camera0-0.cahvor
     Wrote /tmp/camera0-1.cahvor
