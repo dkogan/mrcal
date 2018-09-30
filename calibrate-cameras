@@ -907,12 +907,11 @@ def get_imagersize_one(g, args_imagersize):
 
 
 # These are for testing
-def get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera):
+def get_observation_subset__from_indices(indices, observations, paths, indices_frame_camera):
     r'''Returns a subset of observations from observation indices
 
-    Observations are stored across 3 variables:
+    Observations are stored across 2 variables:
 
-    - frames
     - observations
     - indices_frame_camera
 
@@ -924,6 +923,7 @@ def get_observation_subset__from_indices(indices, frames, observations, indices_
 
 
     observations_new         = observations        [indices, ...].copy()
+    paths_new                = [paths[i] for i in indices]
     indices_frame_camera_new = indices_frame_camera[indices, ...].copy()
 
     # I now collapse newly-missing frames and build the frame indices
@@ -942,10 +942,9 @@ def get_observation_subset__from_indices(indices, frames, observations, indices_
             indices_frames.append(iframe_old)
         indices_frame_camera_new[iobs_new,0] = iframe_new_last
 
-    frames_new = frames[indices_frames, ...].copy()
-    return frames_new, observations_new, indices_frame_camera_new
+    return observations_new, paths_new, indices_frame_camera_new
 
-def get_observation_subset__random(ratio_cull, frames, observations, indices_frame_camera):
+def get_observation_subset__random(ratio_cull, observations, paths, indices_frame_camera):
     r'''Returns a random subset of observations'''
 
     # keep this many
@@ -953,9 +952,9 @@ def get_observation_subset__random(ratio_cull, frames, observations, indices_fra
 
     indices = np.sort(np.random.choice(len(observations), N, replace=False))
 
-    return get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera)
+    return get_observation_subset__from_indices(indices, observations, paths, indices_frame_camera)
 
-def get_observation_subset__right_of_threshold(point_x_threshold, frames, observations, indices_frame_camera, object_width_n):
+def get_observation_subset__right_of_threshold(point_x_threshold, observations, paths, indices_frame_camera, object_width_n):
     r'''Returns a subset of observations where all points are right of some threshold
 
     This throws out all observations that lie COMPLETELY to the left of the
@@ -972,7 +971,7 @@ def get_observation_subset__right_of_threshold(point_x_threshold, frames, observ
     indices = np.array([i for i in xrange(len(observations)) if \
                         have_enough_points(observations[i,:,:,0] >= point_x_threshold)],
                        dtype=int)
-    return get_observation_subset__from_indices(indices, frames, observations, indices_frame_camera)
+    return get_observation_subset__from_indices(indices, observations, paths, indices_frame_camera)
 
 
 
@@ -996,12 +995,22 @@ if args.testing_cull_points_left_of > 0 and \
 object_spacing = args.object_spacing
 object_width_n = args.object_width_n
 
-observations, indices_frame_camera,paths = \
+observations, indices_frame_camera, paths = \
     get_observations(object_width_n,
                      object_width_n,
                      args.images,
                      args.dots_cache,
                      jobs = args.jobs)
+
+if args.testing_cull_points_left_of > 0:
+    observations, paths, indices_frame_camera = \
+        get_observation_subset__right_of_threshold(args.testing_cull_points_left_of,
+                                                   observations, paths, indices_frame_camera,
+                                                   args.object_width_n)
+if args.testing_cull_random_observations_ratio >= 0:
+    observations, paths, indices_frame_camera = \
+        get_observation_subset__random(args.testing_cull_random_observations_ratio,
+                                       observations, paths, indices_frame_camera)
 
 # list of imager dimensions; one per camera
 imagersizes = [get_imagersize_one(g, args.imagersize) for g in args.images]
@@ -1026,18 +1035,6 @@ if args.skip_regularization:
     print "We are NOT applying regularization in the solver"
 else:
     print "We ARE applying regularization in the solver"
-
-
-
-if args.testing_cull_points_left_of > 0:
-    frames, observations, indices_frame_camera = \
-        get_observation_subset__right_of_threshold(args.testing_cull_points_left_of,
-                                                   frames, observations, indices_frame_camera,
-                                                   args.object_width_n)
-if args.testing_cull_random_observations_ratio >= 0:
-    frames, observations, indices_frame_camera = \
-        get_observation_subset__random(args.testing_cull_random_observations_ratio,
-                                       frames, observations, indices_frame_camera)
 
 
 
