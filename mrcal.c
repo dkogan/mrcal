@@ -2694,7 +2694,7 @@ mrcal_optimize( // out
         }
 
 
-        bool firstpass = true;
+        double outliernessScale = -1.0;
         do
         {
             norm2_error = dogleg_optimize(packed_state,
@@ -2703,16 +2703,17 @@ mrcal_optimize( // out
             if(_solver_context != NULL)
                 *_solver_context = solver_context;
 
-            if(firstpass && VERBOSE)
+            if(outliernessScale < 0.0 && VERBOSE)
                 // These are for debug reporting
                 dogleg_reportOutliers(getConfidence,
+                                      &outliernessScale,
                                       2, Npoints_fromBoards,
                                       stats.Noutliers,
                                       solver_context->beforeStep, solver_context);
-            firstpass = false;
 
         } while( !skip_outlier_rejection &&
                  dogleg_markOutliers(markedOutliers,
+                                     &outliernessScale,
                                      &stats.Noutliers,
                                      getConfidence,
                                      2, Npoints_fromBoards,
@@ -2733,6 +2734,7 @@ mrcal_optimize( // out
         {
             // These are for debug reporting
             dogleg_reportOutliers(getConfidence,
+                                  &outliernessScale,
                                   2, Npoints_fromBoards,
                                   stats.Noutliers,
                                   solver_context->beforeStep, solver_context);
