@@ -9,10 +9,7 @@ BIN_SOURCES += test_gradients.c test/test_cahvor.c
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)
 LDLIBS_CV   := $(shell pkg-config --libs   opencv)
 
-# This will become unnecessary in a soon-to-be-released libdogleg
-CXXFLAGS_DOGLEG := -I/usr/include/suitesparse
-
-CCXXFLAGS += $(CXXFLAGS_CV) $(CXXFLAGS_DOGLEG)
+CCXXFLAGS += $(CXXFLAGS_CV)
 LDLIBS    += $(LDLIBS_CV)
 
 LDLIBS    += -ldogleg
