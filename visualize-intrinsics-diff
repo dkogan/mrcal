@@ -43,6 +43,10 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--extraset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
 
     parser.add_argument('model_from',
                         type=lambda f: f if os.path.isfile(f) else \
@@ -62,6 +66,10 @@ def parse_args():
 
 args = parse_args()
 
+extraplotkwargs = {}
+if args.extraset is not None:
+    extraplotkwargs['set'] = args.extraset
+
 def loadmodel(m):
     if re.match(".*\.cahvor$", m): return mrcal.cahvor.read(m)
     else:                          return mrcal.cameramodel(m)
@@ -78,7 +86,8 @@ plot = mrcal.visualize_intrinsics_diff(distortion_model0, intrinsics0,
                                        args.gridn,
                                        args.vectorfield,
                                        hardcopy = args.hardcopy,
-                                       extratitle=args.extratitle)
+                                       extratitle=args.extratitle,
+                                       extraplotkwargs = extraplotkwargs)
 if args.hardcopy is None:
     import time
     time.sleep(1000000)
