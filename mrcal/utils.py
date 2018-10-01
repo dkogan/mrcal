@@ -635,6 +635,8 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
     if 'set' not in extraplotkwargs:
         extraplotkwargs['set'] = []
+    elif type(extraplotkwargs['set']) is not list:
+        extraplotkwargs['set'] = [extraplotkwargs['set']]
     extraplotkwargs['set'].extend(['xrange [:] noextend',
                                    'yrange [:] noextend reverse',
                                    'view equal xy',
@@ -733,6 +735,8 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
 
     if 'set' not in extraplotkwargs:
         extraplotkwargs['set'] = []
+    elif type(extraplotkwargs['set']) is not list:
+        extraplotkwargs['set'] = [extraplotkwargs['set']]
     extraplotkwargs['set'].extend(['xrange [:] noextend',
                                    'yrange [:] noextend reverse',
                                    'view equal xy',
@@ -815,6 +819,8 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
     else:
         if 'set' not in extraplotkwargs:
             extraplotkwargs['set'] = []
+        elif type(extraplotkwargs['set']) is not list:
+            extraplotkwargs['set'] = [extraplotkwargs['set']]
         extraplotkwargs['set'].extend(['xrange [:] noextend',
                                        'yrange [:] noextend reverse',
                                        'view equal xy',
