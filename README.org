@@ -101,7 +101,7 @@ high-distoriton model is required. Currently the supported models are:
 When running a camera calibration, the first step involves converting an image
 containing an observed calibration object into a set of observation pixels.
 Mrcal is a purely geometrical toolkit, so it outsources this vision problem to
-another library: [[https://github.jpl.nasa.gov/maritime-robotics/mrgingham/][=mrgingham=]]. That library strongly suggests using a particular
+another library: [[https://github.com/dkogan/mrgingham/][=mrgingham=]]. That library strongly suggests using a particular
 calibration object; see its documentation for more details.
 
 * Repository
