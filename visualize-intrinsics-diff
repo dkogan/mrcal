@@ -48,19 +48,18 @@ def parse_args():
                         action='append',
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
 
-    parser.add_argument('model_from',
+    parser.add_argument('models',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        nargs=1,
-                        help='''Input camera model.''')
+                        nargs='+',
+                        help='''Camera models to diff''')
 
-    parser.add_argument('model_to',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        nargs=1,
-                        help='''Input camera model.''')
+    args = parser.parse_args()
 
-    return parser.parse_args()
+    if len(args.models) < 2:
+        raise Exception("I need at least two models to diff. Instead got this: {}".format(args.models))
+
+    return args
 
 
 
@@ -74,15 +73,9 @@ def loadmodel(m):
     if re.match(".*\.cahvor$", m): return mrcal.cahvor.read(m)
     else:                          return mrcal.cameramodel(m)
 
-m0 = loadmodel(args.model_from[0])
-m1 = loadmodel(args.model_to[0])
+models = [loadmodel(modelfilename) for modelfilename in args.models]
 
-distortion_model0,intrinsics0 = m0.intrinsics()
-distortion_model1,intrinsics1 = m1.intrinsics()
-
-plot = mrcal.visualize_intrinsics_diff(distortion_model0, intrinsics0,
-                                       distortion_model1, intrinsics1,
-                                       m0.dimensions(),
+plot = mrcal.visualize_intrinsics_diff(models,
                                        args.gridn,
                                        args.vectorfield,
                                        hardcopy = args.hardcopy,

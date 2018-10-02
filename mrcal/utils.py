@@ -405,19 +405,21 @@ def homography_atinfinity_map( w, h, m0, m1 ):
 
 
 def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
-    r'''Reports 3d points that regularly sample the imager
+    r'''Reports 3d observation vectors that regularly sample the imager
 
     Synopsis:
 
-        V,p = sample_imager_unproject(gridn, gridn,
-                                      distortion_model, intrinsics_data,
-                                      *imagersize)
+        vectors,pixelgrid = sample_imager_unproject(gridn, gridn,
+                                                    distortion_model, intrinsics_data,
+                                                    *imagersize)
         Expected_projection_shift = \
-          get_projection_uncertainty(V,
+          get_projection_uncertainty(vectors,
                                      distortion_model, intrinsics_data,
                                      covariance_intrinsics)
 
     This is a utility function for the various visualization routines.
+    Broadcasts on the distortion_model and intrinsics_data
+
     '''
 
     w = np.linspace(0,W-1,gridn_x)
@@ -426,10 +428,12 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
     # shape: Nwidth,Nheight,2
     grid = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
-    # shape: Nwidth,Nheight,3
-    return \
-        mrcal.unproject(grid, distortion_model, intrinsics_data), \
-        grid
+    # shape: Ncameras,Nwidth,Nheight,3
+    return np.array([mrcal.unproject(grid,
+                                     distortion_model[i],
+                                     intrinsics_data[i]) \
+                     for i in xrange(len(distortion_model))]), \
+           grid
 
 
 def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
@@ -764,34 +768,58 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     return plot
 
 
-def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
-                              distortion_model1, intrinsics_data1,
-                              imagersize,
+def visualize_intrinsics_diff(models,
                               gridn = 40,
                               vectorfield = False,
                               extratitle = None,
                               hardcopy = None,
                               extraplotkwargs = {}):
-    r'''Given two intrinsics, show their projection differences
+    r'''Visualize the different between N intrinsic models
 
-    We do this either with a vectorfield or a colormap. The former carries more
-    information (direction and magnitude), but is less clear at a glance. I
-    default to showing a colormap
+    If we're given exactly 2 models then I can either show a vector field of a
+    heat map of the differences. I N > 2 then a vector field isn't possible and
+    we show a heat map of the standard deviation of the differences. Note that
+    for N=2 the difference shows in a-b, which is NOT the standard deviation
+    (that is (a-b)/2). I use the standard deviation for N > 2
 
     '''
 
+    if len(models) > 2 and vectorfield:
+        raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
+                        format(len(models)))
+
     import gnuplotlib as gp
 
-    W,H=imagersize
-    V,p0 = sample_imager_unproject(gridn, gridn,
-                                   distortion_model0, intrinsics_data0,
-                                   W, H)
+    imagersizes = np.array([model.dimensions() for model in models])
+    if np.linalg.norm(np.std(imagersizes, axis=-2)) != 0:
+        raise Exception("The diff function needs all the imager dimensions to match. Instead got {}". \
+                        format(imagersizes))
+    W,H=imagersizes[0]
 
-    # shape: Nwidth,Nheight,2
-    p1 = mrcal.project(V, distortion_model1, intrinsics_data1)
+    distortion_models = [model.intrinsics()[0] for model in models]
+    intrinsics_data   = [model.intrinsics()[1] for model in models]
 
-    diff    = p1-p0
-    difflen = np.sqrt(nps.inner(diff, diff))
+    V,grid = sample_imager_unproject(gridn, gridn,
+                                     distortion_models, intrinsics_data,
+                                     W, H)
+
+    def compute_grid1(V0, V1, distortion_model1, intrinsics_data1):
+
+        # shape: Nwidth,Nheight,2
+        return mrcal.project(V0, distortion_model1, intrinsics_data1)
+
+    if len(models) == 2:
+        # Two models. Take the difference and call it good
+        grid1   = compute_grid1(V[0, ...], V[1, ...], distortion_models[1], intrinsics_data[1])
+        diff    = grid1 - grid
+        difflen = np.sqrt(nps.inner(diff, diff))
+    else:
+        # Many models. Look at the stdev
+        grids = nps.cat(grid,
+                        *[compute_grid1(V[0, ...],V[i, ...], distortion_models[i], intrinsics_data[i]) \
+                          for i in xrange(1,len(V))])
+        stdevs  = np.std(grids, axis=0)
+        difflen = np.sqrt(nps.inner(stdevs, stdevs))
 
     if 'title' not in extraplotkwargs:
         title = "Model diff"
@@ -806,8 +834,8 @@ def visualize_intrinsics_diff(distortion_model0, intrinsics_data0,
         plot = gp.gnuplotlib(square=1, _xrange=[0,W], yrange=[H,0],
                              **extraplotkwargs)
 
-        p0      = nps.clump(p0,      n=2)
-        p1      = nps.clump(p1,      n=2)
+        p0      = nps.clump(grid,    n=2)
+        p1      = nps.clump(grid1,   n=2)
         diff    = nps.clump(diff,    n=2)
         difflen = nps.clump(difflen, n=2)
 
