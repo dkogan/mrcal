@@ -418,7 +418,9 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
                                      covariance_intrinsics)
 
     This is a utility function for the various visualization routines.
-    Broadcasts on the distortion_model and intrinsics_data
+    Broadcasts on the distortion_model and intrinsics_data (if they're lists,
+    not numpy arrays. Couldn't do it with numpy arrays because the intrinsics
+    have varying sizes)
 
     '''
 
@@ -428,12 +430,19 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
     # shape: Nwidth,Nheight,2
     grid = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
-    # shape: Ncameras,Nwidth,Nheight,3
-    return np.array([mrcal.unproject(grid,
-                                     distortion_model[i],
-                                     intrinsics_data[i]) \
-                     for i in xrange(len(distortion_model))]), \
-           grid
+    if type(distortion_model) is list or type(intrinsics_data) is list:
+        # shape: Ncameras,Nwidth,Nheight,3
+        return np.array([mrcal.unproject(grid,
+                                         distortion_model[i],
+                                         intrinsics_data[i]) \
+                         for i in xrange(len(distortion_model))]), \
+                             grid
+    else:
+        # shape: Ncameras,Nwidth,Nheight,3
+        return mrcal.unproject(grid,
+                               distortion_model,
+                               intrinsics_data), \
+                            grid
 
 
 def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
@@ -803,28 +812,32 @@ def visualize_intrinsics_diff(models,
                                      distortion_models, intrinsics_data,
                                      W, H)
 
-    def compute_grid1(V0, V1, distortion_model1, intrinsics_data1):
+    def compute_grid1(i):
 
         # When I generated the calibration, the rotation of the camera was never
         # fully defined. A small camera rotation looks like a type of distortion
         # since the observed frame poses can compensate for the rotation. Thus
         # here I compute an optimal rotation, and undo its effect before showing
         # the intrinsics differences
-        R = align3d_procrustes( nps.clump(V0,n=2), nps.clump(V1,n=2), vectors=True)
+        R = align3d_procrustes( nps.clump(V[0,...],n=2),
+                                nps.clump(V[i,...],n=2), vectors=True)
 
         # shape: Nwidth,Nheight,2
-        return mrcal.project(nps.matmult(V0,R), distortion_model1, intrinsics_data1)
+        return mrcal.project(nps.matmult(V[0,...],R),
+                             distortion_models[i],
+                             intrinsics_data[i])
+
+
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
-        grid1   = compute_grid1(V[0, ...], V[1, ...], distortion_models[1], intrinsics_data[1])
+        grid1   = compute_grid1(1)
         diff    = grid1 - grid
         difflen = np.sqrt(nps.inner(diff, diff))
     else:
         # Many models. Look at the stdev
         grids = nps.cat(grid,
-                        *[compute_grid1(V[0, ...],V[i, ...], distortion_models[i], intrinsics_data[i]) \
-                          for i in xrange(1,len(V))])
+                        *[compute_grid1(i) for i in xrange(1,len(V))])
         stdevs  = np.std(grids, axis=0)
         difflen = np.sqrt(nps.inner(stdevs, stdevs))
 
