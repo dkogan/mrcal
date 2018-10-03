@@ -805,8 +805,15 @@ def visualize_intrinsics_diff(models,
 
     def compute_grid1(V0, V1, distortion_model1, intrinsics_data1):
 
+        # When I generated the calibration, the rotation of the camera was never
+        # fully defined. A small camera rotation looks like a type of distortion
+        # since the observed frame poses can compensate for the rotation. Thus
+        # here I compute an optimal rotation, and undo its effect before showing
+        # the intrinsics differences
+        R = align3d_procrustes( nps.clump(V0,n=2), nps.clump(V1,n=2), vectors=True)
+
         # shape: Nwidth,Nheight,2
-        return mrcal.project(V0, distortion_model1, intrinsics_data1)
+        return mrcal.project(nps.matmult(V0,R), distortion_model1, intrinsics_data1)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
