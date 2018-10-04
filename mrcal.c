@@ -2742,23 +2742,22 @@ mrcal_optimize( // out
             reportFitMsg = "After";
 #warning hook this up
             //        optimizerCallback(packed_state, NULL, NULL, NULL);
+        }
 
-            if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
-               !optimization_variable_choice.do_skip_regularization)
+        if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
+           !optimization_variable_choice.do_skip_regularization)
+        {
+            double norm2_err_all = norm2_error;
+            double norm2_err_regularization = 0;
+            int    Nmeasurements_regularization = Ncameras*Ndistortions;
+            for(int i=0; i<Nmeasurements_regularization; i++)
             {
-                double norm2_err_all = norm2_error;
-                double norm2_err_regularization = 0;
-                int    Nmeasurements_regularization = Ncameras*Ndistortions;
-                for(int i=0; i<Nmeasurements_regularization; i++)
-                {
-                    double x = solver_context->beforeStep->x[Nmeasurements-1-i];
-                    norm2_err_regularization += x*x;
-                }
-                double norm2_err_nonregularization = norm2_err_all - norm2_err_regularization;
-                double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
-                MSG("regularization cost ratio: %g", ratio_regularization_cost);
+                double x = solver_context->beforeStep->x[Nmeasurements-1-i];
+                norm2_err_regularization += x*x;
             }
-
+            double norm2_err_nonregularization = norm2_err_all - norm2_err_regularization;
+            double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
+            MSG("regularization cost ratio: %g", ratio_regularization_cost);
         }
     }
     else
