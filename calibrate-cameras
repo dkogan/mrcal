@@ -987,9 +987,6 @@ Ncameras = len(args.images)
 if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
-if args.testing_cull_points_left_of > 0 and \
-   args.testing_cull_random_observations_ratio >= 0:
-    raise Exception("At most one of {--testing-cull-point-x-threshold, --testing-cull-random-observations-ratio} should be given")
 
 
 object_spacing = args.object_spacing
