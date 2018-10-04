@@ -76,7 +76,7 @@ def loadmodel(m):
 models = [loadmodel(modelfilename) for modelfilename in args.models]
 
 plot = mrcal.visualize_intrinsics_diff(models,
-                                       args.gridn,
+                                       args.gridn, args.gridn,
                                        args.vectorfield,
                                        hardcopy = args.hardcopy,
                                        extratitle=args.extratitle,

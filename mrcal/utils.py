@@ -409,7 +409,7 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
 
     Synopsis:
 
-        vectors,pixelgrid = sample_imager_unproject(gridn, gridn,
+        vectors,pixelgrid = sample_imager_unproject(gridn_x, gridn_y,
                                                     distortion_model, intrinsics_data,
                                                     *imagersize)
         Expected_projection_shift = \
@@ -421,6 +421,10 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
     Broadcasts on the distortion_model and intrinsics_data (if they're lists,
     not numpy arrays. Couldn't do it with numpy arrays because the intrinsics
     have varying sizes)
+
+    Note: the returned matrices index on X and THEN on Y. This is opposite of
+    how numpy does it: Y then X. A consequence is that plotting the matrices
+    directly will produce transposed images
 
     '''
 
@@ -503,7 +507,8 @@ def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_
 
 def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      covariance_intrinsics, imagersize,
-                                     gridn = 40,
+                                     gridn_x = 40,
+                                     gridn_y = 40,
                                      extratitle = None,
                                      hardcopy = None,
                                      extraplotkwargs = {}):
@@ -632,7 +637,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     import gnuplotlib as gp
 
     W,H=imagersize
-    V,_ = sample_imager_unproject(gridn, gridn,
+    V,_ = sample_imager_unproject(gridn_x, gridn_y,
                                   distortion_model, intrinsics_data,
                                   W, H)
     Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
@@ -666,7 +671,10 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                       ascii=1,
                       **extraplotkwargs)
 
-    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn-1), float(H-1)/(gridn-1))
+    # Expected_projection_shift has shape (W,H), but the plotter wants what numpy wants: (H,W)
+    Expected_projection_shift = nps.transpose(Expected_projection_shift)
+
+    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
     # Currently "with image" can't produce contours. I work around this, by
     # plotting the data a second time.
@@ -681,7 +689,8 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                                  solver_context, i_camera, observed_pixel_uncertainty,
                                                  imagersize,
                                                  Noutliers,
-                                                 gridn = 40,
+                                                 gridn_x = 40,
+                                                 gridn_y = 40,
                                                  extratitle = None,
                                                  hardcopy = None,
                                                  extraplotkwargs = {}):
@@ -730,7 +739,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     import gnuplotlib as gp
 
     W,H=imagersize
-    V,_ = sample_imager_unproject(gridn, gridn,
+    V,_ = sample_imager_unproject(gridn_x, gridn_y,
                                   distortion_model, intrinsics_data,
                                   W, H)
 
@@ -766,7 +775,10 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                       ascii=1,
                       **extraplotkwargs)
 
-    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn-1), float(H-1)/(gridn-1))
+    # Expected_outlierness has shape (W,H), but the plotter wants what numpy wants: (H,W)
+    Expected_outlierness = nps.transpose(Expected_outlierness)
+
+    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
     # Currently "with image" can't produce contours. I work around this, by
     # plotting the data a second time.
@@ -778,7 +790,8 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
 
 
 def visualize_intrinsics_diff(models,
-                              gridn = 40,
+                              gridn_x = 40,
+                              gridn_y = 40,
                               vectorfield = False,
                               extratitle = None,
                               hardcopy = None,
@@ -808,7 +821,8 @@ def visualize_intrinsics_diff(models,
     distortion_models = [model.intrinsics()[0] for model in models]
     intrinsics_data   = [model.intrinsics()[1] for model in models]
 
-    V,grid = sample_imager_unproject(gridn, gridn,
+
+    V,grid = sample_imager_unproject(gridn_x, gridn_y,
                                      distortion_models, intrinsics_data,
                                      W, H)
 
@@ -851,7 +865,9 @@ def visualize_intrinsics_diff(models,
         extraplotkwargs['hardcopy'] = hardcopy
 
     if vectorfield:
-        plot = gp.gnuplotlib(square=1, _xrange=[0,W], yrange=[H,0],
+        plot = gp.gnuplotlib(square=1,
+                             _xrange=[0,W],
+                             _yrange=[H,0],
                              **extraplotkwargs)
 
         p0      = nps.clump(grid,    n=2)
@@ -884,7 +900,10 @@ def visualize_intrinsics_diff(models,
                           ascii=1,
                           **extraplotkwargs)
 
-        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn-1), float(H-1)/(gridn-1))
+        # difflen has shape (W,H), but the plotter wants what numpy wants: (H,W)
+        difflen = nps.transpose(difflen)
+
+        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
         # Currently "with image" can't produce contours. I work around this, by
         # plotting the data a second time.
         # Yuck.

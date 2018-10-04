@@ -225,8 +225,6 @@ if args.viz:
 
     plot = mrcal.visualize_intrinsics_diff(m   .intrinsics()[0], m   .intrinsics()[1],
                                            m_to.intrinsics()[0], m_to.intrinsics()[1],
-                                           m.dimensions(),
-                                           40,
-                                           False)
+                                           m.dimensions())
     import time
     time.sleep(100000)
