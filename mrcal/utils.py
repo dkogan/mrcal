@@ -868,6 +868,7 @@ def visualize_intrinsics_diff(models,
         plot = gp.gnuplotlib(square=1,
                              _xrange=[0,W],
                              _yrange=[H,0],
+                             cbrange=[0,10],
                              **extraplotkwargs)
 
         p0      = nps.clump(grid,    n=2)
