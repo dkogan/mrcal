@@ -191,6 +191,22 @@ static int getNmeasurements_observationsonly(int NobservationsBoard,
     return Nmeas;
 }
 
+static int getNregularizationTerms_percamera(struct mrcal_variable_select optimization_variable_choice,
+                                             enum distortion_model_t distortion_model)
+{
+    if(optimization_variable_choice.do_skip_regularization)
+        return 0;
+
+    int N = 0;
+    // distortions
+    if(optimization_variable_choice.do_optimize_intrinsic_distortions)
+        N += mrcal_getNdistortionParams(distortion_model);
+    // optical center
+    if(optimization_variable_choice.do_optimize_intrinsic_core)
+        N += 2;
+    return N;
+}
+
 int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
                            const struct observation_point_t* observations_point,
                            int NobservationsPoint,
@@ -205,12 +221,10 @@ int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
     for(int i=0; i<NobservationsPoint; i++)
         if(observations_point[i].dist > 0.0) Nmeas++;
 
-    // regularization
-    if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
-       !optimization_variable_choice.do_skip_regularization)
-    {
-        Nmeas += mrcal_getNdistortionParams(distortion_model) * Ncameras;
-    }
+    Nmeas +=
+        Ncameras *
+        getNregularizationTerms_percamera(optimization_variable_choice,
+                                          distortion_model);
 
     return Nmeas;
 }
@@ -261,10 +275,10 @@ static int get_N_j_nonzero( int Ncameras,
         }
     }
 
-    // regularization
-    if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
-       !optimization_variable_choice.do_skip_regularization)
-        N += mrcal_getNdistortionParams(distortion_model) * Ncameras;
+    N +=
+        Ncameras *
+        getNregularizationTerms_percamera(optimization_variable_choice,
+                                          distortion_model);
 
     return N;
 }
@@ -2553,70 +2567,116 @@ mrcal_optimize( // out
 
         // regularization terms for the intrinsics. I favor smaller distortion
         // parameters
-        if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
-           !optimization_variable_choice.do_skip_regularization)
+        if(!optimization_variable_choice.do_skip_regularization &&
+           ( optimization_variable_choice.do_optimize_intrinsic_distortions ||
+             optimization_variable_choice.do_optimize_intrinsic_core
+           ))
         {
-            double scale_distortion_regularization =
-                ({
-                    // I want the total regularization cost to be low relative
-                    // to the other contributions to the cost. Let's say I want
-                    // regularization to account for ~ 1% of the other error
-                    // contributions
-                    //
-                    //   Nmeasurements_rest*normal_pixel_error * 0.01 =
-                    //   Nmeasurements_regularization*normal_regularization_error
-                    int    Nmeasurements_regularization    = Ncameras*Ndistortions;
-                    int    Nmeasurements_nonregularization = Nmeasurements - Nmeasurements_regularization;
-                    double normal_pixel_error_sq              = 1.0;
-                    double normal_distortion_value_sq         = 0.01;
+            // I want the total regularization cost to be low relative to the
+            // other contributions to the cost. Let's say I want regularization
+            // to account for ~ 1% of the other error contributions
+            //
+            //   Nmeasurements_rest*normal_pixel_error * 0.01 =
+            //   Nmeasurements_regularization*normal_regularization_error
 
-                    double expected_total_pixel_error =
-                        (double)Nmeasurements_nonregularization * normal_pixel_error_sq;
-                    double expected_total_regularization_contribution_noscale =
-                        (double)Nmeasurements_regularization * normal_distortion_value_sq;
+            int    Nmeasurements_regularization_distortion  = Ncameras*Ndistortions;
+            int    Nmeasurements_regularization_centerpixel = Ncameras*2;
 
-                    static_assert(SCALE_DISTORTION == 1.0, "SCALE_DISTORTION should be 1.0; the scale_distortion_regularization logic wants that");
+            int    Nmeasurements_nonregularization =
+                Nmeasurements -
+                Nmeasurements_regularization_distortion -
+                Nmeasurements_regularization_centerpixel;
 
-                    double scale_sq =
-                        expected_total_pixel_error * 0.01 / expected_total_regularization_contribution_noscale;
+            double normal_pixel_error_sq        = 1.0;
+            double normal_distortion_value_sq   =
+                SCALE_DISTORTION*SCALE_DISTORTION *
+                0.01;
+            double normal_centerpixel_offset_sq =
+                SCALE_INTRINSICS_CENTER_PIXEL*SCALE_INTRINSICS_CENTER_PIXEL*
+                100.0;
 
-                    sqrt(scale_sq);
+            double expected_total_pixel_error =
+                (double)Nmeasurements_nonregularization * normal_pixel_error_sq;
+            double expected_total_regularization_contribution_noscale =
+                (double)Nmeasurements_regularization_distortion  * normal_distortion_value_sq +
+                (double)Nmeasurements_regularization_centerpixel * normal_centerpixel_offset_sq;
 
-                });
+            double scale_sq =
+                expected_total_pixel_error * 0.01 / expected_total_regularization_contribution_noscale;
+
+            double scale_regularization = sqrt(scale_sq) / 2.0;
 
             for(int i_camera=0; i_camera<Ncameras; i_camera++)
             {
-                const int i_var_intrinsic_distortions =
-                    state_index_intrinsic_distortions(i_camera, optimization_variable_choice, distortion_model);
-
-                for(int j=0; j<Ndistortions; j++)
+                if( optimization_variable_choice.do_optimize_intrinsic_distortions)
                 {
-                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                    const int i_var_intrinsic_distortions =
+                        state_index_intrinsic_distortions(i_camera, optimization_variable_choice,
+                                                          distortion_model);
 
-                    // This is very hoaky. distortion-parameter-0 of a CAHVOR
-                    // model is a direction not a "strength" so it shouldn't be
-                    // regularized. I really shouldn't be special-casing that
-                    // one parameter.
-                    if( distortion_model == DISTORTION_CAHVOR && j == 0 )
+                    for(int j=0; j<Ndistortions; j++)
                     {
-                        x[iMeasurement] = 0;
-                        STORE_JACOBIAN( i_var_intrinsic_distortions + j, 0 );
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
+
+                        // This is very hoaky. distortion-parameter-0 of a CAHVOR
+                        // model is a direction not a "strength" so it shouldn't be
+                        // regularized. I really shouldn't be special-casing that
+                        // one parameter.
+                        if( distortion_model == DISTORTION_CAHVOR && j == 0 )
+                        {
+                            x[iMeasurement] = 0;
+                            STORE_JACOBIAN( i_var_intrinsic_distortions + j, 0 );
+                        }
+                        else
+                        {
+                            double err = distortions_all[i_camera][j] * scale_regularization;
+                            x[iMeasurement]  = err;
+                            norm2_error     += err*err;
+                            STORE_JACOBIAN( i_var_intrinsic_distortions + j,
+                                            scale_regularization * SCALE_DISTORTION );
+                        }
+                        iMeasurement++;
                     }
-                    else
-                    {
-                        double err = distortions_all[i_camera][j] * scale_distortion_regularization;
-                        x[iMeasurement]  = err;
-                        norm2_error     += err*err;
-                        STORE_JACOBIAN( i_var_intrinsic_distortions + j,
-                                        scale_distortion_regularization * SCALE_DISTORTION );
-                    }
+                }
+
+                if( optimization_variable_choice.do_optimize_intrinsic_core)
+                {
+                    // And another regularization term: optical center should be
+                    // near the middle. This breaks the symmetry between moving the
+                    // center pixel coords and pitching/yawing the camera.
+                    const int i_var_intrinsic_core =
+                        state_index_intrinsic_core(i_camera,
+                                                   optimization_variable_choice,
+                                                   distortion_model);
+
+                    double err;
+
+                    const struct intrinsics_core_t* core_seed =
+                        (&intrinsics[(N_INTRINSICS_CORE+Ndistortions)*i_camera]);
+
+                    double cx_target = core_seed->center_xy[0];
+                    double cy_target = core_seed->center_xy[1];
+
+                    err = scale_regularization *
+                        (intrinsic_core_all[i_camera].center_xy[0] - cx_target);
+                    x[iMeasurement]  = err;
+                    norm2_error     += err*err;
+                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                    STORE_JACOBIAN( i_var_intrinsic_core + 2,
+                                    scale_regularization * SCALE_INTRINSICS_CENTER_PIXEL );
+                    iMeasurement++;
+
+                    err = scale_regularization *
+                        (intrinsic_core_all[i_camera].center_xy[1] - cy_target);
+                    x[iMeasurement]  = err;
+                    norm2_error     += err*err;
+                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                    STORE_JACOBIAN( i_var_intrinsic_core + 3,
+                                    scale_regularization * SCALE_INTRINSICS_CENTER_PIXEL );
                     iMeasurement++;
                 }
             }
         }
-
-
-
 
 
         // required to indicate the end of the jacobian matrix
@@ -2744,18 +2804,19 @@ mrcal_optimize( // out
             //        optimizerCallback(packed_state, NULL, NULL, NULL);
         }
 
-        if(optimization_variable_choice.do_optimize_intrinsic_distortions &&
-           !optimization_variable_choice.do_skip_regularization)
+        if(!optimization_variable_choice.do_skip_regularization)
         {
-            double norm2_err_all = norm2_error;
             double norm2_err_regularization = 0;
-            int    Nmeasurements_regularization = Ncameras*Ndistortions;
+            int    Nmeasurements_regularization =
+                Ncameras*getNregularizationTerms_percamera(optimization_variable_choice,
+                                                           distortion_model);
+
             for(int i=0; i<Nmeasurements_regularization; i++)
             {
                 double x = solver_context->beforeStep->x[Nmeasurements-1-i];
                 norm2_err_regularization += x*x;
             }
-            double norm2_err_nonregularization = norm2_err_all - norm2_err_regularization;
+            double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
             double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
             MSG("regularization cost ratio: %g", ratio_regularization_cost);
         }

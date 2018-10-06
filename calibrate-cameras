@@ -1010,7 +1010,7 @@ if args.testing_cull_random_observations_ratio >= 0:
                                        observations, paths, indices_frame_camera)
 
 # list of imager dimensions; one per camera
-imagersizes = [get_imagersize_one(g, args.imagersize) for g in args.images]
+imagersizes = np.array([get_imagersize_one(g, args.imagersize) for g in args.images])
 
 inputs = {'imagersizes':          imagersizes,
           'focal_estimate':       args.focal,
@@ -1057,6 +1057,8 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        calibration_object_width_n        = object_width_n,
                        skip_outlier_rejection            = True,
                        VERBOSE                           = False)
+# I favor the center pixel at the center of the imager
+intrinsics[1][:,2:4] = (imagersizes - 1) / 2
 
 intrinsics = (args.distortion_model,
               nps.glue( intrinsics[1],
