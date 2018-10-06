@@ -1989,13 +1989,13 @@ mrcal_optimize( // out
 
         // unpack the state for this observation as a combination of the
         // state and the seed, depending on what we're optimizing, exactly
-        struct intrinsics_core_t intrinsic_cores[Ncameras];
-        double distortionss[Ncameras][Ndistortions];
+        struct intrinsics_core_t intrinsic_core_all[Ncameras];
+        double distortions_all[Ncameras][Ndistortions];
         for(int i_camera=0; i_camera<Ncameras; i_camera++)
         {
             const int i_var_intrinsic_core =
                 state_index_intrinsic_core(i_camera, optimization_variable_choice, distortion_model);
-            unpack_solver_state_intrinsics_onecamera(&intrinsic_cores[i_camera], distortionss[i_camera],
+            unpack_solver_state_intrinsics_onecamera(&intrinsic_core_all[i_camera], distortions_all[i_camera],
                                                      &packed_state[ i_var_intrinsic_core ],
                                                      Ndistortions,
                                                      optimization_variable_choice );
@@ -2023,8 +2023,8 @@ mrcal_optimize( // out
 
             // unpack the state for this observation as a combination of the
             // state and the seed, depending on what we're optimizing, exactly
-            struct intrinsics_core_t* intrinsic_core = &intrinsic_cores[i_camera];
-            double* distortions = distortionss[i_camera];
+            struct intrinsics_core_t* intrinsic_core = &intrinsic_core_all[i_camera];
+            double* distortions = distortions_all[i_camera];
             struct pose_t camera_rt;
             struct pose_t frame_rt;
             if(!optimization_variable_choice.do_optimize_intrinsic_core)
@@ -2231,8 +2231,8 @@ mrcal_optimize( // out
             const int     i_var_point                 = state_index_point     (i_point,  Nframes, Ncameras, optimization_variable_choice, distortion_model);
             // unpack the state for this observation as a combination of the
             // state and the seed, depending on what we're optimizing, exactly
-            struct intrinsics_core_t* intrinsic_core = &intrinsic_cores[i_camera];
-            double* distortions = distortionss[i_camera];
+            struct intrinsics_core_t* intrinsic_core = &intrinsic_core_all[i_camera];
+            double* distortions = distortions_all[i_camera];
             struct pose_t camera_rt;
             union  point3_t point;
 
@@ -2604,7 +2604,7 @@ mrcal_optimize( // out
                     }
                     else
                     {
-                        double err = distortionss[i_camera][j] * scale_distortion_regularization;
+                        double err = distortions_all[i_camera][j] * scale_distortion_regularization;
                         x[iMeasurement]  = err;
                         norm2_error     += err*err;
                         STORE_JACOBIAN( i_var_intrinsic_distortions + j,
