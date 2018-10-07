@@ -29,9 +29,8 @@ Synopsis:
     Wrote /tmp/camera0-0.cameramodel
     Wrote /tmp/camera0-1.cameramodel
 
-Thi tools uses the generic mrcal platform to solve a common specific problem of
-n-camera calibration using observations of a chessboard. Run --help for the list
-of commandline options
+This tool uses the generic mrcal platform to solve a common specific problem of
+N-camera calibration using observations of a chessboard.
 
 '''
 
