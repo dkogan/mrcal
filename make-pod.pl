@@ -3,9 +3,17 @@ use strict;
 use warnings;
 
 use feature ':5.10';
-use Getopt::Euclid;
 
-my $path = $ARGV{'<inputprogram>'};
+my $usagemessage = "Usage: $0 frobnicate > frobnicate.pod";
+if(@ARGV != 1)
+{
+    die "Need exactly one argument on the cmdline.\n$usagemessage";
+}
+my $path = $ARGV[0];
+if( ! (-r $path && -x $path && -f $path) )
+{
+    die "Commandline argument must be an executable file\n$usagemessage";
+}
 
 # prepend ./ if no path given. I'm going to run this thing, so we need that
 $path = "./$path" unless $path =~ m{^/};
@@ -145,9 +153,6 @@ C<pod2man>.
 =item <inputprogram>
 
 Tool that we're making a manpage for
-
-=for Euclid:
-  inputprogram.type: readable
 
 =back
 
