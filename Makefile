@@ -26,7 +26,15 @@ DIST_BIN :=					\
 	redistort-points			\
 	undistort-image
 
-
+# generate manpages from distributed binaries, and ship them. This is a hoaky
+# hack because apparenly manpages from python tools is a crazy thing to want to
+# do
+DIST_MAN := $(addsuffix .1,$(DIST_BIN))
+$(DIST_MAN): %.1: %.pod
+	pod2man $< $@
+%.pod: %
+	./make-pod.pl $< > $@
+EXTRA_CLEAN += *.1 *.pod
 
 # Python docstring rules. I construct these from plain ASCII files to handle
 # line wrapping
