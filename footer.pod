@@ -1,0 +1,13 @@
+=head1 REPOSITORY
+
+L<https://github.jpl.nasa.gov/maritime-robotics/mrcal>
+
+=head1 AUTHOR
+
+Dima Kogan, C<< <Dmitriy.Kogan@jpl.nasa.gov> >>
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2018 California Institute of Technology
+
+This is proprietary and JPL-internal. For now

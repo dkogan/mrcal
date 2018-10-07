@@ -30,11 +30,16 @@ DIST_BIN :=					\
 # hack because apparenly manpages from python tools is a crazy thing to want to
 # do
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
+
+# I parse the version from the changelog. This version is generally something
+# like 0.04 .I strip leading 0s, so the above becomes 0.4
+VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*/./g; p; q;' debian/changelog)
 $(DIST_MAN): %.1: %.pod
-	pod2man $< $@
+	pod2man --center="mrcal: camera projection, calibration toolkit" --name=MRCAL --release="mrcal $(VERSION_FROM_CHANGELOG)" --section=1 $< $@
 %.pod: %
 	./make-pod.pl $< > $@
-EXTRA_CLEAN += *.1 *.pod
+	cat footer.pod >> $@
+EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
 # Python docstring rules. I construct these from plain ASCII files to handle
 # line wrapping
