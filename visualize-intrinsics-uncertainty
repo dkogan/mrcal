@@ -80,5 +80,4 @@ plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               extraplotkwargs = extraplotkwargs)
 
 if args.hardcopy is None:
-    import time
-    time.sleep(1000000)
+    plot.wait()

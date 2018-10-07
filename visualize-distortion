@@ -103,5 +103,4 @@ gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
          **plotkwargs )
 
 if args.hardcopy is None:
-    import time
-    time.sleep(100000)
+    gp.wait()

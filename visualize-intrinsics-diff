@@ -82,5 +82,5 @@ plot = mrcal.visualize_intrinsics_diff(models,
                                        extratitle=args.extratitle,
                                        extraplotkwargs = extraplotkwargs)
 if args.hardcopy is None:
-    import time
-    time.sleep(1000000)
+    plot.wait()
+
