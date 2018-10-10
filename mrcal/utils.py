@@ -507,7 +507,7 @@ def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_
 
 def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      covariance_intrinsics, imagersize,
-                                     gridn_x = 40,
+                                     gridn_x = 60,
                                      gridn_y = 40,
                                      extratitle = None,
                                      hardcopy = None,
@@ -689,7 +689,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                                  solver_context, i_camera, observed_pixel_uncertainty,
                                                  imagersize,
                                                  Noutliers,
-                                                 gridn_x = 40,
+                                                 gridn_x = 60,
                                                  gridn_y = 40,
                                                  extratitle = None,
                                                  hardcopy = None,
@@ -790,7 +790,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
 
 
 def visualize_intrinsics_diff(models,
-                              gridn_x = 40,
+                              gridn_x = 60,
                               gridn_y = 40,
                               vectorfield = False,
                               extratitle = None,
