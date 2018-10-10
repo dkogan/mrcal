@@ -60,7 +60,7 @@ Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          ${python:Depends},
-         python-gnuplotlib, python-numpysane,
+         python-gnuplotlib, python-numpysane (>= 0.16-1),
          python-scipy,  python-ipython
 Provides: ${python:Provides}
 Description: Calibration and SFM library

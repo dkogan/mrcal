@@ -789,12 +789,208 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     return plot
 
 
+def _intrinsics_diff_get_reprojected_grid(grid, V0, V1, where,
+                                          distortion_models, intrinsics_data,
+
+                                          # these are for testing mostly. When I figure out
+                                          # what I'm doing here, I can probably toss these
+                                          imagersizes):
+
+    r'''Computes a undistorted grid for camera1 that corresponds to camera0
+
+    I sample the imager grid in all my cameras, and compute the rotation
+    that maps the vectors to each other as closely as possible. Then I
+    produce a difference map by projecting the matched-up vectors
+
+    The simplest way to compute this rotation is with a procrustes fit:
+
+        R = align3d_procrustes( nps.clump(V0,n=2),
+                                nps.clump(V1,n=2), vectors=True)
+
+    This works, but it minimizes a norm2() metric, and is sensitive to outliers.
+    If my distortion model doesn't fit perfectly, I can fit well only in some
+    areas. So I try to handle the outliers in two ways:
+
+    - I compute a reasonable seed using a procrustes fit using data in the area
+      of interest
+
+    - The residuals in the area of interest will be low-ish. Outside of it they
+      may or may not be low, depending on how well the model fits
+
+    - I pick a loose threshold, and throw away all data outside of a
+      low-enough-error region around the center of the region of interest
+
+    - Then I run the solve again using a nonlinear optimizer and a robust loss
+      function
+
+    The optimization routine I'm using doesn't map to my problem very well, so
+    I'm doing something ugly: least squares with the residual vector composed of
+    the angle errors. cos(angle) = inner(v0,v1) ~ 1 - x*x -> x = sqrt(1-inner())
+    I.e. I compute sqrt() to get the residual, and the optimizer will then
+    square it again. I'm guessing this uglyness won't affect me adversely in any
+    way
+
+    '''
+
+    # my state vector is a rodrigues rotation, seeded with the identity
+    # rotation
+    cache = {'r': None}
+
+    def angle_err(v0,v1,R):
+        # cos(x) = inner(v0,v1) ~ 1 - x*x
+        c = nps.inner(nps.matmult(v0,R), v1)
+        return np.sqrt(1-c)
+
+    def residual_jacobian(r):
+        R,dRdr = cv2.Rodrigues(r)
+        dRdr = nps.transpose(dRdr) # fix opencv's weirdness. Now shape=(9,3)
+
+        x = angle_err(V0fit, V1fit, R)
+
+        # dx/dr = 1/(2x) d(1-c)/dr = -1/(2x) V1ct dV0R/dr
+        dV0R_dr = \
+            nps.dummy(V0fit[..., (0,)], axis=-1) * dRdr[0:3,:] + \
+            nps.dummy(V0fit[..., (1,)], axis=-1) * dRdr[3:6,:] + \
+            nps.dummy(V0fit[..., (2,)], axis=-1) * dRdr[6:9,:]
+
+        J = -nps.matmult(nps.dummy(V1fit, -2), dV0R_dr)[..., 0, :] / (2. * nps.dummy(x, -1))
+        return x,J
+
+    def residual(r, cache, **kwargs):
+        if cache['r'] is None or not np.array_equal(r,cache['r']):
+            cache['r'] = r
+            cache['x'],cache['J'] = residual_jacobian(r)
+        return cache['x']
+    def jacobian(r, cache, **kwargs):
+        if cache['r'] is None or not np.array_equal(r,cache['r']):
+            cache['r'] = r
+            cache['x'],cache['J'] = residual_jacobian(r)
+        return cache['J']
+
+
+
+    if where is None:
+        # We assume the geometry is fixed across the two models, and we fit
+        # nothing
+        R = np.eye(3)
+
+    else:
+
+        if where['center'] is None:
+            # We try to match the geometry EVERYWHERE
+
+            V0cut   = nps.clump(V0,n=2)
+            V1cut   = nps.clump(V1,n=2)
+            icenter = np.array((V0.shape[:2]))/2
+        else:
+            # We try to match the geometry in a particular region
+            c = where['center']
+            if 'radius' in where and where['radius'] is not None:
+                r = where['radius']
+            else:
+                # radius not given. I use 1/6 of the smallest imager dimension
+                # (diameter = 1/3)
+                r = np.min(np.array(imagersizes[0])) / 6
+
+            i = nps.norm2(grid - c) < r*r
+            V0cut = V0[i, ...]
+            V1cut = V1[i, ...]
+
+            # get the nearest index on my grid to the requested center
+            icenter_flat = np.argmin(nps.norm2(grid-c))
+
+            # This looks funny, but it's right. My grid is set up that you index
+            # with the x-coord and then the y-coord. This is opposite from the
+            # matrix convention that numpy uses: y then x.
+            ix = icenter_flat/V0.shape[1]
+            iy = icenter_flat - ix*V0.shape[1]
+            icenter = np.array((ix,iy))
+
+        # I compute a procrustes fit using ONLY data in the region of interest.
+        # This is used to seed the nonlinear optimizer
+        R_procrustes = align3d_procrustes( V0cut, V1cut, vectors=True)
+        r_procrustes,_ = cv2.Rodrigues(R_procrustes)
+        r_procrustes = r_procrustes.ravel()
+
+        e = angle_err(V0,V1,R_procrustes)
+
+        # throw away everything that's k times as wrong as the center of
+        # interest. I look at a connected component around the center. I pick a
+        # large k here, and use a robust error function further down
+        k = 10
+        angle_err_at_center = e[icenter[0],icenter[1]]
+        threshold = angle_err_at_center*k
+        import scipy.ndimage
+        regions,_ = scipy.ndimage.label(e < threshold)
+        mask = regions==regions[icenter[0],icenter[1]]
+        V0fit = V0[mask, ...]
+        V1fit = V1[mask, ...]
+        # V01fit are used by the optimization cost function
+
+        # Seed from the procrustes solve
+        r = r_procrustes
+
+        # gradient check
+        # r0 = r
+        # x0,J0 = residual_jacobian(r0)
+        # dr = np.random.random(3) * 1e-7
+        # r1 = r+dr
+        # x1,J1 = residual_jacobian(r1)
+        # dx_theory = nps.matmult(J0, nps.transpose(dr)).ravel()
+        # dx_got    = x1-x0
+        # relerr = (dx_theory-dx_got) / ( (np.abs(dx_theory)+np.abs(dx_got))/2. )
+        # import gnuplotlib as gp
+        # gp.plot(relerr)
+
+        import scipy.optimize
+        res = scipy.optimize.least_squares(residual, r, jac=jacobian,
+                                           method='dogbox',
+
+                                           loss='soft_l1',
+                                           f_scale=angle_err_at_center*3.0,
+                                           # max_nfev=1,
+                                           args=(cache,),
+                                           verbose=0)
+
+        r_fit = res.x
+        R_fit,_ = cv2.Rodrigues(r_fit)
+
+        R = R_fit
+
+
+        # # A simpler routine to JUST move pitch/yaw to align the optical axes
+        # r,_ = cv2.Rodrigues(R)
+        # r[2] = 0
+        # R,_ = cv2.Rodrigues(r)
+        # dth_x = \
+        #     np.arctan2( intrinsics_data[i][2] - imagersizes[i][0],
+        #                 intrinsics_data[i][0] ) - \
+        #     np.arctan2( intrinsics_data[0][2] - imagersizes[0][0],
+        #                 intrinsics_data[0][0] )
+        # dth_y = \
+        #     np.arctan2( intrinsics_data[i][3] - imagersizes[i][1],
+        #                 intrinsics_data[i][1] ) - \
+        #     np.arctan2( intrinsics_data[0][3] - imagersizes[1][1],
+        #                 intrinsics_data[0][1] )
+        # r = np.array((-dth_y, dth_x, 0))
+        # R,_ = cv2.Rodrigues(r)
+
+
+
+    # Great. Got R. Reproject.
+    return mrcal.project(nps.matmult(V0,R),
+                         distortion_models,
+                         intrinsics_data)
+
+
+
 def visualize_intrinsics_diff(models,
-                              gridn_x = 60,
-                              gridn_y = 40,
-                              vectorfield = False,
-                              extratitle = None,
-                              hardcopy = None,
+                              gridn_x         = 60,
+                              gridn_y         = 40,
+                              where           = {'center': None}, # fit R everywhere by default
+                              vectorfield     = False,
+                              extratitle      = None,
+                              hardcopy        = None,
                               extraplotkwargs = {}):
     r'''Visualize the different between N intrinsic models
 
@@ -803,6 +999,39 @@ def visualize_intrinsics_diff(models,
     we show a heat map of the standard deviation of the differences. Note that
     for N=2 the difference shows in a-b, which is NOT the standard deviation
     (that is (a-b)/2). I use the standard deviation for N > 2
+
+    This routine fits the implied camera rotation to align the models as much as
+    possible. This is required because a camera pitch/yaw motion looks a lot
+    like a shift in the camera optical axis (cx,cy). So I could be comparing two
+    sets of intrinsics that both represent the same lens faithfully, but imply
+    different rotations: the rotation would be compensated for by a shift in
+    cx,cy. If I compare the two sets of intrinsics by IGNORING rotations, I
+    would get a large diff because of the cx,cy difference.
+
+    The 'where' argument describes how this is done:
+
+    if where is None:
+        I assume the models have perfectly matched camera coordinate systems,
+        and I do NOT align the rotations at all. If nothing guaranteed matched
+        coordinate systems (like if the models came from multiple runs of a
+        wave-an-object-in-front-of-the-cameras calibration procedure) then this
+        would overstate the disagreement between the cameras
+
+    elif where['center'] is None:
+        I align the rotation based on data EVERYWHERE in the imager. This may
+        not be correct. If the distortion model doesn't truly fit the data, the
+        models may not fit each other everywhere, and specifying a particular
+        region of interest would be crucial
+
+    else:
+        I align the rotation based on data centered at where['center'] and
+        radius where['radius'] pixels, looking at the FIRST camera model.
+        where['radius'] may be omitted or None, in which case the radius would
+        be set to 1/6 of the shortest dimension of the imager
+
+    In all 3 cases I try to find the largest matching region around the area of
+    interest. So the recommentation is to specify where['center'], but to omit
+    where['radius'].
 
     '''
 
@@ -826,32 +1055,23 @@ def visualize_intrinsics_diff(models,
                                      distortion_models, intrinsics_data,
                                      W, H)
 
-    def compute_grid1(i):
-
-        # When I generated the calibration, the rotation of the camera was never
-        # fully defined. A small camera rotation looks like a type of distortion
-        # since the observed frame poses can compensate for the rotation. Thus
-        # here I compute an optimal rotation, and undo its effect before showing
-        # the intrinsics differences
-        R = align3d_procrustes( nps.clump(V[0,...],n=2),
-                                nps.clump(V[i,...],n=2), vectors=True)
-
-        # shape: Nwidth,Nheight,2
-        return mrcal.project(nps.matmult(V[0,...],R),
-                             distortion_models[i],
-                             intrinsics_data[i])
-
-
-
     if len(models) == 2:
         # Two models. Take the difference and call it good
-        grid1   = compute_grid1(1)
+        grid1   = _intrinsics_diff_get_reprojected_grid(grid,
+                                                        V[0,...], V[1,...],
+                                                        where,
+                                                        distortion_models[1], intrinsics_data[1],
+                                                        imagersizes)
         diff    = grid1 - grid
         difflen = np.sqrt(nps.inner(diff, diff))
+
     else:
         # Many models. Look at the stdev
         grids = nps.cat(grid,
-                        *[compute_grid1(i) for i in xrange(1,len(V))])
+                        *[_intrinsics_diff_get_reprojected_grid(grid,
+                                                                V[0,...], V[i,...], where,
+                                                                distortion_models[i], intrinsics_data[i],
+                                                                imagersizes) for i in xrange(1,len(V))])
         stdevs  = np.std(grids, axis=0)
         difflen = np.sqrt(nps.inner(stdevs, stdevs))
 

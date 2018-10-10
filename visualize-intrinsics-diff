@@ -6,6 +6,47 @@ Synopsis:
 
   $ visualize-intrinsics-diff before.cameramodel after.cameramodel
   ... a plot pops up showing how two models differ in their projections
+
+
+If we're given exactly 2 models then I can either show a vector field of a heat
+map of the differences. I N > 2 then a vector field isn't possible and we show a
+heat map of the standard deviation of the differences. Note that for N=2 the
+difference shows in a-b, which is NOT the standard deviation (that is (a-b)/2).
+I use the standard deviation for N > 2
+
+This routine fits the implied camera rotation to align the models as much as
+possible. This is required because a camera pitch/yaw motion looks a lot like a
+shift in the camera optical axis (cx,cy). So I could be comparing two sets of
+intrinsics that both represent the same lens faithfully, but imply different
+rotations: the rotation would be compensated for by a shift in cx,cy. If I
+compare the two sets of intrinsics by IGNORING rotations, I would get a large
+diff because of the cx,cy difference.
+
+The 'where' argument describes how this is done:
+
+if where is None:
+    I assume the models have perfectly matched camera coordinate systems,
+    and I do NOT align the rotations at all. If nothing guaranteed matched
+    coordinate systems (like if the models came from multiple runs of a
+    wave-an-object-in-front-of-the-cameras calibration procedure) then this
+    would overstate the disagreement between the cameras
+
+elif where['center'] is None:
+    I align the rotation based on data EVERYWHERE in the imager. This may
+    not be correct. If the distortion model doesn't truly fit the data, the
+    models may not fit each other everywhere, and specifying a particular
+    region of interest would be crucial
+
+else:
+    I align the rotation based on data centered at where['center'] and
+    radius where['radius'] pixels, looking at the FIRST camera model.
+    where['radius'] may be omitted or None, in which case the radius would
+    be set to 1/6 of the shortest dimension of the imager
+
+In all 3 cases I try to find the largest matching region around the area of
+interest. So the recommentation is to specify where['center'], but to omit
+where['radius'].
+
 '''
 
 import sys
@@ -27,6 +68,16 @@ def parse_args():
                         type=int,
                         default = 40,
                         help='''How densely we should sample the imager. By default we report a 40x40 grid''')
+
+    parser.add_argument('--where',
+                        type=float,
+                        nargs=2,
+                        help='''Center of the region of interest for this diff. It is usually impossible for
+                        the models to match everywhere, but focusing on a
+                        particular area can work better. The implied rotation
+                        will be fit to match as large as possible an area
+                        centered on this argument. If omitted, we will try to
+                        match up the projections everywhere across the imager''')
 
     parser.add_argument('--extratitle',
                         type=str,
@@ -77,9 +128,10 @@ models = [loadmodel(modelfilename) for modelfilename in args.models]
 
 plot = mrcal.visualize_intrinsics_diff(models,
                                        args.gridn, args.gridn,
-                                       args.vectorfield,
-                                       hardcopy = args.hardcopy,
-                                       extratitle=args.extratitle,
+                                       where           = {'center':args.where},
+                                       vectorfield     = args.vectorfield,
+                                       hardcopy        = args.hardcopy,
+                                       extratitle      = args.extratitle,
                                        extraplotkwargs = extraplotkwargs)
 if args.hardcopy is None:
     plot.wait()
