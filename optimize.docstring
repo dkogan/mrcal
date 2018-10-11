@@ -8,7 +8,7 @@ Synopsis:
                             observations_board, indices_frame_camera,
                             observations_point, indices_point_camera_points, 
 
-                            distortion_model,
+                            distortion_model, imagersizes,
                             do_optimize_intrinsic_core        = True,
                             do_optimize_intrinsic_distortions = True,
                             calibration_object_spacing        = object_spacing,
@@ -107,6 +107,8 @@ Args:
   DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
   DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
   DISTORTION_CAHVOR
+
+- imagersizes: integer array of dims (Ncameras,2)
 
 - do_optimize_intrinsic_core
 - do_optimize_intrinsic_distortions

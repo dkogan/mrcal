@@ -174,9 +174,11 @@ mrcal_optimize( // out
                 const bool skip_outlier_rejection,
 
                 enum distortion_model_t distortion_model,
+                const int* imagersizes, // Ncameras*2 of these
                 struct mrcal_variable_select optimization_variable_choice,
 
                 double testing_cull_points_left_of,
+                double testing_cull_points_rad_off_center,
 
                 double calibration_object_spacing,
                 int calibration_object_width_n);

@@ -96,9 +96,11 @@ static bool optimize_validate_args( // out
                                     PyObject*      skipped_observations_board,
                                     PyObject*      skipped_observations_point,
                                     PyObject*      testing_cull_points_left_of,
+                                    PyObject*      testing_cull_points_rad_off_center,
                                     PyObject*      calibration_object_spacing,
                                     PyObject*      calibration_object_width_n,
                                     PyObject*      distortion_model_string,
+                                    PyArrayObject* imagersizes,
                                     SolverContext* solver_context)
 {
     if( PyArray_NDIM(intrinsics) != 2 )
@@ -141,14 +143,32 @@ static bool optimize_validate_args( // out
         PyErr_SetString(PyExc_RuntimeError, "'indices_point_camera_points' must have exactly 2 dims");
         return false;
     }
+    if( PyArray_NDIM(imagersizes) != 2 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'imagersizes' must have exactly 2 dims");
+        return false;
+    }
 
     int Ncameras = PyArray_DIMS(intrinsics)[0];
     if( Ncameras-1 !=
         PyArray_DIMS(extrinsics)[0] )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, intrinsics says %ld",
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'intrinsics' says %ld",
                      PyArray_DIMS(extrinsics)[0] + 1,
                      PyArray_DIMS(intrinsics)[0] );
+        return false;
+    }
+    if( PyArray_DIMS(imagersizes)[0] != Ncameras )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'imagersizes' says %ld",
+                     PyArray_DIMS(extrinsics)[0] + 1,
+                     PyArray_DIMS(imagersizes)[0]);
+        return false;
+    }
+    if( PyArray_DIMS(imagersizes)[1] != 2 )
+    {
+        PyErr_Format(PyExc_RuntimeError, "imagersizes must have shape (Ncameras,2); instead shape[-1] is %ld",
+                     PyArray_DIMS(imagersizes)[1]);
         return false;
     }
 
@@ -182,6 +202,12 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(indices_frame_camera_board)[0]);
         return false;
     }
+    if( PyArray_DIMS(indices_frame_camera_board)[1] != 2 )
+    {
+        PyErr_Format(PyExc_RuntimeError, "indices_frame_camera_board must have shape (NobservationsBoard,2); instead shape[-1] is %ld",
+                     PyArray_DIMS(indices_frame_camera_board)[1]);
+        return false;
+    }
 
     // calibration_object_spacing and calibration_object_width_n must be > 0 OR
     // we have to not be using a calibration board
@@ -193,6 +219,13 @@ static bool optimize_validate_args( // out
            !PyFloat_Check(testing_cull_points_left_of))
         {
             PyErr_Format(PyExc_RuntimeError, "We have board observations, so testing_cull_points_left_of MUST be a valid float");
+            return false;
+        }
+        if(testing_cull_points_rad_off_center != NULL    &&
+           testing_cull_points_rad_off_center != Py_None &&
+           !PyFloat_Check(testing_cull_points_rad_off_center))
+        {
+            PyErr_Format(PyExc_RuntimeError, "We have board observations, so testing_cull_points_rad_off_center MUST be a valid float");
             return false;
         }
 
@@ -246,6 +279,12 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(indices_point_camera_points)[0]);
         return false;
     }
+    if( PyArray_DIMS(indices_point_camera_points)[1] != 2 )
+    {
+        PyErr_Format(PyExc_RuntimeError, "indices_point_camera_points must have shape (NobservationsPoint,2); instead shape[-1] is %ld",
+                     PyArray_DIMS(indices_point_camera_points)[1]);
+        return false;
+    }
     if( 3  != PyArray_DIMS(observations_point)[1] )
     {
         PyErr_Format(PyExc_RuntimeError, "observations_point.shape[1] MUST be (3). Instead got (%ld)",
@@ -286,6 +325,13 @@ static bool optimize_validate_args( // out
         return false;
     }
     CHECK_CONTIGUOUS(indices_point_camera_points);
+
+    if( PyArray_TYPE(imagersizes) != NPY_INT )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "imagersizes must contain int data");
+        return false;
+    }
+    CHECK_CONTIGUOUS(imagersizes);
 
 
     const char* distortion_model_cstring =
@@ -753,6 +799,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* indices_frame_camera_board  = NULL;
     PyArrayObject* observations_point          = NULL;
     PyArrayObject* indices_point_camera_points = NULL;
+    PyArrayObject* imagersizes                 = NULL;
     PyObject*      pystats                     = NULL;
     PyObject*      VERBOSE                     = NULL;
     PyObject*      skip_outlier_rejection      = NULL;
@@ -763,6 +810,17 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* intrinsic_covariances       = NULL;
     PyArrayObject* outlier_indices_final       = NULL;
 
+    PyObject* distortion_model_string           = NULL;
+    PyObject* do_optimize_intrinsic_core        = Py_True;
+    PyObject* do_optimize_intrinsic_distortions = Py_True;
+    PyObject* do_optimize_extrinsics            = Py_True;
+    PyObject* do_optimize_frames                = Py_True;
+    PyObject* skipped_observations_board        = NULL;
+    PyObject* skipped_observations_point        = NULL;
+    PyObject* testing_cull_points_left_of       = NULL;
+    PyObject* testing_cull_points_rad_off_center= NULL;
+    PyObject* calibration_object_spacing        = NULL;
+    PyObject* calibration_object_width_n        = NULL;
 
     char* keywords[] = {"intrinsics",
                         "extrinsics",
@@ -774,6 +832,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "indices_point_camera_points",
 
                         "distortion_model",
+                        "imagersizes",
 
                         // optional kwargs
                         "do_optimize_intrinsic_core",
@@ -783,6 +842,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         "skipped_observations_board",
                         "skipped_observations_point",
                         "testing_cull_points_left_of",
+                        "testing_cull_points_rad_off_center",
                         "calibration_object_spacing",
                         "calibration_object_width_n",
                         "VERBOSE",
@@ -792,18 +852,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
                         NULL};
 
-    PyObject* distortion_model_string           = NULL;
-    PyObject* do_optimize_intrinsic_core        = Py_True;
-    PyObject* do_optimize_intrinsic_distortions = Py_True;
-    PyObject* do_optimize_extrinsics            = Py_True;
-    PyObject* do_optimize_frames                = Py_True;
-    PyObject* skipped_observations_board        = NULL;
-    PyObject* skipped_observations_point        = NULL;
-    PyObject* testing_cull_points_left_of       = NULL;
-    PyObject* calibration_object_spacing        = NULL;
-    PyObject* calibration_object_width_n        = NULL;
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&S|OOOOOOOOOOOOO",
+                                     "O&O&O&O&O&O&O&O&SO&|OOOOOOOOOOOOOO",
                                      keywords,
                                      PyArray_Converter_leaveNone, &intrinsics,
                                      PyArray_Converter_leaveNone, &extrinsics,
@@ -815,6 +865,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      PyArray_Converter_leaveNone, &indices_point_camera_points,
 
                                      &distortion_model_string,
+                                     PyArray_Converter_leaveNone, &imagersizes,
 
                                      &do_optimize_intrinsic_core,
                                      &do_optimize_intrinsic_distortions,
@@ -823,6 +874,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                      &skipped_observations_board,
                                      &skipped_observations_point,
                                      &testing_cull_points_left_of,
+                                     &testing_cull_points_rad_off_center,
                                      &calibration_object_spacing,
                                      &calibration_object_width_n,
                                      &VERBOSE,
@@ -861,6 +913,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
     SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,3);
     SET_SIZE0_IF_NONE(indices_point_camera_points,NPY_INT,    0,2);
+    SET_SIZE0_IF_NONE(imagersizes,                NPY_INT,    0,2);
 #undef SET_NULL_IF_NONE
 
 
@@ -880,9 +933,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                 skipped_observations_board,
                                 skipped_observations_point,
                                 testing_cull_points_left_of,
+                                testing_cull_points_rad_off_center,
                                 calibration_object_spacing,
                                 calibration_object_width_n,
                                 distortion_model_string,
+                                imagersizes,
                                 solver_context) )
         goto done;
 
@@ -895,15 +950,19 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
         double c_testing_cull_points_left_of = -1.0;
+        double c_testing_cull_points_rad_off_center= -1.0;
         double c_calibration_object_spacing  = 0.0;
         int    c_calibration_object_width_n  = 0;
 
         if( NobservationsBoard )
         {
             if(testing_cull_points_left_of != NULL   &&
-               testing_cull_points_left_of != Py_None &&
-               PyFloat_Check(testing_cull_points_left_of))
+               testing_cull_points_left_of != Py_None)
                 c_testing_cull_points_left_of = PyFloat_AS_DOUBLE(testing_cull_points_left_of);
+            if(testing_cull_points_rad_off_center != NULL   &&
+               testing_cull_points_rad_off_center != Py_None)
+                c_testing_cull_points_rad_off_center = PyFloat_AS_DOUBLE(testing_cull_points_rad_off_center);
+
             if(PyFloat_Check(calibration_object_spacing))
                 c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
             if(PyInt_Check(calibration_object_width_n))
@@ -1114,6 +1173,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         outlier_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
         int* c_outlier_indices_final = PyArray_DATA(outlier_indices_final);
 
+        int* c_imagersizes = PyArray_DATA(imagersizes);
+
         void** solver_context_optimizer = NULL;
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
         {
@@ -1146,9 +1207,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         VERBOSE &&                PyObject_IsTrue(VERBOSE),
                         skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                         distortion_model,
+                        c_imagersizes,
                         optimization_variable_choice,
 
                         c_testing_cull_points_left_of,
+                        c_testing_cull_points_rad_off_center,
                         c_calibration_object_spacing,
                         c_calibration_object_width_n);
         pystats = PyDict_New();
@@ -1224,6 +1287,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     if(intrinsic_covariances)       Py_DECREF(intrinsic_covariances);
     if(outlier_indices_final)       Py_DECREF(outlier_indices_final);
     if(pystats)                     Py_DECREF(pystats);
+    if(imagersizes)                 Py_DECREF(imagersizes);
 
     RESET_SIGINT();
     return result;

@@ -115,6 +115,10 @@ int main(int argc, char* argv[] )
     int Nintrinsics = Ndistortion + N_INTRINSICS_CORE;
     double intrinsics[Ncameras * Nintrinsics];
 
+    int imagersizes[Ncameras*2];
+    for(int i=0; i<Ncameras*2; i++)
+        imagersizes[i] = 1000 + 10*i;
+
     struct intrinsics_core_t* intrinsics_core = (struct intrinsics_core_t*)intrinsics;
     intrinsics_core->focal_xy [0] = 2000.3;
     intrinsics_core->focal_xy [1] = 1900.5;
@@ -149,9 +153,10 @@ int main(int argc, char* argv[] )
                     false,
                     true,
                     distortion_model,
+                    imagersizes,
                     optimization_variable_choice,
 
-                    -1.0,
+                    -1.0, -1.0,
 
                     1.0, calibration_object_width_n);
 

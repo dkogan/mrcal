@@ -168,6 +168,12 @@ def parse_args():
                         default=-1,
                         type=float,
                         help='''For testing. Throw out all observations with x < the given value''')
+    parser.add_argument('--testing-cull-points-rad-off-center',
+                        required=False,
+                        default=-1,
+                        type=float,
+                        help='''For testing. Throw out all observations with dist_from_center > the given
+                        value''')
     parser.add_argument('--testing-cull-random-observations-ratio',
                         required=False,
                         default=-1,
@@ -920,6 +926,8 @@ def get_observation_subset__from_indices(indices, observations, paths, indices_f
 
     '''
 
+    if len(indices) == 0:
+        raise Exception("Selected subset of data is empty: I threw out everything!")
 
     observations_new         = observations        [indices, ...].copy()
     paths_new                = [paths[i] for i in indices]
@@ -953,22 +961,37 @@ def get_observation_subset__random(ratio_cull, observations, paths, indices_fram
 
     return get_observation_subset__from_indices(indices, observations, paths, indices_frame_camera)
 
-def get_observation_subset__right_of_threshold(point_x_threshold, observations, paths, indices_frame_camera, object_width_n):
-    r'''Returns a subset of observations where all points are right of some threshold
+def get_observation_subset__right_of_threshold_and_within_center(point_x_threshold,
+                                                                 rad_threshold,
+                                                                 observations,
+                                                                 imagersizes,
+                                                                 paths, indices_frame_camera, object_width_n):
+    r'''Returns a subset of observations
 
     This throws out all observations that lie COMPLETELY to the left of the
-    threshold. The mrcal internals handle partial board observations
+    given threshold or outside the given circle. The mrcal internals handle
+    partial board observations
 
     '''
 
     # observations that have fewer than this many points are thrown out
     must_have_at_least_points = object_width_n*2
 
-    def have_enough_points(x):
+    def have_enough_points(i):
+        x = None
+        if point_x_threshold > 0:
+            x = observations[i,:,:,0] >= point_x_threshold
+        if rad_threshold > 0:
+            y = nps.norm2(observations[i,...] - (imagersizes[indices_frame_camera[i,1]] - 1.)/2.) < rad_threshold*rad_threshold
+            if x is None:
+                x = y
+            else:
+                x = x*y
+
         return np.count_nonzero(x) >= must_have_at_least_points
 
     indices = np.array([i for i in xrange(len(observations)) if \
-                        have_enough_points(observations[i,:,:,0] >= point_x_threshold)],
+                        have_enough_points(i)],
                        dtype=int)
     return get_observation_subset__from_indices(indices, observations, paths, indices_frame_camera)
 
@@ -987,6 +1010,9 @@ if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
+# list of imager dimensions; one per camera
+imagersizes = np.array([get_imagersize_one(imagesglob, args.imagersize) for imagesglob in args.images],
+                       dtype=np.int32)
 
 object_spacing = args.object_spacing
 object_width_n = args.object_width_n
@@ -998,18 +1024,18 @@ observations, indices_frame_camera, paths = \
                      args.dots_cache,
                      jobs = args.jobs)
 
-if args.testing_cull_points_left_of > 0:
+if args.testing_cull_points_left_of > 0 or args.testing_cull_points_rad_off_center > 0:
     observations, paths, indices_frame_camera = \
-        get_observation_subset__right_of_threshold(args.testing_cull_points_left_of,
-                                                   observations, paths, indices_frame_camera,
-                                                   args.object_width_n)
+        get_observation_subset__right_of_threshold_and_within_center( \
+            args.testing_cull_points_left_of,
+            args.testing_cull_points_rad_off_center,
+            observations,
+            imagersizes, paths, indices_frame_camera,
+            args.object_width_n)
 if args.testing_cull_random_observations_ratio >= 0:
     observations, paths, indices_frame_camera = \
         get_observation_subset__random(args.testing_cull_random_observations_ratio,
                                        observations, paths, indices_frame_camera)
-
-# list of imager dimensions; one per camera
-imagersizes = np.array([get_imagersize_one(g, args.imagersize) for g in args.images])
 
 inputs = {'imagersizes':          imagersizes,
           'focal_estimate':       args.focal,
@@ -1038,7 +1064,7 @@ else:
 mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                observations, indices_frame_camera,
                None, None,
-               intrinsics[0],
+               intrinsics[0], imagersizes,
                do_optimize_intrinsic_core        = False,
                do_optimize_intrinsic_distortions = False,
                calibration_object_spacing        = object_spacing,
@@ -1049,7 +1075,7 @@ mrcal.optimize(intrinsics[1], extrinsics, frames, None,
 stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        observations, indices_frame_camera,
                        None, None,
-                       intrinsics[0],
+                       intrinsics[0], imagersizes,
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = False,
                        calibration_object_spacing        = object_spacing,
@@ -1070,10 +1096,11 @@ solver_context = mrcal.SolverContext()
 stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        observations, indices_frame_camera,
                        None, None,
-                       intrinsics[0],
+                       intrinsics[0], imagersizes,
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = True,
                        testing_cull_points_left_of       = args.testing_cull_points_left_of if args.testing_cull_points_left_of > 0 else None,
+                       testing_cull_points_rad_off_center= args.testing_cull_points_rad_off_center if args.testing_cull_points_rad_off_center > 0 else None,
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n,
                        skip_outlier_rejection            = args.skip_outlier_rejection,
@@ -1317,7 +1344,7 @@ def check_confidence_computations():
     stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                            observations, indices_frame_camera,
                            None, None,
-                           intrinsics[0],
+                           intrinsics[0], imagersizes,
                            do_optimize_intrinsic_core        = True,
                            do_optimize_intrinsic_distortions = True,
                            calibration_object_spacing        = object_spacing,

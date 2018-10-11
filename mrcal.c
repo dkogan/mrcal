@@ -1901,9 +1901,12 @@ mrcal_optimize( // out
                 const bool skip_outlier_rejection,
 
                 enum distortion_model_t distortion_model,
+                const int* imagersizes, // Ncameras*2 of these
+
                 struct mrcal_variable_select optimization_variable_choice,
 
                 double testing_cull_points_left_of,
+                double testing_cull_points_rad_off_center,
 
                 double calibration_object_spacing,
                 int calibration_object_width_n)
@@ -2651,11 +2654,8 @@ mrcal_optimize( // out
 
                     double err;
 
-                    const struct intrinsics_core_t* core_seed =
-                        (&intrinsics[(N_INTRINSICS_CORE+Ndistortions)*i_camera]);
-
-                    double cx_target = core_seed->center_xy[0];
-                    double cy_target = core_seed->center_xy[1];
+                    double cx_target = 0.5 * (double)(imagersizes[i_camera*2 + 0] - 1);
+                    double cy_target = 0.5 * (double)(imagersizes[i_camera*2 + 1] - 1);
 
                     err = scale_regularization *
                         (intrinsic_core_all[i_camera].center_xy[0] - cx_target);
@@ -2726,14 +2726,26 @@ mrcal_optimize( // out
 
     if( !check_gradient )
     {
-        if(testing_cull_points_left_of > 0.0)
+        if(testing_cull_points_left_of > 0.0 || testing_cull_points_rad_off_center > 0.0)
         {
+            double distsq_center( const union point2_t* pt, int icam)
+            {
+                double dx = pt->x - 0.5*(double)(imagersizes[icam*2 + 0] - 1);
+                double dy = pt->y - 0.5*(double)(imagersizes[icam*2 + 1] - 1);
+                return dx*dx + dy*dy;
+            }
+
             int ifeature = 0;
             stats.Noutliers = 0;
             for(int iboard=0; iboard<NobservationsBoard; iboard++)
                 for(int ipt=0; ipt<calibration_object_width_n*calibration_object_width_n;
                     ipt++, ifeature++)
-                    if(observations_board[iboard].px[ipt].x < testing_cull_points_left_of)
+                    if( (testing_cull_points_left_of >= 0.0 &&
+                         observations_board[iboard].px[ipt].x < testing_cull_points_left_of) ||
+                        (testing_cull_points_rad_off_center >= 0.0 &&
+                         distsq_center(&observations_board[iboard].px[ipt], observations_board[iboard].i_camera) >
+                           testing_cull_points_rad_off_center*
+                           testing_cull_points_rad_off_center) )
                     {
                         markedOutliers[ifeature].marked = true;
                         stats.Noutliers++;
