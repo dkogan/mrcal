@@ -1051,24 +1051,24 @@ def visualize_intrinsics_diff(models,
     intrinsics_data   = [model.intrinsics()[1] for model in models]
 
 
-    V,grid = sample_imager_unproject(gridn_x, gridn_y,
-                                     distortion_models, intrinsics_data,
-                                     W, H)
+    V,grid0 = sample_imager_unproject(gridn_x, gridn_y,
+                                      distortion_models, intrinsics_data,
+                                      W, H)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
-        grid1   = _intrinsics_diff_get_reprojected_grid(grid,
+        grid1   = _intrinsics_diff_get_reprojected_grid(grid0,
                                                         V[0,...], V[1,...],
                                                         where,
                                                         distortion_models[1], intrinsics_data[1],
                                                         imagersizes)
-        diff    = grid1 - grid
+        diff    = grid1 - grid0
         difflen = np.sqrt(nps.inner(diff, diff))
 
     else:
         # Many models. Look at the stdev
-        grids = nps.cat(grid,
-                        *[_intrinsics_diff_get_reprojected_grid(grid,
+        grids = nps.cat(grid0,
+                        *[_intrinsics_diff_get_reprojected_grid(grid0,
                                                                 V[0,...], V[i,...], where,
                                                                 distortion_models[i], intrinsics_data[i],
                                                                 imagersizes) for i in xrange(1,len(V))])
@@ -1091,7 +1091,7 @@ def visualize_intrinsics_diff(models,
                              cbrange=[0,10],
                              **extraplotkwargs)
 
-        p0      = nps.clump(grid,    n=2)
+        p0      = nps.clump(grid0,    n=2)
         p1      = nps.clump(grid1,   n=2)
         diff    = nps.clump(diff,    n=2)
         difflen = nps.clump(difflen, n=2)
