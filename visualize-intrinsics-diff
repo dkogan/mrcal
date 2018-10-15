@@ -78,6 +78,10 @@ def parse_args():
                         will be fit to match as large as possible an area
                         centered on this argument. If omitted, we will try to
                         match up the projections everywhere across the imager''')
+    parser.add_argument('--cbmax',
+                        type=float,
+                        default=10,
+                        help='''Maximum range of the colorbar''')
 
     parser.add_argument('--extratitle',
                         type=str,
@@ -131,6 +135,7 @@ plot = mrcal.visualize_intrinsics_diff(models,
                                        where           = {'center':args.where},
                                        vectorfield     = args.vectorfield,
                                        hardcopy        = args.hardcopy,
+                                       cbmax           = args.cbmax,
                                        extratitle      = args.extratitle,
                                        extraplotkwargs = extraplotkwargs)
 if args.hardcopy is None:

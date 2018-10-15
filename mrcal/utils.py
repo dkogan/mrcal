@@ -511,6 +511,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      gridn_y = 40,
                                      extratitle = None,
                                      hardcopy = None,
+                                     cbmax = None,
                                      extraplotkwargs = {}):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
@@ -667,7 +668,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
                       _xrange=[0,W],
                       _yrange=[H,0],
-                      cbrange=[0,5],
+                      cbrange=[0,cbmax],
                       ascii=1,
                       **extraplotkwargs)
 
@@ -693,6 +694,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                                  gridn_y = 40,
                                                  extratitle = None,
                                                  hardcopy = None,
+                                                 cbmax = None,
                                                  extraplotkwargs = {}):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
@@ -771,7 +773,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
 
                       _xrange=[0,W],
                       _yrange=[H,0],
-                      cbrange=[0,2],
+                      cbrange=[0,cbmax],
                       ascii=1,
                       **extraplotkwargs)
 
@@ -991,6 +993,7 @@ def visualize_intrinsics_diff(models,
                               vectorfield     = False,
                               extratitle      = None,
                               hardcopy        = None,
+                              cbmax           = None,
                               extraplotkwargs = {}):
     r'''Visualize the different between N intrinsic models
 
@@ -1088,7 +1091,7 @@ def visualize_intrinsics_diff(models,
         plot = gp.gnuplotlib(square=1,
                              _xrange=[0,W],
                              _yrange=[H,0],
-                             cbrange=[0,10],
+                             cbrange=[0,cbmax],
                              **extraplotkwargs)
 
         p0      = nps.clump(grid0,    n=2)
@@ -1117,7 +1120,7 @@ def visualize_intrinsics_diff(models,
                           unset='grid',
                           _xrange=[0,W],
                           _yrange=[H,0],
-                          cbrange=[0,10],
+                          cbrange=[0,cbmax],
                           ascii=1,
                           **extraplotkwargs)
 

@@ -35,7 +35,10 @@ def parse_args():
                         type=int,
                         default = 40,
                         help='''How densely we should sample the imager. By default we report a 40x40 grid''')
-
+    parser.add_argument('--cbmax',
+                        type=float,
+                        default=5,
+                        help='''Maximum range of the colorbar''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
@@ -76,6 +79,7 @@ plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               model.dimensions(),
                                               args.gridn, args.gridn,
                                               hardcopy = args.hardcopy,
+                                              cbmax = args.cbmax,
                                               extratitle=args.extratitle,
                                               extraplotkwargs = extraplotkwargs)
 

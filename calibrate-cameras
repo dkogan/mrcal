@@ -1449,6 +1449,7 @@ def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwarg
                                                    extratitle = "Camera {}".format(i_camera),
                                                    gridn_x=gridn_x,
                                                    gridn_y=gridn_y,
+                                                   cbmax=5,
                                                    **plotkwargs_extra)
 
 def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwargs_extra):
@@ -1465,6 +1466,7 @@ def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40,
                                                                extratitle = "Camera {}".format(i_camera),
                                                                gridn_x=gridn_x,
                                                                gridn_y=gridn_y,
+                                                               cbmax=2,
                                                                **plotkwargs_extra)
 
 import IPython
