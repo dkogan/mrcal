@@ -19,7 +19,9 @@ import mrcal
 Nw                  = 10
 width_square        = 0.01
 
-Nobservations = 10000
+# I try to get this many, but incomplete observations are thrown out, so in
+# reality I get fewer. In practice I observe getting about 1/4 of this number
+Nobservations = 50000
 
 pitch_halfrange_deg = 20
 yaw_halfrange_deg   = 20
@@ -112,9 +114,9 @@ def write_data(filename, p, W,H):
         for i in xrange(len(p)):
             np.savetxt(f, nps.clump(p[i,...], n=2), fmt='{:06d}.xxx %.3f %.3f'.format(i))
 
-write_data("synthetic-no-noise.vnl", p, cam_width, cam_height)
+write_data("../../studies/syntheticdata/synthetic-no-noise.vnl", p, cam_width, cam_height)
 p += np.random.randn(*p.shape) * pixel_noise_xy_1stdev
-write_data("synthetic.vnl",          p, cam_width, cam_height)
+write_data("../../studies/syntheticdata/synthetic.vnl",          p, cam_width, cam_height)
 
 
 # gp.plot(nps.clump(p[...,0], n=-2), nps.clump(p[...,1], n=-2), _with='points', square=1,_xrange=[0,cam_width],_yrange=[0,cam_height])
