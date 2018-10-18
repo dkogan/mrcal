@@ -791,7 +791,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     return plot
 
 
-def _intrinsics_diff_get_reprojected_grid(grid, V0, V1, where,
+def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1, where,
                                           distortion_models, intrinsics_data,
 
                                           # these are for testing mostly. When I figure out
@@ -894,12 +894,13 @@ def _intrinsics_diff_get_reprojected_grid(grid, V0, V1, where,
                 # (diameter = 1/3)
                 r = np.min(np.array(imagersizes[0])) / 6
 
-            i = nps.norm2(grid - c) < r*r
+            grid_off_center = grid0 - c
+            i = nps.norm2(grid_off_center) < r*r
             V0cut = V0[i, ...]
             V1cut = V1[i, ...]
 
             # get the nearest index on my grid to the requested center
-            icenter_flat = np.argmin(nps.norm2(grid-c))
+            icenter_flat = np.argmin(nps.norm2(grid_off_center))
 
             # This looks funny, but it's right. My grid is set up that you index
             # with the x-coord and then the y-coord. This is opposite from the
