@@ -892,7 +892,7 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1, where,
             else:
                 # radius not given. I use 1/6 of the smallest imager dimension
                 # (diameter = 1/3)
-                r = np.min(np.array(imagersizes[0])) / 6
+                r = np.min(imagersizes) / 6
 
             grid_off_center = grid0 - c
             i = nps.norm2(grid_off_center) < r*r
@@ -966,15 +966,15 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1, where,
         # r[2] = 0
         # R,_ = cv2.Rodrigues(r)
         # dth_x = \
-        #     np.arctan2( intrinsics_data[i][2] - imagersizes[i][0],
-        #                 intrinsics_data[i][0] ) - \
-        #     np.arctan2( intrinsics_data[0][2] - imagersizes[0][0],
-        #                 intrinsics_data[0][0] )
+        #     np.arctan2( intrinsics_data[i,2] - imagersizes[i,0],
+        #                 intrinsics_data[i,0] ) - \
+        #     np.arctan2( intrinsics_data[0,2] - imagersizes[0,0],
+        #                 intrinsics_data[0,0] )
         # dth_y = \
-        #     np.arctan2( intrinsics_data[i][3] - imagersizes[i][1],
-        #                 intrinsics_data[i][1] ) - \
-        #     np.arctan2( intrinsics_data[0][3] - imagersizes[1][1],
-        #                 intrinsics_data[0][1] )
+        #     np.arctan2( intrinsics_data[i,3] - imagersizes[i,1],
+        #                 intrinsics_data[i,1] ) - \
+        #     np.arctan2( intrinsics_data[0,3] - imagersizes[1,1],
+        #                 intrinsics_data[0,1] )
         # r = np.array((-dth_y, dth_x, 0))
         # R,_ = cv2.Rodrigues(r)
 
