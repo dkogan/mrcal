@@ -1266,8 +1266,9 @@ def show_reprojection_errors(observation, **plotkwargs_extra):
     imagepath = paths[i_observation]
     plotkwargs = \
         dict(square=1,cbmin=0,
-             title='i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={}, error_RMS_ignoring_outliers={}'. \
-               format( i_observation, i_frame, i_camera,
+             title='{}: i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={}, error_RMS_ignoring_outliers={}'. \
+               format( intrinsics[0],
+                       i_observation, i_frame, i_camera,
                        paths[i_observation],
                        rms_err_all_points_perimage[i_observation],
                        rms_err_ignoring_outliers_perimage[i_observation]),
@@ -1446,7 +1447,7 @@ def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwarg
                                                    intrinsics[1][i_camera],
                                                    MMt          [i_camera],
                                                    imagersizes  [i_camera],
-                                                   extratitle = "Camera {}".format(i_camera),
+                                                   extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                                    gridn_x=gridn_x,
                                                    gridn_y=gridn_y,
                                                    cbmax=5,
@@ -1463,7 +1464,7 @@ def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40,
                                                                args.observed_pixel_uncertainty,
                                                                imagersizes[i_camera],
                                                                stats['Noutliers'],
-                                                               extratitle = "Camera {}".format(i_camera),
+                                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                                                gridn_x=gridn_x,
                                                                gridn_y=gridn_y,
                                                                cbmax=2,
