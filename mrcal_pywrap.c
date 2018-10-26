@@ -81,6 +81,356 @@ static PyTypeObject SolverContextType =
 };
 
 
+static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
+                                      PyObject* args)
+{
+    PyObject* result = NULL;
+    SET_SIGINT();
+
+    PyObject* distortion_model_string = NULL;
+    if(!PyArg_ParseTuple( args, "S", &distortion_model_string ))
+        goto done;
+
+    const char* distortion_model_cstring =
+        PyString_AsString(distortion_model_string);
+    if( distortion_model_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
+                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        goto done;
+    }
+
+    enum distortion_model_t distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
+    if( distortion_model == DISTORTION_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
+                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     distortion_model_cstring);
+        goto done;
+    }
+
+    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
+
+    result = Py_BuildValue("i", Ndistortions);
+
+ done:
+    RESET_SIGINT();
+    return result;
+}
+
+static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
+                                              PyObject* NPY_UNUSED(args))
+{
+    PyObject* result = NULL;
+    SET_SIGINT();
+    const char* const* names = mrcal_getSupportedDistortionModels();
+
+    // I now have a NULL-terminated list of NULL-terminated strings. Get N
+    int N=0;
+    while(names[N] != NULL)
+        N++;
+
+    result = PyTuple_New(N);
+    if(result == NULL)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Failed PyTuple_New(%d)", N);
+        goto done;
+    }
+
+    for(int i=0; i<N; i++)
+    {
+        PyObject* name = Py_BuildValue("s", names[i]);
+        if( name == NULL )
+        {
+            PyErr_Format(PyExc_RuntimeError, "Failed Py_BuildValue...");
+            Py_DECREF(result);
+            result = NULL;
+            goto done;
+        }
+        PyTuple_SET_ITEM(result, i, name);
+    }
+
+ done:
+    RESET_SIGINT();
+    return result;
+}
+
+// just like PyArray_Converter(), but leave None as None
+static
+int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
+{
+    if(obj == Py_None)
+    {
+        *address = Py_None;
+        Py_INCREF(Py_None);
+        return 1;
+    }
+    return PyArray_Converter(obj,address);
+}
+
+static bool project_validate_args( // out
+                                  enum distortion_model_t* distortion_model,
+
+                                  // in
+                                  PyArrayObject* points,
+                                  PyArrayObject* intrinsics,
+                                  PyObject*      distortion_model_string)
+{
+    if( PyArray_NDIM(intrinsics) != 1 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
+        return false;
+    }
+
+    if( PyArray_NDIM(points) < 1 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
+        return false;
+    }
+    if( 3 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 3. Instead got %ld",
+                     PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
+        return false;
+    }
+
+    if( PyArray_TYPE(intrinsics) != NPY_DOUBLE ||
+        PyArray_TYPE(points)     != NPY_DOUBLE )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "All inputs must contain double-precision floating-point data");
+        return false;
+    }
+
+    CHECK_CONTIGUOUS(intrinsics);
+    CHECK_CONTIGUOUS(points);
+
+    const char* distortion_model_cstring =
+        PyString_AsString(distortion_model_string);
+    if( distortion_model_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
+                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        return false;
+    }
+
+    *distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
+    if( *distortion_model == DISTORTION_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
+                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     distortion_model_cstring);
+        return false;
+    }
+
+    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model);
+    if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
+                     N_INTRINSICS_CORE + NdistortionParams,
+                     PyArray_DIMS(intrinsics)[1] );
+        return false;
+    }
+
+    return true;
+}
+static PyObject* project(PyObject* NPY_UNUSED(self),
+                         PyObject* args,
+                         PyObject* kwargs)
+{
+    PyObject*      result          = NULL;
+    SET_SIGINT();
+
+    PyArrayObject* out             = NULL;
+    PyArrayObject* dxy_dintrinsics = NULL;
+    PyArrayObject* dxy_dp          = NULL;
+
+    PyArrayObject* points                  = NULL;
+    PyArrayObject* intrinsics              = NULL;
+    PyObject*      distortion_model_string = NULL;
+    PyObject*      get_gradients           = Py_False;
+
+    char* keywords[] = {"points",
+                        "distortion_model",
+                        "intrinsics",
+
+                        // optional kwargs
+                        "get_gradients",
+
+                        NULL};
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O&SO&|O", keywords,
+                                     PyArray_Converter, &points,
+                                     &distortion_model_string,
+                                     PyArray_Converter, &intrinsics,
+                                     &get_gradients))
+        goto done;
+
+    enum distortion_model_t distortion_model;
+    if(!project_validate_args(&distortion_model,
+                              points, intrinsics,
+                              distortion_model_string))
+        goto done;
+
+    int Nintrinsics = PyArray_DIMS(intrinsics)[0];
+
+    // poor man's broadcasting of the inputs. I compute the total number of
+    // points by multiplying the extra broadcasted dimensions. And I set up the
+    // outputs to have the appropriate broadcasted dimensions
+    const npy_intp* leading_dims  = PyArray_DIMS(points);
+    int             Nleading_dims = PyArray_NDIM(points)-1;
+    int Npoints = 1;
+    for(int i=0; i<Nleading_dims; i++)
+        Npoints *= leading_dims[i];
+    {
+        npy_intp dims[Nleading_dims+2];
+        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
+
+        dims[Nleading_dims + 0] = 2;
+        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
+                                                dims,
+                                                NPY_DOUBLE);
+        if( get_gradients )
+        {
+            dims[Nleading_dims + 0] = 2;
+            dims[Nleading_dims + 1] = Nintrinsics;
+            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
+                                                                dims,
+                                                                NPY_DOUBLE);
+
+            dims[Nleading_dims + 0] = 2;
+            dims[Nleading_dims + 1] = 3;
+            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
+                                                                dims,
+                                                                NPY_DOUBLE);
+        }
+    }
+
+    mrcal_project((union point2_t*)PyArray_DATA(out),
+                  get_gradients ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
+                  get_gradients ? (union point3_t*)PyArray_DATA(dxy_dp)  : NULL,
+
+                  (const union point3_t*)PyArray_DATA(points),
+                  Npoints,
+                  distortion_model,
+                  // core, distortions concatenated
+                  (const double*)PyArray_DATA(intrinsics));
+
+    if( PyObject_IsTrue(get_gradients) )
+    {
+        result = PyTuple_New(3);
+        PyTuple_SET_ITEM(result, 0, (PyObject*)out);
+        PyTuple_SET_ITEM(result, 1, (PyObject*)dxy_dintrinsics);
+        PyTuple_SET_ITEM(result, 2, (PyObject*)dxy_dp);
+    }
+    else
+        result = (PyObject*)out;
+
+ done:
+    RESET_SIGINT();
+    return result;
+}
+
+
+static
+bool queryIntrinsicOutliernessAt_validate_args(PyArrayObject* v,
+                                               int i_camera,
+                                               SolverContext* solver_context)
+{
+    if( PyArray_NDIM(v) < 1 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'v' must have ndims >= 1");
+        return false;
+    }
+    if( 3 != PyArray_DIMS(v)[ PyArray_NDIM(v)-1 ] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "v.shape[-1] MUST be 3. Instead got %ld",
+                     PyArray_DIMS(v)[PyArray_NDIM(v)-1] );
+        return false;
+    }
+
+    CHECK_CONTIGUOUS(v);
+
+    if(i_camera < 0)
+    {
+        PyErr_Format(PyExc_RuntimeError, "i_camera>=0 should be true");
+        return false;
+    }
+
+    if( solver_context == NULL ||
+        (PyObject*)solver_context == Py_None ||
+        Py_TYPE(solver_context) != &SolverContextType)
+    {
+        PyErr_Format(PyExc_RuntimeError, "solver_context must be of type mrcal.SolverContext");
+        return false;
+    }
+    if(((SolverContext*)solver_context)->ctx == NULL)
+    {
+        PyErr_Format(PyExc_RuntimeError, "solver_context must contain a non-empty context");
+        return false;
+    }
+
+    return true;
+}
+static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
+                                             PyObject* args,
+                                             PyObject* kwargs)
+{
+    PyObject* result = NULL;
+    SET_SIGINT();
+
+    PyArrayObject* v                       = NULL;
+    SolverContext* solver_context          = NULL;
+    int            i_camera = -1;
+    int            Noutliers = 0;
+
+    char* keywords[] = {"v",
+                        "i_camera",
+                        "solver_context",
+                        "Noutliers",
+                        NULL};
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O&iO|i", keywords,
+                                     PyArray_Converter, &v,
+                                     &i_camera,
+                                     &solver_context,
+                                     &Noutliers))
+        goto done;
+
+    if(!queryIntrinsicOutliernessAt_validate_args(v,
+                                                  i_camera,
+                                                  solver_context))
+        goto done;
+
+    int N = PyArray_SIZE(v) / 3;
+    PyArrayObject* traces = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(v)-1, PyArray_DIMS(v), NPY_DOUBLE);
+    void* ctx = solver_context->ctx;
+    if(!mrcal_queryIntrinsicOutliernessAt((double*)PyArray_DATA(traces),
+                                          solver_context->distortion_model,
+                                          solver_context->do_optimize_intrinsic_core,
+                                          solver_context->do_optimize_intrinsic_distortions,
+                                          i_camera,
+                                          (const union point3_t*)PyArray_DATA(v),
+                                          N, Noutliers,
+                                          ctx))
+    {
+        Py_DECREF(traces);
+        goto done;
+    }
+
+    result = (PyObject*)traces;
+
+ done:
+    RESET_SIGINT();
+    return result;
+}
+
+
 static bool optimize_validate_args( // out
                                     enum distortion_model_t* distortion_model,
 
@@ -432,358 +782,6 @@ static bool optimize_validate_args( // out
 
     return true;
 }
-
-static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
-                                      PyObject* args)
-{
-    PyObject* result = NULL;
-    SET_SIGINT();
-
-    PyObject* distortion_model_string = NULL;
-    if(!PyArg_ParseTuple( args, "S", &distortion_model_string ))
-        goto done;
-
-    const char* distortion_model_cstring =
-        PyString_AsString(distortion_model_string);
-    if( distortion_model_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
-                        ")");
-        goto done;
-    }
-
-    enum distortion_model_t distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( distortion_model == DISTORTION_INVALID )
-    {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
-                     ")",
-                     distortion_model_cstring);
-        goto done;
-    }
-
-    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
-
-    result = Py_BuildValue("i", Ndistortions);
-
- done:
-    RESET_SIGINT();
-    return result;
-}
-
-static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
-                                              PyObject* NPY_UNUSED(args))
-{
-    PyObject* result = NULL;
-    SET_SIGINT();
-    const char* const* names = mrcal_getSupportedDistortionModels();
-
-    // I now have a NULL-terminated list of NULL-terminated strings. Get N
-    int N=0;
-    while(names[N] != NULL)
-        N++;
-
-    result = PyTuple_New(N);
-    if(result == NULL)
-    {
-        PyErr_Format(PyExc_RuntimeError, "Failed PyTuple_New(%d)", N);
-        goto done;
-    }
-
-    for(int i=0; i<N; i++)
-    {
-        PyObject* name = Py_BuildValue("s", names[i]);
-        if( name == NULL )
-        {
-            PyErr_Format(PyExc_RuntimeError, "Failed Py_BuildValue...");
-            Py_DECREF(result);
-            result = NULL;
-            goto done;
-        }
-        PyTuple_SET_ITEM(result, i, name);
-    }
-
- done:
-    RESET_SIGINT();
-    return result;
-}
-
-static bool project_validate_args( // out
-                                  enum distortion_model_t* distortion_model,
-
-                                  // in
-                                  PyArrayObject* points,
-                                  PyArrayObject* intrinsics,
-                                  PyObject*      distortion_model_string)
-{
-    if( PyArray_NDIM(intrinsics) != 1 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
-        return false;
-    }
-
-    if( PyArray_NDIM(points) < 1 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
-        return false;
-    }
-    if( 3 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 3. Instead got %ld",
-                     PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
-        return false;
-    }
-
-    if( PyArray_TYPE(intrinsics) != NPY_DOUBLE ||
-        PyArray_TYPE(points)     != NPY_DOUBLE )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must contain double-precision floating-point data");
-        return false;
-    }
-
-    CHECK_CONTIGUOUS(intrinsics);
-    CHECK_CONTIGUOUS(points);
-
-    const char* distortion_model_cstring =
-        PyString_AsString(distortion_model_string);
-    if( distortion_model_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
-                        ")");
-        return false;
-    }
-
-    *distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( *distortion_model == DISTORTION_INVALID )
-    {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
-                     ")",
-                     distortion_model_cstring);
-        return false;
-    }
-
-    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model);
-    if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
-                     N_INTRINSICS_CORE + NdistortionParams,
-                     PyArray_DIMS(intrinsics)[1] );
-        return false;
-    }
-
-    return true;
-}
-
-static PyObject* project(PyObject* NPY_UNUSED(self),
-                         PyObject* args,
-                         PyObject* kwargs)
-{
-    PyObject*      result          = NULL;
-    SET_SIGINT();
-
-    PyArrayObject* out             = NULL;
-    PyArrayObject* dxy_dintrinsics = NULL;
-    PyArrayObject* dxy_dp          = NULL;
-
-    PyArrayObject* points                  = NULL;
-    PyArrayObject* intrinsics              = NULL;
-    PyObject*      distortion_model_string = NULL;
-    PyObject*      get_gradients           = Py_False;
-
-    char* keywords[] = {"points",
-                        "distortion_model",
-                        "intrinsics",
-
-                        // optional kwargs
-                        "get_gradients",
-
-                        NULL};
-
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&SO&|O", keywords,
-                                     PyArray_Converter, &points,
-                                     &distortion_model_string,
-                                     PyArray_Converter, &intrinsics,
-                                     &get_gradients))
-        goto done;
-
-    enum distortion_model_t distortion_model;
-    if(!project_validate_args(&distortion_model,
-                              points, intrinsics,
-                              distortion_model_string))
-        goto done;
-
-    int Nintrinsics = PyArray_DIMS(intrinsics)[0];
-
-    // poor man's broadcasting of the inputs. I compute the total number of
-    // points by multiplying the extra broadcasted dimensions. And I set up the
-    // outputs to have the appropriate broadcasted dimensions
-    const npy_intp* leading_dims  = PyArray_DIMS(points);
-    int             Nleading_dims = PyArray_NDIM(points)-1;
-    int Npoints = 1;
-    for(int i=0; i<Nleading_dims; i++)
-        Npoints *= leading_dims[i];
-    {
-        npy_intp dims[Nleading_dims+2];
-        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
-
-        dims[Nleading_dims + 0] = 2;
-        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
-                                                dims,
-                                                NPY_DOUBLE);
-        if( get_gradients )
-        {
-            dims[Nleading_dims + 0] = 2;
-            dims[Nleading_dims + 1] = Nintrinsics;
-            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
-                                                                dims,
-                                                                NPY_DOUBLE);
-
-            dims[Nleading_dims + 0] = 2;
-            dims[Nleading_dims + 1] = 3;
-            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
-                                                                dims,
-                                                                NPY_DOUBLE);
-        }
-    }
-
-    mrcal_project((union point2_t*)PyArray_DATA(out),
-                  get_gradients ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
-                  get_gradients ? (union point3_t*)PyArray_DATA(dxy_dp)  : NULL,
-
-                  (const union point3_t*)PyArray_DATA(points),
-                  Npoints,
-                  distortion_model,
-                  // core, distortions concatenated
-                  (const double*)PyArray_DATA(intrinsics));
-
-    if( PyObject_IsTrue(get_gradients) )
-    {
-        result = PyTuple_New(3);
-        PyTuple_SET_ITEM(result, 0, (PyObject*)out);
-        PyTuple_SET_ITEM(result, 1, (PyObject*)dxy_dintrinsics);
-        PyTuple_SET_ITEM(result, 2, (PyObject*)dxy_dp);
-    }
-    else
-        result = (PyObject*)out;
-
- done:
-    RESET_SIGINT();
-    return result;
-}
-
-static
-bool queryIntrinsicOutliernessAt_validate_args(PyArrayObject* v,
-                                               int i_camera,
-                                               SolverContext* solver_context)
-{
-    if( PyArray_NDIM(v) < 1 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'v' must have ndims >= 1");
-        return false;
-    }
-    if( 3 != PyArray_DIMS(v)[ PyArray_NDIM(v)-1 ] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "v.shape[-1] MUST be 3. Instead got %ld",
-                     PyArray_DIMS(v)[PyArray_NDIM(v)-1] );
-        return false;
-    }
-
-    CHECK_CONTIGUOUS(v);
-
-    if(i_camera < 0)
-    {
-        PyErr_Format(PyExc_RuntimeError, "i_camera>=0 should be true");
-        return false;
-    }
-
-    if( solver_context == NULL ||
-        (PyObject*)solver_context == Py_None ||
-        Py_TYPE(solver_context) != &SolverContextType)
-    {
-        PyErr_Format(PyExc_RuntimeError, "solver_context must be of type mrcal.SolverContext");
-        return false;
-    }
-    if(((SolverContext*)solver_context)->ctx == NULL)
-    {
-        PyErr_Format(PyExc_RuntimeError, "solver_context must contain a non-empty context");
-        return false;
-    }
-
-    return true;
-}
-
-static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
-                                             PyObject* args,
-                                             PyObject* kwargs)
-{
-    PyObject* result = NULL;
-    SET_SIGINT();
-
-    PyArrayObject* v                       = NULL;
-    SolverContext* solver_context          = NULL;
-    int            i_camera = -1;
-    int            Noutliers = 0;
-
-    char* keywords[] = {"v",
-                        "i_camera",
-                        "solver_context",
-                        "Noutliers",
-                        NULL};
-
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&iO|i", keywords,
-                                     PyArray_Converter, &v,
-                                     &i_camera,
-                                     &solver_context,
-                                     &Noutliers))
-        goto done;
-
-    if(!queryIntrinsicOutliernessAt_validate_args(v,
-                                                  i_camera,
-                                                  solver_context))
-        goto done;
-
-    int N = PyArray_SIZE(v) / 3;
-    PyArrayObject* traces = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(v)-1, PyArray_DIMS(v), NPY_DOUBLE);
-    void* ctx = solver_context->ctx;
-    if(!mrcal_queryIntrinsicOutliernessAt((double*)PyArray_DATA(traces),
-                                          solver_context->distortion_model,
-                                          solver_context->do_optimize_intrinsic_core,
-                                          solver_context->do_optimize_intrinsic_distortions,
-                                          i_camera,
-                                          (const union point3_t*)PyArray_DATA(v),
-                                          N, Noutliers,
-                                          ctx))
-    {
-        Py_DECREF(traces);
-        goto done;
-    }
-
-    result = (PyObject*)traces;
-
- done:
-    RESET_SIGINT();
-    return result;
-}
-
-
-// just like PyArray_Converter(), but leave None as None
-static
-int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
-{
-    if(obj == Py_None)
-    {
-        *address = Py_None;
-        Py_INCREF(Py_None);
-        return 1;
-    }
-    return PyArray_Converter(obj,address);
-}
-
 static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* kwargs)
