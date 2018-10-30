@@ -41,6 +41,49 @@ do {                                                                    \
     } } while(0)
 
 
+#define COMMA ,
+#define ARG_DEFINE(     name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) pytype name = initialvalue;
+#define ARG_LIST_DEFINE(name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) pytype name,
+#define ARG_LIST_CALL(  name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) name,
+#define NAMELIST(       name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) #name ,
+#define PARSECODE(      name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) parsecode
+#define PARSEARG(       name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) parseprearg &name,
+#define FREE_PYARRAY(   name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) if(free_pyarray && name) { Py_DECREF(name); }
+#define CHECK_LAYOUT(   name, pytype, initialvalue, parsecode, parseprearg, free_pyarray, npy_type, dims_ref) \
+    do { \
+    int dims[] = dims_ref;                                              \
+    int ndims = (int)sizeof(dims)/(int)sizeof(dims[0]);                 \
+                                                                        \
+    if( ndims > 0 )                                                     \
+    {                                                                   \
+        if( PyArray_NDIM((PyArrayObject*)name) != ndims )               \
+        {                                                               \
+            PyErr_Format(PyExc_RuntimeError, "'" #name "' must have exactly %d dims; got %d", ndims, PyArray_NDIM((PyArrayObject*)name)); \
+            return false;                                               \
+        }                                                               \
+        for(int i=0; i<ndims; i++)                                      \
+            if(dims[i] >= 0 && dims[i] != PyArray_DIMS((PyArrayObject*)name)[i]) \
+            {                                                           \
+                PyErr_Format(PyExc_RuntimeError, "'" #name "'must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name)[i]); \
+                return false;                                           \
+            }                                                           \
+    }                                                                   \
+    if( (int)npy_type >= 0 )                                            \
+    {                                                                   \
+        if( PyArray_TYPE((PyArrayObject*)name) != npy_type )            \
+        {                                                               \
+            PyErr_SetString(PyExc_RuntimeError, "'" #name "' must have type: " #npy_type); \
+            return false;                                               \
+        }                                                               \
+        if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)name) )            \
+        {                                                               \
+            PyErr_SetString(PyExc_RuntimeError, "'" #name "'must be c-style contiguous"); \
+            return false;                                               \
+        }                                                               \
+    }}    while(0);
+
+
+
 // Silly wrapper around a solver context and various solver metadata. I need the
 // optimization to be able to keep this, and I need Python to free it as
 // necessary when the refcount drops to 0
@@ -170,14 +213,31 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     return PyArray_Converter(obj,address);
 }
 
+#define PROJECT_ARGUMENTS_REQUIRED(_)                                  \
+    _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {} ) \
+    _(distortion_model, PyObject*,      NULL,    "S",                                   , 0,  -1,         {} ) \
+    _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {} ) \
+
+#define PROJECT_ARGUMENTS_OPTIONAL(_) \
+    _(get_gradients,    PyObject*,  Py_False,    "O",                                   , 0,          -1, {})
+
+#define PROJECT_ARGUMENTS_ALL(_) \
+    PROJECT_ARGUMENTS_REQUIRED(_) \
+    PROJECT_ARGUMENTS_OPTIONAL(_)
 static bool project_validate_args( // out
-                                  enum distortion_model_t* distortion_model,
+                                  enum distortion_model_t* distortion_model_type,
 
                                   // in
-                                  PyArrayObject* points,
-                                  PyArrayObject* intrinsics,
-                                  PyObject*      distortion_model_string)
+                                  PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
+                                  PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
+                                  void* dummy __attribute__((unused)))
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    PROJECT_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
+
+
     if( PyArray_NDIM(intrinsics) != 1 )
     {
         PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
@@ -196,18 +256,7 @@ static bool project_validate_args( // out
         return false;
     }
 
-    if( PyArray_TYPE(intrinsics) != NPY_DOUBLE ||
-        PyArray_TYPE(points)     != NPY_DOUBLE )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must contain double-precision floating-point data");
-        return false;
-    }
-
-    CHECK_CONTIGUOUS(intrinsics);
-    CHECK_CONTIGUOUS(points);
-
-    const char* distortion_model_cstring =
-        PyString_AsString(distortion_model_string);
+    const char* distortion_model_cstring = PyString_AsString(distortion_model);
     if( distortion_model_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
@@ -216,8 +265,8 @@ static bool project_validate_args( // out
         return false;
     }
 
-    *distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( *distortion_model == DISTORTION_INVALID )
+    *distortion_model_type = mrcal_distortion_model_from_name(distortion_model_cstring);
+    if( *distortion_model_type == DISTORTION_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
                      DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
@@ -226,7 +275,7 @@ static bool project_validate_args( // out
         return false;
     }
 
-    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model);
+    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
     if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
     {
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
@@ -248,32 +297,26 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     PyArrayObject* dxy_dintrinsics = NULL;
     PyArrayObject* dxy_dp          = NULL;
 
-    PyArrayObject* points                  = NULL;
-    PyArrayObject* intrinsics              = NULL;
-    PyObject*      distortion_model_string = NULL;
-    PyObject*      get_gradients           = Py_False;
-
-    char* keywords[] = {"points",
-                        "distortion_model",
-                        "intrinsics",
-
-                        // optional kwargs
-                        "get_gradients",
-
-                        NULL};
+    PROJECT_ARGUMENTS_ALL(ARG_DEFINE) ;
+    char* keywords[] = { PROJECT_ARGUMENTS_REQUIRED(NAMELIST)
+                         PROJECT_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&SO&|O", keywords,
-                                     PyArray_Converter, &points,
-                                     &distortion_model_string,
-                                     PyArray_Converter, &intrinsics,
-                                     &get_gradients))
+                                     PROJECT_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                     PROJECT_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                     keywords,
+
+                                     PROJECT_ARGUMENTS_REQUIRED(PARSEARG)
+                                     PROJECT_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
-    enum distortion_model_t distortion_model;
-    if(!project_validate_args(&distortion_model,
-                              points, intrinsics,
-                              distortion_model_string))
+    enum distortion_model_t distortion_model_type;
+    if(!project_validate_args( &distortion_model_type,
+                               PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
+                               PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                               NULL))
         goto done;
 
     int Nintrinsics = PyArray_DIMS(intrinsics)[0];
@@ -316,7 +359,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
                   (const union point3_t*)PyArray_DATA(points),
                   Npoints,
-                  distortion_model,
+                  distortion_model_type,
                   // core, distortions concatenated
                   (const double*)PyArray_DATA(intrinsics));
 
@@ -331,15 +374,32 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
         result = (PyObject*)out;
 
  done:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    PROJECT_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    PROJECT_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+#pragma GCC diagnostic pop
     RESET_SIGINT();
     return result;
 }
 
 
+
+#define QIOA_ARGUMENTS_REQUIRED(_)                                  \
+    _(v,              PyArrayObject*, NULL, "O&", PyArray_Converter_leaveNone COMMA, 1, NPY_DOUBLE, {}) \
+    _(i_camera,       int,            -1,   "i",                                   , 0,         -1, {}) \
+    _(solver_context, SolverContext*, NULL, "O" ,                                  , 0,         -1, {})
+
+#define QIOA_ARGUMENTS_OPTIONAL(_) \
+    _(Noutliers,      int,            0,    "i",                                   , 0,         -1, {})
+
+#define QIOA_ARGUMENTS_ALL(_) \
+    QIOA_ARGUMENTS_REQUIRED(_) \
+    QIOA_ARGUMENTS_OPTIONAL(_)
 static
-bool queryIntrinsicOutliernessAt_validate_args(PyArrayObject* v,
-                                               int i_camera,
-                                               SolverContext* solver_context)
+bool queryIntrinsicOutliernessAt_validate_args(QIOA_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
+                                               QIOA_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
+                                               void* dummy __attribute__((unused)))
 {
     if( PyArray_NDIM(v) < 1 )
     {
@@ -353,7 +413,11 @@ bool queryIntrinsicOutliernessAt_validate_args(PyArrayObject* v,
         return false;
     }
 
-    CHECK_CONTIGUOUS(v);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    QIOA_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
 
     if(i_camera < 0)
     {
@@ -383,28 +447,24 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     PyObject* result = NULL;
     SET_SIGINT();
 
-    PyArrayObject* v                       = NULL;
-    SolverContext* solver_context          = NULL;
-    int            i_camera = -1;
-    int            Noutliers = 0;
-
-    char* keywords[] = {"v",
-                        "i_camera",
-                        "solver_context",
-                        "Noutliers",
-                        NULL};
+    QIOA_ARGUMENTS_ALL(ARG_DEFINE) ;
+    char* keywords[] = { QIOA_ARGUMENTS_REQUIRED(NAMELIST)
+                         QIOA_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&iO|i", keywords,
-                                     PyArray_Converter, &v,
-                                     &i_camera,
-                                     &solver_context,
-                                     &Noutliers))
+                                     QIOA_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                     QIOA_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                     keywords,
+
+                                     QIOA_ARGUMENTS_REQUIRED(PARSEARG)
+                                     QIOA_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
-    if(!queryIntrinsicOutliernessAt_validate_args(v,
-                                                  i_camera,
-                                                  solver_context))
+    if(!queryIntrinsicOutliernessAt_validate_args( QIOA_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
+                                                   QIOA_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                                                   NULL))
         goto done;
 
     int N = PyArray_SIZE(v) / 3;
@@ -426,78 +486,63 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     result = (PyObject*)traces;
 
  done:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    QIOA_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    QIOA_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+#pragma GCC diagnostic pop
+
     RESET_SIGINT();
     return result;
 }
 
 
+
+#define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
+    _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {-1 COMMA -1       } ) \
+    _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {-1 COMMA  3       } ) \
+    _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA -1 } ) \
+    _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_INT,    {-1 COMMA  2       } ) \
+    _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_DOUBLE, {-1 COMMA  3       } ) \
+    _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_INT,    {-1 COMMA  2       } ) \
+    _(distortion_model,                   PyObject*,      NULL,    "S",                                   , 0,  -1,         {            } ) \
+    _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, 1,  NPY_INT,    {-1 COMMA 2        } )
+
+#define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
+    _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  0, -1, {})  \
+    _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  0, -1, {})  \
+    _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  0, -1, {})  \
+    _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  0, -1, {})  \
+    _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(testing_cull_points_left_of,        PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(testing_cull_points_rad_off_center, PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(calibration_object_spacing,         PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(calibration_object_width_n,         PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  0, -1, {})  \
+    _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       0, -1, {})
+
+#define OPTIMIZE_ARGUMENTS_ALL(_) \
+    OPTIMIZE_ARGUMENTS_REQUIRED(_) \
+    OPTIMIZE_ARGUMENTS_OPTIONAL(_)
+
 static bool optimize_validate_args( // out
-                                    enum distortion_model_t* distortion_model,
+                                    enum distortion_model_t* distortion_model_type,
 
                                     // in
-                                    PyArrayObject* intrinsics,
-                                    PyArrayObject* extrinsics,
-                                    PyArrayObject* frames,
-                                    PyArrayObject* points,
-                                    PyArrayObject* observations_board,
-                                    PyArrayObject* indices_frame_camera_board,
-                                    PyArrayObject* observations_point,
-                                    PyArrayObject* indices_point_camera_points,
-                                    PyObject*      skipped_observations_board,
-                                    PyObject*      skipped_observations_point,
-                                    PyObject*      testing_cull_points_left_of,
-                                    PyObject*      testing_cull_points_rad_off_center,
-                                    PyObject*      calibration_object_spacing,
-                                    PyObject*      calibration_object_width_n,
-                                    PyObject*      distortion_model_string,
-                                    PyArrayObject* imagersizes,
-                                    SolverContext* solver_context)
+                                    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
+                                    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
+
+                                    void* dummy __attribute__((unused)))
 {
-    if( PyArray_NDIM(intrinsics) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 2 dims");
-        return false;
-    }
-    if( PyArray_NDIM(extrinsics) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'extrinsics' must have exactly 2 dims");
-        return false;
-    }
-    if( PyArray_NDIM(frames) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'frames' must have exactly 2 dims");
-        return false;
-    }
-    if( PyArray_NDIM(points) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'points' must have exactly 2 dims");
-        return false;
-    }
-    if( PyArray_NDIM(observations_board) != 4 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'observations_board' must have exactly 4 dims");
-        return false;
-    }
-    if( PyArray_NDIM(indices_frame_camera_board) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'indices_frame_camera_board' must have exactly 2 dims");
-        return false;
-    }
-    if( PyArray_NDIM(observations_point) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'observations_point' must have exactly 2 dims");
-        return false;
-    }
-    if( PyArray_NDIM(indices_point_camera_points) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'indices_point_camera_points' must have exactly 2 dims");
-        return false;
-    }
-    if( PyArray_NDIM(imagersizes) != 2 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'imagersizes' must have exactly 2 dims");
-        return false;
-    }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
 
     int Ncameras = PyArray_DIMS(intrinsics)[0];
     if( Ncameras-1 !=
@@ -515,34 +560,8 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(imagersizes)[0]);
         return false;
     }
-    if( PyArray_DIMS(imagersizes)[1] != 2 )
-    {
-        PyErr_Format(PyExc_RuntimeError, "imagersizes must have shape (Ncameras,2); instead shape[-1] is %ld",
-                     PyArray_DIMS(imagersizes)[1]);
-        return false;
-    }
-
 
     static_assert( sizeof(struct pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
-
-    if( 6 != PyArray_DIMS(extrinsics)[1] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "extrinsics.shape[1] MUST be 6. Instead got %ld",
-                     PyArray_DIMS(extrinsics)[1] );
-        return false;
-    }
-    if( 6 != PyArray_DIMS(frames)[1] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "frames.shape[1] MUST be 6. Instead got %ld",
-                     PyArray_DIMS(frames)[1] );
-        return false;
-    }
-    if( 3 != PyArray_DIMS(points)[1] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "points.shape[1] MUST be 3. Instead got %ld",
-                     PyArray_DIMS(points)[1] );
-        return false;
-    }
 
     long int NobservationsBoard = PyArray_DIMS(observations_board)[0];
     if( PyArray_DIMS(indices_frame_camera_board)[0] != NobservationsBoard )
@@ -550,12 +569,6 @@ static bool optimize_validate_args( // out
         PyErr_Format(PyExc_RuntimeError, "Inconsistent NobservationsBoard: 'observations_board' says %ld, 'indices_frame_camera_board' says %ld",
                      NobservationsBoard,
                      PyArray_DIMS(indices_frame_camera_board)[0]);
-        return false;
-    }
-    if( PyArray_DIMS(indices_frame_camera_board)[1] != 2 )
-    {
-        PyErr_Format(PyExc_RuntimeError, "indices_frame_camera_board must have shape (NobservationsBoard,2); instead shape[-1] is %ld",
-                     PyArray_DIMS(indices_frame_camera_board)[1]);
         return false;
     }
 
@@ -609,8 +622,7 @@ static bool optimize_validate_args( // out
 
 
         if( c_calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
-            c_calibration_object_width_n != PyArray_DIMS(observations_board)[2] ||
-            2  != PyArray_DIMS(observations_board)[3] )
+            c_calibration_object_width_n != PyArray_DIMS(observations_board)[2] )
         {
             PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,2). Instead got (%ld,%ld,%ld)",
                          c_calibration_object_width_n, c_calibration_object_width_n,
@@ -629,63 +641,9 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(indices_point_camera_points)[0]);
         return false;
     }
-    if( PyArray_DIMS(indices_point_camera_points)[1] != 2 )
-    {
-        PyErr_Format(PyExc_RuntimeError, "indices_point_camera_points must have shape (NobservationsPoint,2); instead shape[-1] is %ld",
-                     PyArray_DIMS(indices_point_camera_points)[1]);
-        return false;
-    }
-    if( 3  != PyArray_DIMS(observations_point)[1] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "observations_point.shape[1] MUST be (3). Instead got (%ld)",
-                     PyArray_DIMS(observations_point)[1]);
-        return false;
-    }
-
-
-    if( PyArray_TYPE(intrinsics)         != NPY_DOUBLE ||
-        PyArray_TYPE(extrinsics)         != NPY_DOUBLE ||
-        PyArray_TYPE(frames)             != NPY_DOUBLE ||
-        PyArray_TYPE(points)             != NPY_DOUBLE ||
-        PyArray_TYPE(observations_board) != NPY_DOUBLE ||
-        PyArray_TYPE(observations_point) != NPY_DOUBLE )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must contain double-precision floating-point data");
-        return false;
-    }
-
-    CHECK_CONTIGUOUS(intrinsics);
-    CHECK_CONTIGUOUS(extrinsics);
-    CHECK_CONTIGUOUS(frames);
-    CHECK_CONTIGUOUS(points);
-    CHECK_CONTIGUOUS(observations_board);
-    CHECK_CONTIGUOUS(observations_point);
-
-
-    if( PyArray_TYPE(indices_frame_camera_board)   != NPY_INT )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "indices_frame_camera_board must contain int data");
-        return false;
-    }
-    CHECK_CONTIGUOUS(indices_frame_camera_board);
-
-    if( PyArray_TYPE(indices_point_camera_points)   != NPY_INT )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "indices_point_camera_points must contain int data");
-        return false;
-    }
-    CHECK_CONTIGUOUS(indices_point_camera_points);
-
-    if( PyArray_TYPE(imagersizes) != NPY_INT )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "imagersizes must contain int data");
-        return false;
-    }
-    CHECK_CONTIGUOUS(imagersizes);
-
 
     const char* distortion_model_cstring =
-        PyString_AsString(distortion_model_string);
+        PyString_AsString(distortion_model);
     if( distortion_model_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
@@ -694,8 +652,8 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    *distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( *distortion_model == DISTORTION_INVALID )
+    *distortion_model_type = mrcal_distortion_model_from_name(distortion_model_cstring);
+    if( *distortion_model_type == DISTORTION_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
                      DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
@@ -705,7 +663,7 @@ static bool optimize_validate_args( // out
     }
 
 
-    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model);
+    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
     if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[1] )
     {
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
@@ -786,99 +744,27 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* kwargs)
 {
-    SET_SIGINT();
     PyObject* result = NULL;
-
-    PyArrayObject* intrinsics                  = NULL;
-    PyArrayObject* extrinsics                  = NULL;
-    PyArrayObject* frames                      = NULL;
-    PyArrayObject* points                      = NULL;
-    PyArrayObject* observations_board          = NULL;
-    PyArrayObject* indices_frame_camera_board  = NULL;
-    PyArrayObject* observations_point          = NULL;
-    PyArrayObject* indices_point_camera_points = NULL;
-    PyArrayObject* imagersizes                 = NULL;
-    PyObject*      pystats                     = NULL;
-    PyObject*      VERBOSE                     = NULL;
-    PyObject*      skip_outlier_rejection      = NULL;
-    PyObject*      skip_regularization         = NULL;
-    SolverContext* solver_context              = NULL;
+    SET_SIGINT();
 
     PyArrayObject* x_final                     = NULL;
     PyArrayObject* intrinsic_covariances       = NULL;
     PyArrayObject* outlier_indices_final       = NULL;
+    PyObject* pystats = NULL;
 
-    PyObject* distortion_model_string           = NULL;
-    PyObject* do_optimize_intrinsic_core        = Py_True;
-    PyObject* do_optimize_intrinsic_distortions = Py_True;
-    PyObject* do_optimize_extrinsics            = Py_True;
-    PyObject* do_optimize_frames                = Py_True;
-    PyObject* skipped_observations_board        = NULL;
-    PyObject* skipped_observations_point        = NULL;
-    PyObject* testing_cull_points_left_of       = NULL;
-    PyObject* testing_cull_points_rad_off_center= NULL;
-    PyObject* calibration_object_spacing        = NULL;
-    PyObject* calibration_object_width_n        = NULL;
-
-    char* keywords[] = {"intrinsics",
-                        "extrinsics",
-                        "frames",
-                        "points",
-                        "observations_board",
-                        "indices_frame_camera_board",
-                        "observations_point",
-                        "indices_point_camera_points",
-
-                        "distortion_model",
-                        "imagersizes",
-
-                        // optional kwargs
-                        "do_optimize_intrinsic_core",
-                        "do_optimize_intrinsic_distortions",
-                        "do_optimize_extrinsics",
-                        "do_optimize_frames",
-                        "skipped_observations_board",
-                        "skipped_observations_point",
-                        "testing_cull_points_left_of",
-                        "testing_cull_points_rad_off_center",
-                        "calibration_object_spacing",
-                        "calibration_object_width_n",
-                        "VERBOSE",
-                        "skip_outlier_rejection",
-                        "skip_regularization",
-                        "solver_context",
-
-                        NULL};
+    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
+    char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&O&O&O&O&O&O&O&SO&|OOOOOOOOOOOOOO",
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+
                                      keywords,
-                                     PyArray_Converter_leaveNone, &intrinsics,
-                                     PyArray_Converter_leaveNone, &extrinsics,
-                                     PyArray_Converter_leaveNone, &frames,
-                                     PyArray_Converter_leaveNone, &points,
-                                     PyArray_Converter_leaveNone, &observations_board,
-                                     PyArray_Converter_leaveNone, &indices_frame_camera_board,
-                                     PyArray_Converter_leaveNone, &observations_point,
-                                     PyArray_Converter_leaveNone, &indices_point_camera_points,
 
-                                     &distortion_model_string,
-                                     PyArray_Converter_leaveNone, &imagersizes,
-
-                                     &do_optimize_intrinsic_core,
-                                     &do_optimize_intrinsic_distortions,
-                                     &do_optimize_extrinsics,
-                                     &do_optimize_frames,
-                                     &skipped_observations_board,
-                                     &skipped_observations_point,
-                                     &testing_cull_points_left_of,
-                                     &testing_cull_points_rad_off_center,
-                                     &calibration_object_spacing,
-                                     &calibration_object_width_n,
-                                     &VERBOSE,
-                                     &skip_outlier_rejection,
-                                     &skip_regularization,
-                                     (PyObject*)&solver_context))
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
 
@@ -917,26 +803,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-    enum distortion_model_t distortion_model;
-    if( !optimize_validate_args(&distortion_model,
-
-                                intrinsics,
-                                extrinsics,
-                                frames,
-                                points,
-                                observations_board,
-                                indices_frame_camera_board,
-                                observations_point,
-                                indices_point_camera_points,
-                                skipped_observations_board,
-                                skipped_observations_point,
-                                testing_cull_points_left_of,
-                                testing_cull_points_rad_off_center,
-                                calibration_object_spacing,
-                                calibration_object_width_n,
-                                distortion_model_string,
-                                imagersizes,
-                                solver_context) )
+    enum distortion_model_t distortion_model_type;
+    if( !optimize_validate_args(&distortion_model_type,
+                                OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
+                                OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                                NULL))
         goto done;
 
     {
@@ -1150,12 +1021,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                                    c_observations_point, NobservationsPoint,
                                                    c_calibration_object_width_n,
                                                    optimization_variable_choice,
-                                                   distortion_model);
+                                                   distortion_model_type);
 
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
         double* c_x_final = PyArray_DATA(x_final);
 
-        int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model);
+        int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model_type);
         double* c_intrinsic_covariances = NULL;
         if(Nintrinsics_all != 0)
         {
@@ -1177,7 +1048,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
         {
             solver_context_optimizer = &solver_context->ctx;
-            solver_context->distortion_model = distortion_model;
+            solver_context->distortion_model = distortion_model_type;
             solver_context->do_optimize_intrinsic_core =
                 optimization_variable_choice.do_optimize_intrinsic_core;
             solver_context->do_optimize_intrinsic_distortions =
@@ -1204,7 +1075,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         false,
                         VERBOSE &&                PyObject_IsTrue(VERBOSE),
                         skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
-                        distortion_model,
+                        distortion_model_type,
                         c_imagersizes,
                         optimization_variable_choice,
 
@@ -1273,19 +1144,16 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     }
 
  done:
-    if(intrinsics)                  Py_DECREF(intrinsics);
-    if(extrinsics)                  Py_DECREF(extrinsics);
-    if(frames)                      Py_DECREF(frames);
-    if(points)                      Py_DECREF(points);
-    if(observations_board)          Py_DECREF(observations_board);
-    if(indices_frame_camera_board)  Py_DECREF(indices_frame_camera_board);
-    if(observations_point)          Py_DECREF(observations_point);
-    if(indices_point_camera_points) Py_DECREF(indices_point_camera_points);
-    if(x_final)                     Py_DECREF(x_final);
-    if(intrinsic_covariances)       Py_DECREF(intrinsic_covariances);
-    if(outlier_indices_final)       Py_DECREF(outlier_indices_final);
-    if(pystats)                     Py_DECREF(pystats);
-    if(imagersizes)                 Py_DECREF(imagersizes);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+#pragma GCC diagnostic pop
+
+    if(x_final)               Py_DECREF(x_final);
+    if(intrinsic_covariances) Py_DECREF(intrinsic_covariances);
+    if(outlier_indices_final) Py_DECREF(outlier_indices_final);
+    if(pystats)               Py_DECREF(pystats);
 
     RESET_SIGINT();
     return result;
