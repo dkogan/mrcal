@@ -517,8 +517,6 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
     _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(testing_cull_points_left_of,        PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(testing_cull_points_rad_off_center, PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(calibration_object_spacing,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(calibration_object_width_n,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1} ) \
@@ -578,22 +576,6 @@ static bool optimize_validate_args( // out
     int c_calibration_object_width_n = 0;
     if( NobservationsBoard > 0 )
     {
-        if(testing_cull_points_left_of != NULL    &&
-           testing_cull_points_left_of != Py_None &&
-           !PyFloat_Check(testing_cull_points_left_of))
-        {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so testing_cull_points_left_of MUST be a valid float");
-            return false;
-        }
-        if(testing_cull_points_rad_off_center != NULL    &&
-           testing_cull_points_rad_off_center != Py_None &&
-           !PyFloat_Check(testing_cull_points_rad_off_center))
-        {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so testing_cull_points_rad_off_center MUST be a valid float");
-            return false;
-        }
-
-
         if(!PyFloat_Check(calibration_object_spacing))
         {
             PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
@@ -818,21 +800,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         int NobservationsBoard = PyArray_DIMS(observations_board)[0];
         int NobservationsPoint = PyArray_DIMS(observations_point)[0];
 
-
-        double c_testing_cull_points_left_of = -1.0;
-        double c_testing_cull_points_rad_off_center= -1.0;
         double c_calibration_object_spacing  = 0.0;
         int    c_calibration_object_width_n  = 0;
 
         if( NobservationsBoard )
         {
-            if(testing_cull_points_left_of != NULL   &&
-               testing_cull_points_left_of != Py_None)
-                c_testing_cull_points_left_of = PyFloat_AS_DOUBLE(testing_cull_points_left_of);
-            if(testing_cull_points_rad_off_center != NULL   &&
-               testing_cull_points_rad_off_center != Py_None)
-                c_testing_cull_points_rad_off_center = PyFloat_AS_DOUBLE(testing_cull_points_rad_off_center);
-
             if(PyFloat_Check(calibration_object_spacing))
                 c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
             if(PyInt_Check(calibration_object_width_n))
@@ -1097,8 +1069,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         c_imagersizes,
                         optimization_variable_choice,
 
-                        c_testing_cull_points_left_of,
-                        c_testing_cull_points_rad_off_center,
                         c_calibration_object_spacing,
                         c_calibration_object_width_n);
         pystats = PyDict_New();

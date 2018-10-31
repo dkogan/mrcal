@@ -1024,7 +1024,16 @@ observations, indices_frame_camera, paths = \
                      args.dots_cache,
                      jobs = args.jobs)
 
+
+if args.testing_cull_random_observations_ratio >= 0:
+    observations, paths, indices_frame_camera = \
+        get_observation_subset__random(args.testing_cull_random_observations_ratio,
+                                       observations, paths, indices_frame_camera)
+
+outlier_indices = None
 if args.testing_cull_points_left_of > 0 or args.testing_cull_points_rad_off_center > 0:
+
+    # first cut off full observations
     observations, paths, indices_frame_camera = \
         get_observation_subset__right_of_threshold_and_within_center( \
             args.testing_cull_points_left_of,
@@ -1032,10 +1041,27 @@ if args.testing_cull_points_left_of > 0 or args.testing_cull_points_rad_off_cent
             observations,
             imagersizes, paths, indices_frame_camera,
             args.object_width_n)
-if args.testing_cull_random_observations_ratio >= 0:
-    observations, paths, indices_frame_camera = \
-        get_observation_subset__random(args.testing_cull_random_observations_ratio,
-                                       observations, paths, indices_frame_camera)
+
+    # any observations that lie partially outside the threshold remain. I cut
+    # out individual points as outliers
+    if args.testing_cull_points_left_of > 0:
+        outlier_indices0 = set(np.flatnonzero(observations[...,0] < args.testing_cull_points_left_of))
+    else:
+        outlier_indices0 = set()
+
+    if args.testing_cull_points_rad_off_center > 0:
+        centerpixels = (imagersizes[ indices_frame_camera[:,1] ] - 1.)[:,np.newaxis,np.newaxis,:] / 2.
+        radsq = args.testing_cull_points_rad_off_center*args.testing_cull_points_rad_off_center
+        outlier_indices1 = set(np.flatnonzero(nps.norm2(observations - centerpixels) > radsq))
+    else:
+        outlier_indices1 = set()
+
+    outlier_indices = np.array(sorted(list(outlier_indices0.union( outlier_indices1 ))), dtype=np.int32)
+
+
+
+
+
 
 inputs = {'imagersizes':          imagersizes,
           'focal_estimate':       args.focal,
@@ -1070,6 +1096,7 @@ mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                calibration_object_spacing        = object_spacing,
                calibration_object_width_n        = object_width_n,
                skip_outlier_rejection            = True,
+               outlier_indices                   = outlier_indices,
                VERBOSE                           = False)
 
 stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
@@ -1081,6 +1108,7 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n,
                        skip_outlier_rejection            = True,
+                       outlier_indices                   = outlier_indices,
                        VERBOSE                           = False)
 # I favor the center pixel at the center of the imager
 intrinsics[1][:,2:4] = (imagersizes - 1) / 2
@@ -1099,12 +1127,11 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        intrinsics[0], imagersizes,
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = True,
-                       testing_cull_points_left_of       = args.testing_cull_points_left_of if args.testing_cull_points_left_of > 0 else None,
-                       testing_cull_points_rad_off_center= args.testing_cull_points_rad_off_center if args.testing_cull_points_rad_off_center > 0 else None,
                        calibration_object_spacing        = object_spacing,
                        calibration_object_width_n        = object_width_n,
                        skip_outlier_rejection            = args.skip_outlier_rejection,
                        skip_regularization               = args.skip_regularization,
+                       outlier_indices                   = outlier_indices,
                        VERBOSE                           = args.verbose_solver,
                        solver_context                    = solver_context)
 

@@ -1907,9 +1907,6 @@ mrcal_optimize( // out
 
                 struct mrcal_variable_select optimization_variable_choice,
 
-                double testing_cull_points_left_of,
-                double testing_cull_points_rad_off_center,
-
                 double calibration_object_spacing,
                 int calibration_object_width_n)
 {
@@ -2733,32 +2730,6 @@ mrcal_optimize( // out
         {
             markedOutliers[outlier_indices_input[i]].marked = true;
             stats.Noutliers++;
-        }
-
-
-        if(testing_cull_points_left_of > 0.0 || testing_cull_points_rad_off_center > 0.0)
-        {
-            double distsq_center( const union point2_t* pt, int icam)
-            {
-                double dx = pt->x - 0.5*(double)(imagersizes[icam*2 + 0] - 1);
-                double dy = pt->y - 0.5*(double)(imagersizes[icam*2 + 1] - 1);
-                return dx*dx + dy*dy;
-            }
-
-            int ifeature = 0;
-            for(int iboard=0; iboard<NobservationsBoard; iboard++)
-                for(int ipt=0; ipt<calibration_object_width_n*calibration_object_width_n;
-                    ipt++, ifeature++)
-                    if( (testing_cull_points_left_of >= 0.0 &&
-                         observations_board[iboard].px[ipt].x < testing_cull_points_left_of) ||
-                        (testing_cull_points_rad_off_center >= 0.0 &&
-                         distsq_center(&observations_board[iboard].px[ipt], observations_board[iboard].i_camera) >
-                           testing_cull_points_rad_off_center*
-                           testing_cull_points_rad_off_center) )
-                    {
-                        markedOutliers[ifeature].marked = true;
-                        stats.Noutliers++;
-                    }
         }
 
         if(VERBOSE)
