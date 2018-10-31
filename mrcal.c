@@ -2231,7 +2231,6 @@ mrcal_optimize( // out
 
         // Handle all the point observations. This is VERY similar to the
         // board-observation loop above. Please consolidate
-        bool   have_invalid_point = false;
         for(int i_observation_point = 0;
             i_observation_point < NobservationsPoint;
             i_observation_point++)
@@ -2275,6 +2274,7 @@ mrcal_optimize( // out
 
             // Check for invalid points. I report a very poor cost if I see
             // this.
+            bool have_invalid_point = false;
             if( point.z <= 0.0 || point.z >= POINT_MAXZ )
             {
                 have_invalid_point = true;
@@ -2333,9 +2333,16 @@ mrcal_optimize( // out
             {
                 // I have my two measurements (dx, dy). I propagate their
                 // gradient and store them
+                double invalid_point_scale = 1.0;
+                if(have_invalid_point)
+                    // I have an invalid point. This is a VERY bad solution. The solver
+                    // needs to try again with a smaller step
+                    invalid_point_scale = 1e6;
+
+
                 for( int i_xy=0; i_xy<2; i_xy++ )
                 {
-                    const double err = pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy];
+                    const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy])*invalid_point_scale;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
@@ -2349,38 +2356,66 @@ mrcal_optimize( // out
                     if( optimization_variable_choice.do_optimize_intrinsic_core )
                     {
                         STORE_JACOBIAN( i_var_intrinsic_core + 0,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 0] * SCALE_INTRINSICS_FOCAL_LENGTH );
+                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 0] *
+                                        invalid_point_scale *
+                                        SCALE_INTRINSICS_FOCAL_LENGTH );
                         STORE_JACOBIAN( i_var_intrinsic_core + 1,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 1] * SCALE_INTRINSICS_FOCAL_LENGTH );
+                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 1] *
+                                        invalid_point_scale *
+                                        SCALE_INTRINSICS_FOCAL_LENGTH );
                         STORE_JACOBIAN( i_var_intrinsic_core + 2,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 2] * SCALE_INTRINSICS_CENTER_PIXEL );
+                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 2] *
+                                        invalid_point_scale *
+                                        SCALE_INTRINSICS_CENTER_PIXEL );
                         STORE_JACOBIAN( i_var_intrinsic_core + 3,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 3] * SCALE_INTRINSICS_CENTER_PIXEL );
+                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 3] *
+                                        invalid_point_scale *
+                                        SCALE_INTRINSICS_CENTER_PIXEL );
                     }
 
                     if( optimization_variable_choice.do_optimize_intrinsic_distortions )
                         for(int i=0; i<Ndistortions; i++)
                             STORE_JACOBIAN( i_var_intrinsic_distortions + i,
-                                            dxy_dintrinsic_distortions[i_xy * Ndistortions + i] * SCALE_DISTORTION );
+                                            dxy_dintrinsic_distortions[i_xy * Ndistortions + i] *
+                                            invalid_point_scale *
+                                            SCALE_DISTORTION );
 
                     if( optimization_variable_choice.do_optimize_extrinsics )
                         if( i_camera != 0 )
                         {
                             STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                             dxy_drcamera[i_xy].xyz[0] * SCALE_ROTATION_CAMERA,
-                                             dxy_drcamera[i_xy].xyz[1] * SCALE_ROTATION_CAMERA,
-                                             dxy_drcamera[i_xy].xyz[2] * SCALE_ROTATION_CAMERA);
+                                             dxy_drcamera[i_xy].xyz[0] *
+                                             invalid_point_scale *
+                                             SCALE_ROTATION_CAMERA,
+                                             dxy_drcamera[i_xy].xyz[1] *
+                                             invalid_point_scale *
+                                             SCALE_ROTATION_CAMERA,
+                                             dxy_drcamera[i_xy].xyz[2] *
+                                             invalid_point_scale *
+                                             SCALE_ROTATION_CAMERA);
                             STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                             dxy_dtcamera[i_xy].xyz[0] * SCALE_TRANSLATION_CAMERA,
-                                             dxy_dtcamera[i_xy].xyz[1] * SCALE_TRANSLATION_CAMERA,
-                                             dxy_dtcamera[i_xy].xyz[2] * SCALE_TRANSLATION_CAMERA);
+                                             dxy_dtcamera[i_xy].xyz[0] *
+                                             invalid_point_scale *
+                                             SCALE_TRANSLATION_CAMERA,
+                                             dxy_dtcamera[i_xy].xyz[1] *
+                                             invalid_point_scale *
+                                             SCALE_TRANSLATION_CAMERA,
+                                             dxy_dtcamera[i_xy].xyz[2] *
+                                             invalid_point_scale *
+                                             SCALE_TRANSLATION_CAMERA);
                         }
 
                     if( optimization_variable_choice.do_optimize_frames )
                         STORE_JACOBIAN3( i_var_point,
-                                         dxy_dpoint[i_xy].xyz[0] * SCALE_POSITION_POINT,
-                                         dxy_dpoint[i_xy].xyz[1] * SCALE_POSITION_POINT,
-                                         dxy_dpoint[i_xy].xyz[2] * SCALE_POSITION_POINT);
+                                         dxy_dpoint[i_xy].xyz[0] *
+                                         invalid_point_scale *
+                                         SCALE_POSITION_POINT,
+                                         dxy_dpoint[i_xy].xyz[1] *
+                                         invalid_point_scale *
+                                         SCALE_POSITION_POINT,
+                                         dxy_dpoint[i_xy].xyz[2] *
+                                         invalid_point_scale *
+                                         SCALE_POSITION_POINT);
 
                     iMeasurement++;
                 }
@@ -2684,11 +2719,6 @@ mrcal_optimize( // out
             if(Jt) Jrowptr[iMeasurement] = iJacobian;
             assert(iMeasurement == Nmeasurements);
             assert(iJacobian    == N_j_nonzero  );
-
-            // I have an invalid point. This is a VERY bad solution. The solver
-            // needs to try again with a smaller step
-            if( have_invalid_point )
-                *x *= 1e6;
 
             // this is just for diagnostics. Should probably do this only in a
             // #if of some sort. This sqrt() does no useful work
