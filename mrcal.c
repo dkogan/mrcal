@@ -1897,6 +1897,8 @@ mrcal_optimize( // out
                 int NobservationsPoint,
 
                 bool check_gradient,
+                int Noutlier_indices_input,
+                int* outlier_indices_input,
                 bool VERBOSE,
                 const bool skip_outlier_rejection,
 
@@ -2726,6 +2728,14 @@ mrcal_optimize( // out
 
     if( !check_gradient )
     {
+        stats.Noutliers = 0;
+        for(int i=0; i<Noutlier_indices_input; i++)
+        {
+            markedOutliers[outlier_indices_input[i]].marked = true;
+            stats.Noutliers++;
+        }
+
+
         if(testing_cull_points_left_of > 0.0 || testing_cull_points_rad_off_center > 0.0)
         {
             double distsq_center( const union point2_t* pt, int icam)
@@ -2736,7 +2746,6 @@ mrcal_optimize( // out
             }
 
             int ifeature = 0;
-            stats.Noutliers = 0;
             for(int iboard=0; iboard<NobservationsBoard; iboard++)
                 for(int ipt=0; ipt<calibration_object_width_n*calibration_object_width_n;
                     ipt++, ifeature++)

@@ -30,7 +30,7 @@ observations of discrete points. The point observations can come JUST from
 correspondences, or they can also have a known-distance-to-a-camera (i.e. if
 we're looking at very-far-away clouds or known fiducials).
 
-Args:
+REQUIRED ARGS:
 
 - intrinsics: array of dims (Ncameras, Nintrinsics). The intrinsics of each
   camera. Each intrinsic vector is given as
@@ -110,14 +110,16 @@ Args:
 
 - imagersizes: integer array of dims (Ncameras,2)
 
+OPTIONAL ARGS:
+
 - do_optimize_intrinsic_core
 - do_optimize_intrinsic_distortions
 - do_optimize_extrinsics
 - do_optimize_frames
 
-  optional booleans. Indicate whether to optimize a specific set of variables.
-  The intrinsics core is fx,fy,cx,cy. These all default to True so if we specify
-  none of these, we will optimize ALL the variables.
+  Indicate whether to optimize a specific set of variables. The intrinsics core
+  is fx,fy,cx,cy. These all default to True so if we specify none of these, we
+  will optimize ALL the variables.
 
 - skipped_observations_board: list of integers for the board observations that
   we don't care about. Defaults to None: don't skip anything
@@ -132,19 +134,23 @@ Args:
   points on each side. Can be omitted if we have no board observations, just
   points
 
-- VERBOSE: if True, write out all sorts of diagnostic data to STDERR. Optional;
-  defaults to False
+- outlier_indices: Feature indices that are to be considered outliers. Each
+  "feature" is an observed point, meaning either 2 measurements (x,y) or 3
+  measurements for ranged points (x,y,range). Normally this is None: no outliers
+  at the start.
+
+- VERBOSE: if True, write out all sorts of diagnostic data to STDERR. Defaults
+  to False
 
 - skip_outlier_rejection: if True, don't bother with detecting or rejecting
-  outliers. Optional; defaults to False
+  outliers. Defaults to False
 
 - skip_regularization: if True, don't include regularization terms in the
-  solver. Optional; defaults to False
+  solver. Defaults to False
 
 - solver_context: an object that will receive the context from this solve. This
-  is optional. This context can be re-used in other calls, such as
-  queryIntrinsicOutliernessAt(). The usage is
-
+  context can be re-used in other calls, such as queryIntrinsicOutliernessAt().
+  The usage is
 
       solver_context = mrcal.SolverContext()
       stats = mrcal.optimize( ...,

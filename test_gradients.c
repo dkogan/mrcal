@@ -150,6 +150,7 @@ int main(int argc, char* argv[] )
                     NobservationsPoint,
 
                     true,
+                    0, NULL,
                     false,
                     true,
                     distortion_model,

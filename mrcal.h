@@ -170,6 +170,8 @@ mrcal_optimize( // out
                 int NobservationsPoint,
 
                 bool check_gradient,
+                int Noutlier_indices_input,
+                int* outlier_indices_input,
                 bool VERBOSE,
                 const bool skip_outlier_rejection,
 
