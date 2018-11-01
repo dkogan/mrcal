@@ -2134,7 +2134,7 @@ mrcal_optimize( // out
                     // gradient and store them
                     for( int i_xy=0; i_xy<2; i_xy++ )
                     {
-                        const double err = pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy];
+                        const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy]) * weight;
 
                         if( reportFitMsg )
                         {
@@ -2145,7 +2145,7 @@ mrcal_optimize( // out
                         }
 
                         if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                        x[iMeasurement] = err * weight;
+                        x[iMeasurement] = err;
                         norm2_error += err*err;
 
                         // I want these gradient values to be computed in
@@ -2385,10 +2385,10 @@ mrcal_optimize( // out
 
                 for( int i_xy=0; i_xy<2; i_xy++ )
                 {
-                    const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy])*invalid_point_scale;
+                    const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy])*invalid_point_scale*weight;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                    x[iMeasurement] = err * weight;
+                    x[iMeasurement] = err;
                     norm2_error += err*err;
 
                     // I want these gradient values to be computed in
