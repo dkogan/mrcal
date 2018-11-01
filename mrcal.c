@@ -815,8 +815,8 @@ static union point2_t project( // out
 static double region_of_interest_weight_from_unitless_rad(double rsq)
 {
     const double r0 = 0.9; // 1.0 at < r0
-    const double r1 = 1.5; // w1  at > r1
-    const double w1 = 0.01;
+    const double r1 = 1.1; // w1  at > r1
+    const double w1 = 1e-6; // >0 because I want geometric constraints to do
 
     if( rsq <= r0 ) return 1.0;
     if( rsq >= r1 ) return w1;
