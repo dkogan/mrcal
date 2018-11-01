@@ -87,27 +87,43 @@ int main(int argc, char* argv[] )
           {.xyz = {-15.3, -3.2, 200.4}}};
     int Npoints = sizeof(points)/sizeof(points[0]);
 
-    // Dummy point observations. All use the same array, but this doesn't matter
-    // for this test anyway
 #define calibration_object_width_n 10 /* arbitrary */
-    union point2_t observations_px[calibration_object_width_n*calibration_object_width_n] = {};
 
-    struct observation_board_t observations_board[] =
-        { {.i_camera = 0, .i_frame = 0, .px = observations_px},
-          {.i_camera = 1, .i_frame = 0, .px = observations_px},
-          {.i_camera = 1, .i_frame = 1, .px = observations_px},
-          {.i_camera = 0, .i_frame = 2, .px = observations_px},
-          {.i_camera = 0, .i_frame = 3, .px = observations_px},
-          {.i_camera = 1, .i_frame = 3, .px = observations_px} };
-    int NobservationsBoard = sizeof(observations_board)/sizeof(observations_board[0]);
+    union point2_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
+    union point2_t observations_point_px[4] = {};
 
-    struct observation_point_t observations_point[] =
-        { {.i_camera = 0, .i_point = 0, .px = {}},
-          {.i_camera = 1, .i_point = 0, .px = {}},
-          {.i_camera = 0, .i_point = 1, .px = {}, .dist = 18.0},
-          {.i_camera = 1, .i_point = 1, .px = {}, .dist = 180.0} };
-    int NobservationsPoint = sizeof(observations_point)/sizeof(observations_point[0]);
+#define NobservationsBoard 6
+#define NobservationsPoint 4
 
+    // fill observations with arbitrary data
+    for(int i=0; i<NobservationsBoard; i++)
+        for(int j=0; j<calibration_object_width_n; j++)
+            for(int k=0; k<calibration_object_width_n; k++)
+            {
+                observations_px[i][calibration_object_width_n*j + k].x =
+                    1000.0 + (double)k - 10.0*(double)j + (double)(i*j*k);
+                observations_px[i][calibration_object_width_n*j + k].y =
+                    1000.0 - (double)k + 30.0*(double)j - (double)(i*j*k);
+            }
+    for(int i=0; i<NobservationsPoint; i++)
+    {
+        observations_point_px[i].x = 1100.0 + (double)i*20.0;
+        observations_point_px[i].y = 800.0  - (double)i*12.0;
+    }
+
+    struct observation_board_t observations_board[NobservationsBoard] =
+        { {.i_camera = 0, .i_frame = 0, .px = observations_px[0]},
+          {.i_camera = 1, .i_frame = 0, .px = observations_px[1]},
+          {.i_camera = 1, .i_frame = 1, .px = observations_px[2]},
+          {.i_camera = 0, .i_frame = 2, .px = observations_px[3]},
+          {.i_camera = 0, .i_frame = 3, .px = observations_px[4]},
+          {.i_camera = 1, .i_frame = 3, .px = observations_px[5]} };
+
+    struct observation_point_t observations_point[NobservationsPoint] =
+        { {.i_camera = 0, .i_point = 0, .px = observations_point_px[0]},
+          {.i_camera = 1, .i_point = 0, .px = observations_point_px[1]},
+          {.i_camera = 0, .i_point = 1, .px = observations_point_px[2], .dist = 18.0},
+          {.i_camera = 1, .i_point = 1, .px = observations_point_px[3], .dist = 180.0} };
 
     int Ncameras = sizeof(extrinsics)/sizeof(extrinsics[0]) + 1;
 
@@ -135,6 +151,8 @@ int main(int argc, char* argv[] )
         for(int j=0; j<Ndistortion; j++)
             intrinsics[Nintrinsics * i + N_INTRINSICS_CORE + j] = 0.0005 * (double)(i + Ncameras*j);
 
+    const double roi[] = { 1000., 1000., 400., 400.,
+                            900., 1200., 300., 800. };
 
     mrcal_optimize( NULL, NULL, NULL, NULL,
                     intrinsics,
@@ -151,7 +169,7 @@ int main(int argc, char* argv[] )
 
                     true,
                     0, NULL,
-                    NULL,
+                    roi,
                     false,
                     true,
                     distortion_model,
