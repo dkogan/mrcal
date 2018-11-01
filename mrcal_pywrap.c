@@ -520,6 +520,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(calibration_object_spacing,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(calibration_object_width_n,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1} ) \
+    _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA 4} ) \
     _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
@@ -557,6 +558,13 @@ static bool optimize_validate_args( // out
         PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'imagersizes' says %ld",
                      PyArray_DIMS(extrinsics)[0] + 1,
                      PyArray_DIMS(imagersizes)[0]);
+        return false;
+    }
+    if( roi != NULL && (PyObject*)roi != Py_None && PyArray_DIMS(roi)[0] != Ncameras )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'roi' says %ld",
+                     PyArray_DIMS(extrinsics)[0] + 1,
+                     PyArray_DIMS(roi)[0]);
         return false;
     }
 
@@ -1030,6 +1038,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             Noutlier_indices = PyArray_DIMS(outlier_indices)[0];
         }
 
+        double* c_roi;
+        if(roi == NULL || (PyObject*)roi == Py_None)
+            c_roi = NULL;
+        else
+            c_roi = PyArray_DATA(roi);
+
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         void** solver_context_optimizer = NULL;
@@ -1063,6 +1077,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         false,
                         Noutlier_indices,
                         c_outlier_indices,
+                        c_roi,
                         VERBOSE &&                PyObject_IsTrue(VERBOSE),
                         skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                         distortion_model_type,

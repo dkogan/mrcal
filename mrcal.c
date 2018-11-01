@@ -810,6 +810,29 @@ static union point2_t project( // out
     return pt_out;
 }
 
+// Compute the region-of-interest weight. The region I care about is in r=[0,1];
+// here the weight is ~ 1. Past that, the weight falls off
+static double region_of_interest_weight_from_unitless_rad(double rsq)
+{
+    const double r0 = 0.9; // 1.0 at < r0
+    const double r1 = 1.5; // w1  at > r1
+    const double w1 = 0.01;
+
+    if( rsq <= r0 ) return 1.0;
+    if( rsq >= r1 ) return w1;
+    return (w1-1.0)/(r1-r0)*(rsq-r0) + 1.0;
+}
+static double region_of_interest_weight(const union point2_t* pt,
+                                        const double* roi, int i_camera)
+{
+    if(roi == NULL) return 1.0;
+
+    roi = &roi[4*i_camera];
+    double dx = (pt->x - roi[0]) / (roi[2]/2.0);
+    double dy = (pt->y - roi[1]) / (roi[3]/2.0);
+
+    return region_of_interest_weight_from_unitless_rad(dx*dx + dy*dy);
+}
 
 // external function. Mostly a wrapper around project()
 void mrcal_project( // out
@@ -1899,6 +1922,7 @@ mrcal_optimize( // out
                 bool check_gradient,
                 int Noutlier_indices_input,
                 int* outlier_indices_input,
+                const double* roi,
                 bool VERBOSE,
                 const bool skip_outlier_rejection,
 
@@ -2067,6 +2091,9 @@ mrcal_optimize( // out
                 i_pt < calibration_object_width_n*calibration_object_width_n;
                 i_pt++)
             {
+                const union point2_t* pt_observed = &observation->px[i_pt];
+                double weight = region_of_interest_weight(pt_observed, roi, i_camera);
+
                 // these are computed in respect to the real-unit parameters,
                 // NOT the unit-scale parameters used by the optimizer
                 double dxy_dintrinsic_core       [2 * N_INTRINSICS_CORE];
@@ -2097,8 +2124,6 @@ mrcal_optimize( // out
                             calibration_object_spacing,
                             calibration_object_width_n);
 
-                const union point2_t* pt_observed = &observation->px[i_pt];
-
                 if(!observation->skip_observation &&
 
                    // /2 because I look at FEATURES here, not discrete
@@ -2120,7 +2145,7 @@ mrcal_optimize( // out
                         }
 
                         if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                        x[iMeasurement] = err;
+                        x[iMeasurement] = err * weight;
                         norm2_error += err*err;
 
                         // I want these gradient values to be computed in
@@ -2131,43 +2156,60 @@ mrcal_optimize( // out
                         if( optimization_variable_choice.do_optimize_intrinsic_core )
                         {
                             STORE_JACOBIAN( i_var_intrinsic_core + 0,
-                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 0] * SCALE_INTRINSICS_FOCAL_LENGTH );
+                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 0] *
+                                            weight * SCALE_INTRINSICS_FOCAL_LENGTH );
                             STORE_JACOBIAN( i_var_intrinsic_core + 1,
-                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 1] * SCALE_INTRINSICS_FOCAL_LENGTH );
+                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 1] *
+                                            weight * SCALE_INTRINSICS_FOCAL_LENGTH );
                             STORE_JACOBIAN( i_var_intrinsic_core + 2,
-                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 2] * SCALE_INTRINSICS_CENTER_PIXEL );
+                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 2] *
+                                            weight * SCALE_INTRINSICS_CENTER_PIXEL );
                             STORE_JACOBIAN( i_var_intrinsic_core + 3,
-                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 3] * SCALE_INTRINSICS_CENTER_PIXEL );
+                                            dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 3] *
+                                            weight * SCALE_INTRINSICS_CENTER_PIXEL );
                         }
 
                         if( optimization_variable_choice.do_optimize_intrinsic_distortions )
                             for(int i=0; i<Ndistortions; i++)
                                 STORE_JACOBIAN( i_var_intrinsic_distortions + i,
-                                                dxy_dintrinsic_distortions[i_xy * Ndistortions + i] * SCALE_DISTORTION );
+                                                dxy_dintrinsic_distortions[i_xy * Ndistortions + i] *
+                                                weight * SCALE_DISTORTION );
 
                         if( optimization_variable_choice.do_optimize_extrinsics )
                             if( i_camera != 0 )
                             {
                                 STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                                 dxy_drcamera[i_xy].xyz[0] * SCALE_ROTATION_CAMERA,
-                                                 dxy_drcamera[i_xy].xyz[1] * SCALE_ROTATION_CAMERA,
-                                                 dxy_drcamera[i_xy].xyz[2] * SCALE_ROTATION_CAMERA);
+                                                 dxy_drcamera[i_xy].xyz[0] *
+                                                 weight * SCALE_ROTATION_CAMERA,
+                                                 dxy_drcamera[i_xy].xyz[1] *
+                                                 weight * SCALE_ROTATION_CAMERA,
+                                                 dxy_drcamera[i_xy].xyz[2] *
+                                                 weight * SCALE_ROTATION_CAMERA);
                                 STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                                 dxy_dtcamera[i_xy].xyz[0] * SCALE_TRANSLATION_CAMERA,
-                                                 dxy_dtcamera[i_xy].xyz[1] * SCALE_TRANSLATION_CAMERA,
-                                                 dxy_dtcamera[i_xy].xyz[2] * SCALE_TRANSLATION_CAMERA);
+                                                 dxy_dtcamera[i_xy].xyz[0] *
+                                                 weight * SCALE_TRANSLATION_CAMERA,
+                                                 dxy_dtcamera[i_xy].xyz[1] *
+                                                 weight * SCALE_TRANSLATION_CAMERA,
+                                                 dxy_dtcamera[i_xy].xyz[2] *
+                                                 weight * SCALE_TRANSLATION_CAMERA);
                             }
 
                         if( optimization_variable_choice.do_optimize_frames )
                         {
                             STORE_JACOBIAN3( i_var_frame_rt + 0,
-                                             dxy_drframe[i_xy].xyz[0] * SCALE_ROTATION_FRAME,
-                                             dxy_drframe[i_xy].xyz[1] * SCALE_ROTATION_FRAME,
-                                             dxy_drframe[i_xy].xyz[2] * SCALE_ROTATION_FRAME);
+                                             dxy_drframe[i_xy].xyz[0] *
+                                             weight * SCALE_ROTATION_FRAME,
+                                             dxy_drframe[i_xy].xyz[1] *
+                                             weight * SCALE_ROTATION_FRAME,
+                                             dxy_drframe[i_xy].xyz[2] *
+                                             weight * SCALE_ROTATION_FRAME);
                             STORE_JACOBIAN3( i_var_frame_rt + 3,
-                                             dxy_dtframe[i_xy].xyz[0] * SCALE_TRANSLATION_FRAME,
-                                             dxy_dtframe[i_xy].xyz[1] * SCALE_TRANSLATION_FRAME,
-                                             dxy_dtframe[i_xy].xyz[2] * SCALE_TRANSLATION_FRAME);
+                                             dxy_dtframe[i_xy].xyz[0] *
+                                             weight * SCALE_TRANSLATION_FRAME,
+                                             dxy_dtframe[i_xy].xyz[1] *
+                                             weight * SCALE_TRANSLATION_FRAME,
+                                             dxy_dtframe[i_xy].xyz[2] *
+                                             weight * SCALE_TRANSLATION_FRAME);
                         }
 
                         iMeasurement++;
@@ -2239,6 +2281,9 @@ mrcal_optimize( // out
 
             const int i_camera = observation->i_camera;
             const int i_point  = observation->i_point;
+
+            const union point2_t* pt_observed = &observation->px;
+            double weight = region_of_interest_weight(pt_observed, roi, i_camera);
 
             const int     i_var_intrinsic_core        = state_index_intrinsic_core(i_camera, optimization_variable_choice, distortion_model);
             const int     i_var_intrinsic_distortions = state_index_intrinsic_distortions(i_camera, optimization_variable_choice, distortion_model);
@@ -2325,8 +2370,6 @@ mrcal_optimize( // out
                         calibration_object_width_n);
 #pragma GCC diagnostic pop
 
-            const union point2_t* pt_observed = &observation->px;
-
             if(!observation->skip_observation
 #warning "no outlier rejection on points yet; see warning above"
                )
@@ -2345,7 +2388,7 @@ mrcal_optimize( // out
                     const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy])*invalid_point_scale;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                    x[iMeasurement] = err;
+                    x[iMeasurement] = err * weight;
                     norm2_error += err*err;
 
                     // I want these gradient values to be computed in
@@ -2358,19 +2401,19 @@ mrcal_optimize( // out
                         STORE_JACOBIAN( i_var_intrinsic_core + 0,
                                         dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 0] *
                                         invalid_point_scale *
-                                        SCALE_INTRINSICS_FOCAL_LENGTH );
+                                        weight * SCALE_INTRINSICS_FOCAL_LENGTH );
                         STORE_JACOBIAN( i_var_intrinsic_core + 1,
                                         dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 1] *
                                         invalid_point_scale *
-                                        SCALE_INTRINSICS_FOCAL_LENGTH );
+                                        weight * SCALE_INTRINSICS_FOCAL_LENGTH );
                         STORE_JACOBIAN( i_var_intrinsic_core + 2,
                                         dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 2] *
                                         invalid_point_scale *
-                                        SCALE_INTRINSICS_CENTER_PIXEL );
+                                        weight * SCALE_INTRINSICS_CENTER_PIXEL );
                         STORE_JACOBIAN( i_var_intrinsic_core + 3,
                                         dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 3] *
                                         invalid_point_scale *
-                                        SCALE_INTRINSICS_CENTER_PIXEL );
+                                        weight * SCALE_INTRINSICS_CENTER_PIXEL );
                     }
 
                     if( optimization_variable_choice.do_optimize_intrinsic_distortions )
@@ -2378,7 +2421,7 @@ mrcal_optimize( // out
                             STORE_JACOBIAN( i_var_intrinsic_distortions + i,
                                             dxy_dintrinsic_distortions[i_xy * Ndistortions + i] *
                                             invalid_point_scale *
-                                            SCALE_DISTORTION );
+                                            weight * SCALE_DISTORTION );
 
                     if( optimization_variable_choice.do_optimize_extrinsics )
                         if( i_camera != 0 )
@@ -2386,36 +2429,36 @@ mrcal_optimize( // out
                             STORE_JACOBIAN3( i_var_camera_rt + 0,
                                              dxy_drcamera[i_xy].xyz[0] *
                                              invalid_point_scale *
-                                             SCALE_ROTATION_CAMERA,
+                                             weight * SCALE_ROTATION_CAMERA,
                                              dxy_drcamera[i_xy].xyz[1] *
                                              invalid_point_scale *
-                                             SCALE_ROTATION_CAMERA,
+                                             weight * SCALE_ROTATION_CAMERA,
                                              dxy_drcamera[i_xy].xyz[2] *
                                              invalid_point_scale *
-                                             SCALE_ROTATION_CAMERA);
+                                             weight * SCALE_ROTATION_CAMERA);
                             STORE_JACOBIAN3( i_var_camera_rt + 3,
                                              dxy_dtcamera[i_xy].xyz[0] *
                                              invalid_point_scale *
-                                             SCALE_TRANSLATION_CAMERA,
+                                             weight * SCALE_TRANSLATION_CAMERA,
                                              dxy_dtcamera[i_xy].xyz[1] *
                                              invalid_point_scale *
-                                             SCALE_TRANSLATION_CAMERA,
+                                             weight * SCALE_TRANSLATION_CAMERA,
                                              dxy_dtcamera[i_xy].xyz[2] *
                                              invalid_point_scale *
-                                             SCALE_TRANSLATION_CAMERA);
+                                             weight * SCALE_TRANSLATION_CAMERA);
                         }
 
                     if( optimization_variable_choice.do_optimize_frames )
                         STORE_JACOBIAN3( i_var_point,
                                          dxy_dpoint[i_xy].xyz[0] *
                                          invalid_point_scale *
-                                         SCALE_POSITION_POINT,
+                                         weight * SCALE_POSITION_POINT,
                                          dxy_dpoint[i_xy].xyz[1] *
                                          invalid_point_scale *
-                                         SCALE_POSITION_POINT,
+                                         weight * SCALE_POSITION_POINT,
                                          dxy_dpoint[i_xy].xyz[2] *
                                          invalid_point_scale *
-                                         SCALE_POSITION_POINT);
+                                         weight * SCALE_POSITION_POINT);
 
                     iMeasurement++;
                 }
@@ -2838,6 +2881,7 @@ mrcal_optimize( // out
                 double x = solver_context->beforeStep->x[Nmeasurements-1-i];
                 norm2_err_regularization += x*x;
             }
+
             double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
             double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
             MSG("regularization cost ratio: %g", ratio_regularization_cost);

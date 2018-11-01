@@ -1347,6 +1347,9 @@ def check_confidence_computations():
     import gnuplotlib as gp
 
     global stats,observations,MMt
+
+    raise Exception("I think this doesn't take into account the weights on x[] (that come from, for example, ROI)")
+
     x0            = stats['x']
     dm            = np.loadtxt("/tmp/dm")
     Jtdm          = np.loadtxt("/tmp/Jtdm")

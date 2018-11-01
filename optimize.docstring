@@ -139,6 +139,12 @@ OPTIONAL ARGS:
   measurements for ranged points (x,y,range). Normally this is None: no outliers
   at the start.
 
+- roi: A region of interest. This is the area in the imager we're interested in.
+  Errors in observations outside this area will be attenuated significantly. If
+  we want to use all the data evenly, this should be None. Otherwise this is a
+  numpy array of shape (Ncameras,4) where each camera's slice is (x_center,
+  y_center, x_width, y_width). The region is an axis-aligned ellipsoid
+
 - VERBOSE: if True, write out all sorts of diagnostic data to STDERR. Defaults
   to False
 

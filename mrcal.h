@@ -172,6 +172,14 @@ mrcal_optimize( // out
                 bool check_gradient,
                 int Noutlier_indices_input,
                 int* outlier_indices_input,
+
+                // region-of-interest. If not NULL, errors for observations
+                // outside this region are strongly attenuated. The region is
+                // specified separately for each camera. Each region is an
+                // ellipse, represented as a 4-double slice with values
+                // (x_center, y_center, x_width, y_width)
+                const double* roi,
+
                 bool VERBOSE,
                 const bool skip_outlier_rejection,
 

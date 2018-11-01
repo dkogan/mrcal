@@ -151,6 +151,7 @@ int main(int argc, char* argv[] )
 
                     true,
                     0, NULL,
+                    NULL,
                     false,
                     true,
                     distortion_model,
