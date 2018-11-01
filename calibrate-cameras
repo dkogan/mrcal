@@ -70,6 +70,19 @@ def parse_args():
                         required=False,
                         help='''Size of the imager. This is only required if we pass --dots-cache AND if none
                         of the image files on disk actually exist''')
+    parser.add_argument('--roi',
+                        nargs=4,
+                        type=float,
+                        action='append',
+                        required=False,
+                        help='''Region of interest of the calibration. This is the area in the imager we're
+                        interested in. Errors in observations outside this area
+                        will be attenuated significantly. If we want to use all
+                        the data evenly, omit this argument. Otherwise pass 4
+                        values for each --roi:
+                        (x_center,y_center,x_width,y_width). The region is an
+                        axis-aligned ellipsoid. You MUST pass in the ROI for
+                        each camera; a separate '--roi' for each one.''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
                                 parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
@@ -1014,6 +1027,16 @@ if Ncameras > 10:
 imagersizes = np.array([get_imagersize_one(imagesglob, args.imagersize) for imagesglob in args.images],
                        dtype=np.int32)
 
+if args.roi is not None:
+    if len(args.roi) != Ncameras:
+        raise Exception("Globs say we have {} cameras, but --roi suggests I have {}. These MUST match". \
+                        format(Ncameras, len(args.roi)))
+    try:
+        args.roi = np.array(args.roi, dtype=float)
+    except:
+        sys.stderr.write("Couldn't interpret --roi as a numpy array")
+        raise
+
 object_spacing = args.object_spacing
 object_width_n = args.object_width_n
 
@@ -1097,6 +1120,7 @@ mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                calibration_object_width_n        = object_width_n,
                skip_outlier_rejection            = True,
                outlier_indices                   = outlier_indices,
+               roi                               = args.roi,
                VERBOSE                           = False)
 
 stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
@@ -1109,6 +1133,7 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        calibration_object_width_n        = object_width_n,
                        skip_outlier_rejection            = True,
                        outlier_indices                   = outlier_indices,
+                       roi                               = args.roi,
                        VERBOSE                           = False)
 # I favor the center pixel at the center of the imager
 intrinsics[1][:,2:4] = (imagersizes - 1) / 2
@@ -1132,6 +1157,7 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        skip_outlier_rejection            = args.skip_outlier_rejection,
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = outlier_indices,
+                       roi                               = args.roi,
                        VERBOSE                           = args.verbose_solver,
                        solver_context                    = solver_context)
 
