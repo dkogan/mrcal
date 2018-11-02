@@ -2698,22 +2698,51 @@ mrcal_optimize( // out
                     {
                         if(Jt) Jrowptr[iMeasurement] = iJacobian;
 
-                        // This is very hoaky. distortion-parameter-0 of a CAHVOR
-                        // model is a direction not a "strength" so it shouldn't be
-                        // regularized. I really shouldn't be special-casing that
-                        // one parameter.
+                        // This maybe should live elsewhere, but I put it here
+                        // for now. Various distortion coefficients have
+                        // different meanings, and should be regularized in
+                        // different ways. Specific logic follows
                         if( distortion_model == DISTORTION_CAHVOR && j == 0 )
                         {
+                            // Looking at distortion-parameter-0 of a CAHVOR
+                            // model; this is a direction not a "strength" so it
+                            // shouldn't be regularized at all
                             x[iMeasurement] = 0;
                             STORE_JACOBIAN( i_var_intrinsic_distortions + j, 0 );
                         }
                         else
                         {
-                            double err = distortions_all[i_camera][j] * scale_regularization;
+                            double scale = scale_regularization;
+
+                            if( DISTORTION_IS_OPENCV(distortion_model) &&
+                                distortion_model >= DISTORTION_OPENCV8 &&
+                                5 <= j && j <= 7 )
+                            {
+                                // The radial distortion in opencv is x_distorted =
+                                // x*scale where r2 = norm2(xy - xyc) and
+                                //
+                                // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+                                //
+                                // Note that k2,k3 are tangential (NOT radial)
+                                // distortion components. Note that the r6 factor in
+                                // the numerator is only present for
+                                // >=DISTORTION_OPENCV5. Note that the denominator
+                                // is only present for >= DISTORTION_OPENCV8. The
+                                // danger with a rational model is that it's
+                                // possible to get into a situation where scale ~
+                                // 0/0 ~ 1. This would have very poorly behaved
+                                // derivatives. If all the rational coefficients are
+                                // ~0, then the denominator is always ~1, and this
+                                // problematic case can't happen. I favor that by
+                                // regularizing the coefficients in the denominator
+                                // more strongly
+                                scale *= 1.0e1;
+                            }
+                            double err = distortions_all[i_camera][j] * scale;
                             x[iMeasurement]  = err;
                             norm2_error     += err*err;
                             STORE_JACOBIAN( i_var_intrinsic_distortions + j,
-                                            scale_regularization * SCALE_DISTORTION );
+                                            scale * SCALE_DISTORTION );
                         }
                         iMeasurement++;
                     }

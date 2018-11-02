@@ -1138,11 +1138,33 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
 # I favor the center pixel at the center of the imager
 intrinsics[1][:,2:4] = (imagersizes - 1) / 2
 
+distortions = \
+    np.random.random((Ncameras,
+                      mrcal.getNdistortionParams(args.distortion_model) -
+                      mrcal.getNdistortionParams(intrinsics[0])        ))*1e-5
+m = re.search("OPENCV([0-9]+)", args.distortion_model)
+if m:
+    Nd = int(m.group(1))
+    if Nd >= 8:
+        # Push down the rational components of the seed. I'd like these all to
+        # sit at 0 ideally. The radial distortion in opencv is x_distorted =
+        # x*scale where r2 = norm2(xy - xyc) and
+        #
+        # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+        #
+        # Note that k2,k3 are tangential (NOT radial) distortion components.
+        # Note that the r6 factor in the numerator is only present for
+        # >=DISTORTION_OPENCV5. Note that the denominator is only present for >=
+        # DISTORTION_OPENCV8. The danger with a rational model is that it's
+        # possible to get into a situation where scale ~ 0/0 ~ 1. This would
+        # have very poorly behaved derivatives. If all the rational coefficients
+        # are ~0, then the denominator is always ~1, and this problematic case
+        # can't happen. I favor that.
+        distortions[5:8] *= 1e-6
+
 intrinsics = (args.distortion_model,
               nps.glue( intrinsics[1],
-                        np.random.random((Ncameras,
-                                          mrcal.getNdistortionParams(args.distortion_model) -
-                                          mrcal.getNdistortionParams(intrinsics[0])        ))*1e-5,
+                        distortions,
                         axis=-1 ))
 
 solver_context = mrcal.SolverContext()

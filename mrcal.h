@@ -62,6 +62,9 @@ struct intrinsics_core_t
     _(DISTORTION_OPENCV14,14) /* available in OpenCV >= 3.1.0) */ \
     _(DISTORTION_CAHVOR,  5)                    \
     _(DISTORTION_CAHVORE, 9) /* CAHVORE is CAHVOR + E + linearity */
+#define DISTORTION_OPENCV_FIRST DISTORTION_OPENCV4
+#define DISTORTION_OPENCV_LAST  DISTORTION_OPENCV14
+#define DISTORTION_IS_OPENCV(d) (DISTORTION_OPENCV_FIRST <= (d) && (d) <= DISTORTION_OPENCV_LAST)
 
 #define LIST_WITH_COMMA(s,n) ,s
 enum distortion_model_t
