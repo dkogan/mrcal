@@ -1188,9 +1188,12 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        VERBOSE                           = args.verbose_solver,
                        solver_context                    = solver_context)
 
-MMt = stats['intrinsic_covariances']  \
-    * args.observed_pixel_uncertainty \
-    * args.observed_pixel_uncertainty
+try:
+    MMt = stats['intrinsic_covariances']  \
+        * args.observed_pixel_uncertainty \
+        * args.observed_pixel_uncertainty
+except:
+    MMt = None
 
 print "Done!"
 
@@ -1204,25 +1207,27 @@ report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
            object_width_n*object_width_n*len(observations),
            100.0 * stats['Noutliers'] / (object_width_n*object_width_n*len(observations)))
-report += "Expected projection uncertainty due to input pixel observations.\n"
-report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
-report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
-report += "  The corners are 10% inside the image. The reported numbers are 'expected projection\n"
-report += "  error', measured in pixels.\n"
-Expected_projection_shift = np.zeros((Ncameras, 5))
-for i_camera in xrange(Ncameras):
+if MMt is not None:
+    report += "Expected projection uncertainty due to input pixel observations.\n"
+    report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
+    report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
+    report += "  The corners are 10% inside the image. The reported numbers are 'expected projection\n"
+    report += "  error', measured in pixels.\n"
+    Expected_projection_shift = np.zeros((Ncameras, 5))
+    for i_camera in xrange(Ncameras):
 
-    v = np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-                  (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-                  (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-                  (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-                  (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1])))
-    # 3D vectors we're projecting
-    # shape (Ncameras, 5, 3)
-    V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
-    Expected_projection_shift[i_camera, :] = \
-        mrcal.get_projection_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
-report += np.array2string(Expected_projection_shift, precision=2) + "\n"
+        v = np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+                      (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+                      (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+                      (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+                      (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1])))
+        # 3D vectors we're projecting
+        # shape (Ncameras, 5, 3)
+        V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
+        Expected_projection_shift[i_camera, :] = \
+            mrcal.get_projection_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
+    report += np.array2string(Expected_projection_shift, precision=2) + "\n"
+
 print report
 
 
@@ -1264,7 +1269,7 @@ for i_camera in xrange(Ncameras):
     c = mrcal.cameramodel( intrinsics            = (intrinsics[0], intrinsics[1][i_camera,:]),
                            extrinsics_Rt_toref   = Rt_rx,
                            dimensions            = imagersizes[i_camera],
-                           covariance_intrinsics = MMt[i_camera, ...])
+                           covariance_intrinsics = MMt[i_camera, ...] if MMt is not None else None)
 
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
     mrcal.cahvor.write(cahvorfile, c, note)
@@ -1522,6 +1527,12 @@ def show_all_errors(i_camera, ignore_outliers=True, vectorfield=False, **plotkwa
 plots_intrinsics_sensitivity             = [None] * Ncameras
 plots_intrinsics_sensitivity_outlierness = [None] * Ncameras
 def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwargs_extra):
+
+    if MMt is None:
+        print "No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_intrinsic_covariances = True) for this to work"
+        return False
+
+
     global plots_intrinsics_sensitivity
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
@@ -1535,6 +1546,7 @@ def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwarg
                                                    gridn_y=gridn_y,
                                                    cbmax=5,
                                                    **plotkwargs_extra)
+    return True
 
 def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwargs_extra):
     global plots_intrinsics_sensitivity_outlierness
