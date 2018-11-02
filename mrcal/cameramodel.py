@@ -323,10 +323,10 @@ class cameramodel(object):
 
             self.intrinsics(kwargs['intrinsics'])
             self.dimensions(kwargs['dimensions'])
-            if not ('covariance_intrinsics' in kwargs and kwargs['covariance_intrinsics'] is not None):
-                self._covariance_intrinsics = None
-            else:
+            if 'covariance_intrinsics' in kwargs and kwargs['covariance_intrinsics'] is not None:
                 self.covariance_intrinsics(kwargs['covariance_intrinsics'])
+            else:
+                self._covariance_intrinsics = None
 
             if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
             if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt(False, kwargs['extrinsics_Rt_fromref'])
