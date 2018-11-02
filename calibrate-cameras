@@ -48,6 +48,7 @@ import heapq
 from tempfile import mkstemp
 import shutil
 import glob
+import copy
 
 import mrcal.cahvor
 import mrcal
@@ -70,20 +71,6 @@ def parse_args():
                         required=False,
                         help='''Size of the imager. This is only required if we pass --dots-cache AND if none
                         of the image files on disk actually exist''')
-    parser.add_argument('--roi',
-                        nargs=4,
-                        type=float,
-                        action='append',
-                        required=False,
-                        help='''Region of interest of the calibration. This is the area in the imager we're
-                        interested in. Errors in observations outside this area
-                        will be attenuated significantly. If we want to use all
-                        the data evenly, omit this argument. Otherwise pass 4
-                        values for each --roi:
-                        (x_center,y_center,x_width,y_width). The region is an
-                        axis-aligned ellipsoid. If passing in ANY roi, you MUST
-                        pass in the ROI for EACH camera; a separate '--roi' for
-                        each one.''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
                                 parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
@@ -101,6 +88,29 @@ def parse_args():
                         required=False,
                         default='DISTORTION_OPENCV4',
                         help='''Which distortion model we're using. By default I use DISTORTION_OPENCV4''')
+    parser.add_argument('--roi',
+                        nargs=4,
+                        type=float,
+                        action='append',
+                        required=False,
+                        help='''Region of interest of the calibration. This is the area in the imager we're
+                        interested in. Errors in observations outside this area
+                        will be attenuated significantly. If we want to use all
+                        the data evenly, omit this argument. Otherwise pass 4
+                        values for each --roi:
+                        (x_center,y_center,x_width,y_width). The region is an
+                        axis-aligned ellipsoid. If passing in ANY roi, you MUST
+                        pass in the ROI for EACH camera; a separate '--roi' for
+                        each one.''')
+    parser.add_argument('--incremental',
+                        required=False,
+                        default=False,
+                        action='store_true',
+                        help='''If passed, we incrementally increase ROI and distortion model complexity
+                        across multiple solves. In this mode the requested ROI
+                        is a target, and the requested distortion model is the
+                        upper bound. If we can get away with a simpler one, we
+                        use that.''')
     parser.add_argument('--jobs', '-j',
                         type=int,
                         default=1,
@@ -844,7 +854,6 @@ def make_seed(inputs):
 
     intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera, inputs) \
                                  for i_camera in xrange(inputs['Ncameras'])] )
-    intrinsics = ('DISTORTION_NONE', intrinsics_data)
 
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame
@@ -893,7 +902,7 @@ def make_seed(inputs):
                              inputs['indices_frame_camera'],
                              inputs['dot_spacing'],
                              inputs['object_width_n'])
-    return intrinsics,extrinsics,frames
+    return 'DISTORTION_NONE',intrinsics_data,extrinsics,frames
 
 
 def get_imagersize_one(g, args_imagersize):
@@ -1009,7 +1018,7 @@ def get_observation_subset__right_of_threshold_and_within_center(point_x_thresho
                        dtype=int)
     return get_observation_subset__from_indices(indices, observations, paths, indices_frame_camera)
 
-def incremental_optimize(args, imagersizes, observations, indices_frame_camera, outlier_indices):
+def incremental_optimize(args, imagersizes, observations, indices_frame_camera, outlier_indices, fixed_roi_distortion = True):
     '''Solve an incrementally-expanding optimization problem in several passes
 
     The logic is this:
@@ -1026,7 +1035,8 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                     # I'm already at the most complex model
                     print "Exceeded outlier bounds!"
                     break
-            roi++
+            else:
+                roi++
 
     I.e. I start with a smaller region-of-interest than what I actually care
     about, and with a simpler distortion model than what I was asked to use. I
@@ -1046,9 +1056,8 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
               'dot_spacing':          args.object_spacing,
               'object_width_n':       args.object_width_n}
 
-    intrinsics,extrinsics,frames = make_seed(inputs)
+    distortion_model,intrinsics_data,extrinsics,frames = make_seed(inputs)
 
-    print "Distortion model: {}".format(args.distortion_model)
     if args.skip_outlier_rejection:
         print "We are NOT rejecting outliers"
     else:
@@ -1058,14 +1067,12 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
     else:
         print "We ARE applying regularization in the solver"
 
-
-    D, ROI = args.distortion_model, args.roi
-
     # done with everything. Run the calibration, in several passes
-    mrcal.optimize(intrinsics[1], extrinsics, frames, None,
+    print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry only"
+    mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                    observations, indices_frame_camera,
                    None, None,
-                   intrinsics[0], imagersizes,
+                   distortion_model, imagersizes,
                    do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = False,
                    calibration_object_spacing        = args.object_spacing,
@@ -1077,10 +1084,11 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                    get_intrinsic_covariances         = False,
                    VERBOSE                           = False)
 
-    stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
+    print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only"
+    stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                            observations, indices_frame_camera,
                            None, None,
-                           intrinsics[0], imagersizes,
+                           distortion_model, imagersizes,
                            do_optimize_intrinsic_core        = True,
                            do_optimize_intrinsic_distortions = False,
                            calibration_object_spacing        = args.object_spacing,
@@ -1092,54 +1100,173 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                            get_intrinsic_covariances         = False,
                            VERBOSE                           = False)
     # I favor the center pixel at the center of the imager
-    intrinsics[1][:,2:4] = (imagersizes - 1) / 2
 
-    distortions = \
-        np.random.random((Ncameras,
-                          mrcal.getNdistortionParams(args.distortion_model) -
-                          mrcal.getNdistortionParams(intrinsics[0])        ))*1e-5
-    m = re.search("OPENCV([0-9]+)", args.distortion_model)
-    if m:
-        Nd = int(m.group(1))
-        if Nd >= 8:
-            # Push down the rational components of the seed. I'd like these all to
-            # sit at 0 ideally. The radial distortion in opencv is x_distorted =
-            # x*scale where r2 = norm2(xy - xyc) and
-            #
-            # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
-            #
-            # Note that k2,k3 are tangential (NOT radial) distortion components.
-            # Note that the r6 factor in the numerator is only present for
-            # >=DISTORTION_OPENCV5. Note that the denominator is only present for >=
-            # DISTORTION_OPENCV8. The danger with a rational model is that it's
-            # possible to get into a situation where scale ~ 0/0 ~ 1. This would
-            # have very poorly behaved derivatives. If all the rational coefficients
-            # are ~0, then the denominator is always ~1, and this problematic case
-            # can't happen. I favor that.
-            distortions[5:8] *= 1e-6
+    intrinsics_data[:,2:4] = (imagersizes - 1) / 2
 
-    intrinsics = (args.distortion_model,
-                  nps.glue( intrinsics[1], distortions,
-                            axis=-1 ))
+    Nfeatures = args.object_width_n*args.object_width_n*len(observations)
 
-    solver_context = mrcal.SolverContext()
-    stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
-                           observations, indices_frame_camera,
-                           None, None,
-                           intrinsics[0], imagersizes,
-                           do_optimize_intrinsic_core        = True,
-                           do_optimize_intrinsic_distortions = True,
-                           calibration_object_spacing        = args.object_spacing,
-                           calibration_object_width_n        = args.object_width_n,
-                           skip_outlier_rejection            = args.skip_outlier_rejection,
-                           skip_regularization               = args.skip_regularization,
-                           outlier_indices                   = outlier_indices,
-                           roi                               = args.roi,
-                           get_intrinsic_covariances         = True,
-                           VERBOSE                           = args.verbose_solver,
-                           solver_context                    = solver_context)
+    def get_scaled_roi(roi_final, iroi, Nroi):
 
-    return intrinsics,extrinsics,frames,stats,solver_context
+        if Nroi == 1:
+            if iroi != 0:
+                raise Exception("get_scaled_roi(Nroi=1, iroi != 0) doesn't make any sense")
+            return roi_final
+
+        scale = float(iroi+1)/float(Nroi)
+        return nps.glue(roi_final[:,:2],
+                        roi_final[:,2:] * scale,
+                        axis = -1)
+
+    def expand_intrinsics(distortion_model, intrinsics_data):
+        NnewDistortions = \
+            mrcal.getNdistortionParams(distortion_model) - \
+            (intrinsics_data.shape[1] - 4)
+        newDistortions = \
+            np.random.random((Ncameras, NnewDistortions))*1e-6
+        m = re.search("OPENCV([0-9]+)", distortion_model)
+        if m:
+            Nd = int(m.group(1))
+            if Nd >= 8:
+                # Push down the rational components of the seed. I'd like these all to
+                # sit at 0 ideally. The radial distortion in opencv is x_distorted =
+                # x*scale where r2 = norm2(xy - xyc) and
+                #
+                # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+                #
+                # Note that k2,k3 are tangential (NOT radial) distortion components.
+                # Note that the r6 factor in the numerator is only present for
+                # >=DISTORTION_OPENCV5. Note that the denominator is only present for >=
+                # DISTORTION_OPENCV8. The danger with a rational model is that it's
+                # possible to get into a situation where scale ~ 0/0 ~ 1. This would
+                # have very poorly behaved derivatives. If all the rational coefficients
+                # are ~0, then the denominator is always ~1, and this problematic case
+                # can't happen. I favor that.
+                newDistortions[5:8] *= 1e-3
+        return nps.glue( intrinsics_data, newDistortions, axis=-1 )
+
+    def eval_solution(stats, Noutliers0):
+        NnewOutliers     = stats['Noutliers'] - Noutliers0
+        NnewOutlierRatio = float(NnewOutliers)/float(Nfeatures)
+        return NnewOutlierRatio < 0.01, "NnewOutlierRatio={}".format(NnewOutlierRatio)
+
+
+    # Alrighty. All the preliminary business is finished. I should have a usable
+    # seed now. And thus I now run the main optimization loop
+    if fixed_roi_distortion:
+        # We're not doing the incremental loop. Just solve it once and call it good
+        distortion_model = args.distortion_model
+        intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
+        stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+                               observations, indices_frame_camera,
+                               None, None,
+                               distortion_model, imagersizes,
+                               do_optimize_intrinsic_core        = True,
+                               do_optimize_intrinsic_distortions = True,
+                               calibration_object_spacing        = args.object_spacing,
+                               calibration_object_width_n        = args.object_width_n,
+                               skip_outlier_rejection            = args.skip_outlier_rejection,
+                               skip_regularization               = args.skip_regularization,
+                               outlier_indices                   = outlier_indices,
+                               roi                               = args.roi,
+                               get_intrinsic_covariances         = False,
+                               VERBOSE                           = args.verbose_solver)
+        return "fixed solve", (distortion_model, intrinsics_data), extrinsics, frames, args.roi, stats
+
+
+
+
+    Nroi = 4
+    if args.roi is None:
+        # no explicit region-of-interest given. I thus use the whole imager.
+        # I use an ellipse with the imager's aspect ratio, passing through
+        # the corner
+        widths       = imagersizes.astype(float)-1
+        centerpixels = widths / 2.
+        roi_final = nps.glue(centerpixels, widths*np.sqrt(2), axis=-1)
+    else:
+        roi_final = args.roi
+
+    stats_best = None
+    roi_best   = None
+
+    iroi = 0
+    Noutliers0 = 0 if outlier_indices is None else len(outlier_indices)
+    while iroi<Nroi:
+        roi = get_scaled_roi(roi_final, iroi, Nroi)
+
+        print "vvvvvvvvvvvvvvvvvvvv next distortion/ROI:"
+        print "Distortion model: {}"   .format(distortion_model)
+        print "ROI:              {}/{}  ({})".format(iroi+1, Nroi, roi)
+
+        state = copy.deepcopy( (intrinsics_data, extrinsics, frames), )
+        stats = mrcal.optimize(state[0], state[1], state[2], None,
+                               observations, indices_frame_camera,
+                               None, None,
+                               distortion_model, imagersizes,
+                               do_optimize_intrinsic_core        = True,
+                               do_optimize_intrinsic_distortions = True,
+                               calibration_object_spacing        = args.object_spacing,
+                               calibration_object_width_n        = args.object_width_n,
+                               skip_outlier_rejection            = args.skip_outlier_rejection,
+                               skip_regularization               = args.skip_regularization,
+                               outlier_indices                   = outlier_indices,
+                               roi                               = roi,
+                               get_intrinsic_covariances         = False,
+                               VERBOSE                           = args.verbose_solver)
+
+        solution_acceptable,solution_description = eval_solution(stats, Noutliers0)
+        if solution_acceptable:
+            # We found a good solution for this distortion model and ROI. Let's
+            # expand the region of interest and go again
+
+            # save the initial state. The last one of these chunks of data is
+            # the best solution I got
+            outlier_indices       = stats['outlier_indices']
+            intrinsics_data       = state[0].copy()
+            extrinsics            = state[1].copy()
+            frames                = state[2].copy()
+            stats_best            = copy.deepcopy(stats)
+            roi_best              = copy.deepcopy(roi)
+            distortion_model_best = copy.deepcopy(distortion_model)
+            result                = 'Usable solve found at the full ROI'
+
+            iroi += 1
+            print "^^^^^^^^^^^^^^^^^^^^ {}: good solve!".format(solution_description)
+        else:
+            # This solution wasn't very good. Let's try a richer distortion
+            # model
+
+            distortion_model1 = mrcal.getNextDistortionModel(distortion_model, args.distortion_model)
+
+            if distortion_model1 == distortion_model:
+                # we're already at the last model in the family, or at the
+                # maximum model the user asked for. There's nowhere more to go,
+                # so I guess I'm done
+                print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, but no more distortion-models remaining. I'm done".format(solution_description)
+
+                if stats_best is None:
+                    # This is the best I got I guess
+                    intrinsics_data       = state[0]
+                    extrinsics            = state[1]
+                    frames                = state[2]
+                    stats_best            = stats
+                    roi_best              = roi
+                    distortion_model_best = distortion_model
+                    result                = 'No usable solves found'
+                else:
+                    result                = 'Usable solves found, but not for the full ROI'
+                break
+
+            else:
+                # I try the next model in the family, keeping the roi and
+                # outlier list the same
+                distortion_model = distortion_model1
+                intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
+                print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, trying next distortion model".format(solution_description)
+
+    return result,(distortion_model_best,  \
+                   intrinsics_data[:,:(4+mrcal.getNdistortionParams(distortion_model_best))]), \
+                   extrinsics,frames,roi_best,stats_best
 
 
 
@@ -1211,8 +1338,32 @@ if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
 
     outlier_indices = np.array(sorted(list(outlier_indices0.union( outlier_indices1 ))), dtype=np.int32)
 
-intrinsics,extrinsics,frames,stats,solver_context = \
-    incremental_optimize(args, imagersizes, observations, indices_frame_camera, outlier_indices)
+
+result,intrinsics,extrinsics,frames,roi,stats = \
+    incremental_optimize(args, imagersizes, observations, indices_frame_camera, outlier_indices, not args.incremental)
+if args.incremental:
+    print ">>>>>>>>>>>>>>>>> " + result
+
+# I now optimize again, primarily to get MMt and solver_context. This should be
+# quick since I'm already at the optimum. This solve shouldn't move the
+# operating point at all
+solver_context = mrcal.SolverContext()
+print "Last optimization call to get MMt and solver_context"
+stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
+                       observations, indices_frame_camera,
+                       None, None,
+                       intrinsics[0], imagersizes,
+                       do_optimize_intrinsic_core        = True,
+                       do_optimize_intrinsic_distortions = True,
+                       calibration_object_spacing        = args.object_spacing,
+                       calibration_object_width_n        = args.object_width_n,
+                       skip_outlier_rejection            = True,
+                       skip_regularization               = args.skip_regularization,
+                       outlier_indices                   = stats['outlier_indices'],
+                       roi                               = roi,
+                       get_intrinsic_covariances         = True,
+                       VERBOSE                           = False,
+                       solver_context                    = solver_context)
 
 try:
     MMt = stats['intrinsic_covariances']  \
@@ -1220,8 +1371,6 @@ try:
         * args.observed_pixel_uncertainty
 except:
     MMt = None
-
-print "Done!"
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
