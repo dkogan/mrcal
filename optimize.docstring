@@ -145,6 +145,9 @@ OPTIONAL ARGS:
   numpy array of shape (Ncameras,4) where each camera's slice is (x_center,
   y_center, x_width, y_width). The region is an axis-aligned ellipsoid
 
+- get_intrinsic_covariances: defaults to False. If True, I compute MMt and
+  include it in the dict I return
+
 - VERBOSE: if True, write out all sorts of diagnostic data to STDERR. Defaults
   to False
 

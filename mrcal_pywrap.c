@@ -522,6 +522,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1} ) \
     _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA 4} ) \
     _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
+    _(get_intrinsic_covariances,          PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       -1,         {})
@@ -1009,7 +1010,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model_type);
         double* c_intrinsic_covariances = NULL;
-        if(Nintrinsics_all != 0)
+        if(Nintrinsics_all != 0 &&
+           get_intrinsic_covariances && PyObject_IsTrue(get_intrinsic_covariances))
         {
             intrinsic_covariances =
                 (PyArrayObject*)PyArray_SimpleNew(3,
