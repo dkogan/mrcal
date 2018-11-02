@@ -176,18 +176,18 @@ def parse_args():
                         'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
                         'right1.jpg', ...''')
 
-    parser.add_argument('--testing-cull-points-left-of',
+    parser.add_argument('--cull-points-left-of',
                         required=False,
                         default=-1,
                         type=float,
                         help='''For testing. Throw out all observations with x < the given value''')
-    parser.add_argument('--testing-cull-points-rad-off-center',
+    parser.add_argument('--cull-points-rad-off-center',
                         required=False,
                         default=-1,
                         type=float,
                         help='''For testing. Throw out all observations with dist_from_center > the given
                         value''')
-    parser.add_argument('--testing-cull-random-observations-ratio',
+    parser.add_argument('--cull-random-observations-ratio',
                         required=False,
                         default=-1,
                         type=float,
@@ -1048,33 +1048,33 @@ observations, indices_frame_camera, paths = \
                      jobs = args.jobs)
 
 
-if args.testing_cull_random_observations_ratio >= 0:
+if args.cull_random_observations_ratio >= 0:
     observations, paths, indices_frame_camera = \
-        get_observation_subset__random(args.testing_cull_random_observations_ratio,
+        get_observation_subset__random(args.cull_random_observations_ratio,
                                        observations, paths, indices_frame_camera)
 
 outlier_indices = None
-if args.testing_cull_points_left_of > 0 or args.testing_cull_points_rad_off_center > 0:
+if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
 
     # first cut off full observations
     observations, paths, indices_frame_camera = \
         get_observation_subset__right_of_threshold_and_within_center( \
-            args.testing_cull_points_left_of,
-            args.testing_cull_points_rad_off_center,
+            args.cull_points_left_of,
+            args.cull_points_rad_off_center,
             observations,
             imagersizes, paths, indices_frame_camera,
             args.object_width_n)
 
     # any observations that lie partially outside the threshold remain. I cut
     # out individual points as outliers
-    if args.testing_cull_points_left_of > 0:
-        outlier_indices0 = set(np.flatnonzero(observations[...,0] < args.testing_cull_points_left_of))
+    if args.cull_points_left_of > 0:
+        outlier_indices0 = set(np.flatnonzero(observations[...,0] < args.cull_points_left_of))
     else:
         outlier_indices0 = set()
 
-    if args.testing_cull_points_rad_off_center > 0:
+    if args.cull_points_rad_off_center > 0:
         centerpixels = (imagersizes[ indices_frame_camera[:,1] ] - 1.)[:,np.newaxis,np.newaxis,:] / 2.
-        radsq = args.testing_cull_points_rad_off_center*args.testing_cull_points_rad_off_center
+        radsq = args.cull_points_rad_off_center*args.cull_points_rad_off_center
         outlier_indices1 = set(np.flatnonzero(nps.norm2(observations - centerpixels) > radsq))
     else:
         outlier_indices1 = set()
