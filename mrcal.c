@@ -122,6 +122,37 @@ const char* const* mrcal_getSupportedDistortionModels( void )
     return names;
 }
 
+// Returns the 'next' distortion model in a family
+//
+// In a family of distortion models we have a sequence of models with increasing
+// complexity. Subsequent models add distortion parameters to the end of the
+// vector. Ealier models are identical, but with the extra paramaters set to 0.
+// This function returns the next model in a sequence.
+//
+// If this is the last model in the sequence, returns the current model. This
+// function takes in both the current model, and the last model we're aiming
+// for. The second part is required because all familie begin at
+// DISTORTION_NONE, so the next model from DISTORTION_NONE is not well-defined
+// without more information
+enum distortion_model_t mrcal_getNextDistortionModel( enum distortion_model_t distortion_model_now,
+                                                      enum distortion_model_t distortion_model_final )
+{
+    // if we're at the start of a sequence...
+    if(distortion_model_now == DISTORTION_NONE)
+    {
+        if(DISTORTION_IS_OPENCV(distortion_model_final)) return DISTORTION_OPENCV4;
+        if(DISTORTION_IS_CAHVOR(distortion_model_final)) return DISTORTION_CAHVOR;
+        return DISTORTION_INVALID;
+    }
+
+    // if we're at the end of a sequence...
+    if(distortion_model_now == distortion_model_final)
+        return distortion_model_now;
+
+    // I guess we're in the middle of a sequence
+    return distortion_model_now+1;
+}
+
 int mrcal_getNintrinsicParams(enum distortion_model_t m)
 {
     return

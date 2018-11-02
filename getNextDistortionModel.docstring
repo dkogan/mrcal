@@ -1,0 +1,17 @@
+Returns the 'next' distortion model in a family
+
+Synopsis:
+
+    print mrcal.getNextDistortionModel('DISTORTION_OPENCV5', 'DISTORTION_OPENCV14')
+
+    'DISTORTION_OPENCV8'
+
+In a family of distortion models we have a sequence of models with increasing
+complexity. Subsequent models add distortion parameters to the end of the
+vector. Ealier models are identical, but with the extra paramaters set to 0.
+This function returns the next model in a sequence.
+
+If this is the last model in the sequence, returns the current model. This
+function takes in both the current model, and the last model we're aiming for.
+The second part is required because all familie begin at DISTORTION_NONE, so the
+next model from DISTORTION_NONE is not well-defined without more information

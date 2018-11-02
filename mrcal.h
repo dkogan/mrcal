@@ -64,7 +64,10 @@ struct intrinsics_core_t
     _(DISTORTION_CAHVORE, 9) /* CAHVORE is CAHVOR + E + linearity */
 #define DISTORTION_OPENCV_FIRST DISTORTION_OPENCV4
 #define DISTORTION_OPENCV_LAST  DISTORTION_OPENCV14
+#define DISTORTION_CAHVOR_FIRST DISTORTION_CAHVOR
+#define DISTORTION_CAHVOR_LAST  DISTORTION_CAHVORE
 #define DISTORTION_IS_OPENCV(d) (DISTORTION_OPENCV_FIRST <= (d) && (d) <= DISTORTION_OPENCV_LAST)
+#define DISTORTION_IS_CAHVOR(d) (DISTORTION_CAHVOR_FIRST <= (d) && (d) <= DISTORTION_CAHVOR_LAST)
 
 #define LIST_WITH_COMMA(s,n) ,s
 enum distortion_model_t
@@ -98,6 +101,21 @@ int                     mrcal_getNintrinsicOptimizationParams
                           ( struct mrcal_variable_select optimization_variable_choice,
                             enum distortion_model_t m );
 const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
+
+// Returns the 'next' distortion model in a family
+//
+// In a family of distortion models we have a sequence of models with increasing
+// complexity. Subsequent models add distortion parameters to the end of the
+// vector. Ealier models are identical, but with the extra paramaters set to 0.
+// This function returns the next model in a sequence.
+//
+// If this is the last model in the sequence, returns the current model. This
+// function takes in both the current model, and the last model we're aiming
+// for. The second part is required because all familie begin at
+// DISTORTION_NONE, so the next model from DISTORTION_NONE is not well-defined
+// without more information
+enum distortion_model_t mrcal_getNextDistortionModel( enum distortion_model_t distortion_model_now,
+                                                      enum distortion_model_t distortion_model_final);
 
 void mrcal_project( // out
                    union point2_t* out,

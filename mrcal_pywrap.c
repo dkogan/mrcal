@@ -200,6 +200,71 @@ static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+static PyObject* getNextDistortionModel(PyObject* NPY_UNUSED(self),
+                                        PyObject* args)
+{
+    PyObject* result = NULL;
+    SET_SIGINT();
+
+    PyObject* distortion_model_now_string   = NULL;
+    PyObject* distortion_model_final_string = NULL;
+    if(!PyArg_ParseTuple( args, "SS",
+                          &distortion_model_now_string,
+                          &distortion_model_final_string))
+        goto done;
+
+    const char* distortion_model_now_cstring = PyString_AsString(distortion_model_now_string);
+    if( distortion_model_now_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "distortion_model_now was not passed in. Must be a string, one of ("
+                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        goto done;
+    }
+    const char* distortion_model_final_cstring = PyString_AsString(distortion_model_final_string);
+    if( distortion_model_final_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "distortion_model_final was not passed in. Must be a string, one of ("
+                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        goto done;
+    }
+
+    enum distortion_model_t distortion_model_now = mrcal_distortion_model_from_name(distortion_model_now_cstring);
+    if( distortion_model_now == DISTORTION_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid distortion_model_now was passed in: '%s'. Must be a string, one of ("
+                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     distortion_model_now_cstring);
+        goto done;
+    }
+    enum distortion_model_t distortion_model_final = mrcal_distortion_model_from_name(distortion_model_final_cstring);
+    if( distortion_model_final == DISTORTION_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid distortion_model_final was passed in: '%s'. Must be a string, one of ("
+                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     distortion_model_final_cstring);
+        goto done;
+    }
+
+    enum distortion_model_t distortion_model =
+        mrcal_getNextDistortionModel(distortion_model_now, distortion_model_final);
+    if(distortion_model == DISTORTION_INVALID)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Couldn't figure out the 'next' distortion model from '%s' to '%s'",
+                     distortion_model_now_cstring, distortion_model_final_cstring);
+        goto done;
+    }
+
+    result = Py_BuildValue("s", mrcal_distortion_model_name(distortion_model));
+
+ done:
+    RESET_SIGINT();
+    return result;
+}
+
 // just like PyArray_Converter(), but leave None as None
 static
 int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
@@ -1175,6 +1240,9 @@ PyMODINIT_FUNC init_mrcal(void)
     static const char getSupportedDistortionModels_docstring[] =
 #include "getSupportedDistortionModels.docstring.h"
         ;
+    static const char getNextDistortionModel_docstring[] =
+#include "getNextDistortionModel.docstring.h"
+        ;
     static const char project_docstring[] =
 #include "project.docstring.h"
         ;
@@ -1187,6 +1255,7 @@ PyMODINIT_FUNC init_mrcal(void)
         { PYMETHODDEF_ENTRY(optimize,                     METH_VARARGS | METH_KEYWORDS),
           PYMETHODDEF_ENTRY(getNdistortionParams,         METH_VARARGS),
           PYMETHODDEF_ENTRY(getSupportedDistortionModels, METH_NOARGS),
+          PYMETHODDEF_ENTRY(getNextDistortionModel,       METH_VARARGS),
           PYMETHODDEF_ENTRY(project,                      METH_VARARGS | METH_KEYWORDS),
           PYMETHODDEF_ENTRY(queryIntrinsicOutliernessAt,  METH_VARARGS | METH_KEYWORDS),
           {}
