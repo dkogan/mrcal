@@ -1037,12 +1037,9 @@ if args.roi is not None:
         sys.stderr.write("Couldn't interpret --roi as a numpy array")
         raise
 
-object_spacing = args.object_spacing
-object_width_n = args.object_width_n
-
 observations, indices_frame_camera, paths = \
-    get_observations(object_width_n,
-                     object_width_n,
+    get_observations(args.object_width_n,
+                     args.object_width_n,
                      args.images,
                      args.dots_cache,
                      jobs = args.jobs)
@@ -1091,8 +1088,8 @@ inputs = {'imagersizes':          imagersizes,
           'Ncameras':             Ncameras,
           'indices_frame_camera': indices_frame_camera,
           'dots':                 observations,
-          'dot_spacing':          object_spacing,
-          'object_width_n':       object_width_n}
+          'dot_spacing':          args.object_spacing,
+          'object_width_n':       args.object_width_n}
 intrinsics,extrinsics,frames = make_seed(inputs)
 
 
@@ -1116,8 +1113,8 @@ mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                intrinsics[0], imagersizes,
                do_optimize_intrinsic_core        = False,
                do_optimize_intrinsic_distortions = False,
-               calibration_object_spacing        = object_spacing,
-               calibration_object_width_n        = object_width_n,
+               calibration_object_spacing        = args.object_spacing,
+               calibration_object_width_n        = args.object_width_n,
                skip_outlier_rejection            = True,
                skip_regularization               = True,
                outlier_indices                   = outlier_indices,
@@ -1131,8 +1128,8 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        intrinsics[0], imagersizes,
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = False,
-                       calibration_object_spacing        = object_spacing,
-                       calibration_object_width_n        = object_width_n,
+                       calibration_object_spacing        = args.object_spacing,
+                       calibration_object_width_n        = args.object_width_n,
                        skip_outlier_rejection            = True,
                        skip_regularization               = True,
                        outlier_indices                   = outlier_indices,
@@ -1178,8 +1175,8 @@ stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                        intrinsics[0], imagersizes,
                        do_optimize_intrinsic_core        = True,
                        do_optimize_intrinsic_distortions = True,
-                       calibration_object_spacing        = object_spacing,
-                       calibration_object_width_n        = object_width_n,
+                       calibration_object_spacing        = args.object_spacing,
+                       calibration_object_width_n        = args.object_width_n,
                        skip_outlier_rejection            = args.skip_outlier_rejection,
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = outlier_indices,
@@ -1199,14 +1196,14 @@ print "Done!"
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
-Npoints = object_width_n*object_width_n*len(observations)
+Npoints = args.object_width_n*args.object_width_n*len(observations)
 xyerr = stats['x'][:Npoints*2].reshape(Npoints,2)
 worst_point_err = np.sqrt(np.max(nps.inner(xyerr,xyerr)))
 report += "Worst reprojection error: {:.01f} pixels\n".format(worst_point_err)
 report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
-           object_width_n*object_width_n*len(observations),
-           100.0 * stats['Noutliers'] / (object_width_n*object_width_n*len(observations)))
+           args.object_width_n*args.object_width_n*len(observations),
+           100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
 if MMt is not None:
     report += "Expected projection uncertainty due to input pixel observations.\n"
     report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
@@ -1304,16 +1301,16 @@ Potential things to look at:
 '''
 
 
-projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, object_spacing, object_width_n)
+projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n)
 err_all_points,err_ignoring_outliers = mrcal.calobservations_compute_reproj_error(projected, observations,
-                                                                                  indices_frame_camera, object_width_n,
+                                                                                  indices_frame_camera, args.object_width_n,
                                                                                   stats['outlier_indices'])
 norm2_err_all_points_perimage = nps.inner( nps.clump(err_all_points,n=-3),
                                            nps.clump(err_all_points,n=-3) )
 norm2_err_ignoring_outliers_perimage = nps.inner( nps.clump(err_ignoring_outliers,n=-3),
                                                   nps.clump(err_ignoring_outliers,n=-3) )
-rms_err_all_points_perimage          = np.sqrt( norm2_err_all_points_perimage        / (object_width_n*object_width_n) )
-rms_err_ignoring_outliers_perimage   = np.sqrt( norm2_err_ignoring_outliers_perimage / (object_width_n*object_width_n) )
+rms_err_all_points_perimage          = np.sqrt( norm2_err_all_points_perimage        / (args.object_width_n*args.object_width_n) )
+rms_err_ignoring_outliers_perimage   = np.sqrt( norm2_err_ignoring_outliers_perimage / (args.object_width_n*args.object_width_n) )
 
 i_observations_worst    = list(reversed(np.argsort(rms_err_ignoring_outliers_perimage)))
 i_observation_from_path = dict( [(paths[_i],_i) for _i in xrange(len(observations))] )
@@ -1332,9 +1329,9 @@ def show_reprojection_errors(observation, **plotkwargs_extra):
     else:
         raise Exception("observation should be a string (image path) or an integer; got type(observation) = {}".format(type(observation)))
 
-    ioutlier0 = np.searchsorted(stats['outlier_indices'], object_width_n*object_width_n*i_observation,     'left')
-    ioutlier1 = np.searchsorted(stats['outlier_indices'], object_width_n*object_width_n*(i_observation+1), 'left')
-    outlier_indices_thisobservation = stats['outlier_indices'][ioutlier0:ioutlier1] - object_width_n*object_width_n*i_observation
+    ioutlier0 = np.searchsorted(stats['outlier_indices'], args.object_width_n*args.object_width_n*i_observation,     'left')
+    ioutlier1 = np.searchsorted(stats['outlier_indices'], args.object_width_n*args.object_width_n*(i_observation+1), 'left')
+    outlier_indices_thisobservation = stats['outlier_indices'][ioutlier0:ioutlier1] - args.object_width_n*args.object_width_n*i_observation
 
     obs              = nps.clump( observations[i_observation], n=2)
     i_frame,i_camera = indices_frame_camera[i_observation]
@@ -1344,7 +1341,7 @@ def show_reprojection_errors(observation, **plotkwargs_extra):
     err = np.sqrt(nps.inner(reproj - obs,
                             reproj - obs))
 
-    nonoutlier_indices_thisobservation = np.ones((object_width_n*object_width_n,),dtype=bool)
+    nonoutlier_indices_thisobservation = np.ones((args.object_width_n*args.object_width_n,),dtype=bool)
     nonoutlier_indices_thisobservation[outlier_indices_thisobservation] = False
     obs_ignoring_outliers = obs[nonoutlier_indices_thisobservation, :]
 
@@ -1436,8 +1433,8 @@ def check_confidence_computations():
                            intrinsics[0], imagersizes,
                            do_optimize_intrinsic_core        = True,
                            do_optimize_intrinsic_distortions = True,
-                           calibration_object_spacing        = object_spacing,
-                           calibration_object_width_n        = object_width_n,
+                           calibration_object_spacing        = args.object_spacing,
+                           calibration_object_width_n        = args.object_width_n,
                            VERBOSE                           = False,
                            skip_outlier_rejection            = True,
                            skip_regularization               = True)
