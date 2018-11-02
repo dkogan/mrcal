@@ -1496,9 +1496,10 @@ static bool computeConfidence_MMt(// out
 
 
 
-    // As described above, I'm looking at what input noise does, so I only look at
-    // the measurements that pertain to the input observations directly. In mrcal,
-    // this is the leading ones, before the range errors and the regularization
+    // As described above, I'm looking at what input noise does, so I only look
+    // at the measurements that pertain to the input observations directly. In
+    // mrcal, this is the leading ones, before the range errors and the
+    // regularization
 
 
 

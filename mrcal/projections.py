@@ -280,8 +280,8 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
 
     This is a model-generic function. We use the given distortion_model: a
     string that says what the values in 'distortions' mean. The supported values
-    are defined in the DISTORTION_LIST macro in mrcal.h. At the time of this
-    writing, the supported values are
+    are defined in mrcal.h. At the time of this writing, the supported values
+    are
 
       DISTORTION_NONE
       DISTORTION_OPENCV4

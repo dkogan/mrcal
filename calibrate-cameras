@@ -81,8 +81,9 @@ def parse_args():
                         the data evenly, omit this argument. Otherwise pass 4
                         values for each --roi:
                         (x_center,y_center,x_width,y_width). The region is an
-                        axis-aligned ellipsoid. You MUST pass in the ROI for
-                        each camera; a separate '--roi' for each one.''')
+                        axis-aligned ellipsoid. If passing in ANY roi, you MUST
+                        pass in the ROI for EACH camera; a separate '--roi' for
+                        each one.''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
                                 parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
