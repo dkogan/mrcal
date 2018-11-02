@@ -962,7 +962,7 @@ def get_observation_subset__from_indices(indices, observations, paths, indices_f
             indices_frames.append(iframe_old)
         indices_frame_camera_new[iobs_new,0] = iframe_new_last
 
-    return observations_new, paths_new, indices_frame_camera_new
+    return observations_new, indices_frame_camera_new, paths_new
 
 def get_observation_subset__random(ratio_cull, observations, paths, indices_frame_camera):
     r'''Returns a random subset of observations'''
@@ -1049,7 +1049,7 @@ observations, indices_frame_camera, paths = \
 
 
 if args.cull_random_observations_ratio >= 0:
-    observations, paths, indices_frame_camera = \
+    observations, indices_frame_camera, paths = \
         get_observation_subset__random(args.cull_random_observations_ratio,
                                        observations, paths, indices_frame_camera)
 
@@ -1057,7 +1057,7 @@ outlier_indices = None
 if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
 
     # first cut off full observations
-    observations, paths, indices_frame_camera = \
+    observations, indices_frame_camera, paths = \
         get_observation_subset__right_of_threshold_and_within_center( \
             args.cull_points_left_of,
             args.cull_points_rad_off_center,
