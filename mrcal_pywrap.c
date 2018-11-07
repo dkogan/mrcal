@@ -807,6 +807,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* x_final                     = NULL;
     PyArrayObject* intrinsic_covariances       = NULL;
     PyArrayObject* outlier_indices_final       = NULL;
+    PyArrayObject* outside_ROI_indices_final   = NULL;
     PyObject* pystats = NULL;
 
     OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
@@ -1087,10 +1088,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         const int Npoints_fromBoards =
             NobservationsBoard *
             c_calibration_object_width_n*c_calibration_object_width_n;
-        outlier_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
+        outlier_indices_final     = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
+        outside_ROI_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
 
         // output
-        int* c_outlier_indices_final = PyArray_DATA(outlier_indices_final);
+        int* c_outlier_indices_final     = PyArray_DATA(outlier_indices_final);
+        int* c_outside_ROI_indices_final = PyArray_DATA(outside_ROI_indices_final);
         // input
         int* c_outlier_indices;
         int Noutlier_indices;
@@ -1129,6 +1132,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         mrcal_optimize( c_x_final,
                         c_intrinsic_covariances,
                         c_outlier_indices_final,
+                        c_outside_ROI_indices_final,
                         solver_context_optimizer,
                         c_intrinsics,
                         c_extrinsics,
@@ -1190,7 +1194,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'intrinsic_covariances'");
             goto done;
         }
-        // The outlier_indices_final numpy array has Nmeasurements elements,
+        // The outlier_indices_final numpy array has Nfeatures elements,
         // but I want to return only the first Noutliers elements
         if( NULL == PyArray_Resize(outlier_indices_final,
                                    &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.Noutliers}),
@@ -1206,6 +1210,24 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                       (PyObject*)outlier_indices_final) )
         {
             PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outlier_indices'");
+            goto done;
+        }
+        // The outside_ROI_indices_final numpy array has Nfeatures elements,
+        // but I want to return only the first NoutsideROI elements
+        if( NULL == PyArray_Resize(outside_ROI_indices_final,
+                                   &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.NoutsideROI}),
+                                                    .len = 1 },
+                                   true,
+                                   NPY_ANYORDER))
+        {
+            PyErr_Format(PyExc_RuntimeError, "Couldn't resize outside_ROI_indices_final to %d elements",
+                         stats.NoutsideROI);
+            goto done;
+        }
+        if( 0 != PyDict_SetItemString(pystats, "outside_ROI_indices",
+                                      (PyObject*)outside_ROI_indices_final) )
+        {
+            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outside_ROI_indices'");
             goto done;
         }
 

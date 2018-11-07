@@ -138,6 +138,7 @@ void mrcal_project( // out
 
 #define MRCAL_STATS_ITEM(_)                                           \
     _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble) \
+    _(int,            NoutsideROI,                PyInt_FromLong)     \
     _(int,            Noutliers,                  PyInt_FromLong)
 
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
@@ -153,9 +154,12 @@ mrcal_optimize( // out
                 // caller
                 double* x_final,
                 double* intrinsic_covariances,
-                // Buffer should be at least Npoints long. stats->Noutliers
+                // Buffer should be at least Nfeatures long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,
+                // Buffer should be at least Nfeatures long. stats->NoutsideROI
+                // elements will be filled in
+                int*    outside_ROI_indices_final,
 
                 // out, in
 

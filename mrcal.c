@@ -1917,6 +1917,9 @@ mrcal_optimize( // out
                 // Buffer should be at least Npoints long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,
+                // Buffer should be at least Npoints long. stats->NoutsideROI
+                // elements will be filled in
+                int*    outside_ROI_indices_final,
 
                 // out, in
 
@@ -2995,6 +2998,31 @@ mrcal_optimize( // out
                 outlier_indices_final[ioutlier++] = iFeature;
 
         assert(ioutlier == stats.Noutliers);
+    }
+    if(outside_ROI_indices_final)
+    {
+        stats.NoutsideROI = 0;
+        if( roi != NULL )
+        {
+            for(int i_observation_board=0;
+                i_observation_board<NobservationsBoard;
+                i_observation_board++)
+            {
+                const struct observation_board_t* observation = &observations_board[i_observation_board];
+                const int i_camera = observation->i_camera;
+                for(int i_pt=0;
+                    i_pt < calibration_object_width_n*calibration_object_width_n;
+                    i_pt++)
+                {
+                    const union point2_t* pt_observed = &observation->px[i_pt];
+                    double weight = region_of_interest_weight(pt_observed, roi, i_camera);
+                    if( weight != 1.0 )
+                        outside_ROI_indices_final[stats.NoutsideROI++] =
+                            i_observation_board*calibration_object_width_n*calibration_object_width_n +
+                            i_pt;
+                }
+            }
+        }
     }
 
     if(_solver_context == NULL && solver_context)
