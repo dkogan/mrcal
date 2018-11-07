@@ -1028,12 +1028,12 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
 
         while roi<ROI:
             solve(m,roi)
-            if(too many outliers):
+            if(couldn't fit the data very well):
                 if m < M:
                     m++
                 else:
                     # I'm already at the most complex model
-                    print "Exceeded outlier bounds!"
+                    print "Given distortion model doesn't fit in the required ROI!"
                     break
             else:
                 roi++
@@ -1058,31 +1058,23 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
 
     distortion_model,intrinsics_data,extrinsics,frames = make_seed(inputs)
 
-    if args.skip_outlier_rejection:
-        print "We are NOT rejecting outliers"
-    else:
-        print "We ARE rejecting outliers"
-    if args.skip_regularization:
-        print "We are NOT applying regularization in the solver"
-    else:
-        print "We ARE applying regularization in the solver"
-
     # done with everything. Run the calibration, in several passes
     print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry only"
-    mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                   observations, indices_frame_camera,
-                   None, None,
-                   distortion_model, imagersizes,
-                   do_optimize_intrinsic_core        = False,
-                   do_optimize_intrinsic_distortions = False,
-                   calibration_object_spacing        = args.object_spacing,
-                   calibration_object_width_n        = args.object_width_n,
-                   skip_outlier_rejection            = True,
-                   skip_regularization               = True,
-                   outlier_indices                   = outlier_indices,
-                   roi                               = args.roi,
-                   get_intrinsic_covariances         = False,
-                   VERBOSE                           = False)
+    stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+                           observations, indices_frame_camera,
+                           None, None,
+                           distortion_model, imagersizes,
+                           do_optimize_intrinsic_core        = False,
+                           do_optimize_intrinsic_distortions = False,
+                           calibration_object_spacing        = args.object_spacing,
+                           calibration_object_width_n        = args.object_width_n,
+                           skip_outlier_rejection            = True,
+                           skip_regularization               = True,
+                           outlier_indices                   = outlier_indices,
+                           roi                               = args.roi,
+                           get_intrinsic_covariances         = False,
+                           VERBOSE                           = False)
+    print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
 
     print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only"
     stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
@@ -1099,6 +1091,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                            roi                               = args.roi,
                            get_intrinsic_covariances         = False,
                            VERBOSE                           = False)
+    print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
     # I favor the center pixel at the center of the imager
 
     intrinsics_data[:,2:4] = (imagersizes - 1) / 2
@@ -1144,10 +1137,25 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                 newDistortions[5:8] *= 1e-3
         return nps.glue( intrinsics_data, newDistortions, axis=-1 )
 
-    def eval_solution(stats, Noutliers0):
-        NnewOutliers     = stats['Noutliers'] - Noutliers0
-        NnewOutlierRatio = float(NnewOutliers)/float(Nfeatures)
-        return NnewOutlierRatio < 0.01, "NnewOutlierRatio={}".format(NnewOutlierRatio)
+    def eval_solution(stats):
+
+        Nfeatures = args.object_width_n*args.object_width_n*len(observations)
+        x    = stats['x'][:Nfeatures*2]
+
+        maskout = np.zeros(x.shape, dtype=bool)
+        maskout[stats['outside_ROI_indices']*2 + 0] = True
+        maskout[stats['outside_ROI_indices']*2 + 1] = True
+        s    = np.std(x[~maskout])
+
+        print "RMS error: {}".format(stats['rms_reproj_error__pixels'])
+        print "In-ROI independent x,y stdev: {} (user says {})".format(s, args.observed_pixel_uncertainty)
+
+        # If a model fits in a specific ROI, then (assuming no outliers) all the
+        # error is attributable to input noise. I'm given an estimate of this
+        # noise on the input, so I can check to see if this is true
+        stdev_error_ratio = s / args.observed_pixel_uncertainty
+
+        return stdev_error_ratio < 1.5, "stdev_error_ratio={} (wanted < 1.5)".format(stdev_error_ratio)
 
 
     # Alrighty. All the preliminary business is finished. I should have a usable
@@ -1175,7 +1183,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
 
 
 
-    Nroi = 4
+    Nroi = 8
     if args.roi is None:
         # no explicit region-of-interest given. I thus use the whole imager.
         # I use an ellipse with the imager's aspect ratio, passing through
@@ -1190,7 +1198,6 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
     roi_best   = None
 
     iroi = 0
-    Noutliers0 = 0 if outlier_indices is None else len(outlier_indices)
     while iroi<Nroi:
         roi = get_scaled_roi(roi_final, iroi, Nroi)
 
@@ -1207,14 +1214,15 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                                do_optimize_intrinsic_distortions = True,
                                calibration_object_spacing        = args.object_spacing,
                                calibration_object_width_n        = args.object_width_n,
-                               skip_outlier_rejection            = args.skip_outlier_rejection,
+                               skip_outlier_rejection            = True,
                                skip_regularization               = args.skip_regularization,
                                outlier_indices                   = outlier_indices,
                                roi                               = roi,
                                get_intrinsic_covariances         = False,
                                VERBOSE                           = args.verbose_solver)
 
-        solution_acceptable,solution_description = eval_solution(stats, Noutliers0)
+        solution_acceptable,solution_description = eval_solution(stats)
+
         if solution_acceptable:
             # We found a good solution for this distortion model and ROI. Let's
             # expand the region of interest and go again
@@ -1239,6 +1247,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
             distortion_model1 = mrcal.getNextDistortionModel(distortion_model, args.distortion_model)
 
             if distortion_model1 == distortion_model:
+
                 # we're already at the last model in the family, or at the
                 # maximum model the user asked for. There's nowhere more to go,
                 # so I guess I'm done
@@ -1344,11 +1353,17 @@ result,intrinsics,extrinsics,frames,roi,stats = \
 if args.incremental:
     print ">>>>>>>>>>>>>>>>> " + result
 
+if args.skip_outlier_rejection: print "We are NOT rejecting outliers"
+else:                           print "We ARE rejecting outliers"
+if args.skip_regularization:    print "We are NOT applying regularization in the solver"
+else:                           print "We ARE applying regularization in the solver"
+
+
 # I now optimize again, primarily to get MMt and solver_context. This should be
 # quick since I'm already at the optimum. This solve shouldn't move the
 # operating point at all
 solver_context = mrcal.SolverContext()
-print "Last optimization call to get MMt and solver_context"
+print "vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get MMt and solver_context"
 stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        observations, indices_frame_camera,
                        None, None,
@@ -1357,13 +1372,14 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        do_optimize_intrinsic_distortions = True,
                        calibration_object_spacing        = args.object_spacing,
                        calibration_object_width_n        = args.object_width_n,
-                       skip_outlier_rejection            = True,
+                       skip_outlier_rejection            = args.skip_outlier_rejection,
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = stats['outlier_indices'],
                        roi                               = roi,
                        get_intrinsic_covariances         = True,
                        VERBOSE                           = False,
                        solver_context                    = solver_context)
+print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
 
 try:
     MMt = stats['intrinsic_covariances']  \
