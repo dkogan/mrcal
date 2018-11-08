@@ -1253,6 +1253,25 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                 # so I guess I'm done
                 print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, but no more distortion-models remaining. I'm done".format(solution_description)
 
+                # # For testing. The distribution can be plotted thusly:
+                # import gnuplotlib as gp
+                # x    = stats['x']
+                # maskout = np.zeros(x.shape, dtype=bool)
+                # maskout[stats['outside_ROI_indices']*2 + 0] = True
+                # maskout[stats['outside_ROI_indices']*2 + 1] = True
+                # x = x[~maskout]
+                # s    = np.std(x)
+                # s2   = s*s
+                # gp.plot(x, histogram='freq', binwidth=0.2,
+                #         equation='1./sqrt(2.*pi*{s2})*exp(-x*x/(2.*{s2})) axis x1y2'.format(s2=s2),
+                #         _xrange=[-5.*s,5.*s],
+                #         ymin=0, y2min=0,
+                #         hardcopy='/tmp/tst.gp')
+                # import IPython
+                # IPython.embed()
+                # sys.exit()
+
+
                 if stats_best is None:
                     # This is the best I got I guess
                     intrinsics_data       = state[0]
