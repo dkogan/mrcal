@@ -1155,7 +1155,9 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
         # noise on the input, so I can check to see if this is true
         stdev_error_ratio = s / args.observed_pixel_uncertainty
 
-        return stdev_error_ratio < 1.5, "stdev_error_ratio={} (wanted < 1.5)".format(stdev_error_ratio)
+        q_threshold = 1.5
+
+        return stdev_error_ratio < q_threshold, "stdev_error_ratio={} (wanted < {})".format(stdev_error_ratio, q_threshold)
 
 
     # Alrighty. All the preliminary business is finished. I should have a usable
@@ -1239,7 +1241,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
             result                = 'Usable solve found at the full ROI'
 
             iroi += 1
-            print "^^^^^^^^^^^^^^^^^^^^ {}: good solve!".format(solution_description)
+            print "^^^^^^^^^^^^^^^^^^^^ {}: good solve! roi++".format(solution_description)
         else:
             # This solution wasn't very good. Let's try a richer distortion
             # model
@@ -1290,7 +1292,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                 # outlier list the same
                 distortion_model = distortion_model1
                 intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
-                print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, trying next distortion model".format(solution_description)
+                print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, distortion++".format(solution_description)
 
     return result,(distortion_model_best,  \
                    intrinsics_data[:,:(4+mrcal.getNdistortionParams(distortion_model_best))]), \
@@ -1371,6 +1373,9 @@ result,intrinsics,extrinsics,frames,roi,stats = \
     incremental_optimize(args, imagersizes, observations, indices_frame_camera, outlier_indices, not args.incremental)
 if args.incremental:
     print ">>>>>>>>>>>>>>>>> " + result
+    print "Final Distortion model: {}".format(intrinsics[0])
+    print "Final ROI:              {}".format(roi)
+
 
 if args.skip_outlier_rejection: print "We are NOT rejecting outliers"
 else:                           print "We ARE rejecting outliers"
