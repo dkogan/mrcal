@@ -842,16 +842,13 @@ static union point2_t project( // out
 }
 
 // Compute the region-of-interest weight. The region I care about is in r=[0,1];
-// here the weight is ~ 1. Past that, the weight falls off
+// here the weight is ~ 1. Past that, the weight falls off. I don't attenuate
+// all the way to 0 to preserve the constraints of the problem. Letting these go
+// to 0 could make the problem indeterminate
 static double region_of_interest_weight_from_unitless_rad(double rsq)
 {
-    const double r0 = 0.9; // 1.0 at < r0
-    const double r1 = 1.1; // w1  at > r1
-    const double w1 = 1e-6; // >0 because I want geometric constraints to do
-
-    if( rsq <= r0 ) return 1.0;
-    if( rsq >= r1 ) return w1;
-    return (w1-1.0)/(r1-r0)*(rsq-r0) + 1.0;
+    if( rsq < 1.0 ) return 1.0;
+    return 1e-3;
 }
 static double region_of_interest_weight(const union point2_t* pt,
                                         const double* roi, int i_camera)
