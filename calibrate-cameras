@@ -1137,15 +1137,48 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                 newDistortions[5:8] *= 1e-3
         return nps.glue( intrinsics_data, newDistortions, axis=-1 )
 
-    def eval_solution(stats):
+    def eval_solution(stats, outside_ROI_indices__prevROI):
 
         Nfeatures = args.object_width_n*args.object_width_n*len(observations)
         x    = stats['x'][:Nfeatures*2]
 
-        maskout = np.zeros(x.shape, dtype=bool)
-        maskout[stats['outside_ROI_indices']*2 + 0] = True
-        maskout[stats['outside_ROI_indices']*2 + 1] = True
-        s    = np.std(x[~maskout])
+        def makemask_inside(outside_indices):
+            maskout = np.zeros(x.shape, dtype=bool)
+            maskout[outside_indices*2 + 0] = True
+            maskout[outside_indices*2 + 1] = True
+            return ~maskout
+
+
+        if outside_ROI_indices__prevROI is None:
+            maskin = makemask_inside(stats['outside_ROI_indices'])
+            s = np.std(x[maskin])
+
+        else:
+            maskold_only = makemask_inside(outside_ROI_indices__prevROI)
+            masknew_only = \
+                makemask_inside (stats['outside_ROI_indices']) * \
+                ~maskold_only
+
+
+            # It's possible that increasing the roi adds a SMALL NUMBER of
+            # points total. If the model doesn't fit the new ROI well, these
+            # points would have high errors, but since there aren't a lot of
+            # them, this wouldn't reflect at all in the new distribution. I
+            # re-weight the distribution of the NEW points to be equal to the
+            # distribution of all the previous points in the set
+            xold = x[maskold_only]
+            xnew = x[masknew_only]
+            if len(xnew) == 0:
+                print "RMS error: {}".format(stats['rms_reproj_error__pixels'])
+                return True,"Extended ROI contains no new data"
+
+            wnew = len(xold)/len(xnew)
+
+            mean = (np.sum( xold                  ) + wnew*np.sum( xnew                  )) / (2. * len(xold))
+            var  = (np.sum((xold-mean)*(xold-mean)) + wnew*np.sum((xnew-mean)*(xnew-mean))) / (2. * len(xold))
+            s    = np.sqrt(var)
+
+
 
         print "RMS error: {}".format(stats['rms_reproj_error__pixels'])
         print "In-ROI independent x,y stdev: {} (user says {})".format(s, args.observed_pixel_uncertainty)
@@ -1200,9 +1233,11 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
     roi_best   = None
 
     iroi = 0
+    outside_ROI_indices__prevROI = None
     while iroi<Nroi:
         roi = get_scaled_roi(roi_final, iroi, Nroi)
 
+        print ""
         print "vvvvvvvvvvvvvvvvvvvv next distortion/ROI:"
         print "Distortion model: {}"   .format(distortion_model)
         print "ROI:              {}/{}  ({})".format(iroi+1, Nroi, roi)
@@ -1223,7 +1258,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                                get_intrinsic_covariances         = False,
                                VERBOSE                           = args.verbose_solver)
 
-        solution_acceptable,solution_description = eval_solution(stats)
+        solution_acceptable,solution_description = eval_solution(stats, outside_ROI_indices__prevROI)
 
         if solution_acceptable:
             # We found a good solution for this distortion model and ROI. Let's
@@ -1240,6 +1275,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
             distortion_model_best = copy.deepcopy(distortion_model)
             result                = 'Usable solve found at the full ROI'
 
+            outside_ROI_indices__prevROI = stats['outside_ROI_indices']
             iroi += 1
             print "^^^^^^^^^^^^^^^^^^^^ {}: good solve! roi++".format(solution_description)
         else:
