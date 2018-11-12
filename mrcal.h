@@ -209,6 +209,7 @@ mrcal_optimize( // out
                 const bool skip_outlier_rejection,
 
                 enum distortion_model_t distortion_model,
+                double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras*2 of these
                 struct mrcal_variable_select optimization_variable_choice,
 

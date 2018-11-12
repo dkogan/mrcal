@@ -1905,6 +1905,134 @@ static bool computeConfidence_MMt(// out
 #undef X
 }
 
+// Doing this myself instead of hooking into the logic in libdogleg. THIS
+// implementation is simpler (looks just at the residuals), but also knows to
+// ignore the outside-ROI data
+static
+bool markOutliers(// output, input
+                  struct dogleg_outliers_t* markedOutliers,
+
+                  // output
+                  int* Noutliers,
+
+                  // input
+                  const struct observation_board_t* observations_board,
+                  int NobservationsBoard,
+                  int calibration_object_width_n,
+                  double* roi,
+
+                  double* x_measurements,
+                  double expected_xy_stdev,
+                  bool VERBOSE)
+{
+    // I define an outlier as a feature that's > k stdevs past the mean. The
+    // threshold stdev is the worse of
+    // - The stdev of my data set
+    // - The expected stdev of my noise (calibrate-cameras
+    //   --observed-pixel-uncertainty)
+    //
+    // The rationale:
+    //
+    // - If I have a really good solve, the stdev of my data set will be very
+    //   low, so deviations off that already-very-good solve aren't important. I
+    //   use the expected-noise stdev in this case
+    //
+    // - If the solve isn't great, my errors may exceed the expected-noise stdev
+    //   (if my model doesn't fit very well, say). In that case I want to use
+    //   the stdev from the data
+
+    // threshold
+    const double k = 3.0;
+
+    *Noutliers = 0;
+    double sum_mean = 0.0;
+
+    int i_pt,i_feature;
+
+
+#define LOOP_FEATURE_BEGIN()                                            \
+    i_feature = 0;                                                      \
+    for(int i_observation_board=0;                                      \
+        i_observation_board<NobservationsBoard;                         \
+        i_observation_board++)                                          \
+    {                                                                   \
+        const struct observation_board_t* observation = &observations_board[i_observation_board]; \
+        const int i_camera = observation->i_camera;                     \
+        for(i_pt=0;                                                     \
+            i_pt < calibration_object_width_n*calibration_object_width_n; \
+            i_pt++, i_feature++)                                        \
+        {                                                               \
+            const union point2_t* pt_observed = &observation->px[i_pt]; \
+            double weight = region_of_interest_weight(pt_observed, roi, i_camera);
+
+
+#define LOOP_FEATURE_END() \
+    }}
+
+
+    int Nfeatures_active = 0;
+    LOOP_FEATURE_BEGIN()
+    {
+        if(markedOutliers[i_feature].marked)
+        {
+          (*Noutliers)++;
+          continue;
+        }
+        if(weight != 1.0) continue;
+
+        Nfeatures_active++;
+        sum_mean +=
+            x_measurements[2*i_feature + 0] +
+            x_measurements[2*i_feature + 1];
+    }
+    LOOP_FEATURE_END();
+    sum_mean /= (double)(2*Nfeatures_active);
+
+    double var = 0.0;
+    LOOP_FEATURE_BEGIN()
+    {
+        if(markedOutliers[i_feature].marked)
+          continue;
+        if(weight != 1.0) continue;
+
+        double dx = (x_measurements[2*i_feature + 0] - sum_mean);
+        double dy = (x_measurements[2*i_feature + 1] - sum_mean);
+
+        var += dx*dx + dy*dy;
+    }
+    LOOP_FEATURE_END();
+    var /= (double)(2*Nfeatures_active);
+
+    if(var < expected_xy_stdev*expected_xy_stdev)
+        var = expected_xy_stdev*expected_xy_stdev;
+
+    bool markedAny = false;
+    LOOP_FEATURE_BEGIN()
+    {
+        if(markedOutliers[i_feature].marked)
+          continue;
+        if(weight != 1.0) continue;
+
+        double dx = (x_measurements[2*i_feature + 0] - sum_mean);
+        double dy = (x_measurements[2*i_feature + 1] - sum_mean);
+        if(dx*dx > k*k*var || dy*dy > k*k*var )
+        {
+            markedOutliers[i_feature].marked = true;
+            markedAny                        = true;
+            (*Noutliers)++;
+            MSG_IF_VERBOSE("Feature %d looks like an outlier (x/y are %f/%f stdevs off mean)",
+                           i_feature, sqrt(dx*dx/var), sqrt(dy*dy/var));
+        }
+    }
+    LOOP_FEATURE_END();
+
+    return markedAny;
+
+#undef LOOP_FEATURE_BEGIN
+#undef LOOP_FEATURE_END
+}
+
+
 struct mrcal_stats_t
 mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
@@ -1959,6 +2087,7 @@ mrcal_optimize( // out
                 const bool skip_outlier_rejection,
 
                 enum distortion_model_t distortion_model,
+                double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras*2 of these
 
                 struct mrcal_variable_select optimization_variable_choice,
@@ -2874,11 +3003,6 @@ mrcal_optimize( // out
         }
         reportFitMsg = NULL;
 
-        double getConfidence(int i_exclude_feature)
-        {
-            return 1.0;
-        }
-
 
         double outliernessScale = -1.0;
         do
@@ -2889,6 +3013,9 @@ mrcal_optimize( // out
             if(_solver_context != NULL)
                 *_solver_context = solver_context;
 
+#if 0
+            // Not using dogleg_markOutliers() (for now?)
+
             if(outliernessScale < 0.0 && VERBOSE)
                 // These are for debug reporting
                 dogleg_reportOutliers(getConfidence,
@@ -2896,14 +3023,18 @@ mrcal_optimize( // out
                                       2, Npoints_fromBoards,
                                       stats.Noutliers,
                                       solver_context->beforeStep, solver_context);
+#endif
 
         } while( !skip_outlier_rejection &&
-                 dogleg_markOutliers(markedOutliers,
-                                     &outliernessScale,
-                                     &stats.Noutliers,
-                                     getConfidence,
-                                     2, Npoints_fromBoards,
-                                     solver_context->beforeStep, solver_context) );
+                 markOutliers(markedOutliers,
+                              &stats.Noutliers,
+                              observations_board,
+                              NobservationsBoard,
+                              calibration_object_width_n,
+                              roi,
+                              solver_context->beforeStep->x,
+                              observed_pixel_uncertainty,
+                              VERBOSE) );
 
         // Done. I have the final state. I spit it back out
         unpack_solver_state( intrinsics, // Ncameras of these
@@ -2914,16 +3045,17 @@ mrcal_optimize( // out
                              distortion_model,
                              optimization_variable_choice,
                              Ncameras, Nframes, Npoints, Nstate);
-
-
         if(VERBOSE)
         {
+            // Not using dogleg_markOutliers() (for now?)
+#if 0
             // These are for debug reporting
             dogleg_reportOutliers(getConfidence,
                                   &outliernessScale,
                                   2, Npoints_fromBoards,
                                   stats.Noutliers,
                                   solver_context->beforeStep, solver_context);
+#endif
 
             reportFitMsg = "After";
 #warning hook this up

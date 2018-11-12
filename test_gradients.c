@@ -173,6 +173,7 @@ int main(int argc, char* argv[] )
                     false,
                     true,
                     distortion_model,
+                    1.0,
                     imagersizes,
                     optimization_variable_choice,
 

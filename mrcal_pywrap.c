@@ -573,6 +573,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1 COMMA  2       } ) \
     _(distortion_model,                   PyObject*,      NULL,    "S",  ,                                  -1,         {}                   ) \
+    _(observed_pixel_uncertainty,         PyObject*,      NULL,    "O",  ,                                  -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
@@ -785,6 +786,19 @@ static bool optimize_validate_args( // out
             }
             iskip_last = iskip;
         }
+    }
+
+    if(!PyFloat_Check(observed_pixel_uncertainty))
+    {
+        PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
+        return false;
+    }
+    double c_observed_pixel_uncertainty =
+        PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
+    if( c_observed_pixel_uncertainty <= 0.0 )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
+        return false;
     }
 
     if( !(solver_context == NULL ||
@@ -1115,6 +1129,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             c_roi = PyArray_DATA(roi);
 
         int* c_imagersizes = PyArray_DATA(imagersizes);
+        double c_observed_pixel_uncertainty = PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
 
         void** solver_context_optimizer = NULL;
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
@@ -1152,6 +1167,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         VERBOSE &&                PyObject_IsTrue(VERBOSE),
                         skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                         distortion_model_type,
+                        c_observed_pixel_uncertainty,
                         c_imagersizes,
                         optimization_variable_choice,
 

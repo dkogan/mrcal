@@ -8,7 +8,9 @@ Synopsis:
                             observations_board, indices_frame_camera,
                             observations_point, indices_point_camera_points, 
 
-                            distortion_model, imagersizes,
+                            distortion_model,
+                            imagersizes                       = imagersizes,
+                            observed_pixel_uncertainty        = observed_pixel_uncertainty,
                             do_optimize_intrinsic_core        = True,
                             do_optimize_intrinsic_distortions = True,
                             calibration_object_spacing        = object_spacing,
@@ -109,6 +111,14 @@ REQUIRED ARGS:
   DISTORTION_CAHVOR
 
 - imagersizes: integer array of dims (Ncameras,2)
+
+- observed_pixel_uncertainty: The standard deviation of x and y pixel
+  coordinates of the input observations. The distribution of the inputs is
+  assumed to be gaussian, with the standard deviation specified by this
+  argument. Note: this is the x and y standard deviation, treated independently.
+  If each of these is s, then the LENGTH of the deviation of each pixel is a
+  Rayleigh distribution with expected value s*sqrt(pi/2) ~ s*1.25. This is used
+  to set the outlier rejection threshold
 
 OPTIONAL ARGS:
 
