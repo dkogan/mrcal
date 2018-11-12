@@ -1078,6 +1078,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                            VERBOSE                           = False)
     print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
 
+    print ""
     print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only"
     stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                            observations, indices_frame_camera,
@@ -1168,18 +1169,21 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
             # points total. If the model doesn't fit the new ROI well, these
             # points would have high errors, but since there aren't a lot of
             # them, this wouldn't reflect at all in the new distribution. I
-            # re-weight the distribution of the NEW points to be equal to the
-            # distribution of all the previous points in the set
+            # re-weight the distribution of the NEW points to be equal to k
+            # times the distribution of all the previous points in the set. If
+            # k==1 then the set of the new points is equivalent in weight to the
+            # set of the old points
+            k = 1
             xold = x[maskold_only]
             xnew = x[masknew_only]
             if len(xnew) == 0:
                 print "RMS error: {}".format(stats['rms_reproj_error__pixels'])
                 return True,"Extended ROI contains no new data"
 
-            wnew = len(xold)/len(xnew)
+            wnew = k * len(xold)/len(xnew)
 
-            mean = (np.sum( xold                  ) + wnew*np.sum( xnew                  )) / (2. * len(xold))
-            var  = (np.sum((xold-mean)*(xold-mean)) + wnew*np.sum((xnew-mean)*(xnew-mean))) / (2. * len(xold))
+            mean = (np.sum( xold                  ) + wnew*np.sum( xnew                  )) / ((1. + k) * len(xold))
+            var  = (np.sum((xold-mean)*(xold-mean)) + wnew*np.sum((xnew-mean)*(xnew-mean))) / ((1. + k) * len(xold))
             s    = np.sqrt(var)
 
 
