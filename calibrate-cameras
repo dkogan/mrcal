@@ -842,18 +842,24 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
 
     return frame_poses_rt
 
-def make_seed(inputs):
+def make_seed( imagersizes,
+               focal_estimate,
+               Ncameras,
+               indices_frame_camera,
+               dots,
+               dot_spacing,
+               object_width_n):
     r'''Generate a solution seed for a given input'''
 
 
-    def make_intrinsics_vector(i_camera, inputs):
-        imager_w,imager_h = inputs['imagersizes'][i_camera]
-        return np.array( (inputs['focal_estimate'], inputs['focal_estimate'],
+    def make_intrinsics_vector(i_camera):
+        imager_w,imager_h = imagersizes[i_camera]
+        return np.array( (focal_estimate, focal_estimate,
                           float(imager_w-1)/2.,
                           float(imager_h-1)/2.))
 
-    intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera, inputs) \
-                                 for i_camera in xrange(inputs['Ncameras'])] )
+    intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera) \
+                                 for i_camera in xrange(Ncameras)] )
 
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame
@@ -864,12 +870,12 @@ def make_seed(inputs):
     # produces the calibration object points in the coord system of the camera.
     # The result has dimensions (N,4,3)
     calobject_poses_local_Rt = \
-        estimate_local_calobject_poses( inputs['indices_frame_camera'],
-                                        inputs['dots'],
-                                        inputs['dot_spacing'],
-                                        inputs['focal_estimate'],
-                                        inputs['imagersizes'],
-                                        inputs['object_width_n'])
+        estimate_local_calobject_poses( indices_frame_camera,
+                                        dots,
+                                        dot_spacing,
+                                        focal_estimate,
+                                        imagersizes,
+                                        object_width_n)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
 
@@ -883,11 +889,11 @@ def make_seed(inputs):
     # I get transformations that map points in 1-Nth camera coord system to 0th
     # camera coord system. Rt have dimensions (N-1,4,3)
     camera_poses_Rt = estimate_camera_poses( calobject_poses_local_Rt,
-                                             inputs['indices_frame_camera'],
-                                             inputs['dots'],
-                                             inputs['dot_spacing'],
-                                             inputs['Ncameras'],
-                                             inputs['object_width_n'])
+                                             indices_frame_camera,
+                                             dots,
+                                             dot_spacing,
+                                             Ncameras,
+                                             object_width_n)
 
     if len(camera_poses_Rt):
         # extrinsics should map FROM the ref coord system TO the coord system of the
@@ -899,9 +905,9 @@ def make_seed(inputs):
 
     frames = \
         estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt,
-                             inputs['indices_frame_camera'],
-                             inputs['dot_spacing'],
-                             inputs['object_width_n'])
+                             indices_frame_camera,
+                             dot_spacing,
+                             object_width_n)
     return 'DISTORTION_NONE',intrinsics_data,extrinsics,frames
 
 
@@ -1048,15 +1054,16 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
     '''
 
     Ncameras = len(args.images)
-    inputs = {'imagersizes':          imagersizes,
-              'focal_estimate':       args.focal,
-              'Ncameras':             Ncameras,
-              'indices_frame_camera': indices_frame_camera,
-              'dots':                 observations,
-              'dot_spacing':          args.object_spacing,
-              'object_width_n':       args.object_width_n}
 
-    distortion_model,intrinsics_data,extrinsics,frames = make_seed(inputs)
+    distortion_model,intrinsics_data,extrinsics,frames = \
+        make_seed(imagersizes          = imagersizes,
+                  focal_estimate       = args.focal,
+                  Ncameras             = Ncameras,
+                  indices_frame_camera = indices_frame_camera,
+                  dots                 = observations,
+                  dot_spacing          = args.object_spacing,
+                  object_width_n       = args.object_width_n)
+
 
     # done with everything. Run the calibration, in several passes
     print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry only"
