@@ -1349,9 +1349,14 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                 intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
                 print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, distortion++".format(solution_description)
 
-    return result,(distortion_model_best,  \
-                   intrinsics_data[:,:(4+mrcal.getNdistortionParams(distortion_model_best))]), \
-                   extrinsics,frames,roi_best,stats_best
+    return                                                                            \
+        result,                                                                       \
+        ( distortion_model_best,                                                      \
+          intrinsics_data[:,:(4+mrcal.getNdistortionParams(distortion_model_best))]), \
+         extrinsics,                                                                  \
+         frames,                                                                      \
+         roi_best,                                                                    \
+         stats_best
 
 
 
