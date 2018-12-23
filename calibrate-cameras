@@ -940,17 +940,43 @@ def get_imagersize_one(g, args_imagersize):
 
 
 
-# These are for testing
-def get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths):
+
+# # Test for this function
+# Nobservations = 5
+# indices = np.array((1,3,4), dtype=int)
+# observations = np.arange(15).reshape(5,3)
+# frames = np.array((10,11,12,13), dtype=int)
+# indices_frame_camera = np.array(((0,100),
+#                                  (1,200),
+#                                  (2,300),
+#                                  (3,900),
+#                                  (3,800)),
+#                                 dtype=int)
+# paths = np.arange(Nobservations)
+# outlier_indices=np.array((2,5, 205,208, 311,390), dtype=int)
+# # observations 0xx and 2xx are skipped
+# # observation 3xx is now observation 1xx
+# # 111,190
+# split_observations, split_indices_frame_camera, split_paths, split_frames, split_outlier_indices = \
+#     get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths,
+#                                          frames,
+#                                          outlier_indices)
+# print split_outlier_indices
+def get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths,
+                                         frames = None,
+                                         outlier_indices = None):
     r'''Returns a subset of observations from observation indices
 
-    Observations are stored across 2 variables:
+    Observations are stored across variables:
 
     - observations
     - indices_frame_camera
+    - paths
+    - frames
+    - outlier_indices
 
     These must all be self-consistent. This function takes in the desired
-    observation indices to keep, and returns copies of all 3 variables that
+    observation indices to keep, and returns copies of all the variables that
     contain the requested subset of data and are consistent with each other
 
     '''
@@ -963,10 +989,72 @@ def get_observation_subset__from_indices(indices, observations, indices_frame_ca
     indices_frame_camera_new = indices_frame_camera[indices, ...].copy()
 
     # I now collapse newly-missing frames and build the frame indices
-    indices_frames = []
+    indices_frames  = []
     iframe_old_last = -1
     iframe_new_last = -1
-    for iobs_new in xrange(len(indices_frame_camera_new)):
+
+    if outlier_indices is not None:
+        # I make a copy of the outlier indices array, and iterate through it. As I
+        # go I copy indices from the back of the array to the front. Initially the
+        # to/from pointers are identical, but as I skip observations I'm going to be
+        # skipping outlier indices, and a gap will developt between the pointers
+        outlier_indices = outlier_indices.copy()
+
+        # Index into the outlier_indices array that I copy FROM
+        i_outlier_indices_old = 0
+        # Index into the outlier_indices array that I copy TO
+        i_outlier_indices_new = 0
+
+
+    Nfeatures_in_observation = args.object_width_n*args.object_width_n
+
+    def outlier_index_next_bounds(i0, iobs):
+
+
+        ifeature_threshold = iobs*Nfeatures_in_observation
+        for i in xrange(i0,len(outlier_indices)):
+            if outlier_indices[i] >= ifeature_threshold:
+                break
+        else:
+            return len(outlier_indices),len(outlier_indices)
+
+        # found beginning of the set of outliers for this observation (or
+        # further ones). If these outliers are for THIS observation, find the
+        # end of the outliers for this observation. Otherwise tell the caller
+        i0 = i
+        if int(outlier_indices[i]/Nfeatures_in_observation) != iobs:
+            # I don't have any outliers for this observation
+            return i0,i0
+
+        ifeature_threshold += Nfeatures_in_observation
+        for i in xrange(i0+1,len(outlier_indices)):
+            if outlier_indices[i] >= ifeature_threshold:
+                return i0,i
+
+        return i0,len(outlier_indices)
+
+    def outlier_indices_accept(iobs_old, iobs_new, i_outlier_indices_old,i_outlier_indices_new):
+
+        # I need to grab outliers for this observation. These begin somewhere
+        # at/after i_outlier_indices_old because I may have skipped some
+        # observations. First I find where the observations I want begin
+        iold0,iold1 = outlier_index_next_bounds(i_outlier_indices_old, iobs_old)
+        if iold0 == iold1:
+            # I don't have any outliers for this observation
+            return iold1, i_outlier_indices_new
+
+        Noutliers_here = iold1-iold0
+        inew0 = i_outlier_indices_new
+        inew1 = inew0 + Noutliers_here
+        i_observations_offset = iobs_old-iobs_new
+
+        outlier_indices[inew0:inew1] = outlier_indices[iold0:iold1] - i_observations_offset*Nfeatures_in_observation
+
+        return iold1, i_outlier_indices_new + Noutliers_here
+
+
+    for iobs_new in xrange(len(indices)):
+        iobs_old   = indices[iobs_new]
         iframe_old = indices_frame_camera_new[iobs_new,0]
         if iframe_old != iframe_old_last:
             # Saw new frame. The iframe in the data is going to be
@@ -974,13 +1062,25 @@ def get_observation_subset__from_indices(indices, observations, indices_frame_ca
             # update the mapping
             iframe_new_last += 1
             iframe_old_last = iframe_old
-
             indices_frames.append(iframe_old)
         indices_frame_camera_new[iobs_new,0] = iframe_new_last
 
-    return observations_new, indices_frame_camera_new, paths_new
+        if outlier_indices is not None:
+            i_outlier_indices_old,i_outlier_indices_new = \
+                outlier_indices_accept(iobs_old, iobs_new,
+                                   i_outlier_indices_old,i_outlier_indices_new)
 
-def get_observation_subset__random(ratio_cull, observations, paths, indices_frame_camera):
+
+    if frames is not None:
+        frames_new = frames[indices_frames, ...].copy()
+    else:
+        frames_new = None
+
+    if outlier_indices is not None:
+        outlier_indices = outlier_indices[:i_outlier_indices_new]
+    return observations_new, indices_frame_camera_new, paths_new, frames_new, outlier_indices
+
+def get_observation_subset__random(ratio_cull, observations, indices_frame_camera, paths):
     r'''Returns a random subset of observations'''
 
     # keep this many
@@ -994,7 +1094,7 @@ def get_observation_subset__right_of_threshold_and_within_center(point_x_thresho
                                                                  rad_threshold,
                                                                  observations,
                                                                  imagersizes,
-                                                                 paths, indices_frame_camera, object_width_n):
+                                                                 indices_frame_camera, paths, object_width_n):
     r'''Returns a subset of observations
 
     This throws out all observations that lie COMPLETELY to the left of the
@@ -1396,19 +1496,19 @@ observations, indices_frame_camera, paths = \
 
 
 if args.cull_random_observations_ratio >= 0:
-    observations, indices_frame_camera, paths = \
+    observations, indices_frame_camera, paths, _, _ = \
         get_observation_subset__random(args.cull_random_observations_ratio,
-                                       observations, paths, indices_frame_camera)
+                                       observations, indices_frame_camera, paths)
 outlier_indices = None
 if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
 
     # first cut off full observations
-    observations, indices_frame_camera, paths = \
+    observations, indices_frame_camera, paths, _, _ = \
         get_observation_subset__right_of_threshold_and_within_center( \
             args.cull_points_left_of,
             args.cull_points_rad_off_center,
             observations,
-            imagersizes, paths, indices_frame_camera,
+            imagersizes, indices_frame_camera, paths,
             args.object_width_n)
 
     # any observations that lie partially outside the threshold remain. I cut
