@@ -57,6 +57,25 @@ import mrcal
 
 
 def parse_args():
+
+    def positive_float(string):
+        try:
+            value = float(string)
+        except:
+            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+        if value <= 0:
+            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+        return value
+    def positive_int(string):
+        try:
+            value = int(string)
+        except:
+            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+        if value <= 0 or abs(value-float(string)) > 1e-6:
+            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+        return value
+
+
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -111,6 +130,12 @@ def parse_args():
                         is a target, and the requested distortion model is the
                         upper bound. If we can get away with a simpler one, we
                         use that.''')
+    parser.add_argument('--num-cross-validation-splits',
+                        required=False,
+                        default=1,
+                        type=positive_int,
+                        help='''If passed, we cross-validate the results with this many splits. This only
+                        makes sense as an integer >1. THIS IS EXPERIMENTAL.''')
     parser.add_argument('--jobs', '-j',
                         type=int,
                         default=1,
@@ -153,15 +178,6 @@ def parse_args():
                         required=False,
                         default=False,
                         help='''After the solve open an interactive shell to examine the solution''')
-
-    def positive_float(string):
-        try:
-            value = float(string)
-        except:
-            raise argparse.ArgumentTypeError("argument MUST be positive. Got '{}'".format(string))
-        if value <= 0:
-            raise argparse.ArgumentTypeError("argument MUST be positive. Got '{}'".format(string))
-        return value
     parser.add_argument('--observed-pixel-uncertainty',
                         type=positive_float,
                         required=True,
@@ -1546,6 +1562,162 @@ else:                           print "We ARE applying regularization in the sol
 # quick since I'm already at the optimum. This solve shouldn't move the
 # operating point at all
 solver_context = mrcal.SolverContext()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if args.num_cross_validation_splits > 1:
+
+    # THIS IS ALL VERY EXPERIMENTAL
+
+
+    def cross_validation_makesplit(Nobservations, Nsplit):
+        r'''Returns a random splitting of the data set
+
+        This function returns a python list (of length Nsplit). Each contains a
+        numpy array of sorted integer indices
+
+        I have Nobservations observations, and I want to split them into Nsplit
+        equal (and random) sets. If an even splitting isn't possible, the N
+        stragglers are distributed amount the N trailing sets
+
+        '''
+
+        # I create a random list of indices, and take sequential subsets of it
+        i_observations = np.arange(Nobservations, dtype=np.int32)
+        np.random.shuffle(i_observations)
+
+        # I could do this:
+        #   s = [i_observations[isplit*N_insplit:(isplit+1)*N_insplit] for isplit in xrange(Nsplit)]
+        # But then I need to deal with the remaining observations. For instance,
+        # trying to split 14 into 4 groups would create 4 groups of 3, and 2
+        # observations remaining. I want to distribute these 2 extra observations
+        # one-at-a-time among my groups, hence this logic:
+
+        s = [None] * Nsplit
+        iobservation = 0
+        for isplit in xrange(Nsplit):
+            N_inthissplit = int( (Nobservations - iobservation) / (Nsplit - isplit))
+            s[isplit] = i_observations[iobservation:iobservation+N_inthissplit]
+            iobservation += N_inthissplit
+
+        for i in s:
+            i.sort()
+
+        return s
+
+
+
+
+    Nobservations = indices_frame_camera.shape[0]
+    splits = cross_validation_makesplit(Nobservations, args.num_cross_validation_splits)
+    for isplit in xrange(len(splits)):
+
+        s = splits[isplit]
+
+        split_observations, split_indices_frame_camera, split_paths, split_frames, split_outlier_indices = \
+            get_observation_subset__from_indices(s, observations, indices_frame_camera, paths,
+                                                 frames, stats['outlier_indices'])
+
+        split_intrinsics = copy.deepcopy(intrinsics)
+        split_extrinsics = copy.deepcopy(extrinsics)
+
+        print "vvvvvvvvvvvvvvvvvvvv Evaluating split {}/{}".format(isplit, args.num_cross_validation_splits)
+        stats = mrcal.optimize(split_intrinsics[1],
+                               split_extrinsics,
+                               split_frames,
+                               None,
+                               split_observations, split_indices_frame_camera,
+                               None, None,
+                               split_intrinsics[0],
+                               imagersizes                       = imagersizes,
+                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
+                               do_optimize_intrinsic_core        = True,
+                               do_optimize_intrinsic_distortions = True,
+                               calibration_object_spacing        = args.object_spacing,
+                               calibration_object_width_n        = args.object_width_n,
+                               skip_outlier_rejection            = args.skip_outlier_rejection,
+                               skip_regularization               = args.skip_regularization,
+                               outlier_indices                   = split_outlier_indices,
+                               roi                               = roi,
+                               get_intrinsic_covariances         = True,
+                               VERBOSE                           = False,
+                               solver_context                    = solver_context)
+        print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
+
+        try:
+            MMt = stats['intrinsic_covariances']  \
+                * args.observed_pixel_uncertainty \
+                * args.observed_pixel_uncertainty
+        except:
+            MMt = None
+
+        report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
+
+        # Npoints = args.object_width_n*args.object_width_n*len(split_observations)
+
+        # xyerr = stats['x'][:Npoints*2].reshape(Npoints,2)
+        # worst_point_err = np.sqrt(np.max(nps.inner(xyerr,xyerr)))
+        # report += "Worst reprojection error: {:.01f} pixels\n".format(worst_point_err)
+        # report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
+        #     format(stats['Noutliers'],
+        #            args.object_width_n*args.object_width_n*len(split_observations),
+        #            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(split_observations)))
+        # if MMt is not None:
+        #     report += "Expected projection uncertainty due to input pixel observations.\n"
+        #     report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
+        #     report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
+        #     report += "  The corners are 10% inside the image. The reported numbers are 'expected projection\n"
+        #     report += "  error', measured in pixels.\n"
+        #     Expected_projection_shift = np.zeros((Ncameras, 5))
+        #     for i_camera in xrange(Ncameras):
+
+        #         v = np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+        #                       (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+        #                       (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
+        #                       (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
+        #                       (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1])))
+        #         # 3D vectors we're projecting
+        #         # shape (Ncameras, 5, 3)
+        #         V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
+        #         Expected_projection_shift[i_camera, :] = \
+        #             mrcal.get_projection_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
+        #     report += np.array2string(Expected_projection_shift, precision=2) + "\n"
+
+        print report
+
+
+
+    print "done!!!!!!"
+    sys.exit()
+
+
+
+
+
+
+
+
+
+
+
+
 print "vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get MMt and solver_context"
 stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        observations, indices_frame_camera,
