@@ -1040,6 +1040,7 @@ static void pack_solver_state( // out
 }
 
 // Same as above, but packs/unpacks a vector instead of structures
+__attribute__((unused))
 static void pack_solver_state_vector( // out, in
                                      double* p, // unitless state on input,
                                                 // scaled, meaningful state on
@@ -1919,9 +1920,9 @@ bool markOutliers(// output, input
                   const struct observation_board_t* observations_board,
                   int NobservationsBoard,
                   int calibration_object_width_n,
-                  double* roi,
+                  const double* roi,
 
-                  double* x_measurements,
+                  const double* x_measurements,
                   double expected_xy_stdev,
                   bool VERBOSE)
 {
