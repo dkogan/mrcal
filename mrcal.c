@@ -1946,7 +1946,6 @@ bool markOutliers(// output, input
     const double k = 3.0;
 
     *Noutliers = 0;
-    double sum_mean = 0.0;
 
     int i_pt,i_feature;
 
@@ -1971,7 +1970,11 @@ bool markOutliers(// output, input
     }}
 
 
+    // I loop through my data 3 times: 2 times to compute the stdev, and then
+    // once more to use that value to identify the outliers
+
     int Nfeatures_active = 0;
+    double sum_mean = 0.0;
     LOOP_FEATURE_BEGIN()
     {
         if(markedOutliers[i_feature].marked)
@@ -2022,7 +2025,7 @@ bool markOutliers(// output, input
             markedAny                        = true;
             (*Noutliers)++;
             MSG_IF_VERBOSE("Feature %d looks like an outlier (x/y are %f/%f stdevs off mean)",
-                           i_feature, sqrt(dx*dx/var), sqrt(dy*dy/var));
+                           i_feature, dx/sqrt(var), dy/sqrt(var));
         }
     }
     LOOP_FEATURE_END();
