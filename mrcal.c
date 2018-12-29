@@ -2104,8 +2104,7 @@ mrcal_optimize( // out
     if( IS_OPTIMIZE_NONE(optimization_variable_choice) )
         MSG("Warning: Not optimizing any of our variables");
 
-    if(VERBOSE)
-        dogleg_setDebug(100);
+    dogleg_setDebug( VERBOSE ? 100 : 0 );
 
 #warning update these parameters
     // These were derived empirically, seeking high accuracy, fast convergence
