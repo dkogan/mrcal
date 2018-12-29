@@ -1072,17 +1072,17 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-        mrcal_variable_select_t optimization_variable_choice      = {};
-        optimization_variable_choice.do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core);
-        optimization_variable_choice.do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions);
-        optimization_variable_choice.do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics);
-        optimization_variable_choice.do_optimize_frames                = PyObject_IsTrue(do_optimize_frames);
-        optimization_variable_choice.do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization);
+        mrcal_problem_details_t problem_details      = {};
+        problem_details.do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core);
+        problem_details.do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions);
+        problem_details.do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics);
+        problem_details.do_optimize_frames                = PyObject_IsTrue(do_optimize_frames);
+        problem_details.do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization);
 
         int Nmeasurements = mrcal_getNmeasurements(Ncameras, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
                                                    c_calibration_object_width_n,
-                                                   optimization_variable_choice,
+                                                   problem_details,
                                                    distortion_model_type);
 
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
@@ -1137,9 +1137,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             solver_context_optimizer = &solver_context->ctx;
             solver_context->distortion_model = distortion_model_type;
             solver_context->do_optimize_intrinsic_core =
-                optimization_variable_choice.do_optimize_intrinsic_core;
+                problem_details.do_optimize_intrinsic_core;
             solver_context->do_optimize_intrinsic_distortions =
-                optimization_variable_choice.do_optimize_intrinsic_distortions;
+                problem_details.do_optimize_intrinsic_distortions;
         }
 
 
@@ -1169,7 +1169,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         distortion_model_type,
                         c_observed_pixel_uncertainty,
                         c_imagersizes,
-                        optimization_variable_choice,
+                        problem_details,
 
                         c_calibration_object_spacing,
                         c_calibration_object_width_n);

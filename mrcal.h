@@ -81,8 +81,8 @@ typedef struct
     bool do_optimize_extrinsics            : 1;
     bool do_optimize_frames                : 1;
     bool do_skip_regularization            : 1;
-} mrcal_variable_select_t;
-#define DO_OPTIMIZE_ALL ((mrcal_variable_select_t) { .do_optimize_intrinsic_core        = true, \
+} mrcal_problem_details_t;
+#define DO_OPTIMIZE_ALL ((mrcal_problem_details_t) { .do_optimize_intrinsic_core        = true, \
                                                      .do_optimize_intrinsic_distortions = true, \
                                                      .do_optimize_extrinsics            = true, \
                                                      .do_optimize_frames                = true})
@@ -97,7 +97,7 @@ const char*             mrcal_distortion_model_name       ( enum distortion_mode
 enum distortion_model_t mrcal_distortion_model_from_name  ( const char* name );
 int                     mrcal_getNdistortionParams        ( const enum distortion_model_t m );
 int                     mrcal_getNintrinsicParams         ( const enum distortion_model_t m );
-int                     mrcal_getNintrinsicOptimizationParams( mrcal_variable_select_t optimization_variable_choice,
+int                     mrcal_getNintrinsicOptimizationParams( mrcal_problem_details_t problem_details,
                                                                enum distortion_model_t m );
 const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
 
@@ -210,7 +210,7 @@ mrcal_optimize( // out
                 enum distortion_model_t distortion_model,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras*2 of these
-                mrcal_variable_select_t optimization_variable_choice,
+                mrcal_problem_details_t problem_details,
 
                 double calibration_object_spacing,
                 int calibration_object_width_n);
@@ -219,7 +219,7 @@ int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
                            const struct observation_point_t* observations_point,
                            int NobservationsPoint,
                            int calibration_object_width_n,
-                           mrcal_variable_select_t optimization_variable_choice,
+                           mrcal_problem_details_t problem_details,
                            enum distortion_model_t distortion_model);
 
 // Given a set of 3d points, returns the expected-value of the outlierness

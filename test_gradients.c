@@ -35,34 +35,34 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    mrcal_variable_select_t optimization_variable_choice = {};
+    mrcal_problem_details_t problem_details = {};
 
     for(int iarg = 2; iarg < argc; iarg++)
     {
         if( 0 == strcmp(argv[iarg], "all") )
         {
-            optimization_variable_choice = DO_OPTIMIZE_ALL;
+            problem_details = DO_OPTIMIZE_ALL;
             break;
         }
 
         if( 0 == strcmp(argv[iarg], "intrinsic-core") )
         {
-            optimization_variable_choice.do_optimize_intrinsic_core = true;
+            problem_details.do_optimize_intrinsic_core = true;
             continue;
         }
         if( 0 == strcmp(argv[iarg], "intrinsic-distortions") )
         {
-            optimization_variable_choice.do_optimize_intrinsic_distortions = true;
+            problem_details.do_optimize_intrinsic_distortions = true;
             continue;
         }
         if( 0 == strcmp(argv[iarg], "extrinsics") )
         {
-            optimization_variable_choice.do_optimize_extrinsics = true;
+            problem_details.do_optimize_extrinsics = true;
             continue;
         }
         if( 0 == strcmp(argv[iarg], "frames") )
         {
-            optimization_variable_choice.do_optimize_frames = true;
+            problem_details.do_optimize_frames = true;
             continue;
         }
 
@@ -175,7 +175,7 @@ int main(int argc, char* argv[] )
                     distortion_model,
                     1.0,
                     imagersizes,
-                    optimization_variable_choice,
+                    problem_details,
 
                     1.0, calibration_object_width_n);
 
