@@ -1182,7 +1182,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
 
 
     # done with everything. Run the calibration, in several passes
-    print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry only"
+    sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
     stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                            observations, indices_frame_camera,
                            None, None,
@@ -1199,10 +1199,9 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                            roi                               = args.roi,
                            get_intrinsic_covariances         = False,
                            VERBOSE                           = False)
-    print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
+    sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
-    print ""
-    print "vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only"
+    sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only\n")
     stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                            observations, indices_frame_camera,
                            None, None,
@@ -1219,7 +1218,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                            roi                               = args.roi,
                            get_intrinsic_covariances         = False,
                            VERBOSE                           = False)
-    print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
+    sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
     # I favor the center pixel at the center of the imager
 
     intrinsics_data[:,2:4] = (imagersizes - 1) / 2
@@ -1371,7 +1370,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
         roi = get_scaled_roi(roi_final, iroi, Nroi)
 
         print ""
-        print "vvvvvvvvvvvvvvvvvvvv next distortion/ROI:"
+        sys.stderr.write("vvvvvvvvvvvvvvvvvvvv next distortion/ROI:\n")
         print "Distortion model: {}"   .format(distortion_model)
         print "ROI:              {}/{}  ({})".format(iroi+1, Nroi, roi)
 
@@ -1412,7 +1411,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
 
             outside_ROI_indices__prevROI = stats['outside_ROI_indices']
             iroi += 1
-            print "^^^^^^^^^^^^^^^^^^^^ {}: good solve! roi++".format(solution_description)
+            sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: good solve! roi++\n".format(solution_description))
         else:
             # This solution wasn't very good. Let's try a richer distortion
             # model
@@ -1424,7 +1423,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                 # we're already at the last model in the family, or at the
                 # maximum model the user asked for. There's nowhere more to go,
                 # so I guess I'm done
-                print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, but no more distortion-models remaining. I'm done".format(solution_description)
+                sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, but no more distortion-models remaining. I'm done\n".format(solution_description))
 
                 # # For testing. The distribution can be plotted thusly:
                 # import gnuplotlib as gp
@@ -1463,7 +1462,7 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
                 # outlier list the same
                 distortion_model = distortion_model1
                 intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
-                print "^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, distortion++".format(solution_description)
+                sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, distortion++\n".format(solution_description))
 
     return                                                                            \
         result,                                                                       \
@@ -1638,7 +1637,7 @@ if args.num_cross_validation_splits > 1:
         split_intrinsics = copy.deepcopy(intrinsics)
         split_extrinsics = copy.deepcopy(extrinsics)
 
-        print "vvvvvvvvvvvvvvvvvvvv Evaluating split {}/{}".format(isplit, args.num_cross_validation_splits)
+        sys.stderr.write("vvvvvvvvvvvvvvvvvvvv Evaluating split {}/{}\n".format(isplit+1, args.num_cross_validation_splits))
         stats = mrcal.optimize(split_intrinsics[1],
                                split_extrinsics,
                                split_frames,
@@ -1659,7 +1658,7 @@ if args.num_cross_validation_splits > 1:
                                get_intrinsic_covariances         = True,
                                VERBOSE                           = False,
                                solver_context                    = solver_context)
-        print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
+        sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
         try:
             MMt = stats['intrinsic_covariances']  \
@@ -1718,7 +1717,7 @@ if args.num_cross_validation_splits > 1:
 
 
 
-print "vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get MMt and solver_context"
+sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get MMt and solver_context\n")
 stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        observations, indices_frame_camera,
                        None, None,
@@ -1736,7 +1735,7 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        get_intrinsic_covariances         = True,
                        VERBOSE                           = False,
                        solver_context                    = solver_context)
-print "^^^^^^^^^^^^^^^^^^^^ RMS error: {}".format(stats['rms_reproj_error__pixels'])
+sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 try:
     MMt = stats['intrinsic_covariances']  \
