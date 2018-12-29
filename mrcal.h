@@ -74,18 +74,18 @@ enum distortion_model_t
     { DISTORTION_INVALID DISTORTION_LIST( LIST_WITH_COMMA ) };
 
 
-struct mrcal_variable_select
+typedef struct
 {
     bool do_optimize_intrinsic_core        : 1;
     bool do_optimize_intrinsic_distortions : 1;
     bool do_optimize_extrinsics            : 1;
     bool do_optimize_frames                : 1;
     bool do_skip_regularization            : 1;
-};
-#define DO_OPTIMIZE_ALL ((struct mrcal_variable_select) { .do_optimize_intrinsic_core        = true, \
-                                                          .do_optimize_intrinsic_distortions = true, \
-                                                          .do_optimize_extrinsics            = true, \
-                                                          .do_optimize_frames                = true})
+} mrcal_variable_select_t;
+#define DO_OPTIMIZE_ALL ((mrcal_variable_select_t) { .do_optimize_intrinsic_core        = true, \
+                                                     .do_optimize_intrinsic_distortions = true, \
+                                                     .do_optimize_extrinsics            = true, \
+                                                     .do_optimize_frames                = true})
 #define IS_OPTIMIZE_NONE(x)                     \
     (!(x).do_optimize_intrinsic_core &&         \
      !(x).do_optimize_intrinsic_distortions &&  \
@@ -97,9 +97,8 @@ const char*             mrcal_distortion_model_name       ( enum distortion_mode
 enum distortion_model_t mrcal_distortion_model_from_name  ( const char* name );
 int                     mrcal_getNdistortionParams        ( const enum distortion_model_t m );
 int                     mrcal_getNintrinsicParams         ( const enum distortion_model_t m );
-int                     mrcal_getNintrinsicOptimizationParams
-                          ( struct mrcal_variable_select optimization_variable_choice,
-                            enum distortion_model_t m );
+int                     mrcal_getNintrinsicOptimizationParams( mrcal_variable_select_t optimization_variable_choice,
+                                                               enum distortion_model_t m );
 const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
 
 // Returns the 'next' distortion model in a family
@@ -211,7 +210,7 @@ mrcal_optimize( // out
                 enum distortion_model_t distortion_model,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras*2 of these
-                struct mrcal_variable_select optimization_variable_choice,
+                mrcal_variable_select_t optimization_variable_choice,
 
                 double calibration_object_spacing,
                 int calibration_object_width_n);
@@ -220,7 +219,7 @@ int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
                            const struct observation_point_t* observations_point,
                            int NobservationsPoint,
                            int calibration_object_width_n,
-                           struct mrcal_variable_select optimization_variable_choice,
+                           mrcal_variable_select_t optimization_variable_choice,
                            enum distortion_model_t distortion_model);
 
 // Given a set of 3d points, returns the expected-value of the outlierness

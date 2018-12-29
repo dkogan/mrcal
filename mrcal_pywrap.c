@@ -1072,7 +1072,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-        struct mrcal_variable_select optimization_variable_choice      = {};
+        mrcal_variable_select_t optimization_variable_choice      = {};
         optimization_variable_choice.do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core);
         optimization_variable_choice.do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions);
         optimization_variable_choice.do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics);

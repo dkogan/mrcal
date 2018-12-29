@@ -35,7 +35,7 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    struct mrcal_variable_select optimization_variable_choice = {};
+    mrcal_variable_select_t optimization_variable_choice = {};
 
     for(int iarg = 2; iarg < argc; iarg++)
     {
