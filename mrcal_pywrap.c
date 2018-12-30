@@ -93,6 +93,7 @@ typedef struct {
     enum distortion_model_t distortion_model;
     bool do_optimize_intrinsic_core;
     bool do_optimize_intrinsic_distortions;
+    bool cahvor_radial_only;
 } SolverContext;
 static void SolverContext_free(SolverContext* self)
 {
@@ -105,10 +106,12 @@ static PyObject* SolverContext_str(SolverContext* self)
         return PyString_FromString("Empty context");
     return PyString_FromFormat("Non-empty context made with        %s\n"
                                "do_optimize_intrinsic_core:        %d\n"
-                               "do_optimize_intrinsic_distortions: %d\n",
+                               "do_optimize_intrinsic_distortions: %d\n"
+                               "cahvor_radial_only:                %d\n",
                                mrcal_distortion_model_name(self->distortion_model),
                                self->do_optimize_intrinsic_core,
-                               self->do_optimize_intrinsic_distortions);
+                               self->do_optimize_intrinsic_distortions,
+                               self->cahvor_radial_only);
 }
 static PyTypeObject SolverContextType =
 {
@@ -539,6 +542,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
                                           solver_context->distortion_model,
                                           solver_context->do_optimize_intrinsic_core,
                                           solver_context->do_optimize_intrinsic_distortions,
+                                          solver_context->cahvor_radial_only,
                                           i_camera,
                                           (const union point3_t*)PyArray_DATA(v),
                                           N, Noutliers,
@@ -581,6 +585,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
     _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
+    _(cahvor_radial_only,                 PyObject*,      Py_False,"O",  ,                                  -1,         {})  \
     _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(calibration_object_spacing,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
@@ -1072,12 +1077,14 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-        mrcal_problem_details_t problem_details      = {};
-        problem_details.do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core);
-        problem_details.do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions);
-        problem_details.do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics);
-        problem_details.do_optimize_frames                = PyObject_IsTrue(do_optimize_frames);
-        problem_details.do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization);
+        mrcal_problem_details_t problem_details =
+            { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
+              .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
+              .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
+              .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
+              .cahvor_radial_only                = PyObject_IsTrue(cahvor_radial_only),
+              .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
+            };
 
         int Nmeasurements = mrcal_getNmeasurements(Ncameras, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
@@ -1140,6 +1147,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                 problem_details.do_optimize_intrinsic_core;
             solver_context->do_optimize_intrinsic_distortions =
                 problem_details.do_optimize_intrinsic_distortions;
+            solver_context->cahvor_radial_only =
+                problem_details.cahvor_radial_only;
         }
 
 

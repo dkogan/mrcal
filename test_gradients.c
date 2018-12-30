@@ -8,68 +8,77 @@
 
 int main(int argc, char* argv[] )
 {
-    const char* usage = "Usage: %s DISTORTION_XXX optimizing_list\n"
+    const char* usage = "Usage: %s DISTORTION_XXX [problem-details problem-details ...]\n"
         "\n"
-        "optimizing_list is a list of parameters we're optimizing. This is some of:\n"
+        "problem-details are a list of parameters we're optimizing. This is some set of\n"
         "  intrinsic-core\n"
         "  intrinsic-distortions\n"
         "  extrinsics\n"
         "  frames\n"
-        "  all\n"
+        "  cahvor-radial-only\n"
         "\n"
-        "'all' is a shorthand that includes all the others.\n";
+        "If no details are given, we optimize everything. Otherwise, we start with an empty\n"
+        "mrcal_problem_details_t, and each argument sets a bit\n";
 
-    if( argc < 3 )
+
+    mrcal_problem_details_t problem_details = {};
+
+
+    int iarg = 1;
+    if( iarg >= argc )
     {
         fprintf(stderr, usage, argv[0]);
         return 1;
     }
 
-    enum distortion_model_t distortion_model = mrcal_distortion_model_from_name(argv[1]);
+    enum distortion_model_t distortion_model = mrcal_distortion_model_from_name(argv[iarg]);
     if( distortion_model == DISTORTION_INVALID )
     {
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
         fprintf(stderr, "Distortion name '%s' unknown. I only know about ("
                         DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
-                ")\n", argv[1]);
+                ")\n", argv[iarg]);
         return 1;
     }
+    iarg++;
 
-    mrcal_problem_details_t problem_details = {};
 
-    for(int iarg = 2; iarg < argc; iarg++)
-    {
-        if( 0 == strcmp(argv[iarg], "all") )
+    if(iarg >= argc)
+        problem_details = DO_OPTIMIZE_ALL;
+    else
+        for(; iarg < argc; iarg++)
         {
-            problem_details = DO_OPTIMIZE_ALL;
-            break;
-        }
 
-        if( 0 == strcmp(argv[iarg], "intrinsic-core") )
-        {
-            problem_details.do_optimize_intrinsic_core = true;
-            continue;
-        }
-        if( 0 == strcmp(argv[iarg], "intrinsic-distortions") )
-        {
-            problem_details.do_optimize_intrinsic_distortions = true;
-            continue;
-        }
-        if( 0 == strcmp(argv[iarg], "extrinsics") )
-        {
-            problem_details.do_optimize_extrinsics = true;
-            continue;
-        }
-        if( 0 == strcmp(argv[iarg], "frames") )
-        {
-            problem_details.do_optimize_frames = true;
-            continue;
-        }
+            if( 0 == strcmp(argv[iarg], "intrinsic-core") )
+            {
+                problem_details.do_optimize_intrinsic_core = true;
+                continue;
+            }
+            if( 0 == strcmp(argv[iarg], "intrinsic-distortions") )
+            {
+                problem_details.do_optimize_intrinsic_distortions = true;
+                continue;
+            }
+            if( 0 == strcmp(argv[iarg], "extrinsics") )
+            {
+                problem_details.do_optimize_extrinsics = true;
+                continue;
+            }
+            if( 0 == strcmp(argv[iarg], "frames") )
+            {
+                problem_details.do_optimize_frames = true;
+                continue;
+            }
+            if( 0 == strcmp(argv[iarg], "cahvor-radial-only" ) )
+            {
+                problem_details.cahvor_radial_only = true;
+                continue;
+            }
 
-        fprintf(stderr, "Unknown optimization variable '%s'. Giving up.\n\n", argv[iarg]);
-        fprintf(stderr, usage, argv[0]);
-        return 1;
-    }
+            fprintf(stderr, "Unknown optimization variable '%s'. Giving up.\n\n", argv[iarg]);
+            fprintf(stderr, usage, argv[0]);
+            return 1;
+        }
 
 
     struct pose_t extrinsics[] =
