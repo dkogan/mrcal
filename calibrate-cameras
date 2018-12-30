@@ -858,13 +858,13 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
 
     return frame_poses_rt
 
-def make_seed( imagersizes,
-               focal_estimate,
-               Ncameras,
-               indices_frame_camera,
-               dots,
-               dot_spacing,
-               object_width_n):
+def make_seed_no_distortion( imagersizes,
+                             focal_estimate,
+                             Ncameras,
+                             indices_frame_camera,
+                             dots,
+                             dot_spacing,
+                             object_width_n):
     r'''Generate a solution seed for a given input'''
 
 
@@ -924,7 +924,7 @@ def make_seed( imagersizes,
                              indices_frame_camera,
                              dot_spacing,
                              object_width_n)
-    return 'DISTORTION_NONE',intrinsics_data,extrinsics,frames
+    return intrinsics_data,extrinsics,frames
 
 
 def get_imagersize_one(g, args_imagersize):
@@ -1213,14 +1213,15 @@ def incremental_optimize(args, imagersizes, observations, indices_frame_camera, 
 
     Ncameras = len(args.images)
 
-    distortion_model,intrinsics_data,extrinsics,frames = \
-        make_seed(imagersizes          = imagersizes,
-                  focal_estimate       = args.focal,
-                  Ncameras             = Ncameras,
-                  indices_frame_camera = indices_frame_camera,
-                  dots                 = observations,
-                  dot_spacing          = args.object_spacing,
-                  object_width_n       = args.object_width_n)
+    distortion_model = 'DISTORTION_NONE'
+    intrinsics_data,extrinsics,frames = \
+        make_seed_no_distortion(imagersizes          = imagersizes,
+                                focal_estimate       = args.focal,
+                                Ncameras             = Ncameras,
+                                indices_frame_camera = indices_frame_camera,
+                                dots                 = observations,
+                                dot_spacing          = args.object_spacing,
+                                object_width_n       = args.object_width_n)
 
 
     # done with everything. Run the calibration, in several passes
