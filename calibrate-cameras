@@ -955,6 +955,48 @@ def get_imagersize_one(g, args_imagersize):
     return [w,h]
 
 
+def make_cameramodel(i_camera, intrinsics, extrinsics, MMt):
+    r'''Assemble one cameramodel from a completed calibration
+
+    The calibration routines treat the intrinsics and extrinsics for all cameras
+    as a vector. This routine converts a single camera to a mrcal.cameramodel
+    structure that can be fed to all the other routines.
+
+    '''
+
+    if args.muse_extrinsics:
+        Rt_r0 = np.array([[ 0.,  0.,  1.],
+                          [ 1.,  0.,  0.],
+                          [ 0.,  1.,  0.],
+                          [ 0.,  0.,  0.]])
+    else:
+        # identity
+        Rt_r0 = np.array([[ 1.,  0.,  0.],
+                          [ 0.,  1.,  0.],
+                          [ 0.,  0.,  1.],
+                          [ 0.,  0.,  0.]])
+
+    if i_camera >= 1:
+        rt_x0 = extrinsics[i_camera-1,:].ravel()
+    else:
+        rt_x0 = np.zeros(6)
+    Rt_rx = mrcal.compose_Rt(Rt_r0,
+                             mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0)))
+
+    return mrcal.cameramodel( intrinsics            = (intrinsics[0], intrinsics[1][i_camera,:]),
+                              extrinsics_Rt_toref   = Rt_rx,
+                              dimensions            = imagersizes[i_camera],
+                              covariance_intrinsics = MMt[i_camera, ...] if MMt is not None else None)
+
+def make_cameramodels(intrinsics, extrinsics, MMt):
+    r'''Assemble cameramodels from a completed calibration
+
+    The calibration routines treat the intrinsics and extrinsics for all cameras
+    as a vector. This routine converts those to a list of mrcal.cameramodel
+    structures that can be fed to all the other routines.
+
+    '''
+    return [ make_cameramodel(i_camera, intrinsics, extrinsics, MMt) for i_camera in xrange(len(intrinsics[1])) ]
 
 
 # # Test for this function
@@ -1781,50 +1823,22 @@ print report
 
 
 
-
-
-
-
-
-
 # Write the output models
-for i_camera in xrange(Ncameras):
-
-    # The note says how we ran this, and contains the commented-out report
-    note = "generated with {}\n".format(sys.argv)
-    note += re.sub(r"^(.)", r"# \1", report, flags=re.M)
-
-    if args.muse_extrinsics:
-        Rt_r0 = np.array([[ 0.,  0.,  1.],
-                          [ 1.,  0.,  0.],
-                          [ 0.,  1.,  0.],
-                          [ 0.,  0.,  0.]])
-    else:
-        # identity
-        Rt_r0 = np.array([[ 1.,  0.,  0.],
-                          [ 0.,  1.,  0.],
-                          [ 0.,  0.,  1.],
-                          [ 0.,  0.,  0.]])
-
-    if i_camera >= 1:
-        rt_x0 = extrinsics[i_camera-1,:].ravel()
-    else:
-        rt_x0 = np.zeros(6)
-    Rt_rx = mrcal.compose_Rt(Rt_r0,
-                             mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0)))
-
-    c = mrcal.cameramodel( intrinsics            = (intrinsics[0], intrinsics[1][i_camera,:]),
-                           extrinsics_Rt_toref   = Rt_rx,
-                           dimensions            = imagersizes[i_camera],
-                           covariance_intrinsics = MMt[i_camera, ...] if MMt is not None else None)
-
+models = make_cameramodels(intrinsics, extrinsics, MMt)
+# The note says how we ran this, and contains the commented-out report
+note = \
+    "generated with {}\n".format(sys.argv) + \
+    re.sub(r"^(.)", r"# \1", report, flags=re.M)
+for i_camera in xrange(len(models)):
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
-    mrcal.cahvor.write(cahvorfile, c, note)
+    mrcal.cahvor.write(cahvorfile, models[i_camera], note)
     print "Wrote {}".format(cahvorfile)
 
     cameramodelfile = '{}/camera-{}.cameramodel'.format(args.outdir, i_camera)
-    c.write(cameramodelfile, note)
+    models[i_camera].write(cameramodelfile, note)
     print "Wrote {}".format(cameramodelfile)
+
+
 
 if not args.explore:
     sys.exit(0)
