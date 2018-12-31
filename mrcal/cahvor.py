@@ -10,7 +10,20 @@ import poseutils
 import mrcal
 
 r'''A wrapper around mrcal.cameramodel to interface with JPL's CAHVOR files and
-transforms.txt files'''
+transforms.txt files
+
+The O in CAHVOR is an optical axis: 3 numbers representing a 2DOF quantity. I
+store this as an unconstrainted 2-vector (alpha, beta)
+
+I parametrize the optical axis such that
+- o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
+  if both parameters are 0
+- The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
+  NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
+  lock), and that would make my solver unhappy
+
+So o = { s_al*c_be, s_be,  c_al*c_be }
+'''
 
 
 
@@ -129,17 +142,12 @@ def _read(f):
 
     if is_cahvor_or_cahvore:
         if 'O' not in x:
-            theta = 0
-            phi   = 0
+            alpha = 0
+            beta  = 0
         else:
-            o = nps.matmult( x['O'], R_toref )
-            norm2_oxy = o[0]*o[0] + o[1]*o[1]
-            if norm2_oxy < 1e-8:
-                theta = 0
-                phi   = 0
-            else:
-                theta = np.arctan2(o[1], o[0])
-                phi   = np.arcsin( np.sqrt( norm2_oxy ) )
+            o     = nps.matmult( x['O'], R_toref )
+            alpha = np.arctan2(o[0], o[2])
+            beta  = np.arcsin( o[1] )
 
         if is_cahvore:
             # CAHVORE
@@ -148,7 +156,7 @@ def _read(f):
             R0,R1,R2 = x['R'].ravel()
             E0,E1,E2 = x['E'].ravel()
 
-            distortions      = np.array((theta,phi,R0,R1,R2,E0,E1,E2,cahvore_linearity), dtype=float)
+            distortions      = np.array((alpha,beta,R0,R1,R2,E0,E1,E2,cahvore_linearity), dtype=float)
             distortion_model = 'DISTORTION_CAHVORE'
 
         else:
@@ -156,19 +164,19 @@ def _read(f):
             if 'E' in x:
                 raise Exception('Cahvor file {} LOOKS like a cahvor, but has an E'.format(f.name))
 
-            if abs(phi) < 1e-8 and \
+            if abs(beta) < 1e-8 and \
                ( 'R' not in x or np.linalg.norm(x['R']) < 1e-8):
                 # pinhole
-                theta = 0
-                phi   = 0
+                alpha = 0
+                beta  = 0
             else:
                 R0,R1,R2 = x['R'].ravel()
 
-            if theta == 0 and phi == 0:
+            if alpha == 0 and beta == 0:
                 distortions = np.array(())
                 distortion_model = 'DISTORTION_NONE'
             else:
-                distortions = np.array((theta,phi,R0,R1,R2), dtype=float)
+                distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
                 distortion_model = 'DISTORTION_CAHVOR'
 
     m = cameramodel.cameramodel()
@@ -239,10 +247,10 @@ def _write(f, m, note=None):
 
     if re.match('DISTORTION_CAHVOR', distortion_model):
         # CAHVOR(E)
-        theta,phi,R0,R1,R2 = intrinsics[4:9]
+        alpha,beta,R0,R1,R2 = intrinsics[4:9]
 
-        sth,cth,sph,cph = np.sin(theta),np.cos(theta),np.sin(phi),np.cos(phi)
-        O = nps.matmult( R_toref, nps.transpose(np.array(( sph*cth, sph*sth,  cph ), dtype=float)) ).ravel()
+        s_al,c_al,s_be,c_be = np.sin(alpha),np.cos(alpha),np.sin(beta),np.cos(beta)
+        O = nps.matmult( R_toref, nps.transpose(np.array(( s_al*c_be, s_be, c_al*c_be ), dtype=float)) ).ravel()
         R = np.array((R0, R1, R2), dtype=float)
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *O))
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))

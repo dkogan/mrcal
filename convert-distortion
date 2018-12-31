@@ -188,6 +188,12 @@ for i in xrange(40): # this many trials
                                             np.zeros ((Npoints,), dtype=np.int32), axis=-2))
     indices_points = np.ascontiguousarray(indices_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
+    # Moving rotation too can make this better. Current formulation doesn't
+    # allow this.
+    # - have a way to use custom calibration objects
+    # - optimize the single view of this object by tweaking ONLY the rotation
+    # - for data I generate I can regularize the off-center optical axis. But
+    #   this doesn't help for other people's data
     mrcal.optimize(intrinsics_to_values,
                    None, # no extrinsics. Just one camera
                    None, # no frames. Just points

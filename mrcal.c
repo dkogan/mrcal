@@ -173,7 +173,7 @@ int getNdistortionOptimizationParams(mrcal_problem_details_t problem_details,
         ( distortion_model == DISTORTION_CAHVOR ||
           distortion_model == DISTORTION_CAHVORE ))
     {
-        // no theta, phi
+        // no optical axis parameters
         N -= 2;
     }
     return N;
@@ -614,45 +614,51 @@ static union point2_t project( // out
         d_distortion_xyz = _d_distortion_xyz;
 
         // distortion parameter layout:
-        //   theta
-        //   phi
+        //   alpha
+        //   beta
         //   r0
         //   r1
         //   r2
-        double theta = distortions[0];
-        double phi   = distortions[1];
+        double alpha = distortions[0];
+        double beta  = distortions[1];
         double r0    = distortions[2];
         double r1    = distortions[3];
         double r2    = distortions[4];
 
-        double sth, cth, sph, cph;
-        sincos(theta, &sth, &cth);
-        sincos(phi,   &sph, &cph);
-        double o     [] = {  sph*cth, sph*sth,  cph };
-        double do_dth[] = { -sph*sth, sph*cth,    0 };
-        double do_dph[] = {  cph*cth, cph*sth, -sph };
+        double s_al, c_al, s_be, c_be;
+        sincos(alpha, &s_al, &c_al);
+        sincos(beta,  &s_be, &c_be);
 
+        // I parametrize the optical axis such that
+        // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
+        //   if both parameters are 0
+        // - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
+        //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
+        //   lock), and that would make my solver unhappy
+        double o     []         = {  s_al*c_be, s_be,  c_al*c_be };
+        double do_dalpha[]      = {  c_al*c_be,    0, -s_al*c_be };
+        double do_dbeta[]       = { -s_al*s_be, c_be, -c_al*s_be };
 
-        double norm2p = norm2_vec(3, pt_cam.xyz);
-        double omega  = dot_vec(3, pt_cam.xyz, o);
-        double domega_dth = dot_vec(3, pt_cam.xyz, do_dth);
-        double domega_dph = dot_vec(3, pt_cam.xyz, do_dph);
+        double norm2p        = norm2_vec(3, pt_cam.xyz);
+        double omega         = dot_vec(3, pt_cam.xyz, o);
+        double domega_dalpha = dot_vec(3, pt_cam.xyz, do_dalpha);
+        double domega_dbeta  = dot_vec(3, pt_cam.xyz, do_dbeta);
 
         double omega_recip = 1.0 / omega;
-        double tau    = norm2p * omega_recip*omega_recip - 1.0;
-        double s__dtau_dthph__domega_dthph = -2.0*norm2p * omega_recip*omega_recip*omega_recip;
+        double tau         = norm2p * omega_recip*omega_recip - 1.0;
+        double s__dtau_dalphabeta__domega_dalphabeta = -2.0*norm2p * omega_recip*omega_recip*omega_recip;
         double dmu_dtau = r1 + 2.0*tau*r2;
         double dmu_dxyz[3];
         for(int i=0; i<3; i++)
             dmu_dxyz[i] = dmu_dtau *
-                (2.0 * pt_cam.xyz[i] * omega_recip*omega_recip + s__dtau_dthph__domega_dthph * o[i]);
-        double mu     = r0 + tau*r1 + tau*tau*r2;
-        double s__dmu_dthph__domega_dthph = dmu_dtau * s__dtau_dthph__domega_dthph;
+                (2.0 * pt_cam.xyz[i] * omega_recip*omega_recip + s__dtau_dalphabeta__domega_dalphabeta * o[i]);
+        double mu = r0 + tau*r1 + tau*tau*r2;
+        double s__dmu_dalphabeta__domega_dalphabeta = dmu_dtau * s__dtau_dalphabeta__domega_dalphabeta;
 
         for(int i=0; i<3; i++)
         {
-            double dmu_ddist[5] = { s__dmu_dthph__domega_dthph * domega_dth,
-                                    s__dmu_dthph__domega_dthph * domega_dph,
+            double dmu_ddist[5] = { s__dmu_dalphabeta__domega_dalphabeta * domega_dalpha,
+                                    s__dmu_dalphabeta__domega_dalphabeta * domega_dbeta,
                                     1.0,
                                     tau,
                                     tau * tau };
@@ -669,11 +675,11 @@ static union point2_t project( // out
             dxyz_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
             dxyz_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dth*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dph*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dth[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dph[i];
+            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
+            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
 
 
             _d_distortion_xyz[3*i + i] = mu+1.0;
@@ -2943,48 +2949,38 @@ mrcal_optimize( // out
                         // for now. Various distortion coefficients have
                         // different meanings, and should be regularized in
                         // different ways. Specific logic follows
-                        if( distortion_model == DISTORTION_CAHVOR && j == 0 )
-                        {
-                            // Looking at distortion-parameter-0 of a CAHVOR
-                            // model; this is a direction not a "strength" so it
-                            // shouldn't be regularized at all
-                            x[iMeasurement] = 0;
-                            STORE_JACOBIAN( i_var_intrinsic_distortions + j - NlockedLeadingDistortions, 0 );
-                        }
-                        else
-                        {
-                            double scale = scale_regularization;
+                        double scale = scale_regularization;
 
-                            if( DISTORTION_IS_OPENCV(distortion_model) &&
-                                distortion_model >= DISTORTION_OPENCV8 &&
-                                5 <= j && j <= 7 )
-                            {
-                                // The radial distortion in opencv is x_distorted =
-                                // x*scale where r2 = norm2(xy - xyc) and
-                                //
-                                // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
-                                //
-                                // Note that k2,k3 are tangential (NOT radial)
-                                // distortion components. Note that the r6 factor in
-                                // the numerator is only present for
-                                // >=DISTORTION_OPENCV5. Note that the denominator
-                                // is only present for >= DISTORTION_OPENCV8. The
-                                // danger with a rational model is that it's
-                                // possible to get into a situation where scale ~
-                                // 0/0 ~ 1. This would have very poorly behaved
-                                // derivatives. If all the rational coefficients are
-                                // ~0, then the denominator is always ~1, and this
-                                // problematic case can't happen. I favor that by
-                                // regularizing the coefficients in the denominator
-                                // more strongly
-                                scale *= 1.0e1;
-                            }
-                            double err = distortions_all[i_camera][j] * scale;
-                            x[iMeasurement]  = err;
-                            norm2_error     += err*err;
-                            STORE_JACOBIAN( i_var_intrinsic_distortions + j - NlockedLeadingDistortions,
-                                            scale * SCALE_DISTORTION );
+                        if( DISTORTION_IS_OPENCV(distortion_model) &&
+                            distortion_model >= DISTORTION_OPENCV8 &&
+                            5 <= j && j <= 7 )
+                        {
+                            // The radial distortion in opencv is x_distorted =
+                            // x*scale where r2 = norm2(xy - xyc) and
+                            //
+                            // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+                            //
+                            // Note that k2,k3 are tangential (NOT radial)
+                            // distortion components. Note that the r6 factor in
+                            // the numerator is only present for
+                            // >=DISTORTION_OPENCV5. Note that the denominator
+                            // is only present for >= DISTORTION_OPENCV8. The
+                            // danger with a rational model is that it's
+                            // possible to get into a situation where scale ~
+                            // 0/0 ~ 1. This would have very poorly behaved
+                            // derivatives. If all the rational coefficients are
+                            // ~0, then the denominator is always ~1, and this
+                            // problematic case can't happen. I favor that by
+                            // regularizing the coefficients in the denominator
+                            // more strongly
+                            scale *= 1.0e1;
                         }
+                        double err = distortions_all[i_camera][j] * scale;
+                        x[iMeasurement]  = err;
+                        norm2_error     += err*err;
+                        STORE_JACOBIAN( i_var_intrinsic_distortions + j - NlockedLeadingDistortions,
+                                        scale * SCALE_DISTORTION );
+
                         iMeasurement++;
                     }
                 }

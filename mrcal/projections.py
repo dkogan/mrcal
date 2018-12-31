@@ -43,16 +43,24 @@ def cahvor_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     else:
         scale = 1.0
 
-    theta, phi, r0, r1, r2 = distortions
+
+    # I parametrize the optical axis such that
+    # - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
+    #   if both parameters are 0
+    # - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
+    #   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
+    #   lock), and that would make my solver unhappy
+    # So o = { s_al*c_be, s_be,  c_al*c_be }
+    alpha, beta, r0, r1, r2 = distortions
 
     # p is a 2d point. Convert to a 3d point
     p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
                         (p[..., 1] - cy)/fy,
                         np.ones( p.shape[:-1])),
                 0, -1 )
-    o = np.array( (np.sin(phi) * np.cos(theta),
-                   np.sin(phi) * np.sin(theta),
-                   np.cos(phi) ))
+    o = np.array( (np.cos(beta) * np.sin(alpha),
+                   np.sin(beta),
+                   np.cos(beta) * np.cos(alpha) ))
 
     # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
     # omega/norm(p)
@@ -96,16 +104,25 @@ def cahvore_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     # The lack of documentation heer comes directly from the lack of
     # documentation in that function.
 
-    theta, phi, r0, r1, r2, e0, e1, e2, linearity = distortions
+
+
+    # I parametrize the optical axis such that
+    # - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
+    #   if both parameters are 0
+    # - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
+    #   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
+    #   lock), and that would make my solver unhappy
+    # So o = { s_al*c_be, s_be,  c_al*c_be }
+    alpha, beta, r0, r1, r2, e0, e1, e2, linearity = distortions
 
     # p is a 2d point. Convert to a 3d point
     p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
                         (p[..., 1] - cy)/fy,
                         np.ones( p.shape[:-1])),
                 0, -1 )
-    o = np.array( (np.sin(phi) * np.cos(theta),
-                   np.sin(phi) * np.sin(theta),
-                   np.cos(phi) ))
+    o = np.array( (np.cos(beta) * np.sin(alpha),
+                   np.sin(beta),
+                   np.cos(beta) * np.cos(alpha) ))
 
     # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
     # omega/norm(p)
