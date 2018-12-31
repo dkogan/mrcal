@@ -13,9 +13,9 @@ int main(int argc, char* argv[] )
         "problem-details are a list of parameters we're optimizing. This is some set of\n"
         "  intrinsic-core\n"
         "  intrinsic-distortions\n"
+        "  cahvor-optical-axis\n"
         "  extrinsics\n"
         "  frames\n"
-        "  cahvor-radial-only\n"
         "\n"
         "If no details are given, we optimize everything. Otherwise, we start with an empty\n"
         "mrcal_problem_details_t, and each argument sets a bit\n";
@@ -69,9 +69,9 @@ int main(int argc, char* argv[] )
                 problem_details.do_optimize_frames = true;
                 continue;
             }
-            if( 0 == strcmp(argv[iarg], "cahvor-radial-only" ) )
+            if( 0 == strcmp(argv[iarg], "cahvor-optical-axis" ) )
             {
-                problem_details.cahvor_radial_only = true;
+                problem_details.do_optimize_cahvor_optical_axis = true;
                 continue;
             }
 

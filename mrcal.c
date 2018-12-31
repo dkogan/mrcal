@@ -169,7 +169,7 @@ int getNdistortionOptimizationParams(mrcal_problem_details_t problem_details,
         return 0;
 
     int N = mrcal_getNdistortionParams(distortion_model);
-    if( problem_details.cahvor_radial_only &&
+    if( !problem_details.do_optimize_cahvor_optical_axis &&
         ( distortion_model == DISTORTION_CAHVOR ||
           distortion_model == DISTORTION_CAHVORE ))
     {
@@ -1002,7 +1002,7 @@ static int pack_solver_state_intrinsics( // out
 
         if( problem_details.do_optimize_intrinsic_distortions )
 
-            for(int i = ( problem_details.cahvor_radial_only &&
+            for(int i = ( !problem_details.do_optimize_cahvor_optical_axis &&
                           ( distortion_model == DISTORTION_CAHVOR ||
                             distortion_model == DISTORTION_CAHVORE )) ? 2 : 0;
                 i<Ndistortions;
@@ -1156,7 +1156,7 @@ static int unpack_solver_state_intrinsics_onecamera( // out
 
     if( problem_details.do_optimize_intrinsic_distortions )
 
-        for(int i = ( problem_details.cahvor_radial_only &&
+        for(int i = ( !problem_details.do_optimize_cahvor_optical_axis &&
                       ( distortion_model == DISTORTION_CAHVOR ||
                         distortion_model == DISTORTION_CAHVORE )) ? 2 : 0;
             i<Ndistortions;
@@ -1380,7 +1380,7 @@ static int intrinsics_index_from_state_index( int i_state,
     // need to spent the time right now
     assert(problem_details.do_optimize_intrinsic_core &&
            problem_details.do_optimize_intrinsic_distortions &&
-           ( !(problem_details.cahvor_radial_only &&
+           ( !(!problem_details.do_optimize_cahvor_optical_axis &&
                ( distortion_model == DISTORTION_CAHVOR ||
                  distortion_model == DISTORTION_CAHVORE ))));
     return i_state;
@@ -2275,7 +2275,7 @@ mrcal_optimize( // out
 
 
         int NlockedLeadingDistortions =
-            ( problem_details.cahvor_radial_only &&
+            ( !problem_details.do_optimize_cahvor_optical_axis &&
               ( distortion_model == DISTORTION_CAHVOR ||
                 distortion_model == DISTORTION_CAHVORE )) ? 2 : 0;
 
@@ -2308,7 +2308,7 @@ mrcal_optimize( // out
                 memcpy( distortions_all[i_camera],
                         &intrinsics[(N_INTRINSICS_CORE+Ndistortions)*i_camera + N_INTRINSICS_CORE],
                         Ndistortions*sizeof(double) );
-            else if( problem_details.cahvor_radial_only &&
+            else if( !problem_details.do_optimize_cahvor_optical_axis &&
                      ( distortion_model == DISTORTION_CAHVOR ||
                        distortion_model == DISTORTION_CAHVORE ) )
             {
@@ -3244,7 +3244,7 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
                                        enum distortion_model_t distortion_model,
                                        bool do_optimize_intrinsic_core,
                                        bool do_optimize_intrinsic_distortions,
-                                       bool cahvor_radial_only,
+                                       bool do_optimize_cahvor_optical_axis,
                                        int i_camera,
 
                                        // query vectors (and a count) in the
@@ -3289,7 +3289,7 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
     // is 1 here.
     if(!do_optimize_intrinsic_core ||
        !do_optimize_intrinsic_distortions ||
-       cahvor_radial_only)
+       !do_optimize_cahvor_optical_axis)
     {
         MSG("Not implemented unless we're optimizing all the intrinsics; it might work, I just need to think about it");
         return false;

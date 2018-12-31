@@ -81,14 +81,14 @@ typedef struct
     bool do_optimize_extrinsics            : 1;
     bool do_optimize_frames                : 1;
     bool do_skip_regularization            : 1;
-    bool cahvor_radial_only                : 1;
+    bool do_optimize_cahvor_optical_axis   : 1;
 } mrcal_problem_details_t;
 #define DO_OPTIMIZE_ALL ((mrcal_problem_details_t) { .do_optimize_intrinsic_core        = true, \
                                                      .do_optimize_intrinsic_distortions = true, \
                                                      .do_optimize_extrinsics            = true, \
                                                      .do_optimize_frames                = true, \
-                                                     .do_skip_regularization            = false,\
-                                                     .cahvor_radial_only                = false})
+                                                     .do_optimize_cahvor_optical_axis   = true, \
+                                                     .do_skip_regularization            = false})
 #define IS_OPTIMIZE_NONE(x)                     \
     (!(x).do_optimize_intrinsic_core &&         \
      !(x).do_optimize_intrinsic_distortions &&  \
@@ -235,7 +235,7 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
                                        enum distortion_model_t distortion_model,
                                        bool do_optimize_intrinsic_core,
                                        bool do_optimize_intrinsic_distortions,
-                                       bool cahvor_radial_only,
+                                       bool do_optimize_cahvor_optical_axis,
                                        int i_camera,
 
                                        // query vectors (and a count) in the

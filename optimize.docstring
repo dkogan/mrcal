@@ -13,7 +13,7 @@ Synopsis:
                             observed_pixel_uncertainty        = observed_pixel_uncertainty,
                             do_optimize_intrinsic_core        = True,
                             do_optimize_intrinsic_distortions = True,
-                            cahvor_radial_only                = False,
+                            do_optimize_cahvor_optical_axis   = True,
                             calibration_object_spacing        = object_spacing,
                             calibration_object_width_n        = 10,
                             skip_outlier_rejection            = False,
@@ -132,10 +132,10 @@ OPTIONAL ARGS:
   is fx,fy,cx,cy. These all default to True so if we specify none of these, we
   will optimize ALL the variables.
 
-- cahvor_radial_only
+- do_optimize_cahvor_optical_axis
 
-  If True, we optimize only the radial components in a CAHVOR model; the optical
-  axis is fixed. False by default.
+  If False, we optimize only the radial components in a CAHVOR model; the optical
+  axis is fixed. True by default.
 
 - skipped_observations_board: list of integers for the board observations that
   we don't care about. Defaults to None: don't skip anything
