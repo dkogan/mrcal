@@ -1182,7 +1182,7 @@ def get_observation_subset__right_of_threshold_and_within_center(point_x_thresho
                        dtype=int)
     return get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths)
 
-def incremental_optimize(args, imagersizes, observations, indices_frame_camera, outlier_indices, incremental):
+def incremental_optimization_loop(args, imagersizes, observations, indices_frame_camera, outlier_indices, incremental):
     '''Solve an incrementally-expanding optimization problem in several passes
 
     The logic is this:
@@ -1587,7 +1587,7 @@ if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
 
 
 result,intrinsics,extrinsics,frames,roi,stats = \
-    incremental_optimize(args, imagersizes, observations, indices_frame_camera, outlier_indices, args.incremental)
+    incremental_optimization_loop(args, imagersizes, observations, indices_frame_camera, outlier_indices, args.incremental)
 if args.incremental:
     print ">>>>>>>>>>>>>>>>> " + result
     print "Final Distortion model: {}".format(intrinsics[0])
