@@ -2899,39 +2899,69 @@ mrcal_optimize( // out
            ))
         {
             // I want the total regularization cost to be low relative to the
-            // other contributions to the cost. Let's say I want regularization
-            // to account for ~ 1% of the other error contributions
+            // other contributions to the cost. And I want each set of
+            // regularization terms to weigh roughly the same. Let's say I want
+            // regularization to account for ~ 1% of the other error
+            // contributions:
             //
-            //   Nmeasurements_rest*normal_pixel_error * 0.01 =
-            //   Nmeasurements_regularization*normal_regularization_error
-            double scale_regularization =
+            //   Nmeasurements_rest*normal_pixel_error_sq * 0.005 =
+            //   Nmeasurements_regularization_distortion *normal_regularization_distortion_error_sq  =
+            //   Nmeasurements_regularization_centerpixel*normal_regularization_centerpixel_error_sq =
+
+
+            const bool dump_regularizaton_details = false;
+
+
+            int    Nmeasurements_regularization_distortion  = Ncameras*(Ndistortions - NlockedLeadingDistortions);
+            int    Nmeasurements_regularization_centerpixel = Ncameras*2;
+
+            int    Nmeasurements_nonregularization =
+                Nmeasurements -
+                Nmeasurements_regularization_distortion -
+                Nmeasurements_regularization_centerpixel;
+
+            double normal_pixel_error = 1.0;
+            double expected_total_pixel_error_sq =
+                (double)Nmeasurements_nonregularization *
+                normal_pixel_error *
+                normal_pixel_error;
+            if(dump_regularizaton_details)
+                MSG("expected_total_pixel_error_sq: %f", expected_total_pixel_error_sq);
+
+            double scale_regularization_distortion =
                 ({
-                    int    Nmeasurements_regularization_distortion  = Ncameras*(Ndistortions - NlockedLeadingDistortions);
-                    int    Nmeasurements_regularization_centerpixel = Ncameras*2;
+                    double normal_distortion_value   = 1e-2;
 
-                    int    Nmeasurements_nonregularization =
-                        Nmeasurements -
-                        Nmeasurements_regularization_distortion -
-                        Nmeasurements_regularization_centerpixel;
-
-                    double normal_pixel_error_sq        = 1.0;
-                    double normal_distortion_value_sq   =
-                        SCALE_DISTORTION*SCALE_DISTORTION *
-                        0.01;
-                    double normal_centerpixel_offset_sq =
-                        SCALE_INTRINSICS_CENTER_PIXEL*SCALE_INTRINSICS_CENTER_PIXEL*
-                        100.0;
-
-                    double expected_total_pixel_error =
-                        (double)Nmeasurements_nonregularization * normal_pixel_error_sq;
-                    double expected_total_regularization_contribution_noscale =
-                        (double)Nmeasurements_regularization_distortion  * normal_distortion_value_sq +
-                        (double)Nmeasurements_regularization_centerpixel * normal_centerpixel_offset_sq;
+                    double expected_regularization_distortion_error_sq_noscale =
+                        (double)Nmeasurements_regularization_distortion *
+                        normal_distortion_value *
+                        normal_distortion_value;
 
                     double scale_sq =
-                        expected_total_pixel_error * 0.01 / expected_total_regularization_contribution_noscale;
+                        expected_total_pixel_error_sq * 0.005 / expected_regularization_distortion_error_sq_noscale;
 
-                    sqrt(scale_sq) / 2.0;
+                    if(dump_regularizaton_details)
+                        MSG("expected_regularization_distortion_error_sq: %f", expected_regularization_distortion_error_sq_noscale*scale_sq);
+
+                    sqrt(scale_sq);
+                });
+            double scale_regularization_centerpixel =
+                ({
+
+                    double normal_centerpixel_offset = 50.0;
+
+                    double expected_regularization_centerpixel_error_sq_noscale =
+                        (double)Nmeasurements_regularization_centerpixel *
+                        normal_centerpixel_offset *
+                        normal_centerpixel_offset;
+
+                    double scale_sq =
+                        expected_total_pixel_error_sq * 0.005 / expected_regularization_centerpixel_error_sq_noscale;
+
+                    if(dump_regularizaton_details)
+                        MSG("expected_regularization_centerpixel_error_sq: %f", expected_regularization_centerpixel_error_sq_noscale*scale_sq);
+
+                    sqrt(scale_sq);
                 });
 
             for(int i_camera=0; i_camera<Ncameras; i_camera++)
@@ -2949,7 +2979,7 @@ mrcal_optimize( // out
                         // for now. Various distortion coefficients have
                         // different meanings, and should be regularized in
                         // different ways. Specific logic follows
-                        double scale = scale_regularization;
+                        double scale = scale_regularization_distortion;
 
                         if( DISTORTION_IS_OPENCV(distortion_model) &&
                             distortion_model >= DISTORTION_OPENCV8 &&
@@ -2980,8 +3010,10 @@ mrcal_optimize( // out
                         norm2_error     += err*err;
                         STORE_JACOBIAN( i_var_intrinsic_distortions + j - NlockedLeadingDistortions,
                                         scale * SCALE_DISTORTION );
-
                         iMeasurement++;
+                        if(dump_regularizaton_details)
+                            MSG("regularization distortion: %g; norm2: %g", err, err*err);
+
                     }
                 }
 
@@ -3000,23 +3032,27 @@ mrcal_optimize( // out
                     double cx_target = 0.5 * (double)(imagersizes[i_camera*2 + 0] - 1);
                     double cy_target = 0.5 * (double)(imagersizes[i_camera*2 + 1] - 1);
 
-                    err = scale_regularization *
+                    err = scale_regularization_centerpixel *
                         (intrinsic_core_all[i_camera].center_xy[0] - cx_target);
                     x[iMeasurement]  = err;
                     norm2_error     += err*err;
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     STORE_JACOBIAN( i_var_intrinsic_core + 2,
-                                    scale_regularization * SCALE_INTRINSICS_CENTER_PIXEL );
+                                    scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
                     iMeasurement++;
+                    if(dump_regularizaton_details)
+                        MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
 
-                    err = scale_regularization *
+                    err = scale_regularization_centerpixel *
                         (intrinsic_core_all[i_camera].center_xy[1] - cy_target);
                     x[iMeasurement]  = err;
                     norm2_error     += err*err;
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     STORE_JACOBIAN( i_var_intrinsic_core + 3,
-                                    scale_regularization * SCALE_INTRINSICS_CENTER_PIXEL );
+                                    scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
                     iMeasurement++;
+                    if(dump_regularizaton_details)
+                        MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
                 }
             }
         }
