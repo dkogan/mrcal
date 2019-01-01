@@ -79,6 +79,6 @@ sys.stderr.write("Combined intrinsics from '{}'\nExtrinsics from '{}'\n". \
            args.extrinsics))
 
 if args.cahvor:
-    mrcal.cahvor.write(joint, sys.stdout, note=note)
+    mrcal.cahvor.write(sys.stdout, joint, note=note)
 else:
     joint.write(sys.stdout, note=note)
