@@ -158,7 +158,7 @@ int main(int argc, char* argv[] )
 
     for(int i=0; i<Ncameras; i++)
         for(int j=0; j<Ndistortion; j++)
-            intrinsics[Nintrinsics * i + N_INTRINSICS_CORE + j] = 0.0005 * (double)(i + Ncameras*j);
+            intrinsics[Nintrinsics * i + N_INTRINSICS_CORE + j] = 0.1 + 0.05 * (double)(i + Ncameras*j);
 
     const double roi[] = { 1000., 1000., 400., 400.,
                             900., 1200., 300., 800. };
