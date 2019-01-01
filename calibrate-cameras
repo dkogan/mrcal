@@ -1285,7 +1285,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
             mrcal.getNdistortionParams(distortion_model) - \
             (intrinsics_data.shape[1] - 4)
         newDistortions = \
-            np.random.random((Ncameras, NnewDistortions))*1e-6
+            (np.random.random((Ncameras, NnewDistortions)) - 0.5)*2. *1e-6
         m = re.search("OPENCV([0-9]+)", distortion_model)
         if m:
             Nd = int(m.group(1))
