@@ -1858,6 +1858,7 @@ Potential things to look at:
     show_intrinsics_map()
     show_intrinsics_map_outlierness()
     show_all_errors(i_camera, ignore_outliers=True, vectorfield=False)
+    show_roi(i_camera)
     stats
     i_observations_worst
     rms_err_all_points_perimage
@@ -2090,6 +2091,7 @@ def show_all_errors(i_camera, ignore_outliers=True, vectorfield=False, **plotkwa
 
 plots_intrinsics_sensitivity             = [None] * Ncameras
 plots_intrinsics_sensitivity_outlierness = [None] * Ncameras
+plots_roi                                = [None] * Ncameras
 def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwargs_extra):
 
     if MMt is None:
@@ -2128,6 +2130,36 @@ def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40,
                                                                gridn_y=gridn_y,
                                                                cbmax=2,
                                                                **plotkwargs_extra)
+
+def show_roi(i_camera = None, **plotkwargs_extra):
+    global plots_roi
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+
+    NboardPoints     = args.object_width_n*args.object_width_n
+    Nfeatures        = NboardPoints*len(observations)
+    feats            = observations.reshape(Nfeatures,2)
+
+    def append_icamera(iFeatures):
+        '''input: (N,) array of feature indices; output: (2,N) array of feature,camera indices)'''
+        iObservations = iFeatures / NboardPoints
+        iObservations = iObservations.astype(int)
+        iCamera = np.array([indices_frame_camera[iObs,1] for iObs in iObservations])
+        return nps.cat(iFeatures, iCamera)
+
+    iFeature_roi_out = append_icamera(stats['outside_ROI_indices'])
+    iFeature_roi_in  = append_icamera(np.setdiff1d(np.arange(Nfeatures), iFeature_roi_out[0,:]))
+
+    for i_camera in i_camera_all:
+
+        iFeature_roi_in_thiscam  = iFeature_roi_in [ 0, iFeature_roi_in [1,:] == i_camera]
+        iFeature_roi_out_thiscam = iFeature_roi_out[ 0, iFeature_roi_out[1,:] == i_camera]
+
+        plots_intrinsics_sensitivity_outlierness[i_camera] = \
+            gp.gnuplotlib(square=1, xrange=(0,imagersizes[i_camera,0]-1),yrange=(imagersizes[i_camera,1]-1,0), _with='points pt 7 ps 2',
+                          **plotkwargs_extra)
+        plots_intrinsics_sensitivity_outlierness[i_camera]. \
+            plot( (feats[iFeature_roi_in_thiscam, 0], feats[iFeature_roi_in_thiscam, 1], dict(legend='in' )),
+                  (feats[iFeature_roi_out_thiscam,0], feats[iFeature_roi_out_thiscam,1], dict(legend='out')) )
 
 import IPython
 IPython.embed()
