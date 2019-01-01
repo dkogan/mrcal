@@ -37,6 +37,8 @@ partially supported. The toolkit includes:
     of images that have removed the distortion
   - =redistort-points=: Given two distortion models and a set of points, maps
     them from one distortion model to the other
+  - =graft-cameramodel=: Combines the intrinsics of one cameramodel with the
+    extrinsics of another
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various

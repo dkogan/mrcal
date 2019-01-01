@@ -24,7 +24,8 @@ DIST_BIN :=					\
 	visualize-intrinsics-uncertainty        \
 	visualize-intrinsics-diff               \
 	redistort-points			\
-	undistort-image
+	undistort-image                         \
+	graft-cameramodel
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
 # hack because apparenly manpages from python tools is a crazy thing to want to

@@ -1,0 +1,84 @@
+#!/usr/bin/python2
+
+r'''Combines the intrinsics of one cameramodel with the extrinsics of another
+
+Synopsis:
+
+  $ graft-cameramodel intrinsics.cameramodel extrinsics.cameramodel > joint.cameramodel
+  Merged intrinsics from 'intrinsics.cameramodel' with extrinsics from
+  'exrinsics.cameramodel'
+
+This tool combines intrinsics and extrinsics from different sources into a
+single model. The output is written to standard out given file in mrcal-native
+(.cameramodel) format; unless --cahvor is given, in which case the output is
+written in .cahvor format
+
+'''
+
+import numpy as np
+import numpysane as nps
+import sys
+import argparse
+import os
+import re
+
+import mrcal.cahvor
+import mrcal
+
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('intrinsics',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The camera model must be an existing readable file, but got '{}'".format(f)),
+                        help='''Input camera model for the intrinsics. Assumed to be mrcal native, Unless the
+                        name is xxx.cahvor, in which case the cahvor format is assumed''')
+    parser.add_argument('extrinsics',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The camera model must be an existing readable file, but got '{}'".format(f)),
+                        help='''Input camera model for the extrinsics. Assumed to be mrcal native, Unless the
+                        name is xxx.cahvor, in which case the cahvor format is assumed''')
+    parser.add_argument('--cahvor',
+                        required=False,
+                        default=False,
+                        action='store_true',
+                        help='''If given, the output is written in .cahvor format. The default it to use the
+                        mrcal native .cameramodel format''')
+
+    return parser.parse_args()
+
+
+
+
+
+
+
+args = parse_args()
+
+if re.match(".*\.cahvor$", args.intrinsics): intrinsics = mrcal.cahvor.read(args.intrinsics)
+else:                                        intrinsics = mrcal.cameramodel(args.intrinsics)
+
+if re.match(".*\.cahvor$", args.extrinsics): extrinsics = mrcal.cahvor.read(args.extrinsics)
+else:                                        extrinsics = mrcal.cameramodel(args.extrinsics)
+
+joint = mrcal.cameramodel( intrinsics            = intrinsics.intrinsics(),
+                           extrinsics_rt_fromref = extrinsics.extrinsics_rt(toref = False),
+                           dimensions            = intrinsics.dimensions(),
+                           covariance_intrinsics = intrinsics.covariance_intrinsics(),)
+
+note = "Generated with '{}'\nIntrinsics from '{}'\nExtrinsics from '{}'". \
+    format(' '.join(sys.argv),
+           args.intrinsics,
+           args.extrinsics)
+
+sys.stderr.write("Combined intrinsics from '{}'\nExtrinsics from '{}'\n". \
+    format(args.intrinsics,
+           args.extrinsics))
+
+if args.cahvor:
+    mrcal.cahvor.write(joint, sys.stdout, note=note)
+else:
+    joint.write(sys.stdout, note=note)
