@@ -61,7 +61,7 @@ def parse_args():
     parser.add_argument('--scale',
                         type=float,
                         required=False,
-                        nargs=1,
+                        default=1.0,
                         help='''Pinhole focal length scaling. 1.0 by default''')
 
     parser.add_argument('image',
@@ -94,7 +94,6 @@ args = parse_args()
 
 
 
-
 for imagefile in args.image:
     f = target_image_filename(imagefile)
     if os.path.isfile(f):
@@ -108,7 +107,7 @@ else:
 
 model_pinhole = mrcal.cameramodel(model)
 i = model_pinhole.intrinsics()
-i[1][:2] /= args.scale[0]
+i[1][:2] /= args.scale
 if i[0] == 'DISTORTION_NONE':
     sys.stderr.write("Warning: the mode has no distortions, so the 'undistorted' images will be the same as the input ones\n")
 model_pinhole.intrinsics( ('DISTORTION_NONE',
@@ -120,6 +119,6 @@ writemodel(model_pinhole)
 for imagefile in args.image:
     imagefile_undistorted = target_image_filename(imagefile)
 
-    image_undistorted     = mrcal.undistort_image(model, imagefile, scale=args.scale[0])
+    image_undistorted     = mrcal.undistort_image(model, imagefile, scale=args.scale)
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))
