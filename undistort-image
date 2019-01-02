@@ -113,6 +113,7 @@ if i[0] == 'DISTORTION_NONE':
 model_pinhole.intrinsics( ('DISTORTION_NONE',
                            i[1][:4] ) )
 
+print "Corresponding pinhole model:"
 writemodel(model_pinhole)
 
 
