@@ -16,6 +16,9 @@ projection point. This tool plots the expected value of this projection error
 across the imager. Areas with a high expected projection error are unreliable
 for further work.
 
+Only mrcal-native .cameramodel files are supported because .cahvor files don't
+store the required data
+
 '''
 
 import sys
