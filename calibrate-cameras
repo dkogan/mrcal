@@ -492,7 +492,18 @@ def estimate_local_calobject_poses( indices_frame_camera, \
         if not result:
             raise Exception("solvePnP failed!")
         if tvec[2] <= 0:
-            raise Exception("solvePnP says that tvec.z <= 0. Maybe needs a flip, but please examine this")
+
+            # The object ended up behind the camera. I flip it, and try to solve
+            # again
+            result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
+                                            np.array(observations),
+                                            camera_matrix, None,
+                                            rvec, -tvec,
+                                            useExtrinsicGuess = True)
+            if not result:
+                raise Exception("retried solvePnP failed!")
+            if tvec[2] <= 0:
+                raise Exception("retried solvePnP says that tvec.z <= 0")
 
         Rt_all[i_observation, :, :] = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
