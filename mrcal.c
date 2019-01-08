@@ -2025,7 +2025,7 @@ bool markOutliers(// output, input
     //   the stdev from the data
 
     // threshold
-    const double k = 3.0;
+    const double k = 4.0;
 
 #warning "think about this. here I'm looking at the deviations off mean error. That sounds wrong. Do I care about mean error? I want error to be 0, so maybe looking at absolute error is the thing to do instead"
 
