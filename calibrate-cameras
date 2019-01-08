@@ -505,7 +505,22 @@ def estimate_local_calobject_poses( indices_frame_camera, \
             if tvec[2] <= 0:
                 raise Exception("retried solvePnP says that tvec.z <= 0")
 
-        Rt_all[i_observation, :, :] = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+
+        Rt = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+
+        # visualize the fit
+        # x_cam    = nps.matmult(Rt[:3,:],ref_object)[..., 0] + Rt[3,:]
+        # x_imager = x_cam[...,:2]/x_cam[...,(2,)] * focal + (imagersize-1)/2
+        # import gnuplotlib as gp
+        # gp.plot( (x_imager[:,0],x_imager[:,1], dict(legend='solved')),
+        #          (observations[:,0,0],observations[:,1,0], dict(legend='observed')),
+        #          square=1,xrange=(0,4000),yrange=(4000,0),
+        #          wait=1)
+        # import IPython
+        # IPython.embed()
+        # sys.exit()
+
+        Rt_all[i_observation, :, :] = Rt
 
 
     return Rt_all
