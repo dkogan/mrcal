@@ -447,7 +447,8 @@ cooks_threshold  = 4.0 / N
 dimas_threshold2 = cooks_threshold / k_cook2 * k_dima2
 dimas_threshold3 = cooks_threshold / k_cook3 * k_dima3
 
-# show_outlierness(q, metrics2, N, dimas_threshold2, cooks_threshold)
+# These all show interesting things; turn one of them on
+show_outlierness(q, metrics2, N, dimas_threshold2, cooks_threshold)
 # show_fit(q,f,query,fquery2,Vquery2)
 # show_uncertainty(Vquery3, metrics3, N, dimas_threshold3, cooks_threshold)
 
