@@ -97,7 +97,7 @@ typedef struct {
     bool do_optimize_intrinsic_distortions;
     bool do_optimize_cahvor_optical_axis;
 } SolverContext;
-static void SolverContext_free(SolverContext* self)
+static void SolverContext_dealloc(SolverContext* self)
 {
     mrcal_free_context((void**)&self->ctx);
     Py_TYPE(self)->tp_free((PyObject*)self);
@@ -121,7 +121,7 @@ static PyTypeObject SolverContextType =
     .tp_name      = "mrcal.SolverContext",
     .tp_basicsize = sizeof(SolverContext),
     .tp_new       = PyType_GenericNew,
-    .tp_dealloc   = (destructor)SolverContext_free,
+    .tp_dealloc   = (destructor)SolverContext_dealloc,
     .tp_str       = (reprfunc)SolverContext_str,
     .tp_repr      = (reprfunc)SolverContext_str,
     .tp_flags     = Py_TPFLAGS_DEFAULT,
