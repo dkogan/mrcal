@@ -399,7 +399,8 @@ def show_outlierness(q, metrics, Nmeasurements, dimas_threshold, cooks_threshold
               dict(legend="Cook's others-ONLY outlierness / threshold",
                    _with='points')),
 
-             equation='1.0 title "Threshold"')
+             equation='1.0 title "Threshold"',
+             wait = 1)
 
 
 def show_uncertainty(Vquery, metrics, Nmeasurements, dimas_threshold, cooks_threshold):
@@ -422,13 +423,15 @@ def show_uncertainty(Vquery, metrics, Nmeasurements, dimas_threshold, cooks_thre
               dict(legend="Cook's others-ONLY query / threshold",
                    _with='linespoints')),
 
-             equation='1 title "Threshold"')
+             equation='1 title "Threshold"',
+             wait = 1)
 
 def show_fit(q, fdata, query, fqueryfit, Vquery):
     gp.plot((q,fdata, dict(_with='points', legend = 'input data')),
             (query, fqueryfit + np.sqrt(Vquery)*np.array(((1,),(0,),(-1,),)), dict(legend = 'stdev_f', _with='lines')),
             equation='{} with lines title "reference"'.format(reference_equation),
-            xrange=[-1,2])
+            xrange=[-1,2],
+            wait = 1)
 
 def show_distribution(outlierness):
     h,c,w = histogram(outlierness)
