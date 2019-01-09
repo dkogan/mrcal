@@ -1,0 +1,9 @@
+Returns the index in the optimization vector of the pose of camera i
+
+Each camera is represented by 6 values: an orientation represented by a
+Rodrigues vector, and an xyz world coordinate. i is given in the single
+argument.
+
+Note that camera 0 defines the world coordinate system, so the pose of camera 0
+is not stored in the optimization vector, and thus passing i==0 is an error
+

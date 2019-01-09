@@ -100,9 +100,10 @@ typedef struct {
     dogleg_solverContext_t* ctx;
 
     enum distortion_model_t distortion_model;
-    bool do_optimize_intrinsic_core;
-    bool do_optimize_intrinsic_distortions;
-    bool do_optimize_cahvor_optical_axis;
+    mrcal_problem_details_t problem_details;
+
+    int Ncameras, Nframes, Npoints;
+
 } SolverContext;
 static void SolverContext_dealloc(SolverContext* self)
 {
@@ -114,13 +115,17 @@ static PyObject* SolverContext_str(SolverContext* self)
     if(self->ctx == NULL)
         return PyString_FromString("Empty context");
     return PyString_FromFormat("Non-empty context made with        %s\n"
+                               "Ncameras:                          %d\n"
+                               "Nframes:                           %d\n"
+                               "Npoints:                           %d\n"
                                "do_optimize_intrinsic_core:        %d\n"
                                "do_optimize_intrinsic_distortions: %d\n"
                                "do_optimize_cahvor_optical_axis:   %d\n",
                                mrcal_distortion_model_name(self->distortion_model),
-                               self->do_optimize_intrinsic_core,
-                               self->do_optimize_intrinsic_distortions,
-                               self->do_optimize_cahvor_optical_axis);
+                               self->Ncameras, self->Nframes, self->Npoints,
+                               self->problem_details.do_optimize_intrinsic_core,
+                               self->problem_details.do_optimize_intrinsic_distortions,
+                               self->problem_details.do_optimize_cahvor_optical_axis);
 }
 
 static PyObject* SolverContext_J(SolverContext* self)
@@ -205,16 +210,140 @@ static PyObject* SolverContext_J(SolverContext* self)
     return result;
 }
 
+static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
+                                                          PyObject* args)
+{
+    PyObject* result = NULL;
+    int i_camera = -1;
+    if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
+    if( i_camera < 0 || i_camera >= self->Ncameras )
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "i_camera must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+                     self->Ncameras,i_camera);
+        goto done;
+    }
+    result = Py_BuildValue("i",
+                           mrcal_state_index_intrinsic_core(i_camera,
+                                                            self->problem_details,
+                                                            self->distortion_model));
+ done:
+    return result;
+}
+static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* self,
+                                                          PyObject* args)
+{
+    PyObject* result = NULL;
+    int i_camera = -1;
+    if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
+    if( i_camera < 0 || i_camera >= self->Ncameras )
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "i_camera must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+                     self->Ncameras,i_camera);
+        goto done;
+    }
+    result = Py_BuildValue("i",
+                           mrcal_state_index_intrinsic_distortions(i_camera,
+                                                                   self->problem_details,
+                                                                   self->distortion_model));
+ done:
+    return result;
+}
+static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
+                                                     PyObject* args)
+{
+    PyObject* result = NULL;
+    int i_camera = -1;
+    if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
+    if( i_camera < 1 || i_camera >= self->Ncameras )
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "i_camera must refer to a valid camera that's NOT the first camera i.e. be in the range [1,%d] inclusive. Instead I got %d. The first camera defines the reference coordinate system, so it has no state",
+                     self->Ncameras,i_camera);
+        goto done;
+    }
+    result = Py_BuildValue("i",
+                           mrcal_state_index_camera_rt(i_camera,
+                                                       self->Ncameras,
+                                                       self->problem_details,
+                                                       self->distortion_model));
+ done:
+    return result;
+}
+static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
+                                                    PyObject* args)
+{
+    PyObject* result = NULL;
+    int i_frame = -1;
+    if(!PyArg_ParseTuple( args, "i", &i_frame )) goto done;
+    if( i_frame < 0 || i_frame >= self->Nframes )
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "i_frame must refer to a valid frame i.e. be in the range [0,%d] inclusive. Instead I got %d",
+                     self->Nframes,i_frame);
+        goto done;
+    }
+    result = Py_BuildValue("i",
+                           mrcal_state_index_frame_rt(i_frame,
+                                                      self->Ncameras,
+                                                      self->problem_details,
+                                                      self->distortion_model));
+ done:
+    return result;
+}
+static PyObject* SolverContext_state_index_point(SolverContext* self,
+                                                 PyObject* args)
+{
+    PyObject* result = NULL;
+    int i_point = -1;
+    if(!PyArg_ParseTuple( args, "i", &i_point )) goto done;
+    if( i_point < 0 || i_point >= self->Nframes )
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "i_point must refer to a valid point i.e. be in the range [0,%d] inclusive. Instead I got %d",
+                     self->Npoints,i_point);
+        goto done;
+    }
+    result = Py_BuildValue("i",
+                           mrcal_state_index_point(i_point,
+                                                   self->Nframes, self->Ncameras,
+                                                   self->problem_details,
+                                                   self->distortion_model));
+ done:
+    return result;
+}
+
 
 
 static const char SolverContext_J_docstring[] =
 #include "SolverContext_J.docstring.h"
     ;
+static const char SolverContext_state_index_intrinsic_core_docstring[] =
+#include "SolverContext_state_index_intrinsic_core.docstring.h"
+    ;
+static const char SolverContext_state_index_intrinsic_distortions_docstring[] =
+#include "SolverContext_state_index_intrinsic_distortions.docstring.h"
+    ;
+static const char SolverContext_state_index_camera_rt_docstring[] =
+#include "SolverContext_state_index_camera_rt.docstring.h"
+    ;
+static const char SolverContext_state_index_frame_rt_docstring[] =
+#include "SolverContext_state_index_frame_rt.docstring.h"
+    ;
+static const char SolverContext_state_index_point_docstring[] =
+#include "SolverContext_state_index_point.docstring.h"
+    ;
 
 static PyMethodDef SolverContext_methods[] =
-    { PYMETHODDEF_ENTRY(SolverContext_, J, METH_NOARGS),
+    { PYMETHODDEF_ENTRY(SolverContext_, J,                                 METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsic_core,        METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsic_distortions, METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_camera_rt,             METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,              METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_point,                 METH_VARARGS),
       {}
-};
+    };
 
 static PyTypeObject SolverContextType =
 {
@@ -647,9 +776,9 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     PyArrayObject* traces = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(v)-1, PyArray_DIMS(v), NPY_DOUBLE);
     if(!mrcal_queryIntrinsicOutliernessAt((double*)PyArray_DATA(traces),
                                           solver_context->distortion_model,
-                                          solver_context->do_optimize_intrinsic_core,
-                                          solver_context->do_optimize_intrinsic_distortions,
-                                          solver_context->do_optimize_cahvor_optical_axis,
+                                          solver_context->problem_details.do_optimize_intrinsic_core,
+                                          solver_context->problem_details.do_optimize_intrinsic_distortions,
+                                          solver_context->problem_details.do_optimize_cahvor_optical_axis,
                                           i_camera,
                                           (const union point3_t*)PyArray_DATA(v),
                                           N, Noutliers,
@@ -1248,14 +1377,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         dogleg_solverContext_t** solver_context_optimizer = NULL;
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
         {
-            solver_context_optimizer = &solver_context->ctx;
+            solver_context_optimizer         = &solver_context->ctx;
             solver_context->distortion_model = distortion_model_type;
-            solver_context->do_optimize_intrinsic_core =
-                problem_details.do_optimize_intrinsic_core;
-            solver_context->do_optimize_intrinsic_distortions =
-                problem_details.do_optimize_intrinsic_distortions;
-            solver_context->do_optimize_cahvor_optical_axis =
-                problem_details.do_optimize_cahvor_optical_axis;
+            solver_context->problem_details  = problem_details;
+            solver_context->Ncameras         = Ncameras;
+            solver_context->Nframes          = Nframes;
+            solver_context->Npoints          = Npoints;
         }
 
 

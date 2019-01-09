@@ -259,3 +259,20 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
 // this is void
 void mrcal_free_context(void** ctx);
+
+
+int mrcal_state_index_intrinsic_core(int i_camera,
+                                     mrcal_problem_details_t problem_details,
+                                     enum distortion_model_t distortion_model);
+int mrcal_state_index_intrinsic_distortions(int i_camera,
+                                            mrcal_problem_details_t problem_details,
+                                            enum distortion_model_t distortion_model);
+int mrcal_state_index_camera_rt(int i_camera, int Ncameras,
+                                mrcal_problem_details_t problem_details,
+                                enum distortion_model_t distortion_model);
+int mrcal_state_index_frame_rt(int i_frame, int Ncameras,
+                               mrcal_problem_details_t problem_details,
+                               enum distortion_model_t distortion_model);
+int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
+                            mrcal_problem_details_t problem_details,
+                            enum distortion_model_t distortion_model);
