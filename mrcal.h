@@ -164,7 +164,10 @@ mrcal_optimize( // out
                 int*    outside_ROI_indices_final,
 
                 // out, in
-
+                //
+                // This is a dogleg_solverContext_t. I don't want to #include
+                // <dogleg.h> here, so this is void
+                //
                 // if(_solver_context != NULL) then this is a persistent solver
                 // context. The context is NOT freed on exit.
                 // mrcal_free_context() should be called to release it
@@ -246,8 +249,13 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
 
                                        int Noutliers,
 
-                                       // context from the solve we just ran.
-                                       // I need this for the factorized JtJ
+                                       // context from the solve we just ran. I
+                                       // need this for the factorized JtJ. I
+                                       // don't want to #include <dogleg.h>
+                                       // here, so this is void instead of
+                                       // dogleg_solverContext_t
                                        void* _solver_context);
 
+// frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
+// this is void
 void mrcal_free_context(void** ctx);

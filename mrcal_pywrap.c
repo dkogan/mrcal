@@ -5,6 +5,7 @@
 #include <structmember.h>
 #include <numpy/arrayobject.h>
 #include <signal.h>
+#include <dogleg.h>
 
 #include "mrcal.h"
 
@@ -84,12 +85,13 @@ do {                                                                    \
     }
 
 
-// Silly wrapper around a solver context and various solver metadata. I need the
+// A wrapper around a solver context and various solver metadata. I need the
 // optimization to be able to keep this, and I need Python to free it as
 // necessary when the refcount drops to 0
 typedef struct {
     PyObject_HEAD
-    void* ctx;
+    dogleg_solverContext_t* ctx;
+
     enum distortion_model_t distortion_model;
     bool do_optimize_intrinsic_core;
     bool do_optimize_intrinsic_distortions;
@@ -97,7 +99,7 @@ typedef struct {
 } SolverContext;
 static void SolverContext_free(SolverContext* self)
 {
-    mrcal_free_context(&self->ctx);
+    mrcal_free_context((void**)&self->ctx);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 static PyObject* SolverContext_str(SolverContext* self)
@@ -537,7 +539,6 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
 
     int N = PyArray_SIZE(v) / 3;
     PyArrayObject* traces = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(v)-1, PyArray_DIMS(v), NPY_DOUBLE);
-    void* ctx = solver_context->ctx;
     if(!mrcal_queryIntrinsicOutliernessAt((double*)PyArray_DATA(traces),
                                           solver_context->distortion_model,
                                           solver_context->do_optimize_intrinsic_core,
@@ -546,7 +547,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
                                           i_camera,
                                           (const union point3_t*)PyArray_DATA(v),
                                           N, Noutliers,
-                                          ctx))
+                                          (void*)solver_context->ctx))
     {
         Py_DECREF(traces);
         goto done;
@@ -1138,7 +1139,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         int* c_imagersizes = PyArray_DATA(imagersizes);
         double c_observed_pixel_uncertainty = PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
 
-        void** solver_context_optimizer = NULL;
+        dogleg_solverContext_t** solver_context_optimizer = NULL;
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
         {
             solver_context_optimizer = &solver_context->ctx;
@@ -1157,7 +1158,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         c_intrinsic_covariances,
                         c_outlier_indices_final,
                         c_outside_ROI_indices_final,
-                        solver_context_optimizer,
+                        (void**)solver_context_optimizer,
                         c_intrinsics,
                         c_extrinsics,
                         c_frames,

@@ -3407,6 +3407,8 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
     return true;
 }
 
+// frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
+// this is void
 void mrcal_free_context(void** ctx)
 {
     if( *ctx == NULL )
