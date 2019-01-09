@@ -86,6 +86,11 @@ do {                                                                    \
         }                                                               \
     }
 
+#define PYMETHODDEF_ENTRY(function_prefix, name, args) {#name,          \
+                                                        (PyCFunction)function_prefix ## name, \
+                                                        args,           \
+                                                        function_prefix ## name ## _docstring}
+
 
 // A wrapper around a solver context and various solver metadata. I need the
 // optimization to be able to keep this, and I need Python to free it as
@@ -200,11 +205,15 @@ static PyObject* SolverContext_J(SolverContext* self)
     return result;
 }
 
-static PyMethodDef SolverContext_methods[] = {
-    {"J", (PyCFunction)SolverContext_J, METH_NOARGS,
-     "Return the sparse Jacobian at our operating point. This is the UNSCALED jacobian, as seen by the optimizer"
-    },
-    {}
+
+
+static const char SolverContext_J_docstring[] =
+#include "SolverContext_J.docstring.h"
+    ;
+
+static PyMethodDef SolverContext_methods[] =
+    { PYMETHODDEF_ENTRY(SolverContext_, J, METH_NOARGS),
+      {}
 };
 
 static PyTypeObject SolverContextType =
@@ -1394,15 +1403,13 @@ PyMODINIT_FUNC init_mrcal(void)
     static const char queryIntrinsicOutliernessAt_docstring[] =
 #include "queryIntrinsicOutliernessAt.docstring.h"
         ;
-
-#define PYMETHODDEF_ENTRY(x, args) {#x, (PyCFunction)x, args, x ## _docstring}
     static PyMethodDef methods[] =
-        { PYMETHODDEF_ENTRY(optimize,                     METH_VARARGS | METH_KEYWORDS),
-          PYMETHODDEF_ENTRY(getNdistortionParams,         METH_VARARGS),
-          PYMETHODDEF_ENTRY(getSupportedDistortionModels, METH_NOARGS),
-          PYMETHODDEF_ENTRY(getNextDistortionModel,       METH_VARARGS),
-          PYMETHODDEF_ENTRY(project,                      METH_VARARGS | METH_KEYWORDS),
-          PYMETHODDEF_ENTRY(queryIntrinsicOutliernessAt,  METH_VARARGS | METH_KEYWORDS),
+        { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
+          PYMETHODDEF_ENTRY(,getNdistortionParams,         METH_VARARGS),
+          PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
+          PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
+          PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
+          PYMETHODDEF_ENTRY(,queryIntrinsicOutliernessAt,  METH_VARARGS | METH_KEYWORDS),
           {}
         };
 

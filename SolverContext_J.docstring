@@ -1,0 +1,10 @@
+Return the sparse Jacobian at this operating point
+
+This is the UNSCALED jacobian, as seen by the optimizer. All optimization
+variables are unitless. If needed, you can apply the scaling to convert the
+variables to real units by calling SolverContext.pack(). If you want to apply
+scaling to a vector of optimization variables you'd normally call
+SolverContext.unpack(). But here we don't have a vector optimization variables;
+we have GRADIENTS in respect to those variables, so the variables that need
+scaling are in the denominator, and we call SolverContext.pack() instead.
+
