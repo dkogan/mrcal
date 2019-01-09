@@ -7,6 +7,8 @@
 #include <signal.h>
 #include <dogleg.h>
 
+#include <suitesparse/cholmod.h>
+
 #include "mrcal.h"
 
 
@@ -115,6 +117,96 @@ static PyObject* SolverContext_str(SolverContext* self)
                                self->do_optimize_intrinsic_distortions,
                                self->do_optimize_cahvor_optical_axis);
 }
+
+static PyObject* SolverContext_J(SolverContext* self)
+{
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "SolverContext.J() only makes sense with a non-empty context");
+        return NULL;
+    }
+
+    // I do the Python equivalent of this;
+    // scipy.sparse.csr_matrix((data, indices, indptr))
+    PyObject* module = NULL;
+    PyObject* method = NULL;
+    PyObject* result = NULL;
+    PyObject* args   = NULL;
+    if(NULL == (module = PyImport_ImportModule("scipy.sparse")))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Couldn't import scipy.sparse. I need that to represent J");
+        goto done;
+    }
+    if(NULL == (method = PyObject_GetAttrString(module, "csr_matrix")))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Couldn't find 'csr_matrix' in scipy.sparse");
+        goto done;
+    }
+
+    cholmod_sparse* Jt = self->ctx->beforeStep->Jt;
+    // Here I'm assuming specific types in my cholmod arrays. I tried to
+    // static_assert it, but internally cholmod uses void*, so I can't do that
+    PyObject* P         = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->ncol + 1}), NPY_INT32,  Jt->p);
+    PyObject* I         = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_INT32,  Jt->i);
+    PyObject* X         = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_DOUBLE, Jt->x);
+    PyObject* MatrixDef = PyTuple_Pack(3, X, I, P);
+    args                = PyTuple_Pack(1, MatrixDef);
+    Py_DECREF(P);
+    Py_DECREF(I);
+    Py_DECREF(X);
+    Py_DECREF(MatrixDef);
+
+    if(NULL == (result = PyObject_CallObject(method, args)))
+        goto done; // reuse already-set error
+
+
+    // Testing code to dump out a dense representation of this matrix to a file.
+    // Can compare that file to what this function returns like this:
+    //   Jf = np.fromfile("/tmp/J_17014_444.dat").reshape(17014,444)
+    //   np.linalg.norm( Jf - J.toarray() )
+    // {
+    // #define P(A, index) ((unsigned int*)((A)->p))[index]
+    // #define I(A, index) ((unsigned int*)((A)->i))[index]
+    // #define X(A, index) ((double*      )((A)->x))[index]
+    //         char logfilename[128];
+    //         sprintf(logfilename, "/tmp/J_%d_%d.dat",(int)Jt->ncol,(int)Jt->nrow);
+    //         FILE* fp = fopen(logfilename, "w");
+    //         double* Jrow;
+    //         Jrow = malloc(Jt->nrow*sizeof(double));
+    //         for(unsigned int icol=0; icol<Jt->ncol; icol++)
+    //         {
+    //             memset(Jrow, 0, Jt->nrow*sizeof(double));
+    //             for(unsigned int i=P(Jt, icol); i<P(Jt, icol+1); i++)
+    //             {
+    //                 int irow = I(Jt,i);
+    //                 double x = X(Jt,i);
+    //                 Jrow[irow] = x;
+    //             }
+    //             fwrite(Jrow,sizeof(double),Jt->nrow,fp);
+    //         }
+    //         fclose(fp);
+    //         free(Jrow);
+    // #undef P
+    // #undef I
+    // #undef X
+    // }
+
+
+ done:
+    Py_XDECREF(module);
+    Py_XDECREF(method);
+    Py_XDECREF(args);
+
+    return result;
+}
+
+static PyMethodDef SolverContext_methods[] = {
+    {"J", (PyCFunction)SolverContext_J, METH_NOARGS,
+     "Return the sparse Jacobian at our operating point. This is the UNSCALED jacobian, as seen by the optimizer"
+    },
+    {}
+};
+
 static PyTypeObject SolverContextType =
 {
      PyVarObject_HEAD_INIT(NULL, 0)
@@ -122,6 +214,7 @@ static PyTypeObject SolverContextType =
     .tp_basicsize = sizeof(SolverContext),
     .tp_new       = PyType_GenericNew,
     .tp_dealloc   = (destructor)SolverContext_dealloc,
+    .tp_methods   = SolverContext_methods,
     .tp_str       = (reprfunc)SolverContext_str,
     .tp_repr      = (reprfunc)SolverContext_str,
     .tp_flags     = Py_TPFLAGS_DEFAULT,
