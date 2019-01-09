@@ -490,8 +490,12 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     const npy_intp* leading_dims  = PyArray_DIMS(points);
     int             Nleading_dims = PyArray_NDIM(points)-1;
     int Npoints = 1;
+    bool get_gradients_bool = get_gradients && PyObject_IsTrue(get_gradients);
+
     for(int i=0; i<Nleading_dims; i++)
         Npoints *= leading_dims[i];
+
+
     {
         npy_intp dims[Nleading_dims+2];
         memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
@@ -500,7 +504,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
         out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
                                                 dims,
                                                 NPY_DOUBLE);
-        if( get_gradients )
+        if( get_gradients_bool )
         {
             dims[Nleading_dims + 0] = 2;
             dims[Nleading_dims + 1] = Nintrinsics;
@@ -517,8 +521,8 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     }
 
     mrcal_project((union point2_t*)PyArray_DATA(out),
-                  get_gradients ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
-                  get_gradients ? (union point3_t*)PyArray_DATA(dxy_dp)  : NULL,
+                  get_gradients_bool ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
+                  get_gradients_bool ? (union point3_t*)PyArray_DATA(dxy_dp)  : NULL,
 
                   (const union point3_t*)PyArray_DATA(points),
                   Npoints,
@@ -526,12 +530,12 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
                   // core, distortions concatenated
                   (const double*)PyArray_DATA(intrinsics));
 
-    if( PyObject_IsTrue(get_gradients) )
+    if( get_gradients_bool )
     {
-        result = PyTuple_New(3);
-        PyTuple_SET_ITEM(result, 0, (PyObject*)out);
-        PyTuple_SET_ITEM(result, 1, (PyObject*)dxy_dintrinsics);
-        PyTuple_SET_ITEM(result, 2, (PyObject*)dxy_dp);
+        result = PyTuple_Pack(3, out, dxy_dintrinsics, dxy_dp);
+        Py_DECREF(out);
+        Py_DECREF(dxy_dintrinsics);
+        Py_DECREF(dxy_dp);
     }
     else
         result = (PyObject*)out;
