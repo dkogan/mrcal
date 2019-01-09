@@ -952,9 +952,7 @@ void mrcal_project( // out
             dxy_dintrinsics = &dxy_dintrinsics[2*Nintrinsics];
         }
         if(dxy_dp != NULL)
-        {
             dxy_dp = &dxy_dp[2];
-        }
     }
 }
 
@@ -1721,13 +1719,15 @@ static bool computeConfidence_MMt(// out
                     // not a camera intrinsic parameter
                     continue;
 
+                double* MMt_thiscam = &MMt_intrinsics[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+
                 int i_intrinsics0 = intrinsics_index_from_state_index( irow0 - icam0*Nintrinsics_per_camera_state,
                                                                        distortion_model,
                                                                        problem_details );
 
+
                 // special-case process the diagonal param
-                MMt_intrinsics[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all +
-                               (Nintrinsics_per_camera_all+1)*i_intrinsics0] += x0*x0;
+                MMt_thiscam[(Nintrinsics_per_camera_all+1)*i_intrinsics0] += x0*x0;
 
                 // Now the off-diagonal
                 for(unsigned int irow1=irow0+1; irow1<M->nrow; irow1++)
@@ -1744,7 +1744,6 @@ static bool computeConfidence_MMt(// out
                     int i_intrinsics1 = intrinsics_index_from_state_index( irow1 - icam1*Nintrinsics_per_camera_state,
                                                                            distortion_model,
                                                                            problem_details );
-                    double* MMt_thiscam = &MMt_intrinsics[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
                     MMt_thiscam[Nintrinsics_per_camera_all*i_intrinsics0 + i_intrinsics1] += x0x1;
                     MMt_thiscam[Nintrinsics_per_camera_all*i_intrinsics1 + i_intrinsics0] += x0x1;
                 }
