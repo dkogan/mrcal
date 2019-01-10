@@ -789,12 +789,8 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     // outputs to have the appropriate broadcasted dimensions
     const npy_intp* leading_dims  = PyArray_DIMS(points);
     int             Nleading_dims = PyArray_NDIM(points)-1;
-    int Npoints = 1;
+    int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];
     bool get_gradients_bool = get_gradients && PyObject_IsTrue(get_gradients);
-
-    for(int i=0; i<Nleading_dims; i++)
-        Npoints *= leading_dims[i];
-
 
     {
         npy_intp dims[Nleading_dims+2];
