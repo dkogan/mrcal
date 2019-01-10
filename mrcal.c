@@ -260,26 +260,48 @@ static int getNregularizationTerms_percamera(mrcal_problem_details_t problem_det
     return N;
 }
 
-int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
-                           const struct observation_point_t* observations_point,
-                           int NobservationsPoint,
-                           int calibration_object_width_n,
-                           mrcal_problem_details_t problem_details,
-                           enum distortion_model_t distortion_model)
+int mrcal_getNmeasurements_boards(int NobservationsBoard,
+                                  int calibration_object_width_n)
 {
-    int Nmeas = getNmeasurements_observationsonly(NobservationsBoard,
-                                                  NobservationsPoint,
-                                                  calibration_object_width_n);
+    // *2 because I have separate x and y measurements
+    return
+        NobservationsBoard *
+        calibration_object_width_n*calibration_object_width_n *
+        2;
+}
+
+int mrcal_getNmeasurements_points(const struct observation_point_t* observations_point,
+                                  int NobservationsPoint)
+{
+    // *2 because I have separate x and y measurements
+    int Nmeas = NobservationsPoint * 2;
+
     // known-distance measurements
     for(int i=0; i<NobservationsPoint; i++)
         if(observations_point[i].dist > 0.0) Nmeas++;
-
-    Nmeas +=
-        Ncameras *
-        getNregularizationTerms_percamera(problem_details,
-                                          distortion_model);
-
     return Nmeas;
+}
+
+int mrcal_getNmeasurements_regularization(int Ncameras,
+                                          mrcal_problem_details_t problem_details,
+                                          enum distortion_model_t distortion_model)
+{
+    return
+        Ncameras *
+        getNregularizationTerms_percamera(problem_details, distortion_model);
+}
+
+int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
+                               const struct observation_point_t* observations_point,
+                               int NobservationsPoint,
+                               int calibration_object_width_n,
+                               mrcal_problem_details_t problem_details,
+                               enum distortion_model_t distortion_model)
+{
+    return
+        mrcal_getNmeasurements_boards( NobservationsBoard, calibration_object_width_n) +
+        mrcal_getNmeasurements_points( observations_point, NobservationsPoint) +
+        mrcal_getNmeasurements_regularization( Ncameras, problem_details, distortion_model);
 }
 
 static int get_N_j_nonzero( int Ncameras,
@@ -1366,7 +1388,6 @@ int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
         (Nframes * 6) +
         i_point*3;
 }
-
 static int intrinsics_index_from_state_index( int i_state,
                                               const enum distortion_model_t distortion_model,
                                               mrcal_problem_details_t problem_details )
@@ -1524,7 +1545,7 @@ static bool computeConfidence_MMt(// out
     int Nintrinsics_per_camera_all = mrcal_getNintrinsicParams(distortion_model);
     int Nintrinsics_per_camera_state =
         getNintrinsicOptimizationParams(problem_details, distortion_model);
-#warning assumes the point range errors sit AFTER all the reprojection errors
+#warning "assumes the point range errors sit AFTER all the reprojection errors, which is WRONG"
     int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
                                                                NobservationsPoint,
                                                                calibration_object_width_n);
@@ -2199,11 +2220,11 @@ mrcal_optimize( // out
     const int Nstate        = get_Nstate(Ncameras, Nframes, Npoints,
                                          problem_details,
                                          distortion_model);
-    const int Nmeasurements = mrcal_getNmeasurements(Ncameras, NobservationsBoard,
-                                                     observations_point, NobservationsPoint,
-                                                     calibration_object_width_n,
-                                                     problem_details,
-                                                     distortion_model);
+    const int Nmeasurements = mrcal_getNmeasurements_all(Ncameras, NobservationsBoard,
+                                                         observations_point, NobservationsPoint,
+                                                         calibration_object_width_n,
+                                                         problem_details,
+                                                         distortion_model);
     const int N_j_nonzero   = get_N_j_nonzero(Ncameras,
                                               observations_board, NobservationsBoard,
                                               observations_point, NobservationsPoint,

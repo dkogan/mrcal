@@ -221,12 +221,19 @@ mrcal_optimize( // out
                 double calibration_object_spacing,
                 int calibration_object_width_n);
 
-int mrcal_getNmeasurements(int Ncameras, int NobservationsBoard,
-                           const struct observation_point_t* observations_point,
-                           int NobservationsPoint,
-                           int calibration_object_width_n,
-                           mrcal_problem_details_t problem_details,
-                           enum distortion_model_t distortion_model);
+int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
+                               const struct observation_point_t* observations_point,
+                               int NobservationsPoint,
+                               int calibration_object_width_n,
+                               mrcal_problem_details_t problem_details,
+                               enum distortion_model_t distortion_model);
+int mrcal_getNmeasurements_boards(int NobservationsBoard,
+                                  int calibration_object_width_n);
+int mrcal_getNmeasurements_points(const struct observation_point_t* observations_point,
+                                  int NobservationsPoint);
+int mrcal_getNmeasurements_regularization(int Ncameras,
+                                          mrcal_problem_details_t problem_details,
+                                          enum distortion_model_t distortion_model);
 
 // Given a set of 3d points, returns the expected-value of the outlierness
 // factor, for each, if it was added to the data set with a nominal distribution

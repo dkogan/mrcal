@@ -103,6 +103,8 @@ typedef struct {
     mrcal_problem_details_t problem_details;
 
     int Ncameras, Nframes, Npoints;
+    int NobservationsBoard;
+    int calibration_object_width_n;
 
 } SolverContext;
 static void SolverContext_dealloc(SolverContext* self)
@@ -118,11 +120,15 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "Ncameras:                          %d\n"
                                "Nframes:                           %d\n"
                                "Npoints:                           %d\n"
+                               "NobservationsBoard:                %d\n"
+                               "calibration_object_width_n:        %d\n"
                                "do_optimize_intrinsic_core:        %d\n"
                                "do_optimize_intrinsic_distortions: %d\n"
                                "do_optimize_cahvor_optical_axis:   %d\n",
                                mrcal_distortion_model_name(self->distortion_model),
                                self->Ncameras, self->Nframes, self->Npoints,
+                               self->NobservationsBoard,
+                               self->calibration_object_width_n,
                                self->problem_details.do_optimize_intrinsic_core,
                                self->problem_details.do_optimize_intrinsic_distortions,
                                self->problem_details.do_optimize_cahvor_optical_axis);
@@ -132,7 +138,7 @@ static PyObject* SolverContext_J(SolverContext* self)
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "SolverContext.J() only makes sense with a non-empty context");
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
         return NULL;
     }
 
@@ -213,6 +219,11 @@ static PyObject* SolverContext_J(SolverContext* self)
 static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
                                                           PyObject* args)
 {
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
     PyObject* result = NULL;
     int i_camera = -1;
     if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
@@ -233,6 +244,11 @@ static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
 static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* self,
                                                           PyObject* args)
 {
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
     PyObject* result = NULL;
     int i_camera = -1;
     if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
@@ -253,6 +269,11 @@ static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* 
 static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
                                                      PyObject* args)
 {
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
     PyObject* result = NULL;
     int i_camera = -1;
     if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
@@ -274,6 +295,11 @@ static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
 static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
                                                     PyObject* args)
 {
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
     PyObject* result = NULL;
     int i_frame = -1;
     if(!PyArg_ParseTuple( args, "i", &i_frame )) goto done;
@@ -295,6 +321,11 @@ static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
 static PyObject* SolverContext_state_index_point(SolverContext* self,
                                                  PyObject* args)
 {
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
     PyObject* result = NULL;
     int i_point = -1;
     if(!PyArg_ParseTuple( args, "i", &i_point )) goto done;
@@ -311,6 +342,47 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
                                                    self->problem_details,
                                                    self->distortion_model));
  done:
+    return result;
+}
+
+static PyObject* SolverContext_num_measurements(SolverContext* self)
+{
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
+
+    int Nmeasurements_all = self->ctx->beforeStep->Jt->ncol;
+    int Nmeasurements_regularization =
+        mrcal_getNmeasurements_regularization(self->Ncameras,
+                                              self->problem_details,
+                                              self->distortion_model);
+    int Nmeasurements_boards =
+        mrcal_getNmeasurements_boards( self->NobservationsBoard,
+                                       self->calibration_object_width_n);
+    int Nmeasurements_points =
+        Nmeasurements_all - Nmeasurements_regularization - Nmeasurements_boards;
+
+    PyObject* result = PyDict_New();
+    PyObject* x;
+
+    x = PyInt_FromLong(Nmeasurements_regularization);
+    PyDict_SetItemString(result, "regularization", x);
+    Py_DECREF(x);
+
+    x = PyInt_FromLong(Nmeasurements_boards);
+    PyDict_SetItemString(result, "boards", x);
+    Py_DECREF(x);
+
+    x = PyInt_FromLong(Nmeasurements_points);
+    PyDict_SetItemString(result, "points", x);
+    Py_DECREF(x);
+
+    x = PyInt_FromLong(Nmeasurements_all);
+    PyDict_SetItemString(result, "all", x);
+    Py_DECREF(x);
+
     return result;
 }
 
@@ -334,6 +406,9 @@ static const char SolverContext_state_index_frame_rt_docstring[] =
 static const char SolverContext_state_index_point_docstring[] =
 #include "SolverContext_state_index_point.docstring.h"
     ;
+static const char SolverContext_num_measurements_docstring[] =
+#include "SolverContext_num_measurements.docstring.h"
+    ;
 
 static PyMethodDef SolverContext_methods[] =
     { PYMETHODDEF_ENTRY(SolverContext_, J,                                 METH_NOARGS),
@@ -342,6 +417,7 @@ static PyMethodDef SolverContext_methods[] =
       PYMETHODDEF_ENTRY(SolverContext_, state_index_camera_rt,             METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,              METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_point,                 METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, num_measurements,                  METH_NOARGS),
       {}
     };
 
@@ -1322,11 +1398,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
               .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
             };
 
-        int Nmeasurements = mrcal_getNmeasurements(Ncameras, NobservationsBoard,
-                                                   c_observations_point, NobservationsPoint,
-                                                   c_calibration_object_width_n,
-                                                   problem_details,
-                                                   distortion_model_type);
+        int Nmeasurements = mrcal_getNmeasurements_all(Ncameras, NobservationsBoard,
+                                                       c_observations_point, NobservationsPoint,
+                                                       c_calibration_object_width_n,
+                                                       problem_details,
+                                                       distortion_model_type);
 
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
         double* c_x_final = PyArray_DATA(x_final);
@@ -1377,12 +1453,15 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         dogleg_solverContext_t** solver_context_optimizer = NULL;
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
         {
-            solver_context_optimizer         = &solver_context->ctx;
-            solver_context->distortion_model = distortion_model_type;
-            solver_context->problem_details  = problem_details;
-            solver_context->Ncameras         = Ncameras;
-            solver_context->Nframes          = Nframes;
-            solver_context->Npoints          = Npoints;
+            solver_context_optimizer                   = &solver_context->ctx;
+            solver_context->distortion_model           = distortion_model_type;
+            solver_context->problem_details            = problem_details;
+            solver_context->Ncameras                   = Ncameras;
+            solver_context->Nframes                    = Nframes;
+            solver_context->Npoints                    = Npoints;
+            solver_context->NobservationsBoard         = NobservationsBoard;
+            solver_context->calibration_object_width_n = c_calibration_object_width_n;
+
         }
 
 
