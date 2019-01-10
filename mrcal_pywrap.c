@@ -386,6 +386,84 @@ static PyObject* SolverContext_num_measurements(SolverContext* self)
     return result;
 }
 
+static PyObject* SolverContext_pack_unpack(SolverContext* self,
+                                           PyObject* args,
+                                           bool pack)
+{
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
+
+    PyObject*      result = NULL;
+    PyArrayObject* p      = NULL;
+    if(!PyArg_ParseTuple( args, "O&", PyArray_Converter, &p )) goto done;
+
+    if( PyArray_TYPE(p) != NPY_DOUBLE )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "The input array MUST have values of type 'float'");
+        goto done;
+    }
+
+    if( !PyArray_IS_C_CONTIGUOUS(p) )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "The input array MUST be a C-style contiguous array");
+        goto done;
+    }
+
+    int       ndim       = PyArray_NDIM(p);
+    npy_intp* dims       = PyArray_DIMS(p);
+    if( ndim <= 0 || dims[ndim-1] <= 0 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "The input array MUST have non-degenerate data in it");
+        goto done;
+    }
+
+    int Nstate = self->ctx->beforeStep->Jt->nrow;
+    if( dims[ndim-1] != Nstate )
+    {
+        PyErr_Format(PyExc_RuntimeError, "The input array MUST have last dimension of size Nstate=%d; instead got %ld",
+                     Nstate, dims[ndim-1]);
+        goto done;
+    }
+
+    double* x = (double*)PyArray_DATA(p);
+    if(pack)
+        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        {
+            mrcal_pack_solver_state_vector( x,
+                                            self->distortion_model, self->problem_details,
+                                            self->Ncameras, self->Nframes, self->Npoints );
+            x = &x[Nstate];
+        }
+    else
+        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        {
+            mrcal_unpack_solver_state_vector( x,
+                                              self->distortion_model, self->problem_details,
+                                              self->Ncameras, self->Nframes, self->Npoints );
+            x = &x[Nstate];
+        }
+
+
+    Py_INCREF(Py_None);
+    result = Py_None;
+
+ done:
+    Py_XDECREF(p);
+    return result;
+}
+static PyObject* SolverContext_pack(SolverContext* self, PyObject* args)
+{
+    return SolverContext_pack_unpack(self, args, true);
+}
+static PyObject* SolverContext_unpack(SolverContext* self, PyObject* args)
+{
+    return SolverContext_pack_unpack(self, args, false);
+}
+
+
 
 
 static const char SolverContext_J_docstring[] =
@@ -409,6 +487,12 @@ static const char SolverContext_state_index_point_docstring[] =
 static const char SolverContext_num_measurements_docstring[] =
 #include "SolverContext_num_measurements.docstring.h"
     ;
+static const char SolverContext_pack_docstring[] =
+#include "SolverContext_pack.docstring.h"
+    ;
+static const char SolverContext_unpack_docstring[] =
+#include "SolverContext_unpack.docstring.h"
+    ;
 
 static PyMethodDef SolverContext_methods[] =
     { PYMETHODDEF_ENTRY(SolverContext_, J,                                 METH_NOARGS),
@@ -418,6 +502,8 @@ static PyMethodDef SolverContext_methods[] =
       PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,              METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_point,                 METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, num_measurements,                  METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, pack,                              METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, unpack,                            METH_VARARGS),
       {}
     };
 

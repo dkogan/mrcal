@@ -1095,8 +1095,7 @@ static void pack_solver_state( // out
 }
 
 // Same as above, but packs/unpacks a vector instead of structures
-__attribute__((unused))
-static void pack_solver_state_vector( // out, in
+void mrcal_pack_solver_state_vector( // out, in
                                      double* p, // unitless, FULL state on
                                                 // input, scaled, decimated
                                                 // (subject to problem_details),
@@ -1307,7 +1306,7 @@ static void unpack_solver_state( // out
     assert(i_state == Nstate_ref);
 }
 // Same as above, but packs/unpacks a vector instead of structures
-static void unpack_solver_state_vector( // out, in
+void mrcal_unpack_solver_state_vector( // out, in
                                        double* p, // unitless state on input,
                                                   // scaled, meaningful state on
                                                   // output
@@ -1724,10 +1723,10 @@ static bool computeConfidence_MMt(// out
 
             // The M I have here is a unitless, scaled M*. I need to scale it to get
             // M. See comment above.
-            unpack_solver_state_vector( &((double*)(M->x))[icol*M->nrow],
-                                        distortion_model,
-                                        problem_details,
-                                        Ncameras, Nframes, Npoints);
+            mrcal_unpack_solver_state_vector( &((double*)(M->x))[icol*M->nrow],
+                                              distortion_model,
+                                              problem_details,
+                                              Ncameras, Nframes, Npoints);
 
 
 

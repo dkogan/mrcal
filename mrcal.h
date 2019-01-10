@@ -283,3 +283,25 @@ int mrcal_state_index_frame_rt(int i_frame, int Ncameras,
 int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
                             mrcal_problem_details_t problem_details,
                             enum distortion_model_t distortion_model);
+
+// packs/unpacks a vector
+void mrcal_pack_solver_state_vector( // out, in
+                                     double* p, // unitless, FULL state on
+                                                // input, scaled, decimated
+                                                // (subject to problem_details),
+                                                // meaningful state on output
+
+                                     // in
+                                     const enum distortion_model_t distortion_model,
+                                     mrcal_problem_details_t problem_details,
+                                     int Ncameras, int Nframes, int Npoints);
+
+void mrcal_unpack_solver_state_vector( // out, in
+                                       double* p, // unitless state on input,
+                                                  // scaled, meaningful state on
+                                                  // output
+
+                                       // in
+                                       const enum distortion_model_t distortion_model,
+                                       mrcal_problem_details_t problem_details,
+                                       int Ncameras, int Nframes, int Npoints);
