@@ -458,64 +458,6 @@ def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_
     observations. See comment in visualize_intrinsics_uncertainty() for
     derivation
 
-    '''
-    imagePoints,dp_dintrinsics,_ = \
-        mrcal.project(V, distortion_model, intrinsics_data, get_gradients=True)
-    F = dp_dintrinsics[..., 0:2]
-    C = dp_dintrinsics[..., 2:4]
-
-    Cff = covariance_intrinsics[..., 0:2, 0:2]
-    Cfc = covariance_intrinsics[..., 0:2, 2:4]
-    Ccf = covariance_intrinsics[..., 2:4, 0:2]
-    Ccc = covariance_intrinsics[..., 2:4, 2:4]
-
-    # shape Nwidth,Nheight,2,2: each slice is a 2x2 covariance
-    Vdprojection = \
-        nps.matmult(F,Cff,nps.transpose(F)) + \
-        nps.matmult(F,Cfc,nps.transpose(C)) + \
-        nps.matmult(C,Ccf,nps.transpose(F)) + \
-        nps.matmult(C,Ccc,nps.transpose(C))
-
-
-    if distortion_model != 'DISTORTION_NONE':
-        D = dp_dintrinsics[..., 4:]
-        Cfd = covariance_intrinsics[..., 0:2, 4: ]
-        Ccd = covariance_intrinsics[..., 2:4, 4: ]
-        Cdc = covariance_intrinsics[..., 4:,  2:4]
-        Cdd = covariance_intrinsics[..., 4:,  4: ]
-        Cdf = covariance_intrinsics[..., 4:,  0:2]
-        Vdprojection += \
-            nps.matmult(F,Cfd,nps.transpose(D)) + \
-            nps.matmult(C,Ccd,nps.transpose(D)) + \
-            nps.matmult(D,Cdf,nps.transpose(F)) + \
-            nps.matmult(D,Cdc,nps.transpose(C)) + \
-            nps.matmult(D,Cdd,nps.transpose(D))
-
-    # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
-    # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
-    # an arbitrary covariance, instead of sI (which is what the Rayleigh
-    # distribution expects). I thus compute sqrt(E(norm2(x))) instead of
-    # E(sqrt(norm2(x))). Hopefully that's close enough
-    #
-    # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
-    @nps.broadcast_define( (('n','n'),), ())
-    def trace(x):
-        return np.trace(x)
-    Expected_projection_shift = np.sqrt(trace(Vdprojection))
-    return Expected_projection_shift
-
-
-def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                     covariance_intrinsics, imagersize,
-                                     gridn_x = 60,
-                                     gridn_y = 40,
-                                     extratitle = None,
-                                     hardcopy = None,
-                                     cbmax = None,
-                                     extraplotkwargs = {}):
-    r'''Visualizes the uncertainty in the intrinsics of a camera
-
-    This routine uses the covariance of observed inputs
 
     A calibration process produces the best-fitting camera parameters (intrinsics
     and extrinsics) and a covariance matrix representing the uncertainty in
@@ -555,9 +497,9 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
           where M = -inv(JtJ) Jt dx/dm
 
-        In order to be useful I need to do something with M. Let's say I want to
-        quantify how precise our optimal intrinsics are. Ultimately these are always
-        used in a projection operation. So given a 3d observation vector v, I project
+        In order to be useful I need to do something with M. I want to quantify
+        how precise our optimal intrinsics are. Ultimately these are always used
+        in a projection operation. So given a 3d observation vector v, I project
         it onto our image plane:
 
           q = project(v, intrinsics)
@@ -565,51 +507,21 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
         I assume an independent, gaussian noise on my input observations, and for a
         set of given observation vectors v, I compute the effect on the projection.
 
-          dq = dprojection/dintrinsics dintrinsics
+          dq = dproj/dintrinsics dintrinsics
+             = dproj/dintrinsics Mintrinsics dm
 
-        dprojection/dintrinsics comes from cvProjectPoints2()
-        dintrinsics is the shift in our optimal state: M dm
+        dprojection/dintrinsics comes from cvProjectPoints2(). I'm assuming
+        everything is locally linear, so this is a constant matrix for each v.
+        dintrinsics is the shift in the intrinsics of this camera. Mintrinsics
+        is the subset of M that corresponds to these intrinsics
 
-        If dm represents noise of the zero-mean, independent, gaussian variety, then
-        dp is also zero-mean gaussian, but no longer independent.
+        If dm represents noise of the zero-mean, independent, gaussian variety,
+        then dp and dq are also zero-mean gaussian, but no longer independent
 
-          Var(dp) = M Var(dm) Mt = M Mt s^2
+          Var(dq) = (dproj/dintrinsics Mintrinsics) Var(dm) (dproj/dintrinsics Mintrinsics)t =
+                  = (dproj/dintrinsics Mintrinsics) (dproj/dintrinsics Mintrinsics)t s^2
 
         where s is the standard deviation of the noise of each parameter in dm.
-
-        The intrinsics of each camera have 3 components:
-
-        - f: focal lengths
-        - c: center pixel coord
-        - d: distortion parameters
-
-        Let me define dprojection/df = F, dprojection/dc = C, dprojection/dd = D.
-        These all come from cvProjectPoints2().
-
-        Rewriting the projection equation I get
-
-          q = project(v,  f,c,d)
-          dq = F df + C dc + D dd
-
-        df,dc,dd are random variables that come from dp.
-
-          Var(dq) = F Covar(df,df) Ft +
-                    C Covar(dc,dc) Ct +
-                    D Covar(dd,dd) Dt +
-                    F Covar(df,dc) Ct +
-                    F Covar(df,dd) Dt +
-                    C Covar(dc,df) Ft +
-                    C Covar(dc,dd) Dt +
-                    D Covar(dd,df) Ft +
-                    D Covar(dd,dc) Ct
-
-        Covar(dx,dy) are all submatrices of the larger Var(dp) matrix we computed
-        above: M Mt s^2.
-
-        Here I look ONLY at the interactions of intrinsic parameters for a particular
-        camera with OTHER intrinsic parameters of the same camera. I ignore
-        cross-camera interactions and interactions with other parameters, such as the
-        frame poses and extrinsics.
 
         For mrcal, the measurements are
 
@@ -626,12 +538,37 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
         I thus ignore measurements past the observation set.
 
-        My matrices are large and sparse. Thus I compute the blocks of M Mt that I
-        need here, and return these densely to the upper levels (python). These
-        callers will then use these dense matrices to finish the computation
+    '''
+    imagePoints,dproj_dintrinsics,_ = \
+        mrcal.project(V, distortion_model, intrinsics_data, get_gradients=True)
 
-          M Mt = sum(outer(col(M), col(M)))
-          col(M) = solve(JtJ, row(J))
+    Vdprojection = nps.matmult( dproj_dintrinsics, covariance_intrinsics, nps.transpose(dproj_dintrinsics) )
+
+    # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
+    # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
+    # an arbitrary covariance, instead of sI (which is what the Rayleigh
+    # distribution expects). I thus compute sqrt(E(norm2(x))) instead of
+    # E(sqrt(norm2(x))). Hopefully that's close enough
+    #
+    # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
+    @nps.broadcast_define( (('n','n'),), ())
+    def trace(x):
+        return np.trace(x)
+    return np.sqrt(trace(Vdprojection))
+
+
+def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
+                                     covariance_intrinsics, imagersize,
+                                     gridn_x = 60,
+                                     gridn_y = 40,
+                                     extratitle = None,
+                                     hardcopy = None,
+                                     cbmax = None,
+                                     extraplotkwargs = {}):
+    r'''Visualizes the uncertainty in the intrinsics of a camera
+
+    This routine uses the covariance of observed inputs. See
+    get_projection_uncertainty() for a detailed description of the process
 
     '''
 
