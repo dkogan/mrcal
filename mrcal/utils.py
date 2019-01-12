@@ -650,6 +650,12 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      covariance_intrinsics, imagersize,
                                      gridn_x          = 60,
                                      gridn_y          = 40,
+
+                                     # fit everywhere by default
+                                     focus_center = None,
+                                     focus_radius = 1.e6, # effectively an infinite
+                                                          # number of pixels
+
                                      extratitle       = None,
                                      hardcopy         = None,
                                      cbmax            = None,
@@ -667,11 +673,20 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     W,H=imagersize
     Expected_projection_shift = get_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                                            covariance_intrinsics, imagersize,
-                                                           gridn_x, gridn_y
-    )
+                                                           gridn_x, gridn_y,
+                                                           focus_center = focus_center,
+                                                           focus_radius = focus_radius)
 
     if 'title' not in plotkwargs_extra:
-        title = "Projection uncertainty"
+        if focus_radius is None or focus_radius <= 0:
+            where = "NOT fitting an implied rotation"
+        elif focus_radius > 2*(W+H):
+            where = "implied rotation fitted everywhere"
+        else:
+            where = "implied rotation fit looking at {} with radius {}". \
+                format('the imager center' if focus_center is None else focus_center,
+                       focus_radius)
+        title = "Projection uncertainty; {}".format(where)
         if extratitle is not None:
             title += ": " + extratitle
         plotkwargs_extra['title'] = title
@@ -1110,7 +1125,15 @@ def visualize_intrinsics_diff(models,
         difflen = np.sqrt(np.mean(nps.norm2(grids-grid0),axis=0))
 
     if 'title' not in plotkwargs_extra:
-        title = "Model diff"
+        if focus_radius is None or focus_radius <= 0:
+            where = "NOT fitting an implied rotation"
+        elif focus_radius > 2*(W+H):
+            where = "implied rotation fitted everywhere"
+        else:
+            where = "implied rotation fit looking at {} with radius {}". \
+                format('the imager center' if focus_center is None else focus_center,
+                       focus_radius)
+        title = "Model diff; {}".format(where)
         if extratitle is not None:
             title += ": " + extratitle
         plotkwargs_extra['title'] = title
