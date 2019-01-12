@@ -117,7 +117,7 @@ def parse_args():
                         will be attenuated significantly. If we want to use all
                         the data evenly, omit this argument. Otherwise pass 4
                         values for each --roi:
-                        (x_center,y_center,x_width,y_width). The region is an
+                        (x_center,y_center,x_radius,y_radius). The region is an
                         axis-aligned ellipsoid. If passing in ANY roi, you MUST
                         pass in the ROI for EACH camera; a separate '--roi' for
                         each one.''')
@@ -1426,7 +1426,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
         # the corner
         widths       = imagersizes.astype(float)-1
         centerpixels = widths / 2.
-        roi_final = nps.glue(centerpixels, widths*np.sqrt(2), axis=-1)
+        roi_final = nps.glue(centerpixels, widths/2.*np.sqrt(2), axis=-1)
     else:
         roi_final = args.roi
 
@@ -1440,7 +1440,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
 
         print ""
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv next distortion/ROI:\n")
-        print "Distortion model: {}"   .format(distortion_model)
+        print "Distortion model: {}"         .format(distortion_model)
         print "ROI:              {}/{}  ({})".format(iroi+1, Nroi, roi)
 
         state = copy.deepcopy( (intrinsics_data, extrinsics, frames), )

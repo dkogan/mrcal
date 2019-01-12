@@ -159,7 +159,7 @@ OPTIONAL ARGS:
   Errors in observations outside this area will be attenuated significantly. If
   we want to use all the data evenly, this should be None. Otherwise this is a
   numpy array of shape (Ncameras,4) where each camera's slice is (x_center,
-  y_center, x_width, y_width). The region is an axis-aligned ellipsoid
+  y_center, x_radius, y_radius). The region is an axis-aligned ellipsoid
 
 - get_intrinsic_covariances: defaults to False. If True, I compute MMt and
   include it in the dict I return

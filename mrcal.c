@@ -906,8 +906,8 @@ static double region_of_interest_weight(const union point2_t* pt,
     if(roi == NULL) return 1.0;
 
     roi = &roi[4*i_camera];
-    double dx = (pt->x - roi[0]) / (roi[2]/2.0);
-    double dy = (pt->y - roi[1]) / (roi[3]/2.0);
+    double dx = (pt->x - roi[0]) / roi[2];
+    double dy = (pt->y - roi[1]) / roi[3];
 
     return region_of_interest_weight_from_unitless_rad(dx*dx + dy*dy);
 }
