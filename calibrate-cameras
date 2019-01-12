@@ -1765,7 +1765,7 @@ if args.num_cross_validation_splits > 1:
         #         # shape (Ncameras, 5, 3)
         #         V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
         #         Expected_projection_shift[i_camera, :] = \
-        #             mrcal.get_projection_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
+        #             mrcal.get_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
         #     report += np.array2string(Expected_projection_shift, precision=2) + "\n"
 
         print report
@@ -1841,7 +1841,7 @@ if MMt is not None:
         # shape (Ncameras, 5, 3)
         V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
         Expected_projection_shift[i_camera, :] = \
-            mrcal.get_projection_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
+            mrcal.get_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
     report += np.array2string(Expected_projection_shift, precision=2) + "\n"
 
 print report

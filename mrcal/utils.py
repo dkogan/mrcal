@@ -448,8 +448,7 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
                                intrinsics_data), \
                             grid
 
-
-def get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
+def get_intrinsics_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Given a (broadcastable) 3D vector, and the covariance matrix for the
@@ -568,7 +567,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the covariance of observed inputs. See
-    get_projection_uncertainty() for a detailed description of the process
+    get_intrinsics_uncertainty() for a detailed description of the process
 
     '''
 
@@ -580,7 +579,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     V,_ = sample_imager_unproject(gridn_x, gridn_y,
                                   distortion_model, intrinsics_data,
                                   W, H)
-    Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
+    Expected_projection_shift = get_intrinsics_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
 
     if 'title' not in plotkwargs_extra:
         title = "Projection uncertainty"
