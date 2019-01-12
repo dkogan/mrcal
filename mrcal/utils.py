@@ -910,6 +910,8 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
     else:
 
         # By default we try to match the geometry EVERYWHERE
+        W,H = imagersizes[0,:]
+
         V0cut   = nps.clump(V0,n=2)
         V1cut   = nps.clump(V1,n=2)
         icenter = np.array((V0.shape[:2]))/2
