@@ -5,6 +5,7 @@ import numpysane as nps
 import sys
 import re
 import cv2
+import warnings
 
 import mrcal
 
@@ -404,18 +405,8 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     return p1, p0xy
 
 
-def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
+def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
     r'''Reports 3d observation vectors that regularly sample the imager
-
-    Synopsis:
-
-        vectors,pixelgrid = sample_imager_unproject(gridn_x, gridn_y,
-                                                    distortion_model, intrinsics_data,
-                                                    *imagersize)
-        Expected_projection_shift = \
-          get_projection_uncertainty(vectors,
-                                     distortion_model, intrinsics_data,
-                                     covariance_intrinsics)
 
     This is a utility function for the various visualization routines.
     Broadcasts on the distortion_model and intrinsics_data (if they're lists,
@@ -440,23 +431,31 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
                                          distortion_model[i],
                                          intrinsics_data[i]) \
                          for i in xrange(len(distortion_model))]), \
-                             grid
+               grid
     else:
         # shape: Ncameras,Nwidth,Nheight,3
-        return mrcal.unproject(grid,
-                               distortion_model,
-                               intrinsics_data), \
-                            grid
+        return \
+            mrcal.unproject(grid,
+                            distortion_model,
+                            intrinsics_data), \
+            grid
 
-def get_intrinsics_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics):
+def get_intrinsics_uncertainty( distortion_model, intrinsics_data,
+                                covariance_intrinsics, imagersize,
+                                gridn_x      = 60,
+                                gridn_y      = 40,
+
+                                # fit everywhere by default
+                                focus_center = None,
+                                focus_radius = 1.e6, # effectively an infinite
+                                                     # number of pixels
+                              ):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Given a (broadcastable) 3D vector, and the covariance matrix for the
     intrinsics, returns the expected value of the deviation from center of the
     projected point that would result from noise in the calibration
-    observations. See comment in visualize_intrinsics_uncertainty() for
-    derivation
-
+    observations.
 
     A calibration process produces the best-fitting camera parameters (intrinsics
     and extrinsics) and a covariance matrix representing the uncertainty in
@@ -465,6 +464,23 @@ def get_intrinsics_uncertainty(V, distortion_model, intrinsics_data, covariance_
     resulting projection point. This tool plots the expected value of this
     projection error across the imager. Areas with a high expected projection
     error are unreliable for further work.
+
+    We may assume the rotation of this camera is uncertain, and that shifts in
+    intrinsics could be compensated for by applying a rotation. For a given
+    perturbation in intrinsics I compute the optimal rotation to reduce the
+    reprojection error. For this alignment I can use an arbitrary subset of the
+    data:
+
+        if focus_radius is None or focus_radius <= 0:
+           I do NOT fit a compensating rotation
+
+        if focus_radius > 0:
+           I use observation vectors within focus_radius pixels of the
+           focus_center. To use ALL the data, pass in a very large focus_radius,
+           or simply omit it
+
+        if focus_center is None:
+           focus_center is at the center of the imager
 
     Comment from the mrcal core:
 
@@ -571,15 +587,14 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
     '''
 
-    import gnuplotlib as gp
-
     if plotkwargs_extra is None: plotkwargs_extra = {}
 
+    import gnuplotlib as gp
     W,H=imagersize
-    V,_ = sample_imager_unproject(gridn_x, gridn_y,
-                                  distortion_model, intrinsics_data,
-                                  W, H)
-    Expected_projection_shift = get_intrinsics_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
+    Expected_projection_shift = get_intrinsics_uncertainty(distortion_model, intrinsics_data,
+                                                           covariance_intrinsics, imagersize,
+                                                           gridn_x, gridn_y
+    )
 
     if 'title' not in plotkwargs_extra:
         title = "Projection uncertainty"
@@ -628,11 +643,11 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                                  solver_context, i_camera, observed_pixel_uncertainty,
                                                  imagersize,
                                                  Noutliers,
-                                                 gridn_x = 60,
-                                                 gridn_y = 40,
-                                                 extratitle = None,
-                                                 hardcopy = None,
-                                                 cbmax = None,
+                                                 gridn_x          = 60,
+                                                 gridn_y          = 40,
+                                                 extratitle       = None,
+                                                 hardcopy         = None,
+                                                 cbmax            = None,
                                                  plotkwargs_extra = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
@@ -676,16 +691,16 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
 
     '''
 
-    if plotkwargs_extra is None: plotkwargs_extra = {}
-
     import gnuplotlib as gp
 
-    W,H=imagersize
-    V,_ = sample_imager_unproject(gridn_x, gridn_y,
-                                  distortion_model, intrinsics_data,
-                                  W, H)
+    if plotkwargs_extra is None: plotkwargs_extra = {}
 
-    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V.copy(), i_camera, solver_context, Noutliers) * \
+    W,H=imagersize
+    v,_ = _sample_imager_unproject(gridn_x, gridn_y,
+                                   distortion_model, intrinsics_data,
+                                   W, H)
+
+    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( v.copy(), i_camera, solver_context, Noutliers) * \
         observed_pixel_uncertainty * observed_pixel_uncertainty
 
     if 'title' not in plotkwargs_extra:
@@ -731,7 +746,9 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     return plot
 
 
-def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1, where,
+def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
+                                          focus_center,
+                                          focus_radius,
                                           distortion_models, intrinsics_data,
 
                                           # these are for testing mostly. When I figure out
@@ -811,43 +828,39 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1, where,
 
 
 
-    if where is None:
+    if focus_radius is None or focus_radius <= 0:
         # We assume the geometry is fixed across the two models, and we fit
         # nothing
         R = np.eye(3)
 
     else:
 
-        if where['center'] is None:
-            # We try to match the geometry EVERYWHERE
+        # By default we try to match the geometry EVERYWHERE
+        V0cut   = nps.clump(V0,n=2)
+        V1cut   = nps.clump(V1,n=2)
+        icenter = np.array((V0.shape[:2]))/2
+        if focus_radius < 2*(W+H):
+            # But we may try to match the geometry in a particular region
+            if focus_center is None:
+                focus_center = ((W-1.)/2., (H-1.)/2.)
 
-            V0cut   = nps.clump(V0,n=2)
-            V1cut   = nps.clump(V1,n=2)
-            icenter = np.array((V0.shape[:2]))/2
-        else:
-            # We try to match the geometry in a particular region
-            c = where['center']
-            if 'radius' in where and where['radius'] is not None:
-                r = where['radius']
+            grid_off_center = grid0 - focus_center
+            i = nps.norm2(grid_off_center) < focus_radius*focus_radius
+            if np.count_nonzero(i)<3:
+                warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
             else:
-                # radius not given. I use 1/6 of the smallest imager dimension
-                # (diameter = 1/3)
-                r = np.min(imagersizes) / 6
+                V0cut = V0[i, ...]
+                V1cut = V1[i, ...]
 
-            grid_off_center = grid0 - c
-            i = nps.norm2(grid_off_center) < r*r
-            V0cut = V0[i, ...]
-            V1cut = V1[i, ...]
+                # get the nearest index on my grid to the requested center
+                icenter_flat = np.argmin(nps.norm2(grid_off_center))
 
-            # get the nearest index on my grid to the requested center
-            icenter_flat = np.argmin(nps.norm2(grid_off_center))
-
-            # This looks funny, but it's right. My grid is set up that you index
-            # with the x-coord and then the y-coord. This is opposite from the
-            # matrix convention that numpy uses: y then x.
-            ix = icenter_flat/V0.shape[1]
-            iy = icenter_flat - ix*V0.shape[1]
-            icenter = np.array((ix,iy))
+                # This looks funny, but it's right. My grid is set up that you index
+                # with the x-coord and then the y-coord. This is opposite from the
+                # matrix convention that numpy uses: y then x.
+                ix = icenter_flat/V0.shape[1]
+                iy = icenter_flat - ix*V0.shape[1]
+                icenter = np.array((ix,iy))
 
         # I compute a procrustes fit using ONLY data in the region of interest.
         # This is used to seed the nonlinear optimizer
@@ -927,14 +940,23 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1, where,
 
 
 
+# visualize_intrinsics_diff() takes models while
+# visualize_intrinsics_uncertainty_outlierness() takes raw intrinsics data.
+# get_intrinsics_uncertainty() does something too
+# Yuck. It should be one or the other consistently)
 def visualize_intrinsics_diff(models,
-                              gridn_x         = 60,
-                              gridn_y         = 40,
-                              where           = {'center': None}, # fit R everywhere by default
-                              vectorfield     = False,
-                              extratitle      = None,
-                              hardcopy        = None,
-                              cbmax           = None,
+                              gridn_x          = 60,
+                              gridn_y          = 40,
+
+                              # fit everywhere by default
+                              focus_center     = None,
+                              focus_radius     = 1.e6, # effectively an infinite
+                                                       # number of pixels
+
+                              vectorfield      = False,
+                              extratitle       = None,
+                              hardcopy         = None,
+                              cbmax            = None,
                               plotkwargs_extra = None):
     r'''Visualize the different between N intrinsic models
 
@@ -950,32 +972,23 @@ def visualize_intrinsics_diff(models,
     sets of intrinsics that both represent the same lens faithfully, but imply
     different rotations: the rotation would be compensated for by a shift in
     cx,cy. If I compare the two sets of intrinsics by IGNORING rotations, I
-    would get a large diff because of the cx,cy difference.
+    would get a large diff because of the cx,cy difference. I select the fitting
+    region like this:
 
-    The 'where' argument describes how this is done:
+        if focus_radius is None or focus_radius <= 0:
+           I do NOT fit a compensating rotation
 
-    if where is None:
-        I assume the models have perfectly matched camera coordinate systems,
-        and I do NOT align the rotations at all. If nothing guaranteed matched
-        coordinate systems (like if the models came from multiple runs of a
-        wave-an-object-in-front-of-the-cameras calibration procedure) then this
-        would overstate the disagreement between the cameras
+        if focus_radius > 0:
+           I use observation vectors within focus_radius pixels of the
+           focus_center. To use ALL the data, pass in a very large focus_radius,
+           or simply omit it
 
-    elif where['center'] is None:
-        I align the rotation based on data EVERYWHERE in the imager. This may
-        not be correct. If the distortion model doesn't truly fit the data, the
-        models may not fit each other everywhere, and specifying a particular
-        region of interest would be crucial
+        if focus_center is None:
+           focus_center is at the center of the imager
 
-    else:
-        I align the rotation based on data centered at where['center'] and
-        radius where['radius'] pixels, looking at the FIRST camera model.
-        where['radius'] may be omitted or None, in which case the radius would
-        be set to 1/6 of the shortest dimension of the imager
-
-    In all 3 cases I try to find the largest matching region around the area of
-    interest. So the recommentation is to specify where['center'], but to omit
-    where['radius'].
+    When fitting a rotation, I try to find the largest matching region around
+    the center of the area of interest. So the recommentation is to specify
+    focus_center and to use a modest focus_radius
 
     '''
 
@@ -997,15 +1010,15 @@ def visualize_intrinsics_diff(models,
     intrinsics_data   = [model.intrinsics()[1] for model in models]
 
 
-    V,grid0 = sample_imager_unproject(gridn_x, gridn_y,
-                                      distortion_models, intrinsics_data,
-                                      W, H)
+    v,grid0 = _sample_imager_unproject(gridn_x, gridn_y,
+                                       distortion_models, intrinsics_data,
+                                       W, H)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
         grid1   = _intrinsics_diff_get_reprojected_grid(grid0,
-                                                        V[0,...], V[1,...],
-                                                        where,
+                                                        v[0,...], v[1,...],
+                                                        focus_center, focus_radius,
                                                         distortion_models[1], intrinsics_data[1],
                                                         imagersizes)
         diff    = grid1 - grid0
@@ -1013,13 +1026,12 @@ def visualize_intrinsics_diff(models,
 
     else:
         # Many models. Look at the stdev
-        grids = nps.cat(grid0,
-                        *[_intrinsics_diff_get_reprojected_grid(grid0,
-                                                                V[0,...], V[i,...], where,
+        grids = nps.cat(*[_intrinsics_diff_get_reprojected_grid(grid0,
+                                                                v[0,...], v[i,...],
+                                                                focus_center, focus_radius,
                                                                 distortion_models[i], intrinsics_data[i],
-                                                                imagersizes) for i in xrange(1,len(V))])
-        stdevs  = np.std(grids, axis=0)
-        difflen = np.sqrt(nps.inner(stdevs, stdevs))
+                                                                imagersizes) for i in xrange(1,len(v))])
+        difflen = np.sqrt(np.mean(nps.norm2(grids-grid0),axis=0))
 
     if 'title' not in plotkwargs_extra:
         title = "Model diff"

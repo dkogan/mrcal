@@ -22,26 +22,6 @@ rotations: the rotation would be compensated for by a shift in cx,cy. If I
 compare the two sets of intrinsics by IGNORING rotations, I would get a large
 diff because of the cx,cy difference.
 
-The 'where' argument describes how this is done:
-
-if where is None:
-    I assume the models have perfectly matched camera coordinate systems,
-    and I do NOT align the rotations at all. If nothing guaranteed matched
-    coordinate systems (like if the models came from multiple runs of a
-    wave-an-object-in-front-of-the-cameras calibration procedure) then this
-    would overstate the disagreement between the cameras
-
-elif where['center'] is None:
-    I align the rotation based on data EVERYWHERE in the imager. This may
-    not be correct. If the distortion model doesn't truly fit the data, the
-    models may not fit each other everywhere, and specifying a particular
-    region of interest would be crucial
-
-else:
-    I align the rotation based on data centered at where['center'] and
-    radius where['radius'] pixels, looking at the FIRST camera model.
-    where['radius'] may be omitted or None, in which case the radius would
-    be set to 1/6 of the shortest dimension of the imager
 
 In all 3 cases I try to find the largest matching region around the area of
 interest. So the recommentation is to specify where['center'], but to omit
@@ -132,7 +112,8 @@ models = [loadmodel(modelfilename) for modelfilename in args.models]
 
 plot = mrcal.visualize_intrinsics_diff(models,
                                        args.gridn, args.gridn,
-                                       where           = {'center':args.where},
+                                       focus_center    = args.where,
+                                       focus_radius    = 1.e6 if args.where is None else max(models[0].dimensions())/6.,
                                        vectorfield     = args.vectorfield,
                                        hardcopy        = args.hardcopy,
                                        cbmax           = args.cbmax,

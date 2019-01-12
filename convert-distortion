@@ -230,7 +230,7 @@ writemodel(m_to)
 if args.viz:
 
     plot = mrcal.visualize_intrinsics_diff( (m, m_to),
-                                            where=None, # don't compute an implicit rotation
+                                            imager_radius=None, # don't compute an implicit rotation
                                             cbmax=10
                                             )
     plot.wait()
