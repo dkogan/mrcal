@@ -113,7 +113,7 @@ models = [loadmodel(modelfilename) for modelfilename in args.models]
 plot = mrcal.visualize_intrinsics_diff(models,
                                        args.gridn, args.gridn,
                                        focus_center    = args.where,
-                                       focus_radius    = 1.e6 if args.where is None else max(models[0].dimensions())/6.,
+                                       focus_radius    = 1.e6 if args.where is None else max(models[0].imagersize())/6.,
                                        vectorfield     = args.vectorfield,
                                        hardcopy        = args.hardcopy,
                                        cbmax           = args.cbmax,
