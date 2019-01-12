@@ -67,9 +67,9 @@ def parse_args():
 
 args  = parse_args()
 
-extraplotkwargs = {}
+plotkwargs_extra = {}
 if args.extraset is not None:
-    extraplotkwargs['set'] = args.extraset
+    plotkwargs_extra['set'] = args.extraset
 
 model = mrcal.cameramodel(args.model[0])
 
@@ -84,7 +84,7 @@ plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               hardcopy = args.hardcopy,
                                               cbmax = args.cbmax,
                                               extratitle=args.extratitle,
-                                              extraplotkwargs = extraplotkwargs)
+                                              plotkwargs_extra = plotkwargs_extra)
 
 if args.hardcopy is None:
     plot.wait()
