@@ -34,7 +34,7 @@ z_halfrange         = .05
 m = mrcal.cameramodel('reference.cameramodel')
 distortion_model = m.intrinsics()[0]
 intrinsics       = m.intrinsics()[1]
-cam_width,cam_height = m.dimensions()
+cam_width,cam_height = m.imagersize()
 
 pixel_noise_xy_1stdev = 0.5
 

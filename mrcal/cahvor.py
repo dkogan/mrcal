@@ -185,7 +185,7 @@ def _read(f):
                              distortions,
                              axis = -1)))
     m.extrinsics_Rt(True, nps.glue(R_toref,t_toref, axis=-2))
-    m.dimensions(x['Dimensions'])
+    m.imagersize(x['Dimensions'])
 
     # I write the whole thing into my structure so that I can pull it out later
     m.set_cookie(x)
@@ -214,7 +214,7 @@ def _write(f, m, note=None):
 
     if note is not None:
         f.write('# ' + note + '\n')
-    d = m.dimensions()
+    d = m.imagersize()
     f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 
     distortion_model,intrinsics = m.intrinsics()

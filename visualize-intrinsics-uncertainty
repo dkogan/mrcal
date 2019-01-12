@@ -79,7 +79,7 @@ if model.covariance_intrinsics() is None:
 distortion_model,intrinsics = model.intrinsics()
 plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               model.covariance_intrinsics(),
-                                              model.dimensions(),
+                                              model.imagersize(),
                                               args.gridn, args.gridn,
                                               hardcopy = args.hardcopy,
                                               cbmax = args.cbmax,

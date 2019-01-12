@@ -954,10 +954,10 @@ def make_seed_no_distortion( imagersizes,
 
 
 def get_imagersize_one(g, args_imagersize):
-    r'''Returns the imager dimensions for a given image glob
+    r'''Returns the imager size for a given image glob
 
     This reports the size for ONE camera. I only look at the first match. It is
-    assumed that all the images matching this glob have the same dimensions.
+    assumed that all the images matching this glob have the same imager size.
 
     If I have a dots cache, then this is the ONLY place where I'd need the
     images on disk at all. If the user passes --imagersize, then I really don't
@@ -981,7 +981,7 @@ def get_imagersize_one(g, args_imagersize):
     return [w,h]
 
 
-def make_cameramodel(i_camera, intrinsics, extrinsics, MMt):
+def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes, MMt):
     r'''Assemble one cameramodel from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -1011,10 +1011,10 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, MMt):
 
     return mrcal.cameramodel( intrinsics            = (intrinsics[0], intrinsics[1][i_camera,:]),
                               extrinsics_Rt_toref   = Rt_rx,
-                              dimensions            = imagersizes[i_camera],
+                              imagersize            = imagersizes[i_camera],
                               covariance_intrinsics = MMt[i_camera, ...] if MMt is not None else None)
 
-def make_cameramodels(intrinsics, extrinsics, MMt):
+def make_cameramodels(intrinsics, extrinsics, imagersizes, MMt):
     r'''Assemble cameramodels from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -1022,7 +1022,7 @@ def make_cameramodels(intrinsics, extrinsics, MMt):
     structures that can be fed to all the other routines.
 
     '''
-    return [ make_cameramodel(i_camera, intrinsics, extrinsics, MMt) for i_camera in xrange(len(intrinsics[1])) ]
+    return [ make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes, MMt) for i_camera in xrange(len(intrinsics[1])) ]
 
 
 # # Test for this function
@@ -1557,7 +1557,7 @@ if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
-# list of imager dimensions; one per camera
+# list of imager sizes; one per camera
 imagersizes = np.array([get_imagersize_one(imagesglob, args.imagersize) for imagesglob in args.images],
                        dtype=np.int32)
 
@@ -1851,7 +1851,7 @@ print report
 
 
 # Write the output models
-models = make_cameramodels(intrinsics, extrinsics, MMt)
+models = make_cameramodels(intrinsics, extrinsics, imagersizes, MMt)
 # The note says how we ran this, and contains the commented-out report
 note = \
     "generated with {}\n".format(sys.argv) + \

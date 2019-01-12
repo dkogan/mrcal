@@ -97,8 +97,8 @@ def _validateIntrinsics(i, MMt):
     return True
 
 
-def _validateDimensions(d):
-    r'''Raises an exception if the given dimensions are invalid'''
+def _validateImagersize(d):
+    r'''Raises an exception if the given imager size is invalid'''
 
     # need two integers
     try:
@@ -110,7 +110,7 @@ def _validateDimensions(d):
         if d[0] != int(d[0]) or d[1] != int(d[1]):
             raise Exception()
     except:
-        raise Exception("Dimensions must be an iterable of two positive integers")
+        raise Exception("The imagersize must be an iterable of two positive integers")
 
     return True
 
@@ -164,7 +164,7 @@ class cameramodel(object):
 
           # extrinsics are rt_fromref
           'extrinsics': [0,0,0,0,0,0],
-          'dimensions': [3840,2160]
+          'imagersize': [3840,2160]
         }
 
     '''
@@ -209,7 +209,7 @@ class cameramodel(object):
         f.write("\n")
 
         N = 2
-        f.write(("    'dimensions': [" + (" {:d}," * N) + "]\n").format(*(int(x) for x in self._dimensions)))
+        f.write(("    'imagersize': [" + (" {:d}," * N) + "]\n").format(*(int(x) for x in self._imagersize)))
         f.write("}\n")
 
 
@@ -231,7 +231,7 @@ class cameramodel(object):
         keys_required = set(('distortion_model',
                              'intrinsics',
                              'extrinsics',
-                             'dimensions'))
+                             'imagersize'))
         keys_received = set(model.keys())
         if keys_received < keys_required:
             raise Exception("Model must have at least these keys: '{}'. Instead I got '{}'". \
@@ -245,12 +245,12 @@ class cameramodel(object):
         intrinsics = (model['distortion_model'], np.array(model['intrinsics'], dtype=float))
         _validateIntrinsics(intrinsics, covariance_intrinsics)
         _validateExtrinsics(model['extrinsics'])
-        _validateDimensions(model['dimensions'])
+        _validateImagersize(model['imagersize'])
 
         self._intrinsics            = intrinsics
         self._covariance_intrinsics = covariance_intrinsics
         self._extrinsics            = np.array(model['extrinsics'], dtype=float)
-        self._dimensions            = np.array(model['dimensions'], dtype=int)
+        self._imagersize            = np.array(model['imagersize'], dtype=int)
 
 
     def __init__(self, file_or_model=None, **kwargs):
@@ -271,7 +271,7 @@ class cameramodel(object):
           - 'extrinsics_Rt_fromref'
           - 'extrinsics_rt_toref'
           - 'extrinsics_rt_fromref'
-        - 'dimensions'
+        - 'imagersize'
         - 'covariance_intrinsics', optionally
 
         '''
@@ -283,7 +283,7 @@ class cameramodel(object):
 
             elif type(file_or_model) is cameramodel:
                 import copy
-                self._dimensions            = copy.deepcopy(file_or_model._dimensions)
+                self._imagersize            = copy.deepcopy(file_or_model._imagersize)
                 self._extrinsics            = copy.deepcopy(file_or_model._extrinsics)
                 self._intrinsics            = copy.deepcopy(file_or_model._intrinsics)
                 self._covariance_intrinsics = copy.deepcopy(file_or_model._covariance_intrinsics)
@@ -304,9 +304,9 @@ class cameramodel(object):
 
             if 'intrinsics' not in kwargs:
                 raise Exception("No file_or_model was given, so we MUST have gotten an 'intrinsics' kwarg")
-            if 'dimensions' not in kwargs:
-                raise Exception("No file_or_model was given, so we MUST have gotten a 'dimensions' kwarg")
-            keys_remaining -= set(('intrinsics', 'dimensions'))
+            if 'imagersize' not in kwargs:
+                raise Exception("No file_or_model was given, so we MUST have gotten a 'imagersize' kwarg")
+            keys_remaining -= set(('intrinsics', 'imagersize'))
 
             extrinsics_keys = set(('extrinsics_Rt_toref',
                                    'extrinsics_Rt_fromref',
@@ -318,11 +318,11 @@ class cameramodel(object):
             keys_remaining -= extrinsics_keys
             if keys_remaining:
                 if not keys_remaining == set(('covariance_intrinsics',)):
-                    raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'dimensions' and MAYBE 'covariance_intrinsics'. Questionable keys: '{}'".format(keys_remaining))
+                    raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'imagersize' and MAYBE 'covariance_intrinsics'. Questionable keys: '{}'".format(keys_remaining))
 
 
             self.intrinsics(kwargs['intrinsics'])
-            self.dimensions(kwargs['dimensions'])
+            self.imagersize(kwargs['imagersize'])
             if 'covariance_intrinsics' in kwargs and kwargs['covariance_intrinsics'] is not None:
                 self.covariance_intrinsics(kwargs['covariance_intrinsics'])
             else:
@@ -464,23 +464,23 @@ class cameramodel(object):
         return True
 
 
-    def dimensions(self, d=None):
-        r'''Get or set the imager dimensions in this model
+    def imagersize(self, d=None):
+        r'''Get or set the imager imagersize in this model
 
         if d is None: this is a getter; otherwise a setter.
 
         d is some sort of iterable of two numbers.
 
-        The dimensions aren't used for very much and 99% of the time they can be
+        The imagersize aren't used for very much and 99% of the time they can be
         omitted.
 
         '''
 
         if d is None:
-            return self._dimensions
+            return self._imagersize
 
-        _validateDimensions(d)
-        self._dimensions = d
+        _validateImagersize(d)
+        self._imagersize = d
 
 
     def covariance_intrinsics(self, c=None):

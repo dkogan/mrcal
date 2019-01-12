@@ -988,7 +988,7 @@ def visualize_intrinsics_diff(models,
 
     import gnuplotlib as gp
 
-    imagersizes = np.array([model.dimensions() for model in models])
+    imagersizes = np.array([model.imagersize() for model in models])
     if np.linalg.norm(np.std(imagersizes, axis=-2)) != 0:
         raise Exception("The diff function needs all the imager dimensions to match. Instead got {}". \
                         format(imagersizes))

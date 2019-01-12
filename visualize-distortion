@@ -73,7 +73,7 @@ else:
     model = mrcal.cameramodel(args.model[0])
 
 # get the input and output grids of shape Nwidth,Nheight,2
-W,H = model.dimensions()
+W,H = model.imagersize()
 intrinsics = model.intrinsics()
 
 plotkwargs = {}

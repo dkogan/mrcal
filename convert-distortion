@@ -145,9 +145,9 @@ if distortionmodel_to == 'DISTORTION_CAHVORE':
 # 2. Unproject to get the 3d observation vectors
 # 3. Solve a new model that fits those vectors to the known observations, but
 #    using the new model
-dims = m.dimensions()
+dims = m.imagersize()
 if dims is None:
-    sys.stderr.write("Warning: imager dimensions not available. Using centerpixel*2\n")
+    sys.stderr.write("Warning: imager size not available. Using centerpixel*2\n")
     dims = m.intrinsics()[1][2:4] * 2
 
 
@@ -224,7 +224,7 @@ for i in xrange(40): # this many trials
 sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
 m_to = mrcal.cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
                           extrinsics_rt_fromref = m.extrinsics_rt(False),
-                          dimensions            = dims )
+                          imagersize            = dims )
 writemodel(m_to)
 
 if args.viz:
