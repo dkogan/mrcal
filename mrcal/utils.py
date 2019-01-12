@@ -564,7 +564,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      extratitle = None,
                                      hardcopy = None,
                                      cbmax = None,
-                                     plotkwargs_extra = {}):
+                                     plotkwargs_extra = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the covariance of observed inputs. See
@@ -573,6 +573,8 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     '''
 
     import gnuplotlib as gp
+
+    if plotkwargs_extra is None: plotkwargs_extra = {}
 
     W,H=imagersize
     V,_ = sample_imager_unproject(gridn_x, gridn_y,
@@ -632,7 +634,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                                  extratitle = None,
                                                  hardcopy = None,
                                                  cbmax = None,
-                                                 plotkwargs_extra = {}):
+                                                 plotkwargs_extra = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the outlierness factor of hypothetical query points
@@ -674,6 +676,8 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
         And thus E = tr(B) * observed-pixel-uncertainty^2
 
     '''
+
+    if plotkwargs_extra is None: plotkwargs_extra = {}
 
     import gnuplotlib as gp
 
@@ -932,7 +936,7 @@ def visualize_intrinsics_diff(models,
                               extratitle      = None,
                               hardcopy        = None,
                               cbmax           = None,
-                              plotkwargs_extra = {}):
+                              plotkwargs_extra = None):
     r'''Visualize the different between N intrinsic models
 
     If we're given exactly 2 models then I can either show a vector field of a
@@ -975,6 +979,8 @@ def visualize_intrinsics_diff(models,
     where['radius'].
 
     '''
+
+    if plotkwargs_extra is None: plotkwargs_extra = {}
 
     if len(models) > 2 and vectorfield:
         raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
