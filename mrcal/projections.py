@@ -634,7 +634,7 @@ def calobservations_project(distortion_model, intrinsics, extrinsics, frames, do
                    0,-4)
 
 def calobservations_compute_reproj_error(projected, observations, indices_frame_camera, Nwant,
-                                         outlier_indices = np.array(())):
+                                         outlier_indices = None):
     r'''Computes reprojection errors when calibrating with board observations
 
     Given
@@ -651,6 +651,8 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
     outliers in the returned errors, and the other does not
 
     '''
+
+    if outlier_indices is None: outlier_indices = np.array(())
 
     Nframes               = projected.shape[0]
     Nobservations         = indices_frame_camera.shape[0]
