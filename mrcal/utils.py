@@ -564,7 +564,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      extratitle = None,
                                      hardcopy = None,
                                      cbmax = None,
-                                     extraplotkwargs = {}):
+                                     plotkwargs_extra = {}):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the covariance of observed inputs. See
@@ -580,20 +580,20 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                   W, H)
     Expected_projection_shift = get_projection_uncertainty(V, distortion_model, intrinsics_data, covariance_intrinsics)
 
-    if 'title' not in extraplotkwargs:
+    if 'title' not in plotkwargs_extra:
         title = "Projection uncertainty"
         if extratitle is not None:
             title += ": " + extratitle
-        extraplotkwargs['title'] = title
+        plotkwargs_extra['title'] = title
 
-    if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
-        extraplotkwargs['hardcopy'] = hardcopy
+    if 'hardcopy' not in plotkwargs_extra and hardcopy is not None:
+        plotkwargs_extra['hardcopy'] = hardcopy
 
-    if 'set' not in extraplotkwargs:
-        extraplotkwargs['set'] = []
-    elif type(extraplotkwargs['set']) is not list:
-        extraplotkwargs['set'] = [extraplotkwargs['set']]
-    extraplotkwargs['set'].extend(['xrange [:] noextend',
+    if 'set' not in plotkwargs_extra:
+        plotkwargs_extra['set'] = []
+    elif type(plotkwargs_extra['set']) is not list:
+        plotkwargs_extra['set'] = [plotkwargs_extra['set']]
+    plotkwargs_extra['set'].extend(['xrange [:] noextend',
                                    'yrange [:] noextend reverse',
                                    'view equal xy',
                                    'view map',
@@ -607,7 +607,7 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                       _yrange=[H,0],
                       cbrange=[0,cbmax],
                       ascii=1,
-                      **extraplotkwargs)
+                      **plotkwargs_extra)
 
     # Expected_projection_shift has shape (W,H), but the plotter wants what numpy wants: (H,W)
     Expected_projection_shift = nps.transpose(Expected_projection_shift)
@@ -632,7 +632,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                                                  extratitle = None,
                                                  hardcopy = None,
                                                  cbmax = None,
-                                                 extraplotkwargs = {}):
+                                                 plotkwargs_extra = {}):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the outlierness factor of hypothetical query points
@@ -685,20 +685,20 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( V.copy(), i_camera, solver_context, Noutliers) * \
         observed_pixel_uncertainty * observed_pixel_uncertainty
 
-    if 'title' not in extraplotkwargs:
+    if 'title' not in plotkwargs_extra:
         title = "Projection uncertainty outlierness"
         if extratitle is not None:
             title += ": " + extratitle
-        extraplotkwargs['title'] = title
+        plotkwargs_extra['title'] = title
 
-    if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
-        extraplotkwargs['hardcopy'] = hardcopy
+    if 'hardcopy' not in plotkwargs_extra and hardcopy is not None:
+        plotkwargs_extra['hardcopy'] = hardcopy
 
-    if 'set' not in extraplotkwargs:
-        extraplotkwargs['set'] = []
-    elif type(extraplotkwargs['set']) is not list:
-        extraplotkwargs['set'] = [extraplotkwargs['set']]
-    extraplotkwargs['set'].extend(['xrange [:] noextend',
+    if 'set' not in plotkwargs_extra:
+        plotkwargs_extra['set'] = []
+    elif type(plotkwargs_extra['set']) is not list:
+        plotkwargs_extra['set'] = [plotkwargs_extra['set']]
+    plotkwargs_extra['set'].extend(['xrange [:] noextend',
                                    'yrange [:] noextend reverse',
                                    'view equal xy',
                                    'view map',
@@ -712,7 +712,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
                       _yrange=[H,0],
                       cbrange=[0,cbmax],
                       ascii=1,
-                      **extraplotkwargs)
+                      **plotkwargs_extra)
 
     # Expected_outlierness has shape (W,H), but the plotter wants what numpy wants: (H,W)
     Expected_outlierness = nps.transpose(Expected_outlierness)
@@ -932,7 +932,7 @@ def visualize_intrinsics_diff(models,
                               extratitle      = None,
                               hardcopy        = None,
                               cbmax           = None,
-                              extraplotkwargs = {}):
+                              plotkwargs_extra = {}):
     r'''Visualize the different between N intrinsic models
 
     If we're given exactly 2 models then I can either show a vector field of a
@@ -1016,21 +1016,21 @@ def visualize_intrinsics_diff(models,
         stdevs  = np.std(grids, axis=0)
         difflen = np.sqrt(nps.inner(stdevs, stdevs))
 
-    if 'title' not in extraplotkwargs:
+    if 'title' not in plotkwargs_extra:
         title = "Model diff"
         if extratitle is not None:
             title += ": " + extratitle
-        extraplotkwargs['title'] = title
+        plotkwargs_extra['title'] = title
 
-    if 'hardcopy' not in extraplotkwargs and hardcopy is not None:
-        extraplotkwargs['hardcopy'] = hardcopy
+    if 'hardcopy' not in plotkwargs_extra and hardcopy is not None:
+        plotkwargs_extra['hardcopy'] = hardcopy
 
     if vectorfield:
         plot = gp.gnuplotlib(square=1,
                              _xrange=[0,W],
                              _yrange=[H,0],
                              cbrange=[0,cbmax],
-                             **extraplotkwargs)
+                             **plotkwargs_extra)
 
         p0      = nps.clump(grid0,    n=2)
         p1      = nps.clump(grid1,   n=2)
@@ -1043,11 +1043,11 @@ def visualize_intrinsics_diff(models,
                    _with='vectors size screen 0.005,10 fixed filled palette',
                    tuplesize=5)
     else:
-        if 'set' not in extraplotkwargs:
-            extraplotkwargs['set'] = []
-        elif type(extraplotkwargs['set']) is not list:
-            extraplotkwargs['set'] = [extraplotkwargs['set']]
-        extraplotkwargs['set'].extend(['xrange [:] noextend',
+        if 'set' not in plotkwargs_extra:
+            plotkwargs_extra['set'] = []
+        elif type(plotkwargs_extra['set']) is not list:
+            plotkwargs_extra['set'] = [plotkwargs_extra['set']]
+        plotkwargs_extra['set'].extend(['xrange [:] noextend',
                                        'yrange [:] noextend reverse',
                                        'view equal xy',
                                        'view map',
@@ -1060,7 +1060,7 @@ def visualize_intrinsics_diff(models,
                           _yrange=[H,0],
                           cbrange=[0,cbmax],
                           ascii=1,
-                          **extraplotkwargs)
+                          **plotkwargs_extra)
 
         # difflen has shape (W,H), but the plotter wants what numpy wants: (H,W)
         difflen = nps.transpose(difflen)
