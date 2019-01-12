@@ -554,10 +554,82 @@ def get_intrinsics_uncertainty( distortion_model, intrinsics_data,
         I thus ignore measurements past the observation set.
 
     '''
-    imagePoints,dproj_dintrinsics,_ = \
-        mrcal.project(V, distortion_model, intrinsics_data, get_gradients=True)
 
-    Vdprojection = nps.matmult( dproj_dintrinsics, covariance_intrinsics, nps.transpose(dproj_dintrinsics) )
+    W,H = imagersize
+    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+
+    v,grid0 = _sample_imager_unproject(gridn_x, gridn_y,
+                                       distortion_model, intrinsics_data,
+                                       W, H)
+    imagePoints,dproj_dintrinsics,dproj_dv = \
+        mrcal.project(v, distortion_model, intrinsics_data, get_gradients=True)
+
+
+    if focus_radius is None or focus_radius <= 0:
+        # We're not fitting a rotation to compensate for shifted intrinsics.
+        U = dproj_dintrinsics
+
+    else:
+        # We're fitting the rotation to compensate for shifted intrinsics.
+
+        @nps.broadcast_define( ((3,),), (3,3))
+        def skew_symmetric(v):
+            return np.array(((   0,  -v[2],  v[1]),
+                             ( v[2],    0,  -v[0]),
+                             (-v[1],  v[0],    0)))
+        V = skew_symmetric(v)
+
+        def getD():
+            '''Computes D, the solved matrix used to apply an R correction
+
+            I use a subset of my sample points here. The R fit is based on this
+            subset. I then use the fit I computed here for all the data.
+
+            '''
+
+            def clump_leading_dims(x):
+                '''clump leading dims to leave 2 trailing ones.
+
+                input shape (..., a,b). Output shape: (N, a,b)
+                '''
+                return nps.clump(x, n=len(x.shape)-2)
+
+            V_c                 = clump_leading_dims(V)
+            dproj_dv_c          = clump_leading_dims(dproj_dv)
+            dproj_dintrinsics_c = clump_leading_dims(dproj_dintrinsics)
+
+            if focus_radius < 2*(W+H):
+                grid_off_center = nps.clump(grid0, n=2) - focus_center
+                i = nps.norm2(grid_off_center) < focus_radius*focus_radius
+                if np.count_nonzero(i)<3:
+                    warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
+                else:
+                    V_c                 = V_c                [i, ...]
+                    dproj_dv_c          = dproj_dv_c         [i, ...]
+                    dproj_dintrinsics_c = dproj_dintrinsics_c[i, ...]
+
+            # shape (3,Nintrinsics)
+            C_Vvp  = np.sum(nps.matmult( V_c,
+                                         nps.transpose(dproj_dv_c),
+                                         dproj_dintrinsics_c ),
+                            axis=0)
+
+            # shape (3,3)
+            C_VvvV  = np.sum(nps.matmult( V_c,
+                                          nps.transpose(dproj_dv_c),
+                                          dproj_dv_c,
+                                          V_c ),
+                             axis=0)
+
+            # shape (3,Nintrinsics)
+            return np.linalg.solve(C_VvvV, C_Vvp)
+
+
+
+        D = getD()
+        U = dproj_dintrinsics - nps.matmult(dproj_dv, V, D)
+
+    UtU = nps.matmult(nps.transpose(U),U)
 
     # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
     # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
@@ -566,19 +638,21 @@ def get_intrinsics_uncertainty( distortion_model, intrinsics_data,
     # E(sqrt(norm2(x))). Hopefully that's close enough
     #
     # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
-    @nps.broadcast_define( (('n','n'),), ())
-    def trace(x):
-        return np.trace(x)
-    return np.sqrt(trace(Vdprojection))
+    #
+    # trace(V) = trace(covariance_intrinsics * UtU) =
+    #          = sum(elementwise_product(covariance_intrinsics, UtU))
+    return np.sqrt(np.sum(nps.clump(covariance_intrinsics * UtU,
+                                    n = -2),
+                          axis = -1))
 
 
 def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                      covariance_intrinsics, imagersize,
-                                     gridn_x = 60,
-                                     gridn_y = 40,
-                                     extratitle = None,
-                                     hardcopy = None,
-                                     cbmax = None,
+                                     gridn_x          = 60,
+                                     gridn_y          = 40,
+                                     extratitle       = None,
+                                     hardcopy         = None,
+                                     cbmax            = None,
                                      plotkwargs_extra = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
