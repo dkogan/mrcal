@@ -41,12 +41,17 @@ def parse_args():
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
-                        help='''Center of the region of interest. Uncertainty is a relative comcept, so I
+                        help='''Center of the region of interest. Uncertainty is a relative concept, so I
                         focus on a particular area. I compute an implied
-                        rotatioon to make that area as certain as possible. The
+                        rotation to make that area as certain as possible. The
                         center of this focus area is given by this argument. If
-                        omitted, we will try to match up the projections
-                        everywhere across the imager''')
+                        omitted, we will focus on the center of the imager''')
+    parser.add_argument('--rad',
+                        type=float,
+                        default=1.0e6,
+                        help='''Radius of the region of interest. If<=0, we do NOT fit an implied rotation at
+                        all. If omitted, we use a very large radius: we use data
+                        across the WHOLE imager for the fit''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=5,
@@ -91,7 +96,7 @@ plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               model.imagersize(),
                                               args.gridn, args.gridn,
                                               focus_center = args.where,
-                                              focus_radius = 1.e6 if args.where is None else max(model.imagersize())/6.,
+                                              focus_radius = args.rad,
                                               hardcopy = args.hardcopy,
                                               cbmax = args.cbmax,
                                               extratitle=args.extratitle,

@@ -48,7 +48,6 @@ def parse_args():
                         type=int,
                         default = 40,
                         help='''How densely we should sample the imager. By default we report a 40x40 grid''')
-
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
@@ -56,8 +55,15 @@ def parse_args():
                         the models to match everywhere, but focusing on a
                         particular area can work better. The implied rotation
                         will be fit to match as large as possible an area
-                        centered on this argument. If omitted, we will try to
-                        match up the projections everywhere across the imager''')
+                        centered on this argument. If omitted, we will focus on
+                        the center of the imager''')
+    parser.add_argument('--rad',
+                        type=float,
+                        default=1.0e6,
+                        help='''Radius of the region of interest. If<=0, we do NOT fit an implied rotation at
+                        all. If omitted, we use a very large radius: we use data
+                        across the WHOLE imager for the fit''')
+
     parser.add_argument('--cbmax',
                         type=float,
                         default=10,
@@ -113,7 +119,7 @@ models = [loadmodel(modelfilename) for modelfilename in args.models]
 plot = mrcal.visualize_intrinsics_diff(models,
                                        args.gridn, args.gridn,
                                        focus_center    = args.where,
-                                       focus_radius    = 1.e6 if args.where is None else max(models[0].imagersize())/6.,
+                                       focus_radius    = args.rad,
                                        vectorfield     = args.vectorfield,
                                        hardcopy        = args.hardcopy,
                                        cbmax           = args.cbmax,
