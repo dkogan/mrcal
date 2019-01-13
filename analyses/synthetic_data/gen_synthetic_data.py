@@ -31,7 +31,12 @@ x_halfrange         = .3
 y_halfrange         = .2
 z_halfrange         = .05
 
-m = mrcal.cameramodel('reference.cameramodel')
+if len(sys.argv) != 2:
+    print "Usage: {} reference.cameramodel\n".format(sys.argv[0])
+    sys.exit(1)
+modelfile = sys.argv[1]
+
+m = mrcal.cameramodel(modelfile)
 distortion_model = m.intrinsics()[0]
 intrinsics       = m.intrinsics()[1]
 cam_width,cam_height = m.imagersize()
@@ -114,9 +119,9 @@ def write_data(filename, p, W,H):
         for i in xrange(len(p)):
             np.savetxt(f, nps.clump(p[i,...], n=2), fmt='{:06d}.xxx %.3f %.3f'.format(i))
 
-write_data("../../studies/syntheticdata/synthetic-no-noise.vnl", p, cam_width, cam_height)
+write_data("synthetic-no-noise.vnl", p, cam_width, cam_height)
 p += np.random.randn(*p.shape) * pixel_noise_xy_1stdev
-write_data("../../studies/syntheticdata/synthetic.vnl",          p, cam_width, cam_height)
+write_data("synthetic.vnl",          p, cam_width, cam_height)
 
 
 # gp.plot(nps.clump(p[...,0], n=-2), nps.clump(p[...,1], n=-2), _with='points', square=1,_xrange=[0,cam_width],_yrange=[0,cam_height])
