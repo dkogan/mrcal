@@ -1907,7 +1907,7 @@ rms_err_ignoring_outliers_perimage   = np.sqrt( norm2_err_ignoring_outliers_peri
 i_observations_worst    = list(reversed(np.argsort(rms_err_ignoring_outliers_perimage)))
 i_observation_from_path = dict( [(paths[_i],_i) for _i in xrange(len(observations))] )
 
-def show_reprojection_errors(observation, **plotkwargs_extra):
+def show_reprojection_errors(observation, **kwargs):
     r'''Visualize calibration residuals
 
     Takes either an integer (observation index) or a string (path)
@@ -1946,7 +1946,7 @@ def show_reprojection_errors(observation, **plotkwargs_extra):
                        paths[i_observation],
                        rms_err_all_points_perimage[i_observation],
                        rms_err_ignoring_outliers_perimage[i_observation]),
-             **plotkwargs_extra)
+             **kwargs)
     if os.path.isfile(imagepath):
         # only plot an image overlay if the image exists
         plotkwargs['rgbimage'] = imagepath
@@ -1962,8 +1962,8 @@ def show_reprojection_errors(observation, **plotkwargs_extra):
              (reproj[:,0], reproj[:,1], {'with': 'points', 'legend': 'hypothesis'}),
              **plotkwargs)
 
-def show_reprojection_errors_worst(i, **plotkwargs_extra):
-    show_reprojection_errors( i_observations_worst[i], **plotkwargs_extra )
+def show_reprojection_errors_worst(i, **kwargs):
+    show_reprojection_errors( i_observations_worst[i], **kwargs )
 
 def check_confidence_computations():
     r'''These all test the confidence computations using the debugging exports from
@@ -2078,7 +2078,7 @@ def check_confidence_computations():
 
 
 
-def show_all_errors(i_camera, ignore_outliers=True, vectorfield=False, **plotkwargs_extra):
+def show_all_errors(i_camera, ignore_outliers=True, vectorfield=False, **kwargs):
     r'''Visualize the full distribution of reprojection errors
 
     i_camera is the camera in question
@@ -2107,18 +2107,18 @@ def show_all_errors(i_camera, ignore_outliers=True, vectorfield=False, **plotkwa
                  _with='vectors size screen 0.005,10 fixed filled palette',
                  tuplesize=5, square=1,
                  _xrange=[0,W], yrange=[H,0],
-                 **plotkwargs_extra)
+                 **kwargs)
     else:
         # Reprojection error distribution
         gp.plot( err[:,0], err[:,1],
                  _with='points', square=1,
-                 **plotkwargs_extra)
+                 **kwargs)
 
 
 plots_intrinsics_sensitivity             = [None] * Ncameras
 plots_intrinsics_sensitivity_outlierness = [None] * Ncameras
 plots_roi                                = [None] * Ncameras
-def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwargs_extra):
+def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **kwargs):
 
     if MMt is None:
         print "No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_intrinsic_covariances = True) for this to work"
@@ -2137,10 +2137,10 @@ def show_intrinsics_map(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwarg
                                                    gridn_x=gridn_x,
                                                    gridn_y=gridn_y,
                                                    cbmax=5,
-                                                   **plotkwargs_extra)
+                                                   **kwargs)
     return True
 
-def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40, **plotkwargs_extra):
+def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40, **kwargs):
     global plots_intrinsics_sensitivity_outlierness
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
@@ -2155,9 +2155,9 @@ def show_intrinsics_map_outlierness(i_camera = None, gridn_x = 40, gridn_y = 40,
                                                                gridn_x=gridn_x,
                                                                gridn_y=gridn_y,
                                                                cbmax=2,
-                                                               **plotkwargs_extra)
+                                                               **kwargs)
 
-def show_roi(i_camera = None, **plotkwargs_extra):
+def show_roi(i_camera = None, **kwargs):
     global plots_roi
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
 
@@ -2182,7 +2182,7 @@ def show_roi(i_camera = None, **plotkwargs_extra):
 
         plots_intrinsics_sensitivity_outlierness[i_camera] = \
             gp.gnuplotlib(square=1, xrange=(0,imagersizes[i_camera,0]-1),yrange=(imagersizes[i_camera,1]-1,0), _with='points pt 7 ps 2',
-                          **plotkwargs_extra)
+                          **kwargs)
         plots_intrinsics_sensitivity_outlierness[i_camera]. \
             plot( (feats[iFeature_roi_in_thiscam, 0], feats[iFeature_roi_in_thiscam, 1], dict(legend='in' )),
                   (feats[iFeature_roi_out_thiscam,0], feats[iFeature_roi_out_thiscam,1], dict(legend='out')) )
