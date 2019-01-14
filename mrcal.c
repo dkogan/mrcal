@@ -3183,7 +3183,11 @@ mrcal_optimize( // out
             MSG_IF_VERBOSE("norm2_error: %f", norm2_error);
             MSG_IF_VERBOSE("norm2_err_regularization: %f", norm2_err_regularization);
 
-            MSG("regularization cost ratio: %g", ratio_regularization_cost);
+            if(ratio_regularization_cost > 0.05)
+                MSG("WARNING: REGULARIZATION COST RATIO IS WAY TOO HIGH: %g. SOMETHING IS OFF ABOUT THIS SOLVE",
+                ratio_regularization_cost);
+            else
+                MSG("regularization cost ratio: %g", ratio_regularization_cost);
         }
     }
     else
