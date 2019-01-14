@@ -57,7 +57,7 @@ def parse_args():
                         will be fit to match as large as possible an area
                         centered on this argument. If omitted, we will focus on
                         the center of the imager''')
-    parser.add_argument('--rad',
+    parser.add_argument('--radius',
                         type=float,
                         default=1.0e6,
                         help='''Radius of the region of interest. If<=0, we do NOT fit an implied rotation at
@@ -119,7 +119,7 @@ models = [loadmodel(modelfilename) for modelfilename in args.models]
 plot = mrcal.visualize_intrinsics_diff(models,
                                        args.gridn, args.gridn,
                                        focus_center    = args.where,
-                                       focus_radius    = args.rad,
+                                       focus_radius    = args.radius,
                                        vectorfield     = args.vectorfield,
                                        hardcopy        = args.hardcopy,
                                        cbmax           = args.cbmax,

@@ -46,7 +46,7 @@ def parse_args():
                         rotation to make that area as certain as possible. The
                         center of this focus area is given by this argument. If
                         omitted, we will focus on the center of the imager''')
-    parser.add_argument('--rad',
+    parser.add_argument('--radius',
                         type=float,
                         default=1.0e6,
                         help='''Radius of the region of interest. If<=0, we do NOT fit an implied rotation at
@@ -96,7 +96,7 @@ plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               model.imagersize(),
                                               args.gridn, args.gridn,
                                               focus_center = args.where,
-                                              focus_radius = args.rad,
+                                              focus_radius = args.radius,
                                               hardcopy = args.hardcopy,
                                               cbmax = args.cbmax,
                                               extratitle=args.extratitle,
