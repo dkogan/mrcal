@@ -835,7 +835,7 @@ def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_da
     return plot
 
 
-def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
+def _intrinsics_diff_get_reprojected_grid(grid0, v0, v1,
                                           focus_center,
                                           focus_radius,
                                           distortion_models, intrinsics_data,
@@ -852,8 +852,8 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
 
     The simplest way to compute this rotation is with a procrustes fit:
 
-        R = align3d_procrustes( nps.clump(V0,n=2),
-                                nps.clump(V1,n=2), vectors=True)
+        R = align3d_procrustes( nps.clump(v0,n=2),
+                                nps.clump(v1,n=2), vectors=True)
 
     This works, but it minimizes a norm2() metric, and is sensitive to outliers.
     If my distortion model doesn't fit perfectly, I can fit well only in some
@@ -927,9 +927,9 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
         # By default we try to match the geometry EVERYWHERE
         W,H = imagersizes[0,:]
 
-        V0cut   = nps.clump(V0,n=2)
-        V1cut   = nps.clump(V1,n=2)
-        icenter = np.array((V0.shape[:2]))/2
+        V0cut   = nps.clump(v0,n=2)
+        V1cut   = nps.clump(v1,n=2)
+        icenter = np.array((v0.shape[:2]))/2
         if focus_radius < 2*(W+H):
             # But we may try to match the geometry in a particular region
             if focus_center is None:
@@ -940,8 +940,8 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
             if np.count_nonzero(i)<3:
                 warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
             else:
-                V0cut = V0[i, ...]
-                V1cut = V1[i, ...]
+                V0cut = v0[i, ...]
+                V1cut = v1[i, ...]
 
                 # get the nearest index on my grid to the requested center
                 icenter_flat = np.argmin(nps.norm2(grid_off_center))
@@ -949,8 +949,8 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
                 # This looks funny, but it's right. My grid is set up that you index
                 # with the x-coord and then the y-coord. This is opposite from the
                 # matrix convention that numpy uses: y then x.
-                ix = icenter_flat/V0.shape[1]
-                iy = icenter_flat - ix*V0.shape[1]
+                ix = icenter_flat/v0.shape[1]
+                iy = icenter_flat - ix*v0.shape[1]
                 icenter = np.array((ix,iy))
 
         # I compute a procrustes fit using ONLY data in the region of interest.
@@ -959,7 +959,7 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
         r_procrustes,_ = cv2.Rodrigues(R_procrustes)
         r_procrustes = r_procrustes.ravel()
 
-        e = angle_err(V0,V1,R_procrustes)
+        e = angle_err(v0,v1,R_procrustes)
 
         # throw away everything that's k times as wrong as the center of
         # interest. I look at a connected component around the center. I pick a
@@ -970,8 +970,8 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
         import scipy.ndimage
         regions,_ = scipy.ndimage.label(e < threshold)
         mask = regions==regions[icenter[0],icenter[1]]
-        V0fit = V0[mask, ...]
-        V1fit = V1[mask, ...]
+        V0fit = v0[mask, ...]
+        V1fit = v1[mask, ...]
         # V01fit are used by the optimization cost function
 
         # Seed from the procrustes solve
@@ -1025,7 +1025,7 @@ def _intrinsics_diff_get_reprojected_grid(grid0, V0, V1,
 
 
     # Great. Got R. Reproject.
-    return mrcal.project(nps.matmult(V0,R),
+    return mrcal.project(nps.matmult(v0,R),
                          distortion_models,
                          intrinsics_data)
 
