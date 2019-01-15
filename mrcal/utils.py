@@ -1133,7 +1133,7 @@ def visualize_intrinsics_diff(models,
             where = "implied rotation fit looking at {} with radius {}". \
                 format('the imager center' if focus_center is None else focus_center,
                        focus_radius)
-        title = "Model diff; {}".format(where)
+        title = "Diff looking at {} models; {}".format(len(models), where)
         if extratitle is not None:
             title += ": " + extratitle
         plotkwargs_extra['title'] = title
