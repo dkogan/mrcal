@@ -1148,7 +1148,7 @@ def visualize_intrinsics_diff(models,
                              cbrange=[0,cbmax],
                              **kwargs)
 
-        p0      = nps.clump(grid0,    n=2)
+        p0      = nps.clump(grid0,   n=2)
         p1      = nps.clump(grid1,   n=2)
         diff    = nps.clump(diff,    n=2)
         difflen = nps.clump(difflen, n=2)
