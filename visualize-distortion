@@ -4,17 +4,17 @@ r'''Renders a vector field to visualize the effect of a model
 
 Synopsis:
 
-  $ visualize-distortion left.cameramodel
-  ... a plot pops up showing the vector field
+  $ visualize-distortion --vectorfield left.cameramodel
+  ... a plot pops up showing the distortion vector field
 
 This allows us to visually see what a distortion model does. Depending on the
 model, the vectors could be very large or very small, and we can scale them by
-passing '--scale s'. By default we sample in a 20x20 grid, but this spacing can
+passing '--scale s'. By default we sample in a 40x40 grid, but this spacing can
 be controlled by passing '--gridn N'.
 
-A tool with similar usefulness is undistort.py. That tool removes the distortion
-from a given set of images.
-
+By default we render a heat map of the distortion. We can also see the
+vectorfield by passing in --vectorfield. Or we can see the radial distortion
+curve by passing --radial
 '''
 
 
@@ -39,8 +39,8 @@ def parse_args():
 
     parser.add_argument('--gridn',
                         type=int,
-                        default = 20,
-                        help='''How dense the vector field should be. By default we report a 20x20 grid''')
+                        default = 40,
+                        help='''How densely we should sample the imager. By default we report a 40x40 grid''')
 
     parser.add_argument('--scale',
                         type=float,
@@ -49,11 +49,31 @@ def parse_args():
 
     parser.add_argument('--radial',
                         action='store_true',
-                        help='''Show the radial distortion scale factor instead''')
+                        help='''Show the radial distortion scale factor instead of a colormap/vectorfield''')
+    parser.add_argument('--vectorfield',
+                        action = 'store_true',
+                        default = False,
+                        help='''Plot the diff as a vector field instead of as a heat map. The vector field
+                        contains more information (magnitude AND direction), but
+                        is less clear at a glance''')
+
+    parser.add_argument('--cbmax',
+                        type=float,
+                        default=10,
+                        help='''Maximum range of the colorbar''')
+
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the plot''')
 
     parser.add_argument('--hardcopy',
                         type=str,
-                        help='''Write the output to disk, instead of an interactive plot''')
+                        help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--extraset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
 
     parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \
@@ -67,23 +87,83 @@ def parse_args():
 
 
 args = parse_args()
-if re.match(".*\.cahvor$", args.model[0]):
-    model = mrcal.cahvor.read(args.model[0])
+model_filename = args.model[0]
+if re.match(".*\.cahvor$", model_filename):
+    model = mrcal.cahvor.read(model_filename)
 else:
-    model = mrcal.cameramodel(args.model[0])
+    model = mrcal.cameramodel(model_filename)
+
+if args.radial and args.vectorfield:
+    sys.stderr.write("Usage error: at most one of --radial and --vectorfield can be given\n")
+    sys.exit(1)
+
+
 
 # get the input and output grids of shape Nwidth,Nheight,2
 W,H = model.imagersize()
 intrinsics = model.intrinsics()
 
+gridn_x = args.gridn
+gridn_y = args.gridn
+
+
 plotkwargs = {}
+if args.extraset is not None:
+    plotkwargs['set'] = args.extraset
 if args.hardcopy is not None:
     plotkwargs['hardcopy'] = args.hardcopy
 
-if not args.radial:
+title = "Distortion of '{}' with {}".format(model_filename, intrinsics[0])
+if args.extratitle is not None:
+    title += ": " + args.extratitle
+plotkwargs['title'] = title
+
+if not args.vectorfield and not args.radial:
+    # heat map
+
+    if 'set' not in plotkwargs:
+        plotkwargs['set'] = []
+    elif type(plotkwargs['set']) is not list:
+        plotkwargs['set'] = [plotkwargs['set']]
+    plotkwargs['set'].extend(['xrange [:] noextend',
+                              'yrange [:] noextend reverse',
+                              'view equal xy',
+                              'view map',
+                              'contour surface',
+                              'cntrparam levels incremental {},-1,0'.format(args.cbmax)])
+
     grid, dgrid = mrcal.distortion_map__to_warped(intrinsics,
-                                                  np.linspace(0,W,args.gridn),
-                                                  np.linspace(0,H,args.gridn))
+                                                  np.linspace(0,W-1,gridn_x),
+                                                  np.linspace(0,H-1,gridn_y))
+
+    # shape: gridn_x*gridn_y,2
+    delta = dgrid-grid
+    delta *= args.scale
+
+    # shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib) want it that
+    # way
+    distortion = nps.transpose(np.sqrt(nps.norm2(delta)))
+
+    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
+    # Currently "with image" can't produce contours. I work around this, by
+    # plotting the data a second time.
+    # Yuck.
+    # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+    gp.plot((distortion, dict(               tuplesize=3, _with='image',           using=using)),
+            (distortion, dict(legend="diff", tuplesize=3, _with='lines nosurface', using=using)),
+            _3d=1,
+            unset='grid',
+            _xrange=[0,W],
+            _yrange=[H,0],
+            cbrange=[0,args.cbmax],
+            ascii=1,
+            **plotkwargs)
+
+elif args.vectorfield:
+
+    grid, dgrid = mrcal.distortion_map__to_warped(intrinsics,
+                                                  np.linspace(0,W-1,gridn_x),
+                                                  np.linspace(0,H-1,gridn_y))
 
     # shape: gridn*gridn,2
     grid  = nps.clump(grid,  n=2)
@@ -94,7 +174,14 @@ if not args.radial:
 
     plotkwargs['_xrange']=(-50,W+50)
     plotkwargs['_yrange']=(H+50, -50)
-    plotkwargs['_set'   ]='object 1 rectangle from 0,0 to {},{} fillstyle empty'.format(W,H)
+    plotkwargs['_set'   ]=['object 1 rectangle from 0,0 to {},{} fillstyle empty'.format(W,H)]
+    plotkwargs['square' ]=True
+
+    if 'set' in plotkwargs:
+        if type(plotkwargs['set']) is list: plotkwargs['_set'].extend(plotkwargs['set'])
+        else:                               plotkwargs['_set'].append(plotkwargs['set'])
+        del plotkwargs['set']
+
     gp.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
               {'with': 'vectors size screen 0.005,10 fixed filled',
                'tuplesize': 4,
@@ -104,6 +191,7 @@ if not args.radial:
                'tuplesize': 2,
                }),
              **plotkwargs )
+
 else:
 
     # plot the radial distortion. For now I only deal with opencv here
@@ -161,23 +249,33 @@ else:
     equations = ['x * ({}) with lines title "distorted"'.format(scale),
                  'x title "undistorted"']
     sets=['arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[0]),
-                  'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[1]),
-                  'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[0]),
-                  'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[1]),
-                  'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[0]),
-                  'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[1]),
-                  'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[2]),
-                  'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[3])]
+          'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[1]),
+          'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[0]),
+          'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[1]),
+          'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[0]),
+          'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[1]),
+          'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[2]),
+          'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[3])]
+    if 'set' in plotkwargs:
+        if type(plotkwargs['set']) is list: sets.extend(plotkwargs['set'])
+        else:                               sets.append(plotkwargs['set'])
+        del plotkwargs['set']
+    if '_set' in plotkwargs:
+        if type(plotkwargs['set']) is list: sets.extend(plotkwargs['_set'])
+        else:                               sets.append(plotkwargs['_set'])
+        del plotkwargs['_set']
+
     if N >= 8:
         equations.append(numerator   + ' axis x1y2 title "numerator (y2)"')
         equations.append(denominator + ' axis x1y2 title "denominator (y2)"')
         sets.append('y2tics')
+    plotkwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
     gp.plot(equation = equations,
             _set=sets,
             _xrange = [0,np.max(corners_len) * 1.05],
             xlabel = 'Pixels from the projection center',
             ylabel = 'Pixels',
-            title = 'Radial distortion. Red: x edges. Green: y edges. Blue: corners')
+            **plotkwargs)
 
 if args.hardcopy is None:
     gp.wait()
