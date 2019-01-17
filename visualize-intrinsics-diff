@@ -124,7 +124,7 @@ plot = mrcal.visualize_intrinsics_diff(models,
                                        hardcopy        = args.hardcopy,
                                        cbmax           = args.cbmax,
                                        extratitle      = args.extratitle,
-                                       plotkwargs_extra = plotkwargs_extra)
+                                       kwargs          = plotkwargs_extra)
 if args.hardcopy is None:
     plot.wait()
 

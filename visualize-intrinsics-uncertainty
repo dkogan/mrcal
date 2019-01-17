@@ -97,10 +97,10 @@ plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
                                               args.gridn, args.gridn,
                                               focus_center = args.where,
                                               focus_radius = args.radius,
-                                              hardcopy = args.hardcopy,
-                                              cbmax = args.cbmax,
-                                              extratitle=args.extratitle,
-                                              plotkwargs_extra = plotkwargs_extra)
+                                              hardcopy     = args.hardcopy,
+                                              cbmax        = args.cbmax,
+                                              extratitle   = args.extratitle,
+                                              kwargs       = plotkwargs_extra)
 
 if args.hardcopy is None:
     plot.wait()
