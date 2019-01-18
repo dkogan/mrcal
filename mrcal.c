@@ -2890,10 +2890,10 @@ mrcal_optimize( // out
             // I want the total regularization cost to be low relative to the
             // other contributions to the cost. And I want each set of
             // regularization terms to weigh roughly the same. Let's say I want
-            // regularization to account for ~ 1% of the other error
+            // regularization to account for ~ .5% of the other error
             // contributions:
             //
-            //   Nmeasurements_rest*normal_pixel_error_sq * 0.005 =
+            //   Nmeasurements_rest*normal_pixel_error_sq * 0.005/2. =
             //   Nmeasurements_regularization_distortion *normal_regularization_distortion_error_sq  =
             //   Nmeasurements_regularization_centerpixel*normal_regularization_centerpixel_error_sq =
 
@@ -2927,7 +2927,7 @@ mrcal_optimize( // out
                         normal_distortion_value;
 
                     double scale_sq =
-                        expected_total_pixel_error_sq * 0.005 / expected_regularization_distortion_error_sq_noscale;
+                        expected_total_pixel_error_sq * 0.005/2. / expected_regularization_distortion_error_sq_noscale;
 
                     if(dump_regularizaton_details)
                         MSG("expected_regularization_distortion_error_sq: %f", expected_regularization_distortion_error_sq_noscale*scale_sq);
@@ -2945,7 +2945,7 @@ mrcal_optimize( // out
                         normal_centerpixel_offset;
 
                     double scale_sq =
-                        expected_total_pixel_error_sq * 0.005 / expected_regularization_centerpixel_error_sq_noscale;
+                        expected_total_pixel_error_sq * 0.005/2. / expected_regularization_centerpixel_error_sq_noscale;
 
                     if(dump_regularizaton_details)
                         MSG("expected_regularization_centerpixel_error_sq: %f", expected_regularization_centerpixel_error_sq_noscale*scale_sq);
