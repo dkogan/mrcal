@@ -3172,9 +3172,9 @@ mrcal_optimize( // out
 
             for(int i=0; i<Nmeasurements_regularization; i++)
             {
-                double x = solver_context->beforeStep->x[Nmeasurements-1-i];
+                double x = solver_context->beforeStep->x[Nmeasurements - Nmeasurements_regularization + i];
                 norm2_err_regularization += x*x;
-                MSG_IF_VERBOSE("regularization %d: %f (squared: %f)", Nmeasurements_regularization-1-i, x, x*x);
+                MSG_IF_VERBOSE("regularization %d: %f (squared: %f)", i, x, x*x);
             }
 
             double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
