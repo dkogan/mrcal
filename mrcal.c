@@ -3332,7 +3332,8 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
 
     mrcal_problem_details_t
         problem_details = {.do_optimize_intrinsic_core        = do_optimize_intrinsic_core,
-                           .do_optimize_intrinsic_distortions = do_optimize_intrinsic_distortions};
+                           .do_optimize_intrinsic_distortions = do_optimize_intrinsic_distortions,
+                           .do_optimize_cahvor_optical_axis   = do_optimize_cahvor_optical_axis};
     int Ndistortions = mrcal_getNdistortionParams(distortion_model);
     int Nintrinsics = Ndistortions + 4;
 
@@ -3347,20 +3348,22 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
                                                         problem_details,
                                                         distortion_model);
     double p[Nintrinsics];
+    static_assert(sizeof(struct intrinsics_core_t) == 4*sizeof(p[0]), "Assumming intrinsics_core_t is 4 doubles");
     unpack_solver_state_intrinsics_onecamera((struct intrinsics_core_t*)p,
                                              distortion_model,
                                              &p[4],
                                              &p_packed[i_intrinsics],
                                              Ndistortions, problem_details);
 
-    union point2_t* q = malloc(N*sizeof(union point2_t));
-    assert(q);
+    static_assert(sizeof(union point2_t) == 2*sizeof(double), "Assumming point2_t is 2 doubles");
+    double* pool = malloc( (N*2 +            // q
+                            N*2*Nintrinsics) // dxy_dintrinsic_all
+                           * sizeof(double));
+    assert(pool);
+    union point2_t* q                   = (union point2_t*)&pool[0];
+    double*         dxy_dintrinsics_all = &pool[N*2];
 
-    double* dxy_dintrinsics_all = malloc(2*Nintrinsics*N*sizeof(double));
-    assert(dxy_dintrinsics_all);
-
-    mrcal_project(q,
-                  dxy_dintrinsics_all, NULL,
+    mrcal_project(q, dxy_dintrinsics_all, NULL,
                   v, N,
                   distortion_model, p);
 
@@ -3394,8 +3397,7 @@ bool mrcal_queryIntrinsicOutliernessAt( // output
 
     }
 
-    free(q);
-    free(dxy_dintrinsics_all);
+    free(pool);
 
     return true;
 }
