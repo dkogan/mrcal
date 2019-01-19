@@ -129,13 +129,13 @@ def get_ref_calibration_object(W, H, dot_spacing):
     return full_object * dot_spacing
 
 
-def visualize_solution(intrinsics_data, extrinsics, frames, points,
-                       observations_board, indices_frame_camera_board,
-                       observations_point,  indices_frame_camera_points,
-                       distortion_model,
+def show_solution(intrinsics_data, extrinsics, frames, points,
+                  observations_board, indices_frame_camera_board,
+                  observations_point,  indices_frame_camera_points,
+                  distortion_model,
 
-                       axis_scale = 1.0,
-                       dot_spacing = 0, Nwant = 10, i_camera=None):
+                  axis_scale = 1.0,
+                  dot_spacing = 0, Nwant = 10, i_camera=None):
     r'''Plot what a hypothetical 3d calibrated world looks like
 
     Can be used to visualize the output (or input) of mrcal.optimize(). Not
@@ -646,20 +646,20 @@ def get_intrinsics_uncertainty( distortion_model, intrinsics_data,
                           axis = -1))
 
 
-def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                     covariance_intrinsics, imagersize,
-                                     gridn_x          = 60,
-                                     gridn_y          = 40,
+def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
+                                covariance_intrinsics, imagersize,
+                                gridn_x          = 60,
+                                gridn_y          = 40,
 
-                                     # fit everywhere by default
-                                     focus_center = None,
-                                     focus_radius = 1.e6, # effectively an infinite
-                                                          # number of pixels
+                                # fit everywhere by default
+                                focus_center = None,
+                                focus_radius = 1.e6, # effectively an infinite
+                                # number of pixels
 
-                                     extratitle       = None,
-                                     hardcopy         = None,
-                                     cbmax            = None,
-                                     kwargs = None):
+                                extratitle       = None,
+                                hardcopy         = None,
+                                cbmax            = None,
+                                kwargs = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the covariance of observed inputs. See
@@ -728,16 +728,16 @@ def visualize_intrinsics_uncertainty(distortion_model, intrinsics_data,
     return plot
 
 
-def visualize_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_data,
-                                                 solver_context, i_camera, observed_pixel_uncertainty,
-                                                 imagersize,
-                                                 Noutliers,
-                                                 gridn_x          = 60,
-                                                 gridn_y          = 40,
-                                                 extratitle       = None,
-                                                 hardcopy         = None,
-                                                 cbmax            = None,
-                                                 kwargs = None):
+def show_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_data,
+                                            solver_context, i_camera, observed_pixel_uncertainty,
+                                            imagersize,
+                                            Noutliers,
+                                            gridn_x          = 60,
+                                            gridn_y          = 40,
+                                            extratitle       = None,
+                                            hardcopy         = None,
+                                            cbmax            = None,
+                                            kwargs = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the outlierness factor of hypothetical query points
@@ -1031,24 +1031,24 @@ def _intrinsics_diff_get_reprojected_grid(grid0, v0, v1,
 
 
 
-# visualize_intrinsics_diff() takes models while
-# visualize_intrinsics_uncertainty_outlierness() takes raw intrinsics data.
+# show_intrinsics_diff() takes models while
+# show_intrinsics_uncertainty_outlierness() takes raw intrinsics data.
 # get_intrinsics_uncertainty() does something too
 # Yuck. It should be one or the other consistently)
-def visualize_intrinsics_diff(models,
-                              gridn_x          = 60,
-                              gridn_y          = 40,
+def show_intrinsics_diff(models,
+                         gridn_x          = 60,
+                         gridn_y          = 40,
 
-                              # fit everywhere by default
-                              focus_center     = None,
-                              focus_radius     = 1.e6, # effectively an infinite
-                                                       # number of pixels
+                         # fit everywhere by default
+                         focus_center     = None,
+                         focus_radius     = 1.e6, # effectively an infinite
+                         # number of pixels
 
-                              vectorfield      = False,
-                              extratitle       = None,
-                              hardcopy         = None,
-                              cbmax            = None,
-                              kwargs = None):
+                         vectorfield      = False,
+                         extratitle       = None,
+                         hardcopy         = None,
+                         cbmax            = None,
+                         kwargs = None):
     r'''Visualize the different between N intrinsic models
 
     If we're given exactly 2 models then I can either show a vector field of a

@@ -31,8 +31,11 @@ partially supported. The toolkit includes:
 - Some tools:
   - =calibrate-cameras=: calibrates N cameras
   - =convert-distortions=: fits one distortion model to another
-  - =visualize-distortions=: plot a vector field to show the effects of a
-    specific model
+  - =show-distortions=: visualize the distortion effects of a specific model
+  - =show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics due
+    to noise in the calibration inputs
+  - =show-intrinsics-diff=: visualize the difference between the intrinsics of
+    a number of models
   - =undistort-image=: Given image(s) and a distortion model, produces a new set
     of images that have removed the distortion
   - =redistort-points=: Given two distortion models and a set of points, maps

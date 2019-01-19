@@ -20,11 +20,11 @@ DIST_INCLUDE    += basic_points.h mrcal.h
 DIST_BIN :=					\
 	calibrate-cameras			\
 	convert-distortion			\
-	visualize-distortion			\
-	visualize-intrinsics-uncertainty        \
-	visualize-intrinsics-diff               \
+	show-distortion				\
+	show-intrinsics-uncertainty		\
+	show-intrinsics-diff			\
 	redistort-points			\
-	undistort-image                         \
+	undistort-image				\
 	graft-cameramodel
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky

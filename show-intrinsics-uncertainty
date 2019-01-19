@@ -4,7 +4,7 @@ r'''Renders the expected projection error due to calibration uncertainty
 
 Synopsis:
 
-  $ visualize-intrinsics-uncertainty left.cameramodel
+  $ show-intrinsics-uncertainty left.cameramodel
   ... a plot pops up showing the projection uncertainty of the intrinsics in
   ... this model
 
@@ -36,8 +36,9 @@ def parse_args():
 
     parser.add_argument('--gridn',
                         type=int,
-                        default = 40,
-                        help='''How densely we should sample the imager. By default we report a 40x40 grid''')
+                        default = (60,40),
+                        nargs = 2,
+                        help='''How densely we should sample the imager. By default we report a 60x40 grid''')
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
@@ -91,16 +92,16 @@ if model.covariance_intrinsics() is None:
     raise Exception("The given camera model doesn't have intrinsics covariances. Can't visualize them.")
 
 distortion_model,intrinsics = model.intrinsics()
-plot = mrcal.visualize_intrinsics_uncertainty(distortion_model, intrinsics,
-                                              model.covariance_intrinsics(),
-                                              model.imagersize(),
-                                              args.gridn, args.gridn,
-                                              focus_center = args.where,
-                                              focus_radius = args.radius,
-                                              hardcopy     = args.hardcopy,
-                                              cbmax        = args.cbmax,
-                                              extratitle   = args.extratitle,
-                                              kwargs       = plotkwargs_extra)
+plot = mrcal.show_intrinsics_uncertainty(distortion_model, intrinsics,
+                                         model.covariance_intrinsics(),
+                                         model.imagersize(),
+                                         args.gridn[0], args.gridn[1],
+                                         focus_center = args.where,
+                                         focus_radius = args.radius,
+                                         hardcopy     = args.hardcopy,
+                                         cbmax        = args.cbmax,
+                                         extratitle   = args.extratitle,
+                                         kwargs       = plotkwargs_extra)
 
 if args.hardcopy is None:
     plot.wait()

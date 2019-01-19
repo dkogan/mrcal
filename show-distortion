@@ -4,13 +4,13 @@ r'''Renders a vector field to visualize the effect of a model
 
 Synopsis:
 
-  $ visualize-distortion --vectorfield left.cameramodel
+  $ show-distortion --vectorfield left.cameramodel
   ... a plot pops up showing the distortion vector field
 
 This allows us to visually see what a distortion model does. Depending on the
 model, the vectors could be very large or very small, and we can scale them by
-passing '--scale s'. By default we sample in a 40x40 grid, but this spacing can
-be controlled by passing '--gridn N'.
+passing '--scale s'. By default we sample in a 60x40 grid, but this spacing can
+be controlled by passing '--gridn w h'.
 
 By default we render a heat map of the distortion. We can also see the
 vectorfield by passing in --vectorfield. Or we can see the radial distortion
@@ -39,8 +39,9 @@ def parse_args():
 
     parser.add_argument('--gridn',
                         type=int,
-                        default = 40,
-                        help='''How densely we should sample the imager. By default we report a 40x40 grid''')
+                        default = (60,40),
+                        nargs = 2,
+                        help='''How densely we should sample the imager. By default we report a 60x40 grid''')
 
     parser.add_argument('--scale',
                         type=float,
@@ -103,9 +104,7 @@ if args.radial and args.vectorfield:
 W,H = model.imagersize()
 intrinsics = model.intrinsics()
 
-gridn_x = args.gridn
-gridn_y = args.gridn
-
+gridn_x,gridn_y = args.gridn
 
 plotkwargs = {}
 if args.extraset is not None:
