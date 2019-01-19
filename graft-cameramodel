@@ -9,9 +9,7 @@ Synopsis:
   'exrinsics.cameramodel'
 
 This tool combines intrinsics and extrinsics from different sources into a
-single model. The output is written to standard out given file in mrcal-native
-(.cameramodel) format; unless --cahvor is given, in which case the output is
-written in .cahvor format
+single model. The output is written to standard out in mrcal-native format
 
 '''
 
@@ -22,7 +20,6 @@ import argparse
 import os
 import re
 
-import mrcal.cahvor
 import mrcal
 
 
@@ -41,12 +38,6 @@ def parse_args():
                                 parser.error("The camera model must be an existing readable file, but got '{}'".format(f)),
                         help='''Input camera model for the extrinsics. Assumed to be mrcal native, Unless the
                         name is xxx.cahvor, in which case the cahvor format is assumed''')
-    parser.add_argument('--cahvor',
-                        required=False,
-                        default=False,
-                        action='store_true',
-                        help='''If given, the output is written in .cahvor format. The default it to use the
-                        mrcal native .cameramodel format''')
 
     return parser.parse_args()
 
@@ -58,11 +49,8 @@ def parse_args():
 
 args = parse_args()
 
-if re.match(".*\.cahvor$", args.intrinsics): intrinsics = mrcal.cahvor.read(args.intrinsics)
-else:                                        intrinsics = mrcal.cameramodel(args.intrinsics)
-
-if re.match(".*\.cahvor$", args.extrinsics): extrinsics = mrcal.cahvor.read(args.extrinsics)
-else:                                        extrinsics = mrcal.cameramodel(args.extrinsics)
+intrinsics = mrcal.cameramodel(args.intrinsics)
+extrinsics = mrcal.cameramodel(args.extrinsics)
 
 joint = mrcal.cameramodel( intrinsics            = intrinsics.intrinsics(),
                            extrinsics_rt_fromref = extrinsics.extrinsics_rt(toref = False),
@@ -78,7 +66,4 @@ sys.stderr.write("Combined intrinsics from '{}'\nExtrinsics from '{}'\n". \
     format(args.intrinsics,
            args.extrinsics))
 
-if args.cahvor:
-    mrcal.cahvor.write(sys.stdout, joint, note=note)
-else:
-    joint.write(sys.stdout, note=note)
+joint.write(sys.stdout, note=note)

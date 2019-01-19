@@ -62,7 +62,6 @@ import argparse
 import os
 
 import mrcal
-import mrcal.cahvor
 
 def parse_args():
 
@@ -98,13 +97,6 @@ def parse_args():
 
     return parser.parse_args()
 
-def writemodel(m):
-    print("========== CAMERAMODEL =========")
-    m.write(sys.stdout)
-    print("")
-
-    print("========== CAHVOR MODEL =========")
-    mrcal.cahvor.write(sys.stdout, m)
 
 
 
@@ -117,11 +109,7 @@ except:
     raise Exception("Unknown distortion model: '{}'".format(distortionmodel_to))
 
 
-iscahvor = re.match(".*\.cahvor$", args.cameramodel[0])
-if iscahvor:
-    m = mrcal.cahvor.read(args.cameramodel[0])
-else:
-    m = mrcal.cameramodel(args.cameramodel[0])
+m = mrcal.cameramodel(args.cameramodel[0])
 
 intrinsics_from = m.intrinsics()
 distortionmodel_from = intrinsics_from[0]
@@ -129,7 +117,7 @@ distortionmodel_from = intrinsics_from[0]
 if distortionmodel_from == distortionmodel_to:
     sys.stderr.write("Input and output have the same distortion model: {}. Returning the input\n".format(distortionmodel_to))
     sys.stderr.write("RMS error of the solution: 0 pixels.\n")
-    writemodel(m)
+    m.write(sys.stdout)
     sys.exit(0)
 
 
@@ -225,7 +213,7 @@ sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_b
 m_to = mrcal.cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
                           extrinsics_rt_fromref = m.extrinsics_rt(False),
                           imagersize            = dims )
-writemodel(m_to)
+m_to.write(sys.stdout)
 
 if args.viz:
 

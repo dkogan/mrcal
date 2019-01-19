@@ -50,7 +50,6 @@ import shutil
 import glob
 import copy
 
-import mrcal.cahvor
 import mrcal
 
 
@@ -1858,7 +1857,7 @@ note = \
     re.sub(r"^(.)", r"# \1", report, flags=re.M)
 for i_camera in xrange(len(models)):
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
-    mrcal.cahvor.write(cahvorfile, models[i_camera], note)
+    models[i_camera].write(cahvorfile, note)
     print "Wrote {}".format(cahvorfile)
 
     cameramodelfile = '{}/camera-{}.cameramodel'.format(args.outdir, i_camera)

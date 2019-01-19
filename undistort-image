@@ -5,10 +5,7 @@ r'''Un-distorts image(s)
 Synopsis:
 
   $ undistort-image --model left.cameramodel im1.png im2.png
-  ========== CAMERAMODEL =========
   ... corresponding pinhole mrcal-native model
-  ========== CAHVOR MODEL =========
-  ... corresponding pinhole cahvor model
   Wrote im1_undistorted.png
   Wrote im2_undistorted.png
 
@@ -34,7 +31,6 @@ import cv2
 import argparse
 import os
 
-import mrcal.cahvor
 import mrcal
 
 
@@ -77,15 +73,6 @@ def target_image_filename(f):
     return "{}_undistorted.{}".format(m.group(1),m.group(2))
 
 
-def writemodel(m):
-    print("========== CAMERAMODEL =========")
-    m.write(sys.stdout)
-    print("")
-
-    print("========== CAHVOR MODEL =========")
-    mrcal.cahvor.write(sys.stdout, m)
-
-
 
 args = parse_args()
 
@@ -97,12 +84,9 @@ for imagefile in args.image:
         raise Exception("Target image '{}' already exists. Giving up.".format(f))
 
 
-if re.match(".*\.cahvor$", args.model[0]):
-    model = mrcal.cahvor.read(args.model[0])
-else:
-    model = mrcal.cameramodel(args.model[0])
-
+model         = mrcal.cameramodel(args.model[0])
 model_pinhole = mrcal.cameramodel(model)
+
 i = model_pinhole.intrinsics()
 i[1][:2] /= args.scale
 if i[0] == 'DISTORTION_NONE':
@@ -111,7 +95,7 @@ model_pinhole.intrinsics( ('DISTORTION_NONE',
                            i[1][:4] ) )
 
 print "Corresponding pinhole model:"
-writemodel(model_pinhole)
+model_pinhole.write(sys.stdout)
 
 
 for imagefile in args.image:

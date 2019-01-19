@@ -26,7 +26,6 @@ import re
 import argparse
 import os
 
-import mrcal.cahvor
 import mrcal
 
 
@@ -89,10 +88,7 @@ def parse_args():
 
 args = parse_args()
 model_filename = args.model[0]
-if re.match(".*\.cahvor$", model_filename):
-    model = mrcal.cahvor.read(model_filename)
-else:
-    model = mrcal.cameramodel(model_filename)
+model = mrcal.cameramodel(model_filename)
 
 if args.radial and args.vectorfield:
     sys.stderr.write("Usage error: at most one of --radial and --vectorfield can be given\n")

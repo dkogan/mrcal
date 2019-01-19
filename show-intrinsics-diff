@@ -34,7 +34,6 @@ import argparse
 import os
 import re
 
-import mrcal.cahvor
 import mrcal
 
 
@@ -111,11 +110,7 @@ plotkwargs_extra = {}
 if args.extraset is not None:
     plotkwargs_extra['set'] = args.extraset
 
-def loadmodel(m):
-    if re.match(".*\.cahvor$", m): return mrcal.cahvor.read(m)
-    else:                          return mrcal.cameramodel(m)
-
-models = [loadmodel(modelfilename) for modelfilename in args.models]
+models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 
 plot = mrcal.show_intrinsics_diff(models,
                                   args.gridn[0], args.gridn[1],

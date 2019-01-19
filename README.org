@@ -6,8 +6,8 @@ $ calibrate-cameras --focal 2000
                     --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
 
 ... lots of output as the solve runs ...
-Wrote /tmp/camera0-0.cahvor
-Wrote /tmp/camera0-1.cahvor
+Wrote /tmp/camera0-0.cameramodel
+Wrote /tmp/camera0-1.cameramodel
 #+END_EXAMPLE
 
 * Summary
@@ -26,7 +26,10 @@ partially supported. The toolkit includes:
     - functions to manipulate 3D poses
     - functions to (un)project and (un)distort data
   - =mrcal.cahvor=: functions to read/write camera models in cahvor format: this
-    is for legacy compatibility only, so it lives in a separate module
+    is for legacy compatibility only, so it lives in a separate module. The
+    =mrcal.cameramodel= class generally knows to use a different file format
+    when talking to =xxx.cahvor= files, so the user shouldn't need to touch this
+    module directly
 
 - Some tools:
   - =calibrate-cameras=: calibrates N cameras
@@ -82,7 +85,7 @@ The toolkit supports two different representations of a camera model on disk:
   tools. This is also a text format. It mixes extrinsics and intrinsics, which
   makes it difficult for humans to interpret the numbers. Furthermore, it
   includes some redundant and constrained data that makes manipulations by
-  humans difficult: impossible and/or contradictory models can easily result.
+  humans difficult: impossible and/or contradictory models result.
 
 ** Distortion models
 

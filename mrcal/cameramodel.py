@@ -9,6 +9,7 @@ import sys
 import numpy as np
 import numbers
 import ast
+import re
 
 import mrcal
 import poseutils
@@ -257,7 +258,9 @@ class cameramodel(object):
         r'''Initializes a new camera-model object
 
         If file_or_model is not None: we read the camera model from a filename,
-        a pre-opened file or from another camera model (copy constructor)
+        a pre-opened file or from another camera model (copy constructor). If
+        reading a filename, and the filename is xxx.cahvor, then we assume a
+        legacy cahvor file format instead of the usual one
 
         If f is None and kwargs is empty: we init the model with invalid
         intrinsics (None initially; will need to be set later), and identity
@@ -275,6 +278,19 @@ class cameramodel(object):
         - 'covariance_intrinsics', optionally
 
         '''
+
+        # special-case cahvor logic. This is here purely for legacy
+        # compatibility
+        if len(kwargs) == 0           and \
+           type(file_or_model) is str and \
+           re.match(".*\.cahvor$", file_or_model):
+            import cahvor
+            file_or_model = cahvor.read(file_or_model)
+            # now follow this usual path. This becomes a copy constructor.
+
+
+
+
 
         if len(kwargs) == 0:
             if file_or_model is None:
@@ -338,13 +354,19 @@ class cameramodel(object):
     def write(self, f, note=None):
         r'''Writes out this camera model
 
-        We write to the given filename or a given pre-opened file.
+        We write to the given filename or a given pre-opened file. If the
+        filename is xxx.cahvor, we use the legacy cahvor file format
 
         '''
 
         if type(f) is str:
-            with open(f, 'w') as openedfile:
-                self._write( openedfile, note )
+            if re.match(".*\.cahvor$", f):
+                import cahvor
+                cahvor.write(f, self, note)
+
+            else:
+                with open(f, 'w') as openedfile:
+                    self._write( openedfile, note )
 
         else:
             self._write( f, note )
