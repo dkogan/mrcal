@@ -806,11 +806,11 @@ def show_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_data,
     elif type(kwargs['set']) is not list:
         kwargs['set'] = [kwargs['set']]
     kwargs['set'].extend(['xrange [:] noextend',
-                                   'yrange [:] noextend reverse',
-                                   'view equal xy',
-                                   'view map',
-                                   'contour surface',
-                                   'cntrparam levels incremental 0,0.5,10'])
+                          'yrange [:] noextend reverse',
+                          'view equal xy',
+                          'view map',
+                          'contour surface',
+                          'cntrparam levels incremental 0,0.5,10'])
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
