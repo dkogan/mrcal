@@ -14,12 +14,12 @@ import _mrcal
 def _get_distortion_function(model):
     if "DISTORTION_CAHVOR"  == model:       return cahvor_distort
     if "DISTORTION_CAHVORE" == model:       return cahvore_distort
-    if "DISTORTION_NONE"    == model:       return lambda p, fx,fy,cx,cy, scale=1.0: (p - np.array((cx,cy)))*scale + np.array((cx,cy))
+    if "DISTORTION_NONE"    == model:       return lambda q, fx,fy,cx,cy, scale=1.0: (q - np.array((cx,cy)))*scale + np.array((cx,cy))
     if re.match("DISTORTION_OPENCV",model): return opencv_distort
     raise Exception("Unknown distortion model {}".format(model))
 
 
-def cahvor_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
+def cahvor_distort(q, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply a CAHVOR warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVOR model and a pinhole-projected
@@ -53,31 +53,31 @@ def cahvor_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     # So o = { s_al*c_be, s_be,  c_al*c_be }
     alpha, beta, r0, r1, r2 = distortions
 
-    # p is a 2d point. Convert to a 3d point
-    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
-                        (p[..., 1] - cy)/fy,
-                        np.ones( p.shape[:-1])),
+    # q is a 2d point. Convert to a 3d point
+    v = nps.mv( nps.cat((q[..., 0] - cx)/fx,
+                        (q[..., 1] - cy)/fy,
+                        np.ones( q.shape[:-1])),
                 0, -1 )
     o = np.array( (np.cos(beta) * np.sin(alpha),
                    np.sin(beta),
                    np.cos(beta) * np.cos(alpha) ))
 
-    # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
-    # omega/norm(p)
-    omega = nps.inner(p,o)
+    # cos( angle between v and o ) = inner(v,o) / (norm(o) * norm(v)) =
+    # omega/norm(v)
+    omega = nps.inner(v,o)
 
-    # tau = 1/cos^2 - 1 = inner(p,p)/(omega*omega) - 1 =
+    # tau = 1/cos^2 - 1 = inner(v,v)/(omega*omega) - 1 =
     #     = tan^2
-    tau   = nps.inner(p,p) / (omega*omega) - 1.0
+    tau   = nps.inner(v,v) / (omega*omega) - 1.0
     mu    = r0 + tau*r1 + tau*tau*r2
-    p     = p*(nps.dummy(mu,-1)+1.0) - nps.dummy(mu*omega, -1)*o
+    v     = v*(nps.dummy(mu,-1)+1.0) - nps.dummy(mu*omega, -1)*o
 
-    # now I apply a normal projection to the warped 3d point p
-    return np.array((fx,fy)) * scale * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+    # now I apply a normal projection to the warped 3d point v
+    return np.array((fx,fy)) * scale * v[..., :2] / v[..., (2,)] + np.array((cx,cy))
 
 @nps.broadcast_define( ((2,), (),(),(),(), (),(),(),(),(), (),(),(),(),),
                        (2,), )
-def cahvore_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
+def cahvore_distort(q, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply a CAHVORE warp to an un-distorted point
 
     Given intrinsic parameters of a CAHVORE model and a pinhole-projected
@@ -115,18 +115,18 @@ def cahvore_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     # So o = { s_al*c_be, s_be,  c_al*c_be }
     alpha, beta, r0, r1, r2, e0, e1, e2, linearity = distortions
 
-    # p is a 2d point. Convert to a 3d point
-    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
-                        (p[..., 1] - cy)/fy,
-                        np.ones( p.shape[:-1])),
+    # q is a 2d point. Convert to a 3d point
+    v = nps.mv( nps.cat((q[..., 0] - cx)/fx,
+                        (q[..., 1] - cy)/fy,
+                        np.ones( q.shape[:-1])),
                 0, -1 )
     o = np.array( (np.cos(beta) * np.sin(alpha),
                    np.sin(beta),
                    np.cos(beta) * np.cos(alpha) ))
 
-    # cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
-    # omega/norm(p)
-    omega = nps.inner(p,o)
+    # cos( angle between v and o ) = inner(v,o) / (norm(o) * norm(v)) =
+    # omega/norm(v)
+    omega = nps.inner(v,o)
 
 
 
@@ -134,7 +134,7 @@ def cahvore_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
 
     # Calculate initial terms
     u = omega * o
-    l3 = p - u
+    l3 = v - u
     l  = np.sqrt(nps.inner(l3, l3))
 
     # Calculate theta using Newton's Method
@@ -173,7 +173,7 @@ def cahvore_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
 
     # Approximations for small theta
     if theta < 1e-8:
-        pass # p is good enough in this case
+        pass # v is good enough in this case
 
     # Full calculations
     else:
@@ -193,15 +193,15 @@ def cahvore_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
 
 	mu = r0 + r1*chi2 + r2*chi4
 
-        u  = zetap * o
-        v  = (1. + mu)*l3
-        p = u + v
+        uu  = zetap * o
+        vv  = (1. + mu)*l3
+        v = uu + vv
 
-    # now I apply a normal projection to the warped 3d point p
-    return np.array((fx,fy)) * scale * p[..., :2] / p[..., (2,)] + np.array((cx,cy))
+    # now I apply a normal projection to the warped 3d point v
+    return np.array((fx,fy)) * scale * v[..., :2] / v[..., (2,)] + np.array((cx,cy))
 
 
-def opencv_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
+def opencv_distort(q, fx, fy, cx, cy, *distortions, **kwargs):
     r'''Apply an OPENCV warp to an un-distorted point
 
     Given intrinsic parameters of an OPENCV model and a pinhole-projected
@@ -230,27 +230,27 @@ def opencv_distort(p, fx, fy, cx, cy, *distortions, **kwargs):
     else:
         scale = 1.0
 
-    dims_broadcast = p.shape[:-1]
-    p = nps.clump(p, n=len(p.shape)-1)
+    dims_broadcast = q.shape[:-1]
+    q = nps.clump(q, n=len(q.shape)-1)
 
-    # p is a 2d point. Convert to a 3d point
-    p = nps.mv( nps.cat((p[..., 0] - cx)/fx,
-                        (p[..., 1] - cy)/fy,
-                        np.ones( p.shape[:-1])),
+    # q is a 2d point. Convert to a 3d point
+    v = nps.mv( nps.cat((q[..., 0] - cx)/fx,
+                        (q[..., 1] - cy)/fy,
+                        np.ones( q.shape[:-1])),
                 0, -1 )
 
     A = np.array(((fx*scale,  0, cx),
                   ( 0, fy*scale, cy),
                   ( 0,  0,  1)))
 
-    out,_ = cv2.projectPoints(nps.atleast_dims(p,-2), np.zeros((3,)), np.zeros((3,)), A, distortions)
+    out,_ = cv2.projectPoints(nps.atleast_dims(v,-2), np.zeros((3,)), np.zeros((3,)), A, distortions)
     out = out[:,0,:]
 
     out_dims = dims_broadcast + (2,)
     out = out.reshape(out_dims)
     return out
 
-def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
+def _distort(q, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Apply a distortion warp: distort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -279,7 +279,7 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
     # This now exists only for a CAHVORE path. Would be good to simplify, and
     # get rid of the flexibility
 
-    if p is None or p.size == 0: return p
+    if q is None or q.size == 0: return q
 
 
     Ndistortions = mrcal.getNdistortionParams(distortion_model)
@@ -287,12 +287,12 @@ def _distort(p, distortion_model, fx, fy, cx, cy, *distortions):
         raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values".format(distortion_model, Ndistortions, len(distortions)))
 
     if distortion_model == "DISTORTION_NONE" and not get_gradients:
-        return p
+        return q
 
     distort_function = _get_distortion_function(distortion_model)
-    return distort_function(p, fx, fy, cx, cy, *distortions)
+    return distort_function(q, fx, fy, cx, cy, *distortions)
 
-def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
+def _undistort(q, distortion_model, fx, fy, cx, cy, *distortions):
     r'''Un-apply a CAHVOR warp: undistort a point
 
     This is a model-generic function. We use the given distortion_model: a
@@ -320,7 +320,7 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
 
     '''
 
-    if p is None or p.size == 0: return p
+    if q is None or q.size == 0: return q
 
 
     Ndistortions = mrcal.getNdistortionParams(distortion_model)
@@ -328,7 +328,7 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
         raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values", distortion_model, Ndistortions, len(distortions))
 
     if distortion_model == "DISTORTION_NONE":
-        return p
+        return q
 
     distort_function = _get_distortion_function(distortion_model)
 
@@ -341,19 +341,19 @@ def _undistort(p, distortion_model, fx, fy, cx, cy, *distortions):
     # in Npoints. The computation time thus would be much slower than
     # linear(Npoints)
     @nps.broadcast_define( ((2,),), )
-    def undistort_this(p0):
-        def f(pundistorted):
+    def undistort_this(q0):
+        def f(qundistorted):
             '''Optimization functions'''
-            pdistorted = distort_function(pundistorted, fx,fy,cx,cy, *distortions)
-            return pdistorted - p0
-        p1 = scipy.optimize.leastsq(f, p0)[0]
-        return np.array(p1)
+            qdistorted = distort_function(qundistorted, fx,fy,cx,cy, *distortions)
+            return qdistorted - q0
+        q1 = scipy.optimize.leastsq(f, q0)[0]
+        return np.array(q1)
 
-    return undistort_this(p)
+    return undistort_this(q)
 
 # @nps.broadcast_define( ((3,),('Nintrinsics',)),
 #                        (2,), )
-def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=False):
+def project(v, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=False):
     r'''Projects 3D point(s) using the given camera intrinsics
 
     Most of the time this invokes _mrcal.project() directly UNLESS we're using
@@ -364,21 +364,22 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=Fal
 
     Two interface types are supported:
 
-    - project(p, distortion_model, intrinsics)
+    - project(v, distortion_model, intrinsics)
 
       Here 'intrinsics' are the parameters in a numpy array, so this invocation
       allows broadcasting over these intrinsics
 
-    - project(p, intrinsics)
+    - project(v, intrinsics)
 
       Here intrinsics is a tuple (distortion_model, intrinsics_parameters), so
       you can do something like
 
-        project(p, cameramodel("abc.cameramodel").intrinsics())
+        project(v, cameramodel("abc.cameramodel").intrinsics())
 
     Both invocations ingest three pieces of data:
 
-    - p 3D point(s) in the camera coord system
+    - v 3D point(s) in the camera coord system. This is unaffected by scale, so
+      from the point of view of a camera, this is an observation vector
 
     - distortion_model: a string that says what the values in the intrinsics
       array mean. The supported values are reported by
@@ -418,18 +419,18 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=Fal
         distortion_model = intrinsics_or_distortionmodel
         intrinsics_data  = intrinsics
 
-    if p is None: return p
-    if p.size == 0:
+    if v is None: return v
+    if v.size == 0:
         Nintrinsics = intrinsics_data.shape[-1]
         if get_gradients:
-            s = p.shape
+            s = v.shape
             return np.zeros(s[:-1] + (2,)), np.zeros(s[:-1] + (2,Nintrinsics)), np.zeros(s[:-1] + (2,3))
         else:
-            s = p.shape
+            s = v.shape
             return np.zeros(s[:-1] + (2,))
 
     if distortion_model != 'DISTORTION_CAHVORE':
-        return _mrcal.project(np.ascontiguousarray(p),
+        return _mrcal.project(np.ascontiguousarray(v),
                               distortion_model,
                               intrinsics_data,
                               get_gradients=get_gradients)
@@ -438,13 +439,13 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=Fal
     if get_gradients:
         raise Exception("Gradients not implemented for CAHVORE")
 
-    def project_one_cam(intrinsics, p):
+    def project_one_cam(intrinsics, v):
         fxy = intrinsics[:2]
         cxy = intrinsics[2:4]
-        p2d = p[..., :2]/p[..., (2,)] * fxy + cxy
-        return _distort(p2d, distortion_model, *intrinsics)
+        q    = v[..., :2]/v[..., (2,)] * fxy + cxy
+        return _distort(q, distortion_model, *intrinsics)
 
-    # manually broadcast over intrinsics[]. The broadcast over p happens
+    # manually broadcast over intrinsics[]. The broadcast over v happens
     # implicitly.
     #
     # intrinsics shape I support: (a,b,c,..., Nintrinsics)
@@ -454,47 +455,47 @@ def project(p, intrinsics_or_distortionmodel, intrinsics=None, get_gradients=Fal
         raise Exception("More than 1D worth of broadcasting for the intrinsics not implemented")
 
     if len(idims_not1) == 0:
-        return project_one_cam(intrinsics.ravel(), p)
+        return project_one_cam(intrinsics.ravel(), v)
 
     idim_broadcast = idims_not1[0] - len(intrinsics.shape)
     Nbroadcast = intrinsics.shape[idim_broadcast]
-    if p.shape[idim_broadcast] != Nbroadcast:
-        raise Exception("Inconsistent dimensionality for broadcast at idim {}. p.shape: {} and intrinsics.shape: {}".format(idim_broadcast, p.shape, intrinsics.shape))
+    if v.shape[idim_broadcast] != Nbroadcast:
+        raise Exception("Inconsistent dimensionality for broadcast at idim {}. v.shape: {} and intrinsics.shape: {}".format(idim_broadcast, v.shape, intrinsics.shape))
 
-    psplit     = nps.mv(p,          idim_broadcast, 0)
+    vsplit     = nps.mv(v,          idim_broadcast, 0)
     intrinsics = nps.mv(intrinsics, idim_broadcast, 0)
 
     return \
         nps.mv( nps.cat(*[ project_one_cam(intrinsics[i].ravel(),
-                                           psplit[i])
+                                           vsplit[i])
                            for i in xrange(Nbroadcast)]),
                 0, idim_broadcast )
 
-def unproject(p, intrinsics_or_distortionmodel, intrinsics=None):
+def unproject(q, intrinsics_or_distortionmodel, intrinsics=None):
     r'''Computes unit vector(s) corresponding to pixel observation(s)
 
-    This function is broadcastable over p (using numpy primitives intead of
+    This function is broadcastable over q (using numpy primitives intead of
     nps.broadcast_define() to avoid a slow python broadcasting loop).
 
     This function is NOT broadcastable over the intrinsics
 
     Two interface types are supported:
 
-    - unproject(p, distortion_model, intrinsics)
+    - unproject(q, distortion_model, intrinsics)
 
       Here 'intrinsics' are the parameters in a numpy array, so this invocation
       allows broadcasting over these intrinsics
 
-    - unproject(p, intrinsics)
+    - unproject(q, intrinsics)
 
       Here intrinsics is a tuple (distortion_model, intrinsics_parameters), so
       you can do something like
 
-        unproject(p, cameramodel("abc.cameramodel").intrinsics())
+        unproject(q, cameramodel("abc.cameramodel").intrinsics())
 
     Both invocations ingest three pieces of data:
 
-    - p 2D pixel coordinate(s)
+    - q 2D pixel coordinate(s)
 
     - distortion_model: a string that says what the values in the intrinsics
       array mean. The supported values are reported by
@@ -526,23 +527,23 @@ def unproject(p, intrinsics_or_distortionmodel, intrinsics=None):
     else:
         distortion_model = intrinsics_or_distortionmodel
 
-    if p is None: return p
-    if p.size == 0:
-        s = p.shape
+    if q is None: return q
+    if q.size == 0:
+        s = q.shape
         return np.zeros(s[:-1] + (3,))
 
-    p = _undistort(p, distortion_model, *intrinsics)
+    q = _undistort(q, distortion_model, *intrinsics)
 
     (fx, fy, cx, cy) = intrinsics[:4]
 
     # shape = (..., 2)
-    P = (p - np.array((cx,cy))) / np.array((fx,fy))
+    v = (q - np.array((cx,cy))) / np.array((fx,fy))
 
     # I append a 1. shape = (..., 3)
-    P = nps.glue(P, np.ones( P.shape[:-1] + (1,) ), axis=-1)
+    v = nps.glue(v, np.ones( v.shape[:-1] + (1,) ), axis=-1)
 
     # normalize each vector
-    return P / nps.dummy(np.sqrt(nps.inner(P,P)), -1)
+    return v / nps.dummy(np.sqrt(nps.inner(v,v)), -1)
 
 def distortion_map__to_warped(intrinsics, w, h, scale=1.0):
     r'''Returns the pre and post distortion map of a model
