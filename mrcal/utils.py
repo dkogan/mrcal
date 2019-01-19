@@ -440,15 +440,15 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
                             intrinsics_data), \
             grid
 
-def get_intrinsics_uncertainty( distortion_model, intrinsics_data,
-                                covariance_intrinsics, imagersize,
-                                gridn_x      = 60,
-                                gridn_y      = 40,
+def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
+                                    covariance_intrinsics, imagersize,
+                                    gridn_x      = 60,
+                                    gridn_y      = 40,
 
-                                # fit everywhere by default
-                                focus_center = None,
-                                focus_radius = 1.e6, # effectively an infinite
-                                                     # number of pixels
+                                    # fit everywhere by default
+                                    focus_center = None,
+                                    focus_radius = 1.e6, # effectively an infinite
+                                    # number of pixels
                               ):
     r'''Computes the uncertainty in a projection of a 3D point
 
@@ -663,7 +663,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     This routine uses the covariance of observed inputs. See
-    get_intrinsics_uncertainty() for a detailed description of the process
+    compute_intrinsics_uncertainty() for a detailed description of the process
 
     '''
 
@@ -671,11 +671,11 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
     import gnuplotlib as gp
     W,H=imagersize
-    Expected_projection_shift = get_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                                           covariance_intrinsics, imagersize,
-                                                           gridn_x, gridn_y,
-                                                           focus_center = focus_center,
-                                                           focus_radius = focus_radius)
+    Expected_projection_shift = compute_intrinsics_uncertainty(distortion_model, intrinsics_data,
+                                                               covariance_intrinsics, imagersize,
+                                                               gridn_x, gridn_y,
+                                                               focus_center = focus_center,
+                                                               focus_radius = focus_radius)
 
     if 'title' not in kwargs:
         if focus_radius is None or focus_radius <= 0:
