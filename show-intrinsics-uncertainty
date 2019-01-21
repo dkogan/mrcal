@@ -49,10 +49,11 @@ def parse_args():
                         omitted, we will focus on the center of the imager''')
     parser.add_argument('--radius',
                         type=float,
-                        default=1.0e6,
-                        help='''Radius of the region of interest. If<=0, we do NOT fit an implied rotation at
-                        all. If omitted, we use a very large radius: we use data
-                        across the WHOLE imager for the fit''')
+                        default=-1.,
+                        help='''Radius of the region of interest. If ==0, we do NOT fit an implied rotation
+                        at all. If omitted or <0, we use a "reasonable value:
+                        min(width,height)/6. To fit with data across the WHOLE
+                        imager: pass in a very large radius''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=5,

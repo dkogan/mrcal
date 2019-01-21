@@ -492,17 +492,13 @@ class cameramodel(object):
         if d is None: this is a getter; otherwise a setter.
 
         d is some sort of iterable of two numbers.
-
-        The imagersize aren't used for very much and 99% of the time they can be
-        omitted.
-
         '''
 
         if d is None:
             return self._imagersize
 
         _validateImagersize(d)
-        self._imagersize = d
+        self._imagersize = np.array(d)
 
 
     def covariance_intrinsics(self, c=None):

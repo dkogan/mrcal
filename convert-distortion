@@ -40,14 +40,18 @@ Camera models have originally been computed by a calibration procedure that
 takes as input a number of point observations, and the resulting models are only
 valid in an area where those observations were available; it's an extrapolation
 everywhere else. This is generally OK, and we try to cover the whole imager when
-calibrating cameras. Models with high distortions (CAHVORE, OPENCV >= 8) generally
-have quickly-increasing effects towards the edges of the imager, and the
-distortions represented by these models at the extreme edges of the imager are
-often not reliable, since the initial calibration data is rarely available at
-the extreme edges. Thus using points at the extreme edges to fit another model
-is often counterproductive, and I provide the --margin commandline option for
-this case. convert-distortion --margin N will avoid N pixels at the edge of the
-imager for fitting purposes.
+calibrating cameras. Models with high distortions (CAHVORE, OPENCV >= 8)
+generally have quickly-increasing effects towards the edges of the imager, and
+the distortions represented by these models at the extreme edges of the imager
+are often not reliable, since the initial calibration data is rarely available
+at the extreme edges. Thus using points at the extreme edges to fit another
+model is often counterproductive, and I provide the --where and --radius
+commandline options for this case. We use data in a circular region of the
+imager. This region is centered on the point given by --where (or at the center
+of the imager, if omitted). The radius of this region is given by --radius. If
+'--radius 0' is given, I use ALL the data. A radius<0 can be used to set the
+size of the no-data margin at the corners; in this case I'll use sqrt(width^2 +
+height^2) - abs(radius)
 
 '''
 
@@ -80,13 +84,22 @@ def parse_args():
     parser.add_argument('--viz',
                         action='store_true',
                         help='''Visualize the difference''')
-
-    parser.add_argument('--margin',
-                        required=False,
-                        default=0,
-                        type=int,
-                        help='''Where to run the solve. A (usually positive) value of x means look in a
-                        window from (x,x) to (W-x,H-x)''')
+    parser.add_argument('--where',
+                        type=float,
+                        nargs=2,
+                        help='''I use a subset of the imager to compute the fit. The active region is a
+                        circle centered on this point. If omitted, we will
+                        focus on the center of the imager''')
+    parser.add_argument('--radius',
+                        type=float,
+                        default=0.,
+                        help='''I use a subset of the imager to compute the fit. The active region is a
+                        circle with a radius given by this paramter. If radius
+                        == 0, I'll use the whole imager for the fit. If radius <
+                        0, this parameter specifies the width of the region at
+                        the corners that I should ignore: I will use
+                        sqrt(width^2 + height^2) - abs(radius). This is valid
+                        ONLY if we're focussing at the center of the imager''')
 
     parser.add_argument('cameramodel',
                         type=lambda f: f if os.path.isfile(f) else \
@@ -122,7 +135,7 @@ if distortionmodel_from == distortionmodel_to:
 
 
 if distortionmodel_to == 'DISTORTION_CAHVORE':
-    raise Exception("I don't know how to solve for CAHVORE. Need gradients and stuff")
+    raise Exception("DISTORTION_CAHVORE models aren't supported at this time: gradients aren't implemented")
 
 
 
@@ -140,14 +153,33 @@ if dims is None:
 
 
 ### I sample the pixels in an NxN grid
-N       = 20
+N       = 60
 Npoints = N*N
 
-px = np.linspace(args.margin, dims[0]-1-args.margin, N)
-py = np.linspace(args.margin, dims[1]-1-args.margin, N)
+px = np.linspace(0, dims[0]-1, N)
+py = np.linspace(0, dims[1]-1, N)
 
 # pxy is (N*N, 2). Each slice of pxy[:] is an (x,y) pixel coord
 pxy = nps.transpose(nps.clump( nps.cat(*np.meshgrid(px,py)), n=-2))
+if args.radius != 0:
+    # we use a subset of the input data for the fit
+    if args.where is None:
+        focus_center = (dims - 1.) / 2.
+    else:
+        focus_center = args.where
+
+    if args.radius > 0:
+        r = args.radius
+    else:
+        if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
+            sys.stderr.write("A radius <0 is only implemented if we're focussing on the imager center\n")
+            sys.exit(1)
+        r = np.sqrt(nps.norm2(dims)) + args.radius
+
+    grid_off_center = pxy - focus_center
+    i = nps.norm2(grid_off_center) < r*r
+    pxy = pxy[i, ...]
+
 
 ### I unproject this, with broadcasting
 v = mrcal.unproject( pxy, m.intrinsics() )
@@ -218,7 +250,7 @@ m_to.write(sys.stdout)
 if args.viz:
 
     plot = mrcal.show_intrinsics_diff( (m, m_to),
-                                       imager_radius=None, # don't compute an implicit rotation
+                                       focus_radius=0, # don't compute an implicit rotation
                                        cbmax=10)
     plot.wait()
 

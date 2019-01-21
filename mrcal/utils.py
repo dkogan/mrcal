@@ -445,10 +445,10 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
                                     gridn_x      = 60,
                                     gridn_y      = 40,
 
-                                    # fit everywhere by default
+                                    # fit a "reasonable" area in the center by
+                                    # default
                                     focus_center = None,
-                                    focus_radius = 1.e6, # effectively an infinite
-                                    # number of pixels
+                                    focus_radius = -1.
                               ):
     r'''Computes the uncertainty in a projection of a 3D point
 
@@ -471,13 +471,17 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
     reprojection error. For this alignment I can use an arbitrary subset of the
     data:
 
-        if focus_radius is None or focus_radius <= 0:
-           I do NOT fit a compensating rotation
-
         if focus_radius > 0:
            I use observation vectors within focus_radius pixels of the
-           focus_center. To use ALL the data, pass in a very large focus_radius,
-           or simply omit it
+           focus_center. To use ALL the data, pass in a very large focus_radius.
+
+        if focus_radius < 0:
+           I fit a compensating rotation using a "reasonable" area in the center
+           of the imager. I use focus_radius = min(width,height)/6.
+
+        if focus_radius == 0:
+           I do NOT fit a compensating rotation. Rationale: with radius == 0, I
+           have no fitting data, so I do not fit anything at all.
 
         if focus_center is None:
            focus_center is at the center of the imager
@@ -557,6 +561,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
 
     W,H = imagersize
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+    if focus_radius < 0:     focus_radius = min(W,H)/6.
 
     v,grid0 = _sample_imager_unproject(gridn_x, gridn_y,
                                        distortion_model, intrinsics_data,
@@ -565,7 +570,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         mrcal.project(v, distortion_model, intrinsics_data, get_gradients=True)
 
 
-    if focus_radius is None or focus_radius <= 0:
+    if focus_radius == 0:
         # We're not fitting a rotation to compensate for shifted intrinsics.
         U = dproj_dintrinsics
 
@@ -651,10 +656,10 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                 gridn_x          = 60,
                                 gridn_y          = 40,
 
-                                # fit everywhere by default
+                                # fit a "reasonable" area in the center by
+                                # default
                                 focus_center = None,
-                                focus_radius = 1.e6, # effectively an infinite
-                                # number of pixels
+                                focus_radius = -1.,
 
                                 extratitle       = None,
                                 hardcopy         = None,
@@ -678,7 +683,10 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                                                focus_radius = focus_radius)
 
     if 'title' not in kwargs:
-        if focus_radius is None or focus_radius <= 0:
+        if focus_radius < 0:
+            focus_radius = min(W,H)/6.
+
+        if focus_radius == 0:
             where = "NOT fitting an implied rotation"
         elif focus_radius > 2*(W+H):
             where = "implied rotation fitted everywhere"
@@ -917,23 +925,21 @@ def _intrinsics_diff_get_reprojected_grid(grid0, v0, v1,
 
 
 
-    if focus_radius is None or focus_radius <= 0:
+    W,H = imagersizes[0,:]
+    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+    if focus_radius < 0:     focus_radius = min(W,H)/6.
+    if focus_radius == 0:
         # We assume the geometry is fixed across the two models, and we fit
         # nothing
         R = np.eye(3)
 
     else:
 
-        # By default we try to match the geometry EVERYWHERE
-        W,H = imagersizes[0,:]
-
         V0cut   = nps.clump(v0,n=2)
         V1cut   = nps.clump(v1,n=2)
         icenter = np.array((v0.shape[:2]))/2
         if focus_radius < 2*(W+H):
-            # But we may try to match the geometry in a particular region
-            if focus_center is None:
-                focus_center = ((W-1.)/2., (H-1.)/2.)
+            # We try to match the geometry in a particular region
 
             grid_off_center = grid0 - focus_center
             i = nps.norm2(grid_off_center) < focus_radius*focus_radius
@@ -1039,10 +1045,10 @@ def show_intrinsics_diff(models,
                          gridn_x          = 60,
                          gridn_y          = 40,
 
-                         # fit everywhere by default
+                         # fit a "reasonable" area in the center by
+                         # default
                          focus_center     = None,
-                         focus_radius     = 1.e6, # effectively an infinite
-                         # number of pixels
+                         focus_radius     = -1.,
 
                          vectorfield      = False,
                          extratitle       = None,
@@ -1066,13 +1072,17 @@ def show_intrinsics_diff(models,
     would get a large diff because of the cx,cy difference. I select the fitting
     region like this:
 
-        if focus_radius is None or focus_radius <= 0:
-           I do NOT fit a compensating rotation
-
         if focus_radius > 0:
            I use observation vectors within focus_radius pixels of the
-           focus_center. To use ALL the data, pass in a very large focus_radius,
-           or simply omit it
+           focus_center. To use ALL the data, pass in a very large focus_radius.
+
+        if focus_radius < 0:
+           I fit a compensating rotation using a "reasonable" area in the center
+           of the imager. I use focus_radius = min(width,height)/6.
+
+        if focus_radius == 0:
+           I do NOT fit a compensating rotation. Rationale: with radius == 0, I
+           have no fitting data, so I do not fit anything at all.
 
         if focus_center is None:
            focus_center is at the center of the imager
@@ -1125,7 +1135,10 @@ def show_intrinsics_diff(models,
         difflen = np.sqrt(np.mean(nps.norm2(grids-grid0),axis=0))
 
     if 'title' not in kwargs:
-        if focus_radius is None or focus_radius <= 0:
+        if focus_radius < 0:
+            focus_radius = min(W,H)/6.
+
+        if focus_radius == 0:
             where = "NOT fitting an implied rotation"
         elif focus_radius > 2*(W+H):
             where = "implied rotation fitted everywhere"
