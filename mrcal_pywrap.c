@@ -1577,6 +1577,14 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
                         c_calibration_object_spacing,
                         c_calibration_object_width_n);
+
+        if(stats.rms_reproj_error__pixels < 0.0)
+        {
+            // Error! I throw an exception
+            PyErr_SetString(PyExc_RuntimeError, "mrcal.optimize() failed!");
+            goto done;
+        }
+
         pystats = PyDict_New();
         if(pystats == NULL)
         {

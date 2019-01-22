@@ -3114,6 +3114,10 @@ mrcal_optimize( // out
             if(_solver_context != NULL)
                 *_solver_context = solver_context;
 
+            if(norm2_error < 0)
+                // libdogleg barfed. I quit out
+                goto done;
+
 #if 0
             // Not using dogleg_markOutliers() (for now?)
 
@@ -3264,6 +3268,7 @@ mrcal_optimize( // out
         }
     }
 
+ done:
     if(_solver_context == NULL && solver_context)
         dogleg_freeContext(&solver_context);
 
