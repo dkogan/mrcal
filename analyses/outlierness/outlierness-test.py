@@ -4,10 +4,12 @@
 sensitivity logic'''
 
 
+import sys
+import os
+
 import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
-import sys
 
 reference_equation = '0.1*(x+0.2)**2. + 3.0'
 
@@ -386,52 +388,50 @@ p3,J3,x3,Vquery3,squery3,fquery3,metrics3,k_dima3,k_cook3 = test_order(q,f, quer
 
 def show_outlierness(q, metrics, Nmeasurements, dimas_threshold, cooks_threshold):
 
-    gp.plot( (q, metrics['dima']['outliers']['self_others']/dimas_threshold,
-              dict(legend="Dima's self+others outlierness / threshold",
-                   _with='points')),
-             (q, metrics['dima']['outliers']['others']/dimas_threshold,
-              dict(legend="Dima's others-ONLY outlierness / threshold",
-                   _with='points')),
-             (q, metrics['cook']['outliers']['self_others']/cooks_threshold,
-              dict(legend="Cook's self+others outlierness / threshold",
-                   _with='points')),
-             (q, metrics['cook']['outliers']['others']/cooks_threshold,
-              dict(legend="Cook's others-ONLY outlierness / threshold",
-                   _with='points')),
-
-             equation='1.0 title "Threshold"',
-             wait = 1)
+    p = gp.gnuplotlib(equation='1.0 title "Threshold"')
+    p.plot( (q, metrics['dima']['outliers']['self_others']/dimas_threshold,
+             dict(legend="Dima's self+others outlierness / threshold",
+                  _with='points')),
+            (q, metrics['dima']['outliers']['others']/dimas_threshold,
+             dict(legend="Dima's others-ONLY outlierness / threshold",
+                  _with='points')),
+            (q, metrics['cook']['outliers']['self_others']/cooks_threshold,
+             dict(legend="Cook's self+others outlierness / threshold",
+                  _with='points')),
+            (q, metrics['cook']['outliers']['others']/cooks_threshold,
+             dict(legend="Cook's others-ONLY outlierness / threshold",
+                  _with='points')))
+    return p
 
 
 def show_uncertainty(Vquery, metrics, Nmeasurements, dimas_threshold, cooks_threshold):
-    gp.plot(
 
-             (query, np.sqrt(Vquery),
-              dict(legend='expectederr (y2)', _with='lines', y2=1)),
+    p = gp.gnuplotlib(equation='1 title "Threshold"')
+    p.plot(
+        (query, np.sqrt(Vquery),
+         dict(legend='expectederr (y2)', _with='lines', y2=1)),
 
              (query, metrics['dima']['query']['self_others']*noise_stdev*noise_stdev / dimas_threshold,
               dict(legend="Dima's self+others query / threshold",
                    _with='linespoints')),
-             (query, metrics['dima']['query']['others']*noise_stdev*noise_stdev / dimas_threshold,
-              dict(legend="Dima's others-ONLY query / threshold",
-                   _with='linespoints')),
+        (query, metrics['dima']['query']['others']*noise_stdev*noise_stdev / dimas_threshold,
+         dict(legend="Dima's others-ONLY query / threshold",
+              _with='linespoints')),
 
              (query, metrics['cook']['query']['self_others']*noise_stdev*noise_stdev / cooks_threshold,
               dict(legend="Cook's self+others query / threshold",
                    _with='linespoints')),
-             (query, metrics['cook']['query']['others']*noise_stdev*noise_stdev / cooks_threshold,
-              dict(legend="Cook's others-ONLY query / threshold",
-                   _with='linespoints')),
-
-             equation='1 title "Threshold"',
-             wait = 1)
+        (query, metrics['cook']['query']['others']*noise_stdev*noise_stdev / cooks_threshold,
+         dict(legend="Cook's others-ONLY query / threshold",
+              _with='linespoints')))
+    return p
 
 def show_fit(q, fdata, query, fqueryfit, Vquery):
-    gp.plot((q,fdata, dict(_with='points', legend = 'input data')),
-            (query, fqueryfit + np.sqrt(Vquery)*np.array(((1,),(0,),(-1,),)), dict(legend = 'stdev_f', _with='lines')),
-            equation='{} with lines title "reference"'.format(reference_equation),
-            xrange=[-1,2],
-            wait = 1)
+    p = gp.gnuplotlib(equation='{} with lines title "reference"'.format(reference_equation),
+                      xrange=[-1,2])
+    p.plot((q,fdata, dict(_with='points', legend = 'input data')),
+           (query, fqueryfit + np.sqrt(Vquery)*np.array(((1,),(0,),(-1,),)), dict(legend = 'stdev_f', _with='lines')))
+    return p
 
 def show_distribution(outlierness):
     h,c,w = histogram(outlierness)
@@ -448,9 +448,15 @@ dimas_threshold2 = cooks_threshold / k_cook2 * k_dima2
 dimas_threshold3 = cooks_threshold / k_cook3 * k_dima3
 
 # These all show interesting things; turn one of them on
-show_outlierness(q, metrics2, N, dimas_threshold2, cooks_threshold)
-# show_fit(q,f,query,fquery2,Vquery2)
-# show_uncertainty(Vquery3, metrics3, N, dimas_threshold3, cooks_threshold)
+plots = [ show_outlierness(q, metrics2, N, dimas_threshold2, cooks_threshold),
+          show_fit(q,f,query,fquery2,Vquery2),
+          show_uncertainty(Vquery3, metrics3, N, dimas_threshold3, cooks_threshold), ]
+
+if   os.fork() == 0: plots[0].wait()
+elif os.fork() == 0: plots[1].wait()
+elif os.fork() == 0: plots[2].wait()
+else:
+    os.wait()
 
 
 # Conclusions:
