@@ -440,6 +440,87 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
                             intrinsics_data), \
             grid
 
+# NEED TO DOCUMENT R FIT
+def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
+                                      imagersize,
+
+                                      # fit everywhere by default
+                                      focus_center = None,
+                                      focus_radius = 1.e6, # effectively an infinite
+                                                           # number of pixels
+):
+    '''THIS IS ALL WRONG
+
+       Computes D, the solved matrix used to apply an R correction
+
+    I use a subset of my sample points here. The R fit is based on this
+    subset. I then use the fit I computed here for all the data.
+
+    '''
+
+    if focus_radius is None or focus_radius <= 0:
+        # We're not fitting a rotation to compensate for shifted intrinsics.
+        return dq_dintrinsics
+
+
+    # We're fitting the rotation to compensate for shifted intrinsics.
+
+    @nps.broadcast_define( ((3,),), (3,3))
+    def skew_symmetric(v):
+        return np.array(((   0,  -v[2],  v[1]),
+                         ( v[2],    0,  -v[0]),
+                         (-v[1],  v[0],    0)))
+    V = skew_symmetric(v)
+
+    W,H = imagersize
+    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+
+
+
+    def clump_leading_dims(x):
+        '''clump leading dims to leave 2 trailing ones.
+
+        input shape (..., a,b). Output shape: (N, a,b)
+        '''
+        return nps.clump(x, n=len(x.shape)-2)
+
+
+    # everything by default
+    V_c              = clump_leading_dims(V)
+    dq_dintrinsics_c = clump_leading_dims(dq_dintrinsics)
+    dq_dv_c          = clump_leading_dims(dq_dv)
+
+    if focus_radius < 2*(W+H):
+        delta_q = nps.clump(q, n=2) - focus_center
+        i = nps.norm2(delta_q) < focus_radius*focus_radius
+        if np.count_nonzero(i)<3:
+            warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
+        else:
+            V_c              = V_c             [i, ...]
+            dq_dv_c          = dq_dv_c         [i, ...]
+            dq_dintrinsics_c = dq_dintrinsics_c[i, ...]
+
+    # shape (3,Nintrinsics)
+    C_Vvp  = np.sum(nps.matmult( V_c,
+                                 nps.transpose(dq_dv_c),
+                                 dq_dintrinsics_c ),
+                    axis=0)
+
+    # shape (3,3)
+    C_VvvV  = np.sum(nps.matmult( V_c,
+                                  nps.transpose(dq_dv_c),
+                                  dq_dv_c,
+                                  V_c ),
+                     axis=0)
+
+    # shape (3,Nintrinsics)
+    D = np.linalg.solve(C_VvvV, C_Vvp)
+
+    # I have D. D is a constant. Used for ALL the samples v. I return the
+    # correction; this uses the D, but also a different V for each sample
+    return dq_dintrinsics - nps.matmult(dq_dv, V, D)
+
+
 def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
                                     covariance_intrinsics, imagersize,
                                     gridn_x      = 60,
@@ -526,8 +607,8 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         I assume an independent, gaussian noise on my input observations, and for a
         set of given observation vectors v, I compute the effect on the projection.
 
-          dq = dproj/dintrinsics dintrinsics
-             = dproj/dintrinsics Mintrinsics dm
+          dq = dq/dintrinsics dintrinsics
+             = dq/dintrinsics Mintrinsics dm
 
         dprojection/dintrinsics comes from cvProjectPoints2(). I'm assuming
         everything is locally linear, so this is a constant matrix for each v.
@@ -537,8 +618,8 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         If dm represents noise of the zero-mean, independent, gaussian variety,
         then dp and dq are also zero-mean gaussian, but no longer independent
 
-          Var(dq) = (dproj/dintrinsics Mintrinsics) Var(dm) (dproj/dintrinsics Mintrinsics)t =
-                  = (dproj/dintrinsics Mintrinsics) (dproj/dintrinsics Mintrinsics)t s^2
+          Var(dq) = (dq/dintrinsics Mintrinsics) Var(dm) (dq/dintrinsics Mintrinsics)t =
+                  = (dq/dintrinsics Mintrinsics) (dq/dintrinsics Mintrinsics)t s^2
 
         where s is the standard deviation of the noise of each parameter in dm.
 
@@ -563,76 +644,15 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
     if focus_radius < 0:     focus_radius = min(W,H)/6.
 
-    v,grid0 = _sample_imager_unproject(gridn_x, gridn_y,
-                                       distortion_model, intrinsics_data,
-                                       W, H)
-    imagePoints,dproj_dintrinsics,dproj_dv = \
+    v,_ = _sample_imager_unproject(gridn_x, gridn_y,
+                                   distortion_model, intrinsics_data,
+                                   *imagersize)
+    q,dq_dintrinsics,dq_dv = \
         mrcal.project(v, distortion_model, intrinsics_data, get_gradients=True)
 
-
-    if focus_radius == 0:
-        # We're not fitting a rotation to compensate for shifted intrinsics.
-        U = dproj_dintrinsics
-
-    else:
-        # We're fitting the rotation to compensate for shifted intrinsics.
-
-        @nps.broadcast_define( ((3,),), (3,3))
-        def skew_symmetric(v):
-            return np.array(((   0,  -v[2],  v[1]),
-                             ( v[2],    0,  -v[0]),
-                             (-v[1],  v[0],    0)))
-        V = skew_symmetric(v)
-
-        def getD():
-            '''Computes D, the solved matrix used to apply an R correction
-
-            I use a subset of my sample points here. The R fit is based on this
-            subset. I then use the fit I computed here for all the data.
-
-            '''
-
-            def clump_leading_dims(x):
-                '''clump leading dims to leave 2 trailing ones.
-
-                input shape (..., a,b). Output shape: (N, a,b)
-                '''
-                return nps.clump(x, n=len(x.shape)-2)
-
-            V_c                 = clump_leading_dims(V)
-            dproj_dv_c          = clump_leading_dims(dproj_dv)
-            dproj_dintrinsics_c = clump_leading_dims(dproj_dintrinsics)
-
-            if focus_radius < 2*(W+H):
-                grid_off_center = nps.clump(grid0, n=2) - focus_center
-                i = nps.norm2(grid_off_center) < focus_radius*focus_radius
-                if np.count_nonzero(i)<3:
-                    warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
-                else:
-                    V_c                 = V_c                [i, ...]
-                    dproj_dv_c          = dproj_dv_c         [i, ...]
-                    dproj_dintrinsics_c = dproj_dintrinsics_c[i, ...]
-
-            # shape (3,Nintrinsics)
-            C_Vvp  = np.sum(nps.matmult( V_c,
-                                         nps.transpose(dproj_dv_c),
-                                         dproj_dintrinsics_c ),
-                            axis=0)
-
-            # shape (3,3)
-            C_VvvV  = np.sum(nps.matmult( V_c,
-                                          nps.transpose(dproj_dv_c),
-                                          dproj_dv_c,
-                                          V_c ),
-                             axis=0)
-
-            # shape (3,Nintrinsics)
-            return np.linalg.solve(C_VvvV, C_Vvp)
-
-
-
-        D = getD()
-        U = dproj_dintrinsics - nps.matmult(dproj_dv, V, D)
+    U = compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics,dq_dv,
+                                          imagersize,
+                                          focus_center, focus_radius)
 
     UtU = nps.matmult(nps.transpose(U),U)
 
