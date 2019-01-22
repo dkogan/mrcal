@@ -251,7 +251,7 @@ class cameramodel(object):
         self._intrinsics            = intrinsics
         self._covariance_intrinsics = covariance_intrinsics
         self._extrinsics            = np.array(model['extrinsics'], dtype=float)
-        self._imagersize            = np.array(model['imagersize'], dtype=int)
+        self._imagersize            = np.array(model['imagersize'], dtype=np.int32)
 
 
     def __init__(self, file_or_model=None, **kwargs):
@@ -498,7 +498,7 @@ class cameramodel(object):
             return self._imagersize
 
         _validateImagersize(d)
-        self._imagersize = np.array(d)
+        self._imagersize = np.array(d, dtype=np.int32)
 
 
     def covariance_intrinsics(self, c=None):
