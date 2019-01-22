@@ -971,7 +971,6 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1 COMMA  2       } ) \
     _(distortion_model,                   PyObject*,      NULL,    "S",  ,                                  -1,         {}                   ) \
-    _(observed_pixel_uncertainty,         PyObject*,      NULL,    "O",  ,                                  -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
@@ -990,6 +989,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(get_intrinsic_covariances,          PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
+    _(observed_pixel_uncertainty,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       -1,         {})
 
 #define OPTIMIZE_ARGUMENTS_ALL(_) \
@@ -1187,17 +1187,27 @@ static bool optimize_validate_args( // out
         }
     }
 
-    if(!PyFloat_Check(observed_pixel_uncertainty))
+    if( PyObject_IsTrue(skip_outlier_rejection) )
     {
-        PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
-        return false;
+        // skipping outlier rejection. The pixel uncertainty isn't used and
+        // doesn't matter
     }
-    double c_observed_pixel_uncertainty =
-        PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
-    if( c_observed_pixel_uncertainty <= 0.0 )
+    else
     {
-        PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
-        return false;
+        // not skipping outlier rejection. The pixel uncertainty is used and
+        // must be valid
+        if(!PyFloat_Check(observed_pixel_uncertainty))
+        {
+            PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
+            return false;
+        }
+        double c_observed_pixel_uncertainty =
+            PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
+        if( c_observed_pixel_uncertainty <= 0.0 )
+        {
+            PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
+            return false;
+        }
     }
 
     if( !(solver_context == NULL ||
@@ -1530,7 +1540,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             c_roi = PyArray_DATA(roi);
 
         int* c_imagersizes = PyArray_DATA(imagersizes);
-        double c_observed_pixel_uncertainty = PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
+        double c_observed_pixel_uncertainty = 0.0;
+        if(observed_pixel_uncertainty != NULL && (PyObject*)observed_pixel_uncertainty != Py_None)
+            c_observed_pixel_uncertainty = PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
 
         dogleg_solverContext_t** solver_context_optimizer = NULL;
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
