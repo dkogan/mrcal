@@ -1,0 +1,25 @@
+{
+    'distortion_model':  'DISTORTION_OPENCV5',
+
+    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+    'intrinsics': [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397],
+
+    # The intrinsics are represented as a probabilistic quantity: the parameters
+    # are all gaussian, with mean at the given values, and with some covariance.
+    'covariance_intrinsics': [
+    [ 0.25, 0, 0, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0.25, 0, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0.25, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0.25, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0.25, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0.25, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0.25, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0, 0.25, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0.25,],
+],
+
+    # extrinsics are rt_fromref
+    'extrinsics': [ 0, 0, 0, -0, -0, -0,],
+
+    'imagersize': [ 4000, 2200 ]
+}
