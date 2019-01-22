@@ -153,14 +153,13 @@ if dims is None:
 
 
 ### I sample the pixels in an NxN grid
-N       = 60
-Npoints = N*N
+N = 60
 
-px = np.linspace(0, dims[0]-1, N)
-py = np.linspace(0, dims[1]-1, N)
+qx = np.linspace(0, dims[0]-1, N)
+qy = np.linspace(0, dims[1]-1, N)
 
-# pxy is (N*N, 2). Each slice of pxy[:] is an (x,y) pixel coord
-pxy = nps.transpose(nps.clump( nps.cat(*np.meshgrid(px,py)), n=-2))
+# q is (N*N, 2). Each slice of q[:] is an (x,y) pixel coord
+q = nps.transpose(nps.clump( nps.cat(*np.meshgrid(qx,qy)), n=-2))
 if args.radius != 0:
     # we use a subset of the input data for the fit
     if args.where is None:
@@ -174,15 +173,19 @@ if args.radius != 0:
         if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
             sys.stderr.write("A radius <0 is only implemented if we're focussing on the imager center\n")
             sys.exit(1)
-        r = np.sqrt(nps.norm2(dims)) + args.radius
+        r = np.sqrt(nps.norm2(dims))/2. + args.radius
 
-    grid_off_center = pxy - focus_center
+    grid_off_center = q - focus_center
     i = nps.norm2(grid_off_center) < r*r
-    pxy = pxy[i, ...]
+    q = q[i, ...]
+
+
+Npoints = len(q)
+
 
 
 ### I unproject this, with broadcasting
-v = mrcal.unproject( pxy, m.intrinsics() )
+v = mrcal.unproject( q, m.intrinsics() )
 
 
 ### Solve!
@@ -199,7 +202,7 @@ for i in xrange(40): # this many trials
     intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
                                      axis=-2)
     # range-less points
-    observations_points = nps.glue(pxy, -np.ones((Npoints, 1),), axis=-1)
+    observations_points = nps.glue(q, -np.ones((Npoints, 1),), axis=-1)
     observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
     # Which points we're observing. This is dense and kinda silly for this
@@ -224,15 +227,17 @@ for i in xrange(40): # this many trials
                    indices_points,
                    distortionmodel_to,
 
+                   imagersizes                       = nps.atleast_dims(dims, -2),
                    do_optimize_intrinsic_core        = False,
                    do_optimize_intrinsic_distortions = True,
                    do_optimize_extrinsics            = False,
                    do_optimize_frames                = False,
+                   skip_outlier_rejection            = True,
                    VERBOSE                           = args.verbose)
-    pxy_solved = mrcal.project( v,
+    q_solved = mrcal.project( v,
                                 distortionmodel_to,
                                 intrinsics_to_values.ravel())
-    diff = pxy_solved - pxy
+    diff = q_solved - q
     err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
     sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
     if err_rms < err_rms_best:
