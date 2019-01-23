@@ -1882,28 +1882,30 @@ Potential things to look at:
     show_reprojection_errors(i_observation)
     show_intrinsics_uncertainty()
     show_intrinsics_uncertainty_outlierness()
-    show_all_errors(i_camera, ignore_outliers=True, vectorfield=False)
+    show_errors('histogram',   i_camera, ignore_outliers=True)
+    show_errors('vectorfield', i_camera, ignore_outliers=True)
+    show_errors('heatmap',     i_camera, ignore_outliers=True)
     show_roi(i_camera)
     stats
     i_observations_worst
-    rms_err_all_points_perimage
-    rms_err_ignoring_outliers_perimage
+    rms_err_including_outliers_perimage
+    rms_err_0_for_outliers_perimage
     paths[i_observations_worst[0]]
 '''
 
 
 projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n)
-err_all_points,err_ignoring_outliers = mrcal.calobservations_compute_reproj_error(projected, observations,
-                                                                                  indices_frame_camera, args.object_width_n,
-                                                                                  stats['outlier_indices'])
-norm2_err_all_points_perimage = nps.inner( nps.clump(err_all_points,n=-3),
-                                           nps.clump(err_all_points,n=-3) )
-norm2_err_ignoring_outliers_perimage = nps.inner( nps.clump(err_ignoring_outliers,n=-3),
-                                                  nps.clump(err_ignoring_outliers,n=-3) )
-rms_err_all_points_perimage          = np.sqrt( norm2_err_all_points_perimage        / (args.object_width_n*args.object_width_n) )
-rms_err_ignoring_outliers_perimage   = np.sqrt( norm2_err_ignoring_outliers_perimage / (args.object_width_n*args.object_width_n) )
 
-i_observations_worst    = list(reversed(np.argsort(rms_err_ignoring_outliers_perimage)))
+err_including_outliers,err_0_for_outliers = \
+    mrcal.calobservations_compute_reproj_error(projected, observations,
+                                               indices_frame_camera, args.object_width_n,
+                                               stats['outlier_indices'])
+rms_err_including_outliers_perimage = np.sqrt( nps.norm2( nps.clump(err_including_outliers,n=-3) ) /
+                                               (args.object_width_n*args.object_width_n) )
+rms_err_0_for_outliers_perimage     = np.sqrt( nps.norm2( nps.clump(err_0_for_outliers,    n=-3) ) /
+                                               (args.object_width_n*args.object_width_n) )
+
+i_observations_worst    = list(reversed(np.argsort(rms_err_0_for_outliers_perimage)))
 i_observation_from_path = dict( [(paths[_i],_i) for _i in xrange(len(observations))] )
 
 def show_reprojection_errors(observation, **kwargs):
@@ -1943,8 +1945,8 @@ def show_reprojection_errors(observation, **kwargs):
                format( intrinsics[0],
                        i_observation, i_frame, i_camera,
                        paths[i_observation],
-                       rms_err_all_points_perimage[i_observation],
-                       rms_err_ignoring_outliers_perimage[i_observation]),
+                       rms_err_including_outliers_perimage[i_observation],
+                       rms_err_0_for_outliers_perimage[i_observation]),
              **kwargs)
     if os.path.isfile(imagepath):
         # only plot an image overlay if the image exists
@@ -2077,41 +2079,87 @@ def check_confidence_computations():
 
 
 
-def show_all_errors(i_camera, ignore_outliers=True, vectorfield=False, **kwargs):
-    r'''Visualize the full distribution of reprojection errors
+def show_errors(how, i_camera, ignore_outliers=True, **kwargs):
 
-    i_camera is the camera in question
+    r'''Visualize the optimized reprojection errors
 
-    if ignore_outliers: we show the ignored-outlier distribution. Otherwise
-    we show the distribution for all our data
+    This function visualizes the solution in several ways, selected by the 'how'
+    argument.
 
-    if vectorfield: we render a vectorfield from the observation point
-    showing the residual as a vector. else: we render only the residual as a
-    scatter plot
+      if how == 'vectorfield': we plot a vectorfield, showing each observed
+                               point, and its reprojection discrepancy
 
+      elif how == 'heatmap':   we plot each observed point, but instead of showing
+                               an error vector, we render a point that's
+                               color-coded with its error
+
+      elif how == 'histogram': we show a histogram of residuals and overlay it
+                               with an idealized distribution. If the
+                               optimization was successful, and if
+                               observed_pixel_uncertainty was correct, the two
+                               should line up.
+
+    i_camera is the camera in question. <0 means "all cameras"
+
+    if ignore_outliers: we show the distribution without outliers: this is the
+    default, and this is what the optimizer actually ended up optimizing.
     '''
 
-    err = err_ignoring_outliers if ignore_outliers else err_all_points
 
-    idx = indices_frame_camera[:,1] == i_camera
-    err = nps.clump(err         [idx, ...], n=3)
-    obs = nps.clump(observations[idx, ...], n=3)
+    # I have a bunch of errors in err_including_outliers. I need to pick out
+    # - the ones for THIS camera (if requested)
+    # - the non-outliers         (if requested)
+    #
+    # The "for this camera" part is specified in indices_frame_camera. This
+    # indexes FRAMES
+    #
+    # The "outlier" part is given by stats['outlier_indices']. This indexes
+    # FEATURES (each feature is 2 measurements: x,y).
+    #
+    # I construct a feature index map, fill it in with both filters, and use it
+    # to pull out the correct data
 
-    if vectorfield:
-        # Same thing as a vector field, color-coded by absolute error
-        W,H=imagersizes[i_camera]
+    # all true by default, cutting out the last dimension: x,y
+    idx = np.ones( err_including_outliers.shape[:-1], dtype=bool)
+
+    if i_camera >= 0:
+        idx[indices_frame_camera[:,1] != i_camera, ...] = False
+    if ignore_outliers:
+        nps.clump(idx, n=3)[stats['outlier_indices']] = False
+
+    err = err_including_outliers[idx, :]
+    obs = observations          [idx, :]
+
+    W,H=imagersizes[i_camera]
+
+    if how == 'vectorfield':
         gp.plot( obs[:,0], obs[:,1],
                  err[:,0], err[:,1],
-                 np.sqrt(nps.inner(err,err)),
+                 np.sqrt(nps.norm2(err)),
                  _with='vectors size screen 0.005,10 fixed filled palette',
                  tuplesize=5, square=1,
                  _xrange=[0,W], yrange=[H,0],
                  **kwargs)
-    else:
-        # Reprojection error distribution
-        gp.plot( err[:,0], err[:,1],
-                 _with='points', square=1,
+    elif how == 'heatmap':
+        gp.plot( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
+                 _with='points pt 7 palette',
+                 tuplesize=3, square=1,
+                 _xrange=[0,W], yrange=[H,0],
                  **kwargs)
+
+    elif how == 'histogram':
+        binwidth = .02
+        sigma = args.observed_pixel_uncertainty
+        var   = sigma*sigma
+        from scipy.special import erf
+        gp.plot(err.ravel(), histogram=1, binwidth=binwidth,
+                equation_above='{k}*exp(-x*x/(2.*{var})) / sqrt(2.*pi*{var}) title "Expected distribution" with lines lw 2'. \
+                  format(var = var,
+                         k   = err.size*erf(binwidth/(2.*np.sqrt(2)*sigma)) * np.sqrt(2.*np.pi*var)),
+                **kwargs)
+    else:
+        raise Exception("Unknown visualization method '{}'. I know of 'vectorfield' and 'heatmap' and 'histogram'". \
+                        format(how))
 
 
 plots_intrinsics_sensitivity             = [None] * Ncameras
