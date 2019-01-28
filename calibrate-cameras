@@ -980,7 +980,9 @@ def get_imagersize_one(g, args_imagersize):
     return [w,h]
 
 
-def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes, MMt):
+def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
+                     covariance_intrinsics_full,
+                     covariance_intrinsics_observations_only):
     r'''Assemble one cameramodel from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -1008,12 +1010,19 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes, MMt):
     Rt_rx = mrcal.compose_Rt(Rt_r0,
                              mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0)))
 
+    if covariance_intrinsics_full is not None:
+        covariance_intrinsics_full = covariance_intrinsics_full[i_camera, ...]
+    if covariance_intrinsics_observations_only is not None:
+        covariance_intrinsics_observations_only = covariance_intrinsics_observations_only[i_camera, ...]
     return mrcal.cameramodel( intrinsics            = (intrinsics[0], intrinsics[1][i_camera,:]),
                               extrinsics_Rt_toref   = Rt_rx,
                               imagersize            = imagersizes[i_camera],
-                              covariance_intrinsics = MMt[i_camera, ...] if MMt is not None else None)
+                              covariance_intrinsics_full              = covariance_intrinsics_full,
+                              covariance_intrinsics_observations_only = covariance_intrinsics_observations_only)
 
-def make_cameramodels(intrinsics, extrinsics, imagersizes, MMt):
+def make_cameramodels(intrinsics, extrinsics, imagersizes,
+                      covariance_intrinsics_full,
+                      covariance_intrinsics_observations_only):
     r'''Assemble cameramodels from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -1021,7 +1030,10 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes, MMt):
     structures that can be fed to all the other routines.
 
     '''
-    return [ make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes, MMt) for i_camera in xrange(len(intrinsics[1])) ]
+    return [ make_cameramodel(i_camera,
+                              intrinsics, extrinsics, imagersizes,
+                              covariance_intrinsics_full,
+                              covariance_intrinsics_observations_only) for i_camera in xrange(len(intrinsics[1])) ]
 
 
 # # Test for this function
@@ -1625,7 +1637,7 @@ if args.skip_regularization:    print "We are NOT applying regularization in the
 else:                           print "We ARE applying regularization in the solver"
 
 
-# I now optimize again, primarily to get MMt and solver_context. This should be
+# I now optimize again, primarily to get covariance_intrinsics_observations_only and solver_context. This should be
 # quick since I'm already at the optimum. This solve shouldn't move the
 # operating point at all
 solver_context = mrcal.SolverContext()
@@ -1729,11 +1741,11 @@ if args.num_cross_validation_splits > 1:
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
         try:
-            MMt = stats['invJtJ_intrinsics_observations_only']  \
+            covariance_intrinsics_observations_only = stats['invJtJ_intrinsics_observations_only']  \
                 * args.observed_pixel_uncertainty \
                 * args.observed_pixel_uncertainty
         except:
-            MMt = None
+            covariance_intrinsics_observations_only = None
 
         report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -1746,7 +1758,7 @@ if args.num_cross_validation_splits > 1:
         #     format(stats['Noutliers'],
         #            args.object_width_n*args.object_width_n*len(split_observations),
         #            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(split_observations)))
-        # if MMt is not None:
+        # if covariance_intrinsics_observations_only is not None:
         #     report += "Expected projection uncertainty due to input pixel observations.\n"
         #     report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
         #     report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
@@ -1764,7 +1776,7 @@ if args.num_cross_validation_splits > 1:
         #         # shape (Ncameras, 5, 3)
         #         V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
         #         Expected_projection_shift[i_camera, :] = \
-        #             mrcal.get_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
+        #             mrcal.compute_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], covariance_intrinsics_observations_only[i_camera])
         #     report += np.array2string(Expected_projection_shift, precision=2) + "\n"
 
         print report
@@ -1785,7 +1797,7 @@ if args.num_cross_validation_splits > 1:
 
 
 
-sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get MMt and solver_context\n")
+sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get covariance_intrinsics_observations_only and solver_context\n")
 stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        observations, indices_frame_camera,
                        None, None,
@@ -1806,11 +1818,17 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 try:
-    MMt = stats['invJtJ_intrinsics_observations_only']  \
+    covariance_intrinsics_full = stats['invJtJ_intrinsics_full']  \
         * args.observed_pixel_uncertainty \
         * args.observed_pixel_uncertainty
 except:
-    MMt = None
+    covariance_intrinsics_full = None
+try:
+    covariance_intrinsics_observations_only = stats['invJtJ_intrinsics_observations_only']  \
+        * args.observed_pixel_uncertainty \
+        * args.observed_pixel_uncertainty
+except:
+    covariance_intrinsics_observations_only = None
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -1822,7 +1840,7 @@ report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
            args.object_width_n*args.object_width_n*len(observations),
            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
-if MMt is not None:
+if covariance_intrinsics_observations_only is not None:
     report += "Expected projection uncertainty due to input pixel observations.\n"
     report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
     report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
@@ -1840,7 +1858,7 @@ if MMt is not None:
         # shape (Ncameras, 5, 3)
         V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
         Expected_projection_shift[i_camera, :] = \
-            mrcal.get_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], MMt[i_camera])
+            mrcal.compute_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], covariance_intrinsics_observations_only[i_camera])
     report += np.array2string(Expected_projection_shift, precision=2) + "\n"
 
 print report
@@ -1850,7 +1868,9 @@ print report
 
 
 # Write the output models
-models = make_cameramodels(intrinsics, extrinsics, imagersizes, MMt)
+models = make_cameramodels(intrinsics, extrinsics, imagersizes,
+                           covariance_intrinsics_full,
+                           covariance_intrinsics_observations_only)
 # The note says how we ran this, and contains the commented-out report
 note = \
     "generated with {}\n".format(sys.argv) + \
@@ -2208,7 +2228,7 @@ plots_intrinsics_sensitivity_outlierness = [None] * Ncameras
 plots_roi                                = [None] * Ncameras
 def show_intrinsics_uncertainty(i_camera = None, gridn_x = 60, gridn_y = 40, **kwargs):
 
-    if MMt is None:
+    if covariance_intrinsics_observations_only is None:
         print "No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work"
         return False
 
@@ -2219,7 +2239,7 @@ def show_intrinsics_uncertainty(i_camera = None, gridn_x = 60, gridn_y = 40, **k
         plots_intrinsics_sensitivity[i_camera] = \
             mrcal.show_intrinsics_uncertainty(intrinsics[0],
                                               intrinsics[1][i_camera],
-                                              MMt          [i_camera],
+                                              covariance_intrinsics_observations_only[i_camera],
                                               imagersizes  [i_camera],
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_x=gridn_x,
