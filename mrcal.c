@@ -1187,6 +1187,29 @@ static int unpack_solver_state_intrinsics_onecamera( // out
     return i_state;
 }
 
+static double get_scale_solver_state_intrinsics_onecamera( int i_state,
+                                                           int Ndistortions,
+                                                           mrcal_problem_details_t problem_details )
+{
+    if( problem_details.do_optimize_intrinsic_core )
+    {
+        if( i_state < 4)
+        {
+            if( i_state < 2 ) return SCALE_INTRINSICS_FOCAL_LENGTH;
+            return SCALE_INTRINSICS_CENTER_PIXEL;
+        }
+
+        i_state -= 4;
+    }
+
+    if( problem_details.do_optimize_intrinsic_distortions )
+        if( i_state < Ndistortions)
+            return SCALE_DISTORTION;
+
+    fprintf(stderr, "ERROR! %s() was asked about an out-of-bounds state\n", __func__);
+    return -1.0;
+}
+
 static int unpack_solver_state_intrinsics( // out
                                            double* intrinsics, // Ncameras of
                                                                // these; each
@@ -1443,18 +1466,19 @@ static int intrinsics_index_from_state_index( int i_state,
 // set of given observation vectors v, I compute the effect on the projection.
 //
 //   dq = dproj/dintrinsics dintrinsics
-//      = dproj/dintrinsics Mintrinsics dm
+//      = dproj/dintrinsics Mi dm
 //
 // dprojection/dintrinsics comes from cvProjectPoints2(). I'm assuming
 // everything is locally linear, so this is a constant matrix for each v.
-// dintrinsics is the shift in the intrinsics of this camera. Mintrinsics
+// dintrinsics is the shift in the intrinsics of this camera. Mi
 // is the subset of M that corresponds to these intrinsics
 //
 // If dm represents noise of the zero-mean, independent, gaussian variety,
 // then dp and dq are also zero-mean gaussian, but no longer independent
 //
-//   Var(dq) = (dproj/dintrinsics Mintrinsics) Var(dm) (dproj/dintrinsics Mintrinsics)t =
-//           = (dproj/dintrinsics Mintrinsics) (dproj/dintrinsics Mintrinsics)t s^2
+//   Var(dq) = (dproj/dintrinsics Mi) Var(dm) (dproj/dintrinsics Mi)t =
+//           = (dproj/dintrinsics Mi) (dproj/dintrinsics Mi)t s^2
+//           = dproj/dintrinsics (Mi Mit) dproj/dintrinsicst s^2
 //
 // where s is the standard deviation of the noise of each parameter in dm.
 //
@@ -1473,6 +1497,20 @@ static int intrinsics_index_from_state_index( int i_state,
 //
 // I thus ignore measurements past the observation set.
 //
+//     [ ... ]           [ ...  ...    ... ]
+// M = [  Mi ] and MMt = [ ...  MiMit  ... ]
+//     [ ... ]           [ ...  ...    ... ]
+//
+// MMt = inv(JtJ) Jt dx/dm dx/dmt J inv(JtJ)
+//
+// For another uncertainty computation I need a similar measure, but without the
+// dx/dm piece:
+//
+//   inv(JtJ) Jt J inv(JtJ) = inv(JtJ)
+//
+// As before, I return the subset of the matrix for each set of camera
+// intrinsics
+//
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I
 // need here, and return these densely to the upper levels (python). These
 // callers will then use these dense matrices to finish the computation
@@ -1486,20 +1524,21 @@ static int intrinsics_index_from_state_index( int i_state,
 // unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. From
 // above I have Var(dp*) = M* M*t s^2. So Var(dp) = D M* M*t D s^2. So when
 // talking to the upper level, I need to report M = DM*.
-static bool computeConfidence_MMt(// out
-                                  // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                  double* MMt_intrinsics,
+static bool computeUncertaintyMatrices(// out
+                                       // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
+                                       double* invJtJ_intrinsics_full,
+                                       double* invJtJ_intrinsics_observations_only,
 
-                                  // in
-                                  enum distortion_model_t distortion_model,
-                                  mrcal_problem_details_t problem_details,
-                                  int Ncameras,
-                                  int NobservationsBoard,
-                                  int NobservationsPoint,
-                                  int Nframes, int Npoints,
-                                  int calibration_object_width_n,
+                                       // in
+                                       enum distortion_model_t distortion_model,
+                                       mrcal_problem_details_t problem_details,
+                                       int Ncameras,
+                                       int NobservationsBoard,
+                                       int NobservationsPoint,
+                                       int Nframes, int Npoints,
+                                       int calibration_object_width_n,
 
-                                  dogleg_solverContext_t* solverCtx)
+                                       dogleg_solverContext_t* solverCtx)
 {
     // for reading cholmod_sparse
 #define P(A, index) ((unsigned int*)((A)->p))[index]
@@ -1518,7 +1557,7 @@ static bool computeConfidence_MMt(// out
     int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
                                                                NobservationsPoint,
                                                                calibration_object_width_n);
-    memset(MMt_intrinsics, 0,
+    memset(invJtJ_intrinsics_observations_only, 0,
            Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
 
     if( !problem_details.do_optimize_intrinsic_core        &&
@@ -1556,7 +1595,7 @@ static bool computeConfidence_MMt(// out
     // cholmod_spsolve works in chunks of 4, so I do this in chunks of 4 too. I
     // pass it rows of J, 4 at a time. I don't actually allocate anything, rather
     // using views into Jt. So I copy the Jt structure and use that
-    const unsigned int chunk_size = 4;
+    const int chunk_size = 4;
 
     cholmod_dense* Jt_slice =
         cholmod_allocate_dense( Jt->nrow,
@@ -1639,14 +1678,75 @@ static bool computeConfidence_MMt(// out
     // MMt0 = MMt_dense[0:8,0:8]
     // MMt1 = MMt_dense[8:16,8:16]
     //
-    // In [25]: np.linalg.norm(MMt0 - stats['intrinsic_covariances'][0,:,:])
+    // In [25]: np.linalg.norm(MMt0 - stats['invJtJ_intrinsics_observations_only'][0,:,:])
     // Out[25]: 1.4947344824339893e-12
     //
-    // In [26]: np.linalg.norm(MMt1 - stats['intrinsic_covariances'][1,:,:])
+    // In [26]: np.linalg.norm(MMt1 - stats['invJtJ_intrinsics_observations_only'][1,:,:])
     // Out[26]: 4.223914927650401e-12
 #endif
 
 
+    // Compute invJtJ_intrinsics_full
+    for(int icam = 0; icam < Ncameras; icam++)
+    {
+        // Here I want the diagonal blocks of inv(JtJ) for each camera's
+        // intrinsics. I get them by doing solve(JtJ, [0; I; 0])
+        void compute_invJtJ_block(double* JtJ, const int istate0, int N)
+        {
+            // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
+            // dense. cholmod doesn't have functions for this exact case. so I use
+            // the dense-sparse-dense function, and densify the input. Instead of
+            // sparse-sparse-sparse and the densifying the output. This feels like
+            // it'd be more efficient
+
+            int istate = istate0;
+
+            // I can do chunk_size cols at a time
+            while(1)
+            {
+                int Ncols = N < chunk_size ? N : chunk_size;
+                Jt_slice->ncol = Ncols;
+                memset( Jt_slice->x, 0, Jt_slice->nrow*Ncols*sizeof(double) );
+                for(int icol=0; icol<Ncols; icol++)
+                    // The J are unitless. I need to scale them to get real units
+                    ((double*)Jt_slice->x)[ istate + icol + icol*Jt_slice->nrow] =
+                        get_scale_solver_state_intrinsics_onecamera(istate + icol - istate0,
+                                                                    Nintrinsics_per_camera_state - N_INTRINSICS_CORE,
+                                                                    problem_details);
+
+                cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+                                                  Jt_slice,
+                                                  &solverCtx->common);
+
+                // The cols/rows I want are in M. I pull them out, and apply
+                // scaling (because my J are unitless, and I want full-unit
+                // data)
+                for(int icol=0; icol<Ncols; icol++)
+                    unpack_solver_state_intrinsics_onecamera( (struct intrinsics_core_t*)&JtJ[icol*Nintrinsics_per_camera_state],
+                                                              distortion_model,
+                                                              &JtJ[icol*Nintrinsics_per_camera_state + N_INTRINSICS_CORE],
+
+                                                              &((double*)(M->x))[icol*M->nrow + istate0],
+                                                              Nintrinsics_per_camera_state - N_INTRINSICS_CORE,
+                                                              problem_details );
+                cholmod_free_dense (&M, &solverCtx->common);
+
+                N -= Ncols;
+                if(N <= 0) break;
+                istate += Ncols;
+                JtJ = &JtJ[Ncols*Nintrinsics_per_camera_state];
+            }
+        }
+
+
+
+
+        const int istate0 = Nintrinsics_per_camera_state * icam;
+        double* JtJ_thiscam = &invJtJ_intrinsics_full[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+        compute_invJtJ_block( JtJ_thiscam, istate0, Nintrinsics_per_camera_state );
+    }
+
+    // Compute invJtJ_intrinsics_observations_only
     for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
     {
         // sparse to dense for a chunk of Jt
@@ -1709,7 +1809,7 @@ static bool computeConfidence_MMt(// out
                     // not a camera intrinsic parameter
                     continue;
 
-                double* MMt_thiscam = &MMt_intrinsics[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+                double* MMt_thiscam = &invJtJ_intrinsics_observations_only[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
 
                 int i_intrinsics0 = intrinsics_index_from_state_index( irow0 - icam0*Nintrinsics_per_camera_state,
                                                                        distortion_model,
@@ -2115,7 +2215,8 @@ mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
                 // caller
                 double* x_final,
-                double* intrinsic_covariances,
+                double* invJtJ_intrinsics_full,
+                double* invJtJ_intrinsics_observations_only,
                 // Buffer should be at least Npoints long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,
@@ -2172,6 +2273,13 @@ mrcal_optimize( // out
                 double calibration_object_spacing,
                 int calibration_object_width_n)
 {
+    if( ( invJtJ_intrinsics_full && !invJtJ_intrinsics_observations_only) ||
+        (!invJtJ_intrinsics_full &&  invJtJ_intrinsics_observations_only) )
+    {
+        fprintf(stderr, "ERROR: either both or none of (invJtJ_intrinsics_full.invJtJ_intrinsics_observations_only) can be NULL\n");
+        return (struct mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
+
     if( IS_OPTIMIZE_NONE(problem_details) )
         MSG("Warning: Not optimizing any of our variables");
 
@@ -3207,30 +3315,34 @@ mrcal_optimize( // out
     if(x_final)
         memcpy(x_final, solver_context->beforeStep->x, Nmeasurements*sizeof(double));
 
-    if( intrinsic_covariances )
+    if( invJtJ_intrinsics_observations_only )
     {
         int Nintrinsics_per_camera = mrcal_getNintrinsicParams(distortion_model);
         bool result =
-            computeConfidence_MMt(// out
-                                  // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                  intrinsic_covariances,
+            computeUncertaintyMatrices(// out
+                                       // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
+                                       invJtJ_intrinsics_full,
+                                       invJtJ_intrinsics_observations_only,
 
-                                  // in
-                                  distortion_model,
-                                  problem_details,
-                                  Ncameras,
-                                  NobservationsBoard,
-                                  NobservationsPoint,
-                                  Nframes, Npoints,
-                                  calibration_object_width_n,
+                                       // in
+                                       distortion_model,
+                                       problem_details,
+                                       Ncameras,
+                                       NobservationsBoard,
+                                       NobservationsPoint,
+                                       Nframes, Npoints,
+                                       calibration_object_width_n,
 
-                                  solver_context);
+                                       solver_context);
         if(!result)
         {
             MSG("Failed to compute MMt.");
             double nan = strtod("NAN", NULL);
             for(int i=0; i<Ncameras*Nintrinsics_per_camera*Nintrinsics_per_camera; i++)
-                intrinsic_covariances[i] = nan;
+            {
+                invJtJ_intrinsics_full             [i] = nan;
+                invJtJ_intrinsics_observations_only[i] = nan;
+            }
         }
     }
     if(outlier_indices_final)

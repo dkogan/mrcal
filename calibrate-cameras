@@ -1265,7 +1265,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                            skip_regularization               = True,
                            outlier_indices                   = outlier_indices,
                            roi                               = args.roi,
-                           get_intrinsic_covariances         = False,
+                           get_invJtJ_intrinsics             = False,
                            VERBOSE                           = False)
     sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
@@ -1284,7 +1284,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                            skip_regularization               = True,
                            outlier_indices                   = outlier_indices,
                            roi                               = args.roi,
-                           get_intrinsic_covariances         = False,
+                           get_invJtJ_intrinsics             = False,
                            VERBOSE                           = False)
     sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
     # I favor the center pixel at the center of the imager
@@ -1411,7 +1411,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                skip_regularization               = args.skip_regularization,
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
-                               get_intrinsic_covariances         = False,
+                               get_invJtJ_intrinsics             = False,
                                VERBOSE                           = args.verbose_solver)
         return "fixed solve", (distortion_model, intrinsics_data), extrinsics, frames, args.roi, stats
 
@@ -1457,7 +1457,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                skip_regularization               = args.skip_regularization,
                                outlier_indices                   = outlier_indices,
                                roi                               = roi,
-                               get_intrinsic_covariances         = False,
+                               get_invJtJ_intrinsics             = False,
                                VERBOSE                           = args.verbose_solver)
 
         solution_acceptable,solution_description = eval_solution(stats, outside_ROI_indices__prevROI)
@@ -1723,13 +1723,13 @@ if args.num_cross_validation_splits > 1:
                                skip_regularization               = args.skip_regularization,
                                outlier_indices                   = split_outlier_indices,
                                roi                               = roi,
-                               get_intrinsic_covariances         = True,
+                               get_invJtJ_intrinsics             = True,
                                VERBOSE                           = False,
                                solver_context                    = solver_context)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
         try:
-            MMt = stats['intrinsic_covariances']  \
+            MMt = stats['invJtJ_intrinsics_observations_only']  \
                 * args.observed_pixel_uncertainty \
                 * args.observed_pixel_uncertainty
         except:
@@ -1800,13 +1800,13 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = stats['outlier_indices'],
                        roi                               = roi,
-                       get_intrinsic_covariances         = True,
+                       get_invJtJ_intrinsics             = True,
                        VERBOSE                           = False,
                        solver_context                    = solver_context)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 try:
-    MMt = stats['intrinsic_covariances']  \
+    MMt = stats['invJtJ_intrinsics_observations_only']  \
         * args.observed_pixel_uncertainty \
         * args.observed_pixel_uncertainty
 except:
@@ -2168,7 +2168,7 @@ plots_roi                                = [None] * Ncameras
 def show_intrinsics_uncertainty(i_camera = None, gridn_x = 60, gridn_y = 40, **kwargs):
 
     if MMt is None:
-        print "No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_intrinsic_covariances = True) for this to work"
+        print "No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work"
         return False
 
 

@@ -986,7 +986,7 @@ static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1} ) \
     _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA 4} ) \
     _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(get_intrinsic_covariances,          PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
+    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
     _(observed_pixel_uncertainty,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
@@ -1227,11 +1227,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyObject* result = NULL;
     SET_SIGINT();
 
-    PyArrayObject* x_final                     = NULL;
-    PyArrayObject* intrinsic_covariances       = NULL;
-    PyArrayObject* outlier_indices_final       = NULL;
-    PyArrayObject* outside_ROI_indices_final   = NULL;
-    PyObject* pystats = NULL;
+    PyArrayObject* x_final                             = NULL;
+    PyArrayObject* invJtJ_intrinsics_full              = NULL;
+    PyArrayObject* invJtJ_intrinsics_observations_only = NULL;
+    PyArrayObject* outlier_indices_final               = NULL;
+    PyArrayObject* outside_ROI_indices_final           = NULL;
+    PyObject*      pystats                             = NULL;
 
     OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
     char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
@@ -1500,14 +1501,20 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         double* c_x_final = PyArray_DATA(x_final);
 
         int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model_type);
-        double* c_intrinsic_covariances = NULL;
+
+        double* c_invJtJ_intrinsics_full              = NULL;
+        double* c_invJtJ_intrinsics_observations_only = NULL;
         if(Nintrinsics_all != 0 &&
-           get_intrinsic_covariances && PyObject_IsTrue(get_intrinsic_covariances))
+           get_invJtJ_intrinsics && PyObject_IsTrue(get_invJtJ_intrinsics))
         {
-            intrinsic_covariances =
+            invJtJ_intrinsics_full =
                 (PyArrayObject*)PyArray_SimpleNew(3,
                                                   ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
-            c_intrinsic_covariances = PyArray_DATA(intrinsic_covariances);
+            c_invJtJ_intrinsics_full = PyArray_DATA(invJtJ_intrinsics_full);
+            invJtJ_intrinsics_observations_only =
+                (PyArrayObject*)PyArray_SimpleNew(3,
+                                                  ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
+            c_invJtJ_intrinsics_observations_only = PyArray_DATA(invJtJ_intrinsics_observations_only);
         }
 
         const int Npoints_fromBoards =
@@ -1561,7 +1568,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         struct mrcal_stats_t stats =
         mrcal_optimize( c_x_final,
-                        c_intrinsic_covariances,
+                        c_invJtJ_intrinsics_full,
+                        c_invJtJ_intrinsics_observations_only,
                         c_outlier_indices_final,
                         c_outside_ROI_indices_final,
                         (void**)solver_context_optimizer,
@@ -1627,11 +1635,18 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'x'");
             goto done;
         }
-        if( intrinsic_covariances &&
-            0 != PyDict_SetItemString(pystats, "intrinsic_covariances",
-                                      (PyObject*)intrinsic_covariances) )
+        if( invJtJ_intrinsics_full &&
+            0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_full",
+                                      (PyObject*)invJtJ_intrinsics_full) )
         {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'intrinsic_covariances'");
+            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_full'");
+            goto done;
+        }
+        if( invJtJ_intrinsics_observations_only &&
+            0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_observations_only",
+                                      (PyObject*)invJtJ_intrinsics_observations_only) )
+        {
+            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_observations_only'");
             goto done;
         }
         // The outlier_indices_final numpy array has Nfeatures elements,
@@ -1683,7 +1698,10 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 #pragma GCC diagnostic pop
 
     if(x_final)               Py_DECREF(x_final);
-    if(intrinsic_covariances) Py_DECREF(intrinsic_covariances);
+    if(invJtJ_intrinsics_full)
+        Py_DECREF(invJtJ_intrinsics_full);
+    if(invJtJ_intrinsics_observations_only)
+        Py_DECREF(invJtJ_intrinsics_observations_only);
     if(outlier_indices_final) Py_DECREF(outlier_indices_final);
     if(pystats)               Py_DECREF(pystats);
 
