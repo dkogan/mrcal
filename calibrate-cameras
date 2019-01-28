@@ -1885,6 +1885,7 @@ Potential things to look at:
     show_errors('histogram',   i_camera, ignore_outliers=True)
     show_errors('vectorfield', i_camera, ignore_outliers=True)
     show_errors('heatmap',     i_camera, ignore_outliers=True)
+    show_errors('radial',      i_camera, ignore_outliers=True)
     show_roi(i_camera)
     stats
     i_observations_worst
@@ -2079,7 +2080,7 @@ def check_confidence_computations():
 
 
 
-def show_errors(how, i_camera, ignore_outliers=True, **kwargs):
+def show_errors(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02, ignore_outliers=True, **kwargs):
 
     r'''Visualize the optimized reprojection errors
 
@@ -2099,10 +2100,15 @@ def show_errors(how, i_camera, ignore_outliers=True, **kwargs):
                                observed_pixel_uncertainty was correct, the two
                                should line up.
 
+      elif how == 'radial':    Plot residuals against distance from the center. If
+                               focus_center is not None, we use that; otherwise
+                               we use the imager center
+
     i_camera is the camera in question. <0 means "all cameras"
 
     if ignore_outliers: we show the distribution without outliers: this is the
     default, and this is what the optimizer actually ended up optimizing.
+
     '''
 
 
@@ -2127,10 +2133,21 @@ def show_errors(how, i_camera, ignore_outliers=True, **kwargs):
     if ignore_outliers:
         nps.clump(idx, n=3)[stats['outlier_indices']] = False
 
-    err = err_including_outliers[idx, :]
-    obs = observations          [idx, :]
+    err = err_including_outliers[idx, ...]
+    obs = observations          [idx, ...]
 
     W,H=imagersizes[i_camera]
+    if focus_radius == 0:
+        # I use all the data
+        pass
+    else:
+        if focus_radius < 0:
+            focus_radius = min(imagersizes[i_camera])/6
+        if focus_center is None:
+            focus_center = (imagersizes[i_camera]-1.)/2.
+        idx = nps.norm2(obs - focus_center) < focus_radius*focus_radius
+        obs = obs[idx, ...]
+        err = err[idx, ...]
 
     if how == 'vectorfield':
         gp.plot( obs[:,0], obs[:,1],
@@ -2148,15 +2165,23 @@ def show_errors(how, i_camera, ignore_outliers=True, **kwargs):
                  **kwargs)
 
     elif how == 'histogram':
-        binwidth = .02
         sigma = args.observed_pixel_uncertainty
         var   = sigma*sigma
         from scipy.special import erf
         gp.plot(err.ravel(), histogram=1, binwidth=binwidth,
-                equation_above='{k}*exp(-x*x/(2.*{var})) / sqrt(2.*pi*{var}) title "Expected distribution" with lines lw 2'. \
-                  format(var = var,
+                equation_above='{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) title "Expected distribution" with lines lw 2'. \
+                  format(mean= 0,
+                         var = var,
                          k   = err.size*erf(binwidth/(2.*np.sqrt(2)*sigma)) * np.sqrt(2.*np.pi*var)),
                 **kwargs)
+
+    elif how == 'radial':
+        r = np.sqrt(nps.norm2(obs - focus_center))
+        gp.plot( nps.transpose(nps.cat(r,r)).ravel(),
+                 err.ravel(),
+                 _with='points',
+                 **kwargs)
+
     else:
         raise Exception("Unknown visualization method '{}'. I know of 'vectorfield' and 'heatmap' and 'histogram'". \
                         format(how))
