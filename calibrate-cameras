@@ -17,12 +17,6 @@ Synopsis:
     RMS reprojection error: 1.9 pixels
     Worst reprojection error: 7.8 pixels
     Noutliers: 319 out of 17100 total points: 1.9% of the data
-    Expected projection uncertainty due to input pixel observations.
-      This is an (Ncameras,5) matrix. For each camera we look at the
-      (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.
-      The corners are 10% inside the image. The reported numbers are 'expected projection
-      error', measured in pixels.
-    [[8.9 8.7 7.5 8.3 0.8]]
 
     Wrote /tmp/camera0-0.cahvor
     Wrote /tmp/camera0-1.cahvor
@@ -1742,43 +1736,11 @@ if args.num_cross_validation_splits > 1:
                                get_invJtJ_intrinsics             = True,
                                VERBOSE                           = False,
                                solver_context                    = solver_context)
-        sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
         invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
 
-        report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
-
-        # Npoints = args.object_width_n*args.object_width_n*len(split_observations)
-
-        # xyerr = stats['x'][:Npoints*2].reshape(Npoints,2)
-        # worst_point_err = np.sqrt(np.max(nps.inner(xyerr,xyerr)))
-        # report += "Worst reprojection error: {:.01f} pixels\n".format(worst_point_err)
-        # report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
-        #     format(stats['Noutliers'],
-        #            args.object_width_n*args.object_width_n*len(split_observations),
-        #            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(split_observations)))
-        # if covariance_intrinsics_observations_only is not None:
-        #     report += "Expected projection uncertainty due to input pixel observations.\n"
-        #     report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
-        #     report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
-        #     report += "  The corners are 10% inside the image. The reported numbers are 'expected projection\n"
-        #     report += "  error', measured in pixels.\n"
-        #     Expected_projection_shift = np.zeros((Ncameras, 5))
-        #     for i_camera in xrange(Ncameras):
-
-        #         v = np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-        #                       (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-        #                       (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-        #                       (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-        #                       (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1])))
-        #         # 3D vectors we're projecting
-        #         # shape (Ncameras, 5, 3)
-        #         V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
-        #         Expected_projection_shift[i_camera, :] = \
-        #             mrcal.compute_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], covariance_intrinsics_observations_only[i_camera])
-        #     report += np.array2string(Expected_projection_shift, precision=2) + "\n"
-
-        print report
+        report = "RMS reprojection error: {} pixels\n".format(stats['rms_reproj_error__pixels'])
+        sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ \n" + report)
 
 
 
@@ -1830,30 +1792,6 @@ report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
            args.object_width_n*args.object_width_n*len(observations),
            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
-if invJtJ_intrinsics_observations_only is not None:
-    report += "Expected projection uncertainty due to input pixel observations.\n"
-    report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
-    report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
-    report += "  The corners are 10% inside the image. The reported numbers are 'expected projection\n"
-    report += "  error', measured in pixels.\n"
-    Expected_projection_shift = np.zeros((Ncameras, 5))
-    for i_camera in xrange(Ncameras):
-
-        v = np.array(((0.1*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-                      (0.1*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-                      (0.9*imagersizes[i_camera][0], 0.1*imagersizes[i_camera][1]),
-                      (0.9*imagersizes[i_camera][0], 0.9*imagersizes[i_camera][1]),
-                      (0.5*imagersizes[i_camera][0], 0.5*imagersizes[i_camera][1])))
-        # 3D vectors we're projecting
-        # shape (Ncameras, 5, 3)
-        V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
-        Expected_projection_shift[i_camera, :] = \
-            mrcal.compute_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera],
-                                                 imagersizes[i_camera],
-                                                 args.observed_pixel_uncertainty,
-                                                 invJtJ_intrinsics_observations_only[i_camera])
-    report += np.array2string(Expected_projection_shift, precision=2) + "\n"
-
 print report
 
 
