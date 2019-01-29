@@ -1901,7 +1901,6 @@ Potential things to look at:
     show_reprojection_errors_worst(i_observation_in_order_from_worst)
     show_reprojection_errors(i_observation)
     show_intrinsics_uncertainty()
-    show_intrinsics_uncertainty_outlierness()
     show_errors('histogram',   i_camera, ignore_outliers=True)
     show_errors('vectorfield', i_camera, ignore_outliers=True)
     show_errors('heatmap',     i_camera, ignore_outliers=True)
@@ -2226,7 +2225,7 @@ def show_errors(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02,
 plots_intrinsics_sensitivity             = [None] * Ncameras
 plots_intrinsics_sensitivity_outlierness = [None] * Ncameras
 plots_roi                                = [None] * Ncameras
-def show_intrinsics_uncertainty(i_camera = None, gridn_x = 60, gridn_y = 40, **kwargs):
+def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 60, gridn_y = 40, **kwargs):
 
     if covariance_intrinsics_observations_only is None:
         print "No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work"
@@ -2239,31 +2238,14 @@ def show_intrinsics_uncertainty(i_camera = None, gridn_x = 60, gridn_y = 40, **k
         plots_intrinsics_sensitivity[i_camera] = \
             mrcal.show_intrinsics_uncertainty(intrinsics[0],
                                               intrinsics[1][i_camera],
-                                              covariance_intrinsics_observations_only[i_camera],
+                                              covariance_intrinsics_full[i_camera] if outlierness else covariance_intrinsics_observations_only[i_camera],
                                               imagersizes  [i_camera],
+                                              outlierness,
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_x=gridn_x,
                                               gridn_y=gridn_y,
                                               cbmax=5,
                                               **kwargs)
-    return True
-
-def show_intrinsics_uncertainty_outlierness(i_camera = None, gridn_x = 60, gridn_y = 40, **kwargs):
-    global plots_intrinsics_sensitivity_outlierness
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
-    for i_camera in i_camera_all:
-        plots_intrinsics_sensitivity_outlierness[i_camera] = \
-            mrcal.show_intrinsics_uncertainty_outlierness(intrinsics[0],
-                                                          intrinsics[1][i_camera],
-                                                          solver_context, i_camera,
-                                                          args.observed_pixel_uncertainty,
-                                                          imagersizes[i_camera],
-                                                          stats['Noutliers'],
-                                                          extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
-                                                          gridn_x=gridn_x,
-                                                          gridn_y=gridn_y,
-                                                          cbmax=2,
-                                                          **kwargs)
 
 def show_roi(i_camera = None, **kwargs):
     global plots_roi

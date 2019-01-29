@@ -1427,6 +1427,8 @@ static int intrinsics_index_from_state_index( int i_state,
     return i_state;
 }
 
+
+//////////// duplicated in docstring for compute_intrinsics_uncertainty() in utils.py //////////
 // This function is part of sensitivity analysis to quantify how much errors in
 // the input pixel observations affect our solution. A "good" solution will not
 // be very sensitive: measurement noise doesn't affect the solution very much.
@@ -3388,6 +3390,8 @@ mrcal_optimize( // out
     return stats;
 }
 
+
+#warning can I throw this away?
 bool mrcal_queryIntrinsicOutliernessAt( // output
                                        double* traces,
 

@@ -523,6 +523,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
 
 def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
                                     covariance_intrinsics, imagersize,
+                                    outlierness  = False,
                                     gridn_x      = 60,
                                     gridn_y      = 40,
 
@@ -534,17 +535,14 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
     r'''Computes the uncertainty in a projection of a 3D point
 
     Given a (broadcastable) 3D vector, and the covariance matrix for the
-    intrinsics, returns the expected value of the deviation from center of the
-    projected point that would result from noise in the calibration
-    observations.
+    intrinsics, returns the uncertainty of the projection of that vector,
+    measured in pixels. This function implements two different methods:
 
-    A calibration process produces the best-fitting camera parameters (intrinsics
-    and extrinsics) and a covariance matrix representing the uncertainty in
-    these parameters. When we use the intrinsics to project 3D points into the
-    image plane, this intrinsics uncertainty creates an uncertainty in the
-    resulting projection point. This tool plots the expected value of this
-    projection error across the imager. Areas with a high expected projection
-    error are unreliable for further work.
+    - input-noise-based (default; selected with outlierness=False)
+    - outlierness-based (selected with outlierness=True)
+
+    The approaches for the two methods are different, but the implementation
+    ends up being similar.
 
     We may assume the rotation of this camera is uncertain, and that shifts in
     intrinsics could be compensated for by applying a rotation. For a given
@@ -567,76 +565,210 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         if focus_center is None:
            focus_center is at the center of the imager
 
-    Comment from the mrcal core:
 
-        This is part of sensitivity analysis to quantify how much errors in the
-        input pixel observations affect our solution. A "good" solution will not be
-        very sensitive: measurement noise doesn't affect the solution very much.
+    *** input-noise-based method
 
-        I minimize a cost function E = norm2(x) where x is the measurements. Some
-        elements of x depend on inputs, and some don't (regularization for instance).
-        I perturb the inputs, reoptimize (assuming everything is linear) and look
-        what happens to the state p. I'm at an optimum p*:
+      The pixel observations input to the calibration method are noisy. I assume
+      they are zero-mean, independent and gaussian. I treat the x and y
+      coordinates of the observations as two independent measurements. I propagate
+      this noise through the optimization to compute the resulting noise in the
+      parameters. Then I propagate that through a projection to compute the
+      resulting uncertainty in projected pixels. Areas with a high expected
+      projection error are unreliable for further work.
 
-          dE/dp (p=p*) = 2 Jt x (p=p*) = 0
+      Details (from comment for computeUncertaintyMatrices() in mrcal.c):
 
-        I perturb the inputs:
+      I minimize a cost function E = norm2(x) where x is the measurements. Some
+      elements of x depend on inputs, and some don't (regularization for instance).
+      I perturb the inputs, reoptimize (assuming everything is linear) and look
+      what happens to the state p. I'm at an optimum p*:
 
-          E(x(p+dp, m+dm)) = norm2( x + J dp + dx/dm dm)
+        dE/dp (p=p*) = 2 Jt x (p=p*) = 0
 
-        And I reoptimize:
+      I perturb the inputs:
 
-          dE/ddp ~ ( x + J dp + dx/dm dm)t J = 0
+        E(x(p+dp, m+dm)) = norm2( x + J dp + dx/dm dm)
 
-        I'm at an optimum, so Jtx = 0, so
+      And I reoptimize:
 
-          -Jt dx/dm dm = JtJ dp
+        dE/ddp ~ ( x + J dp + dx/dm dm)t J = 0
 
-        So if I perturb my input observation vector m by dm, the resulting effect on
-        the parameters is dp = M dm
+      I'm at an optimum, so Jtx = 0, so
 
-          where M = -inv(JtJ) Jt dx/dm
+        -Jt dx/dm dm = JtJ dp
 
-        In order to be useful I need to do something with M. I want to quantify
-        how precise our optimal intrinsics are. Ultimately these are always used
-        in a projection operation. So given a 3d observation vector v, I project
-        it onto our image plane:
+      So if I perturb my input observation vector m by dm, the resulting effect on
+      the parameters is dp = M dm
 
-          q = project(v, intrinsics)
+        where M = -inv(JtJ) Jt dx/dm
 
-        I assume an independent, gaussian noise on my input observations, and for a
-        set of given observation vectors v, I compute the effect on the projection.
+      In order to be useful I need to do something with M. I want to quantify
+      how precise our optimal intrinsics are. Ultimately these are always used
+      in a projection operation. So given a 3d observation vector v, I project
+      it onto our image plane:
 
-          dq = dq/dintrinsics dintrinsics
-             = dq/dintrinsics Mintrinsics dm
+        q = project(v, intrinsics)
 
-        dprojection/dintrinsics comes from cvProjectPoints2(). I'm assuming
-        everything is locally linear, so this is a constant matrix for each v.
-        dintrinsics is the shift in the intrinsics of this camera. Mintrinsics
-        is the subset of M that corresponds to these intrinsics
+      I assume an independent, gaussian noise on my input observations, and for a
+      set of given observation vectors v, I compute the effect on the projection.
 
-        If dm represents noise of the zero-mean, independent, gaussian variety,
-        then dp and dq are also zero-mean gaussian, but no longer independent
+        dq = dproj/dintrinsics dintrinsics
+           = dproj/dintrinsics Mi dm
 
-          Var(dq) = (dq/dintrinsics Mintrinsics) Var(dm) (dq/dintrinsics Mintrinsics)t =
-                  = (dq/dintrinsics Mintrinsics) (dq/dintrinsics Mintrinsics)t s^2
+      dprojection/dintrinsics comes from cvProjectPoints2(). I'm assuming
+      everything is locally linear, so this is a constant matrix for each v.
+      dintrinsics is the shift in the intrinsics of this camera. Mi
+      is the subset of M that corresponds to these intrinsics
 
-        where s is the standard deviation of the noise of each parameter in dm.
+      If dm represents noise of the zero-mean, independent, gaussian variety,
+      then dp and dq are also zero-mean gaussian, but no longer independent
 
-        For mrcal, the measurements are
+        Var(dq) = (dproj/dintrinsics Mi) Var(dm) (dproj/dintrinsics Mi)t =
+                = (dproj/dintrinsics Mi) (dproj/dintrinsics Mi)t s^2
+                = dproj/dintrinsics (Mi Mit) dproj/dintrinsicst s^2
 
-        1. reprojection errors of chessboard grid observations
-        2. reprojection errors of individual point observations
-        3. range errors for points with known range
-        4. regularization terms
+      where s is the standard deviation of the noise of each parameter in dm.
 
-        The observed pixel measurements come into play directly into 1 and 2 above,
-        but NOT 3 and 4. Let's say I'm doing ordinary least squares, so x = f(p) - m
+      For mrcal, the measurements are
 
-          dx/dm = [ -I ]
-                  [  0 ]
+      1. reprojection errors of chessboard grid observations
+      2. reprojection errors of individual point observations
+      3. range errors for points with known range
+      4. regularization terms
 
-        I thus ignore measurements past the observation set.
+      The observed pixel measurements come into play directly into 1 and 2 above,
+      but NOT 3 and 4. Let's say I'm doing ordinary least squares, so x = f(p) - m
+
+        dx/dm = [ -I ]
+                [  0 ]
+
+      I thus ignore measurements past the observation set.
+
+          [ ... ]           [ ...  ...    ... ]
+      M = [  Mi ] and MMt = [ ...  MiMit  ... ]
+          [ ... ]           [ ...  ...    ... ]
+
+      The MiMit is the covariance input to this function
+
+      MMt = inv(JtJ) Jt dx/dm dx/dmt J inv(JtJ)
+
+    *** outlierness-based
+
+      This is completely different. I computed a calibration with some input
+      data. Let's pretend we use this calibrated camera to observe a 3D vector
+      v. The projection of this vector has the same expected observation noise
+      as above: diag(s^2).
+
+      If I add this new observation to the optimization, the solution will
+      shift, and the reprojection error of this new observation will improve. By
+      how much? If it improves by a lot, then we have little confidence in the
+      intrinsics in that area. If it doesn't improve by a lot, then we have much
+      confidence.
+
+      The big comment in dogleg.c describes the derivation currently. Here I
+      implement the "interesting Dima's self-only query outlierness" metric:
+
+      Let p,x,J represent the solution. The new feature we're adding is x* with
+      jacobian J*. The solution would move by dp to get to the new optimum.
+
+      Original solution is an optimum: Jt x = 0
+
+      If we add x* and move by dp, we get
+
+        E1 = norm2(x + J dp) + norm2( x* + J* dp )
+
+      The problem including the new point is also at an optimum:
+
+        dE1/dp = 0 -> 0 = Jt x + JtJ dp + J*t x* + J*tJ*dp =
+                        =        JtJ dp + J*t x* + J*tJ*dp
+      -> dp = -inv(JtJ + J*tJ*) J*t x*
+
+      Woodbury identity:
+
+        -inv(JtJ + J*t J*) =
+        = -inv(JtJ) + inv(JtJ) J*t inv(I + J* inv(JtJ) J*t) J* inv(JtJ)
+
+      Let
+        A = J* inv(JtJ) J*t   (same as before)
+        B = inv(A + I)        (NOT the same as before)
+
+      So
+        AB = BA = I-B
+
+      Thus
+        -inv(JtJ + J*t J*) =
+        = -inv(JtJ) + inv(JtJ) J*t B J* inv(JtJ)
+
+      and
+
+        dp = -inv(JtJ + J*tJ*) J*t x* =
+           = -inv(JtJ)J*t x* + inv(JtJ) J*t B J* inv(JtJ) J*t x* =
+           = -inv(JtJ)J*t x* + inv(JtJ) J*t B A x*
+           = -inv(JtJ)J*t(I - B A) x*
+           = -inv(JtJ)J*t B x*   (same as before, but with a different B!)
+
+      Then
+
+        norm2(J dp) = x*t ( B J* inv() Jt J inv() J*t B ) x*
+                    = x*t ( B J* inv() J*t B ) x*
+                    = x*t ( B A B ) x*
+                    = x*t ( B - B*B ) x*
+
+        2 x*t J* dp = -2 x*t J* inv(JtJ)J*t B x* =
+                    = -2 x*t A B x* =
+                    = x*t (-2AB) x* =
+                    = x*t (-2I + 2B) x*
+
+        norm2(J* dp) = x*t ( B J* inv() J*tJ* inv() J*t B ) x* =
+                     = x*t ( B A A B ) x* =
+                     = x*t ( I - 2B + B*B ) x*
+
+        norm2(x*)    = x*t ( I ) x*
+
+      How do I compute "Dima's self" factor? The "simple" flavor from above looks at
+      the new measurement only: norm2(x*). The "interesting" flavor, look at what
+      happens to the measurements' error when they're added to the optimization set.
+      State moves by dp. x* moves by J* dp. I look at
+
+        dE = norm2(x* + J*dp) - norm2(x*) =
+             2 x*t J* dp + norm2(J* dp) =
+             x*t (-2I + 2B + I - 2B + B*B) x* =
+             x*t (B*B - I) x*
+
+      I expect that adding a point to the optimization would make it fit better: dE <
+      0. Let's check. Let's say that there's v,l such that
+
+        (B*B-I)v = l v, norm2(v) = 1
+        -->
+        BBv      = (l+1)v
+        vBBv     = l+1
+
+        Let u = Bv ->
+        norm2(u) = l+1
+
+        A = J* inv(JtJ) J*t
+        B = inv(A + I) ->
+
+        v = (A+I)u
+        norm2(v) = 1 = norm2(Au) + 2ut A u + norm2(u) ->
+        -> l = -2ut A u - norm2(Au)
+
+        Let w = J*t u
+        -> Au = J* inv(JtJ) w
+        -> ut A u = wt inv(JtJ) w ->
+        l = -2 wt inv(JtJ) w - norm2(Au)
+
+        Since inv(JtJ) > 0 -> l < 0. As expected
+
+      So B*B-I is negative definite: adding measurements to the optimization set makes
+      them fit better
+
+      Putting this together I expect norm2(x*) to improve by x*t (I - B*B) x*.
+      x* is a random variable and E(x*t (I - B*B) x*) = tr( (I - B*B) Var(x*) )
+
+      As before, Var(x*) = s^2 I
+
+      So E() = s^2 tr( I - B*B )
 
     '''
 
@@ -647,32 +779,96 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
     v,_ = _sample_imager_unproject(gridn_x, gridn_y,
                                    distortion_model, intrinsics_data,
                                    *imagersize)
-    q,dq_dintrinsics,dq_dv = \
+    q,dq_dp,dq_dv = \
         mrcal.project(v, distortion_model, intrinsics_data, get_gradients=True)
 
-    U = compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics,dq_dv,
+    dq_dp_corrected = \
+        compute_Rcorrected_dq_dintrinsics(q, v, dq_dp,dq_dv,
                                           imagersize,
                                           focus_center, focus_radius)
 
-    UtU = nps.matmult(nps.transpose(U),U)
+    if outlierness:
 
-    # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
-    # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
-    # an arbitrary covariance, instead of sI (which is what the Rayleigh
-    # distribution expects). I thus compute sqrt(E(norm2(x))) instead of
-    # E(sqrt(norm2(x))). Hopefully that's close enough
-    #
-    # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
-    #
-    # trace(V) = trace(covariance_intrinsics * UtU) =
-    #          = sum(elementwise_product(covariance_intrinsics, UtU))
-    return np.sqrt(np.sum(nps.clump(covariance_intrinsics * UtU,
-                                    n = -2),
-                          axis = -1))
+        A  = nps.matmult( dq_dp_corrected, covariance_intrinsics, nps.transpose(dq_dp_corrected))
+        B  = np.linalg.inv(A + np.eye(2))
+        tr = 2 - nps.trace(nps.matmult(B,B))
+
+        E_cost_difference = s*s
 
 
+        Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( v.copy(), i_camera, solver_context, Noutliers) * \
+            observed_pixel_uncertainty * observed_pixel_uncertainty
+
+        if 'title' not in kwargs:
+            title = "Projection uncertainty outlierness"
+            if extratitle is not None:
+                title += ": " + extratitle
+            kwargs['title'] = title
+
+        if 'hardcopy' not in kwargs and hardcopy is not None:
+            kwargs['hardcopy'] = hardcopy
+
+        if 'set' not in kwargs:
+            kwargs['set'] = []
+        elif type(kwargs['set']) is not list:
+            kwargs['set'] = [kwargs['set']]
+        kwargs['set'].extend(['xrange [:] noextend',
+                              'yrange [:] noextend reverse',
+                              'view equal xy',
+                              'view map',
+                              'contour surface',
+                              'cntrparam levels incremental 0,0.5,10'])
+        plot = \
+            gp.gnuplotlib(_3d=1,
+                          unset='grid',
+
+                          _xrange=[0,W],
+                          _yrange=[H,0],
+                          cbrange=[0,cbmax],
+                          ascii=1,
+                          **kwargs)
+
+        # Expected_outlierness has shape (W,H), but the plotter wants what numpy wants: (H,W)
+        Expected_outlierness = nps.transpose(Expected_outlierness)
+
+        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
+
+        # Currently "with image" can't produce contours. I work around this, by
+        # plotting the data a second time.
+        # Yuck.
+        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+        plot.plot( (Expected_outlierness, dict(                                    tuplesize=3, _with='image',           using=using)),
+                   (Expected_outlierness, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
+        return plot
+
+
+
+        A = nps.matmult( dq_dp_corrected, covariance_intrinsics, nps.transpose(dq_dp_corrected))
+        B = np.linalg.inv( np.eye(A.shape[-1]) + A)
+        return np.sqrt( nps.trace(nps.matmult(B,B)) ) * 0.5 #args.observed_pixel_uncertainty
+
+    else:
+
+
+        # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
+        # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
+        # an arbitrary covariance, instead of sI (which is what the Rayleigh
+        # distribution expects). I thus compute sqrt(E(norm2(x))) instead of
+        # E(sqrt(norm2(x))). Hopefully that's close enough
+        #
+        # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
+        #
+        # trace(V) = trace(covariance_intrinsics * dqdpt_dqdp) =
+        #          = sum(elementwise_product(covariance_intrinsics, dqdpt_dqdp))
+        dqdpt_dqdp = \
+            nps.matmult(nps.transpose(dq_dp_corrected),
+                        dq_dp_corrected)
+        return np.sqrt(np.sum(nps.clump(covariance_intrinsics * dqdpt_dqdp,
+                                        n = -2),
+                              axis = -1))
 def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                 covariance_intrinsics, imagersize,
+                                outlierness      = False,
                                 gridn_x          = 60,
                                 gridn_y          = 40,
 
@@ -687,8 +883,13 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                 kwargs = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
+    There are two distinct methods supported by this function:
+
+    - input-noise-based (default; selected with outlierness=False)
+    - outlierness-based (selected with outlierness=True)
+
     This routine uses the covariance of observed inputs. See
-    compute_intrinsics_uncertainty() for a detailed description of the process
+    compute_intrinsics_uncertainty() for a description of both routines
 
     '''
 
@@ -696,11 +897,12 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
 
     import gnuplotlib as gp
     W,H=imagersize
-    Expected_projection_shift = compute_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                                               covariance_intrinsics, imagersize,
-                                                               gridn_x, gridn_y,
-                                                               focus_center = focus_center,
-                                                               focus_radius = focus_radius)
+    err = compute_intrinsics_uncertainty(distortion_model, intrinsics_data,
+                                         covariance_intrinsics, imagersize,
+                                         outlierness,
+                                         gridn_x, gridn_y,
+                                         focus_center = focus_center,
+                                         focus_radius = focus_radius)
 
     if 'title' not in kwargs:
         if focus_radius < 0:
@@ -714,7 +916,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
             where = "implied rotation fit looking at {} with radius {}". \
                 format('the imager center' if focus_center is None else focus_center,
                        focus_radius)
-        title = "Projection uncertainty; {}".format(where)
+        title = "Projection uncertainty (in pixels) based on {}; {}".format("outlierness" if outlierness else "calibration input noise", where)
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
@@ -742,8 +944,8 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                       ascii=1,
                       **kwargs)
 
-    # Expected_projection_shift has shape (W,H), but the plotter wants what numpy wants: (H,W)
-    Expected_projection_shift = nps.transpose(Expected_projection_shift)
+    # err has shape (W,H), but the plotter wants what numpy wants: (H,W)
+    err = nps.transpose(err)
 
     using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
@@ -751,115 +953,8 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     # plotting the data a second time.
     # Yuck.
     # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-    plot.plot( (Expected_projection_shift, dict(                                    tuplesize=3, _with='image',           using=using)),
-               (Expected_projection_shift, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
-    return plot
-
-
-def show_intrinsics_uncertainty_outlierness(distortion_model, intrinsics_data,
-                                            solver_context, i_camera, observed_pixel_uncertainty,
-                                            imagersize,
-                                            Noutliers,
-                                            gridn_x          = 60,
-                                            gridn_y          = 40,
-                                            extratitle       = None,
-                                            hardcopy         = None,
-                                            cbmax            = None,
-                                            kwargs = None):
-    r'''Visualizes the uncertainty in the intrinsics of a camera
-
-    This routine uses the outlierness factor of hypothetical query points
-
-    A calibration process produces the best-fitting camera parameters
-    (intrinsics and extrinsics). I throw out outliers based on an "outlierness"
-    metric. I use the same metric for the uncertainty computation here: if I add
-    a hypothetical observation, and it easily looks outliery, then I have strong
-    consensus in the solution in that region, and my confidence there is high.
-    Conversely, if it takes a lot to make a query point look like an outlier,
-    then the solution is uncertain in that area.
-
-    Comment from the mrcal core:
-
-        I add a hypothetical new measurement, projecting a 3d vector v in the
-        coord system of the camera
-
-          x = project(v) - observation
-
-        I compute the projection now, so I know what the observation should be,
-        and I can set it such that x=0 here. If I do that, x fits the existing
-        data perfectly, and is very un-outliery looking.
-
-        But everything is noisy, so observation will move around, and thus x
-        moves around. I'm assuming the observations are mean-0 gaussian, so I let
-        my x correspondingly also be mean-0 gaussian.
-
-        I then have a quadratic form outlierness_factor = xt B x
-        for some known constant N and known symmetric matrix B. I compute the
-        expected value of this quadratic form: E = tr(B * Var(x))
-
-        I get B from libdogleg. See
-        dogleg_getOutliernessTrace_newFeature_sparse() for a derivation.
-
-        I'm assuming the noise on the x is independent, so
-
-          Var(x) = observed-pixel-uncertainty^2 I
-
-        And thus E = tr(B) * observed-pixel-uncertainty^2
-
-    '''
-
-    import gnuplotlib as gp
-
-    if kwargs is None: kwargs = {}
-
-    W,H=imagersize
-    v,_ = _sample_imager_unproject(gridn_x, gridn_y,
-                                   distortion_model, intrinsics_data,
-                                   W, H)
-
-    Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( v.copy(), i_camera, solver_context, Noutliers) * \
-        observed_pixel_uncertainty * observed_pixel_uncertainty
-
-    if 'title' not in kwargs:
-        title = "Projection uncertainty outlierness"
-        if extratitle is not None:
-            title += ": " + extratitle
-        kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
-
-    if 'set' not in kwargs:
-        kwargs['set'] = []
-    elif type(kwargs['set']) is not list:
-        kwargs['set'] = [kwargs['set']]
-    kwargs['set'].extend(['xrange [:] noextend',
-                          'yrange [:] noextend reverse',
-                          'view equal xy',
-                          'view map',
-                          'contour surface',
-                          'cntrparam levels incremental 0,0.5,10'])
-    plot = \
-        gp.gnuplotlib(_3d=1,
-                      unset='grid',
-
-                      _xrange=[0,W],
-                      _yrange=[H,0],
-                      cbrange=[0,cbmax],
-                      ascii=1,
-                      **kwargs)
-
-    # Expected_outlierness has shape (W,H), but the plotter wants what numpy wants: (H,W)
-    Expected_outlierness = nps.transpose(Expected_outlierness)
-
-    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
-
-    # Currently "with image" can't produce contours. I work around this, by
-    # plotting the data a second time.
-    # Yuck.
-    # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-    plot.plot( (Expected_outlierness, dict(                                    tuplesize=3, _with='image',           using=using)),
-               (Expected_outlierness, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
+    plot.plot( (err, dict(tuplesize=3, _with='image',           using=using)),
+               (err, dict(tuplesize=3, _with='lines nosurface', using=using)))
     return plot
 
 

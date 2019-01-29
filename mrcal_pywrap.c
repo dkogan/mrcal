@@ -860,6 +860,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     QIOA_ARGUMENTS_REQUIRED(_) \
     QIOA_ARGUMENTS_OPTIONAL(_)
 static
+#warning can I throw this away?
 bool queryIntrinsicOutliernessAt_validate_args(QIOA_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
                                                QIOA_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
                                                void* dummy __attribute__((unused)))
