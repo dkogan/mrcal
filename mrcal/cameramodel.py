@@ -14,8 +14,6 @@ import re
 import mrcal
 import poseutils
 
-
-
 def _validateExtrinsics(e):
     r'''Raises an exception if the given extrinsics are invalid'''
 
@@ -35,9 +33,10 @@ def _validateExtrinsics(e):
 
     return True
 
-
-def _validateIntrinsics(i, covariance_intrinsics_full, covariance_intrinsics_observations_only):
-    r'''Raises an exception if the given intrinsics, covariances are invalid'''
+def _validateIntrinsics(i,
+                        observed_pixel_uncertainty,
+                        invJtJ_intrinsics_full, invJtJ_intrinsics_observations_only):
+    r'''Raises an exception if a given component is invalid'''
 
     try:
         N = len(i)
@@ -66,39 +65,50 @@ def _validateIntrinsics(i, covariance_intrinsics_full, covariance_intrinsics_obs
         if not isinstance(x, numbers.Number):
             raise Exception("All intrinsics elements should be numeric, but '{}' isn't".format(x))
 
-
-    def check_covariance(covariance):
-        if covariance is None:
+    def check_invJtJ(invJtJ):
+        if invJtJ is None:
             return
 
         Nintrinsics = len(intrinsics)
 
         try:
-            s = covariance.shape
+            s = invJtJ.shape
             s0 = s[0]
             s1 = s[1]
         except:
-            raise Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
+            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
 
         if not (len(s) == 2 and s0 == Nintrinsics and s1 == Nintrinsics):
-            raise Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
+            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
 
-        if np.linalg.norm(covariance - covariance.transpose()) > 1e-9:
-            raise Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't even symmetric")
+        if np.linalg.norm(invJtJ - invJtJ.transpose()) > 1e-9:
+            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't even symmetric")
 
         # surely computing ALL the eigenvalues is overkill for just figuring out if
         # this thing is positive-semi-definite or not?
         try:
-            eigenvalue_smallest = np.linalg.eigvalsh(covariance)[0]
+            eigenvalue_smallest = np.linalg.eigvalsh(invJtJ)[0]
         except:
-            raise Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; couldn't compute eigenvalues")
+            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; couldn't compute eigenvalues")
 
         if eigenvalue_smallest < -1e-9:
-            raise Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't positive-semi-definite; smallest eigenvalue: {}".format(eigenvalue_smallest))
+            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't positive-semi-definite; smallest eigenvalue: {}".format(eigenvalue_smallest))
 
 
-    check_covariance(covariance_intrinsics_full)
-    check_covariance(covariance_intrinsics_observations_only)
+    check_invJtJ(invJtJ_intrinsics_full)
+    check_invJtJ(invJtJ_intrinsics_observations_only)
+
+    if observed_pixel_uncertainty is not None:
+        try:
+            not_positive = observed_pixel_uncertainty <= 0
+        except:
+            not_positive = True
+        if not_positive:
+            raise Exception("observed_pixel_uncertainty must be a positive number")
+    else:
+        if invJtJ_intrinsics_full              is not None or \
+           invJtJ_intrinsics_observations_only is not None:
+        raise Exception("If any invJtJ are given, the observed pixel uncertainty must be given too")
 
 
 def _validateImagersize(d):
@@ -138,9 +148,10 @@ class cameramodel(object):
       coordinate system. The meaning of this coordinate system is defined by the
       user of this class: this class itself does not care
 
-    - Optionally, some covariances that represent this camera model as a
-      probabilistic quantity: the parameters are all gaussian, with mean at the
-      given values, and with some covariance. These can be missing or None, in
+    - Optionally, some invJtJ and observed_pixel_uncertainty that represent this
+      camera model as a probabilistic quantity: the parameters are all gaussian,
+      with mean at the given values, and with some distribution defined by
+      invJtJ and observed_pixel_uncertainty. These can be missing or None, in
       which case they will be assumed to be 0: no uncertainty exists.
 
     This class provides facilities to read/write models, and to get/set the
@@ -180,8 +191,9 @@ class cameramodel(object):
             f.write('# ' + note + '\n')
 
         _validateIntrinsics(self._intrinsics,
-                            self._covariance_intrinsics_full,
-                            self._covariance_intrinsics_observations_only)
+                            self._observed_pixel_uncertainty,
+                            self._invJtJ_intrinsics_full,
+                            self._invJtJ_intrinsics_observations_only)
         _validateExtrinsics(self._extrinsics)
 
         # I write this out manually instead of using repr for the whole thing
@@ -195,26 +207,28 @@ class cameramodel(object):
         f.write(("    'intrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._intrinsics[1]))
         f.write("\n")
 
-        if self._covariance_intrinsics_full is not None:
+        if self._observed_pixel_uncertainty is not None:
+            f.write("    'observed_pixel_uncertainty': {}\n".format(self._observed_pixel_uncertainty))
+        if self._invJtJ_intrinsics_full is not None:
             distortion_model = self._intrinsics[0]
             Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
             Nintrinsics = Ndistortions_want+4
-            f.write( r'''    # A covariance used for the outlierness-based uncertainty computations\n''')
-            f.write("    'covariance_intrinsics_full': [\n")
-            for row in self._covariance_intrinsics_full:
+            f.write( r'''    # An inv(JtJ) used for the outlierness-based uncertainty computations\n''')
+            f.write("    'invJtJ_intrinsics_full': [\n")
+            for row in self._invJtJ_intrinsics_full:
                 f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))
             f.write("],\n\n")
-        if self._covariance_intrinsics_observations_only is not None:
+        if self._invJtJ_intrinsics_observations_only is not None:
             distortion_model = self._intrinsics[0]
             Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
             Nintrinsics = Ndistortions_want+4
             f.write( r'''    # The intrinsics are represented as a probabilistic quantity: the parameters
-    # are all gaussian, with mean at the given values, and with some covariance.
-    # This covariance comes from the uncertainty of the pixel observations in
+    # are all gaussian, with mean at the given values, and with some inv(JtJ).
+    # This inv(JtJ) comes from the uncertainty of the pixel observations in
     # the calibration process
 ''')
-            f.write("    'covariance_intrinsics_observations_only': [\n")
-            for row in self._covariance_intrinsics_observations_only:
+            f.write("    'invJtJ_intrinsics_observations_only': [\n")
+            for row in self._invJtJ_intrinsics_observations_only:
                 f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))
             f.write("],\n\n")
 
@@ -252,25 +266,29 @@ class cameramodel(object):
             raise Exception("Model must have at least these keys: '{}'. Instead I got '{}'". \
                             format(keys_required, keys_received))
 
-        covariance_intrinsics_full              = None
-        covariance_intrinsics_observations_only = None
-        if 'covariance_intrinsics_full' in model:
-            covariance_intrinsics_full = np.array(model['covariance_intrinsics_full'], dtype=float)
-        if 'covariance_intrinsics_observations_only' in model:
-            covariance_intrinsics_observations_only = np.array(model['covariance_intrinsics_observations_only'], dtype=float)
+        observed_pixel_uncertainty = model.get('observed_pixel_uncertainty')
+
+        invJtJ_intrinsics_full              = None
+        invJtJ_intrinsics_observations_only = None
+        if 'invJtJ_intrinsics_full' in model:
+            invJtJ_intrinsics_full = np.array(model['invJtJ_intrinsics_full'], dtype=float)
+        if 'invJtJ_intrinsics_observations_only' in model:
+            invJtJ_intrinsics_observations_only = np.array(model['invJtJ_intrinsics_observations_only'], dtype=float)
 
         intrinsics = (model['distortion_model'], np.array(model['intrinsics'], dtype=float))
         _validateIntrinsics(intrinsics,
-                            covariance_intrinsics_full,
-                            covariance_intrinsics_observations_only)
+                            observed_pixel_uncertainty,
+                            invJtJ_intrinsics_full,
+                            invJtJ_intrinsics_observations_only)
         _validateExtrinsics(model['extrinsics'])
         _validateImagersize(model['imagersize'])
 
-        self._intrinsics                              = intrinsics
-        self._covariance_intrinsics_full              = covariance_intrinsics_full
-        self._covariance_intrinsics_observations_only = covariance_intrinsics_observations_only
-        self._extrinsics                              = np.array(model['extrinsics'], dtype=float)
-        self._imagersize                              = np.array(model['imagersize'], dtype=np.int32)
+        self._intrinsics                          = intrinsics
+        self._observed_pixel_uncertainty          = observed_pixel_uncertainty
+        self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
+        self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
+        self._extrinsics                          = np.array(model['extrinsics'], dtype=float)
+        self._imagersize                          = np.array(model['imagersize'], dtype=np.int32)
 
 
     def __init__(self, file_or_model=None, **kwargs):
@@ -294,8 +312,9 @@ class cameramodel(object):
           - 'extrinsics_rt_toref'
           - 'extrinsics_rt_fromref'
         - 'imagersize'
-        - 'covariance_intrinsics_full',              optionally
-        - 'covariance_intrinsics_observations_only', optionally
+        - 'observed_pixel_uncertainty',          optionally
+        - 'invJtJ_intrinsics_full',              optionally
+        - 'invJtJ_intrinsics_observations_only', optionally
 
         '''
 
@@ -319,11 +338,12 @@ class cameramodel(object):
 
             elif type(file_or_model) is cameramodel:
                 import copy
-                self._imagersize                              = copy.deepcopy(file_or_model._imagersize)
-                self._extrinsics                              = copy.deepcopy(file_or_model._extrinsics)
-                self._intrinsics                              = copy.deepcopy(file_or_model._intrinsics)
-                self._covariance_intrinsics_full              = copy.deepcopy(file_or_model._covariance_intrinsics_full)
-                self._covariance_intrinsics_observations_only = copy.deepcopy(file_or_model._covariance_intrinsics_observations_only)
+                self._imagersize                          = copy.deepcopy(file_or_model._imagersize)
+                self._extrinsics                          = copy.deepcopy(file_or_model._extrinsics)
+                self._intrinsics                          = copy.deepcopy(file_or_model._intrinsics)
+                self._observed_pixel_uncertainty          = copy.deepcopy(file_or_model._observed_pixel_uncertainty)
+                self._invJtJ_intrinsics_full              = copy.deepcopy(file_or_model._invJtJ_intrinsics_full)
+                self._invJtJ_intrinsics_observations_only = copy.deepcopy(file_or_model._invJtJ_intrinsics_observations_only)
 
 
             elif type(file_or_model) is str:
@@ -353,21 +373,16 @@ class cameramodel(object):
             if len(extrinsics_got) != 1:
                 raise Exception("No file_or_model was given, so we MUST have gotten one of {}".format(extrinsics_keys))
             keys_remaining -= extrinsics_keys
-            if keys_remaining - set(('covariance_intrinsics_full',
-                                     'covariance_intrinsics_observations_only'),):
-                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'imagersize' and MAYBE 'covariance_intrinsics_full' and/or 'covariance_intrinsics_observations_only'. Questionable keys: '{}'".format(keys_remaining))
-
-
-            self.intrinsics(kwargs['intrinsics'])
+            if keys_remaining - set(('observed_pixel_uncertainty',
+                                     'invJtJ_intrinsics_full',
+                                     'invJtJ_intrinsics_observations_only'),):
+                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'imagersize' and MAYBE 'invJtJ_intrinsics_full' and/or 'invJtJ_intrinsics_observations_only' and/or 'observed_pixel_uncertainty'. Questionable keys: '{}'".format(keys_remaining))
             self.imagersize(kwargs['imagersize'])
-            if kwargs.get('covariance_intrinsics_full') is not None:
-                self.covariance_intrinsics_full(kwargs['covariance_intrinsics_full'])
-            else:
-                self._covariance_intrinsics_full = None
-            if kwargs.get('covariance_intrinsics_observations_only') is not None:
-                self.covariance_intrinsics_observations_only(kwargs['covariance_intrinsics_observations_only'])
-            else:
-                self._covariance_intrinsics_observations_only = None
+
+            self.intrinsics(kwargs['intrinsics'],
+                            kwargs.get('observed_pixel_uncertainty'),
+                            kwargs.get('invJtJ_intrinsics_full'),
+                            kwargs.get('invJtJ_intrinsics_observations_only'))
 
             if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
             if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt(False, kwargs['extrinsics_Rt_fromref'])
@@ -397,12 +412,16 @@ class cameramodel(object):
             self._write( f, note )
 
 
-    def intrinsics(self, i=None):
+    def intrinsics(self,
+                   intrinsics                          = None,
+                   observed_pixel_uncertainty          = None,
+                   invJtJ_intrinsics_full              = None,
+                   invJtJ_intrinsics_observations_only = None):
         r'''Get or set the intrinsics in this model
 
-        if i is None: this is a getter; otherwise a setter.
+        if no arguments are given: this is a getter; otherwise a setter.
 
-        i is a tuple (distortion_model, parameters):
+        intrinsics is a tuple (distortion_model, parameters):
 
         - distortion_model is a string for the specific distortion model we're
           using. mrcal.getSupportedDistortionModels() returns a list
@@ -413,17 +432,24 @@ class cameramodel(object):
           values represent the lens distortion. The number and meaning of these
           parameters depends on the distortion model we're using
 
-        NOTE THAT THIS FUNCTION RESETS THE COVARIANCES
-
         '''
 
-        if i is None:
+        if \
+           intrinsics                          is None and \
+           observed_pixel_uncertainty          is None and \
+           invJtJ_intrinsics_full              is None and \
+           invJtJ_intrinsics_observations_only is None:
             return self._intrinsics
 
-        self._covariance_intrinsics_full              = None
-        self._covariance_intrinsics_observations_only = None
-        _validateIntrinsics(i, None, None)
-        self._intrinsics = i
+
+        _validateIntrinsics(intrinsics,
+                            observed_pixel_uncertainty,
+                            invJtJ_intrinsics_full,
+                            invJtJ_intrinsics_observations_only)
+        self._intrinsics                          = intrinsics
+        self._observed_pixel_uncertainty          = observed_pixel_uncertainty
+        self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
+        self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
 
 
     def extrinsics_rt(self, toref, rt=None):
@@ -526,47 +552,48 @@ class cameramodel(object):
         _validateImagersize(d)
         self._imagersize = np.array(d, dtype=np.int32)
 
-    def covariance_intrinsics_full(self, c=None):
-        r'''Get or set an intrinsics covariance in this model
+    def observed_pixel_uncertainty(self, *args, **kwargs):
+        r'''Get the observed pixel uncertainty in this model
 
-        This function looks at the FULL covariance. This is used for the
-        outlierness-based uncertainty computations
-
-        if c is None: this is a getter; otherwise a setter.
-
-        c is a numpy array, or something I can make a numpy array from
+        This function is NOT a setter. Use intrinsics() to set all the
+        intrinsics together
 
         '''
 
-        if c is None:
-            return self._covariance_intrinsics_full
+        if len(args) or len(kwargs):
+            raise Exception("observed_pixel_uncertainty() is NOT a setter. Please use intrinsics() to set them all together")
+        return self._observed_pixel_uncertainty
 
-        _validateIntrinsics(self._intrinsics,
-                            c,
-                            self._covariance_intrinsics_observations_only)
-        self._covariance_intrinsics_full = c
+    def invJtJ_intrinsics_full(self, *args, **kwargs):
+        r'''Get an intrinsics invJtJ in this model
 
-    def covariance_intrinsics_observations_only(self, c=None):
-        r'''Get or set an intrinsics covariance in this model
+        This function looks at the FULL invJtJ. This is used for the
+        outlierness-based uncertainty computations
 
-        This function looks at the observations-only covariance. This is used
+        This function is NOT a setter. Use intrinsics() to set all the
+        intrinsics together
+
+        '''
+
+        if len(args) or len(kwargs):
+            raise Exception("invJtJ_intrinsics_full() is NOT a setter. Please use intrinsics() to set them all together")
+        return self._invJtJ_intrinsics_full
+
+    def invJtJ_intrinsics_observations_only(self, *args, **kwargs):
+        r'''Get an intrinsics invJtJ in this model
+
+        This function looks at the observations-only invJtJ. This is used
         for the uncertainty based on the noise of input observations to the
         calibration routine
 
-        if c is None: this is a getter; otherwise a setter.
-
-        c is a numpy array, or something I can make a numpy array from
+        This function is NOT a setter. Use intrinsics() to set all the
+        intrinsics together
 
         '''
 
-        if c is None:
-            return self._covariance_intrinsics_observations_only
-
-        _validateIntrinsics(self._intrinsics,
-                            self._covariance_intrinsics_full,
-                            c)
-        self._covariance_intrinsics_observations_only = c
-
+        if len(args) or len(kwargs):
+            raise Exception("invJtJ_intrinsics_observations_only() is NOT a setter. Please use intrinsics() to set them all together")
+        return self._invJtJ_intrinsics_observations_only
 
     def set_cookie(self, cookie):
         r'''Store some arbitrary cookie for somebody to use later

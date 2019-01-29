@@ -522,7 +522,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
 
 
 def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
-                                    covariance_intrinsics, imagersize,
+                                    invJtJ_intrinsics, imagersize,
                                     outlierness  = False,
                                     gridn_x      = 60,
                                     gridn_y      = 40,
@@ -534,7 +534,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
                               ):
     r'''Computes the uncertainty in a projection of a 3D point
 
-    Given a (broadcastable) 3D vector, and the covariance matrix for the
+    Given a (broadcastable) 3D vector, and the inv(JtJ) matrix for the
     intrinsics, returns the uncertainty of the projection of that vector,
     measured in pixels. This function implements two different methods:
 
@@ -789,7 +789,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
 
     if outlierness:
 
-        A  = nps.matmult( dq_dp_corrected, covariance_intrinsics, nps.transpose(dq_dp_corrected))
+        A  = nps.matmult( dq_dp_corrected, invJtJ_intrinsics, nps.transpose(dq_dp_corrected))
         B  = np.linalg.inv(A + np.eye(2))
         tr = 2 - nps.trace(nps.matmult(B,B))
 
@@ -843,7 +843,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
 
 
 
-        A = nps.matmult( dq_dp_corrected, covariance_intrinsics, nps.transpose(dq_dp_corrected))
+        A = nps.matmult( dq_dp_corrected, invJtJ_intrinsics, nps.transpose(dq_dp_corrected))
         B = np.linalg.inv( np.eye(A.shape[-1]) + A)
         return np.sqrt( nps.trace(nps.matmult(B,B)) ) * 0.5 #args.observed_pixel_uncertainty
 
@@ -863,11 +863,11 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         dqdpt_dqdp = \
             nps.matmult(nps.transpose(dq_dp_corrected),
                         dq_dp_corrected)
-        return np.sqrt(np.sum(nps.clump(covariance_intrinsics * dqdpt_dqdp,
+        return np.sqrt(np.sum(nps.clump(invJtJ_intrinsics * dqdpt_dqdp,
                                         n = -2),
                               axis = -1))
 def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                covariance_intrinsics, imagersize,
+                                invJtJ_intrinsics, imagersize,
                                 outlierness      = False,
                                 gridn_x          = 60,
                                 gridn_y          = 40,
@@ -898,7 +898,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     import gnuplotlib as gp
     W,H=imagersize
     err = compute_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                         covariance_intrinsics, imagersize,
+                                         invJtJ_intrinsics, imagersize,
                                          outlierness,
                                          gridn_x, gridn_y,
                                          focus_center = focus_center,

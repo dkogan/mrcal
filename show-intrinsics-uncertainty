@@ -9,7 +9,7 @@ Synopsis:
   ... this model
 
 A calibration process produces the best-fitting camera parameters (intrinsics
-and extrinsics) and a covariance matrix representing the uncertainty in these
+and extrinsics) and a inv(JtJ) matrix representing the uncertainty in these
 parameters. When we use the intrinsics to project 3D points into the image
 plane, this intrinsics uncertainty creates an uncertainty in the resulting
 projection point. This tool plots the expected value of this projection error
@@ -92,17 +92,17 @@ if args.extraset is not None:
 model = mrcal.cameramodel(args.model[0])
 
 if args.outlierness:
-    c = model.covariance_intrinsics_full()
-    if c is None:
-        raise Exception("The given camera model doesn't have full intrinsics covariances. Can't visualize them.")
+    invJtJ = model.invJtJ_intrinsics_full()
+    if invJtJ is None:
+        raise Exception("The given camera model doesn't have full intrinsics inv(JtJ). Can't visualize them.")
 else:
-    c = model.covariance_intrinsics_observations_only()
-    if c is None:
-        raise Exception("The given camera model doesn't have observations-only intrinsics covariances. Can't visualize them.")
+    invJtJ = model.invJtJ_intrinsics_observations_only()
+    if invJtJ is None:
+        raise Exception("The given camera model doesn't have observations-only intrinsics inv(JtJ). Can't visualize them.")
 
 distortion_model,intrinsics = model.intrinsics()
 plot = mrcal.show_intrinsics_uncertainty(distortion_model, intrinsics,
-                                         c,
+                                         invJtJ,
                                          model.imagersize(),
                                          outlierness = args.outlierness,
                                          args.gridn[0], args.gridn[1],
