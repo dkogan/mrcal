@@ -522,7 +522,9 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
 
 
 def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
-                                    invJtJ_intrinsics, imagersize,
+                                    imagersize,
+                                    observed_pixel_uncertainty,
+                                    invJtJ_intrinsics,
                                     outlierness  = False,
                                     gridn_x      = 60,
                                     gridn_y      = 40,
@@ -791,64 +793,14 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
 
         A  = nps.matmult( dq_dp_corrected, invJtJ_intrinsics, nps.transpose(dq_dp_corrected))
         B  = np.linalg.inv(A + np.eye(2))
-        tr = 2 - nps.trace(nps.matmult(B,B))
+        tr = 2 - np.sum( nps.clump(B*B, n=-2),
+                         axis = -1)
 
-        E_cost_difference = s*s
-
-
-        Expected_outlierness = mrcal.queryIntrinsicOutliernessAt( v.copy(), i_camera, solver_context, Noutliers) * \
-            observed_pixel_uncertainty * observed_pixel_uncertainty
-
-        if 'title' not in kwargs:
-            title = "Projection uncertainty outlierness"
-            if extratitle is not None:
-                title += ": " + extratitle
-            kwargs['title'] = title
-
-        if 'hardcopy' not in kwargs and hardcopy is not None:
-            kwargs['hardcopy'] = hardcopy
-
-        if 'set' not in kwargs:
-            kwargs['set'] = []
-        elif type(kwargs['set']) is not list:
-            kwargs['set'] = [kwargs['set']]
-        kwargs['set'].extend(['xrange [:] noextend',
-                              'yrange [:] noextend reverse',
-                              'view equal xy',
-                              'view map',
-                              'contour surface',
-                              'cntrparam levels incremental 0,0.5,10'])
-        plot = \
-            gp.gnuplotlib(_3d=1,
-                          unset='grid',
-
-                          _xrange=[0,W],
-                          _yrange=[H,0],
-                          cbrange=[0,cbmax],
-                          ascii=1,
-                          **kwargs)
-
-        # Expected_outlierness has shape (W,H), but the plotter wants what numpy wants: (H,W)
-        Expected_outlierness = nps.transpose(Expected_outlierness)
-
-        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
-
-        # Currently "with image" can't produce contours. I work around this, by
-        # plotting the data a second time.
-        # Yuck.
-        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot.plot( (Expected_outlierness, dict(                                    tuplesize=3, _with='image',           using=using)),
-                   (Expected_outlierness, dict(legend="Expected_projection_shift", tuplesize=3, _with='lines nosurface', using=using)))
-        return plot
-
-
-
-        A = nps.matmult( dq_dp_corrected, invJtJ_intrinsics, nps.transpose(dq_dp_corrected))
-        B = np.linalg.inv( np.eye(A.shape[-1]) + A)
-        return np.sqrt( nps.trace(nps.matmult(B,B)) ) * 0.5 #args.observed_pixel_uncertainty
+        # I'm going to pretend that sqrt(E0) - sqrt(E1) = sqrt(E0 - E1). This is
+        # true if E0 ~ E1, which maybe is OK here
+        return observed_pixel_uncertainty * np.sqrt(tr)
 
     else:
-
 
         # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
         # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
@@ -863,11 +815,14 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         dqdpt_dqdp = \
             nps.matmult(nps.transpose(dq_dp_corrected),
                         dq_dp_corrected)
-        return np.sqrt(np.sum(nps.clump(invJtJ_intrinsics * dqdpt_dqdp,
-                                        n = -2),
-                              axis = -1))
+        return observed_pixel_uncertainty * \
+            np.sqrt(np.sum(nps.clump(invJtJ_intrinsics * dqdpt_dqdp,
+                                     n = -2),
+                           axis = -1))
 def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                invJtJ_intrinsics, imagersize,
+                                imagersize,
+                                observed_pixel_uncertainty,
+                                invJtJ_intrinsics,
                                 outlierness      = False,
                                 gridn_x          = 60,
                                 gridn_y          = 40,
@@ -898,7 +853,9 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     import gnuplotlib as gp
     W,H=imagersize
     err = compute_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                         invJtJ_intrinsics, imagersize,
+                                         imagersize,
+                                         observed_pixel_uncertainty,
+                                         invJtJ_intrinsics,
                                          outlierness,
                                          gridn_x, gridn_y,
                                          focus_center = focus_center,

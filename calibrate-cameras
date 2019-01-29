@@ -981,6 +981,7 @@ def get_imagersize_one(g, args_imagersize):
 
 
 def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
+                     observed_pixel_uncertainty,
                      invJtJ_intrinsics_full,
                      invJtJ_intrinsics_observations_only):
     r'''Assemble one cameramodel from a completed calibration
@@ -1017,10 +1018,12 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
     return mrcal.cameramodel( intrinsics            = (intrinsics[0], intrinsics[1][i_camera,:]),
                               extrinsics_Rt_toref   = Rt_rx,
                               imagersize            = imagersizes[i_camera],
+                              observed_pixel_uncertainty          = observed_pixel_uncertainty,
                               invJtJ_intrinsics_full              = invJtJ_intrinsics_full,
                               invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only)
 
 def make_cameramodels(intrinsics, extrinsics, imagersizes,
+                      observed_pixel_uncertainty,
                       invJtJ_intrinsics_full,
                       invJtJ_intrinsics_observations_only):
     r'''Assemble cameramodels from a completed calibration
@@ -1032,6 +1035,7 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
     '''
     return [ make_cameramodel(i_camera,
                               intrinsics, extrinsics, imagersizes,
+                              observed_pixel_uncertainty,
                               invJtJ_intrinsics_full,
                               invJtJ_intrinsics_observations_only) for i_camera in xrange(len(intrinsics[1])) ]
 
@@ -1740,12 +1744,7 @@ if args.num_cross_validation_splits > 1:
                                solver_context                    = solver_context)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
-        try:
-            covariance_intrinsics_observations_only = stats['invJtJ_intrinsics_observations_only']  \
-                * args.observed_pixel_uncertainty \
-                * args.observed_pixel_uncertainty
-        except:
-            covariance_intrinsics_observations_only = None
+        invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
 
         report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -1817,18 +1816,9 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        solver_context                    = solver_context)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
-try:
-    covariance_intrinsics_full = stats['invJtJ_intrinsics_full']  \
-        * args.observed_pixel_uncertainty \
-        * args.observed_pixel_uncertainty
-except:
-    covariance_intrinsics_full = None
-try:
-    covariance_intrinsics_observations_only = stats['invJtJ_intrinsics_observations_only']  \
-        * args.observed_pixel_uncertainty \
-        * args.observed_pixel_uncertainty
-except:
-    covariance_intrinsics_observations_only = None
+
+invJtJ_intrinsics_full              = stats.get('invJtJ_intrinsics_full')
+invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -1840,7 +1830,7 @@ report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
            args.object_width_n*args.object_width_n*len(observations),
            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
-if covariance_intrinsics_observations_only is not None:
+if invJtJ_intrinsics_observations_only is not None:
     report += "Expected projection uncertainty due to input pixel observations.\n"
     report += "  This is an (Ncameras,5) matrix. For each camera we look at the\n"
     report += "  (top-left, bottom-left, top-right, bottom-right, center) imager locations in order.\n"
@@ -1858,7 +1848,10 @@ if covariance_intrinsics_observations_only is not None:
         # shape (Ncameras, 5, 3)
         V = mrcal.unproject(v, intrinsics[0], intrinsics[1][i_camera])
         Expected_projection_shift[i_camera, :] = \
-            mrcal.compute_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera], covariance_intrinsics_observations_only[i_camera])
+            mrcal.compute_intrinsics_uncertainty(V, intrinsics[0], intrinsics[1][i_camera],
+                                                 imagersizes[i_camera],
+                                                 args.observed_pixel_uncertainty,
+                                                 invJtJ_intrinsics_observations_only[i_camera])
     report += np.array2string(Expected_projection_shift, precision=2) + "\n"
 
 print report
@@ -1869,6 +1862,7 @@ print report
 
 # Write the output models
 models = make_cameramodels(intrinsics, extrinsics, imagersizes,
+                           args.observed_pixel_uncertainty,
                            invJtJ_intrinsics_full,
                            invJtJ_intrinsics_observations_only)
 # The note says how we ran this, and contains the commented-out report
@@ -2238,8 +2232,9 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
         plots_intrinsics_sensitivity[i_camera] = \
             mrcal.show_intrinsics_uncertainty(intrinsics[0],
                                               intrinsics[1][i_camera],
-                                              invJtJ_intrinsics_full[i_camera] if outlierness else invJtJ_intrinsics_observations_only[i_camera],
                                               imagersizes  [i_camera],
+                                              args.observed_pixel_uncertainty,
+                                              invJtJ_intrinsics_full[i_camera] if outlierness else invJtJ_intrinsics_observations_only[i_camera],
                                               outlierness,
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_x=gridn_x,

@@ -108,7 +108,7 @@ def _validateIntrinsics(i,
     else:
         if invJtJ_intrinsics_full              is not None or \
            invJtJ_intrinsics_observations_only is not None:
-        raise Exception("If any invJtJ are given, the observed pixel uncertainty must be given too")
+            raise Exception("If any invJtJ are given, the observed pixel uncertainty must be given too")
 
 
 def _validateImagersize(d):
@@ -208,12 +208,12 @@ class cameramodel(object):
         f.write("\n")
 
         if self._observed_pixel_uncertainty is not None:
-            f.write("    'observed_pixel_uncertainty': {}\n".format(self._observed_pixel_uncertainty))
+            f.write("    'observed_pixel_uncertainty': {},\n\n".format(self._observed_pixel_uncertainty))
         if self._invJtJ_intrinsics_full is not None:
             distortion_model = self._intrinsics[0]
             Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
             Nintrinsics = Ndistortions_want+4
-            f.write( r'''    # An inv(JtJ) used for the outlierness-based uncertainty computations\n''')
+            f.write( '    # An inv(JtJ) used for the outlierness-based uncertainty computations\n')
             f.write("    'invJtJ_intrinsics_full': [\n")
             for row in self._invJtJ_intrinsics_full:
                 f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))

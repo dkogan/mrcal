@@ -55,6 +55,7 @@ def parse_args():
                         min(width,height)/6. To fit with data across the WHOLE
                         imager: pass in a very large radius''')
     parser.add_argument('--outlierness',
+                        action='store_true',
                         help='''Report an outlierness-based uncertainty, not an input-noise-based one''')
     parser.add_argument('--cbmax',
                         type=float,
@@ -91,6 +92,10 @@ if args.extraset is not None:
 
 model = mrcal.cameramodel(args.model[0])
 
+observed_pixel_uncertainty = model.observed_pixel_uncertainty()
+if observed_pixel_uncertainty is None:
+    raise Exception("The given camera model doesn't have 'observed_pixel_uncertainty'. This is required to visualize the intrinsics.")
+
 if args.outlierness:
     invJtJ = model.invJtJ_intrinsics_full()
     if invJtJ is None:
@@ -102,9 +107,10 @@ else:
 
 distortion_model,intrinsics = model.intrinsics()
 plot = mrcal.show_intrinsics_uncertainty(distortion_model, intrinsics,
-                                         invJtJ,
                                          model.imagersize(),
-                                         outlierness = args.outlierness,
+                                         observed_pixel_uncertainty,
+                                         invJtJ,
+                                         args.outlierness,
                                          args.gridn[0], args.gridn[1],
                                          focus_center = args.where,
                                          focus_radius = args.radius,
