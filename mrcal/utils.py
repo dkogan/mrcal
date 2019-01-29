@@ -460,7 +460,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
 
     if focus_radius is None or focus_radius <= 0:
         # We're not fitting a rotation to compensate for shifted intrinsics.
-        return dq_dintrinsics
+        return dq_dp
 
 
     # We're fitting the rotation to compensate for shifted intrinsics.
@@ -486,9 +486,9 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
 
 
     # everything by default
-    V_c              = clump_leading_dims(V)
-    dq_dintrinsics_c = clump_leading_dims(dq_dintrinsics)
-    dq_dv_c          = clump_leading_dims(dq_dv)
+    V_c     = clump_leading_dims(V)
+    dq_dp_c = clump_leading_dims(dq_dp)
+    dq_dv_c = clump_leading_dims(dq_dv)
 
     if focus_radius < 2*(W+H):
         delta_q = nps.clump(q, n=2) - focus_center
@@ -496,14 +496,14 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
         if np.count_nonzero(i)<3:
             warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
         else:
-            V_c              = V_c             [i, ...]
-            dq_dv_c          = dq_dv_c         [i, ...]
-            dq_dintrinsics_c = dq_dintrinsics_c[i, ...]
+            V_c     = V_c             [i, ...]
+            dq_dv_c = dq_dv_c         [i, ...]
+            dq_dp_c = dq_dp_c[i, ...]
 
     # shape (3,Nintrinsics)
     C_Vvp  = np.sum(nps.matmult( V_c,
                                  nps.transpose(dq_dv_c),
-                                 dq_dintrinsics_c ),
+                                 dq_dp_c ),
                     axis=0)
 
     # shape (3,3)
@@ -518,7 +518,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
 
     # I have D. D is a constant. Used for ALL the samples v. I return the
     # correction; this uses the D, but also a different V for each sample
-    return dq_dintrinsics - nps.matmult(dq_dv, V, D)
+    return dq_dp - nps.matmult(dq_dv, V, D)
 
 
 def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
