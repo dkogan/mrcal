@@ -890,6 +890,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                    'view equal xy',
                                    'view map',
                                    'contour surface',
+                                   'key box opaque',
                                    'cntrparam levels incremental 10,-0.2,0'])
     plot = \
         gp.gnuplotlib(_3d=1,
@@ -910,8 +911,8 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     # plotting the data a second time.
     # Yuck.
     # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-    plot.plot( (err, dict(tuplesize=3, _with='image',           using=using)),
-               (err, dict(tuplesize=3, _with='lines nosurface', using=using)))
+    plot.plot( (err, dict(           tuplesize=3, _with='image',           using=using)),
+               (err, dict(legend="", tuplesize=3, _with='lines nosurface', using=using)))
     return plot
 
 
@@ -1253,6 +1254,7 @@ def show_intrinsics_diff(models,
                                        'view equal xy',
                                        'view map',
                                        'contour surface',
+                                       'key box opaque',
                                        'cntrparam levels incremental 10,-1,0'])
         plot = \
             gp.gnuplotlib(_3d=1,
@@ -1271,8 +1273,8 @@ def show_intrinsics_diff(models,
         # plotting the data a second time.
         # Yuck.
         # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot.plot( (difflen, dict(               tuplesize=3, _with='image',           using=using)),
-                   (difflen, dict(legend="diff", tuplesize=3, _with='lines nosurface', using=using)))
+        plot.plot( (difflen, dict(           tuplesize=3, _with='image',           using=using)),
+                   (difflen, dict(legend="", tuplesize=3, _with='lines nosurface', using=using)))
     return plot
 
 
