@@ -886,12 +886,12 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     elif type(kwargs['set']) is not list:
         kwargs['set'] = [kwargs['set']]
     kwargs['set'].extend(['xrange [:] noextend',
-                                   'yrange [:] noextend reverse',
-                                   'view equal xy',
-                                   'view map',
-                                   'contour surface',
-                                   'key box opaque',
-                                   'cntrparam levels incremental 10,-0.2,0'])
+                          'yrange [:] noextend reverse',
+                          'view equal xy',
+                          'view map',
+                          'contour surface',
+                          'key box opaque',
+                          'cntrparam levels incremental 10,-0.2,0'])
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
@@ -1250,12 +1250,12 @@ def show_intrinsics_diff(models,
         elif type(kwargs['set']) is not list:
             kwargs['set'] = [kwargs['set']]
         kwargs['set'].extend(['xrange [:] noextend',
-                                       'yrange [:] noextend reverse',
-                                       'view equal xy',
-                                       'view map',
-                                       'contour surface',
-                                       'key box opaque',
-                                       'cntrparam levels incremental 10,-1,0'])
+                              'yrange [:] noextend reverse',
+                              'view equal xy',
+                              'view map',
+                              'contour surface',
+                              'key box opaque',
+                              'cntrparam levels incremental 10,-1,0'])
         plot = \
             gp.gnuplotlib(_3d=1,
                           unset='grid',
