@@ -902,17 +902,16 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                       ascii=1,
                       **kwargs)
 
-    # err has shape (W,H), but the plotter wants what numpy wants: (H,W)
-    err = nps.transpose(err)
-
-    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
-
     # Currently "with image" can't produce contours. I work around this, by
     # plotting the data a second time.
     # Yuck.
     # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-    plot.plot( (err, dict(           tuplesize=3, _with='image',           using=using)),
-               (err, dict(legend="", tuplesize=3, _with='lines nosurface', using=using)))
+    plot.plot(nps.transpose(err), # err has shape (W,H), but the plotter wants
+                                  # what numpy wants: (H,W)
+              tuplesize=3,
+              _with=np.array(('image','lines nosurface'),),
+              legend = "", # needed to force contour labels
+              using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)))
     return plot
 
 
@@ -1265,16 +1264,17 @@ def show_intrinsics_diff(models,
                           ascii=1,
                           **kwargs)
 
-        # difflen has shape (W,H), but the plotter wants what numpy wants: (H,W)
-        difflen = nps.transpose(difflen)
-
-        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
         # Currently "with image" can't produce contours. I work around this, by
         # plotting the data a second time.
         # Yuck.
         # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot.plot( (difflen, dict(           tuplesize=3, _with='image',           using=using)),
-                   (difflen, dict(legend="", tuplesize=3, _with='lines nosurface', using=using)))
+        plot.plot(nps.transpose(difflen), # difflen has shape (W,H), but the
+                                          # plotter wants what numpy wants:
+                                          # (H,W)
+                  tuplesize=3,
+                  _with=np.array(('image','lines nosurface'),),
+                  legend = "", # needed to force contour labels
+                  using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)))
     return plot
 
 

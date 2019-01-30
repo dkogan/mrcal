@@ -139,13 +139,15 @@ if not args.vectorfield and not args.radial:
     # way
     distortion = nps.transpose(np.sqrt(nps.norm2(delta)))
 
-    using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
     # Currently "with image" can't produce contours. I work around this, by
     # plotting the data a second time.
     # Yuck.
     # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-    gp.plot((distortion, dict(               tuplesize=3, _with='image',           using=using)),
-            (distortion, dict(legend="diff", tuplesize=3, _with='lines nosurface', using=using)),
+    gp.plot(distortion
+            tuplesize=3,
+            _with=np.array(('image','lines nosurface'),),
+            legend = "", # needed to force contour labels
+            using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)),
             _3d=1,
             unset='grid',
             _xrange=[0,W],
