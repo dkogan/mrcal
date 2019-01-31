@@ -1833,10 +1833,10 @@ Potential things to look at:
     show_reprojection_errors_worst(i_observation_in_order_from_worst)
     show_reprojection_errors(i_observation)
     show_intrinsics_uncertainty()
-    show_errors('histogram',   i_camera, ignore_outliers=True)
-    show_errors('vectorfield', i_camera, ignore_outliers=True)
-    show_errors('heatmap',     i_camera, ignore_outliers=True)
-    show_errors('radial',      i_camera, ignore_outliers=True)
+    show_residuals('histogram',   i_camera, ignore_outliers=True)
+    show_residuals('vectorfield', i_camera, ignore_outliers=True)
+    show_residuals('heatmap',     i_camera, ignore_outliers=True)
+    show_residuals('radial',      i_camera, ignore_outliers=True)
     show_roi(i_camera)
     stats
     i_observations_worst
@@ -2034,7 +2034,7 @@ plots_residuals = dict( vectorfield = [None] * (Ncameras+1),
                         heatmap     = [None] * (Ncameras+1),
                         histogram   = [None] * (Ncameras+1),
                         radial      = [None] * (Ncameras+1) )
-def show_errors(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02, ignore_outliers=True, **kwargs):
+def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02, ignore_outliers=True, **kwargs):
 
     r'''Visualize the optimized reprojection errors
 
