@@ -2030,10 +2030,7 @@ def check_confidence_computations():
     print "dq got, difference: {}, {}".format(dq, dq-dq_observed)
 
 
-plots_residuals = dict( vectorfield = [None] * (Ncameras+1),
-                        heatmap     = [None] * (Ncameras+1),
-                        histogram   = [None] * (Ncameras+1),
-                        radial      = [None] * (Ncameras+1) )
+plots_residuals = dict()
 def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02, ignore_outliers=True, **kwargs):
 
     r'''Visualize the optimized reprojection errors
@@ -2066,6 +2063,10 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
     '''
 
     global plots_residuals
+    if not how in plots_residuals:
+        plots_residuals[how] = [None] * (Ncameras+1)
+    plots_how = plots_residuals[how]
+
     if i_camera < 0: i_camera = -1
 
     # I have a bunch of errors in err_including_outliers. I need to pick out
@@ -2106,7 +2107,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
         err = err[idx, ...]
 
     if how == 'vectorfield':
-        plots_residuals['vectorfield'][i_camera+1] = \
+        plots_how[i_camera+1] = \
             gp.gnuplotlib( square=1,
                            _xrange=[0,W], yrange=[H,0],
                            title = 'Fitted reprojection errors {}. Errors shown as vectors and colors'. \
@@ -2114,14 +2115,14 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                            xlabel = 'Imager x',
                            ylabel = 'Imager y',
                            **kwargs)
-        plots_residuals['vectorfield'][i_camera+1]. \
+        plots_how[i_camera+1]. \
             plot( obs[:,0], obs[:,1],
                   err[:,0], err[:,1],
                   np.sqrt(nps.norm2(err)),
                   _with='vectors size screen 0.005,10 fixed filled palette',
                   tuplesize=5)
     elif how == 'heatmap':
-        plots_residuals['heatmap'][i_camera+1] = \
+        plots_how[i_camera+1] = \
             gp.gnuplotlib( square=1,
                            _xrange=[0,W], yrange=[H,0],
                            title = 'Fitted reprojection errors {}. Errors shown as colors'. \
@@ -2129,7 +2130,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                            xlabel = 'Imager x',
                            ylabel = 'Imager y',
                            **kwargs)
-        plots_residuals['heatmap'][i_camera+1]. \
+        plots_how[i_camera+1]. \
             plot( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
                   _with='points pt 7 palette',
                   tuplesize=3)
@@ -2138,7 +2139,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
         sigma = args.observed_pixel_uncertainty
         var   = sigma*sigma
         from scipy.special import erf
-        plots_residuals['histogram'][i_camera+1] = \
+        plots_how[i_camera+1] = \
             gp.gnuplotlib(equation_above='{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) title "Expected distribution" with lines lw 2'. \
                           format(mean= 0,
                                  var = var,
@@ -2148,19 +2149,19 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                           xlabel = 'Reprojection error (pixels). x and y components of error are counted separately',
                           ylabel = 'Observed frequency',
                           **kwargs)
-        plots_residuals['histogram'][i_camera+1]. \
+        plots_how[i_camera+1]. \
             plot(err.ravel(), histogram=1, binwidth=binwidth,)
 
     elif how == 'radial':
         r = np.sqrt(nps.norm2(obs - focus_center))
-        plots_residuals['radial'][i_camera+1] = \
+        plots_how[i_camera+1] = \
             gp.gnuplotlib(
                 title = 'Fitted reprojection errors shown against distance from {}. Data from {}'. \
                 format( focus_center, 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
                 xlabel = 'Distance from {} (pixels)'.format(focus_center),
                 ylabel = 'Reprojection error (pixels). x and y components of error are counted separately',
                 **kwargs)
-        plots_residuals['radial'][i_camera+1]. \
+        plots_how[i_camera+1]. \
             plot( nps.transpose(nps.cat(r,r)).ravel(),
                   err.ravel(),
                   _with='points')
