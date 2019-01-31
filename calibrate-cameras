@@ -2196,8 +2196,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
             sumw = np.sum(w)
             if sumw <= 5:
                 # we have too little data in this cell
-                maxval = sys.float_info.max
-                return np.array((maxval,maxval,sumw), dtype=float)
+                return np.array((0.,0.,sumw), dtype=float)
 
             mean = nps.inner(w, z) / sumw
             var  = nps.inner(w, (z - mean) * (z - mean)) / sumw
