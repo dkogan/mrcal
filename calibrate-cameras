@@ -2170,7 +2170,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                         format(how))
 
 
-plots_intrinsics_sensitivity             = [None] * Ncameras
+plots_intrinsics_uncertainty = [None] * Ncameras
 def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 60, gridn_y = 40, **kwargs):
 
     if invJtJ_intrinsics_observations_only is None:
@@ -2178,10 +2178,10 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
         return False
 
 
-    global plots_intrinsics_sensitivity
+    global plots_intrinsics_uncertainty
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
-        plots_intrinsics_sensitivity[i_camera] = \
+        plots_intrinsics_uncertainty[i_camera] = \
             mrcal.show_intrinsics_uncertainty(intrinsics[0],
                                               intrinsics[1][i_camera],
                                               imagersizes  [i_camera],
