@@ -2171,8 +2171,6 @@ def show_errors(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02,
 
 
 plots_intrinsics_sensitivity             = [None] * Ncameras
-plots_intrinsics_sensitivity_outlierness = [None] * Ncameras
-plots_roi                                = [None] * Ncameras
 def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 60, gridn_y = 40, **kwargs):
 
     if invJtJ_intrinsics_observations_only is None:
@@ -2196,6 +2194,7 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
                                               cbmax=5,
                                               **kwargs)
 
+plots_roi = [None] * Ncameras
 def show_roi(i_camera = None, **kwargs):
     global plots_roi
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
@@ -2219,10 +2218,10 @@ def show_roi(i_camera = None, **kwargs):
         iFeature_roi_in_thiscam  = iFeature_roi_in [ 0, iFeature_roi_in [1,:] == i_camera]
         iFeature_roi_out_thiscam = iFeature_roi_out[ 0, iFeature_roi_out[1,:] == i_camera]
 
-        plots_intrinsics_sensitivity_outlierness[i_camera] = \
+        plots_roi[i_camera] = \
             gp.gnuplotlib(square=1, xrange=(0,imagersizes[i_camera,0]-1),yrange=(imagersizes[i_camera,1]-1,0), _with='points pt 7 ps 2',
                           **kwargs)
-        plots_intrinsics_sensitivity_outlierness[i_camera]. \
+        plots_roi[i_camera]. \
             plot( (feats[iFeature_roi_in_thiscam, 0], feats[iFeature_roi_in_thiscam, 1], dict(legend='in' )),
                   (feats[iFeature_roi_out_thiscam,0], feats[iFeature_roi_out_thiscam,1], dict(legend='out')) )
 
