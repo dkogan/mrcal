@@ -1833,10 +1833,11 @@ Potential things to look at:
     show_reprojection_errors_worst(i_observation_in_order_from_worst)
     show_reprojection_errors(i_observation)
     show_intrinsics_uncertainty()
-    show_residuals('histogram',   i_camera, ignore_outliers=True)
-    show_residuals('vectorfield', i_camera, ignore_outliers=True)
-    show_residuals('heatmap',     i_camera, ignore_outliers=True)
-    show_residuals('radial',      i_camera, ignore_outliers=True)
+    show_residuals('histogram',   i_camera)
+    show_residuals('vectorfield', i_camera, ignore_outliers=False)
+    show_residuals('heatmap',     i_camera)
+    show_residuals('radial',      i_camera)
+    show_residuals('regional',    i_camera)
     show_roi(i_camera)
     stats
     i_observations_worst
@@ -2055,6 +2056,10 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                                focus_center is not None, we use that; otherwise
                                we use the imager center
 
+      elif how == 'regional':  Plots residuals grouped by discrete chunks of the
+                               image. Useful to see specifically where the fit is
+                               bad
+
     i_camera is the camera in question. <0 means "all cameras"
 
     if ignore_outliers: we show the distribution without outliers: this is the
@@ -2105,6 +2110,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
         idx = nps.norm2(obs - focus_center) < focus_radius*focus_radius
         obs = obs[idx, ...]
         err = err[idx, ...]
+    # err,obs are now both of shape (N,2). Each slice is xy
 
     if how == 'vectorfield':
         plots_how[i_camera+1] = \
@@ -2165,6 +2171,77 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
             plot( nps.transpose(nps.cat(r,r)).ravel(),
                   err.ravel(),
                   _with='points')
+
+    elif how == 'regional':
+
+        if i_camera < 0:
+            raise Exception("Regional visualization for 'all' cameras at once isn't useful. Pass i_camera >= 0")
+        r2_near_threshold = 100. ** 2.
+        r2_far_threshold  = 200. ** 2.
+        def weight(xy, center):
+            r2 = nps.norm2(xy - center)
+            return \
+                np.clip((r2 - r2_far_threshold) / (r2_near_threshold - r2_far_threshold),
+                        0.0, 1.0)
+
+        @nps.broadcast_define( (('N',2), ('N',), (2,)), (3,) )
+        def residual_stats(xy, z, center):
+            r'''Generates localized residual statistics
+
+            Tekes in an array of residuals of shape (N,3) (contains (x,y,error)
+            slices)
+
+            '''
+            w    = weight(xy, center)
+            sumw = np.sum(w)
+            if sumw <= 5:
+                # we have too little data in this cell
+                maxval = sys.float_info.max
+                return np.array((maxval,maxval,sumw), dtype=float)
+
+            mean = nps.inner(w, z) / sumw
+            var  = nps.inner(w, (z - mean) * (z - mean)) / sumw
+            return np.array((mean,np.sqrt(var),sumw))
+
+        gridn_x = 20
+        gridn_y = 10
+        w = np.linspace(0,W-1,gridn_x)
+        h = np.linspace(0,H-1,gridn_y)
+        # shape: Nwidth,Nheight,2
+        c = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+        # obs,err each have shape (N,2): each slice is xy. I have 2N
+        # measurements, so I flatten the errors, and double-up the observations
+        errflat = err.ravel()
+        obsflat = nps.clump(nps.mv(nps.cat(obs,obs), -3, -2), n=2)
+
+        mean,stdev,weight = nps.mv( residual_stats(obsflat, errflat, c),
+                                    -1, 0)
+
+        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
+
+        def mkplot(x, title, **kwargs_here):
+            kwargs_here.update(kwargs)
+            if 'hardcopy' in kwargs_here:
+                what = re.sub('[^a-zA-Z0-9_-]+', '_', title)
+                kwargs_here['hardcopy'] = re.sub(r'(\.[^\.]+$)', '.' + what + r'\1', kwargs_here['hardcopy'])
+
+            p = gp.gnuplotlib( _3d=1,
+                               ascii=1,
+                               unset='grid',
+                               _xrange=[0,W], _yrange=[H,0],
+                               _set = ['xrange [:] noextend',
+                                       'yrange [:] noextend reverse',
+                                       'view equal xy',
+                                       'view map'],
+                               title = title,
+                               **kwargs_here)
+            p.plot(nps.transpose(x), tuplesize=3, _with='image', using=using)
+            return p
+
+        plots_how[i_camera+1] = [ mkplot(mean,   'mean'),
+                                  mkplot(stdev,  'stdev'),
+                                  mkplot(weight, 'weight', cbrange = (0, 20)) ]
 
     else:
         raise Exception("Unknown visualization method '{}'. I know of 'vectorfield' and 'heatmap' and 'histogram'". \
