@@ -2254,9 +2254,9 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
             p.plot(nps.transpose(x), tuplesize=3, _with='image', using=using)
             return p
 
-        plots_how[i_camera+1] = [ mkplot(mean,   'mean'),
-                                  mkplot(stdev,  'stdev'),
-                                  mkplot(weight, 'weight', cbrange = (0, 20)) ]
+        plots_how[i_camera+1] = [ mkplot(np.abs(mean), 'abs(mean)'),
+                                  mkplot(stdev,        'stdev'),
+                                  mkplot(weight,       'weight', cbrange = (0, 20)) ]
 
     else:
         raise Exception("Unknown visualization method '{}'. I know of 'vectorfield' and 'heatmap' and 'histogram'". \
