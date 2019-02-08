@@ -6,12 +6,12 @@ Synopsis:
 
   $ undistort-image --model left.cameramodel im1.png im2.png
   ... corresponding pinhole mrcal-native model
-  Wrote im1_undistorted.png
-  Wrote im2_undistorted.png
+  Wrote im1-undistorted.png
+  Wrote im2-undistorted.png
 
 Given a single camera model (cahvor or mrcal-native) and some number of images,
 this tool un-distorts each image and writes the result to disk. For each image
-named xxxx.yyy, the new image filename is xxxx_undistorted.yyy. This tool
+named xxxx.yyy, the new image filename is xxxx-undistorted.yyy. This tool
 refuses to overwrite anything, and will barf if a target file already exists. A
 corresponding pinhole camera model is also generated, and written to stdout.
 
@@ -70,7 +70,7 @@ def target_image_filename(f):
     if not m:
         raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(imagefile))
 
-    return "{}_undistorted.{}".format(m.group(1),m.group(2))
+    return "{}-undistorted.{}".format(m.group(1),m.group(2))
 
 
 
