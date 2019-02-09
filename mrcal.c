@@ -3029,7 +3029,7 @@ mrcal_optimize( // out
 
             double scale_regularization_distortion =
                 ({
-                    double normal_distortion_value   = 1e-2;
+                    double normal_distortion_value   = 0.2;
 
                     double expected_regularization_distortion_error_sq_noscale =
                         (double)Nmeasurements_regularization_distortion *
@@ -3102,7 +3102,7 @@ mrcal_optimize( // out
                             // problematic case can't happen. I favor that by
                             // regularizing the coefficients in the denominator
                             // more strongly
-                            scale *= 1.0e1;
+                            scale *= 5.;
                         }
                         double err = distortions_all[i_camera][j] * scale;
                         x[iMeasurement]  = err;
