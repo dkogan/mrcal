@@ -30,11 +30,9 @@ import re
 import cv2
 import argparse
 import os
+import multiprocessing
 
 import mrcal
-
-
-
 
 
 
@@ -56,6 +54,17 @@ def parse_args():
                         required=False,
                         default=1.0,
                         help='''Pinhole focal length scaling. 1.0 by default''')
+
+    parser.add_argument('--jobs', '-j',
+                        type=int,
+                        required=False,
+                        default=1,
+                        help='''parallelize the processing JOBS-ways. This is like GNU make, except you're
+                        required to explicitly specify a job count. Note that
+                        this implementation is VERY memory-hungry: requiring 1GB
+                        of RAM per image can easily happen with larger images.
+                        Parallelization increases memory requirements by a
+                        factor of JOBS, so be careful with this option''')
 
     parser.add_argument('image',
                         type=lambda f: f if os.path.isfile(f) else \
@@ -98,9 +107,12 @@ print "Corresponding pinhole model:"
 model_pinhole.write(sys.stdout)
 
 
-for imagefile in args.image:
+def undistort_this(imagefile):
     imagefile_undistorted = target_image_filename(imagefile)
 
     image_undistorted     = mrcal.undistort_image(model, imagefile, scale=args.scale)
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))
+
+pool = multiprocessing.Pool(args.jobs)
+pool.map(undistort_this, args.image)
