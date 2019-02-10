@@ -1274,8 +1274,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                 dot_spacing          = args.object_spacing,
                                 object_width_n       = args.object_width_n)
 
-
-    # done with everything. Run the calibration, in several passes
+    # done with the preliminaries. Run the calibration, in several passes
     sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
     stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                            observations, indices_frame_camera,
