@@ -55,6 +55,12 @@ def parse_args():
                         default=1.0,
                         help='''Pinhole focal length scaling. 1.0 by default''')
 
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default I don't overwrite existing files. Pass --force to overwrite them
+                        without complaint''')
+
     parser.add_argument('--jobs', '-j',
                         type=int,
                         required=False,
@@ -87,10 +93,11 @@ args = parse_args()
 
 
 
-for imagefile in args.image:
-    f = target_image_filename(imagefile)
-    if os.path.isfile(f):
-        raise Exception("Target image '{}' already exists. Giving up.".format(f))
+if not args.force:
+    for imagefile in args.image:
+        f = target_image_filename(imagefile)
+        if os.path.isfile(f):
+            raise Exception("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.".format(f))
 
 
 model         = mrcal.cameramodel(args.model[0])
@@ -110,7 +117,7 @@ model_pinhole.write(sys.stdout)
 def undistort_this(imagefile):
     imagefile_undistorted = target_image_filename(imagefile)
 
-    image_undistorted     = mrcal.undistort_image(model, imagefile, scale=args.scale)
+    image_undistorted = mrcal.undistort_image(model, imagefile, scale=args.scale)
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))
 
