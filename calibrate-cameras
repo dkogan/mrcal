@@ -2158,21 +2158,64 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                   tuplesize=3)
 
     elif how == 'histogram':
-        sigma = args.observed_pixel_uncertainty
-        var   = sigma*sigma
+
+        x = err.ravel()
+        N = len(x)
+
+        sigma_expected = args.observed_pixel_uncertainty
+        sigma_observed = np.std(x)
         from scipy.special import erf
+
+        def make_gaussian(sigma,title):
+            # I want to plot a PDF of a normal distribution together with the
+            # histogram to get a visual comparison. This requires a scaling on
+            # either the PDF or the histogram. I plot a scaled pdf:
+            #
+            #   f = k*pdf = k * exp(-x^2 / (2 s^2)) / sqrt(2*pi*s^2)
+            #
+            # I match up the size of the central bin of the histogram (-binwidth/2,
+            # binwidth/2):
+            #
+            #   bin(0) ~ k*pdf(0) ~ pdf(0) * N * binwidth
+            #
+            # So k = N*binwdith should work. I can do this more precisely:
+            #
+            #   bin(0) ~ k*pdf(0) ~
+            #     = N * integral( pdf(x) dx,                                -binwidth/2, binwidth/2)
+            #     = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2)
+            # ->k = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2) / pdf(0)
+            #     = N * integral( exp(-x^2 / (2 s^2)) dx,                   -binwidth/2, binwidth/2)
+            #     = N * integral( exp(-(x/(sqrt(2) s))^2) dx )
+            #
+            # Let u  = x/(sqrt(2) s)
+            #     du = dx/(sqrt(2) s)
+            #     u(x = binwidth/2) = binwidth/(s 2sqrt(2)) ->
+            #
+            #   k = N * sqrt(2) s * integral( exp(-u^2) du )
+            #     = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
+            #
+            # for low x erf(x) ~ 2x/sqrt(pi). So if binwidth << sigma
+            # k = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
+            #   ~ N*sqrt(2pi) s * (binwidth/(s 2*sqrt(2))) *2 / sqrt(pi)
+            #   ~ N binwidth
+            return \
+                '{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) title "{title}" with lines lw 2'. \
+                format(mean= 0,
+                       var = sigma*sigma,
+                       title = title,
+                       k   = N * np.sqrt(2.*np.pi) * sigma * erf(binwidth/(2.*np.sqrt(2)*sigma)))
+
+        equations = [make_gaussian(sigma,title) for sigma,title in \
+                     ( (sigma_expected, 'Normal distribution of residuals with expected stdev: {:.02f} pixels'.format(sigma_expected)),
+                       (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
         plots_how[i_camera+1] = \
-            gp.gnuplotlib(equation_above='{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) title "Expected distribution" with lines lw 2'. \
-                          format(mean= 0,
-                                 var = var,
-                                 k   = err.size*erf(binwidth/(2.*np.sqrt(2)*sigma)) * np.sqrt(2.*np.pi*var)),
+            gp.gnuplotlib(equation_above = equations,
                           title = 'Observed and expected distribution of fitted reprojection errors {}'. \
                           format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
                           xlabel = 'Reprojection error (pixels). x and y components of error are counted separately',
                           ylabel = 'Observed frequency',
                           **kwargs)
-        plots_how[i_camera+1]. \
-            plot(err.ravel(), histogram=1, binwidth=binwidth,)
+        plots_how[i_camera+1].plot(x, histogram=1, binwidth=binwidth,)
 
     elif how == 'radial':
         r = np.sqrt(nps.norm2(obs - focus_center))
