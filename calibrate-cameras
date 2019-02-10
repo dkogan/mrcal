@@ -1854,6 +1854,9 @@ Potential things to look at:
     show_residuals('heatmap',     i_camera)
     show_residuals('radial',      i_camera)
     show_residuals('regional',    i_camera)
+    show_distortion('heatmap',    i_camera)
+    show_distortion('vectorfield',i_camera)
+    show_distortion('radial',     i_camera)
     show_roi(i_camera)
     stats
     i_observations_worst
@@ -2329,6 +2332,21 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
                                               gridn_y=gridn_y,
                                               cbmax=5,
                                               **kwargs)
+
+plots_distortion = [None] * Ncameras
+def show_distortion(mode, i_camera, gridn_x = 60, gridn_y = 40, **kwargs):
+
+    global plots_distortion
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    for i_camera in i_camera_all:
+        plots_distortion[i_camera] = \
+            mrcal.show_distortion(intrinsics[0],intrinsics[1][i_camera],
+                                  imagersizes[i_camera],
+                                  mode,
+                                  extratitle = "camera {}".format(i_camera),
+                                  gridn_x=gridn_x,
+                                  gridn_y=gridn_y,
+                                  **kwargs)
 
 plots_roi = [None] * Ncameras
 def show_roi(i_camera = None, **kwargs):
