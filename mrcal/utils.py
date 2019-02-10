@@ -835,7 +835,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                 extratitle       = None,
                                 hardcopy         = None,
                                 cbmax            = None,
-                                kwargs = None):
+                                kwargs           = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
     There are two distinct methods supported by this function:
@@ -892,6 +892,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                           'contour surface',
                           'key box opaque',
                           'cntrparam levels incremental 10,-0.2,0'])
+
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
