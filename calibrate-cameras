@@ -273,7 +273,6 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
             files_per_camera.append([])
 
         # images in dots_vnl have paths relative to where the dots_vnl lives
-        globs = [os.path.abspath(g) for g in globs]
         dots_dir = None if dots_vnl is None else os.path.dirname( dots_vnl )
 
         def accum_files(f):
@@ -975,14 +974,17 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
     '''
     if args_imagersize is not None:
         return args_imagersize
-
     try:
         iobservation0_thiscamera = next( i for i in xrange(len(paths)) if indices_frame_camera[i,1] == icamera )
     except:
         raise Exception("Couldn't find any images for camera '{}'".format(icamera))
 
-    img = cv2.imread(paths[iobservation0_thiscamera]);
-    h,w = img.shape[:2]
+    try:
+        img = cv2.imread(paths[iobservation0_thiscamera]);
+        h,w = img.shape[:2]
+    except:
+        raise Exception("I needed to read '{}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize". \
+                        format(paths[iobservation0_thiscamera]))
 
     if args_imagersize is not None:
         if w != args_imagersize[0] or h != args_imagersize[1]:
