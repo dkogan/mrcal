@@ -1901,8 +1901,8 @@ def show_residuals_observation(observation, **kwargs):
     reproj           = nps.clump( projected[i_frame,i_camera], n=2)
 
     # error per dot
-    err = np.sqrt(nps.inner(reproj - obs,
-                            reproj - obs))
+    err     = reproj - obs
+    err_len = np.sqrt(nps.norm2(err))
 
     nonoutlier_indices_thisobservation = np.ones((args.object_width_n*args.object_width_n,),dtype=bool)
     nonoutlier_indices_thisobservation[outlier_indices_thisobservation] = False
@@ -1927,11 +1927,18 @@ def show_residuals_observation(observation, **kwargs):
         plotkwargs['xrange'] = [0,W-1]
         plotkwargs['yrange'] = [H-1,0]
 
-    gp.plot( (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], err[nonoutlier_indices_thisobservation],
-              {'with': 'points pt 7 ps 2 palette', 'legend': 'reprojection error', 'tuplesize': 3}),
-             (obs   [:,0], obs   [:,1], {'with': 'points', 'legend': 'observed'}),
-             (reproj[:,0], reproj[:,1], {'with': 'points', 'legend': 'hypothesis'}),
+    gp.plot( (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], err_len[nonoutlier_indices_thisobservation],
+              dict(_with     = 'points pt 7 ps 2 palette',
+                   legend    = 'reprojection error',
+                   tuplesize = 3)),
+
+             (obs[:,0], obs[:,1], err[:,0], err[:,1],
+              dict(_with     = 'vectors size screen 0.005,10 fixed filled lw 2',
+                   legend    = 'observed',
+                   tuplesize = 4)),
+
              **plotkwargs)
+
 
 def show_residuals_observation_worst(i, **kwargs):
     show_residuals_observation( i_observations_worst[i], **kwargs )
