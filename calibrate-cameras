@@ -1845,8 +1845,8 @@ import gnuplotlib as gp
 print r'''Calibration results REPL.
 Potential things to look at:
 
-    show_reprojection_errors_worst(i_observation_in_order_from_worst)
-    show_reprojection_errors(i_observation)
+    show_residuals_observation_worst(i_observation_in_order_from_worst)
+    show_residuals_observation(i_observation)
     show_intrinsics_uncertainty()
     show_residuals('histogram',   i_camera)
     show_residuals('vectorfield', i_camera, ignore_outliers=False)
@@ -1879,7 +1879,7 @@ rms_err_0_for_outliers_perimage     = np.sqrt( nps.norm2( nps.clump(err_0_for_ou
 i_observations_worst    = list(reversed(np.argsort(rms_err_0_for_outliers_perimage)))
 i_observation_from_path = dict( [(paths[_i],_i) for _i in xrange(len(observations))] )
 
-def show_reprojection_errors(observation, **kwargs):
+def show_residuals_observation(observation, **kwargs):
     r'''Visualize calibration residuals
 
     Takes either an integer (observation index) or a string (path)
@@ -1934,8 +1934,8 @@ def show_reprojection_errors(observation, **kwargs):
              (reproj[:,0], reproj[:,1], {'with': 'points', 'legend': 'hypothesis'}),
              **plotkwargs)
 
-def show_reprojection_errors_worst(i, **kwargs):
-    show_reprojection_errors( i_observations_worst[i], **kwargs )
+def show_residuals_observation_worst(i, **kwargs):
+    show_residuals_observation( i_observations_worst[i], **kwargs )
 
 def check_confidence_computations():
     r'''These all test the confidence computations using the debugging exports from
