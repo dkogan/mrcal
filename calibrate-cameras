@@ -962,8 +962,8 @@ def make_seed_no_distortion( imagersizes,
     return intrinsics_data,extrinsics,frames
 
 
-def get_imagersize_one(g, args_imagersize):
-    r'''Returns the imager size for a given image glob
+def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
+    r'''Returns the imager size for a given camera
 
     This reports the size for ONE camera. I only look at the first match. It is
     assumed that all the images matching this glob have the same imager size.
@@ -976,12 +976,12 @@ def get_imagersize_one(g, args_imagersize):
     if args_imagersize is not None:
         return args_imagersize
 
-    files = glob.glob(g)
-    if len(files) == 0:
-        raise Exception("Glob '{}' matched no files. I need this for the imager size".format(g))
+    try:
+        iobservation0_thiscamera = next( i for i in xrange(len(paths)) if indices_frame_camera[i,1] == icamera )
+    except:
+        raise Exception("Couldn't find any images for camera '{}'".format(icamera))
 
-
-    img = cv2.imread(files[0]);
+    img = cv2.imread(paths[iobservation0_thiscamera]);
     h,w = img.shape[:2]
 
     if args_imagersize is not None:
@@ -1582,10 +1582,6 @@ if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
-# list of imager sizes; one per camera
-imagersizes = np.array([get_imagersize_one(imagesglob, args.imagersize) for imagesglob in args.images],
-                       dtype=np.int32)
-
 if args.roi is not None:
     if len(args.roi) != Ncameras:
         raise Exception("Globs say we have {} cameras, but --roi suggests I have {}. These MUST match". \
@@ -1603,6 +1599,9 @@ observations, indices_frame_camera, paths = \
                      args.dots_cache,
                      jobs = args.jobs)
 
+# list of imager sizes; one per camera
+imagersizes = np.array([get_imagersize_one(icamera, indices_frame_camera, paths, args.imagersize) for icamera in xrange(Ncameras)],
+                       dtype=np.int32)
 
 if args.cull_random_observations_ratio >= 0:
     observations, indices_frame_camera, paths, _, _ = \
