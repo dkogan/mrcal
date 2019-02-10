@@ -545,7 +545,7 @@ def unproject(q, intrinsics_or_distortionmodel, intrinsics=None):
     # normalize each vector
     return v / nps.dummy(np.sqrt(nps.inner(v,v)), -1)
 
-def distortion_map__to_warped(intrinsics, w, h, scale=1.0):
+def distortion_map__to_warped(distortion_model, intrinsics_data, w, h, scale=1.0):
     r'''Returns the pre and post distortion map of a model
 
     Takes in
@@ -567,8 +567,8 @@ def distortion_map__to_warped(intrinsics, w, h, scale=1.0):
     # shape: Nwidth,Nheight,2
     grid  = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
-    distort_function = _get_distortion_function(intrinsics[0])
-    dgrid = distort_function(grid, *intrinsics[1], scale=scale)
+    distort_function = _get_distortion_function(distortion_model)
+    dgrid = distort_function(grid, *intrinsics_data, scale=scale)
     return grid, dgrid
 
 def undistort_image(model, image, scale=1.0):
@@ -587,7 +587,7 @@ def undistort_image(model, image, scale=1.0):
         image = cv2.imread(image)
 
     H,W = image.shape[:2]
-    _,mapxy = distortion_map__to_warped(intrinsics,
+    _,mapxy = distortion_map__to_warped(intrinsics[0], intrinsics[1],
                                         np.arange(W), np.arange(H),
                                         scale = scale)
     mapx = mapxy[:,:,0].astype(np.float32)

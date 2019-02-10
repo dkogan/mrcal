@@ -915,6 +915,229 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
               using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)))
     return plot
 
+def show_distortion(distortion_model, intrinsics_data,
+                    imagersize,
+                    mode,
+                    scale            = 1.,
+                    cbmax            = 25.0,
+                    gridn_x          = 60,
+                    gridn_y          = 40,
+
+                    extratitle       = None,
+                    hardcopy         = None,
+                    kwargs           = None):
+    r'''Visualizes the distortion of a camera
+
+    This function has 3 modes of operation, specified as a string in the 'mode'
+    argument:
+
+      'heatmap': the imager is gridded, as specified by the gridn_x,gridn_y
+      arguments. For each point in the grid, we evaluate the difference in
+      projection between the given model, and a pinhole model with the same core
+      intrinsics (focal lengths, center pixel coords). This difference is
+      color-coded and a heat map is displayed
+
+      'vectorfield': this is the same as 'heatmap', except we display a vector
+      for each point, intead of a color-coded cell. If legibility requires the
+      vectors being larger or smaller, pass an appropriate value in the 'scale'
+      argument
+
+      'radial': Looks at radial distortion only. Plots a curve showing the
+      magnitude of the radial distortion as a function of the distance to the
+      center
+
+    This function creates a plot and returns the corresponding gnuplotlib object
+
+    '''
+
+    import gnuplotlib as gp
+
+    if kwargs is None: kwargs = {}
+    if 'title' not in kwargs:
+
+        title = "Distortion of {}".format(distortion_model)
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    if 'hardcopy' not in kwargs and hardcopy is not None:
+        kwargs['hardcopy'] = hardcopy
+
+    if 'set' not in kwargs:
+        kwargs['set'] = []
+    elif type(kwargs['set']) is not list:
+        kwargs['set'] = [kwargs['set']]
+
+
+
+
+
+    W,H = imagersize
+    if mode == 'heatmap':
+
+        if 'set' not in kwargs:
+            kwargs['set'] = []
+        elif type(kwargs['set']) is not list:
+            kwargs['set'] = [kwargs['set']]
+        kwargs['set'].extend(['xrange [:] noextend',
+                                  'yrange [:] noextend reverse',
+                                  'view equal xy',
+                                  'view map',
+                                  'contour surface',
+                                  'cntrparam levels incremental {},-1,0'.format(cbmax)])
+
+        grid, dgrid = mrcal.distortion_map__to_warped(distortion_model, intrinsics_data,
+                                                      np.linspace(0,W-1,gridn_x),
+                                                      np.linspace(0,H-1,gridn_y))
+
+        # shape: gridn_x*gridn_y,2
+        delta = dgrid-grid
+        delta *= scale
+
+        # shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib) want it that
+        # way
+        distortion = nps.transpose(np.sqrt(nps.norm2(delta)))
+
+        # Currently "with image" can't produce contours. I work around this, by
+        # plotting the data a second time.
+        # Yuck.
+        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+        plot = gp.gnuplotlib(_3d=1,
+                             unset='grid',
+                             _xrange=[0,W],
+                             _yrange=[H,0],
+                             cbrange=[0,cbmax],
+                             ascii=1,
+                             **kwargs)
+        plot.plot(distortion,
+                  tuplesize=3,
+                  _with=np.array(('image','lines nosurface'),),
+                  legend = "", # needed to force contour labels
+                  using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)))
+        return plot
+
+    elif mode == 'vectorfield':
+
+        grid, dgrid = mrcal.distortion_map__to_warped(distortion_model, intrinsics_data,
+                                                      np.linspace(0,W-1,gridn_x),
+                                                      np.linspace(0,H-1,gridn_y))
+        # shape: gridn*gridn,2
+        grid  = nps.clump(grid,  n=2)
+        dgrid = nps.clump(dgrid, n=2)
+
+        delta = dgrid-grid
+        delta *= scale
+
+        kwargs['_xrange']=(-50,W+50)
+        kwargs['_yrange']=(H+50, -50)
+        kwargs['_set'   ]=['object 1 rectangle from 0,0 to {},{} fillstyle empty'.format(W,H)]
+        kwargs['square' ]=True
+
+        if 'set' in kwargs:
+            if type(kwargs['set']) is list: kwargs['_set'].extend(kwargs['set'])
+            else:                           kwargs['_set'].append(kwargs['set'])
+            del kwargs['set']
+
+        plot = gp.gnuplotlib( **kwargs )
+        plot.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
+                    {'with': 'vectors size screen 0.005,10 fixed filled',
+                     'tuplesize': 4,
+                    }),
+                   (grid[:,0], grid[:,1],
+                    {'with': 'points',
+                     'tuplesize': 2,
+                    }))
+        return plot
+
+    elif mode == 'radial':
+
+        # plot the radial distortion. For now I only deal with opencv here
+        m = re.search("OPENCV([0-9]+)", distortion_model)
+        if not m:
+            raise Exception("Radial distortion visualization implemented only for OpenCV distortions; for now")
+        N = int(m.group(1))
+
+        # OpenCV does this:
+        #
+        # This is the opencv distortion code in cvProjectPoints2 in calibration.cpp
+        # Here x,y are x/z and y/z. OpenCV applies distortion to x/z, y/z and THEN
+        # does the ...*f + c thing.
+        #
+        #         r2 = x*x + y*y;
+        #         r4 = r2*r2;
+        #         r6 = r4*r2;
+        #         a1 = 2*x*y;
+        #         a2 = r2 + 2*x*x;
+        #         a3 = r2 + 2*y*y;
+        #         cdist = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
+        #         icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
+        #         xd0 = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
+        #         yd0 = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
+
+        # mean focal length
+        f = (intrinsics_data[0] + intrinsics_data[1]) / 2.
+        xc = intrinsics_data[2]
+        yc = intrinsics_data[3]
+
+        distortions = intrinsics_data[4:]
+        k2 = distortions[0]
+        k4 = distortions[1]
+        k6 = 0
+        if N >= 5:
+            k6 = distortions[4]
+        numerator = '1. + xs*xs * ({} + xs*xs * ({} + xs*xs * {}))'.format(k2,k4,k6)
+        numerator = numerator.replace('xs', 'x/{}'.format(f))
+
+        if N >= 8:
+            denominator = '1. + xs*xs * ({} + xs*xs * ({} + xs*xs * {}))'.format(*distortions[5:8])
+            denominator = denominator.replace('xs', 'x/{}'.format(f))
+            scale = '({})/({})'.format(numerator,denominator)
+        else:
+            scale = numerator
+
+
+        x01     = np.array((xc, W-xc), dtype=float)
+        y01     = np.array((yc, H-yc), dtype=float)
+        corners = nps.transpose( nps.glue( nps.cat(x01, y01),
+                                           nps.cat(x01, y01[::-1]),
+                                           axis=-1))
+        corners_len = np.sqrt(nps.norm2(corners))
+
+        equations = ['x * ({}) with lines title "distorted"'.format(scale),
+                     'x title "undistorted"']
+        sets=['arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[0]),
+              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[1]),
+              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[0]),
+              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[1]),
+              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[0]),
+              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[1]),
+              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[2]),
+              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[3])]
+        if 'set' in kwargs:
+            if type(kwargs['set']) is list: sets.extend(kwargs['set'])
+            else:                           sets.append(kwargs['set'])
+            del kwargs['set']
+        if '_set' in kwargs:
+            if type(kwargs['set']) is list: sets.extend(kwargs['_set'])
+            else:                           sets.append(kwargs['_set'])
+            del kwargs['_set']
+
+        if N >= 8:
+            equations.append(numerator   + ' axis x1y2 title "numerator (y2)"')
+            equations.append(denominator + ' axis x1y2 title "denominator (y2)"')
+            sets.append('y2tics')
+        kwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
+        plot = gp.gnuplotlib(equation = equations,
+                             _set=sets,
+                             _xrange = [0,np.max(corners_len) * 1.05],
+                             xlabel = 'Pixels from the projection center',
+                             ylabel = 'Pixels',
+                             **kwargs)
+        plot.plot()
+        return plot
+    else:
+        raise Exception("Unknown mode '{}'. I only know about 'heatmap','vectorfield','radial'".format(mode))
+
 
 def _intrinsics_diff_get_reprojected_grid(grid0, v0, v1,
                                           focus_center,
