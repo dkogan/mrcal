@@ -521,6 +521,11 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
     return dq_dp - nps.matmult(dq_dv, V, D)
 
 
+def colormap_using(imagersize, gridn_x, gridn_y):
+    '''Utility function returns a 'using' expressionwhen plotting a colormap'''
+    W,H = imagersize
+    return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
+
 def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
                                     imagersize,
                                     observed_pixel_uncertainty,
@@ -912,7 +917,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
               tuplesize=3,
               _with=np.array(('image','lines nosurface'),),
               legend = "", # needed to force contour labels
-              using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)))
+              using = colormap_using(imagersize, gridn_x, gridn_y))
     return plot
 
 def show_distortion(distortion_model, intrinsics_data,
@@ -1013,7 +1018,7 @@ def show_distortion(distortion_model, intrinsics_data,
                   tuplesize=3,
                   _with=np.array(('image','lines nosurface'),),
                   legend = "", # needed to force contour labels
-                  using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)))
+                  using = colormap_using(imagersize, gridn_x, gridn_y))
         return plot
 
     elif mode == 'vectorfield':
@@ -1498,7 +1503,7 @@ def show_intrinsics_diff(models,
                   tuplesize=3,
                   _with=np.array(('image','lines nosurface'),),
                   legend = "", # needed to force contour labels
-                  using = '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1)))
+                  using = colormap_using(imagersize, gridn_x, gridn_y))
     return plot
 
 
