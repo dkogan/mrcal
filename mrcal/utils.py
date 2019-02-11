@@ -440,30 +440,162 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
                             intrinsics_data), \
             grid
 
-# NEED TO DOCUMENT R FIT
-def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
+def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
                                       imagersize,
 
                                       # fit everywhere by default
                                       focus_center = None,
-                                      focus_radius = 1.e6, # effectively an infinite
-                                                           # number of pixels
-):
-    '''THIS IS ALL WRONG
+                                      focus_radius = -1.):
+    '''Returns dq/dintrinsics with a compensating rotation applied
 
-       Computes D, the solved matrix used to apply an R correction
+    When we evaluate the uncertainty of a solution, we want to see what would
+    happen to a projection in a specific location if the optimization vector
+    (intrinsics, extrinsics, poses of the observed objects) were perturbed. A
+    naive way to do this is to
 
-    I use a subset of my sample points here. The R fit is based on this
-    subset. I then use the fit I computed here for all the data.
+    - take a point-of-interest on the imager q
+    - unproject it into a vector v in the 3D camera coordinates
+    - reproject v using the perturbed intrinsics
+    - compare that projection to q
+
+    This works, but makes an incorrect assumption: it assumes the pose of the
+    camera is fixed, and well-known. This is never true. Perturbing the full
+    optimization vector moves the camera, so by comparing projections of a
+    single vector v in the camera coord system, we're actually comparing
+    projections of two different points because the camera coord system is
+    perturbed also. Note that this happens EVEN IN A MONOCULAR CALIBRATION. In
+    this case the camera coord system is the reference, so we have no explicit
+    representation of this coord system in our optimization vector, but we DO
+    represent observed poses, and those can all move in unison to effectively
+    move the camera.
+
+    The less naive way of evaluating the uncertainty of projection is to
+
+    - take a point-of-interest on the imager q
+    - unproject it into a vector v in the 3D camera coordinates
+    - infer a rotation R that describes the motion of the camera due to the
+      optimization vector perturbation
+    - Apply this rotation R to the observation vector v
+    - reproject the rotated v using the perturbed intrinsics
+    - compare that projection to q
+
+    In theory I can infer a full 6DOF transformation R,t instead of just R, but
+    this would affect points at different ranges differently, so I use just R
+    for now. This is similar in concept to what we do in show_intrinsics_diff(),
+    but there we explicitly compute R with a Procrustes fit, while here we have
+    to do this analytically
+
+    This procedure is clear, but we have to decide how to compute the rotation
+    R. I do this by
+
+    - sampling the imager in a regular grid
+    - unprojecting the 2D observations q in this grid using the intrinsics
+      before AND after the perturbation of the intrinsics
+    - computing an optimal rotation to match the two sets of vectors v
+
+    Since this allows me to pick the set of vectors that I use to compute the
+    rotation, I can focus this fit in any areas I choose. This means that I can
+    make the projection uncertainty as low as I want in any area (by matching
+    the rotations very well), but not ALL areas at the same time. This makes
+    sense since if I care about only a tiny-enough area in the imager, then all
+    calibrations are correct. A truly good calibration in general is one that
+    fits well in a large area.
+
+    The area is specified using the focus_radius and focus_center arguments, as
+    with the other functions:
+
+        if focus_radius > 0:
+           I use observation vectors within focus_radius pixels of the
+           focus_center. To use ALL the data, pass in a very large focus_radius.
+
+        if focus_radius < 0 (this is the default):
+           I fit a compensating rotation using a "reasonable" area in the center
+           of the imager. I use focus_radius = min(width,height)/6.
+
+        if focus_radius == 0:
+           I do NOT fit a compensating rotation. Rationale: with radius == 0, I
+           have no fitting data, so I do not fit anything at all.
+
+        if focus_center is None (this is the default):
+           focus_center is at the center of the imager
+
+    Derivation:
+
+    I'm looking at projections of some points v in the camera coord system;
+    these v project to some coordinates q in the imager. I perturb the
+    intrinsics of the camera, which moves where these v are projected to. I find
+    a rotation R that minimizes these differences in projection as much as
+    possible. For any single vector v I have and error
+
+      e = proj(Rv, intrinsics+dintrinsics) - proj(v, intrinsics)
+
+    Let's say the rotation R is of length th around an axis k (unit vector).
+    This is a small perturbation, so I assume that th ~ 0:
+
+      Rv = v cos(th) + cross(k,v) sin(th) + (1-cos(th))dot(k,v)k
+         ~ v + cross(k,v) th
+
+    Let my rotation be represented as a Rodrigues vector r = k th. And let V be
+    a skew-symmetric matrix representing cross(v, ...):
+
+      Rv ~ v - Vr
+
+    So
+
+      e_i = proj(v_i - V_i r, intrinsics+dintrinsics) - proj(v_i, intrinsics)
+          ~ dproj_i/dintrinsics dintrinsics - dproj_i/dv_i V_i r
+
+    I have dproj_i/dwhatever for each point from the projection function.
+    dintrinsics is my perturbation. I have V (directly from the vector I'm
+    projecting). r represents the rotation I'm looking for. I find the r that
+    minimizes a joint error for a number of projections.
+
+      E = sum( norm2(e_i) )
+      dE/dr = 0 ~ sum( V_it dproj_i/dv_it (dproj_i/dintrinsics dintrinsics - dproj_i/dv_i V_i r) )
+            = sum( V_it dproj_i/dv_it dproj_i/dintrinsics dintrinsics) -
+              sum( V_it dproj_i/dv_it dproj_i/dv_i V_i r)
+
+    ---> r = inv( sum( V_it dproj_i/dv_it dproj_i/dv_i V_i r) ) sum( V_it dproj_i/dv_it dproj_i/dintrinsics ) dintrinsics
+
+    For simplicity, let's define matrices I can compute explicitly:
+
+      C_VvvV = sum( V_i dproj_i/dv_it dproj_i/dv_i V_i r)
+      C_Vvp  = sum( V_i dproj_i/dv_it dproj_i/dintrinsics )
+
+    Then (I used the fact that Vt = -V)
+
+      r = inv(C_VvvV) C_Vvp dintrinsics
+
+    Defining
+
+      M = inv(C_VvvV) C_Vvp
+
+    I get
+
+      r = M dintrinsics
+
+    Cool! Given some projections in an area I want to match, I can explicitly
+    compute M. Then for any perturbation in intrinsics, I can compute the
+    compensating rotation r. Let's take the next step, and use this.
+
+    Ultimately the question we'll be asking is "what is the shift in projection
+    due to a perturbation in intrinsics?" This is e_i from above:
+
+      e_i ~ dproj_i/dintrinsics dintrinsics - dproj_i/dv_i V_i r
+
+    Except we already have r = M dintrinsics, so
+
+      e_i ~ (dproj_i/dintrinsics - dproj_i/dv_i V_i M) dintrinsics
+
+    Thus this function returns the CORRECTED dproj_i/dintrinsics:
+
+      dproj_i/dintrinsics - dproj_i/dv_i V_i M
 
     '''
 
     if focus_radius is None or focus_radius <= 0:
         # We're not fitting a rotation to compensate for shifted intrinsics.
         return dq_dp
-
-
-    # We're fitting the rotation to compensate for shifted intrinsics.
 
     @nps.broadcast_define( ((3,),), (3,3))
     def skew_symmetric(v):
@@ -496,8 +628,8 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
         if np.count_nonzero(i)<3:
             warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
         else:
-            V_c     = V_c             [i, ...]
-            dq_dv_c = dq_dv_c         [i, ...]
+            V_c     = V_c    [i, ...]
+            dq_dv_c = dq_dv_c[i, ...]
             dq_dp_c = dq_dp_c[i, ...]
 
     # shape (3,Nintrinsics)
@@ -514,11 +646,11 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dintrinsics, dq_dv,
                      axis=0)
 
     # shape (3,Nintrinsics)
-    D = np.linalg.solve(C_VvvV, C_Vvp)
+    M = np.linalg.solve(C_VvvV, C_Vvp)
 
-    # I have D. D is a constant. Used for ALL the samples v. I return the
-    # correction; this uses the D, but also a different V for each sample
-    return dq_dp - nps.matmult(dq_dv, V, D)
+    # I have M. M is a constant. Used for ALL the samples v. I return the
+    # correction; this uses the M, but also a different V for each sample
+    return dq_dp - nps.matmult(dq_dv, V, M)
 
 
 def colormap_using(imagersize, gridn_x, gridn_y):
@@ -622,9 +754,12 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         dq = dproj/dintrinsics dintrinsics
            = dproj/dintrinsics Mi dm
 
-      dprojection/dintrinsics comes from cvProjectPoints2(). I'm assuming
-      everything is locally linear, so this is a constant matrix for each v.
-      dintrinsics is the shift in the intrinsics of this camera. Mi
+      dprojection/dintrinsics comes from cvProjectPoints2(). A compensating
+      rotation may be applied by compute_Rcorrected_dq_dintrinsics(); see the
+      description in that function.
+
+      I'm assuming everything is locally linear, so this is a constant matrix
+      for each v. dintrinsics is the shift in the intrinsics of this camera. Mi
       is the subset of M that corresponds to these intrinsics
 
       If dm represents noise of the zero-mean, independent, gaussian variety,
@@ -849,7 +984,8 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     - outlierness-based (selected with outlierness=True)
 
     This routine uses the covariance of observed inputs. See
-    compute_intrinsics_uncertainty() for a description of both routines
+    compute_intrinsics_uncertainty() for a description of both routines and of
+    the arguments
 
     '''
 
