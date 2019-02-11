@@ -920,6 +920,68 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
               using = colormap_using(imagersize, gridn_x, gridn_y))
     return plot
 
+def report_residual_statistics( obs, err,
+                                imagersize,
+                                gridn_x = 20,
+                                gridn_y = 10):
+    '''Reports statistics about the fit resudial across the imager
+
+    If everything fits well, the residual distributions in each area of the
+    imager should be identical. If the model doesn't fit well, the statistics
+    will not be consistent. This function returns a tuple
+    (mean,stdev,count,colormap_using). The first 3 area all W,H arrays indexing
+    the imager. colormap_using is a "using" keyword for plotting this data in a
+    heatmap
+
+    '''
+
+    W,H=imagersize
+    w = np.linspace(0,W-1,gridn_x)
+    h = np.linspace(0,H-1,gridn_y)
+
+    # shape: Nwidth,Nheight,2
+    c = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+    wcell = w[1] - w[0]
+    hcell = h[1] - h[0]
+    rcell = np.array((wcell,hcell), dtype=float) / 2.
+
+    @nps.broadcast_define( (('N',2), ('N',), (2,)), (3,) )
+    def residual_stats(xy, z, center):
+        r'''Generates localized residual statistics
+
+        Tekes in an array of residuals of shape (N,3) (contains (x,y,error)
+        slices)
+
+        '''
+
+        # boolean (x,y separately) map of observations that are within a cell
+        idx = np.abs(xy-center) < rcell
+
+        # join x,y: both the x,y must be within a cell for the observation to be
+        # within a cell
+        idx = idx[:,0] * idx[:,1]
+
+        z   = z[idx, ...]
+        if z.shape[0] <= 5:
+            # we have too little data in this cell
+            return np.array((0.,0.,z.shape[0]), dtype=float)
+
+        mean   = np.mean(z)
+        stdev  = np.std(z)
+        return np.array((mean,stdev,z.shape[0]))
+
+
+    # obs,err each have shape (N,2): each slice is xy. I have 2N
+    # measurements, so I flatten the errors, and double-up the observations
+    errflat = err.ravel()
+    obsflat = nps.clump(nps.mv(nps.cat(obs,obs), -3, -2), n=2)
+
+    mean,stdev,count = nps.mv( residual_stats(obsflat, errflat, c),
+                               -1, 0)
+    return mean,stdev,count,colormap_using(imagersize, gridn_x, gridn_y)
+
+
 def show_distortion(distortion_model, intrinsics_data,
                     imagersize,
                     mode,

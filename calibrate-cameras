@@ -2245,49 +2245,10 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
 
         if i_camera < 0:
             raise Exception("Regional visualization for 'all' cameras at once isn't useful. Pass i_camera >= 0")
-        r2_near_threshold = 100. ** 2.
-        r2_far_threshold  = 200. ** 2.
-        def weight(xy, center):
-            r2 = nps.norm2(xy - center)
-            return \
-                np.clip((r2 - r2_far_threshold) / (r2_near_threshold - r2_far_threshold),
-                        0.0, 1.0)
 
-        @nps.broadcast_define( (('N',2), ('N',), (2,)), (3,) )
-        def residual_stats(xy, z, center):
-            r'''Generates localized residual statistics
-
-            Tekes in an array of residuals of shape (N,3) (contains (x,y,error)
-            slices)
-
-            '''
-            w    = weight(xy, center)
-            sumw = np.sum(w)
-            if sumw <= 5:
-                # we have too little data in this cell
-                return np.array((0.,0.,sumw), dtype=float)
-
-            mean = nps.inner(w, z) / sumw
-            var  = nps.inner(w, (z - mean) * (z - mean)) / sumw
-            return np.array((mean,np.sqrt(var),sumw))
-
-        gridn_x = 20
-        gridn_y = 10
-        w = np.linspace(0,W-1,gridn_x)
-        h = np.linspace(0,H-1,gridn_y)
-        # shape: Nwidth,Nheight,2
-        c = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
-
-        # obs,err each have shape (N,2): each slice is xy. I have 2N
-        # measurements, so I flatten the errors, and double-up the observations
-        errflat = err.ravel()
-        obsflat = nps.clump(nps.mv(nps.cat(obs,obs), -3, -2), n=2)
-
-        mean,stdev,weight = nps.mv( residual_stats(obsflat, errflat, c),
-                                    -1, 0)
-
-        using='($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
-
+        mean,stdev,count,using = \
+            mrcal.report_residual_statistics(obs,err,
+                                             imagersizes[i_camera])
         def mkplot(x, title, **kwargs_here):
             kwargs_here.update(kwargs)
             if 'hardcopy' in kwargs_here:
@@ -2309,10 +2270,10 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
 
         plots_how[i_camera+1] = [ mkplot(np.abs(mean), 'abs(mean)'),
                                   mkplot(stdev,        'stdev'),
-                                  mkplot(weight,       'weight', cbrange = (0, 20)) ]
+                                  mkplot(count,        'count', cbrange = (0, 20)) ]
 
     else:
-        raise Exception("Unknown visualization method '{}'. I know of 'vectorfield' and 'heatmap' and 'histogram'". \
+        raise Exception("Unknown visualization method '{}'. I know of 'vectorfield','heatmap','histogram','radial','regional'". \
                         format(how))
 
 
