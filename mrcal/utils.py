@@ -669,8 +669,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
                                     # fit a "reasonable" area in the center by
                                     # default
                                     focus_center = None,
-                                    focus_radius = -1.
-                              ):
+                                    focus_radius = -1.):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Given a (broadcastable) 3D vector, and the inv(JtJ) matrix for the
@@ -693,7 +692,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
            I use observation vectors within focus_radius pixels of the
            focus_center. To use ALL the data, pass in a very large focus_radius.
 
-        if focus_radius < 0:
+        if focus_radius < 0 (this is the default):
            I fit a compensating rotation using a "reasonable" area in the center
            of the imager. I use focus_radius = min(width,height)/6.
 
@@ -701,7 +700,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
            I do NOT fit a compensating rotation. Rationale: with radius == 0, I
            have no fitting data, so I do not fit anything at all.
 
-        if focus_center is None:
+        if focus_center is None (this is the default):
            focus_center is at the center of the imager
 
 
@@ -1575,7 +1574,7 @@ def show_intrinsics_diff(models,
            I use observation vectors within focus_radius pixels of the
            focus_center. To use ALL the data, pass in a very large focus_radius.
 
-        if focus_radius < 0:
+        if focus_radius < 0 (this is the default):
            I fit a compensating rotation using a "reasonable" area in the center
            of the imager. I use focus_radius = min(width,height)/6.
 
@@ -1583,7 +1582,7 @@ def show_intrinsics_diff(models,
            I do NOT fit a compensating rotation. Rationale: with radius == 0, I
            have no fitting data, so I do not fit anything at all.
 
-        if focus_center is None:
+        if focus_center is None (this is the default):
            focus_center is at the center of the imager
 
     When fitting a rotation, I try to find the largest matching region around
