@@ -1341,22 +1341,24 @@ def show_distortion(distortion_model, intrinsics_data,
         raise Exception("Unknown mode '{}'. I only know about 'heatmap','vectorfield','radial'".format(mode))
 
 
-def _intrinsics_diff_get_reprojected_grid(grid0, v0, v1,
-                                          focus_center,
-                                          focus_radius,
-                                          distortion_models, intrinsics_data,
+def _intrinsics_diff_get_reprojections(q0, v0, v1,
+                                       focus_center,
+                                       focus_radius,
+                                       distortion_models, intrinsics_data,
 
-                                          # these are for testing mostly. When I figure out
-                                          # what I'm doing here, I can probably toss these
-                                          imagersizes):
+                                       imagersizes):
 
-    r'''Computes a undistorted grid for camera1 that corresponds to camera0
+    r'''Computes a reprojection into camera1 from observations in camera0
 
-    I sample the imager grid in all my cameras, and compute the rotation
-    that maps the vectors to each other as closely as possible. Then I
-    produce a difference map by projecting the matched-up vectors
+    I sample the imager grid in all my cameras, and compute the rotation that
+    maps the vectors to each other as closely as possible. Then I produce a
+    difference map by projecting the matched-up vectors. This is very similar in
+    spirit to what compute_Rcorrected_dq_dintrinsics() does, but that function
+    has to work analytically, while this one explicitly computes the rotation by
+    matching up known vectors.
 
-    The simplest way to compute this rotation is with a procrustes fit:
+
+    I compute the rotation is with a Procrustes fit:
 
         R = align3d_procrustes( nps.clump(v0,n=2),
                                 nps.clump(v1,n=2), vectors=True)
@@ -1439,8 +1441,8 @@ def _intrinsics_diff_get_reprojected_grid(grid0, v0, v1,
         if focus_radius < 2*(W+H):
             # We try to match the geometry in a particular region
 
-            grid_off_center = grid0 - focus_center
-            i = nps.norm2(grid_off_center) < focus_radius*focus_radius
+            q_off_center = q0 - focus_center
+            i = nps.norm2(q_off_center) < focus_radius*focus_radius
             if np.count_nonzero(i)<3:
                 warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
             else:
@@ -1448,7 +1450,7 @@ def _intrinsics_diff_get_reprojected_grid(grid0, v0, v1,
                 V1cut = v1[i, ...]
 
                 # get the nearest index on my grid to the requested center
-                icenter_flat = np.argmin(nps.norm2(grid_off_center))
+                icenter_flat = np.argmin(nps.norm2(q_off_center))
 
                 # This looks funny, but it's right. My grid is set up that you index
                 # with the x-coord and then the y-coord. This is opposite from the
@@ -1609,28 +1611,29 @@ def show_intrinsics_diff(models,
     intrinsics_data   = [model.intrinsics()[1] for model in models]
 
 
-    v,grid0 = _sample_imager_unproject(gridn_x, gridn_y,
-                                       distortion_models, intrinsics_data,
-                                       W, H)
+    v,q0 = _sample_imager_unproject(gridn_x, gridn_y,
+                                    distortion_models, intrinsics_data,
+                                    W, H)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
-        grid1   = _intrinsics_diff_get_reprojected_grid(grid0,
-                                                        v[0,...], v[1,...],
-                                                        focus_center, focus_radius,
-                                                        distortion_models[1], intrinsics_data[1],
-                                                        imagersizes)
-        diff    = grid1 - grid0
+        q1   = _intrinsics_diff_get_reprojections(q0,
+                                                  v[0,...], v[1,...],
+                                                  focus_center, focus_radius,
+                                                  distortion_models[1], intrinsics_data[1],
+                                                  imagersizes)
+        diff    = q1 - q0
         difflen = np.sqrt(nps.inner(diff, diff))
 
     else:
+        # comment is wrongff
         # Many models. Look at the stdev
-        grids = nps.cat(*[_intrinsics_diff_get_reprojected_grid(grid0,
-                                                                v[0,...], v[i,...],
-                                                                focus_center, focus_radius,
-                                                                distortion_models[i], intrinsics_data[i],
-                                                                imagersizes) for i in xrange(1,len(v))])
-        difflen = np.sqrt(np.mean(nps.norm2(grids-grid0),axis=0))
+        grids = nps.cat(*[_intrinsics_diff_get_reprojections(q0,
+                                                             v[0,...], v[i,...],
+                                                             focus_center, focus_radius,
+                                                             distortion_models[i], intrinsics_data[i],
+                                                             imagersizes) for i in xrange(1,len(v))])
+        difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
 
     if 'title' not in kwargs:
         if focus_radius < 0:
@@ -1659,12 +1662,12 @@ def show_intrinsics_diff(models,
                              cbrange=[0,cbmax],
                              **kwargs)
 
-        p0      = nps.clump(grid0,   n=2)
-        p1      = nps.clump(grid1,   n=2)
+        q0      = nps.clump(q0,      n=2)
+        q1      = nps.clump(q1,      n=2)
         diff    = nps.clump(diff,    n=2)
         difflen = nps.clump(difflen, n=2)
 
-        plot.plot( p0  [:,0], p0  [:,1],
+        plot.plot( q0  [:,0], q0  [:,1],
                    diff[:,0], diff[:,1],
                    difflen,
                    _with='vectors size screen 0.005,10 fixed filled palette',
