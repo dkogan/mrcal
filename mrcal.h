@@ -136,6 +136,20 @@ void mrcal_project( // out
                    // core, distortions concatenated
                    const double* intrinsics);
 
+// Maps a set of undistorted 2D imager points q to a set of imager points that
+// would result from observing the same vectors with a distorted model. Here the
+// undistorted model is one with the exact same intrinsic core (focal lengths,
+// center pixels), but no distortion parameters
+bool mrcal_distort( // out
+                   union point2_t* out,
+
+                   // in
+                   const union point2_t* q,
+                   int N,
+                   enum distortion_model_t distortion_model,
+                   // core, distortions concatenated
+                   const double* intrinsics);
+
 
 
 #define MRCAL_STATS_ITEM(_)                                           \

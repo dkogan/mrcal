@@ -978,6 +978,210 @@ void mrcal_project( // out
     }
 }
 
+
+static
+bool cahvore_distort( // out
+                      union point2_t* out,
+
+                      // in
+                      const union point2_t* q,
+                      int N,
+
+                      const struct intrinsics_core_t* core,
+                      const double*                   distortions)
+{
+    // Apply a CAHVORE warp to an un-distorted point
+
+    //  Given intrinsic parameters of a CAHVORE model and a pinhole-projected
+    //  point(s) numpy array of shape (..., 2), return the projected point(s) that
+    //  we'd get with distortion. By default we assume the same fx,fy,cx,cy. A scale
+    //  parameter allows us to scale the size of the output image by scaling the
+    //  focal lengths
+
+    // This comes from cmod_cahvore_3d_to_2d_general() in
+    // m-jplv/libcmod/cmod_cahvore.c
+    //
+    // The lack of documentation here comes directly from the lack of
+    // documentation in that function.
+
+    // I parametrize the optical axis such that
+    // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
+    //   if both parameters are 0
+    // - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
+    //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
+    //   lock), and that would make my solver unhappy
+    // So o = { s_al*c_be, s_be,  c_al*c_be }
+    const double alpha     = distortions[0];
+    const double beta      = distortions[1];
+    const double r0        = distortions[2];
+    const double r1        = distortions[3];
+    const double r2        = distortions[4];
+    const double e0        = distortions[5];
+    const double e1        = distortions[6];
+    const double e2        = distortions[7];
+    const double linearity = distortions[8];
+
+    for(int i=0; i<N; i++)
+    {
+        // q is a 2d point. Convert to a 3d point
+        double v[] = { (q[i].x - core->center_xy[0]) / core->focal_xy[0],
+                       (q[i].y - core->center_xy[1]) / core->focal_xy[1],
+                       1.0};
+
+        double sa,ca;
+        sincos(alpha, &sa, &ca);
+        double sb,cb;
+        sincos(beta, &sb, &cb);
+
+        double o[] ={ cb * sa, sb, cb * ca };
+
+        // cos( angle between v and o ) = inner(v,o) / (norm(o) * norm(v)) =
+        // omega/norm(v)
+        double omega = v[0]*o[0] + v[1]*o[1] + o[2];
+
+
+        // Basic Computations
+
+        // Calculate initial terms
+        double u[3];
+        for(int i=0; i<3; i++) u[i] = omega*o[i];
+
+        double ll[3];
+        for(int i=0; i<3; i++) ll[i] = v[i]-u[i];
+        double l  = sqrt(ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2]);
+
+        // Calculate theta using Newton's Method
+        double theta = atan2(l, omega);
+
+        int inewton;
+        for( inewton = 100; inewton; inewton--)
+        {
+            // Compute terms from the current value of theta
+            double sth,cth;
+            sincos(theta, &sth, &cth);
+
+            double theta2  = theta * theta;
+            double theta3  = theta * theta2;
+            double theta4  = theta * theta3;
+            double upsilon =
+                omega*cth + l*sth
+                - (1.0   - cth) * (e0 +      e1*theta2 +     e2*theta4)
+                - (theta - sth) * (      2.0*e1*theta  + 4.0*e2*theta3);
+
+            // Update theta
+            double dtheta =
+                (
+                 omega*sth - l*cth
+                 - (theta - sth) * (e0 + e1*theta2 + e2*theta4)
+                 ) / upsilon;
+            theta -= dtheta;
+
+            // Check exit criterion from last update
+            if(fabs(dtheta) < 1e-8)
+                break;
+        }
+        if(inewton == 0)
+        {
+            fprintf(stderr, "%s(): too many iterations\n", __func__);
+            return false;
+        }
+
+        // got a theta
+
+        // Check the value of theta
+        if(theta * fabs(linearity) > M_PI/2.)
+        {
+            fprintf(stderr, "%s(): theta out of bounds\n", __func__);
+            return false;
+        }
+
+        // If we aren't close enough to use the small-angle approximation ...
+        if (theta > 1e-8)
+        {
+            // ... do more math!
+            double linth = linearity * theta;
+            double chi;
+            if (linearity < -1e-15)
+                chi = sin(linth) / linearity;
+            else if (linearity > 1e-15)
+                chi = tan(linth) / linearity;
+            else
+                chi = theta;
+
+            double chi2 = chi * chi;
+            double chi3 = chi * chi2;
+            double chi4 = chi * chi3;
+
+            double zetap = l / chi;
+
+            double mu = r0 + r1*chi2 + r2*chi4;
+
+            double uu[3];
+            for(int i=0; i<3; i++) uu[i] = zetap*o[i];
+            double vv[3];
+            for(int i=0; i<3; i++) vv[i] = (1. + mu)*ll[i];
+
+            for(int i=0; i<3; i++)
+                v[i] = uu[i] + vv[i];
+        }
+
+        // now I apply a normal projection to the warped 3d point v
+        out[i].x = core->focal_xy[0] * v[0]/v[2] + core->center_xy[0];
+        out[i].y = core->focal_xy[1] * v[1]/v[2] + core->center_xy[1];
+    }
+    return true;
+}
+
+
+// Maps a set of undistorted 2D imager points q to a set of imager points that
+// would result from observing the same vectors with a distorted model. Here the
+// undistorted model is one with the exact same intrinsic core (focal lengths,
+// center pixels), but no distortion parameters
+bool mrcal_distort( // out
+                   union point2_t* out,
+
+                   // in
+                   const union point2_t* q,
+                   int N,
+                   enum distortion_model_t distortion_model,
+                   // core, distortions concatenated
+                   const double* intrinsics)
+{
+    const struct intrinsics_core_t* core =
+        (const struct intrinsics_core_t*)intrinsics;
+    const double* distortions = &intrinsics[4];
+
+
+    // project() doesn't handle cahvore, so I special-case it here
+    if( distortion_model == DISTORTION_CAHVORE )
+        return cahvore_distort( out, q, N, core, distortions );
+
+    struct pose_t frame = {.r = {},
+                           .t = {.z = 1.0}};
+    for(int i=0; i<N; i++)
+    {
+        // q is a 2d point. Convert to a 3d point into frame.t
+        frame.t.x = (q[i].x - core->center_xy[0]) / core->focal_xy[0];
+        frame.t.y = (q[i].y - core->center_xy[1]) / core->focal_xy[1];
+        // initializing this above: frame.t[2] = 1.0;
+
+        out[i] = project( NULL, NULL,
+                          NULL, NULL, NULL,
+                          NULL,
+
+                          // in
+                          core, distortions,
+                          NULL,
+                          &frame,
+                          true,
+                          distortion_model,
+
+                          -1, 0.0, 0);
+    }
+
+    return true;
+}
+
 // The following functions define/use the layout of the state vector. In general
 // I do:
 //
