@@ -847,6 +847,172 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 }
 
 
+#define DISTORT_ARGUMENTS_REQUIRED(_)                                  \
+    _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {} ) \
+    _(distortion_model, PyObject*,      NULL,    "S",                                   , -1,         {} ) \
+    _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {} ) \
+
+#define DISTORT_ARGUMENTS_OPTIONAL(_)
+
+#define DISTORT_ARGUMENTS_ALL(_) \
+    DISTORT_ARGUMENTS_REQUIRED(_) \
+    DISTORT_ARGUMENTS_OPTIONAL(_)
+static bool distort_validate_args( // out
+                                  enum distortion_model_t* distortion_model_type,
+
+                                  // in
+                                  DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
+                                  DISTORT_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
+                                  void* dummy __attribute__((unused)))
+{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    DISTORT_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
+
+    if( PyArray_NDIM(intrinsics) != 1 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
+        return false;
+    }
+
+    // points can be None, or have no elements potentially
+    if( !( points == NULL || (PyObject*)points == Py_None || PyArray_SIZE(points) == 0) )
+        if( PyArray_NDIM(points) < 1 )
+        {
+            PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
+            return false;
+        }
+
+    if( 2 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 2. Instead got %ld",
+                     PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
+        return false;
+    }
+
+    const char* distortion_model_cstring = PyString_AsString(distortion_model);
+    if( distortion_model_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
+                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        return false;
+    }
+
+    *distortion_model_type = mrcal_distortion_model_from_name(distortion_model_cstring);
+    if( *distortion_model_type == DISTORTION_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
+                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     distortion_model_cstring);
+        return false;
+    }
+
+    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
+    if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
+                     N_INTRINSICS_CORE + NdistortionParams,
+                     PyArray_DIMS(intrinsics)[1] );
+        return false;
+    }
+
+    return true;
+}
+static PyObject* distort(PyObject* NPY_UNUSED(self),
+                         PyObject* args,
+                         PyObject* kwargs)
+{
+    PyObject*      result          = NULL;
+    SET_SIGINT();
+
+    PyArrayObject* out             = NULL;
+    PyArrayObject* dxy_dintrinsics = NULL;
+    PyArrayObject* dxy_dp          = NULL;
+
+    DISTORT_ARGUMENTS_ALL(ARG_DEFINE) ;
+    char* keywords[] = { DISTORT_ARGUMENTS_REQUIRED(NAMELIST)
+                         DISTORT_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     DISTORT_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                     DISTORT_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                     keywords,
+
+                                     DISTORT_ARGUMENTS_REQUIRED(PARSEARG)
+                                     DISTORT_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+        goto done;
+
+    enum distortion_model_t distortion_model_type;
+    if(!distort_validate_args( &distortion_model_type,
+                               DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
+                               DISTORT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                               NULL))
+        goto done;
+
+    // if the input points array is degenerate, return a degenerate thing
+    if( points == NULL  || (PyObject*)points == Py_None)
+    {
+        out = (PyArrayObject*)Py_None;
+        Py_INCREF(out);
+        goto done;
+    }
+    if(PyArray_SIZE(points) == 0)
+    {
+        out = points;
+        Py_INCREF(out);
+        goto done;
+    }
+
+    int Nintrinsics = PyArray_DIMS(intrinsics)[0];
+
+    // poor man's broadcasting of the inputs. I compute the total number of
+    // points by multiplying the extra broadcasted dimensions. And I set up the
+    // outputs to have the appropriate broadcasted dimensions
+    const npy_intp* leading_dims  = PyArray_DIMS(points);
+    int             Nleading_dims = PyArray_NDIM(points)-1;
+    int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];
+
+    {
+        npy_intp dims[Nleading_dims+2];
+        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
+
+        dims[Nleading_dims + 0] = 2;
+        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
+                                                dims,
+                                                NPY_DOUBLE);
+    }
+
+    if(! mrcal_distort((union point2_t*)PyArray_DATA(out),
+
+                       (const union point2_t*)PyArray_DATA(points),
+                       Npoints,
+                       distortion_model_type,
+                       // core, distortions concatenated
+                       (const double*)PyArray_DATA(intrinsics)) )
+    {
+       PyErr_SetString(PyExc_RuntimeError, "mrcal_distort() failed!");
+       Py_DECREF((PyObject*)out);
+       goto done;
+    }
+
+    result = (PyObject*)out;
+
+ done:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    DISTORT_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    DISTORT_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+#pragma GCC diagnostic pop
+    RESET_SIGINT();
+    return result;
+}
+
+
 
 #define QIOA_ARGUMENTS_REQUIRED(_)                                  \
     _(v,              PyArrayObject*, NULL, "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {}) \
@@ -1727,6 +1893,9 @@ PyMODINIT_FUNC init_mrcal(void)
     static const char project_docstring[] =
 #include "project.docstring.h"
         ;
+    static const char distort_docstring[] =
+#include "distort.docstring.h"
+        ;
     static const char queryIntrinsicOutliernessAt_docstring[] =
 #include "queryIntrinsicOutliernessAt.docstring.h"
         ;
@@ -1736,6 +1905,7 @@ PyMODINIT_FUNC init_mrcal(void)
           PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
           PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
           PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
+          PYMETHODDEF_ENTRY(,distort,                      METH_VARARGS | METH_KEYWORDS),
           PYMETHODDEF_ENTRY(,queryIntrinsicOutliernessAt,  METH_VARARGS | METH_KEYWORDS),
           {}
         };
