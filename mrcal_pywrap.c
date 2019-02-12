@@ -741,9 +741,9 @@ static bool project_validate_args( // out
     int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
     if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
     {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
+        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[0] MUST be %d. Instead got %ld",
                      N_INTRINSICS_CORE + NdistortionParams,
-                     PyArray_DIMS(intrinsics)[1] );
+                     PyArray_DIMS(intrinsics)[0] );
         return false;
     }
 
@@ -913,9 +913,9 @@ static bool distort_validate_args( // out
     int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
     if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
     {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
+        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[0] MUST be %d. Instead got %ld",
                      N_INTRINSICS_CORE + NdistortionParams,
-                     PyArray_DIMS(intrinsics)[1] );
+                     PyArray_DIMS(intrinsics)[0] );
         return false;
     }
 
