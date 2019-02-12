@@ -239,9 +239,9 @@ def opencv_distort(q, fx, fy, cx, cy, *distortions, **kwargs):
                         np.ones( q.shape[:-1])),
                 0, -1 )
 
-    A = np.array(((fx*scale,  0, cx),
-                  ( 0, fy*scale, cy),
-                  ( 0,  0,  1)))
+    A = np.array(((fx*scale, 0,        cx),
+                  ( 0,       fy*scale, cy),
+                  ( 0,       0,        1)))
 
     out,_ = cv2.projectPoints(nps.atleast_dims(v,-2), np.zeros((3,)), np.zeros((3,)), A, distortions)
     out = out[:,0,:]
