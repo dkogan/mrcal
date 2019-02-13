@@ -2411,8 +2411,10 @@ bool markOutliers(// output, input
             markedOutliers[i_feature].marked = true;
             markedAny                        = true;
             (*Noutliers)++;
-            MSG_IF_VERBOSE("Feature %d looks like an outlier (x/y are %f/%f stdevs off mean)",
-                           i_feature, dx/sqrt(var), dy/sqrt(var));
+
+            // MSG_IF_VERBOSE("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
+            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k);
+
         }
     }
     LOOP_FEATURE_END();
@@ -3376,9 +3378,7 @@ mrcal_optimize( // out
             assert(iMeasurement == Nmeasurements);
             assert(iJacobian    == N_j_nonzero  );
 
-            // this is just for diagnostics. Should probably do this only in a
-            // #if of some sort. This sqrt() does no useful work
-            MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
+            // MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / ((double)Nmeasurements / 2.0)));
         }
     }
 
