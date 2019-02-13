@@ -1037,121 +1037,6 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
 }
 
 
-
-#define QIOA_ARGUMENTS_REQUIRED(_)                                  \
-    _(v,              PyArrayObject*, NULL, "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {}) \
-    _(i_camera,       int,            -1,   "i",                                   ,         -1, {}) \
-    _(solver_context, SolverContext*, NULL, "O" ,                                  ,         -1, {})
-
-#define QIOA_ARGUMENTS_OPTIONAL(_) \
-    _(Noutliers,      int,            0,    "i",                                   ,         -1, {})
-
-#define QIOA_ARGUMENTS_ALL(_) \
-    QIOA_ARGUMENTS_REQUIRED(_) \
-    QIOA_ARGUMENTS_OPTIONAL(_)
-static
-#warning can I throw this away?
-bool queryIntrinsicOutliernessAt_validate_args(QIOA_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
-                                               QIOA_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
-                                               void* dummy __attribute__((unused)))
-{
-    if( PyArray_NDIM(v) < 1 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'v' must have ndims >= 1");
-        return false;
-    }
-    if( 3 != PyArray_DIMS(v)[ PyArray_NDIM(v)-1 ] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "v.shape[-1] MUST be 3. Instead got %ld",
-                     PyArray_DIMS(v)[PyArray_NDIM(v)-1] );
-        return false;
-    }
-
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    QIOA_ARGUMENTS_ALL(CHECK_LAYOUT) ;
-#pragma GCC diagnostic pop
-
-    if(i_camera < 0)
-    {
-        PyErr_Format(PyExc_RuntimeError, "i_camera>=0 should be true");
-        return false;
-    }
-
-    if( solver_context == NULL ||
-        (PyObject*)solver_context == Py_None ||
-        Py_TYPE(solver_context) != &SolverContextType)
-    {
-        PyErr_Format(PyExc_RuntimeError, "solver_context must be of type mrcal.SolverContext");
-        return false;
-    }
-    if(((SolverContext*)solver_context)->ctx == NULL)
-    {
-        PyErr_Format(PyExc_RuntimeError, "solver_context must contain a non-empty context");
-        return false;
-    }
-
-    return true;
-}
-static PyObject* queryIntrinsicOutliernessAt(PyObject* NPY_UNUSED(self),
-                                             PyObject* args,
-                                             PyObject* kwargs)
-{
-    PyObject* result = NULL;
-    SET_SIGINT();
-
-    QIOA_ARGUMENTS_ALL(ARG_DEFINE) ;
-    char* keywords[] = { QIOA_ARGUMENTS_REQUIRED(NAMELIST)
-                         QIOA_ARGUMENTS_OPTIONAL(NAMELIST)
-                         NULL};
-
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     QIOA_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                     QIOA_ARGUMENTS_OPTIONAL(PARSECODE),
-
-                                     keywords,
-
-                                     QIOA_ARGUMENTS_REQUIRED(PARSEARG)
-                                     QIOA_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-        goto done;
-
-    if(!queryIntrinsicOutliernessAt_validate_args( QIOA_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
-                                                   QIOA_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
-                                                   NULL))
-        goto done;
-
-    int N = PyArray_SIZE(v) / 3;
-    PyArrayObject* traces = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(v)-1, PyArray_DIMS(v), NPY_DOUBLE);
-    if(!mrcal_queryIntrinsicOutliernessAt((double*)PyArray_DATA(traces),
-                                          solver_context->distortion_model,
-                                          solver_context->problem_details.do_optimize_intrinsic_core,
-                                          solver_context->problem_details.do_optimize_intrinsic_distortions,
-                                          solver_context->problem_details.do_optimize_cahvor_optical_axis,
-                                          i_camera,
-                                          (const union point3_t*)PyArray_DATA(v),
-                                          N, Noutliers,
-                                          (void*)solver_context->ctx))
-    {
-        Py_DECREF(traces);
-        goto done;
-    }
-
-    result = (PyObject*)traces;
-
- done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    QIOA_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    QIOA_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
-#pragma GCC diagnostic pop
-
-    RESET_SIGINT();
-    return result;
-}
-
-
-
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA -1       } ) \
     _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA  6       } ) \
@@ -1756,7 +1641,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         }
 
-
         struct mrcal_stats_t stats =
         mrcal_optimize( c_x_final,
                         c_invJtJ_intrinsics_full,
@@ -1920,9 +1804,6 @@ PyMODINIT_FUNC init_mrcal(void)
     static const char distort_docstring[] =
 #include "distort.docstring.h"
         ;
-    static const char queryIntrinsicOutliernessAt_docstring[] =
-#include "queryIntrinsicOutliernessAt.docstring.h"
-        ;
     static PyMethodDef methods[] =
         { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
           PYMETHODDEF_ENTRY(,getNdistortionParams,         METH_VARARGS),
@@ -1930,7 +1811,6 @@ PyMODINIT_FUNC init_mrcal(void)
           PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
           PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
           PYMETHODDEF_ENTRY(,distort,                      METH_VARARGS | METH_KEYWORDS),
-          PYMETHODDEF_ENTRY(,queryIntrinsicOutliernessAt,  METH_VARARGS | METH_KEYWORDS),
           {}
         };
 

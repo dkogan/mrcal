@@ -174,13 +174,11 @@ OPTIONAL ARGS:
   s*sqrt(pi/2) ~ s*1.25. This is used to set the outlier rejection threshold
 
 - solver_context: an object that will receive the context from this solve. This
-  context can be re-used in other calls, such as queryIntrinsicOutliernessAt().
-  The usage is
+  context can be re-used in other calls. The usage is
 
       solver_context = mrcal.SolverContext()
       stats = mrcal.optimize( ...,
                               solver_context = solver_context)
-      mrcal.queryIntrinsicOutliernessAt( ..., solver_context)
 
 We return a dict with various metrics describing the computation we just
 performed
