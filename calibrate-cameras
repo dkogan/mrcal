@@ -1935,7 +1935,7 @@ def show_residuals_observation(observation, **kwargs):
                    tuplesize = 3)),
 
              (obs[:,0], obs[:,1], err[:,0], err[:,1],
-              dict(_with     = 'vectors size screen 0.005,10 fixed filled lw 2',
+              dict(_with     = 'vectors size screen 0.01,20 fixed filled lw 2',
                    legend    = 'observed',
                    tuplesize = 4)),
 
@@ -2151,7 +2151,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
             plot( obs[:,0], obs[:,1],
                   err[:,0], err[:,1],
                   np.sqrt(nps.norm2(err)),
-                  _with='vectors size screen 0.005,10 fixed filled palette',
+                  _with='vectors size screen 0.01,20 fixed filled palette',
                   tuplesize=5)
     elif how == 'heatmap':
         plots_how[i_camera+1] = \
