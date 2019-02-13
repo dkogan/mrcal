@@ -1715,6 +1715,9 @@ if args.num_cross_validation_splits > 1:
 
     Nobservations = indices_frame_camera.shape[0]
     splits = cross_validation_makesplit(Nobservations, args.num_cross_validation_splits)
+
+    cross_validation_models = []
+
     for isplit in xrange(len(splits)):
 
         s = splits[isplit]
@@ -1753,7 +1756,21 @@ if args.num_cross_validation_splits > 1:
         report = "RMS reprojection error: {} pixels\n".format(stats['rms_reproj_error__pixels'])
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ \n" + report)
 
+        cross_validation_models.append( make_cameramodels(split_intrinsics, split_extrinsics, MMt=None) )
+    # for i_camera in xrange(len(intrinsics[1]):
+    i_camera = 0
+    if roi is None:
+        focus_center = None
+        focus_radius = min(imagersizes[i_camera])/6
+    else:
+        focus_center = roi[i_camera,:2]
+        focus_radius = min(roi[i_camera,2:])
+    plot = \
+        mrcal.show_intrinsics_diff([models[i_camera] for models in cross_validation_models],
+                                   focus_center = focus_center,
+                                   focus_radius = focus_radius)
 
+    plot.wait()
 
     print "done!!!!!!"
     sys.exit()
