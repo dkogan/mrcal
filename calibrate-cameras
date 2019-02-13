@@ -1847,7 +1847,7 @@ print r'''Calibration results REPL.
 Potential things to look at:
 
     show_residuals_observation_worst(i_observation_in_order_from_worst)
-    show_residuals_observation(i_observation)
+    show_residuals_observation(i_observation, scale=20)
     show_intrinsics_uncertainty()
     show_residuals('histogram',   i_camera)
     show_residuals('vectorfield', i_camera, ignore_outliers=False)
@@ -1880,7 +1880,7 @@ rms_err_0_for_outliers_perimage     = np.sqrt( nps.norm2( nps.clump(err_0_for_ou
 i_observations_worst    = list(reversed(np.argsort(rms_err_0_for_outliers_perimage)))
 i_observation_from_path = dict( [(paths[_i],_i) for _i in xrange(len(observations))] )
 
-def show_residuals_observation(observation, **kwargs):
+def show_residuals_observation(observation, scale = 1.0, **kwargs):
     r'''Visualize calibration residuals
 
     Takes either an integer (observation index) or a string (path)
@@ -1934,7 +1934,7 @@ def show_residuals_observation(observation, **kwargs):
                    legend    = 'reprojection error',
                    tuplesize = 3)),
 
-             (obs[:,0], obs[:,1], err[:,0], err[:,1],
+             (obs[:,0], obs[:,1], scale*err[:,0], scale*err[:,1],
               dict(_with     = 'vectors size screen 0.01,20 fixed filled lw 2',
                    legend    = 'observed',
                    tuplesize = 4)),
