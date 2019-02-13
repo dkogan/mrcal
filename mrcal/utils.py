@@ -129,13 +129,13 @@ def get_ref_calibration_object(W, H, dot_spacing):
     return full_object * dot_spacing
 
 
-def show_solution(intrinsics_data, extrinsics, frames, points,
-                  observations_board, indices_frame_camera_board,
-                  observations_point,  indices_frame_camera_points,
-                  distortion_model,
+def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
+                           observations_board, indices_frame_camera_board,
+                           observations_point,  indices_frame_camera_points,
+                           distortion_model,
 
-                  axis_scale = 1.0,
-                  dot_spacing = 0, Nwant = 10, i_camera=None):
+                           axis_scale = 1.0,
+                           dot_spacing = 0, Nwant = 10, i_camera=None):
     r'''Plot what a hypothetical 3d calibrated world looks like
 
     Can be used to visualize the output (or input) of mrcal.optimize(). Not
@@ -152,12 +152,6 @@ def show_solution(intrinsics_data, extrinsics, frames, points,
     intrinsics_data should never be None.
 
     If we have only one camera, extrinsics will not be referenced.
-
-
-
-    COLOR CODING
-
-
 
     The inputs are the same as to mrcal.optimize(). If i_camera is not None, the
     visualization is colored by the reprojection-error-quality of the fit
