@@ -926,6 +926,13 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
 
         A  = nps.matmult( dq_dp_corrected, invJtJ_intrinsics, nps.transpose(dq_dp_corrected))
         B  = np.linalg.inv(A + np.eye(2))
+
+        # tr(B*B) = sum_all_elements( product_elementwise(B,B) ), so
+        # I can do this:
+        #
+        #   tr = nps.trace(np.eye(2) - nps.matmult(B,B))
+        #
+        # which is equivalent to ...
         tr = 2 - np.sum( nps.clump(B*B, n=-2),
                          axis = -1)
 
