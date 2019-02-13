@@ -79,7 +79,7 @@ model_to   = mrcal.cameramodel(args.to[0])
 
 p = np.genfromtxt(sys.stdin)
 
-v = mrcal.unproject(p, model_from.intrinsics())
-p = mrcal.project  (v, model_to  .intrinsics())
+v = mrcal.unproject(p, *model_from.intrinsics())
+p = mrcal.project  (v, *model_to  .intrinsics())
 
 np.savetxt(sys.stdout, p, fmt='%f', header='x y')

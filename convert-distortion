@@ -185,7 +185,7 @@ Npoints = len(q)
 
 
 ### I unproject this, with broadcasting
-v = mrcal.unproject( q, m.intrinsics() )
+v = mrcal.unproject( q, *m.intrinsics() )
 
 
 ### Solve!

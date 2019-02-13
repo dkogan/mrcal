@@ -102,16 +102,16 @@ if not args.force:
             raise Exception("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.".format(f))
 
 
-model         = mrcal.cameramodel(args.model[0])
-model_pinhole = mrcal.cameramodel(model)
+model      = mrcal.cameramodel(args.model[0])
+intrinsics = model.intrinsics()
+if intrinsics[0] == 'DISTORTION_NONE' and scale == 1.0:
+    sys.stderr.write("Warning: the input model has no distortions, so the 'undistorted' images are the same as the input\n")
 
-i = model_pinhole.intrinsics()
-i[1][:2] /= args.scale
-if i[0] == 'DISTORTION_NONE':
-    sys.stderr.write("Warning: the mode has no distortions, so the 'undistorted' images will be the same as the input ones\n")
-model_pinhole.intrinsics( ('DISTORTION_NONE',
-                           i[1][:4] ) )
-
+model_pinhole = mrcal.cameramodel( model )
+model_pinhole.intrinsics(('DISTORTION_NONE',
+                          nps.glue( intrinsics[1][:2]*args.scale,
+                                    intrinsics[1][2:4],
+                                    axis=-1)))
 print "Corresponding pinhole model:"
 model_pinhole.write(sys.stdout)
 
@@ -119,7 +119,7 @@ model_pinhole.write(sys.stdout)
 def undistort_this(imagefile):
     imagefile_undistorted = target_image_filename(imagefile)
 
-    image_undistorted = mrcal.undistort_image(model, imagefile, scale=args.scale)
+    image_undistorted = mrcal.undistort_image(model, imagefile, scale_f_pinhole=args.scale)
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))
 

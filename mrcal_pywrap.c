@@ -852,7 +852,8 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     _(distortion_model, PyObject*,      NULL,    "S",                                   , -1,         {} ) \
     _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {} ) \
 
-#define DISTORT_ARGUMENTS_OPTIONAL(_)
+#define DISTORT_ARGUMENTS_OPTIONAL(_) \
+    _(scale_f_pinhole,  PyObject*,      NULL,    "O",  ,                                  -1,         {})
 
 #define DISTORT_ARGUMENTS_ALL(_) \
     DISTORT_ARGUMENTS_REQUIRED(_) \
@@ -878,17 +879,19 @@ static bool distort_validate_args( // out
 
     // points can be None, or have no elements potentially
     if( !( points == NULL || (PyObject*)points == Py_None || PyArray_SIZE(points) == 0) )
+    {
         if( PyArray_NDIM(points) < 1 )
         {
             PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
             return false;
         }
 
-    if( 2 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 2. Instead got %ld",
-                     PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
-        return false;
+        if( 2 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
+        {
+            PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 2. Instead got %ld",
+                         PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
+            return false;
+        }
     }
 
     const char* distortion_model_cstring = PyString_AsString(distortion_model);
@@ -917,6 +920,21 @@ static bool distort_validate_args( // out
                      N_INTRINSICS_CORE + NdistortionParams,
                      PyArray_DIMS(intrinsics)[0] );
         return false;
+    }
+
+    if( scale_f_pinhole != NULL && scale_f_pinhole != Py_None )
+    {
+        if(!PyFloat_Check(scale_f_pinhole))
+        {
+            PyErr_SetString(PyExc_RuntimeError, "scale_f_pinhole MUST be a valid float != 0; got a non-floating point value");
+            return false;
+        }
+        double c_scale_f_pinhole = PyFloat_AS_DOUBLE(scale_f_pinhole);
+        if( fabs(c_scale_f_pinhole) <= 1e-8 )
+        {
+            PyErr_Format(PyExc_RuntimeError, "scale_f_pinhole MUST be a valid float != 0; got %f", c_scale_f_pinhole);
+            return false;
+        }
     }
 
     return true;
@@ -957,14 +975,14 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
     // if the input points array is degenerate, return a degenerate thing
     if( points == NULL  || (PyObject*)points == Py_None)
     {
-        out = (PyArrayObject*)Py_None;
-        Py_INCREF(out);
+        result = Py_None;
+        Py_INCREF(result);
         goto done;
     }
     if(PyArray_SIZE(points) == 0)
     {
-        out = points;
-        Py_INCREF(out);
+        result = (PyObject*)points;
+        Py_INCREF(result);
         goto done;
     }
 
@@ -987,13 +1005,19 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
                                                 NPY_DOUBLE);
     }
 
+    // default
+    double c_scale_f_pinhole = 1.0;
+    if( scale_f_pinhole != NULL && scale_f_pinhole != Py_None )
+        c_scale_f_pinhole = PyFloat_AS_DOUBLE(scale_f_pinhole);
+
     if(! mrcal_distort((union point2_t*)PyArray_DATA(out),
 
                        (const union point2_t*)PyArray_DATA(points),
                        Npoints,
                        distortion_model_type,
                        // core, distortions concatenated
-                       (const double*)PyArray_DATA(intrinsics)) )
+                       (const double*)PyArray_DATA(intrinsics),
+                       c_scale_f_pinhole))
     {
        PyErr_SetString(PyExc_RuntimeError, "mrcal_distort() failed!");
        Py_DECREF((PyObject*)out);

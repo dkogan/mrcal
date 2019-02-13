@@ -138,8 +138,10 @@ void mrcal_project( // out
 
 // Maps a set of undistorted 2D imager points q to a set of imager points that
 // would result from observing the same vectors with a distorted model. Here the
-// undistorted model is one with the exact same intrinsic core (focal lengths,
-// center pixels), but no distortion parameters
+// undistorted model is a pinhole camera with
+//
+// - the same center pixel coord as the distorted camera
+// - the distorted-camera focal length scaled by a factor of scale_f_pinhole
 bool mrcal_distort( // out
                    union point2_t* out,
 
@@ -148,7 +150,8 @@ bool mrcal_distort( // out
                    int N,
                    enum distortion_model_t distortion_model,
                    // core, distortions concatenated
-                   const double* intrinsics);
+                   const double* intrinsics,
+                   double scale_f_pinhole);
 
 
 
