@@ -277,7 +277,10 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
 
         def accum_files(f):
             for i_camera in xrange(Ncameras):
-                if fnmatch.fnmatch(os.path.abspath(f), globs[i_camera]):
+                g = globs[i_camera]
+                if g[0] != '/':
+                    g = '*/' + g
+                if fnmatch.fnmatch(os.path.abspath(f), g):
                     files_per_camera[i_camera].append(f)
                     return True
             return False
@@ -333,22 +336,14 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
                     # could be relative to the current directory. The image
                     # doesn't necessarily need to exist. I implement a few
                     # heuristics to figure this out
-                    if dots_dir is None or context['f'][0] == '/':
-                        # I don't have a dots.vnl or the file path I'm looking
-                        # at is an absolute path, I just use the image path as
-                        # is
-                        filename_absolute = os.path.normpath(context['f'])
+                    if dots_dir is None             or \
+                       context['f'][0] == '/'       or \
+                       os.path.isfile(context['f']):
+                        filename_canonical = os.path.normpath(context['f'])
                     else:
-                        # the referenced images don't HAVE TO exist, but I can
-                        # use the existence as a heuristic. If the path relative
-                        # to the current directory exists, I use it. Otherwise,
-                        # I use the dots.vnl directory
-                        if os.path.isfile(context['f']):
-                            filename_absolute = os.path.normpath(context['f'])
-                        else:
-                            filename_absolute = os.path.abspath(os.path.join(dots_dir, context['f']))
-                    if accum_files(filename_absolute):
-                        mapping[filename_absolute] = context['grid']
+                        filename_canonical = os.path.join(dots_dir, context['f'])
+                    if accum_files(filename_canonical):
+                        mapping[filename_canonical] = context['grid']
                 context['f']    = ''
                 context['grid'] = np.array(())
 
