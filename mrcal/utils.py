@@ -1236,7 +1236,7 @@ def show_distortion(distortion_model, intrinsics_data,
 
         plot = gp.gnuplotlib( **kwargs )
         plot.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
-                    {'with': 'vectors size screen 0.005,10 fixed filled',
+                    {'with': 'vectors size screen 0.01,20 fixed filled',
                      'tuplesize': 4,
                     }),
                    (grid[:,0], grid[:,1],
@@ -1664,7 +1664,7 @@ def show_intrinsics_diff(models,
         plot.plot( q0  [:,0], q0  [:,1],
                    diff[:,0], diff[:,1],
                    difflen,
-                   _with='vectors size screen 0.005,10 fixed filled palette',
+                   _with='vectors size screen 0.01,20 fixed filled palette',
                    tuplesize=5)
     else:
         if 'set' not in kwargs:
