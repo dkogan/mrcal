@@ -11,6 +11,27 @@ import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
 
+
+usage = "Usage: {} order Npoints noise_stdev".format(sys.argv[0])
+if len(sys.argv) != 4:
+    print usage
+    sys.exit(1)
+try:
+    order       = int(  sys.argv[1]) # order. >= 1
+    N           = int(  sys.argv[2]) # This many points in the dataset
+    noise_stdev = float(sys.argv[3]) # The dataset is corrupted thusly
+except:
+    print usage
+    sys.exit(1)
+if order < 1 or N <= 0 or noise_stdev <= 0:
+    print usage
+    sys.exit(1)
+
+
+Nquery = 70    # This many points for post-fit uncertainty-evaluation
+
+
+
 reference_equation = '0.1*(x+0.2)**2. + 3.0'
 
 def report_mismatch_relerr(a,b, what):
@@ -31,11 +52,7 @@ def model_matrix(q, order):
 
     '''
     q = nps.atleast_dims(q,-1)
-    if order == 3:
-        return nps.transpose(nps.cat(0*q+1, q, q*q))
-    elif order == 2:
-        return nps.transpose(nps.cat(0*q+1, q))
-    raise Exception("unknown order")
+    return nps.transpose(nps.cat(*[q ** i for i in xrange(order)]))
 
 def func_reference(q):
     '''Reference function: reference_equation
@@ -142,21 +159,29 @@ def compute_outliernesses(J, x, jq, k_dima, k_cook):
     def dima():
 
         k = k_dima
+        k = 1
 
+        # Here the metrics are linear, so self + others = self_others
         def outliers():
             B = 1.0 / (Aoutliers - 1.0)
-            return dict( self_others = k * x*x*(-B  ) ,
-                         others      = k * x*x*(-B-1))
+            return dict( self        = k * x*x,
+                         others      = k * x*x*(-B-1),
+                         self_others = k * x*x*(-B  ))
         def query():
             B = 1.0 / (Aquery + 1.0)
-            return dict( self_others = k * (B) ,
-                         others      = k * (B-B*B))
+            return dict( self        = k * (  B*B),
+                         others      = k * (B-B*B),
+                         self_others = k * (B))
         return dict(outliers = outliers(),
                     query    = query())
     def cook():
 
         k = k_cook
+        k = 1
 
+        # Here the metrics maybe aren't linear (I need to think about it), so
+        # maybe self + others != self_others. I thus am not returning the "self"
+        # metric
         def outliers():
             B = 1.0 / (Aoutliers - 1.0)
             return dict( self_others = k * x*x*(B+B*B  ) ,
@@ -252,12 +277,15 @@ def outlierness_query_test(J,p,x, f, query,fquery_ref, outlierness_nox, k_dima, 
     x1 = nps.matmult(p1, nps.transpose(J1)) - f1
     E1 = nps.inner(x1,x1)
 
-    report_mismatch_relerr( (E1 - E0) * k_dima,
-                            outlierness_nox['self_others'][i]*xquery*xquery,
-                            "self_others query-outlierness computed analytically, explicitly")
+    report_mismatch_relerr( (x1[-1]*x1[-1]) * k_dima,
+                            outlierness_nox['self'][i]*xquery*xquery,
+                            "self query-outlierness computed analytically, explicitly")
     report_mismatch_relerr( (E1-x1[-1]*x1[-1] - E0) * k_dima,
                             outlierness_nox['others'][i]*xquery*xquery,
                             "others query-outlierness computed analytically, explicitly")
+    report_mismatch_relerr( (E1 - E0) * k_dima,
+                            outlierness_nox['self_others'][i]*xquery*xquery,
+                            "self_others query-outlierness computed analytically, explicitly")
 
 def CooksD_query_test(J,p,x, f, query,fquery_ref, CooksD_nox, k_dima, k_cook, i=0):
     r'''Test the concept of CooksD for querying hypothetical data
@@ -341,18 +369,11 @@ def fit(q, f, order):
     return p,J,x
 
 
-
-
-N           = 100   # This many points in the dataset
-noise_stdev = 0.001 # The dataset is corrupted thusly
-Nquery      = 70    # This many points for post-fit uncertainty-evaluation
-
-
 def test_order(q,f, query, order):
 
     # I look at linear and quadratic models: a0 + a1 q + a2 q^2, with a2=0 for the
     # linear case. I use plain least squares. The parameter vector is [a0 a1 a2]t. S
-    # = [1 q q^2], so the meaurement vector x = S p - f. E = norm2(x). J = dx/dp =
+    # = [1 q q^2], so the measurement vector x = S p - f. E = norm2(x). J = dx/dp =
     # S.
     #
     # Note the problem "order" is the number of parameters, so a linear model has
@@ -375,62 +396,99 @@ def test_order(q,f, query, order):
     CooksD_query_test     (J,p,x,f, query, fquery + 1.2e-3, metrics['cook']['query'], k_dima, k_cook, i=10 )
 
     Vquery = Var_df(J, squery, noise_stdev)
-    return p,J,x,Vquery,squery,fquery,metrics,k_dima,k_cook
-
+    return \
+        dict( p       = p,
+              J       = J,
+              x       = x,
+              Vquery  = Vquery,
+              squery  = squery,
+              fquery  = fquery,
+              metrics = metrics,
+              k_dima  = k_dima,
+              k_cook  = k_cook )
 
 
 q,f   = generate_dataset(N, noise_stdev)
 query = np.linspace(-1,2, Nquery)
 
-p2,J2,x2,Vquery2,squery2,fquery2,metrics2,k_dima2,k_cook2 = test_order(q,f, query, 2)
-p3,J3,x3,Vquery3,squery3,fquery3,metrics3,k_dima3,k_cook3 = test_order(q,f, query, 3)
+stats = test_order(q,f, query, order)
 
 
-def show_outlierness(q, metrics, Nmeasurements, dimas_threshold, cooks_threshold):
+def show_outlierness(order, N, q, f, query, cooks_threshold, **stats):
 
-    p = gp.gnuplotlib(equation='1.0 title "Threshold"')
-    p.plot( (q, metrics['dima']['outliers']['self_others']/dimas_threshold,
+    p = gp.gnuplotlib(equation='1.0 title "Threshold"',
+                      title   = "Outlierness with order={} Npoints={} stdev={}".format(order, N, noise_stdev))
+    p.plot( (q, stats['metrics']['dima']['outliers']['self_others']/stats['dimas_threshold'],
              dict(legend="Dima's self+others outlierness / threshold",
                   _with='points')),
-            (q, metrics['dima']['outliers']['others']/dimas_threshold,
+            (q, stats['metrics']['dima']['outliers']['others']/stats['dimas_threshold'],
              dict(legend="Dima's others-ONLY outlierness / threshold",
                   _with='points')),
-            (q, metrics['cook']['outliers']['self_others']/cooks_threshold,
+            (q, stats['metrics']['cook']['outliers']['self_others']/cooks_threshold,
              dict(legend="Cook's self+others outlierness / threshold",
                   _with='points')),
-            (q, metrics['cook']['outliers']['others']/cooks_threshold,
+            (q, stats['metrics']['cook']['outliers']['others']/cooks_threshold,
              dict(legend="Cook's others-ONLY outlierness / threshold",
                   _with='points')))
     return p
 
+def show_uncertainty(order, N, q, f, query, cooks_threshold, **stats):
 
-def show_uncertainty(Vquery, metrics, Nmeasurements, dimas_threshold, cooks_threshold):
+    coeffs = stats['p']
+    fitted_equation = '+'.join(['{} * x**{}'.format(coeffs[i], i) for i in xrange(len(coeffs))])
 
-    p = gp.gnuplotlib(equation='1 title "Threshold"')
+    p = gp.gnuplotlib(equation='({})-({}) title "Fit error off ground truth; y2 axis +- noise stdev" axis x1y2'.format(reference_equation,fitted_equation),
+                      title   = "Uncertainty with order={} Npoints={} stdev={}".format(order, N, noise_stdev),
+                      ymin=0,
+                      y2range = (-noise_stdev, noise_stdev),
+                      _set = 'y2tics'
+)
+    # p.plot(
+    #     (query, np.sqrt(stats['Vquery]),
+    #      dict(legend='expectederr (y2)', _with='lines', y2=1)),
+
+    #          (query, stats['metrics']['dima']['query']['self_others']*noise_stdev*noise_stdev / stats['dimas_threshold'],
+    #           dict(legend="Dima's self+others query / threshold",
+    #                _with='linespoints')),
+    #     (query, stats['metrics']['dima']['query']['others']*noise_stdev*noise_stdev / stats['dimas_threshold'],
+    #      dict(legend="Dima's others-ONLY query / threshold",
+    #           _with='linespoints')),
+
+    #          (query, stats['metrics']['cook']['query']['self_others']*noise_stdev*noise_stdev / cooks_threshold,
+    #           dict(legend="Cook's self+others query / threshold",
+    #                _with='linespoints')),
+    #     (query, stats['metrics']['cook']['query']['others']*noise_stdev*noise_stdev / cooks_threshold,
+    #      dict(legend="Cook's others-ONLY query / threshold",
+    #           _with='linespoints')))
+
     p.plot(
-        (query, np.sqrt(Vquery),
-         dict(legend='expectederr (y2)', _with='lines', y2=1)),
 
-             (query, metrics['dima']['query']['self_others']*noise_stdev*noise_stdev / dimas_threshold,
-              dict(legend="Dima's self+others query / threshold",
-                   _with='linespoints')),
-        (query, metrics['dima']['query']['others']*noise_stdev*noise_stdev / dimas_threshold,
-         dict(legend="Dima's others-ONLY query / threshold",
+        # (query, np.sqrt(Vquery),
+        #  dict(legend='Expected error due to input noise (y2)', _with='lines', y2=1)),
+
+        (query, np.sqrt(stats['metrics']['dima']['query']['self'])*noise_stdev,
+         dict(legend="Dima's self-ONLY; 1 point",
               _with='linespoints')),
 
-             (query, metrics['cook']['query']['self_others']*noise_stdev*noise_stdev / cooks_threshold,
-              dict(legend="Cook's self+others query / threshold",
-                   _with='linespoints')),
-        (query, metrics['cook']['query']['others']*noise_stdev*noise_stdev / cooks_threshold,
-         dict(legend="Cook's others-ONLY query / threshold",
-              _with='linespoints')))
+        (query, np.sqrt(stats['metrics']['dima']['query']['others'])*noise_stdev,
+         dict(legend="Dima's others-ONLY ALL {} points".format(Nquery),
+              _with='linespoints')),
+
+        # (query, np.sqrt(stats['metrics']['dima']['query']['others'])*noise_stdev * Nquery,
+        #  dict(legend="Dima's others-ONLY 1 point average",
+        #       _with='linespoints')),
+
+
+          )
+
     return p
 
-def show_fit(q, fdata, query, fqueryfit, Vquery):
+def show_fit        (order, N, q, f, query, cooks_threshold, **stats):
     p = gp.gnuplotlib(equation='{} with lines title "reference"'.format(reference_equation),
-                      xrange=[-1,2])
-    p.plot((q,fdata, dict(_with='points', legend = 'input data')),
-           (query, fqueryfit + np.sqrt(Vquery)*np.array(((1,),(0,),(-1,),)), dict(legend = 'stdev_f', _with='lines')))
+                      xrange=[-1,2],
+                      title = "Fit with order={} Npoints={} stdev={}".format(order, N, noise_stdev))
+    p.plot((q,     f,                                                                       dict(legend = 'input data', _with='points')),
+           (query, stats['fquery'] + np.sqrt(stats['Vquery'])*np.array(((1,),(0,),(-1,),)), dict(legend = 'stdev_f',    _with='lines')))
     return p
 
 def show_distribution(outlierness):
@@ -444,19 +502,19 @@ def show_distribution(outlierness):
 # identical between mine and Cook's expressions. So I scale Cook's 4/N threshold
 # to apply to me. Works ok.
 cooks_threshold  = 4.0 / N
-dimas_threshold2 = cooks_threshold / k_cook2 * k_dima2
-dimas_threshold3 = cooks_threshold / k_cook3 * k_dima3
+stats['dimas_threshold'] = cooks_threshold / stats['k_cook'] * stats['k_dima']
 
 # These all show interesting things; turn one of them on
-plots = [ show_outlierness(q, metrics2, N, dimas_threshold2, cooks_threshold),
-          show_fit(q,f,query,fquery2,Vquery2),
-          show_uncertainty(Vquery3, metrics3, N, dimas_threshold3, cooks_threshold), ]
+plots = [ show_outlierness (order, N, q, f, query, cooks_threshold, **stats),
+          show_fit         (order, N, q, f, query, cooks_threshold, **stats),
+          show_uncertainty (order, N, q, f, query, cooks_threshold, **stats)
+        ]
 
-if   os.fork() == 0: plots[0].wait()
-elif os.fork() == 0: plots[1].wait()
-elif os.fork() == 0: plots[2].wait()
-else:
-    os.wait()
+for p in plots:
+    if os.fork() == 0:
+        p.wait()
+        sys.exit()
+os.wait()
 
 
 # Conclusions:
