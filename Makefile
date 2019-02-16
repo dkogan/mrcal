@@ -46,12 +46,6 @@ $(DIST_MAN): %.1: %.pod
 	cat footer.pod >> $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
-# Python docstring rules. I construct these from plain ASCII files to handle
-# line wrapping
-%.docstring.h: %.docstring
-	< $^ sed 's/"/\\"/g; s/^/"/; s/$$/\\n"/;' > $@
-EXTRA_CLEAN += *.docstring.h
-
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
 # and the compiler complains. But that's how Python does it! So I tell the
 # compiler to chill
