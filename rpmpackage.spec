@@ -18,8 +18,17 @@ BuildRequires: python-libs
 BuildRequires: libminimath-devel
 BuildRequires: mrbuild >= 0.54
 
+# I need to run the python stuff in order to build the manpages
+BuildRequires: numpysane
+BuildRequires: gnuplotlib
+BuildRequires: opencv-python
+BuildRequires: scipy
+BuildRequires: python
+
 Requires: numpysane
 Requires: gnuplotlib
+Requires: opencv-python
+Requires: scipy
 Requires: python
 
 %description

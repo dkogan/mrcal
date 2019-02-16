@@ -8,7 +8,9 @@ Build-Depends: debhelper (>= 9), mrbuild (>= 0.57), dh-python,
  libopencv-dev,
  python-numpy,
  pkg-config,
- perl
+ perl,
+ python-gnuplotlib (>= 0.24-1), python-numpysane (>= 0.16-1),
+ python, python-opencv, python-scipy
 Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
 Standards-Version: 3.9.8
 Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
