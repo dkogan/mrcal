@@ -1972,7 +1972,7 @@ static bool computeUncertaintyMatrices(// out
     {
         // sparse to dense for a chunk of Jt
         memset( Jt_slice->x, 0, Jt_slice->nrow*chunk_size*sizeof(double) );
-        for(unsigned int icol=0; icol<chunk_size; icol++)
+        for(unsigned int icol=0; icol<(unsigned)chunk_size; icol++)
         {
             if( (int)(i_meas + icol) >= Nmeas_observations )
             {
