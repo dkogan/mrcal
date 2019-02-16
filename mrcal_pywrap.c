@@ -1818,7 +1818,6 @@ PyMODINIT_FUNC init_mrcal(void)
     if (PyType_Ready(&SolverContextType) < 0)
         return;
 
-    PyImport_AddModule("_mrcal");
     PyObject* module = Py_InitModule3("_mrcal", methods,
                                       "Calibration and SFM routines");
 
