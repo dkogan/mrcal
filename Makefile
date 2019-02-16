@@ -42,7 +42,7 @@ VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*
 $(DIST_MAN): %.1: %.pod
 	pod2man --center="mrcal: camera projection, calibration toolkit" --name=MRCAL --release="mrcal $(VERSION_FROM_CHANGELOG)" --section=1 $< $@
 %.pod: %
-	./make-pod.pl $< > $@
+	make-pod-from-help.pl $< > $@
 	cat footer.pod >> $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
