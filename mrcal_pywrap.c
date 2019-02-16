@@ -1301,7 +1301,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* kwargs)
 {
     PyObject* result = NULL;
-    SET_SIGINT();
 
     PyArrayObject* x_final                             = NULL;
     PyArrayObject* invJtJ_intrinsics_full              = NULL;
@@ -1309,6 +1308,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     PyArrayObject* outlier_indices_final               = NULL;
     PyArrayObject* outside_ROI_indices_final           = NULL;
     PyObject*      pystats                             = NULL;
+
+    SET_SIGINT();
 
     OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
     char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
