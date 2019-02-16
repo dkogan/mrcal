@@ -46,6 +46,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %doc
 %{_bindir}/*
+%{_mandir}/*
 %{_libdir}/*.so.*
 %{python2_sitelib}/*
 
