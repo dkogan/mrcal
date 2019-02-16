@@ -10,7 +10,7 @@ URL:            https://github.jpl.nasa.gov/maritime-robotics/mrcal/
 Source0:        https://github.jpl.nasa.gov/maritime-robotics/mrcal/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires: numpy
-BuildRequires: libdogleg-devel
+BuildRequires: libdogleg-devel >= 0.15.2
 BuildRequires: lapack-devel
 BuildRequires: opencv-devel
 BuildRequires: python-devel
