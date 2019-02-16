@@ -16,6 +16,10 @@ LDLIBS    += -ldogleg
 
 CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 
+AM_OLD_RH7 := $(shell grep "release 7" /etc/redhat-release 2>/dev/null)
+CCXXFLAGS  += -DOLD_OPENCV=$(if $(AM_OLD_RH7),1,0)
+
+
 DIST_INCLUDE    += basic_points.h mrcal.h
 DIST_BIN :=					\
 	calibrate-cameras			\
