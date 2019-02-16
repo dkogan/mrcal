@@ -17,6 +17,7 @@ BuildRequires: python-devel
 BuildRequires: python-libs
 BuildRequires: libminimath-devel
 BuildRequires: mrbuild >= 0.61
+BuildRequires: mrbuild-tools >= 0.61
 
 # I need to run the python stuff in order to build the manpages
 BuildRequires: numpysane
