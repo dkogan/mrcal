@@ -1704,7 +1704,7 @@ def show_intrinsics_diff(models,
                   tuplesize=3,
                   _with=np.array(('image','lines nosurface'),),
                   legend = "", # needed to force contour labels
-                  using = colormap_using(imagersize, gridn_x, gridn_y))
+                  using = colormap_using(imagersizes[0], gridn_x, gridn_y))
     return plot
 
 
