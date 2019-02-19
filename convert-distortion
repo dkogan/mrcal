@@ -101,6 +101,10 @@ def parse_args():
                         sqrt(width^2 + height^2) - abs(radius). This is valid
                         ONLY if we're focussing at the center of the imager''')
 
+    parser.add_argument('--writecahvor',
+                        action='store_true',
+                        help='''If given, we write the output in a cahvor file format''')
+
     parser.add_argument('cameramodel',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
@@ -250,7 +254,12 @@ sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_b
 m_to = mrcal.cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
                           extrinsics_rt_fromref = m.extrinsics_rt(False),
                           imagersize            = dims )
-m_to.write(sys.stdout)
+
+if args.writecahvor:
+    import mrcal.cahvor
+    mrcal.cahvor.write(sys.stdout, m_to)
+else:
+    m_to.write(sys.stdout)
 
 if args.viz:
 
