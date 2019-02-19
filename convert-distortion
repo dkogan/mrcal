@@ -184,6 +184,11 @@ if args.radius != 0:
     q = q[i, ...]
 
 
+# To visualize the sample grid:
+# import gnuplotlib as gp
+# gp.plot(q[:,0], q[:,1], _with='points pt 7 ps 2', xrange=[0,3904],yrange=[3904,0], wait=1, square=1)
+# sys.exit()
+
 Npoints = len(q)
 
 
