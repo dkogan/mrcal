@@ -31,7 +31,7 @@ Requires: gnuplotlib
 Requires: opencv-python
 Requires: scipy
 Requires: python
-Requires: python-ipython
+Requires: python-ipython-console
 
 %description
 Calibration library
