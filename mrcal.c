@@ -3525,8 +3525,8 @@ mrcal_optimize( // out
                     double x = solver_context->beforeStep->x[Nmeasurements - Nmeasurements_regularization + i];
                     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
                 }
-		MSG("norm2_error: %f", norm2_error);
-		MSG("norm2_err_regularization: %f", norm2_err_regularization);
+                MSG("norm2_error: %f", norm2_error);
+                MSG("norm2_err_regularization: %f", norm2_err_regularization);
             }
             else
                 MSG("regularization cost ratio: %g", ratio_regularization_cost);
