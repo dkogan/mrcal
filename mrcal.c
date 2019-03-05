@@ -3507,19 +3507,21 @@ mrcal_optimize( // out
             {
                 double x = solver_context->beforeStep->x[Nmeasurements - Nmeasurements_regularization + i];
                 norm2_err_regularization += x*x;
-                MSG_IF_VERBOSE("regularization %d: %f (squared: %f)", i, x, x*x);
             }
 
             double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
             double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
 
-            MSG_IF_VERBOSE("norm2_error: %f", norm2_error);
-            MSG_IF_VERBOSE("norm2_err_regularization: %f", norm2_err_regularization);
-
+            bool say_regularization_details = VERBOSE;
             if(ratio_regularization_cost > 0.05)
             {
                 MSG("WARNING: REGULARIZATION COST RATIO IS WAY TOO HIGH: %g. SOMETHING IS OFF ABOUT THIS SOLVE",
                     ratio_regularization_cost);
+                say_regularization_details = true;
+            }
+
+            if(say_regularization_details)
+            {
                 for(int i=0; i<Nmeasurements_regularization; i++)
                 {
                     double x = solver_context->beforeStep->x[Nmeasurements - Nmeasurements_regularization + i];
