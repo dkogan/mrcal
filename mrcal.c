@@ -3517,8 +3517,17 @@ mrcal_optimize( // out
             MSG_IF_VERBOSE("norm2_err_regularization: %f", norm2_err_regularization);
 
             if(ratio_regularization_cost > 0.05)
+            {
                 MSG("WARNING: REGULARIZATION COST RATIO IS WAY TOO HIGH: %g. SOMETHING IS OFF ABOUT THIS SOLVE",
-                ratio_regularization_cost);
+                    ratio_regularization_cost);
+                for(int i=0; i<Nmeasurements_regularization; i++)
+                {
+                    double x = solver_context->beforeStep->x[Nmeasurements - Nmeasurements_regularization + i];
+                    MSG("regularization %d: %f (squared: %f)", i, x, x*x);
+                }
+		MSG("norm2_error: %f", norm2_error);
+		MSG("norm2_err_regularization: %f", norm2_err_regularization);
+            }
             else
                 MSG("regularization cost ratio: %g", ratio_regularization_cost);
         }
