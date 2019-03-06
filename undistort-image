@@ -51,11 +51,12 @@ def parse_args():
                         help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
 
-    parser.add_argument('--scale',
-                        type=float,
+    parser.add_argument('--fit',
+                        type=str,
                         required=False,
-                        default=1.0,
-                        help='''Pinhole focal length scaling. 1.0 by default''')
+                        help='''If given, we'll scale the focal length of the pinhole model to fit some of
+                        the original image into the output. This is one of
+                        "corners", "centers-horizontal", "centers-vertical"''')
 
     parser.add_argument('--force', '-f',
                         action='store_true',
@@ -89,33 +90,41 @@ def target_image_filename(f):
 
 args = parse_args()
 
-
-
 if not args.force:
     for imagefile in args.image:
         f = target_image_filename(imagefile)
         if os.path.isfile(f):
             raise Exception("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.".format(f))
 
+model = mrcal.cameramodel(args.model[0])
 
-model      = mrcal.cameramodel(args.model[0])
-intrinsics = model.intrinsics()
-if intrinsics[0] == 'DISTORTION_NONE' and scale == 1.0:
+if args.fit is None:
+    scale_f_pinhole = 1.0
+elif re.match("^(corners|centers-horizontal|centers-vertical)$", args.fit):
+    scale_f_pinhole =  mrcal.compute_scale_f_pinhole_for_fit(model, args.fit)
+else:
+    sys.stderr.write("--fit must be one of ('corners','centers-horizontal','centers-vertical')\n")
+    sys.exit(1)
+
+
+distortion_model,intrinsics_data = model.intrinsics()
+if distortion_model == 'DISTORTION_NONE' and scale == 1.0:
     sys.stderr.write("Warning: the input model has no distortions, so the 'undistorted' images are the same as the input\n")
 
 model_pinhole = mrcal.cameramodel( model )
 model_pinhole.intrinsics(('DISTORTION_NONE',
-                          nps.glue( intrinsics[1][:2]*args.scale,
-                                    intrinsics[1][2:4],
+                          nps.glue( intrinsics_data[:2]*scale_f_pinhole,
+                                    intrinsics_data[2:4],
                                     axis=-1)))
 print "Corresponding pinhole model:"
 model_pinhole.write(sys.stdout)
 
 
+
 def undistort_this(imagefile):
     imagefile_undistorted = target_image_filename(imagefile)
 
-    image_undistorted = mrcal.undistort_image(model, imagefile, scale_f_pinhole=args.scale)
+    image_undistorted = mrcal.undistort_image(model, imagefile, scale_f_pinhole=scale_f_pinhole)
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))
 

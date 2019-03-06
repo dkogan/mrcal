@@ -248,6 +248,82 @@ def distortion_map__to_warped(distortion_model, intrinsics_data, w, h, scale_f_p
 
     return grid, dgrid
 
+def compute_scale_f_pinhole_for_fit(model, fit):
+    r'''Compute best value of scale_f_pinhole for undistort_image()
+
+    undistort_image() can produce undistorted images obtained with an arbitrary
+    scale parameter. Different scaling values can either zoom in to cut off
+    sections of the original image, or zoom out to waste pixels with no-data
+    available at the edges. Here I try to compute optimal values for
+    scale_f_pinhole, based on the "fit" parameter. This is one of
+
+    - None to keep the focal lengths the same for the input and output image
+      models. This is a scaling of 1.0
+
+    - A numpy array of imager points that must fill the imager as much as
+      possible, without going out of bounds
+
+    - A string that indicates which points must remain in bounds. One of
+      "corners", "centers-horizontal", "centers-vertical"
+
+    '''
+
+    # I create an output pinhole model that has pinhole parameters
+    # (k*fx,k*fy,cx,cy) where (fx,fy,cx,cy) are the parameters from the input
+    # model. Note the scaling k
+    #
+    # I look at a number of points on the edge of the input image. Of the points
+    # I look at I choose k so that all the points end up inside the undistorted
+    # image, leaving the worst one at the edge
+    if fit is None: return 1.0
+
+    W,H = model.imagersize()
+    if type(fit) is np.ndarray:
+        q_edges = fit
+    elif type(fit) is str:
+        if fit == 'corners':
+            q_edges = np.array(((  0.,   0.),
+                                (  0., H-1.),
+                                (W-1., H-1.),
+                                (W-1.,   0.)))
+        elif fit == 'centers-horizontal':
+            q_edges = np.array(((0,    (H-1.)/2.),
+                                (W-1., (H-1.)/2.)))
+        elif fit == 'centers-vertical':
+            q_edges = np.array((((W-1.)/2., 0,   ),
+                                ((W-1.)/2., H-1.,)))
+        else:
+            raise Exception("fit must be either None or a numpy array of one of ('corners','centers-horizontal','centers-vertical')")
+    else:
+        raise Exception("fit must be either None or a numpy array of one of ('corners','centers-horizontal','centers-vertical')")
+
+    distortion_model,intrinsics_data = model.intrinsics()
+    v_edges = mrcal.unproject(q_edges, distortion_model, intrinsics_data)
+
+    # I have points in space now. My scaled pinhole camera would map these to
+    # (k*fx*x/z+cx, fy*y/z+cy). I pick a k sure that this is in-bounds for all my
+    # points, and that the points occupy as large a chunk of the imager as possible.
+    # I can look at just the normalized x and y. Just one of the query points should
+    # land on the edge; the rest should be in-bounds
+    fx,fy,cx,cy  = intrinsics_data[:4]
+    normxy_edges = v_edges[:,:2] / v_edges[:,(2,)]
+    normxy_min   = (                                   - np.array((cx,cy))) / np.array((fx,fy))
+    normxy_max   = (np.array((W,H), dtype=float) - 1.0 - np.array((cx,cy))) / np.array((fx,fy))
+
+    # Each query point will imply a scale to just fit into the imager I take the
+    # most conservative of these. For each point I look at the normalization sign to
+    # decide if I should be looking at the min or max edge. And for each I pick the
+    # more conservative scale
+
+    # start out at an unreasonably high scale. The data will cut this down
+    scale = 1e6
+    for p in normxy_edges:
+        for ixy in range(2):
+            if p[ixy] > 0: scale = np.min((scale,normxy_max[ixy]/p[ixy]))
+            else:          scale = np.min((scale,normxy_min[ixy]/p[ixy]))
+    return scale
+
+
 def undistort_image(model, image, scale_f_pinhole=1.0):
     r'''Removes the distortion from a given image
 
@@ -255,8 +331,9 @@ def undistort_image(model, image, scale_f_pinhole=1.0):
     a new image that would be produced by the same scene, but with a perfect
     pinhole camera. This undistorted model is a pinhole camera with
 
-    - the same center pixel coord as the distorted camera
-    - the distorted-camera focal length scaled by a factor of scale_f_pinhole
+    - the same center pixel coord as the distorted camera the distorted-camera
+    - focal length scaled by a factor of scale_f_pinhole. Good values for this
+    - can be obtained with compute_scale_f_pinhole_for_fit()
 
     The input image can be a filename or an array.
 
