@@ -391,13 +391,19 @@ class cameramodel(object):
 
 
 
-    def write(self, f, note=None):
+    def write(self, f, note=None, cahvor=False):
         r'''Writes out this camera model
 
         We write to the given filename or a given pre-opened file. If the
-        filename is xxx.cahvor, we use the legacy cahvor file format
+        filename is xxx.cahvor or if the 'cahvor' parameter is True, we use the
+        legacy cahvor file format
 
         '''
+
+        if cahvor:
+            import cahvor
+            cahvor.write(f, self, note)
+            return
 
         if type(f) is str:
             if re.match(".*\.cahvor$", f):
