@@ -130,7 +130,12 @@ pool = multiprocessing.Pool(args.jobs)
 signal.signal(signal.SIGINT, signal_handler_sigint)
 try:
     mapresult = pool.map_async(undistort_this, args.image)
-    mapresult.wait(1000000)
+
+    # like wait(), but will barf if something goes wrong. I don't actually care
+    # about the results
+    mapresult.get(1000000)
 except:
     pool.terminate()
+
+pool.close()
 pool.join()
