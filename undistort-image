@@ -116,8 +116,13 @@ model_pinhole.intrinsics(('DISTORTION_NONE',
                           nps.glue( intrinsics_data[:2]*scale_f_pinhole,
                                     intrinsics_data[2:4],
                                     axis=-1)))
-print "Corresponding pinhole model:"
+
+print "Corresponding pinhole model (cameramodel):"
 model_pinhole.write(sys.stdout)
+
+print "====================================="
+print "Corresponding pinhole model (cahvor):"
+model_pinhole.write(sys.stdout, cahvor=True)
 
 
 
