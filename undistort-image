@@ -118,11 +118,18 @@ model_pinhole.intrinsics(('DISTORTION_NONE',
                                     axis=-1)))
 
 print "Corresponding pinhole model (cameramodel):"
-model_pinhole.write(sys.stdout)
-
+print ""
 print "====================================="
+model_pinhole.write(sys.stdout)
+print "====================================="
+print ""
+
 print "Corresponding pinhole model (cahvor):"
+print ""
+print "====================================="
 model_pinhole.write(sys.stdout, cahvor=True)
+print "====================================="
+print ""
 
 
 
