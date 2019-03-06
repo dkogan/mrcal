@@ -266,13 +266,33 @@ def undistort_image(model, image, scale_f_pinhole=1.0):
 
     '''
 
-    intrinsics = model.intrinsics()
+    distortion_model,intrinsics_data = model.intrinsics()
 
     if not isinstance(image, np.ndarray):
         image = cv2.imread(image)
 
+    if re.match("DISTORTION_OPENCV",distortion_model):
+        # OpenCV models have a special-case path here. This works identically to
+        # the other path (this "if" block can be removed entirely), but the
+        # opencv-specific code is 100% written in C (not Python) so it runs much
+        # faster
+        fx,fy,cx,cy       = intrinsics_data[ :4]
+        distortion_coeffs = intrinsics_data[4: ]
+        cameraMatrix     = np.array(((fx,  0, cx),
+                                     ( 0, fy, cy),
+                                     ( 0,  0,  1)))
+        fx *= scale_f_pinhole
+        fy *= scale_f_pinhole
+        cameraMatrix_new = np.array(((fx,  0, cx),
+                                     ( 0, fy, cy),
+                                     ( 0,  0,  1)))
+        remapped = np.zeros(image.shape, dtype = image.dtype)
+        cv2.undistort(image, cameraMatrix, distortion_coeffs, remapped, cameraMatrix_new)
+        return remapped
+
     H,W = image.shape[:2]
-    _,mapxy = distortion_map__to_warped(intrinsics[0], intrinsics[1],
+
+    _,mapxy = distortion_map__to_warped(distortion_model,intrinsics_data,
                                         np.arange(W), np.arange(H),
                                         scale_f_pinhole = scale_f_pinhole)
     mapx = mapxy[:,:,0].astype(np.float32)
