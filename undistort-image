@@ -132,11 +132,15 @@ print "====================================="
 print ""
 
 
+mapxy = mrcal.undistort_image__compute_map(model, scale_f_pinhole)
+
 
 def undistort_this(imagefile):
     imagefile_undistorted = target_image_filename(imagefile)
 
-    image_undistorted = mrcal.undistort_image(model, imagefile, scale_f_pinhole=scale_f_pinhole)
+    image_undistorted = mrcal.undistort_image(model, imagefile,
+                                              scale_f_pinhole=scale_f_pinhole,
+                                              mapxy = mapxy)
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))
 

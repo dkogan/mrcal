@@ -324,7 +324,63 @@ def compute_scale_f_pinhole_for_fit(model, fit):
     return scale
 
 
-def undistort_image(model, image, scale_f_pinhole=1.0):
+def undistort_image__compute_map(model, scale_f_pinhole=1.0):
+    r'''Computes a distortion map useful in undistort_image()
+
+    Synopsis:
+
+        mapxy = mrcal.undistort_image__compute_map(model)
+        image_undistorted =
+            mrcal.undistort_image(model, imagefile, mapxy = mapxy)
+
+    Results of this could be passed to undistort_image() in the "mapxy"
+    argument. This is very similar to distortion_map__to_warped(), but has a
+    slightly different use case.
+
+    Return an array of shape (2,Nheight,Nwidth) because this fits into what
+    cv2.remap() wants. And uses opencv-specific functions if possible, for
+    performance
+
+    '''
+
+    distortion_model,intrinsics_data = model.intrinsics()
+    W,H                              = model.imagersize()
+
+    if re.match("DISTORTION_OPENCV",distortion_model):
+        # OpenCV models have a special-case path here. This works
+        # identically to the other path (the other side of this "if" can
+        # always be used instead), but the opencv-specific code is 100%
+        # written in C (not Python) so it runs much faster
+        fx,fy,cx,cy       = intrinsics_data[ :4]
+        distortion_coeffs = intrinsics_data[4: ]
+        cameraMatrix     = np.array(((fx,  0, cx),
+                                     ( 0, fy, cy),
+                                     ( 0,  0,  1)))
+        fx *= scale_f_pinhole
+        fy *= scale_f_pinhole
+        cameraMatrix_new = np.array(((fx,  0, cx),
+                                     ( 0, fy, cy),
+                                     ( 0,  0,  1)))
+
+        output_shape = (W, H)
+
+        # opencv has cv2.undistort(), but this apparently only works if the
+        # input and output dimensions match 100%. If they don't I see a
+        # black image on output, which isn't useful. So I split this into
+        # the map creation and the remapping. Which is fine. I can then
+        # cache the map, and I can unify the remap code for all the model
+        # types
+        return nps.cat( *cv2.initUndistortRectifyMap(cameraMatrix, distortion_coeffs, None,
+                                                     cameraMatrix_new, output_shape,
+                                                     cv2.CV_32FC1) )
+
+    _,mapxy = distortion_map__to_warped(distortion_model,intrinsics_data,
+                                        np.arange(W), np.arange(H),
+                                        scale_f_pinhole = scale_f_pinhole)
+    return nps.transpose(nps.mv(mapxy, -1, 0)).astype(np.float32)
+
+
+def undistort_image(model, image, scale_f_pinhole=1.0, mapxy = None):
     r'''Removes the distortion from a given image
 
     Given an image and a distortion model (and optionally, a scaling), generates
@@ -343,43 +399,37 @@ def undistort_image(model, image, scale_f_pinhole=1.0):
 
     '''
 
-    distortion_model,intrinsics_data = model.intrinsics()
+    # Testing code that does opencv stuff more directly. Don't need it, but
+    # could be handy for future debugging
+    #
+    # if re.match("DISTORTION_OPENCV",distortion_model):
+    #     if not isinstance(image, np.ndarray):
+    #         image = cv2.imread(image)
+    #     fx,fy,cx,cy       = intrinsics_data[ :4]
+    #     distortion_coeffs = intrinsics_data[4: ]
+    #     cameraMatrix     = np.array(((fx,  0, cx),
+    #                                  ( 0, fy, cy),
+    #                                  ( 0,  0,  1)))
+    #
+    #     # # equivalent compute-map-and-undistort in a single call
+    #     # remapped = np.zeros(image.shape, dtype = image.dtype)
+    #     # cv2.undistort(image, cameraMatrix, distortion_coeffs, remapped, cameraMatrix)
+    #
+    #     mapx,mapy = cv2.initUndistortRectifyMap(cameraMatrix, distortion_coeffs, None,
+    #                                             cameraMatrix, (W,H),
+    #                                             cv2.CV_32FC1)
+    #     return cv2.remap(image, mapx, mapy, cv2.INTER_LINEAR)
+
+    if mapxy is None:
+        mapxy = undistort_image__compute_map(model, scale_f_pinhole)
+    elif type(mapxy) is not np.ndarray:
+        raise Exception('mapxy_cache MUST either be None or a numpy array')
 
     if not isinstance(image, np.ndarray):
         image = cv2.imread(image)
+    return cv2.remap(image, mapxy[0], mapxy[1],
+                     cv2.INTER_LINEAR)
 
-    if re.match("DISTORTION_OPENCV",distortion_model):
-        # OpenCV models have a special-case path here. This works identically to
-        # the other path (this "if" block can be removed entirely), but the
-        # opencv-specific code is 100% written in C (not Python) so it runs much
-        # faster
-        fx,fy,cx,cy       = intrinsics_data[ :4]
-        distortion_coeffs = intrinsics_data[4: ]
-        cameraMatrix     = np.array(((fx,  0, cx),
-                                     ( 0, fy, cy),
-                                     ( 0,  0,  1)))
-        fx *= scale_f_pinhole
-        fy *= scale_f_pinhole
-        cameraMatrix_new = np.array(((fx,  0, cx),
-                                     ( 0, fy, cy),
-                                     ( 0,  0,  1)))
-        remapped = np.zeros(image.shape, dtype = image.dtype)
-        cv2.undistort(image, cameraMatrix, distortion_coeffs, remapped, cameraMatrix_new)
-        return remapped
-
-    H,W = image.shape[:2]
-
-    _,mapxy = distortion_map__to_warped(distortion_model,intrinsics_data,
-                                        np.arange(W), np.arange(H),
-                                        scale_f_pinhole = scale_f_pinhole)
-    mapx = mapxy[:,:,0].astype(np.float32)
-    mapy = mapxy[:,:,1].astype(np.float32)
-
-    remapped = cv2.remap(image,
-                         nps.transpose(mapx),
-                         nps.transpose(mapy),
-                         cv2.INTER_LINEAR)
-    return remapped
 
 def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
