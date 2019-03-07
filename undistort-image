@@ -107,9 +107,6 @@ else:
     sys.exit(1)
 
 
-distortion_model,intrinsics_data = model.intrinsics()
-if distortion_model == 'DISTORTION_NONE' and scale == 1.0:
-    sys.stderr.write("Warning: the input model has no distortions, so the 'undistorted' images are the same as the input\n")
 
 model_pinhole = mrcal.cameramodel( model )
 model_pinhole.intrinsics(('DISTORTION_NONE',
