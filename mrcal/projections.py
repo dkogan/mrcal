@@ -324,7 +324,9 @@ def compute_scale_f_pinhole_for_fit(model, fit):
     return scale
 
 
-def undistort_image__compute_map(model, scale_f_pinhole=1.0):
+def undistort_image__compute_map(model,
+                                 scale_f_pinhole               = 1.0,
+                                 report_new_pinhole_parameters = False):
     r'''Computes a distortion map useful in undistort_image()
 
     Synopsis:
@@ -345,24 +347,31 @@ def undistort_image__compute_map(model, scale_f_pinhole=1.0):
 
     distortion_model,intrinsics_data = model.intrinsics()
     W,H                              = model.imagersize()
+    fx,fy,cx,cy                      = intrinsics_data[ :4]
+
+
+    W1 = W
+    H1 = H
+    output_shape = (W1, H1)
+
+    # NEED TO MAKE SURE THIS IS SUPPORTED BY THE CAHVOR AND OPENCV PATHS
+    cx1 = cx / float(W - 1) * float(W1 - 1)
+    cy1 = cy / float(H - 1) * float(H1 - 1)
+    fx1 = fx * scale_f_pinhole
+    fy1 = fy * scale_f_pinhole
 
     if re.match("DISTORTION_OPENCV",distortion_model):
         # OpenCV models have a special-case path here. This works
         # identically to the other path (the other side of this "if" can
         # always be used instead), but the opencv-specific code is 100%
         # written in C (not Python) so it runs much faster
-        fx,fy,cx,cy       = intrinsics_data[ :4]
         distortion_coeffs = intrinsics_data[4: ]
         cameraMatrix     = np.array(((fx,  0, cx),
                                      ( 0, fy, cy),
                                      ( 0,  0,  1)))
-        fx *= scale_f_pinhole
-        fy *= scale_f_pinhole
-        cameraMatrix_new = np.array(((fx,  0, cx),
-                                     ( 0, fy, cy),
-                                     ( 0,  0,  1)))
-
-        output_shape = (W, H)
+        cameraMatrix_new = np.array(((fx1,   0, cx1),
+                                     ( 0,  fy1, cy1),
+                                     ( 0,    0,   1)))
 
         # opencv has cv2.undistort(), but this apparently only works if the
         # input and output dimensions match 100%. If they don't I see a
@@ -370,14 +379,22 @@ def undistort_image__compute_map(model, scale_f_pinhole=1.0):
         # the map creation and the remapping. Which is fine. I can then
         # cache the map, and I can unify the remap code for all the model
         # types
-        return nps.cat( *cv2.initUndistortRectifyMap(cameraMatrix, distortion_coeffs, None,
-                                                     cameraMatrix_new, output_shape,
-                                                     cv2.CV_32FC1) )
 
-    _,mapxy = distortion_map__to_warped(distortion_model,intrinsics_data,
-                                        np.arange(W), np.arange(H),
-                                        scale_f_pinhole = scale_f_pinhole)
-    return nps.transpose(nps.mv(mapxy, -1, 0)).astype(np.float32)
+        mapxy = nps.cat( *cv2.initUndistortRectifyMap(cameraMatrix, distortion_coeffs, None,
+                                                      cameraMatrix_new, output_shape,
+                                                      cv2.CV_32FC1) )
+    else:
+
+        _,mapxy = distortion_map__to_warped(distortion_model,intrinsics_data,
+                                            np.arange(W), np.arange(H),
+                                            scale_f_pinhole = scale_f_pinhole)
+
+        mapxy = nps.transpose(nps.mv(mapxy, -1, 0)).astype(np.float32)
+
+    if report_new_pinhole_parameters:
+        return mapxy, np.array((fx1,fy1,cx1,cy1)), np.array((W1,H1))
+    else:
+        return mapxy
 
 
 def undistort_image(model, image, scale_f_pinhole=1.0, mapxy = None):
