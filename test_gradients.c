@@ -31,7 +31,7 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    enum distortion_model_t distortion_model = mrcal_distortion_model_from_name(argv[iarg]);
+    distortion_model_t distortion_model = mrcal_distortion_model_from_name(argv[iarg]);
     if( distortion_model == DISTORTION_INVALID )
     {
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
@@ -81,25 +81,25 @@ int main(int argc, char* argv[] )
         }
 
 
-    struct pose_t extrinsics[] =
+    pose_t extrinsics[] =
         { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { 2.3, 0.2, 0.1}}}};
 
-    struct pose_t frames[] =
+    pose_t frames[] =
         { { .r = { .xyz = { -.1,    .52,  -.13}},  .t = { .xyz = { 1.3, 0.1, 10.2}}},
           { .r = { .xyz = {  .90,   .24,   .135}}, .t = { .xyz = { 0.7, 0.1, 20.3}}},
           { .r = { .xyz = {  .80,   .52,   .335}}, .t = { .xyz = { 0.7, 0.6, 30.4}}},
           { .r = { .xyz = {  .20,  -.22,   .75}},  .t = { .xyz = { 3.1, 6.3, 10.4}}}};
     int Nframes  = sizeof(frames)    /sizeof(frames[0]);
 
-    union point3_t points[] =
+    point3_t points[] =
         { {.xyz = {-5.3,   2.3, 20.4}},
           {.xyz = {-15.3, -3.2, 200.4}}};
     int Npoints = sizeof(points)/sizeof(points[0]);
 
 #define calibration_object_width_n 10 /* arbitrary */
 
-    union point2_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
-    union point2_t observations_point_px[4] = {};
+    point2_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
+    point2_t observations_point_px[4] = {};
 
 #define NobservationsBoard 6
 #define NobservationsPoint 4
@@ -120,7 +120,7 @@ int main(int argc, char* argv[] )
         observations_point_px[i].y = 800.0  - (double)i*12.0;
     }
 
-    struct observation_board_t observations_board[NobservationsBoard] =
+    observation_board_t observations_board[NobservationsBoard] =
         { {.i_camera = 0, .i_frame = 0, .px = observations_px[0]},
           {.i_camera = 1, .i_frame = 0, .px = observations_px[1]},
           {.i_camera = 1, .i_frame = 1, .px = observations_px[2]},
@@ -128,7 +128,7 @@ int main(int argc, char* argv[] )
           {.i_camera = 0, .i_frame = 3, .px = observations_px[4]},
           {.i_camera = 1, .i_frame = 3, .px = observations_px[5]} };
 
-    struct observation_point_t observations_point[NobservationsPoint] =
+    observation_point_t observations_point[NobservationsPoint] =
         { {.i_camera = 0, .i_point = 0, .px = observations_point_px[0]},
           {.i_camera = 1, .i_point = 0, .px = observations_point_px[1]},
           {.i_camera = 0, .i_point = 1, .px = observations_point_px[2], .dist = 18.0},
@@ -144,13 +144,13 @@ int main(int argc, char* argv[] )
     for(int i=0; i<Ncameras*2; i++)
         imagersizes[i] = 1000 + 10*i;
 
-    struct intrinsics_core_t* intrinsics_core = (struct intrinsics_core_t*)intrinsics;
+    intrinsics_core_t* intrinsics_core = (intrinsics_core_t*)intrinsics;
     intrinsics_core->focal_xy [0] = 2000.3;
     intrinsics_core->focal_xy [1] = 1900.5;
     intrinsics_core->center_xy[0] = 1800.3;
     intrinsics_core->center_xy[1] = 1790.2;
 
-    intrinsics_core = (struct intrinsics_core_t*)(&intrinsics[Nintrinsics]);
+    intrinsics_core = (intrinsics_core_t*)(&intrinsics[Nintrinsics]);
     intrinsics_core->focal_xy [0] = 2100.2;
     intrinsics_core->focal_xy [1] = 2130.4;
     intrinsics_core->center_xy[0] = 1830.3;

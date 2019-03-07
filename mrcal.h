@@ -11,24 +11,24 @@
 
 
 // unconstrained 6DOF pose containing a rodrigues rotation and a translation
-struct pose_t
+typedef struct
 {
-    union point3_t r,t;
-};
+    point3_t r,t;
+} pose_t;
 
 // An observation of a calibration board. Each "observation" is ONE camera
 // observing a board
-struct observation_board_t
+typedef struct
 {
     int  i_camera         : 31;
     bool skip_frame       : 1;
     int  i_frame          : 31;
     bool skip_observation : 1;
 
-    union point2_t* px; // NUM_POINTS_IN_CALOBJECT of these
-};
+    point2_t* px; // NUM_POINTS_IN_CALOBJECT of these
+} observation_board_t;
 
-struct observation_point_t
+typedef struct
 {
     int  i_camera         : 31;
     bool skip_point       : 1;
@@ -36,20 +36,20 @@ struct observation_point_t
     bool skip_observation : 1;
 
     // Observed pixel coordinates
-    union point2_t px;
+    point2_t px;
 
     // Reference distance. This is optional; skipped if <= 0
     double dist;
-};
+} observation_point_t;
 
 
 
-struct intrinsics_core_t
+typedef struct
 {
     double focal_xy [2];
     double center_xy[2];
-};
-#define N_INTRINSICS_CORE ((int)(sizeof(struct intrinsics_core_t)/sizeof(double)))
+} intrinsics_core_t;
+#define N_INTRINSICS_CORE ((int)(sizeof(intrinsics_core_t)/sizeof(double)))
 
 
 // names of distortion models, number of distortion parameters
@@ -70,8 +70,8 @@ struct intrinsics_core_t
 #define DISTORTION_IS_CAHVOR(d) (DISTORTION_CAHVOR_FIRST <= (d) && (d) <= DISTORTION_CAHVOR_LAST)
 
 #define LIST_WITH_COMMA(s,n) ,s
-enum distortion_model_t
-    { DISTORTION_INVALID DISTORTION_LIST( LIST_WITH_COMMA ) };
+typedef enum
+    { DISTORTION_INVALID DISTORTION_LIST( LIST_WITH_COMMA ) } distortion_model_t;
 
 
 typedef struct
@@ -96,12 +96,12 @@ typedef struct
      !(x).do_optimize_frames)
 
 
-const char*             mrcal_distortion_model_name       ( enum distortion_model_t model );
-enum distortion_model_t mrcal_distortion_model_from_name  ( const char* name );
-int                     mrcal_getNdistortionParams        ( const enum distortion_model_t m );
-int                     mrcal_getNintrinsicParams         ( const enum distortion_model_t m );
+const char*             mrcal_distortion_model_name       ( distortion_model_t model );
+distortion_model_t      mrcal_distortion_model_from_name  ( const char* name );
+int                     mrcal_getNdistortionParams        ( const distortion_model_t m );
+int                     mrcal_getNintrinsicParams         ( const distortion_model_t m );
 int                     mrcal_getNintrinsicOptimizationParams( mrcal_problem_details_t problem_details,
-                                                               enum distortion_model_t m );
+                                                               distortion_model_t m );
 const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
 
 // Returns the 'next' distortion model in a family
@@ -116,23 +116,23 @@ const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-term
 // for. The second part is required because all familie begin at
 // DISTORTION_NONE, so the next model from DISTORTION_NONE is not well-defined
 // without more information
-enum distortion_model_t mrcal_getNextDistortionModel( enum distortion_model_t distortion_model_now,
-                                                      enum distortion_model_t distortion_model_final);
+distortion_model_t mrcal_getNextDistortionModel( distortion_model_t distortion_model_now,
+                                                      distortion_model_t distortion_model_final);
 
 void mrcal_project( // out
-                   union point2_t* out,
+                   point2_t* out,
 
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics)
                    double*         dxy_dintrinsics,
                    // Stored as a row-first array of shape (N,2). Each element
                    // of this array is a point3_t
-                   union point3_t* dxy_dp,
+                   point3_t* dxy_dp,
 
                    // in
-                   const union point3_t* p,
+                   const point3_t* p,
                    int N,
-                   enum distortion_model_t distortion_model,
+                   distortion_model_t distortion_model,
                    // core, distortions concatenated
                    const double* intrinsics);
 
@@ -143,12 +143,12 @@ void mrcal_project( // out
 // - the same center pixel coord as the distorted camera
 // - the distorted-camera focal length scaled by a factor of scale_f_pinhole
 bool mrcal_distort( // out
-                   union point2_t* out,
+                   point2_t* out,
 
                    // in
-                   const union point2_t* q,
+                   const point2_t* q,
                    int N,
-                   enum distortion_model_t distortion_model,
+                   distortion_model_t distortion_model,
                    // core, distortions concatenated
                    const double* intrinsics,
                    double scale_f_pinhole);
@@ -162,12 +162,12 @@ bool mrcal_distort( // out
 
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
 
-struct mrcal_stats_t
+typedef struct
 {
     MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_DEFINE)
-};
+} mrcal_stats_t;
 
-struct mrcal_stats_t
+mrcal_stats_t
 mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
                 // caller
@@ -203,18 +203,18 @@ mrcal_optimize( // out
                 // core and the distortion params. The specific distortion
                 // parameters may vary, depending on distortion_model, so
                 // this is a variable-length structure
-                double*              camera_intrinsics,  // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
-                struct pose_t*       camera_extrinsics,  // Ncameras-1 of these. Transform FROM camera0 frame
-                struct pose_t*       frames,             // Nframes of these.    Transform TO   camera0 frame
-                union  point3_t*     points,             // Npoints of these.    In the camera0 frame
+                double*       camera_intrinsics,  // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
+                pose_t*       camera_extrinsics,  // Ncameras-1 of these. Transform FROM camera0 frame
+                pose_t*       frames,             // Nframes of these.    Transform TO   camera0 frame
+                point3_t*     points,             // Npoints of these.    In the camera0 frame
 
                 // in
                 int Ncameras, int Nframes, int Npoints,
 
-                const struct observation_board_t* observations_board,
+                const observation_board_t* observations_board,
                 int NobservationsBoard,
 
-                const struct observation_point_t* observations_point,
+                const observation_point_t* observations_point,
                 int NobservationsPoint,
 
                 bool check_gradient,
@@ -231,7 +231,7 @@ mrcal_optimize( // out
                 bool VERBOSE,
                 const bool skip_outlier_rejection,
 
-                enum distortion_model_t distortion_model,
+                distortion_model_t distortion_model,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras*2 of these
                 mrcal_problem_details_t problem_details,
@@ -240,18 +240,18 @@ mrcal_optimize( // out
                 int calibration_object_width_n);
 
 int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
-                               const struct observation_point_t* observations_point,
+                               const observation_point_t* observations_point,
                                int NobservationsPoint,
                                int calibration_object_width_n,
                                mrcal_problem_details_t problem_details,
-                               enum distortion_model_t distortion_model);
+                               distortion_model_t distortion_model);
 int mrcal_getNmeasurements_boards(int NobservationsBoard,
                                   int calibration_object_width_n);
-int mrcal_getNmeasurements_points(const struct observation_point_t* observations_point,
+int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
                                   int NobservationsPoint);
 int mrcal_getNmeasurements_regularization(int Ncameras,
                                           mrcal_problem_details_t problem_details,
-                                          enum distortion_model_t distortion_model);
+                                          distortion_model_t distortion_model);
 
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
 // this is void
@@ -260,19 +260,19 @@ void mrcal_free_context(void** ctx);
 
 int mrcal_state_index_intrinsic_core(int i_camera,
                                      mrcal_problem_details_t problem_details,
-                                     enum distortion_model_t distortion_model);
+                                     distortion_model_t distortion_model);
 int mrcal_state_index_intrinsic_distortions(int i_camera,
                                             mrcal_problem_details_t problem_details,
-                                            enum distortion_model_t distortion_model);
+                                            distortion_model_t distortion_model);
 int mrcal_state_index_camera_rt(int i_camera, int Ncameras,
                                 mrcal_problem_details_t problem_details,
-                                enum distortion_model_t distortion_model);
+                                distortion_model_t distortion_model);
 int mrcal_state_index_frame_rt(int i_frame, int Ncameras,
                                mrcal_problem_details_t problem_details,
-                               enum distortion_model_t distortion_model);
+                               distortion_model_t distortion_model);
 int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
                             mrcal_problem_details_t problem_details,
-                            enum distortion_model_t distortion_model);
+                            distortion_model_t distortion_model);
 
 // packs/unpacks a vector
 void mrcal_pack_solver_state_vector( // out, in
@@ -282,7 +282,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                                 // meaningful state on output
 
                                      // in
-                                     const enum distortion_model_t distortion_model,
+                                     const distortion_model_t distortion_model,
                                      mrcal_problem_details_t problem_details,
                                      int Ncameras, int Nframes, int Npoints);
 
@@ -292,6 +292,6 @@ void mrcal_unpack_solver_state_vector( // out, in
                                                   // output
 
                                        // in
-                                       const enum distortion_model_t distortion_model,
+                                       const distortion_model_t distortion_model,
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras, int Nframes, int Npoints);

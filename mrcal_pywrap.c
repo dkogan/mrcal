@@ -99,7 +99,7 @@ typedef struct {
     PyObject_HEAD
     dogleg_solverContext_t* ctx;
 
-    enum distortion_model_t distortion_model;
+    distortion_model_t distortion_model;
     mrcal_problem_details_t problem_details;
 
     int Ncameras, Nframes, Npoints;
@@ -542,7 +542,7 @@ static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    enum distortion_model_t distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
+    distortion_model_t distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
     if( distortion_model == DISTORTION_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
@@ -628,7 +628,7 @@ static PyObject* getNextDistortionModel(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    enum distortion_model_t distortion_model_now = mrcal_distortion_model_from_name(distortion_model_now_cstring);
+    distortion_model_t distortion_model_now = mrcal_distortion_model_from_name(distortion_model_now_cstring);
     if( distortion_model_now == DISTORTION_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid distortion_model_now was passed in: '%s'. Must be a string, one of ("
@@ -637,7 +637,7 @@ static PyObject* getNextDistortionModel(PyObject* NPY_UNUSED(self),
                      distortion_model_now_cstring);
         goto done;
     }
-    enum distortion_model_t distortion_model_final = mrcal_distortion_model_from_name(distortion_model_final_cstring);
+    distortion_model_t distortion_model_final = mrcal_distortion_model_from_name(distortion_model_final_cstring);
     if( distortion_model_final == DISTORTION_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid distortion_model_final was passed in: '%s'. Must be a string, one of ("
@@ -647,7 +647,7 @@ static PyObject* getNextDistortionModel(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    enum distortion_model_t distortion_model =
+    distortion_model_t distortion_model =
         mrcal_getNextDistortionModel(distortion_model_now, distortion_model_final);
     if(distortion_model == DISTORTION_INVALID)
     {
@@ -688,7 +688,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     PROJECT_ARGUMENTS_REQUIRED(_) \
     PROJECT_ARGUMENTS_OPTIONAL(_)
 static bool project_validate_args( // out
-                                  enum distortion_model_t* distortion_model_type,
+                                  distortion_model_t* distortion_model_type,
 
                                   // in
                                   PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
@@ -775,7 +775,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
                                      PROJECT_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
-    enum distortion_model_t distortion_model_type;
+    distortion_model_t distortion_model_type;
     if(!project_validate_args( &distortion_model_type,
                                PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
@@ -816,11 +816,11 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
         }
     }
 
-    mrcal_project((union point2_t*)PyArray_DATA(out),
+    mrcal_project((point2_t*)PyArray_DATA(out),
                   get_gradients_bool ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
-                  get_gradients_bool ? (union point3_t*)PyArray_DATA(dxy_dp)  : NULL,
+                  get_gradients_bool ? (point3_t*)PyArray_DATA(dxy_dp)  : NULL,
 
-                  (const union point3_t*)PyArray_DATA(points),
+                  (const point3_t*)PyArray_DATA(points),
                   Npoints,
                   distortion_model_type,
                   // core, distortions concatenated
@@ -859,7 +859,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     DISTORT_ARGUMENTS_REQUIRED(_) \
     DISTORT_ARGUMENTS_OPTIONAL(_)
 static bool distort_validate_args( // out
-                                  enum distortion_model_t* distortion_model_type,
+                                  distortion_model_t* distortion_model_type,
 
                                   // in
                                   DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
@@ -965,7 +965,7 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
                                      DISTORT_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
-    enum distortion_model_t distortion_model_type;
+    distortion_model_t distortion_model_type;
     if(!distort_validate_args( &distortion_model_type,
                                DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                DISTORT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
@@ -1010,9 +1010,9 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
     if( scale_f_pinhole != NULL && scale_f_pinhole != Py_None )
         c_scale_f_pinhole = PyFloat_AS_DOUBLE(scale_f_pinhole);
 
-    if(! mrcal_distort((union point2_t*)PyArray_DATA(out),
+    if(! mrcal_distort((point2_t*)PyArray_DATA(out),
 
-                       (const union point2_t*)PyArray_DATA(points),
+                       (const point2_t*)PyArray_DATA(points),
                        Npoints,
                        distortion_model_type,
                        // core, distortions concatenated
@@ -1073,7 +1073,7 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
     OPTIMIZE_ARGUMENTS_OPTIONAL(_)
 
 static bool optimize_validate_args( // out
-                                    enum distortion_model_t* distortion_model_type,
+                                    distortion_model_t* distortion_model_type,
 
                                     // in
                                     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
@@ -1110,7 +1110,7 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    static_assert( sizeof(struct pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
+    static_assert( sizeof(pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
 
     long int NobservationsBoard = PyArray_DIMS(observations_board)[0];
     if( PyArray_DIMS(indices_frame_camera_board)[0] != NobservationsBoard )
@@ -1362,7 +1362,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-    enum distortion_model_t distortion_model_type;
+    distortion_model_t distortion_model_type;
     if( !optimize_validate_args(&distortion_model_type,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
@@ -1389,14 +1389,14 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
         // The checks in optimize_validate_args() make sure these casts are kosher
-        double*              c_intrinsics = (double*)         PyArray_DATA(intrinsics);
-        struct pose_t*       c_extrinsics = (struct pose_t*)  PyArray_DATA(extrinsics);
-        struct pose_t*       c_frames     = (struct pose_t*)  PyArray_DATA(frames);
-        union  point3_t*     c_points     = (union  point3_t*)PyArray_DATA(points);
+        double*       c_intrinsics = (double*)  PyArray_DATA(intrinsics);
+        pose_t*       c_extrinsics = (pose_t*)  PyArray_DATA(extrinsics);
+        pose_t*       c_frames     = (pose_t*)  PyArray_DATA(frames);
+        point3_t*     c_points     = (point3_t*)PyArray_DATA(points);
 
 
 
-        struct observation_board_t c_observations_board[NobservationsBoard];
+        observation_board_t c_observations_board[NobservationsBoard];
         int Nskipped_observations_board =
             ( skipped_observations_board == NULL ||
               skipped_observations_board == Py_None ) ?
@@ -1419,7 +1419,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
             c_observations_board[i_observation].i_camera         = i_camera;
             c_observations_board[i_observation].i_frame          = i_frame;
-            c_observations_board[i_observation].px               = &((union point2_t*)PyArray_DATA(observations_board))[c_calibration_object_width_n*c_calibration_object_width_n*i_observation];
+            c_observations_board[i_observation].px               = &((point2_t*)PyArray_DATA(observations_board))[c_calibration_object_width_n*c_calibration_object_width_n*i_observation];
 
             // I skip this frame if I skip ALL observations of this frame
             if( i_frame_current_skipped >= 0 &&
@@ -1477,7 +1477,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
-        struct observation_point_t c_observations_point[NobservationsPoint];
+        observation_point_t c_observations_point[NobservationsPoint];
         int Nskipped_observations_point =
             ( skipped_observations_point == NULL ||
               skipped_observations_point == Py_None ) ?
@@ -1500,7 +1500,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
             c_observations_point[i_observation].i_camera         = i_camera;
             c_observations_point[i_observation].i_point          = i_point;
-            c_observations_point[i_observation].px               = *(union point2_t*)(&((double*)PyArray_DATA(observations_point))[i_observation*3]);
+            c_observations_point[i_observation].px               = *(point2_t*)(&((double*)PyArray_DATA(observations_point))[i_observation*3]);
             c_observations_point[i_observation].dist             = ((double*)PyArray_DATA(observations_point))[i_observation*3 + 2];
 
             // I skip this point if I skip ALL observations of this point
@@ -1642,7 +1642,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         }
 
-        struct mrcal_stats_t stats =
+        mrcal_stats_t stats =
         mrcal_optimize( c_x_final,
                         c_invJtJ_intrinsics_full,
                         c_invJtJ_intrinsics_observations_only,
