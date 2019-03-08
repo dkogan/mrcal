@@ -138,10 +138,9 @@ void mrcal_project( // out
 
 // Maps a set of undistorted 2D imager points q to a set of imager points that
 // would result from observing the same vectors with a distorted model. Here the
-// undistorted model is a pinhole camera with
-//
-// - the same center pixel coord as the distorted camera
-// - the distorted-camera focal length scaled by a factor of scale_f_pinhole
+// undistorted model is a pinhole camera with the given parameters. Any of these
+// pinhole parameters can be given as <= 0, in which case the corresponding
+// parameter from the distorted model will be used
 bool mrcal_distort( // out
                    point2_t* out,
 
@@ -151,7 +150,10 @@ bool mrcal_distort( // out
                    distortion_model_t distortion_model,
                    // core, distortions concatenated
                    const double* intrinsics,
-                   double scale_f_pinhole);
+                   double fx_pinhole,
+                   double fy_pinhole,
+                   double cx_pinhole,
+                   double cy_pinhole);
 
 
 

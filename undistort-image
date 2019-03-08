@@ -58,6 +58,13 @@ def parse_args():
                         the original image into the output. This is one of
                         "corners", "centers-horizontal", "centers-vertical"''')
 
+    parser.add_argument('--scale',
+                        type=float,
+                        default=1.0,
+                        help='''If given, we scale the size of the pinhole image by this factor. By default
+                        the scale is 1.0, i.e. the undistorted and distorted
+                        images have the same size''')
+
     parser.add_argument('--force', '-f',
                         action='store_true',
                         default=False,
@@ -101,15 +108,20 @@ model = mrcal.cameramodel(args.model[0])
 if args.fit is None:
     scale_f_pinhole = 1.0
 elif re.match("^(corners|centers-horizontal|centers-vertical)$", args.fit):
-    scale_f_pinhole =  mrcal.compute_scale_f_pinhole_for_fit(model, args.fit)
+    scale_f_pinhole =  mrcal.compute_scale_f_pinhole_for_fit(model, args.fit,
+                                                             scale_imagersize_pinhole = args.scale)
 else:
     sys.stderr.write("--fit must be one of ('corners','centers-horizontal','centers-vertical')\n")
     sys.exit(1)
 
+if args.scale <= 1e-6:
+    sys.stderr.write("--scale should be given a reasonable value > 0.\n")
+    sys.exit(1)
 
 mapxy, intrinsics_pinhole, imagersize_pinhole = \
     mrcal.undistort_image__compute_map(model,
-                                       scale_f_pinhole,
+                                       scale_f_pinhole               = scale_f_pinhole,
+                                       scale_imagersize_pinhole      = args.scale,
                                        report_new_pinhole_parameters = True)
 
 model_pinhole = mrcal.cameramodel( model )
@@ -136,7 +148,6 @@ def undistort_this(imagefile):
     imagefile_undistorted = target_image_filename(imagefile)
 
     image_undistorted = mrcal.undistort_image(model, imagefile,
-                                              scale_f_pinhole=scale_f_pinhole,
                                               mapxy = mapxy)
     cv2.imwrite(imagefile_undistorted, image_undistorted)
     sys.stderr.write("Wrote {}\n".format(imagefile_undistorted))

@@ -997,7 +997,10 @@ bool cahvore_distort( // out
 
                       const intrinsics_core_t* core,
                       const double*            distortions,
-                      const double             scale_f_pinhole)
+                      const double             fx_pinhole,
+                      const double             fy_pinhole,
+                      const double             cx_pinhole,
+                      const double             cy_pinhole)
 {
     // Apply a CAHVORE warp to an un-distorted point
 
@@ -1034,8 +1037,8 @@ bool cahvore_distort( // out
     {
         // q is a 2d point. Convert to a 3d point by unprojecting using a
         // pinhole model
-        double v[] = { (q[i].x - core->center_xy[0]) / (scale_f_pinhole*core->focal_xy[0]),
-                       (q[i].y - core->center_xy[1]) / (scale_f_pinhole*core->focal_xy[1]),
+        double v[] = { (q[i].x - cx_pinhole) / fx_pinhole,
+                       (q[i].y - cy_pinhole) / fy_pinhole,
                        1.0};
 
         double sa,ca;
@@ -1146,10 +1149,9 @@ bool cahvore_distort( // out
 
 // Maps a set of undistorted 2D imager points q to a set of imager points that
 // would result from observing the same vectors with a distorted model. Here the
-// undistorted model is a pinhole camera with
-//
-// - the same center pixel coord as the distorted camera
-// - the distorted-camera focal length scaled by a factor of scale_f_pinhole
+// undistorted model is a pinhole camera with the given parameters. Any of these
+// pinhole parameters can be given as <= 0, in which case the corresponding
+// parameter from the distorted model will be used
 bool mrcal_distort( // out
                    point2_t* out,
 
@@ -1159,16 +1161,24 @@ bool mrcal_distort( // out
                    distortion_model_t distortion_model,
                    // core, distortions concatenated
                    const double* intrinsics,
-
-                   double scale_f_pinhole)
+                   double fx_pinhole,
+                   double fy_pinhole,
+                   double cx_pinhole,
+                   double cy_pinhole)
 {
     const intrinsics_core_t* core =
         (const intrinsics_core_t*)intrinsics;
     const double* distortions = &intrinsics[4];
 
+    if(fx_pinhole <= 0) fx_pinhole = core->focal_xy [0];
+    if(fy_pinhole <= 0) fy_pinhole = core->focal_xy [1];
+    if(cx_pinhole <= 0) cx_pinhole = core->center_xy[0];
+    if(cy_pinhole <= 0) cy_pinhole = core->center_xy[1];
+
     // project() doesn't handle cahvore, so I special-case it here
     if( distortion_model == DISTORTION_CAHVORE )
-        return cahvore_distort( out, q, N, core, distortions, scale_f_pinhole );
+        return cahvore_distort( out, q, N, core, distortions,
+                                fx_pinhole, fy_pinhole, cx_pinhole, cy_pinhole );
 
     pose_t frame = {.r = {},
                     .t = {.z = 1.0}};
@@ -1176,8 +1186,8 @@ bool mrcal_distort( // out
     {
         // q is a 2d point. Convert to a 3d point by unprojecting using a
         // pinhole model
-        frame.t.x = (q[i].x - core->center_xy[0]) / (scale_f_pinhole*core->focal_xy[0]);
-        frame.t.y = (q[i].y - core->center_xy[1]) / (scale_f_pinhole*core->focal_xy[1]);
+        frame.t.x = (q[i].x - cx_pinhole) / fx_pinhole;
+        frame.t.y = (q[i].y - cy_pinhole) / fy_pinhole;
         // initializing this above: frame.t[2] = 1.0;
 
         out[i] = project( NULL, NULL,

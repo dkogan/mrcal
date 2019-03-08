@@ -852,7 +852,10 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define DISTORT_ARGUMENTS_OPTIONAL(_) \
-    _(scale_f_pinhole,  PyObject*,      NULL,    "O",  ,                                  NULL, -1,         {})
+    _(fx,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {}) \
+    _(fy,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {}) \
+    _(cx,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {}) \
+    _(cy,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {})
 
 #define DISTORT_ARGUMENTS_ALL(_) \
     DISTORT_ARGUMENTS_REQUIRED(_) \
@@ -919,21 +922,6 @@ static bool distort_validate_args( // out
                      N_INTRINSICS_CORE + NdistortionParams,
                      PyArray_DIMS(intrinsics)[0] );
         return false;
-    }
-
-    if( scale_f_pinhole != NULL && scale_f_pinhole != Py_None )
-    {
-        if(!PyFloat_Check(scale_f_pinhole))
-        {
-            PyErr_SetString(PyExc_RuntimeError, "scale_f_pinhole MUST be a valid float != 0; got a non-floating point value");
-            return false;
-        }
-        double c_scale_f_pinhole = PyFloat_AS_DOUBLE(scale_f_pinhole);
-        if( fabs(c_scale_f_pinhole) <= 1e-8 )
-        {
-            PyErr_Format(PyExc_RuntimeError, "scale_f_pinhole MUST be a valid float != 0; got %f", c_scale_f_pinhole);
-            return false;
-        }
     }
 
     return true;
@@ -1004,11 +992,6 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
                                                 NPY_DOUBLE);
     }
 
-    // default
-    double c_scale_f_pinhole = 1.0;
-    if( scale_f_pinhole != NULL && scale_f_pinhole != Py_None )
-        c_scale_f_pinhole = PyFloat_AS_DOUBLE(scale_f_pinhole);
-
     if(! mrcal_distort((point2_t*)PyArray_DATA(out),
 
                        (const point2_t*)PyArray_DATA(points),
@@ -1016,7 +999,7 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
                        distortion_model_type,
                        // core, distortions concatenated
                        (const double*)PyArray_DATA(intrinsics),
-                       c_scale_f_pinhole))
+                       fx,fy,cx,cy))
     {
        PyErr_SetString(PyExc_RuntimeError, "mrcal_distort() failed!");
        Py_DECREF((PyObject*)out);

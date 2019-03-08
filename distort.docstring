@@ -6,16 +6,13 @@ Synopsis:
                                 # distorting
                                 q,
 
-                                distortion_model, intrinsics_data,
-                                scale_f_pinhole = 1.1
-)
+                                distortion_model, intrinsics_data )
 
 Maps a set of undistorted 2D imager points q to a set of imager points that
 would result from observing the same vectors with a distorted model. Here the
-undistorted model is a pinhole camera with
-
-- the same center pixel coord as the distorted camera
-- the distorted-camera focal length scaled by a factor of scale_f_pinhole
+undistorted model is a pinhole camera with the parameters given in the
+arguments, or the same parameters as in the distorted camera, for arguments that
+are omitted or <= 0
 
 Args:
 
@@ -41,7 +38,8 @@ Args:
 
   The focal lengths are given in pixels.
 
-- scale_f_pinhole: scaling factor on the pinhole focal lengths. Optional,
-  defaults to 1.0 (no scaling)
+- fx,fy,cx,cy: parameters for the pinhole camera we're using. Optional. Any of
+  these can be omitted or given as <= 0, in which case the corresponding
+  parameter from the distorted model will be used
 
 We return an (...,2) array of distorted pixel coordinates

@@ -1176,83 +1176,8 @@ def show_distortion(distortion_model, intrinsics_data,
 
 
     W,H = imagersize
-    if mode == 'heatmap':
 
-        if 'set' not in kwargs:
-            kwargs['set'] = []
-        elif type(kwargs['set']) is not list:
-            kwargs['set'] = [kwargs['set']]
-        kwargs['set'].extend(['xrange [:] noextend',
-                                  'yrange [:] noextend reverse',
-                                  'view equal xy',
-                                  'view map',
-                                  'contour surface',
-                                  'cntrparam levels incremental {},-1,0'.format(cbmax)])
-
-        grid, dgrid = mrcal.distortion_map__to_warped(distortion_model, intrinsics_data,
-                                                      np.linspace(0,W-1,gridn_x),
-                                                      np.linspace(0,H-1,gridn_y))
-
-        # shape: gridn_x*gridn_y,2
-        delta = dgrid-grid
-        delta *= scale
-
-        # shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib) want it that
-        # way
-        distortion = nps.transpose(np.sqrt(nps.norm2(delta)))
-
-        # Currently "with image" can't produce contours. I work around this, by
-        # plotting the data a second time.
-        # Yuck.
-        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot = gp.gnuplotlib(_3d=1,
-                             unset='grid',
-                             _xrange=[0,W],
-                             _yrange=[H,0],
-                             cbrange=[0,cbmax],
-                             ascii=1,
-                             **kwargs)
-        plot.plot(distortion,
-                  tuplesize=3,
-                  _with=np.array(('image','lines nosurface'),),
-                  legend = "", # needed to force contour labels
-                  using = colormap_using(imagersize, gridn_x, gridn_y))
-        return plot
-
-    elif mode == 'vectorfield':
-
-        grid, dgrid = mrcal.distortion_map__to_warped(distortion_model, intrinsics_data,
-                                                      np.linspace(0,W-1,gridn_x),
-                                                      np.linspace(0,H-1,gridn_y))
-        # shape: gridn*gridn,2
-        grid  = nps.clump(grid,  n=2)
-        dgrid = nps.clump(dgrid, n=2)
-
-        delta = dgrid-grid
-        delta *= scale
-
-        kwargs['_xrange']=(-50,W+50)
-        kwargs['_yrange']=(H+50, -50)
-        kwargs['_set'   ]=['object 1 rectangle from 0,0 to {},{} fillstyle empty'.format(W,H)]
-        kwargs['square' ]=True
-
-        if 'set' in kwargs:
-            if type(kwargs['set']) is list: kwargs['_set'].extend(kwargs['set'])
-            else:                           kwargs['_set'].append(kwargs['set'])
-            del kwargs['set']
-
-        plot = gp.gnuplotlib( **kwargs )
-        plot.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
-                    {'with': 'vectors size screen 0.01,20 fixed filled',
-                     'tuplesize': 4,
-                    }),
-                   (grid[:,0], grid[:,1],
-                    {'with': 'points',
-                     'tuplesize': 2,
-                    }))
-        return plot
-
-    elif mode == 'radial':
+    if mode == 'radial':
 
         # plot the radial distortion. For now I only deal with opencv here
         m = re.search("OPENCV([0-9]+)", distortion_model)
@@ -1338,8 +1263,89 @@ def show_distortion(distortion_model, intrinsics_data,
                              **kwargs)
         plot.plot()
         return plot
-    else:
+
+
+    if not ( mode == 'heatmap' or mode == 'vectorfield' ):
         raise Exception("Unknown mode '{}'. I only know about 'heatmap','vectorfield','radial'".format(mode))
+
+
+    # shape: Nwidth,Nheight,2
+    grid  = np.ascontiguousarray(nps.reorder(nps.cat(*np.meshgrid(np.linspace(0,W-1,gridn_x),
+                                                                  np.linspace(0,H-1,gridn_y))),
+                                             -1, -2, -3),
+                                 dtype = float)
+    dgrid = mrcal.distort(grid, distortion_model, intrinsics_data)
+
+
+    if mode == 'heatmap':
+
+        if 'set' not in kwargs:
+            kwargs['set'] = []
+        elif type(kwargs['set']) is not list:
+            kwargs['set'] = [kwargs['set']]
+        kwargs['set'].extend(['xrange [:] noextend',
+                                  'yrange [:] noextend reverse',
+                                  'view equal xy',
+                                  'view map',
+                                  'contour surface',
+                                  'cntrparam levels incremental {},-1,0'.format(cbmax)])
+
+        # shape: gridn_x*gridn_y,2
+        delta = dgrid-grid
+        delta *= scale
+
+        # shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib) want it that
+        # way
+        distortion = nps.transpose(np.sqrt(nps.norm2(delta)))
+
+        # Currently "with image" can't produce contours. I work around this, by
+        # plotting the data a second time.
+        # Yuck.
+        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+        plot = gp.gnuplotlib(_3d=1,
+                             unset='grid',
+                             _xrange=[0,W],
+                             _yrange=[H,0],
+                             cbrange=[0,cbmax],
+                             ascii=1,
+                             **kwargs)
+        plot.plot(distortion,
+                  tuplesize=3,
+                  _with=np.array(('image','lines nosurface'),),
+                  legend = "", # needed to force contour labels
+                  using = colormap_using(imagersize, gridn_x, gridn_y))
+        return plot
+
+    else:
+        # vectorfield
+
+        # shape: gridn*gridn,2
+        grid  = nps.clump(grid,  n=2)
+        dgrid = nps.clump(dgrid, n=2)
+
+        delta = dgrid-grid
+        delta *= scale
+
+        kwargs['_xrange']=(-50,W+50)
+        kwargs['_yrange']=(H+50, -50)
+        kwargs['_set'   ]=['object 1 rectangle from 0,0 to {},{} fillstyle empty'.format(W,H)]
+        kwargs['square' ]=True
+
+        if 'set' in kwargs:
+            if type(kwargs['set']) is list: kwargs['_set'].extend(kwargs['set'])
+            else:                           kwargs['_set'].append(kwargs['set'])
+            del kwargs['set']
+
+        plot = gp.gnuplotlib( **kwargs )
+        plot.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
+                    {'with': 'vectors size screen 0.01,20 fixed filled',
+                     'tuplesize': 4,
+                    }),
+                   (grid[:,0], grid[:,1],
+                    {'with': 'points',
+                     'tuplesize': 2,
+                    }))
+        return plot
 
 
 def _intrinsics_diff_get_reprojections(q0, v0, v1,

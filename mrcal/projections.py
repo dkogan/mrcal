@@ -222,33 +222,8 @@ def unproject(q, distortion_model, intrinsics_data):
     # normalize each vector
     return v / nps.dummy(np.sqrt(nps.inner(v,v)), -1)
 
-def distortion_map__to_warped(distortion_model, intrinsics_data, w, h, scale_f_pinhole=1.0):
-    r'''Returns the pre and post distortion map of a model
 
-    Takes in
-
-    - a cahvor model (in a number of representations)
-    - a sampling spacing on the x axis
-    - a sampling spacing on the y axis
-
-    Produces two arrays of shape Nwidth,Nheight,2:
-
-    - grid: a meshgrid of the sampling spacings given as inputs. This refers to the
-      UNDISTORTED image
-
-    - dgrid: a meshgrid where each point in grid had the distortion corrected.
-      This refers to the DISTORTED image
-
-    '''
-
-    # shape: Nwidth,Nheight,2
-    grid  = np.ascontiguousarray(nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3),
-                                 dtype = float)
-    dgrid = mrcal.distort(grid, distortion_model, intrinsics_data, scale_f_pinhole)
-
-    return grid, dgrid
-
-def compute_scale_f_pinhole_for_fit(model, fit):
+def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     r'''Compute best value of scale_f_pinhole for undistort_image()
 
     undistort_image() can produce undistorted images obtained with an arbitrary
@@ -306,9 +281,15 @@ def compute_scale_f_pinhole_for_fit(model, fit):
     # I can look at just the normalized x and y. Just one of the query points should
     # land on the edge; the rest should be in-bounds
     fx,fy,cx,cy  = intrinsics_data[:4]
+
+    W1 = int(W*scale_imagersize_pinhole + 0.5)
+    H1 = int(H*scale_imagersize_pinhole + 0.5)
+    cx1 = cx / float(W - 1) * float(W1 - 1)
+    cy1 = cy / float(H - 1) * float(H1 - 1)
+
     normxy_edges = v_edges[:,:2] / v_edges[:,(2,)]
-    normxy_min   = (                                   - np.array((cx,cy))) / np.array((fx,fy))
-    normxy_max   = (np.array((W,H), dtype=float) - 1.0 - np.array((cx,cy))) / np.array((fx,fy))
+    normxy_min   = (                               - np.array((cx1,cy1))) / np.array((fx,fy))
+    normxy_max   = (np.array((W1,H1), dtype=float) - 1.0 - np.array((cx1,cy1))) / np.array((fx,fy))
 
     # Each query point will imply a scale to just fit into the imager I take the
     # most conservative of these. For each point I look at the normalization sign to
@@ -326,6 +307,7 @@ def compute_scale_f_pinhole_for_fit(model, fit):
 
 def undistort_image__compute_map(model,
                                  scale_f_pinhole               = 1.0,
+                                 scale_imagersize_pinhole      = 1.0,
                                  report_new_pinhole_parameters = False):
     r'''Computes a distortion map useful in undistort_image()
 
@@ -336,8 +318,7 @@ def undistort_image__compute_map(model,
             mrcal.undistort_image(model, imagefile, mapxy = mapxy)
 
     Results of this could be passed to undistort_image() in the "mapxy"
-    argument. This is very similar to distortion_map__to_warped(), but has a
-    slightly different use case.
+    argument.
 
     Return an array of shape (2,Nheight,Nwidth) because this fits into what
     cv2.remap() wants. And uses opencv-specific functions if possible, for
@@ -350,11 +331,10 @@ def undistort_image__compute_map(model,
     fx,fy,cx,cy                      = intrinsics_data[ :4]
 
 
-    W1 = W
-    H1 = H
+    W1 = int(W*scale_imagersize_pinhole + 0.5)
+    H1 = int(H*scale_imagersize_pinhole + 0.5)
     output_shape = (W1, H1)
 
-    # NEED TO MAKE SURE THIS IS SUPPORTED BY THE CAHVOR AND OPENCV PATHS
     cx1 = cx / float(W - 1) * float(W1 - 1)
     cy1 = cy / float(H - 1) * float(H1 - 1)
     fx1 = fx * scale_f_pinhole
@@ -385,11 +365,15 @@ def undistort_image__compute_map(model,
                                                       cv2.CV_32FC1) )
     else:
 
-        _,mapxy = distortion_map__to_warped(distortion_model,intrinsics_data,
-                                            np.arange(W), np.arange(H),
-                                            scale_f_pinhole = scale_f_pinhole)
+        # shape: Nwidth,Nheight,2
+        grid  = np.ascontiguousarray(nps.reorder(nps.cat(*np.meshgrid(np.arange(W1),
+                                                                      np.arange(H1))),
+                                                 -1, -2, -3),
+                                     dtype = float)
+        mapxy = mrcal.distort(grid, distortion_model, intrinsics_data,
+                              fx1,fy1,cx1,cy1)
 
-        mapxy = nps.transpose(nps.mv(mapxy, -1, 0)).astype(np.float32)
+        mapxy = nps.reorder(mapxy, -1, -2, -3).astype(np.float32)
 
     if report_new_pinhole_parameters:
         return mapxy, np.array((fx1,fy1,cx1,cy1)), np.array((W1,H1))
@@ -397,7 +381,10 @@ def undistort_image__compute_map(model,
         return mapxy
 
 
-def undistort_image(model, image, scale_f_pinhole=1.0, mapxy = None):
+def undistort_image(model, image,
+                    scale_f_pinhole          = 1.0,
+                    scale_imagersize_pinhole = 1.0,
+                    mapxy                    = None):
     r'''Removes the distortion from a given image
 
     Given an image and a distortion model (and optionally, a scaling), generates
@@ -438,7 +425,9 @@ def undistort_image(model, image, scale_f_pinhole=1.0, mapxy = None):
     #     return cv2.remap(image, mapx, mapy, cv2.INTER_LINEAR)
 
     if mapxy is None:
-        mapxy = undistort_image__compute_map(model, scale_f_pinhole)
+        mapxy = undistort_image__compute_map(model,
+                                             scale_f_pinhole,
+                                             scale_imagersize_pinhole)
     elif type(mapxy) is not np.ndarray:
         raise Exception('mapxy_cache MUST either be None or a numpy array')
 
