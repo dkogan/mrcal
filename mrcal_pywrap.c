@@ -45,47 +45,46 @@ do {                                                                    \
 
 
 #define COMMA ,
-#define ARG_DEFINE(     name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) pytype name = initialvalue;
-#define ARG_LIST_DEFINE(name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) pytype name,
-#define ARG_LIST_CALL(  name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) name,
-#define NAMELIST(       name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) #name ,
-#define PARSECODE(      name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) parsecode
-#define PARSEARG(       name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) parseprearg &name,
-#define FREE_PYARRAY(   name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) if((int)npy_type >= 0 && name) { Py_DECREF(name); }
-#define CHECK_LAYOUT(   name, pytype, initialvalue, parsecode, parseprearg, npy_type, dims_ref) \
-    if((int)npy_type >= 0 && (PyObject*)name != NULL && (PyObject*)name != (PyObject*)Py_None) { \
+#define ARG_DEFINE(     name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) pytype name = initialvalue;
+#define ARG_LIST_DEFINE(name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) pytype name,
+#define ARG_LIST_CALL(  name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) name,
+#define NAMELIST(       name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) #name ,
+#define PARSECODE(      name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) parsecode
+#define PARSEARG(       name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) parseprearg &name,
+#define FREE_PYARRAY(   name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) Py_XDECREF(name_pyarrayobj);
+#define CHECK_LAYOUT(   name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
+    if(name_pyarrayobj != NULL && (PyObject*)name_pyarrayobj != (PyObject*)Py_None) {                  \
         int dims[] = dims_ref;                                          \
         int ndims = (int)sizeof(dims)/(int)sizeof(dims[0]);             \
                                                                         \
         if( ndims > 0 )                                                 \
         {                                                               \
-            if( PyArray_NDIM((PyArrayObject*)name) != ndims )           \
+            if( PyArray_NDIM((PyArrayObject*)name_pyarrayobj) != ndims )          \
             {                                                           \
-                PyErr_Format(PyExc_RuntimeError, "'" #name "' must have exactly %d dims; got %d", ndims, PyArray_NDIM((PyArrayObject*)name)); \
+                PyErr_Format(PyExc_RuntimeError, "'" #name "' must have exactly %d dims; got %d", ndims, PyArray_NDIM((PyArrayObject*)name_pyarrayobj)); \
                 return false;                                           \
             }                                                           \
             for(int i=0; i<ndims; i++)                                  \
-                if(dims[i] >= 0 && dims[i] != PyArray_DIMS((PyArrayObject*)name)[i]) \
+                if(dims[i] >= 0 && dims[i] != PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]) \
                 {                                                       \
-                    PyErr_Format(PyExc_RuntimeError, "'" #name "'must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name)[i]); \
+                    PyErr_Format(PyExc_RuntimeError, "'" #name "'must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]); \
                     return false;                                       \
                 }                                                       \
         }                                                               \
         if( (int)npy_type >= 0 )                                        \
         {                                                               \
-            if( PyArray_TYPE((PyArrayObject*)name) != npy_type )        \
+            if( PyArray_TYPE((PyArrayObject*)name_pyarrayobj) != npy_type )       \
             {                                                           \
                 PyErr_SetString(PyExc_RuntimeError, "'" #name "' must have type: " #npy_type); \
                 return false;                                           \
             }                                                           \
-            if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)name) )        \
+            if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)name_pyarrayobj) )       \
             {                                                           \
                 PyErr_SetString(PyExc_RuntimeError, "'" #name "'must be c-style contiguous"); \
                 return false;                                           \
             }                                                           \
         }                                                               \
     }
-
 #define PYMETHODDEF_ENTRY(function_prefix, name, args) {#name,          \
                                                         (PyCFunction)function_prefix ## name, \
                                                         args,           \
@@ -677,12 +676,12 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 }
 
 #define PROJECT_ARGUMENTS_REQUIRED(_)                                  \
-    _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {} ) \
-    _(distortion_model, PyObject*,      NULL,    "S",                                   , -1,         {} ) \
-    _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {} ) \
+    _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
+    _(distortion_model, PyObject*,      NULL,    "S",                                   , NULL,       -1,         {} ) \
+    _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define PROJECT_ARGUMENTS_OPTIONAL(_) \
-    _(get_gradients,    PyObject*,  Py_False,    "O",                                   ,         -1, {})
+    _(get_gradients,    PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
 
 #define PROJECT_ARGUMENTS_ALL(_) \
     PROJECT_ARGUMENTS_REQUIRED(_) \
@@ -848,12 +847,12 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
 
 #define DISTORT_ARGUMENTS_REQUIRED(_)                                  \
-    _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {} ) \
-    _(distortion_model, PyObject*,      NULL,    "S",                                   , -1,         {} ) \
-    _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {} ) \
+    _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
+    _(distortion_model, PyObject*,      NULL,    "S",                                   , NULL,       -1,         {} ) \
+    _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define DISTORT_ARGUMENTS_OPTIONAL(_) \
-    _(scale_f_pinhole,  PyObject*,      NULL,    "O",  ,                                  -1,         {})
+    _(scale_f_pinhole,  PyObject*,      NULL,    "O",  ,                                  NULL, -1,         {})
 
 #define DISTORT_ARGUMENTS_ALL(_) \
     DISTORT_ARGUMENTS_REQUIRED(_) \
@@ -1038,35 +1037,35 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
 
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
-    _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA -1       } ) \
-    _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA  6       } ) \
-    _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA  6       } ) \
-    _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA  3       } ) \
-    _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA -1 } ) \
-    _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1 COMMA  2       } ) \
-    _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA  3       } ) \
-    _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1 COMMA  2       } ) \
-    _(distortion_model,                   PyObject*,      NULL,    "S",  ,                                  -1,         {}                   ) \
-    _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1 COMMA 2        } )
+    _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
+    _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics,                  NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames,                      NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,                      NPY_DOUBLE, {-1 COMMA  3       } ) \
+    _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA -1 } ) \
+    _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camera_board,  NPY_INT,    {-1 COMMA  2       } ) \
+    _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  3       } ) \
+    _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camera_points, NPY_INT,    {-1 COMMA  2       } ) \
+    _(distortion_model,                   PyObject*,      NULL,    "S",  ,                                  NULL,                        -1,         {}                   ) \
+    _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
-    _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
-    _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
-    _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
-    _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
-    _(do_optimize_cahvor_optical_axis,    PyObject*,      Py_True, "O",  ,                                  -1,         {})  \
-    _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(calibration_object_spacing,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(calibration_object_width_n,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_INT,    {-1} ) \
-    _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, NPY_DOUBLE, {-1 COMMA 4} ) \
-    _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(observed_pixel_uncertainty,         PyObject*,      NULL,    "O",  ,                                  -1,         {})  \
-    _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       -1,         {})
+    _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_cahvor_optical_axis,    PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(calibration_object_spacing,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(calibration_object_width_n,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
+    _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, roi,            NPY_DOUBLE, {-1 COMMA 4} ) \
+    _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(observed_pixel_uncertainty,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
 
 #define OPTIMIZE_ARGUMENTS_ALL(_) \
     OPTIMIZE_ARGUMENTS_REQUIRED(_) \
