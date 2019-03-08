@@ -1056,15 +1056,15 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
     _(do_optimize_cahvor_optical_axis,    PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(calibration_object_spacing,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(calibration_object_width_n,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
+    _(calibration_object_width_n,         int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
     _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, roi,            NPY_DOUBLE, {-1 COMMA 4} ) \
     _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(observed_pixel_uncertainty,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
 
 #define OPTIMIZE_ARGUMENTS_ALL(_) \
@@ -1122,42 +1122,26 @@ static bool optimize_validate_args( // out
 
     // calibration_object_spacing and calibration_object_width_n must be > 0 OR
     // we have to not be using a calibration board
-    int c_calibration_object_width_n = 0;
     if( NobservationsBoard > 0 )
     {
-        if(!PyFloat_Check(calibration_object_spacing))
+        if( calibration_object_spacing <= 0.0 )
         {
             PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
             return false;
         }
 
-        double c_calibration_object_spacing =
-            PyFloat_AS_DOUBLE(calibration_object_spacing);
-        if( c_calibration_object_spacing <= 0.0 )
-        {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
-            return false;
-        }
-
-        if(!PyInt_Check(calibration_object_width_n))
-        {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_width_n MUST be a valid int > 0");
-            return false;
-        }
-
-        c_calibration_object_width_n = (int)PyInt_AS_LONG(calibration_object_width_n);
-        if( c_calibration_object_width_n <= 0 )
+        if( calibration_object_width_n <= 0 )
         {
             PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_width_n MUST be a valid int > 0");
             return false;
         }
 
 
-        if( c_calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
-            c_calibration_object_width_n != PyArray_DIMS(observations_board)[2] )
+        if( calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
+            calibration_object_width_n != PyArray_DIMS(observations_board)[2] )
         {
             PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,2). Instead got (%ld,%ld,%ld)",
-                         c_calibration_object_width_n, c_calibration_object_width_n,
+                         calibration_object_width_n, calibration_object_width_n,
                          PyArray_DIMS(observations_board)[1],
                          PyArray_DIMS(observations_board)[2],
                          PyArray_DIMS(observations_board)[3]);
@@ -1271,14 +1255,7 @@ static bool optimize_validate_args( // out
     {
         // not skipping outlier rejection. The pixel uncertainty is used and
         // must be valid
-        if(!PyFloat_Check(observed_pixel_uncertainty))
-        {
-            PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
-            return false;
-        }
-        double c_observed_pixel_uncertainty =
-            PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
-        if( c_observed_pixel_uncertainty <= 0.0 )
+        if( observed_pixel_uncertainty <= 0.0 )
         {
             PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
             return false;
@@ -1375,18 +1352,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         int NobservationsBoard = PyArray_DIMS(observations_board)[0];
         int NobservationsPoint = PyArray_DIMS(observations_point)[0];
 
-        double c_calibration_object_spacing  = 0.0;
-        int    c_calibration_object_width_n  = 0;
-
-        if( NobservationsBoard )
-        {
-            if(PyFloat_Check(calibration_object_spacing))
-                c_calibration_object_spacing = PyFloat_AS_DOUBLE(calibration_object_spacing);
-            if(PyInt_Check(calibration_object_width_n))
-                c_calibration_object_width_n = (int)PyInt_AS_LONG(calibration_object_width_n);
-        }
-
-
         // The checks in optimize_validate_args() make sure these casts are kosher
         double*       c_intrinsics = (double*)  PyArray_DATA(intrinsics);
         pose_t*       c_extrinsics = (pose_t*)  PyArray_DATA(extrinsics);
@@ -1418,7 +1383,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
             c_observations_board[i_observation].i_camera         = i_camera;
             c_observations_board[i_observation].i_frame          = i_frame;
-            c_observations_board[i_observation].px               = &((point2_t*)PyArray_DATA(observations_board))[c_calibration_object_width_n*c_calibration_object_width_n*i_observation];
+            c_observations_board[i_observation].px               = &((point2_t*)PyArray_DATA(observations_board))[calibration_object_width_n*calibration_object_width_n*i_observation];
 
             // I skip this frame if I skip ALL observations of this frame
             if( i_frame_current_skipped >= 0 &&
@@ -1569,7 +1534,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         int Nmeasurements = mrcal_getNmeasurements_all(Ncameras, NobservationsBoard,
                                                        c_observations_point, NobservationsPoint,
-                                                       c_calibration_object_width_n,
+                                                       calibration_object_width_n,
                                                        problem_details,
                                                        distortion_model_type);
 
@@ -1595,7 +1560,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         const int Npoints_fromBoards =
             NobservationsBoard *
-            c_calibration_object_width_n*c_calibration_object_width_n;
+            calibration_object_width_n*calibration_object_width_n;
         outlier_indices_final     = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
         outside_ROI_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
 
@@ -1623,9 +1588,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             c_roi = PyArray_DATA(roi);
 
         int* c_imagersizes = PyArray_DATA(imagersizes);
-        double c_observed_pixel_uncertainty = 0.0;
-        if(observed_pixel_uncertainty != NULL && (PyObject*)observed_pixel_uncertainty != Py_None)
-            c_observed_pixel_uncertainty = PyFloat_AS_DOUBLE(observed_pixel_uncertainty);
 
         dogleg_solverContext_t** solver_context_optimizer = NULL;
         if(solver_context != NULL && (PyObject*)solver_context != Py_None)
@@ -1637,7 +1599,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             solver_context->Nframes                    = Nframes;
             solver_context->Npoints                    = Npoints;
             solver_context->NobservationsBoard         = NobservationsBoard;
-            solver_context->calibration_object_width_n = c_calibration_object_width_n;
+            solver_context->calibration_object_width_n = calibration_object_width_n;
 
         }
 
@@ -1666,12 +1628,12 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         VERBOSE &&                PyObject_IsTrue(VERBOSE),
                         skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                         distortion_model_type,
-                        c_observed_pixel_uncertainty,
+                        observed_pixel_uncertainty,
                         c_imagersizes,
                         problem_details,
 
-                        c_calibration_object_spacing,
-                        c_calibration_object_width_n);
+                        calibration_object_spacing,
+                        calibration_object_width_n);
 
         if(stats.rms_reproj_error__pixels < 0.0)
         {
