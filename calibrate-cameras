@@ -850,7 +850,7 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
         sum_obj_unproj = obj*0
         for i_observation in xrange(i_observation0, i_observation1):
             Rt = T_camera_board(i_observation)
-            sum_obj_unproj += mrcal.transform_point_Rt(obj, Rt)
+            sum_obj_unproj += mrcal.transform_point_Rt(Rt, obj)
 
         mean = sum_obj_unproj / (i_observation1 - i_observation0)
 

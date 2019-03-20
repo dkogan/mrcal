@@ -81,23 +81,23 @@ def identity_rt():
     r'''Returns an identity rt transform'''
     return np.zeros(6, dtype=float)
 
-@nps.broadcast_define( ((3,),(4,3)),
+@nps.broadcast_define( ((4,3),(3,)),
                        (3,), )
-def transform_point_Rt(x, Rt):
+def transform_point_Rt(Rt, x):
     r'''Transforms a given point by a given Rt transformation'''
     R = Rt[:3,:]
     t = Rt[ 3,:]
     return nps.matmult(x, nps.transpose(R)) + t
 
-@nps.broadcast_define( ((3,),(6,)),
+@nps.broadcast_define( ((6,),(3,)),
                        (3,), )
-def _transform_point_rt(x, rt):
+def _transform_point_rt(rt, x):
     r'''Transforms a given point by a given rt transformation'''
-    return transform_point_Rt(x, Rt_from_rt(rt))
+    return transform_point_Rt(Rt_from_rt(rt), x)
 
-@nps.broadcast_define( ((3,),(6,)),
+@nps.broadcast_define( ((6,),(3,)),
                        (3,10), )
-def _transform_point_rt_withgradient(x, rt):
+def _transform_point_rt_withgradient(rt, x):
     r'''Transforms a given point by a given rt transformation
 
     Returns a projection result AND a gradient'''
@@ -106,14 +106,14 @@ def _transform_point_rt_withgradient(x, rt):
     # Test. I have vref.shape=(16,3) and I have some rt. This prints the
     # worst-case relative errors. Both should be ~0
     #
-    #     vfit,dvfit_dvref,dvfit_drt = mrcal.transform_point_rt(vref, rt, get_gradients=True)
+    #     vfit,dvfit_dvref,dvfit_drt = mrcal.transform_point_rt(rt, vref, get_gradients=True)
     #     dvref = np.random.random(vref.shape)*1e-5
     #     drt   = np.random.random(rt.shape)*1e-5
-    #     vfit1 = mrcal.transform_point_rt(vref + dvref, rt)
+    #     vfit1 = mrcal.transform_point_rt(rt, vref + dvref)
     #     dvfit_observed = vfit1-vfit
     #     dvfit_expected = nps.matmult(dvfit_dvref, nps.dummy(dvref,-1))[...,0]
     #     print np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.)))
-    #     vfit1 = mrcal.transform_point_rt(vref, rt + drt)
+    #     vfit1 = mrcal.transform_point_rt(rt + drt, vref)
     #     dvfit_observed = vfit1-vfit
     #     dvfit_expected = nps.matmult(dvfit_drt, nps.dummy(drt,-1))[...,0]
     #     print np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.)))
@@ -139,7 +139,7 @@ def _transform_point_rt_withgradient(x, rt):
     return nps.glue(nps.transpose(xx), d_dx, d_dr, d_dt,
                     axis = -1)
 
-def transform_point_rt(x, rt, get_gradients=False):
+def transform_point_rt(rt, x, get_gradients=False):
     r'''Transforms a given point by a given rt transformation
 
     if get_gradients: return a tuple of (transform_result,d_dx,d_drt)
@@ -148,13 +148,13 @@ def transform_point_rt(x, rt, get_gradients=False):
 
     '''
     if not get_gradients:
-        return _transform_point_rt(x,rt)
+        return _transform_point_rt(rt,x)
 
     # We're getting gradients. The inner broadcastable function returns a single
     # packed array. I unpack it into components before returning. Note that to
     # make things line up, the inner function uses a COLUMN vector to store the
     # projected result, not a ROW vector
-    result = _transform_point_rt_withgradient(x,rt)
+    result = _transform_point_rt_withgradient(rt,x)
     x      = result[..., 0  ]
     d_dx   = result[..., 1:4]
     d_drt  = result[..., 4: ]
