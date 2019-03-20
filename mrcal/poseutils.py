@@ -52,10 +52,12 @@ def invert_rt(rt):
 
 @nps.broadcast_define( ((4,3),(4,3)),
                        (4,3,), )
-def compose_Rt(Rt1, Rt2):
-    r'''Composes two Rt transformations
+def _compose_Rt(Rt1, Rt2):
+    r'''Composes exactly 2 Rt transformations
 
-    y = R1(R2 x + t2) + t1 = R1 R2 x + R1 t2 + t1
+    Given 2 Rt transformations, returns their composition. This is an internal
+    function used by mrcal.compose_Rt(), which supports >2 input transformations
+
     '''
     R1 = Rt1[:3,:]
     t1 = Rt1[ 3,:]
@@ -66,12 +68,27 @@ def compose_Rt(Rt1, Rt2):
     t = nps.matmult(t2, nps.transpose(R1)) + t1
     return nps.glue(R,t, axis=-2)
 
-@nps.broadcast_define( ((6,),(6,)),
-                       (6,), )
-def compose_rt(rt1, rt2):
-    r'''Composes two rt transformations'''
-    return rt_from_Rt( compose_Rt( Rt_from_rt(rt1),
-                                   Rt_from_rt(rt2)))
+def compose_Rt(*args):
+    r'''Composes Rt transformations
+
+    Given some number (2 or more, presumably) of Rt transformations, returns
+    their composition
+
+    '''
+    return reduce( _compose_Rt, args, np.array(((1,0,0),
+                                                (0,1,0),
+                                                (0,0,1),
+                                                (0,0,0)), dtype=float) )
+
+def compose_rt(*args):
+    r'''Composes rt transformations
+
+    Given some number (2 or more, presumably) of rt transformations, returns
+    their composition
+
+    '''
+
+    return rt_from_Rt( compose_Rt( *[Rt_from_rt(rt) for rt in args] ) )
 
 def identity_Rt():
     r'''Returns an identity Rt transform'''
