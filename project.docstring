@@ -13,9 +13,8 @@ Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and an intrinsic model, this function computes the
 projection, optionally with gradients.
 
-This is the written-in-C function in mrcal.h. There's a higher-level python
-wrapper (available as mrcal.project) that handles broadcasting, and is in
-general the preferred user-facing form
+This is the written-in-C function in mrcal.h. The user should use the python
+wrapper: mrcal.project().
 
 ARGUMENTS
 
@@ -50,7 +49,7 @@ if not get_gradients: we return an (...,2) array of projected pixel coordinates
 if get_gradients: we return a tuple:
 
   - (...,2) array of projected pixel coordinates
-  - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
-    respect to the intrinsics
   - (...,2,3) array of the gradients of the pixel coordinates in respect to
     the input 3D point positions
+  - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
+    respect to the intrinsics

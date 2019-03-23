@@ -123,7 +123,7 @@ def _transform_point_rt_withgradient(rt, x):
     # Test. I have vref.shape=(16,3) and I have some rt. This prints the
     # worst-case relative errors. Both should be ~0
     #
-    #     vfit,dvfit_dvref,dvfit_drt = mrcal.transform_point_rt(rt, vref, get_gradients=True)
+    #     vfit,dvfit_drt,dvfit_dvref = mrcal.transform_point_rt(rt, vref, get_gradients=True)
     #     dvref = np.random.random(vref.shape)*1e-5
     #     drt   = np.random.random(rt.shape)*1e-5
     #     vfit1 = mrcal.transform_point_rt(rt, vref + dvref)

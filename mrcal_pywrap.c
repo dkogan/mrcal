@@ -827,10 +827,10 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
     if( get_gradients_bool )
     {
-        result = PyTuple_Pack(3, out, dxy_dintrinsics, dxy_dp);
+        result = PyTuple_Pack(3, out, dxy_dp, dxy_dintrinsics);
         Py_DECREF(out);
-        Py_DECREF(dxy_dintrinsics);
         Py_DECREF(dxy_dp);
+        Py_DECREF(dxy_dintrinsics);
     }
     else
         result = (PyObject*)out;

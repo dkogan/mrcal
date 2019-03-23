@@ -914,7 +914,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
     v,_ = _sample_imager_unproject(gridn_x, gridn_y,
                                    distortion_model, intrinsics_data,
                                    *imagersize)
-    q,dq_dp,dq_dv = \
+    q,dq_dv,dq_dp = \
         mrcal.project(v, distortion_model, intrinsics_data, get_gradients=True)
 
     dq_dp_corrected = \

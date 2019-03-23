@@ -68,8 +68,7 @@ def _undistort(q, distortion_model, intrinsics):
 
     return undistort_this(q)
 
-# @nps.broadcast_define( ((3,),('Nintrinsics',)),
-#                        (2,), )
+# Broadcasting available for points only; handled internally by the C layer
 def project(v, distortion_model, intrinsics_data, get_gradients=False):
     r'''Projects 3D point(s) using the given camera intrinsics
 
@@ -108,10 +107,10 @@ def project(v, distortion_model, intrinsics_data, get_gradients=False):
     if get_gradients: instead of returning the projected points I return a tuple
 
     - (...,2) array of projected pixel coordinates
-    - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
-      respect to the intrinsics
     - (...,2,3) array of the gradients of the pixel coordinates in respect to
       the input 3D point positions
+    - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
+      respect to the intrinsics
 
     '''
 
@@ -120,7 +119,7 @@ def project(v, distortion_model, intrinsics_data, get_gradients=False):
         if get_gradients:
             Nintrinsics = intrinsics_data.shape[-1]
             s = v.shape
-            return np.zeros(s[:-1] + (2,)), np.zeros(s[:-1] + (2,Nintrinsics)), np.zeros(s[:-1] + (2,3))
+            return np.zeros(s[:-1] + (2,)), np.zeros(s[:-1] + (2,3)), np.zeros(s[:-1] + (2,Nintrinsics))
         else:
             s = v.shape
             return np.zeros(s[:-1] + (2,))
