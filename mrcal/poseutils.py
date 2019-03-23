@@ -159,7 +159,7 @@ def _transform_point_rt_withgradient(rt, x):
 def transform_point_rt(rt, x, get_gradients=False):
     r'''Transforms a given point by a given rt transformation
 
-    if get_gradients: return a tuple of (transform_result,d_dx,d_drt)
+    if get_gradients: return a tuple of (transform_result,d_drt,d_dx)
 
     This function supports broadcasting fully
 
@@ -175,7 +175,7 @@ def transform_point_rt(rt, x, get_gradients=False):
     x      = result[..., 0  ]
     d_dx   = result[..., 1:4]
     d_drt  = result[..., 4: ]
-    return x,d_dx,d_drt
+    return x,d_drt,d_dx
 
 def R_from_quat(q):
     r'''Rotation matrix from a unit quaternion
