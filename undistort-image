@@ -43,7 +43,8 @@ def parse_args():
                         required=False,
                         help='''If given, we'll scale the focal length of the pinhole model to fit some of
                         the original image into the output. This is one of
-                        "corners", "centers-horizontal", "centers-vertical"''')
+                        "corners", "centers-horizontal", "centers-vertical". If
+                        omitted, we keep the focal lengths the same''')
 
     parser.add_argument('--scale',
                         type=float,
@@ -107,7 +108,8 @@ if not args.force:
     for imagefile in args.image:
         f = target_image_filename(imagefile)
         if os.path.isfile(f):
-            raise Exception("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.".format(f))
+            sys.stderr.write("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.\n".format(f))
+            sys.exit(1)
 
 model = mrcal.cameramodel(args.model[0])
 
