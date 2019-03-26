@@ -11,62 +11,6 @@ import mrcal
 import _mrcal
 
 
-def _undistort(q, distortion_model, intrinsics):
-    r'''Un-apply a distortion: undistort a point
-
-    This is a model-generic function. We use the given distortion_model: a
-    string that says what the values in 'distortions' mean. The supported values
-    are defined in mrcal.h. At the time of this writing, the supported values
-    are
-
-      DISTORTION_NONE
-      DISTORTION_OPENCV4
-      DISTORTION_OPENCV5
-      DISTORTION_OPENCV8
-      DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
-      DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
-      DISTORTION_CAHVOR
-      DISTORTION_CAHVORE
-
-    Given intrinsic parameters of a model and a projected and distorted point(s)
-    numpy array of shape (..., 2), return the projected point(s) that we'd get
-    without distortion. We ASSUME THE SAME fx,fy,cx,cy
-
-    This function can broadcast the points array.
-
-    Note that this function has an iterative solver and is thus SLOW. This is
-    the "backwards" direction. Most of the time you want distort().
-
-    '''
-
-    if q is None or q.size == 0: return q
-
-    Ndistortions = mrcal.getNdistortionParams(distortion_model)
-    if len(intrinsics)-4 != Ndistortions:
-        raise Exception("Inconsistent distortion_model/values. Model '{}' expects {} distortion parameters, but got {} distortion values", distortion_model, Ndistortions, len(intrinsics)-4)
-
-    if distortion_model == "DISTORTION_NONE":
-        return q
-
-    # I could make this much more efficient: precompute lots of stuff, use
-    # gradients, etc, etc. This functions decently well and I leave it.
-
-    # I optimize each point separately because the internal optimization
-    # algorithm doesn't know that each point is independent, so if I optimized
-    # it all together, it would solve a dense linear system whose size is linear
-    # in Npoints. The computation time thus would be much slower than
-    # linear(Npoints)
-    @nps.broadcast_define( ((2,),), )
-    def undistort_this(q0):
-        def f(qundistorted):
-            '''Optimization functions'''
-            qdistorted = mrcal.distort(qundistorted, distortion_model, intrinsics)
-            return qdistorted - q0
-        q1 = scipy.optimize.leastsq(f, q0)[0]
-        return np.array(q1)
-
-    return undistort_this(q)
-
 # Broadcasting available for points only; handled internally by the C layer
 def project(v, distortion_model, intrinsics_data, get_gradients=False):
     r'''Projects 3D point(s) using the given camera intrinsics
@@ -207,15 +151,69 @@ def unproject(q, distortion_model, intrinsics_data):
         s = q.shape
         return np.zeros(s[:-1] + (3,))
 
-    q = _undistort(q, distortion_model, intrinsics_data)
+    fxy = intrinsics_data[ :2]
+    cxy = intrinsics_data[2:4]
 
-    (fx, fy, cx, cy) = intrinsics_data[:4]
+    if distortion_model == "DISTORTION_NONE":
 
-    # shape = (..., 2)
-    v = (q - np.array((cx,cy))) / np.array((fx,fy))
+        # undistorted q is the same as distorted q. I skip some steps
+
+        # shape = (..., 2)
+        vxy = (q - cxy) / fxy
+
+    else:
+        # undistort the q, by running an optimizer
+
+        # I optimize each point separately because the internal optimization
+        # algorithm doesn't know that each point is independent, so if I optimized
+        # it all together, it would solve a dense linear system whose size is linear
+        # in Npoints. The computation time thus would be much slower than
+        # linear(Npoints)
+        @nps.broadcast_define( ((2,),), )
+        def undistort_this(q0):
+
+            def cost(vxy):
+                '''Optimization functions'''
+                q,dqdxyz,_ = mrcal.project(np.array((vxy[0],vxy[1],1.)), distortion_model, intrinsics_data,
+                                           get_gradients=True)
+                return q - q0, dqdxyz[:,:2]
+
+            # scipy.optimize.least_squares() has separate callbacks for the
+            # function value and jacobians, while I compute them at the same
+            # time. I have a caching mechanism to avoid recomputation
+            undistort_this.cache_pfJ = [None,None,None]
+            def f_callback(p, *args, **kwargs):
+                p_cache = undistort_this.cache_pfJ[0]
+                if p_cache is None or np.linalg.norm(p_cache - p) > 1e-12:
+                    undistort_this.cache_pfJ[0]  = np.array(p)
+                    undistort_this.cache_pfJ[1:] = cost(p)
+                return undistort_this.cache_pfJ[1]
+            def J_callback(p, *args, **kwargs):
+                p_cache = undistort_this.cache_pfJ[0]
+                if p_cache is None or np.linalg.norm(p_cache - p) > 1e-12:
+                    undistort_this.cache_pfJ[0]  = np.array(p)
+                    undistort_this.cache_pfJ[1:] = cost(p)
+                return undistort_this.cache_pfJ[2]
+
+            # seed assuming distortions aren't there
+            vxy_seed = (q0 - cxy) / fxy
+            result = scipy.optimize.least_squares(f_callback, vxy_seed, J_callback)
+
+            vxy = result.x
+
+            # This needs to be precise; if it isn't, I barf. Shouldn't happen
+            # very often
+            if np.sqrt(result.cost/2.) > 1e-3:
+                if not unproject.__dict__.get('already_complained'):
+                    sys.stderr.write("WARNING: unproject() wasn't able to precisely compute some points. Returning nan for those. Will complain just once\n")
+                    unproject.already_complained = True
+                return np.array((np.nan,np.nan))
+            return vxy
+
+        vxy = undistort_this(q)
 
     # I append a 1. shape = (..., 3)
-    v = nps.glue(v, np.ones( v.shape[:-1] + (1,) ), axis=-1)
+    v = nps.glue(vxy, np.ones( vxy.shape[:-1] + (1,) ), axis=-1)
 
     # normalize each vector
     return v / nps.dummy(np.sqrt(nps.inner(v,v)), -1)
