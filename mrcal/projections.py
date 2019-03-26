@@ -12,7 +12,7 @@ import _mrcal
 
 
 def _undistort(q, distortion_model, intrinsics):
-    r'''Un-apply a CAHVOR warp: undistort a point
+    r'''Un-apply a distortion: undistort a point
 
     This is a model-generic function. We use the given distortion_model: a
     string that says what the values in 'distortions' mean. The supported values
@@ -40,7 +40,6 @@ def _undistort(q, distortion_model, intrinsics):
     '''
 
     if q is None or q.size == 0: return q
-
 
     Ndistortions = mrcal.getNdistortionParams(distortion_model)
     if len(intrinsics)-4 != Ndistortions:
