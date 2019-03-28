@@ -18,18 +18,13 @@ Both CAHVOR and OpenCV distortion models are fully supported; CAHVORE is
 partially supported. The toolkit includes:
 
 - Some libraries:
-  - =libmrcal=: A flexible solver core written in C that solves the underlying
-    optimization problem
+  - =libmrcal=: A flexible solver core written in C and providing a C API that
+    solves the underlying optimization problem
   - =mrcal=: a Python library that contains (among other things) an interface
     to this core. Other things provided by the =mrcal= Python library:
-    - functions to read/write camera models
+    - functions to read/write/manipulate camera models
     - functions to manipulate 3D poses
     - functions to (un)project and (un)distort data
-  - =mrcal.cahvor=: functions to read/write camera models in cahvor format: this
-    is for legacy compatibility only, so it lives in a separate module. The
-    =mrcal.cameramodel= class generally knows to use a different file format
-    when talking to =xxx.cahvor= files, so the user shouldn't need to touch this
-    module directly
 
 - Some tools:
   - =calibrate-cameras=: calibrates N cameras
@@ -52,7 +47,27 @@ intrinsics/extrinsics, etc.
 
 * Description
 
-** Pose representations
+** Fundamental assumptions
+
+Some notational conventions are used throught the code and implementation, and
+they're explicitly described here.
+
+*** Coordinate system conventions
+
+No convention is assumed for the world coordinate system. The canonical camera
+coordinate system has =x,y= as with pixel coordinates in an image: =x= is to the
+"right" and =y= is "down". =z= is then "forward" to complete the right-handed
+system of coordinates
+
+*** Transformation conventions
+
+When describing a transformation (or its rotation/translation components) that
+maps a point represented in coordinate system A to its representation in
+coordinate system B, =T_AB= is the notation used. These chain together nicely,
+so if we know the transformation between =A= and =B= and between =B= and =C=, we
+can transform a point represented in =C= to =A=: =x_A = T_AB T_BC x_C=
+
+*** Pose representations
 
 Various parts of the toolkit have preferred representations of pose, and =mrcal=
 has functions to convert between them. Available representations are:
@@ -60,32 +75,32 @@ has functions to convert between them. Available representations are:
 - =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
   (1,3) translation vector
 
-- =rt=: a (6) numpy array with a (3) vector representing a Rodrigues rotation
-  concatenated with another (3) vector, representing a rotation.
+- =rt=: a (6,) numpy array with a (3,) vector representing a Rodrigues rotation
+  concatenated with another (3,) vector, representing a rotation.
 
-Each of these represents a transformation rotate(x) + t.
+Each of these represents a transformation =rotate(x) + t=
 
-A Rodrigues rotation vector r represents a rotation of length(r) radians around
-an axis in the direction r. Converting between R and r is done via the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues
-rotation formula]]. This is implemented in OpenCV Python function =cv2.Rodrigues=.
-For translating /poses/, not just rotations, use =mrcal.Rt_from_rt()= and
-=mrcal.rt_from_Rt()=.
+A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
+around an axis in the direction =r=. Converting between =R= and =r= is done via
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]. This is implemented in OpenCV Python function
+=cv2.Rodrigues=. For translating /poses/, not just rotations, use
+=mrcal.Rt_from_rt()= and =mrcal.rt_from_Rt()=.
 
-** Model files
+** Camera model file formats
 
-The toolkit supports two different representations of a camera model on disk:
+Reading/writing cameramodels is done in Python with the =mrcal.cameramodel=
+class. This class supports two different file formats:
 
-- =.cameramodel=: the "preferred" format. This is a simple text representation
+- =.cameramodel=: the preferred format. This is a simple text representation
   that has clear sections for the distortion model, pinhole intrinsics,
-  distortions, and an extrinsic pose. The pose is represented as =rt_fromref=:
-  an =rt= transformation /from/ the reference coordinate system /to/ the
-  coordinate system of this camera.
+  distortion coefficients, and an extrinsic pose. The pose is represented as
+  =rt_fromref=: an =rt= transformation /from/ the reference coordinate system
+  /to/ the coordinate system of this camera. The class provides methods to get
+  the transformation in any form, but =rt_fromref= is the internal
+  representation
 
-- =.cahvor=: the legacy format. This exists for compatibility for existing JPL
-  tools. This is also a text format. It mixes extrinsics and intrinsics, which
-  makes it difficult for humans to interpret the numbers. Furthermore, it
-  includes some redundant and constrained data that makes manipulations by
-  humans difficult: impossible and/or contradictory models result.
+- =.cahvor=: the legacy format. This exists for compatibility with existing JPL
+  tools. There's no other reason to use this format
 
 ** Distortion models
 
@@ -106,11 +121,11 @@ high-distoriton model is required. Currently the supported models are:
 
 ** Calibration object
 
-When running a camera calibration, the first step involves converting an image
-containing an observed calibration object into a set of observation pixels.
-Mrcal is a purely geometrical toolkit, so it outsources this vision problem to
-another library: [[https://github.com/dkogan/mrgingham/][=mrgingham=]]. That library strongly suggests using a particular
-calibration object; see its documentation for more details.
+When running a camera calibration, we use camera observations of a calibration
+object (usually a chessboard). These images must be converted to a set of pixels
+where chessboard corners were observed. =mrcal= is a purely geometrical toolkit,
+so this vision problem is handled by another library: [[https://github.com/dkogan/mrgingham/][=mrgingham=]]. See its
+documentation for more details.
 
 * Repository
 
