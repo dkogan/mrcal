@@ -8,7 +8,7 @@ Synopsis:
 
 This tool takes a set of pixel observations corresponding to one camera model,
 and converts them to corresponding observations in another model. This is useful
-in conjunction with the undistort.py tool. An envisioned usage:
+in conjunction with the 'undistort-points' tool. An envisioned usage:
 
 - undistort-points --model fisheye.cameramodel input.png
   This produces an undistorted image and a corresponding pinhole camera model.
