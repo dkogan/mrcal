@@ -1,0 +1,630 @@
+* SYNOPSIS
+
+#+BEGIN_EXAMPLE
+$ calibrate-cameras --focal 2000
+                    --outdir /tmp --object-spacing 0.01
+                    --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
+
+... lots of output as the solve runs ...
+Wrote /tmp/camera0-0.cameramodel
+Wrote /tmp/camera0-1.cameramodel
+#+END_EXAMPLE
+
+* SUMMARY
+
+Mrcal is a generic toolkit to solve calibration and SFM-like problems.
+Functionality related to these problems is exposed as a set of python libraries.
+Both CAHVOR and OpenCV distortion models are fully supported; CAHVORE is
+partially supported. The toolkit includes:
+
+- Some libraries:
+  - =libmrcal=: A flexible solver core written in C and providing a C API that
+    solves the underlying optimization problem
+  - =mrcal=: a Python library that contains (among other things) an interface
+    to this core. Other things provided by the =mrcal= Python library:
+    - functions to read/write/manipulate camera models
+    - functions to manipulate 3D poses
+    - functions to (un)project and (un)distort data
+
+- Some tools:
+  - =calibrate-cameras=: calibrates N cameras
+  - =convert-distortions=: fits one distortion model to another
+  - =show-distortions=: visualize the distortion effects of a specific model
+  - =show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics due
+    to noise in the calibration inputs
+  - =show-intrinsics-diff=: visualize the difference between the intrinsics of
+    a number of models
+  - =undistort-image=: Given image(s) and a distortion model, produces a new set
+    of images that have removed the distortion
+  - =redistort-points=: Given two distortion models and a set of points, maps
+    them from one distortion model to the other
+  - =graft-cameramodel=: Combines the intrinsics of one cameramodel with the
+    extrinsics of another
+
+These libraries and tools make it easy to both produce calibrations in many ways
+and to manipulate them by moving stuff around, grafting various
+intrinsics/extrinsics, etc.
+
+* DESCRIPTION
+
+** Fundamental assumptions
+
+Some notational conventions are used throught the code and implementation, and
+they're explicitly described here.
+
+*** Coordinate system conventions
+
+No convention is assumed for the world coordinate system. The canonical camera
+coordinate system has =x,y= as with pixel coordinates in an image: =x= is to the
+"right" and =y= is "down". =z= is then "forward" to complete the right-handed
+system of coordinates
+
+*** Transformation conventions
+
+When describing a transformation (or its rotation/translation components) that
+maps a point represented in coordinate system A to its representation in
+coordinate system B, =T_AB= is the notation used. These chain together nicely,
+so if we know the transformation between =A= and =B= and between =B= and =C=, we
+can transform a point represented in =C= to =A=: =x_A = T_AB T_BC x_C=
+
+*** Pose representations
+
+Various parts of the toolkit have preferred representations of pose, and =mrcal=
+has functions to convert between them. Available representations are:
+
+- =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
+  (1,3) translation vector
+
+- =rt=: a (6,) numpy array with a (3,) vector representing a Rodrigues rotation
+  concatenated with another (3,) vector, representing a rotation.
+
+Each of these represents a transformation =rotate(x) + t=
+
+A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
+around an axis in the direction =r=. Converting between =R= and =r= is done via
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]. This is implemented in OpenCV Python function
+=cv2.Rodrigues=. For translating /poses/, not just rotations, use
+=mrcal.Rt_from_rt()= and =mrcal.rt_from_Rt()=.
+
+** Camera model file formats
+
+Reading/writing cameramodels is done in Python with the =mrcal.cameramodel=
+class. This class supports two different file formats:
+
+- =.cameramodel=: the preferred format. This is a simple text representation
+  that has clear sections for the distortion model, pinhole intrinsics,
+  distortion coefficients, and an extrinsic pose. The pose is represented as
+  =rt_fromref=: an =rt= transformation /from/ the reference coordinate system
+  /to/ the coordinate system of this camera. The class provides methods to get
+  the transformation in any form, but =rt_fromref= is the internal
+  representation
+
+- =.cahvor=: the legacy format. This exists for compatibility with existing JPL
+  tools. There's no other reason to use this format
+
+** Distortion models
+
+Distortion models are specified as elements of =enum distortion_model_t= (in C)
+or, as strings that match the entries of that enum (in Python). Currently I
+support all CAHVOR flavors and all models implemented in OpenCV. A limitation is
+that the solver core does not support CAHVORE, so use the OpenCV models if a
+high-distoriton model is required. Currently the supported models are:
+
+- =DISTORTION_NONE=
+- =DISTORTION_OPENCV4=
+- =DISTORTION_OPENCV5=
+- =DISTORTION_OPENCV8=
+- =DISTORTION_OPENCV12= (if we have OpenCV >= 3.0.0)
+- =DISTORTION_OPENCV14= (if we have OpenCV >= 3.1.0)
+- =DISTORTION_CAHVOR=
+- =DISTORTION_CAHVORE=
+
+** Calibration object
+
+When running a camera calibration, we use camera observations of a calibration
+object (usually a chessboard). These images must be converted to a set of pixels
+where chessboard corners were observed. =mrcal= is a purely geometrical toolkit,
+so this vision problem is handled by another library: [[https://github.com/dkogan/mrgingham/][=mrgingham=]]. See its
+documentation for more details.
+
+* MANPAGES
+** calibrate-cameras
+#+BEGIN_EXAMPLE
+NAME
+    calibrate-cameras - Calibrate some synchronized cameras
+
+SYNOPSIS
+      $ calibrate-cameras
+          --dots-cache corners.vnl
+          --focal 1700 --object-spacing 0.01 --object-width-n 10
+          --out /tmp
+          --distortion-model DISTORTION_OPENCV8
+          --observed-pixel-uncertainty 0.5
+          'left*.png' 'right*.png'
+
+        ... lots of output as the solve runs ...
+        Done!
+        RMS reprojection error: 1.9 pixels
+        Worst reprojection error: 7.8 pixels
+        Noutliers: 319 out of 17100 total points: 1.9% of the data
+
+        Wrote /tmp/camera0-0.cahvor
+        Wrote /tmp/camera0-1.cahvor
+        Wrote /tmp/camera0-0.cameramodel
+        Wrote /tmp/camera0-1.cameramodel
+
+DESCRIPTION
+    This tool uses the generic mrcal platform to solve a common specific
+    problem of N-camera calibration using observations of a chessboard.
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      images                A glob-per-camera for the images. Include a glob for
+                            each camera. It is assumed that the image filenames in
+                            each glob are of of the form xxxNNNyyy where xxx and
+                            yyy are common to all images in the set, and NNN
+                            varies. This NNN is a frame number, and identical
+                            frame numbers across different globs signify a time-
+                            synchronized observation. I.e. you can pass
+                            'left*.jpg' and 'right*.jpg' to find images
+                            'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
+                            'right1.jpg', ...
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --focal FOCAL         Initial estimate of the focal length, in pixels
+      --imagersize IMAGERSIZE IMAGERSIZE
+                            Size of the imager. This is only required if we pass
+                            --dots-cache AND if none of the image files on disk
+                            actually exist
+      --outdir OUTDIR       Directory for the output camera models
+      --object-spacing OBJECT_SPACING
+                            Width of each square in the calibration board, in
+                            meters
+      --object-width-n OBJECT_WIDTH_N
+                            How many points the calibration board has per side
+      --distortion-model DISTORTION_MODEL
+                            Which distortion model we're using. By default I use
+                            DISTORTION_OPENCV4
+      --roi ROI ROI ROI ROI
+                            Region of interest of the calibration. This is the
+                            area in the imager we're interested in. Errors in
+                            observations outside this area will be attenuated
+                            significantly. If we want to use all the data evenly,
+                            omit this argument. Otherwise pass 4 values for each
+                            --roi: (x_center,y_center,x_radius,y_radius). The
+                            region is an axis-aligned ellipsoid. If passing in ANY
+                            roi, you MUST pass in the ROI for EACH camera; a
+                            separate '--roi' for each one.
+      --incremental         If passed, we incrementally increase ROI and
+                            distortion model complexity across multiple solves. In
+                            this mode the requested ROI is a target, and the
+                            requested distortion model is the upper bound. If we
+                            can get away with a simpler one, we use that.
+      --num-cross-validation-splits NUM_CROSS_VALIDATION_SPLITS
+                            If passed, we cross-validate the results with this
+                            many splits. This only makes sense as an integer >1.
+                            THIS IS EXPERIMENTAL.
+      --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make.
+                            Affects only the chessboard corner finder. If we are
+                            reading a cache file, this does nothing
+      --dots-cache DOTS_CACHE
+                            Path to read corner-finder data from or (if path does
+                            not exist) to write data to
+      --muse-extrinsics     Apply MUSE's non-identity rotation for camera0
+      --skip-regularization
+                            By default we apply regularization to the solver. This
+                            option turns that off
+      --skip-outlier-rejection
+                            By default we throw out outliers. This option turns
+                            that off
+      --verbose-solver      By default the final stage of the solver doesn't say
+                            much. This option turns on verbosity to get lots of
+                            diagnostics.
+      --explore             After the solve open an interactive shell to examine
+                            the solution
+      --observed-pixel-uncertainty OBSERVED_PIXEL_UNCERTAINTY
+                            The standard deviation of x and y pixel coordinates of
+                            the input observations. The distribution of the inputs
+                            is assumed to be gaussian, with the standard deviation
+                            specified by this argument. Note: this is the x and y
+                            standard deviation, treated independently. If each of
+                            these is s, then the LENGTH of the deviation of each
+                            pixel is a Rayleigh distribution with expected value
+                            s*sqrt(pi/2) ~ s*1.25
+      --cull-points-left-of CULL_POINTS_LEFT_OF
+                            For testing. Throw out all observations with x < the
+                            given value
+      --cull-points-rad-off-center CULL_POINTS_RAD_OFF_CENTER
+                            For testing. Throw out all observations with
+                            dist_from_center > the given value
+      --cull-random-observations-ratio CULL_RANDOM_OBSERVATIONS_RATIO
+                            For testing. Throw out a random number of board
+                            observations. The ratio of observations is given as
+                            the argument. 1.0 = throw out ALL the observations;
+                            0.0 = throw out NONE of the observations
+
+
+#+END_EXAMPLE
+** convert-distortion
+#+BEGIN_EXAMPLE
+NAME
+    convert-distortion - Converts a camera model from one distortion model
+    to another
+
+SYNOPSIS
+      $ convert-distortion --viz --to DISTORTION_OPENCV4 left.cameramodel > left.opencv4.cameramodel
+
+      ... lots of output as the solve runs ...
+      libdogleg at dogleg.c:1064: success! took 10 iterations
+      RMS error of the solution: 3.40256580058 pixels.
+
+      ... a plot pops up showing the vector field of the difference ...
+
+DESCRIPTION
+    Description:
+
+    This is a tool to convert a given camera model from one distortion model
+    to another. The input and output models have identical extrinsics and an
+    identical intrinsic core (focal lengths, center pixel coords). The ONLY
+    differing part is the distortion coefficients.
+
+    While the distortion models all exist to solve the same problem, the
+    different representations don't map to one another perfectly, so this
+    tool seeks to find the best fit only. It does this by sampling a number
+    of points in the imager, converting them to observation vectors in the
+    camera coordinate system (using the given camera model), and then
+    fitting a new camera model (with a different distortions) that matches
+    the observation vectors to the source imager coordinates.
+
+    Note that the distortion model implementations are usually optimized in
+    the 'undistort' direction, not the 'distort' direction, so the step of
+    converting the target imager coordinates to observation vectors can be
+    slow. This is highly dependent on the camera model specifically. CAHVORE
+    especially is glacial. This can be mitigated somewhat by a better
+    implementation, but in the meantime, please be patient.
+
+    Camera models have originally been computed by a calibration procedure
+    that takes as input a number of point observations, and the resulting
+    models are only valid in an area where those observations were
+    available; it's an extrapolation everywhere else. This is generally OK,
+    and we try to cover the whole imager when calibrating cameras. Models
+    with high distortions (CAHVORE, OPENCV >= 8) generally have
+    quickly-increasing effects towards the edges of the imager, and the
+    distortions represented by these models at the extreme edges of the
+    imager are often not reliable, since the initial calibration data is
+    rarely available at the extreme edges. Thus using points at the extreme
+    edges to fit another model is often counterproductive, and I provide the
+    --where and --radius commandline options for this case. We use data in a
+    circular region of the imager. This region is centered on the point
+    given by --where (or at the center of the imager, if omitted). The
+    radius of this region is given by --radius. If '--radius 0' is given, I
+    use ALL the data. A radius<0 can be used to set the size of the no-data
+    margin at the corners; in this case I'll use sqrt(width^2 + height^2) -
+    abs(radius)
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      cameramodel          Input camera model. Assumed to be mrcal native, Unless
+                           the name is xxx.cahvor, in which case the cahvor format
+                           is assumed
+
+  OPTIONAL ARGUMENTS
+      -h, --help           show this help message and exit
+      --to TO              The target distortion model
+      --verbose            Report the solver details
+      --viz                Visualize the difference
+      --where WHERE WHERE  I use a subset of the imager to compute the fit. The
+                           active region is a circle centered on this point. If
+                           omitted, we will focus on the center of the imager
+      --radius RADIUS      I use a subset of the imager to compute the fit. The
+                           active region is a circle with a radius given by this
+                           paramter. If radius == 0, I'll use the whole imager for
+                           the fit. If radius < 0, this parameter specifies the
+                           width of the region at the corners that I should
+                           ignore: I will use sqrt(width^2 + height^2) -
+                           abs(radius). This is valid ONLY if we're focussing at
+                           the center of the imager
+      --writecahvor        If given, we write the output in a cahvor file format
+
+
+#+END_EXAMPLE
+** show-distortion
+#+BEGIN_EXAMPLE
+NAME
+    show-distortion - Renders a vector field to visualize the effect of a
+    model
+
+SYNOPSIS
+      $ show-distortion --vectorfield left.cameramodel
+      ... a plot pops up showing the distortion vector field
+
+DESCRIPTION
+    This allows us to visually see what a distortion model does. Depending
+    on the model, the vectors could be very large or very small, and we can
+    scale them by passing '--scale s'. By default we sample in a 60x40 grid,
+    but this spacing can be controlled by passing '--gridn w h'.
+
+    By default we render a heat map of the distortion. We can also see the
+    vectorfield by passing in --vectorfield. Or we can see the radial
+    distortion curve by passing --radial
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model                 Input camera model. Assumed to be mrcal native, unless
+                            the name is xxx.cahvor, in which case the cahvor
+                            format is assumed
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            report a 60x40 grid
+      --scale SCALE         Scale the vectors by this factor. Default is 1.0
+                            (report the truth), but this is often too small to see
+      --radial              Show the radial distortion scale factor instead of a
+                            colormap/vectorfield
+      --vectorfield         Plot the diff as a vector field instead of as a heat
+                            map. The vector field contains more information
+                            (magnitude AND direction), but is less clear at a
+                            glance
+      --cbmax CBMAX         Maximum range of the colorbar
+      --extratitle EXTRATITLE
+                            Extra title string for the plot
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
+
+
+#+END_EXAMPLE
+** show-intrinsics-uncertainty
+#+BEGIN_EXAMPLE
+NAME
+    show-intrinsics-uncertainty - Renders the expected projection error due
+    to calibration uncertainty
+
+SYNOPSIS
+      $ show-intrinsics-uncertainty left.cameramodel
+      ... a plot pops up showing the projection uncertainty of the intrinsics in
+      ... this model
+
+DESCRIPTION
+    A calibration process produces the best-fitting camera parameters
+    (intrinsics and extrinsics) and a inv(JtJ) matrix representing the
+    uncertainty in these parameters. When we use the intrinsics to project
+    3D points into the image plane, this intrinsics uncertainty creates an
+    uncertainty in the resulting projection point. This tool plots the
+    expected value of this projection error across the imager. Areas with a
+    high expected projection error are unreliable for further work.
+
+    Only mrcal-native .cameramodel files are supported because .cahvor files
+    don't store the required data
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model                 Input camera model. Assumed to be mrcal native
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            report a 60x40 grid
+      --where WHERE WHERE   Center of the region of interest. Uncertainty is a
+                            relative concept, so I focus on a particular area. I
+                            compute an implied rotation to make that area as
+                            certain as possible. The center of this focus area is
+                            given by this argument. If omitted, we will focus on
+                            the center of the imager
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
+                            fit an implied rotation at all. If omitted or <0, we
+                            use a "reasonable value: min(width,height)/6. To fit
+                            with data across the WHOLE imager: pass in a very
+                            large radius
+      --outlierness         Report an outlierness-based uncertainty, not an input-
+                            noise-based one
+      --cbmax CBMAX         Maximum range of the colorbar
+      --extratitle EXTRATITLE
+                            Extra title string for the plot
+      --hardcopy HARDCOPY   Write the output to disk, instead of an interactive
+                            plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
+
+
+#+END_EXAMPLE
+** show-intrinsics-diff
+#+BEGIN_EXAMPLE
+NAME
+    show-intrinsics-diff - Renders a difference in projection between two
+    models
+
+SYNOPSIS
+      $ show-intrinsics-diff before.cameramodel after.cameramodel
+      ... a plot pops up showing how two models differ in their projections
+
+DESCRIPTION
+    If we're given exactly 2 models then I can either show a vector field of
+    a heat map of the differences. I N > 2 then a vector field isn't
+    possible and we show a heat map of the standard deviation of the
+    differences. Note that for N=2 the difference shows in a-b, which is NOT
+    the standard deviation (that is (a-b)/2). I use the standard deviation
+    for N > 2
+
+    This routine fits the implied camera rotation to align the models as
+    much as possible. This is required because a camera pitch/yaw motion
+    looks a lot like a shift in the camera optical axis (cx,cy). So I could
+    be comparing two sets of intrinsics that both represent the same lens
+    faithfully, but imply different rotations: the rotation would be
+    compensated for by a shift in cx,cy. If I compare the two sets of
+    intrinsics by IGNORING rotations, I would get a large diff because of
+    the cx,cy difference.
+
+    In all 3 cases I try to find the largest matching region around the area
+    of interest. So the recommentation is to specify where['center'], but to
+    omit where['radius'].
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      models                Camera models to diff
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            report a 60x40 grid
+      --where WHERE WHERE   Center of the region of interest for this diff. It is
+                            usually impossible for the models to match everywhere,
+                            but focusing on a particular area can work better. The
+                            implied rotation will be fit to match as large as
+                            possible an area centered on this argument. If
+                            omitted, we will focus on the center of the imager
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
+                            fit an implied rotation at all. If omitted or <0, we
+                            use a "reasonable value: min(width,height)/6. To fit
+                            with data across the WHOLE imager: pass in a very
+                            large radius
+      --cbmax CBMAX         Maximum range of the colorbar
+      --extratitle EXTRATITLE
+                            Extra title string for the plot
+      --vectorfield         Plot the diff as a vector field instead of as a heat
+                            map. The vector field contains more information
+                            (magnitude AND direction), but is less clear at a
+                            glance
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
+
+
+#+END_EXAMPLE
+** undistort-image
+#+BEGIN_EXAMPLE
+NAME
+    undistort-image - Un-distorts image(s)
+
+SYNOPSIS
+      $ undistort-image --model left.cameramodel im1.png im2.png
+      ... corresponding pinhole mrcal-native model
+      Wrote im1-undistorted.png
+      Wrote im2-undistorted.png
+
+DESCRIPTION
+    Given a single camera model (cahvor or mrcal-native) and some number of
+    images, this tool un-distorts each image and writes the result to disk.
+    For each image named xxxx.yyy, the new image filename is
+    xxxx-undistorted.yyy. This tool refuses to overwrite anything, and will
+    barf if a target file already exists. A corresponding pinhole camera
+    model is also generated, and written to stdout.
+
+    Note that currently the corresponding pinhole model uses the same focal
+    length, center pixel values as the original, but no distortions. Thus
+    the undistorted images might cut out chunks of the original, or leave
+    empty borders on the edges.
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      image                 Images to undistort
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --model MODEL         Input camera model. Assumed to be mrcal native, Unless
+                            the name is xxx.cahvor, in which case the cahvor
+                            format is assumed
+      --fit FIT             If given, we'll scale the focal length of the pinhole
+                            model to fit some of the original image into the
+                            output. This is one of "corners", "centers-
+                            horizontal", "centers-vertical"
+      --scale SCALE         If given, we scale the size of the pinhole image by
+                            this factor. By default the scale is 1.0, i.e. the
+                            undistorted and distorted images have the same size
+      --force, -f           By default I don't overwrite existing files. Pass
+                            --force to overwrite them without complaint
+      --jobs JOBS, -j JOBS  parallelize the processing JOBS-ways. This is like GNU
+                            make, except you're required to explicitly specify a
+                            job count.
+
+
+#+END_EXAMPLE
+** redistort-points
+#+BEGIN_EXAMPLE
+NAME
+    redistort-points - Converts distorted points from one model to another
+
+SYNOPSIS
+      $ redistort-points --from pinhole.cameramodel --to fisheye.cameramodel < input.vnl > output.vnl
+
+DESCRIPTION
+    This tool takes a set of pixel observations corresponding to one camera
+    model, and converts them to corresponding observations in another model.
+    This is useful in conjunction with the 'undistort-points' tool. An
+    envisioned usage:
+
+    - undistort-points --model fisheye.cameramodel input.png This produces
+    an undistorted image and a corresponding pinhole camera model.
+
+    - Run some sort of feature-detection thing on the input_undistorted.png
+    thing we just made. This feature-detection thing can make geometric
+    assumptions that wouldn't hold in the distorted image
+
+    - redistort-points to convert the pixel coords we got from the feature
+    detector back into the space of the original image
+
+    The input data comes in on standard input, and the output data goes out
+    on standard output. Both are vnlog data: human-readable text with 2
+    columns: x and y pixel coord. Comments are allowed, and start with the
+    '#' character.
+
+OPTIONS
+  OPTIONAL ARGUMENTS
+      -h, --help   show this help message and exit
+      --from FROM  Camera model for the INPUT points. Assumed to be mrcal native,
+                   Unless the name is xxx.cahvor, in which case the cahvor format
+                   is assumed
+      --to TO      Camera model for the OUTPUT points. Assumed to be mrcal native,
+                   Unless the name is xxx.cahvor, in which case the cahvor format
+                   is assumed
+
+
+#+END_EXAMPLE
+** graft-cameramodel
+#+BEGIN_EXAMPLE
+NAME
+    graft-cameramodel - Combines the intrinsics of one cameramodel with the
+    extrinsics of another
+
+SYNOPSIS
+      $ graft-cameramodel intrinsics.cameramodel extrinsics.cameramodel > joint.cameramodel
+      Merged intrinsics from 'intrinsics.cameramodel' with extrinsics from
+      'exrinsics.cameramodel'
+
+DESCRIPTION
+    This tool combines intrinsics and extrinsics from different sources into
+    a single model. The output is written to standard out in mrcal-native
+    format
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      intrinsics  Input camera model for the intrinsics. Assumed to be mrcal
+                  native, Unless the name is xxx.cahvor, in which case the cahvor
+                  format is assumed
+      extrinsics  Input camera model for the extrinsics. Assumed to be mrcal
+                  native, Unless the name is xxx.cahvor, in which case the cahvor
+                  format is assumed
+
+  OPTIONAL ARGUMENTS
+      -h, --help  show this help message and exit
+
+
+#+END_EXAMPLE
+
+* REPOSITORY
+
+https://github.jpl.nasa.gov/maritime-robotics/mrcal/
+
+* AUTHOR
+
+Dima Kogan (=Dmitriy.Kogan@jpl.nasa.gov=)
+
+* LICENSE AND COPYRIGHT
+
+All of this is currently proprietary. Do not distribute outside of JPL
+
+Copyright 2016-2018 California Institute of Technology
