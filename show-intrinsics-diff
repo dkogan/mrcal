@@ -31,11 +31,6 @@ where['radius'].
 
 import sys
 import argparse
-import os
-import re
-
-import mrcal
-
 
 def parse_args():
 
@@ -102,9 +97,20 @@ def parse_args():
 
     return args
 
-
-
 args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+
+
+
+import os
+import re
+import mrcal
 
 plotkwargs_extra = {}
 if args.extraset is not None:

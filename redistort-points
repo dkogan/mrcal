@@ -27,18 +27,8 @@ y pixel coord. Comments are allowed, and start with the '#' character.
 '''
 
 
-import numpy as np
-import numpysane as nps
 import sys
 import argparse
-import os
-import re
-
-import mrcal
-
-
-
-
 
 def parse_args():
 
@@ -63,13 +53,21 @@ def parse_args():
 
     return parser.parse_args()
 
-
-
-
-
-
-
 args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+
+import numpy as np
+import numpysane as nps
+import os
+import re
+
+import mrcal
 
 # 'from' is reserved in python
 args_from  = getattr(args, 'from')

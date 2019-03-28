@@ -22,21 +22,8 @@ edges.
 
 '''
 
-
-import numpy as np
-import numpysane as nps
 import sys
-import re
-import cv2
 import argparse
-import os
-
-import multiprocessing
-import signal
-
-import mrcal
-
-
 
 def parse_args():
 
@@ -86,6 +73,27 @@ def parse_args():
 
     return parser.parse_args()
 
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+
+
+import numpy as np
+import numpysane as nps
+import re
+import cv2
+import os
+
+import multiprocessing
+import signal
+
+import mrcal
+
 def target_image_filename(f):
     m = re.match("(.*)\.([a-z][a-z][a-z])$", f, flags=re.I)
     if not m:
@@ -94,8 +102,6 @@ def target_image_filename(f):
     return "{}-undistorted.{}".format(m.group(1),m.group(2))
 
 
-
-args = parse_args()
 
 if not args.force:
     for imagefile in args.image:

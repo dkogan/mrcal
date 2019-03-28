@@ -23,10 +23,6 @@ store the required data
 
 import sys
 import argparse
-import os
-
-import mrcal
-
 
 def parse_args():
 
@@ -82,9 +78,16 @@ def parse_args():
 
     return parser.parse_args()
 
-
-
 args  = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+import os
+import mrcal
 
 plotkwargs_extra = {}
 if args.extraset is not None:
