@@ -27,8 +27,8 @@ DIST_BIN :=					\
 	show-distortion				\
 	show-intrinsics-uncertainty		\
 	show-intrinsics-diff			\
-	redistort-points			\
 	undistort-image				\
+	redistort-points			\
 	graft-cameramodel
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
