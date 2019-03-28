@@ -1,4 +1,4 @@
-* Synopsis
+* SYNOPSIS
 
 #+BEGIN_EXAMPLE
 $ calibrate-cameras --focal 2000
@@ -10,7 +10,7 @@ Wrote /tmp/camera0-0.cameramodel
 Wrote /tmp/camera0-1.cameramodel
 #+END_EXAMPLE
 
-* Summary
+* SUMMARY
 
 Mrcal is a generic toolkit to solve calibration and SFM-like problems.
 Functionality related to these problems is exposed as a set of python libraries.
@@ -45,7 +45,7 @@ These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
 intrinsics/extrinsics, etc.
 
-* Description
+* DESCRIPTION
 
 ** Fundamental assumptions
 
@@ -127,15 +127,49 @@ where chessboard corners were observed. =mrcal= is a purely geometrical toolkit,
 so this vision problem is handled by another library: [[https://github.com/dkogan/mrgingham/][=mrgingham=]]. See its
 documentation for more details.
 
-* Repository
+* MANPAGES
+** calibrate-cameras
+#+BEGIN_EXAMPLE
+xxx-manpage-calibrate-cameras-xxx
+#+END_EXAMPLE
+** convert-distortion
+#+BEGIN_EXAMPLE
+xxx-manpage-convert-distortion-xxx
+#+END_EXAMPLE
+** show-distortion
+#+BEGIN_EXAMPLE
+xxx-manpage-show-distortion-xxx
+#+END_EXAMPLE
+** show-intrinsics-uncertainty
+#+BEGIN_EXAMPLE
+xxx-manpage-show-intrinsics-uncertainty-xxx
+#+END_EXAMPLE
+** show-intrinsics-diff
+#+BEGIN_EXAMPLE
+xxx-manpage-show-intrinsics-diff-xxx
+#+END_EXAMPLE
+** undistort-image
+#+BEGIN_EXAMPLE
+xxx-manpage-undistort-image-xxx
+#+END_EXAMPLE
+** redistort-points
+#+BEGIN_EXAMPLE
+xxx-manpage-redistort-points-xxx
+#+END_EXAMPLE
+** graft-cameramodel
+#+BEGIN_EXAMPLE
+xxx-manpage-graft-cameramodel-xxx
+#+END_EXAMPLE
+
+* REPOSITORY
 
 https://github.jpl.nasa.gov/maritime-robotics/mrcal/
 
-* Author
+* AUTHOR
 
 Dima Kogan (=Dmitriy.Kogan@jpl.nasa.gov=)
 
-* License and copyright
+* LICENSE AND COPYRIGHT
 
 All of this is currently proprietary. Do not distribute outside of JPL
 
