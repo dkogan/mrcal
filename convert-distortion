@@ -3,7 +3,7 @@
 
 r'''Converts a camera model from one distortion model to another
 
-Synopsis:
+SYNOPSIS
 
   $ convert-distortion --viz --to DISTORTION_OPENCV4 left.cameramodel > left.opencv4.cameramodel
 
@@ -14,7 +14,7 @@ Synopsis:
   ... a plot pops up showing the vector field of the difference ...
 
 
-Description:
+DESCRIPTION
 
 This is a tool to convert a given camera model from one distortion model to
 another. The input and output models have identical extrinsics and an identical

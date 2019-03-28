@@ -1,6 +1,6 @@
 Applies distortion to pixel observations
 
-Synopsis:
+SYNOPSIS
 
     qdistorted = mrcal.distort( # (N,2) array of pixel observations we're
                                 # distorting
@@ -14,7 +14,7 @@ undistorted model is a pinhole camera with the parameters given in the
 arguments, or the same parameters as in the distorted camera, for arguments that
 are omitted or <= 0
 
-Args:
+ARGUMENTS
 
 - q: array of dims (...,2); the pixel coordinates we're distorting. This
   supports broadcasting fully, and any leading dimensions are allowed, including

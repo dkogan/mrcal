@@ -1,6 +1,6 @@
 Returns a tuple of strings for the various distortion models we support
 
-Synopsis:
+SYNOPSIS
 
     print mrcal.getSupportedDistortionModels()
 

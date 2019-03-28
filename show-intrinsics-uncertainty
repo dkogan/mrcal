@@ -2,7 +2,7 @@
 
 r'''Renders the expected projection error due to calibration uncertainty
 
-Synopsis:
+SYNOPSIS
 
   $ show-intrinsics-uncertainty left.cameramodel
   ... a plot pops up showing the projection uncertainty of the intrinsics in

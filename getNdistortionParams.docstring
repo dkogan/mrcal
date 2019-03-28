@@ -1,6 +1,6 @@
 Get the number of distortion parameters for a particular model type
 
-Synopsis:
+SYNOPSIS
 
     print mrcal.getNdistortionParams('DISTORTION_OPENCV4')
 

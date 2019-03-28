@@ -1,6 +1,6 @@
 Projects a set of 3D camera-frame points to the imager
 
-Synopsis:
+SYNOPSIS
 
     points = _mrcal.project( # (N,3) array of 3d points we're projecting
                              v,
@@ -17,7 +17,7 @@ This is the written-in-C function in mrcal.h. There's a higher-level python
 wrapper (available as mrcal.project) that handles broadcasting, and is in
 general the preferred user-facing form
 
-Args:
+ARGUMENTS
 
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none

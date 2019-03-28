@@ -2,7 +2,7 @@
 
 r'''Un-distorts image(s)
 
-Synopsis:
+SYNOPSIS
 
   $ undistort-image --model left.cameramodel im1.png im2.png
   ... corresponding pinhole mrcal-native model

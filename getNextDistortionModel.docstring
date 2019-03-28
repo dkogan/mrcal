@@ -1,6 +1,6 @@
 Returns the 'next' distortion model in a family
 
-Synopsis:
+SYNOPSIS
 
     print mrcal.getNextDistortionModel('DISTORTION_OPENCV5', 'DISTORTION_OPENCV14')
 

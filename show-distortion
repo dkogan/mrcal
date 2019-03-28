@@ -2,7 +2,7 @@
 
 r'''Renders a vector field to visualize the effect of a model
 
-Synopsis:
+SYNOPSIS
 
   $ show-distortion --vectorfield left.cameramodel
   ... a plot pops up showing the distortion vector field

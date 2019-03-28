@@ -2,7 +2,7 @@
 
 r'''Combines the intrinsics of one cameramodel with the extrinsics of another
 
-Synopsis:
+SYNOPSIS
 
   $ graft-cameramodel intrinsics.cameramodel extrinsics.cameramodel > joint.cameramodel
   Merged intrinsics from 'intrinsics.cameramodel' with extrinsics from

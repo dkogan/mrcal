@@ -2,7 +2,7 @@
 
 r'''Calibrate some synchronized cameras
 
-Synopsis:
+SYNOPSIS
 
   $ calibrate-cameras
       --dots-cache corners.vnl

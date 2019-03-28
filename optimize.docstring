@@ -1,6 +1,6 @@
 Invoke the calibration routine
 
-Synopsis:
+SYNOPSIS
 
     stats = mrcal.optimize( intrinsics_data,
                             extrinsics,
@@ -33,7 +33,7 @@ observations of discrete points. The point observations can come JUST from
 correspondences, or they can also have a known-distance-to-a-camera (i.e. if
 we're looking at very-far-away clouds or known fiducials).
 
-REQUIRED ARGS:
+REQUIRED ARGUMENTS
 
 - intrinsics: array of dims (Ncameras, Nintrinsics). The intrinsics of each
   camera. Each intrinsic vector is given as
@@ -113,7 +113,7 @@ REQUIRED ARGS:
 
 - imagersizes: integer array of dims (Ncameras,2)
 
-OPTIONAL ARGS:
+OPTIONAL ARGUMENTS
 
 - do_optimize_intrinsic_core
 - do_optimize_intrinsic_distortions

@@ -2,7 +2,7 @@
 
 r'''Converts distorted points from one model to another
 
-Synopsis:
+SYNOPSIS
 
   $ redistort-points --from pinhole.cameramodel --to fisheye.cameramodel < input.vnl > output.vnl
 
