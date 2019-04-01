@@ -157,6 +157,165 @@ DESCRIPTION
     This tool uses the generic mrcal platform to solve a common specific
     problem of N-camera calibration using observations of a chessboard.
 
+    TUTORIAL
+
+    If all you want to do is run a calibration, read this section first.
+
+    You need to get observations of a grid of points. This tool doesn't
+    dictate exactly how these observations are obtained, but the recommended
+    way to do that is to use mrgingham (http://github.com/dkogan/mrgingham).
+    This documentation assumes that's what is being done.
+
+    See the mrgingham documentation for a .pdf of a chessboard pattern. This
+    pattern should be printed (at some size; see below) and mounted onto a
+    RIGID and FLAT surface to produce the calibration object. The most
+    useful observations are close-ups: views that cover as much of the
+    imager as possible. Thus you generally a large printout of the
+    chessboard pattern. If you're calibrating a wide lens then this is
+    especially true: the wider the lens, the larger an object needs to be in
+    order to cover the field of view.
+
+    Now that we have a calibration object, this object needs to be shown to
+    the camera(s) to produce the images that mrgingham will use to find the
+    corner coordinates, which mrcal will then use in its computations.
+
+    It is important that the images contain clear corners. If the image is
+    badly overexposed, the white chessboard squares will bleed into each
+    other, the adjoining black squares will no longer touch each other in
+    the image, and there would be no corner to detect. Conversely, if the
+    image is badly underexposed, the black squares will bleed into each
+    other, which would also destroy the corner. mrgingham tries to handle a
+    variety of lighting conditions, including varying illuination across the
+    image, but the corners must exist in the image in some form. A
+    fundamental design decision in mrgingham is to only output chessboards
+    that we are very confident in, and a consequence of this is that
+    mrgingham requires the WHOLE chessboard to be visible in order to
+    produce any results. Thus it requires a bit of effort to produce any
+    data at the edges and in the corners of the imager: if even a small
+    number of the chessboard corners are out of bounds, mrgingham will not
+    detect the chessboard at all. A live preview of the calibration images
+    being gathered is thus essential to aid the user in obtaining good data.
+    Another requirement due to the design of mrgingham is that the board
+    should be held with a flat edge parallel to the camera xz plane
+    (parallel to the ground, usually). mrgingham looks for vertical and
+    horizontal sequences of corners, but if the board is rotated in this
+    way, then none of these sequences are "horizontal" or "vertical", but
+    they're all "diagonal", which isn't what mrgingham is looking for.
+
+    The most useful observations to gather are
+
+    - close-ups: the chessboard should fill the whole frame as much as
+    possible
+
+    - oblique views: tilt the board forward/back and left/right. I generally
+    tilt by more than 45 degrees. At a certain point the corners become
+    indistinct and mrgingham starts having trouble, but depending on the
+    lens, that point could come with quite a bit of tilt.
+
+    - If you are calibrating multiple cameras, and they are synchronized,
+    you can calibrate them all at the same time, and obtain intrinsics AND
+    extrinsics. In that case you want frames where multiple cameras see the
+    calibration object at the same time. Depending on the geometry, it may
+    be impossible to place a calibration object in a location where it's
+    seen by all the cameras, AND where it's a close-up for all the cameras
+    at the same time. In that case, get close-ups for each camera
+    individually, and get observations common to multiple cameras, that
+    aren't necessarily close-ups. The former will serve to define your
+    camera intrinsics, and the latter will serve to define your extrinsics
+    (geometry).
+
+    A dataset composed primarily of tilted closeups will produce good
+    results. It is better to have more data rather than less. mrgingham will
+    throw away frames where no chessboard can be found, so it is perfectly
+    reasonable to grab too many images with the expectation that they won't
+    all end up being used in the computation.
+
+    I usually aim for about 100 usable frames, but you can often get away
+    with far fewer. The mrcal confidence feedback (see below) will tell you
+    if you need more data.
+
+    Once we have gathered input images, we can run the calibration
+    procedure:
+
+      calibrate-cameras
+        --dots-cache corners.vnl
+        -j 10
+        --focal 2000
+        --object-spacing 0.1
+        --object-width-n 10
+        --out /tmp
+        --distortion-model DISTORTION_OPENCV8
+        --observed-pixel-uncertainty 1.0
+        --explore
+        'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
+
+    You would adjust all the arguments for your specific case.
+
+    The first argument says that the chessboard corner coordinates live in a
+    file called "corners.vnl". If this file exists, we'll use that data. If
+    that file does not exist (which is what will happen the first time),
+    mrgingham will be invoked to compute the corners from the images, and
+    the results will be written to that file. So the same command is used to
+    both compute the corners initially, and to reuse the pre-computed
+    corners with subsequent runs.
+
+    '-j 10' says to spread the mrgingham computation across 10 CPU cores.
+    This command controls mrgingham only; if 'corners.vnl' exists, this
+    option does nothing.
+
+    '--focal 2000' says that the initial estimate for the camera focal
+    lengths is 2000 pixels. This doesn't need to be precise at all, but do
+    try to get this roughly correct if possible. Simple geometry says that
+
+      focal_length = imager_width / ( 2 tan (field_of_view_horizontal / 2) )
+
+    --object-spacing is the width of each square in your chessboard. This
+    depends on the specific chessboard object you are using.
+    --object-width-n is the corner count of the calibration object.
+    Currently mrgingham more or less assumes that this is 10.
+
+    --out specifies the directory where the output models will be written
+
+    --distortion-model specifies which distortion model we're using for the
+    cameras. At this time all OpenCV distortion models are supported, in
+    addition to DISTORTION_CAHVOR. The CAHVOR model is there for legacy
+    compatibility only. If you're not going to be using these models in a
+    system that only supports CAHVOR, there's little reason to use it. If
+    you use a model that is too lean (DISTORTION_NONE or DISTORTION_OPENCV4
+    maybe), the model will not fit the data, especially at the edges; the
+    tool will tell you this. If you use a model that is too rich (something
+    crazy like DISTORTION_OPENCV14), then you will need much more data than
+    you normally would. Most lenses I've seen work well with
+    DISTORTION_OPENCV4 or DISTORTION_OPENCV5 or DISTORTION_OPENCV8; wider
+    lenses need richer models.
+
+    '--observed-pixel-uncertainty 1.0' says that the x,y corner coordinates
+    reported by mrgingham are distributed normally, independently, and with
+    the standard deviation as given in this argument. There's a tool to
+    compute this value empirically, but it needs more validation. For now
+    pick a value that seems reasonable. 1.0 pixels or less usually makes
+    sense.
+
+    --explore says that after the models are computed, a REPL should be open
+    so that the user can look at various metrics describing the output; more
+    on this later.
+
+    After all the options, globs describing the images are passed in. Note
+    that these are GLOBS, not FILENAMES. So you need to quote or escape each
+    glob to prevent the shell from expanding it. You want one glob per
+    camera; in the above example we have 3 cameras. The program will look
+    for all files matching the globs, and filenames with identical matched
+    strings are assumed to have been gathered at the same instant in time.
+    I.e. if in the above example we found frame003-camera0.png and
+    frame003-camera1.png, we will assume that these two images were
+    time-synchronized. If your capture system doesn't have fully-functional
+    frame syncronization, you should run a series of monocular calibrations.
+    Otherwise the models won't fit well (high reprojection errors and/or
+    high outlier counts) and you might see a frame with systematic
+    reprojection errors where one supposedly-synchronized camera's
+    observation pulls the solution in one direction, and another camera's
+    observation pulls it in another.
+
 OPTIONS
   POSITIONAL ARGUMENTS
       images                A glob-per-camera for the images. Include a glob for
@@ -262,7 +421,7 @@ SYNOPSIS
       ... a plot pops up showing the vector field of the difference ...
 
 DESCRIPTION
-    Description:
+    DESCRIPTION
 
     This is a tool to convert a given camera model from one distortion model
     to another. The input and output models have identical extrinsics and an
@@ -531,7 +690,8 @@ OPTIONS
       --fit FIT             If given, we'll scale the focal length of the pinhole
                             model to fit some of the original image into the
                             output. This is one of "corners", "centers-
-                            horizontal", "centers-vertical"
+                            horizontal", "centers-vertical". If omitted, we keep
+                            the focal lengths the same
       --scale SCALE         If given, we scale the size of the pinhole image by
                             this factor. By default the scale is 1.0, i.e. the
                             undistorted and distorted images have the same size
