@@ -276,6 +276,8 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     # points, and that the points occupy as large a chunk of the imager as possible.
     # I can look at just the normalized x and y. Just one of the query points should
     # land on the edge; the rest should be in-bounds
+    fxy = intrinsics_data[ :2]
+    cxy = intrinsics_data[2:4]
     fx,fy,cx,cy  = intrinsics_data[:4]
 
     W1 = int(W*scale_imagersize_pinhole + 0.5)
@@ -284,8 +286,8 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     cy1 = cy / float(H - 1) * float(H1 - 1)
 
     normxy_edges = v_edges[:,:2] / v_edges[:,(2,)]
-    normxy_min   = (                               - np.array((cx1,cy1))) / np.array((fx,fy))
-    normxy_max   = (np.array((W1,H1), dtype=float) - 1.0 - np.array((cx1,cy1))) / np.array((fx,fy))
+    normxy_min   = (                               - np.array((cx1,cy1))) / fxy
+    normxy_max   = (np.array((W1,H1), dtype=float) - 1.0 - np.array((cx1,cy1))) / fxy
 
     # Each query point will imply a scale to just fit into the imager I take the
     # most conservative of these. For each point I look at the normalization sign to
