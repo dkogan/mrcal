@@ -316,6 +316,117 @@ DESCRIPTION
     observation pulls the solution in one direction, and another camera's
     observation pulls it in another.
 
+    When you run the program as given above, the tool will spend a bit of
+    time computing (usually 10-20 seconds is enough, but this is highly
+    dependent on the specific problem, the amount of data, and the
+    computational hardware). When finished, it will write the resulting
+    models to disk, and open a REPL (if --explore was given). Models are
+    written in both .cahvor and .cameramodel file formats. Both contain the
+    same information, but .cameramodel is far more sensible. The .cahvor
+    file format exists for legacy compatibility only. Use this one one only
+    if you'll be using these models in some cahvor-only tool; in this case
+    you'll probably want to choose the DISTORTION_CAHVOR model as well. The
+    resulting filenames are "camera-N.cameramodel" where N is the index of
+    the camera, starting at 0. The models contain the intrinsics and
+    extrinsics, with camera-0 sitting at the reference coordinate system.
+
+    When the solve is completed, you'll see a summary such as this one:
+
+        RMS reprojection error: 0.3 pixels
+        Worst reprojection error: 4.0 pixels
+        Noutliers: 7 out of 9100 total points: 0.1% of the data
+
+    The reprojection errors should look reasonable given your
+    --observed-pixel-uncertainty. Since any outliers will be thrown out, the
+    reported reprojection errors will be reasonable.
+
+    Higher outlier counts are indicative of some/all of these:
+
+    - Errors in the input data, such as incorrectly-detected chessboard
+    corners, or unsynchronized cameras
+
+    - Badly-fitting distortion model
+
+    A distortion model that doesn't fit isn't a problem in itself. The
+    results will simply not be reliable everywhere in the imager, as
+    indicated by the uncertainty and residual metrics (see below)
+
+    With --explore you get a REPL, and a message that points out some useful
+    functions. Generally you want to start with
+
+        show_residuals_observation_worst(0)
+
+    This will show you the worst-fitting chessboard observation with its
+    observed and predicted corners, as an error vector. The reprojection
+    errors are given by a colored dot. Corners thrown out as outliers will
+    be missing their colored dot. You want to make sure that this is
+    reasonable. Incorrectly-detected corners will be visible: they will be
+    outliers or they will have a high error. The errors should be higher
+    towards the edge of the imager, especially with a wider lens. A richer
+    better-fitting model would reduce those errors. Past that, there should
+    be no pattern to the errors. If the camera synchronization was broken,
+    you'll see a bias in the error vectors, to compensate for the motion of
+    the chessboard.
+
+    Next do this for each camera in your calibration set (i_camera is an
+    index counting up from 0):
+
+        show_residuals('regional', i_camera)
+
+    Each of these will pop up 3 plots describing your distribution of
+    errors. You get
+
+    - a plot showing the mean reprojection error across the imager - a plot
+    showing the standard deviation of reprojection errors across the imager
+    - a plot showing the number of data points across the imager AFTER the
+    outlier rejection
+
+    The intrinsics are reliable in areas that have
+
+    - a low mean error relative to --observed-pixel-uncertainty - a standard
+    deviation roughly similar to --observed-pixel-uncertainty - have some
+    data available
+
+    If you have too little data, you will be overfitting, so you'd be
+    expalining the signal AND the noise, and your reprojection errors will
+    be too low. With enough input data you'll be explaining the signal only:
+    the noise is random and with enough samples our model can't explain it.
+    Another factor that controls this is the model we're fitting. If we fit
+    a richer model (DISTORTION_OPENCV8 vs DISTORTION_OPENCV4 for instance),
+    the extra parameters will allow us to fit the data better, and to
+    produce lower errors in more areas of the imager.
+
+    These are very rough guidelines; I haven't written the logic to
+    automatically interpret these yet. A common feature that these plots
+    bring to light is a poorly-fitting model at the edges of the imager. In
+    that case you'll see higher errors with a wider distribution towards the
+    edge.
+
+    Finally run this:
+
+        show_intrinsics_uncertainty()
+
+    This will pop up a plot of projection uncertainties for each camera. The
+    uncertainties are shown as a color-map along with contours. These are
+    the expected value of projection based on noise in input corner
+    observations. The noise is assumed to be independent, 0-mean gaussian
+    with a standard deviation of --observed-pixel-uncertainty. You will see
+    low uncertainties in the center of the imager (this is the default focus
+    point; a different one can be picked). As you move away from the center,
+    you'll see higher errors. You should decide how much error is
+    acceptable, and determine the usable area of the imager based on this.
+    These uncertainty metrics are complementary to the residual metrics
+    described above. If you have too little data, the residuals will be low,
+    but the uncertainties will be very high. The more data you gather, the
+    lower the uncertainties. A richer distortion model lowers the residuals,
+    but raises the uncertainties. So with a richer model you need to get
+    more data to get to the same acceptable uncertainty level. The
+    uncertainties are all determined relative to some focus point. If you
+    care about the calibration accuracy in a particular area of the imager,
+    do something like this instead:
+
+        show_intrinsics_uncertainty( focus_center = np.array((1000,2000))) )
+
 OPTIONS
   POSITIONAL ARGUMENTS
       images                A glob-per-camera for the images. Include a glob for
