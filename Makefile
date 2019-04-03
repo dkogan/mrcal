@@ -1,3 +1,5 @@
+include /usr/include/mrbuild/Makefile.common.header
+
 PROJECT_NAME := mrcal
 ABI_VERSION  := 0
 TAIL_VERSION := 0
@@ -94,4 +96,4 @@ all: mrcal/_mrcal.so
 EXTRA_CLEAN += mrcal/*.so
 
 
-include /usr/include/mrbuild/Makefile.common
+include /usr/include/mrbuild/Makefile.common.footer
