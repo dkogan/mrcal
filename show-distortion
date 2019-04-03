@@ -19,6 +19,8 @@ curve by passing --radial
 
 import sys
 import argparse
+import re
+import os
 
 def parse_args():
 
@@ -84,8 +86,6 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-import re
-import os
 
 import mrcal
 

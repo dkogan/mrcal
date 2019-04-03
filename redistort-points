@@ -29,6 +29,8 @@ y pixel coord. Comments are allowed, and start with the '#' character.
 
 import sys
 import argparse
+import re
+import os
 
 def parse_args():
 
@@ -64,8 +66,6 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-import os
-import re
 
 import mrcal
 

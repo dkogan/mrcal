@@ -24,6 +24,8 @@ edges.
 
 import sys
 import argparse
+import re
+import os
 
 def parse_args():
 
@@ -86,9 +88,7 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-import re
 import cv2
-import os
 
 import multiprocessing
 import signal

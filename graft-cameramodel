@@ -15,6 +15,8 @@ single model. The output is written to standard out in mrcal-native format
 
 import sys
 import argparse
+import re
+import os
 
 def parse_args():
 
@@ -44,8 +46,6 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-import os
-import re
 import mrcal
 
 intrinsics = mrcal.cameramodel(args.intrinsics)
