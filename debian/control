@@ -2,15 +2,14 @@ Source: mrcal
 Priority: optional
 Section: devel
 Build-Depends: debhelper (>= 9), mrbuild (>= 0.61), dh-python,
- libpython-all-dev,
  libminimath-dev,
  libdogleg-dev (>= 0.15.2-1),
  libopencv-dev,
- python-numpy,
  pkg-config,
  perl,
+ libpython-all-dev,
  python-gnuplotlib (>= 0.24-1), python-numpysane (>= 0.16-1),
- python, python-opencv, python-scipy
+ python, python-opencv, python-numpy, python-scipy
 Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
 Standards-Version: 3.9.8
 Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
@@ -48,7 +47,7 @@ Package: libmrcal-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version})
+Depends: ${misc:Depends}, libmrcal0 (= ${binary:Version})
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
