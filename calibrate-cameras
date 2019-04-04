@@ -5,7 +5,7 @@ r'''Calibrate some synchronized cameras
 SYNOPSIS
 
   $ calibrate-cameras
-      --dots-cache corners.vnl
+      --corners-cache corners.vnl
       --focal 1700 --object-spacing 0.01 --object-width-n 10
       --out /tmp
       --distortion-model DISTORTION_OPENCV8
@@ -102,7 +102,7 @@ data.
 Once we have gathered input images, we can run the calibration procedure:
 
   calibrate-cameras
-    --dots-cache corners.vnl
+    --corners-cache corners.vnl
     -j 10
     --focal 2000
     --object-spacing 0.1
@@ -319,7 +319,7 @@ def parse_args():
                         nargs=2,
                         type=int,
                         required=False,
-                        help='''Size of the imager. This is only required if we pass --dots-cache AND if none
+                        help='''Size of the imager. This is only required if we pass --corners-cache AND if none
                         of the image files on disk actually exist''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
@@ -372,9 +372,9 @@ def parse_args():
                         default=1,
                         help='''How much parallelization we want. Like GNU make. Affects only the chessboard
                         corner finder. If we are reading a cache file, this does nothing''')
-    parser.add_argument('--dots-cache',
+    parser.add_argument('--corners-cache',
                         type=lambda f: f if os.path.isfile(f) or not os.path.isdir(f) else \
-                                parser.error("--dots-cache requires an existing, readable file as the arg or a non-existing path, but got '{}'".format(f)),
+                                parser.error("--corners-cache requires an existing, readable file as the arg or a non-existing path, but got '{}'".format(f)),
                         required=False,
                         help='Path to read corner-finder data from or (if path does not exist) to write data to')
 
@@ -479,7 +479,7 @@ import copy
 
 import mrcal
 
-def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
+def get_observations(Nw, Nh, globs, corners_vnl=None, jobs=1, exclude=set()):
     r'''Computes the point observations and returns them in a usable form
 
     We are given globs of images (one glob per camera), where the filenames
@@ -499,14 +499,14 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
 
     '''
 
-    def get_dot_observations(Nw, Nh, globs, dots_vnl, exclude=set()):
+    def get_dot_observations(Nw, Nh, globs, corners_vnl, exclude=set()):
         r'''Return dot observations, from a cache or from mrgingham
 
         Returns a dict mapping from filename to a numpy array with a full grid
         of dot observations. If no grid was observed in a particular image, the
         relevant dict entry is empty
 
-        The dots_vnl argument is for caching corner-finder results. This can be
+        The corners_vnl argument is for caching corner-finder results. This can be
         None if we want to ignore this. Otherwise, this is treated as a path to
         a file on disk. If this file exists:
 
@@ -531,8 +531,8 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
         for i in xrange(Ncameras):
             files_per_camera.append([])
 
-        # images in dots_vnl have paths relative to where the dots_vnl lives
-        dots_dir = None if dots_vnl is None else os.path.dirname( dots_vnl )
+        # images in corners_vnl have paths relative to where the corners_vnl lives
+        corners_dir = None if corners_vnl is None else os.path.dirname( corners_vnl )
 
         def accum_files(f):
             for i_camera in xrange(Ncameras):
@@ -545,12 +545,12 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
             return False
 
 
-        pipe_dots_write_fd          = None
-        pipe_dots_write_tmpfilename = None
-        if dots_vnl is not None and os.path.isdir(dots_vnl):
+        pipe_corners_write_fd          = None
+        pipe_corners_write_tmpfilename = None
+        if corners_vnl is not None and os.path.isdir(corners_vnl):
             raise Exception("Given cache path '{}' is a directory. Must be a file or must not exist". \
-                            format(dots_vnl))
-        if dots_vnl is None or not os.path.isfile(dots_vnl):
+                            format(corners_vnl))
+        if corners_vnl is None or not os.path.isfile(corners_vnl):
             # Need to compute the dot coords. And maybe need to save them into a
             # cache file too
             if Nw != 10 or Nh != 10:
@@ -562,21 +562,21 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
 
             sys.stderr.write("Computing chessboard corners by running:\n   {}\n". \
                              format(' '.join(pipes.quote(s) for s in args_mrgingham)))
-            if dots_vnl is not None:
-                # need to save the dots into a cache. I want to do this
+            if corners_vnl is not None:
+                # need to save the corners into a cache. I want to do this
                 # atomically: if the dot-finding is interrupted I don't want to
                 # be writing incomplete results, so I write to a temporary file
                 # and then rename when done
-                pipe_dots_write_fd,pipe_dots_write_tmpfilename = mkstemp('.vnl')
-                sys.stderr.write("Will save corners to '{}'\n".format(dots_vnl))
+                pipe_corners_write_fd,pipe_corners_write_tmpfilename = mkstemp('.vnl')
+                sys.stderr.write("Will save corners to '{}'\n".format(corners_vnl))
 
-            dots_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            pipe_dots_read = dots_output.stdout
-            computing_dots = True
+            corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            pipe_corners_read = corners_output.stdout
+            computing_corners = True
         else:
             # Have an existing cache file. Just read it
-            pipe_dots_read = open(dots_vnl, 'r')
-            computing_dots = False
+            pipe_corners_read = open(corners_vnl, 'r')
+            computing_corners = False
 
 
         mapping = {}
@@ -590,31 +590,31 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
                                     format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size/2))
                 if context['f'] not in exclude:
                     # There is a bit of ambiguity here. The image path stored in
-                    # the 'dots_vnl' file is relative to what? It could be
-                    # relative to the directory the dots_vnl lives in, or it
+                    # the 'corners_vnl' file is relative to what? It could be
+                    # relative to the directory the corners_vnl lives in, or it
                     # could be relative to the current directory. The image
                     # doesn't necessarily need to exist. I implement a few
                     # heuristics to figure this out
-                    if dots_dir is None             or \
+                    if corners_dir is None             or \
                        context['f'][0] == '/'       or \
                        os.path.isfile(context['f']):
                         filename_canonical = os.path.normpath(context['f'])
                     else:
-                        filename_canonical = os.path.join(dots_dir, context['f'])
+                        filename_canonical = os.path.join(corners_dir, context['f'])
                     if accum_files(filename_canonical):
                         mapping[filename_canonical] = context['grid']
                 context['f']    = ''
                 context['grid'] = np.array(())
 
-        for line in pipe_dots_read:
-            if pipe_dots_write_fd is not None:
-                os.write(pipe_dots_write_fd, line)
+        for line in pipe_corners_read:
+            if pipe_corners_write_fd is not None:
+                os.write(pipe_corners_write_fd, line)
 
             if line[0] == '#':
                 continue
             m = re.match('(\S+)\s+(.*?)$', line)
             if m is None:
-                raise Exception("Unexpected line in the dots output: '{}'".format(line))
+                raise Exception("Unexpected line in the corners output: '{}'".format(line))
             if m.group(2)[:2] == '- ':
                 finish()
                 continue
@@ -627,17 +627,17 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
                                        axis=-2)
         finish()
 
-        if computing_dots:
+        if computing_corners:
             sys.stderr.write("Done computing chessboard corners\n")
 
-            if dots_output.wait() != 0:
-                err = dots_output.stderr.read()
+            if corners_output.wait() != 0:
+                err = corners_output.stderr.read()
                 raise Exception("mrgingham failed: {}".format(err))
-            if pipe_dots_write_fd is not None:
-                os.close(pipe_dots_write_fd)
-                shutil.move(pipe_dots_write_tmpfilename, dots_vnl)
+            if pipe_corners_write_fd is not None:
+                os.close(pipe_corners_write_fd)
+                shutil.move(pipe_corners_write_tmpfilename, corners_vnl)
         else:
-            pipe_dots_read.close()
+            pipe_corners_read.close()
 
         # I can't deal with cameras that have only one frame: the filenames
         # aren't enough to establish a pattern, so I ignore those. Which is
@@ -662,12 +662,12 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
     #               push indices_frame_camera
 
     # inputs[camera][image] = (image_filename, frame_number)
-    mapping_file_dots,files_per_camera = get_dot_observations(Nw, Nh, globs, dots_vnl, exclude)
+    mapping_file_corners,files_per_camera = get_dot_observations(Nw, Nh, globs, corners_vnl, exclude)
     mapping_file_framecamera,_,_       = mrcal.get_mapping_file_framecamera(files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
     # {for(cameras) {}} loop will just end up looking at these files in order
-    files_sorted = sorted(mapping_file_dots.keys(), key=lambda f: mapping_file_framecamera[f][1])
+    files_sorted = sorted(mapping_file_corners.keys(), key=lambda f: mapping_file_framecamera[f][1])
     files_sorted = sorted(files_sorted,             key=lambda f: mapping_file_framecamera[f][0])
 
     i_observation = 0
@@ -686,14 +686,14 @@ def get_observations(Nw, Nh, globs, dots_vnl=None, jobs=1, exclude=set()):
                                         np.array((index_frame, i_camera), dtype=np.int32),
                                         axis=-2)
         observations = nps.glue(observations,
-                                mapping_file_dots[f].reshape(Nh,Nw,2),
+                                mapping_file_corners[f].reshape(Nh,Nw,2),
                                 axis=-4)
 
     return observations, indices_frame_camera, files_sorted
 
 
 def estimate_local_calobject_poses( indices_frame_camera, \
-                                    dots, dot_spacing, focal, imagersizes,
+                                    corners, dot_spacing, focal, imagersizes,
                                     Nwant):
     r"""Estimates pose of observed object in a single-camera view
 
@@ -710,12 +710,12 @@ def estimate_local_calobject_poses( indices_frame_camera, \
       (iframe, idot_x, idot_y, idot2d_xy)
 
     So as an example, the observed pixel coord of the dot (3,4) in frame index 5
-    is the 2-vector dots[5,3,4,:]
+    is the 2-vector corners[5,3,4,:]
 
     Missing observations are given as negative pixel coords.
 
     This function returns an (Nobservations,4,3) array, with the observations
-    aligned with the dots and indices_frame_camera arrays. Each observation
+    aligned with the corners and indices_frame_camera arrays. Each observation
     slice is (4,3) in glue(R, t, axis=-2)
 
     """
@@ -735,7 +735,7 @@ def estimate_local_calobject_poses( indices_frame_camera, \
         camera_matrix = np.array((( focal, 0,        (imagersize[0] - 1)/2), \
                                   (        0, focal, (imagersize[1] - 1)/2), \
                                   (        0,        0,                 1)))
-        d = dots[i_observation, ...]
+        d = corners[i_observation, ...]
 
         d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
         # d is (Nwant*Nwant,5); each row is an xy pixel observation followed by the xyz
@@ -788,7 +788,7 @@ def estimate_local_calobject_poses( indices_frame_camera, \
     return Rt_all
 
 def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
-                           dots, dot_spacing, Ncameras,
+                           corners, dot_spacing, Ncameras,
                            Nwant):
     r'''Estimate camera poses in respect to each other
 
@@ -867,7 +867,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                     raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
                                                                                             i_frame_this))
                 Rt0 = calobject_poses_local_Rt[i_observation, ...]
-                d0  = dots[i_observation, ...]
+                d0  = corners[i_observation, ...]
             elif i_camera_this == icam_from:
                 if Rt0 is None: # have camera1 observation, but not camera0
                     continue
@@ -876,7 +876,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                     raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
                                                                                             i_frame_this))
                 Rt1 = calobject_poses_local_Rt[i_observation, ...]
-                d1  = dots[i_observation, ...]
+                d1  = corners[i_observation, ...]
 
 
 
@@ -1150,7 +1150,7 @@ def make_seed_no_distortion( imagersizes,
                              focal_estimate,
                              Ncameras,
                              indices_frame_camera,
-                             dots,
+                             corners,
                              dot_spacing,
                              object_width_n):
     r'''Generate a solution seed for a given input'''
@@ -1175,7 +1175,7 @@ def make_seed_no_distortion( imagersizes,
     # The result has dimensions (N,4,3)
     calobject_poses_local_Rt = \
         estimate_local_calobject_poses( indices_frame_camera,
-                                        dots,
+                                        corners,
                                         dot_spacing,
                                         focal_estimate,
                                         imagersizes,
@@ -1194,7 +1194,7 @@ def make_seed_no_distortion( imagersizes,
     # camera coord system. Rt have dimensions (N-1,4,3)
     camera_poses_Rt = estimate_camera_poses( calobject_poses_local_Rt,
                                              indices_frame_camera,
-                                             dots,
+                                             corners,
                                              dot_spacing,
                                              Ncameras,
                                              object_width_n)
@@ -1221,7 +1221,7 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
     This reports the size for ONE camera. I only look at the first match. It is
     assumed that all the images matching this glob have the same imager size.
 
-    If I have a dots cache, then this is the ONLY place where I'd need the
+    If I have a corners cache, then this is the ONLY place where I'd need the
     images on disk at all. If the user passes --imagersize, then I really don't
     need the images.
 
@@ -1526,7 +1526,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                 focal_estimate       = args.focal,
                                 Ncameras             = Ncameras,
                                 indices_frame_camera = indices_frame_camera,
-                                dots                 = observations,
+                                corners                 = observations,
                                 dot_spacing          = args.object_spacing,
                                 object_width_n       = args.object_width_n)
 
@@ -1850,7 +1850,7 @@ observations, indices_frame_camera, paths = \
     get_observations(args.object_width_n,
                      args.object_width_n,
                      args.images,
-                     args.dots_cache,
+                     args.corners_cache,
                      jobs = args.jobs)
 
 # list of imager sizes; one per camera

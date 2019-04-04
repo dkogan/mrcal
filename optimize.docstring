@@ -79,10 +79,10 @@ REQUIRED ARGUMENTS
                                      calibration_object_width_n,
                                      calibration_object_width_n,
                                      2).
-  These are the observed (x,y) pixel coordinates of the dots in the calibration
-  object. Subpixel interpolation is assumed, so these contain 64-bit floating
-  point values, like all the other data. The frame and camera that produced
-  these observations are given in the indices_frame_camera array
+  These are the observed (x,y) pixel coordinates of the corners in the
+  calibration object. Subpixel interpolation is assumed, so these contain 64-bit
+  floating point values, like all the other data. The frame and camera that
+  produced these observations are given in the indices_frame_camera array
 
 - indices_frame_camera_board: array of dims (NobservationsBoard, 2). For each
   observation these are an (i_frame,i_camera) tuple. The frame indices and
