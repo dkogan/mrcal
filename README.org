@@ -1,7 +1,7 @@
 * SYNOPSIS
 
 #+BEGIN_EXAMPLE
-$ calibrate-cameras --focal 2000
+$ mrcal-calibrate-cameras --focal 2000
                     --outdir /tmp --object-spacing 0.01
                     --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
 
@@ -27,19 +27,20 @@ partially supported. The toolkit includes:
     - functions to (un)project and (un)distort data
 
 - Some tools:
-  - =calibrate-cameras=: calibrates N cameras
-  - =convert-distortions=: fits one distortion model to another
-  - =show-distortions=: visualize the distortion effects of a specific model
-  - =show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics due
-    to noise in the calibration inputs
-  - =show-intrinsics-diff=: visualize the difference between the intrinsics of
-    a number of models
-  - =undistort-image=: Given image(s) and a distortion model, produces a new set
-    of images that have removed the distortion
-  - =redistort-points=: Given two distortion models and a set of points, maps
-    them from one distortion model to the other
-  - =graft-cameramodel=: Combines the intrinsics of one cameramodel with the
-    extrinsics of another
+  - =mrcal-calibrate-cameras=: calibrates N cameras
+  - =mrcal-convert-distortion=: fits one distortion model to another
+  - =mrcal-show-distortion=: visualize the distortion effects of a specific
+    model
+  - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
+    due to noise in the calibration inputs
+  - =mrcal-show-intrinsics-diff=: visualize the difference between the
+    intrinsics of a number of models
+  - =mrcal-undistort-image=: Given image(s) and a distortion model, produces a
+    new set of images that have removed the distortion
+  - =mrcal-redistort-points=: Given two distortion models and a set of points,
+    maps them from one distortion model to the other
+  - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
+    the extrinsics of another
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -128,14 +129,14 @@ so this vision problem is handled by another library: [[https://github.com/dkoga
 documentation for more details.
 
 * MANPAGES
-** calibrate-cameras
+** mrcal-calibrate-cameras
 #+BEGIN_EXAMPLE
 NAME
-    calibrate-cameras - Calibrate some synchronized cameras
+    mrcal-calibrate-cameras - Calibrate some synchronized cameras
 
 SYNOPSIS
-      $ calibrate-cameras
-          --dots-cache corners.vnl
+      $ mrcal-calibrate-cameras
+          --corners-cache corners.vnl
           --focal 1700 --object-spacing 0.01 --object-width-n 10
           --out /tmp
           --distortion-model DISTORTION_OPENCV8
@@ -237,8 +238,8 @@ DESCRIPTION
     Once we have gathered input images, we can run the calibration
     procedure:
 
-      calibrate-cameras
-        --dots-cache corners.vnl
+      mrcal-calibrate-cameras
+        --corners-cache corners.vnl
         -j 10
         --focal 2000
         --object-spacing 0.1
@@ -445,7 +446,7 @@ OPTIONS
       --focal FOCAL         Initial estimate of the focal length, in pixels
       --imagersize IMAGERSIZE IMAGERSIZE
                             Size of the imager. This is only required if we pass
-                            --dots-cache AND if none of the image files on disk
+                            --corners-cache AND if none of the image files on disk
                             actually exist
       --outdir OUTDIR       Directory for the output camera models
       --object-spacing OBJECT_SPACING
@@ -478,7 +479,7 @@ OPTIONS
       --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make.
                             Affects only the chessboard corner finder. If we are
                             reading a cache file, this does nothing
-      --dots-cache DOTS_CACHE
+      --corners-cache CORNERS_CACHE
                             Path to read corner-finder data from or (if path does
                             not exist) to write data to
       --muse-extrinsics     Apply MUSE's non-identity rotation for camera0
@@ -516,14 +517,16 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** convert-distortion
+** mrcal-convert-distortion
 #+BEGIN_EXAMPLE
 NAME
-    convert-distortion - Converts a camera model from one distortion model
-    to another
+    mrcal-convert-distortion - Converts a camera model from one distortion
+    model to another
 
 SYNOPSIS
-      $ convert-distortion --viz --to DISTORTION_OPENCV4 left.cameramodel > left.opencv4.cameramodel
+      $ mrcal-convert-distortion
+          --viz --to DISTORTION_OPENCV4 left.cameramodel
+          > left.opencv4.cameramodel
 
       ... lots of output as the solve runs ...
       libdogleg at dogleg.c:1064: success! took 10 iterations
@@ -599,14 +602,14 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** show-distortion
+** mrcal-show-distortion
 #+BEGIN_EXAMPLE
 NAME
-    show-distortion - Renders a vector field to visualize the effect of a
-    model
+    mrcal-show-distortion - Renders a vector field to visualize the effect
+    of a model
 
 SYNOPSIS
-      $ show-distortion --vectorfield left.cameramodel
+      $ mrcal-show-distortion --vectorfield left.cameramodel
       ... a plot pops up showing the distortion vector field
 
 DESCRIPTION
@@ -647,14 +650,14 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** show-intrinsics-uncertainty
+** mrcal-show-intrinsics-uncertainty
 #+BEGIN_EXAMPLE
 NAME
-    show-intrinsics-uncertainty - Renders the expected projection error due
-    to calibration uncertainty
+    mrcal-show-intrinsics-uncertainty - Renders the expected projection
+    error due to calibration uncertainty
 
 SYNOPSIS
-      $ show-intrinsics-uncertainty left.cameramodel
+      $ mrcal-show-intrinsics-uncertainty left.cameramodel
       ... a plot pops up showing the projection uncertainty of the intrinsics in
       ... this model
 
@@ -701,14 +704,14 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** show-intrinsics-diff
+** mrcal-show-intrinsics-diff
 #+BEGIN_EXAMPLE
 NAME
-    show-intrinsics-diff - Renders a difference in projection between two
-    models
+    mrcal-show-intrinsics-diff - Renders a difference in projection between
+    two models
 
 SYNOPSIS
-      $ show-intrinsics-diff before.cameramodel after.cameramodel
+      $ mrcal-show-intrinsics-diff before.cameramodel after.cameramodel
       ... a plot pops up showing how two models differ in their projections
 
 DESCRIPTION
@@ -765,13 +768,13 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** undistort-image
+** mrcal-undistort-image
 #+BEGIN_EXAMPLE
 NAME
-    undistort-image - Un-distorts image(s)
+    mrcal-undistort-image - Un-distorts image(s)
 
 SYNOPSIS
-      $ undistort-image --model left.cameramodel im1.png im2.png
+      $ mrcal-undistort-image --model left.cameramodel im1.png im2.png
       ... corresponding pinhole mrcal-native model
       Wrote im1-undistorted.png
       Wrote im2-undistorted.png
@@ -814,13 +817,17 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** redistort-points
+** mrcal-redistort-points
 #+BEGIN_EXAMPLE
 NAME
-    redistort-points - Converts distorted points from one model to another
+    mrcal-redistort-points - Converts distorted points from one model to
+    another
 
 SYNOPSIS
-      $ redistort-points --from pinhole.cameramodel --to fisheye.cameramodel < input.vnl > output.vnl
+      $ mrcal-redistort-points
+          --from pinhole.cameramodel
+          --to fisheye.cameramodel
+          < input.vnl > output.vnl
 
 DESCRIPTION
     This tool takes a set of pixel observations corresponding to one camera
@@ -855,14 +862,17 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** graft-cameramodel
+** mrcal-graft-cameramodel
 #+BEGIN_EXAMPLE
 NAME
-    graft-cameramodel - Combines the intrinsics of one cameramodel with the
-    extrinsics of another
+    mrcal-graft-cameramodel - Combines the intrinsics of one cameramodel
+    with the extrinsics of another
 
 SYNOPSIS
-      $ graft-cameramodel intrinsics.cameramodel extrinsics.cameramodel > joint.cameramodel
+      $ mrcal-graft-cameramodel
+          intrinsics.cameramodel
+          extrinsics.cameramodel
+          > joint.cameramodel
       Merged intrinsics from 'intrinsics.cameramodel' with extrinsics from
       'exrinsics.cameramodel'
 

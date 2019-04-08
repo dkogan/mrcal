@@ -4,7 +4,7 @@ r'''Calibrate some synchronized cameras
 
 SYNOPSIS
 
-  $ calibrate-cameras
+  $ mrcal-calibrate-cameras
       --corners-cache corners.vnl
       --focal 1700 --object-spacing 0.01 --object-width-n 10
       --out /tmp
@@ -101,7 +101,7 @@ data.
 
 Once we have gathered input images, we can run the calibration procedure:
 
-  calibrate-cameras
+  mrcal-calibrate-cameras
     --corners-cache corners.vnl
     -j 10
     --focal 2000
@@ -521,9 +521,10 @@ def get_observations(Nw, Nh, globs, corners_vnl=None, jobs=1, exclude=set()):
             We process the images to compute the corner coordinates. Before we
             compute the calibration off these coordinates, we create the cache
             file and store this data there. Thus a subsequent identical
-            invocation of calibrate-cameras will see this file as existing, and
-            will automatically use the data it contains instead of recomputing
-            the corner coordinates
+            invocation of mrcal-calibrate-cameras will see this file as
+            existing, and will automatically use the data it contains instead of
+            recomputing the corner coordinates
+
         '''
 
         Ncameras = len(globs)

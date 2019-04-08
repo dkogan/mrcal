@@ -24,14 +24,14 @@ CCXXFLAGS  += -DOLD_OPENCV=$(if $(AM_OLD_RH7),1,0)
 
 DIST_INCLUDE    += basic_points.h mrcal.h
 DIST_BIN :=					\
-	calibrate-cameras			\
-	convert-distortion			\
-	show-distortion				\
-	show-intrinsics-uncertainty		\
-	show-intrinsics-diff			\
-	undistort-image				\
-	redistort-points			\
-	graft-cameramodel
+	mrcal-calibrate-cameras			\
+	mrcal-convert-distortion		\
+	mrcal-show-distortion			\
+	mrcal-show-intrinsics-uncertainty	\
+	mrcal-show-intrinsics-diff		\
+	mrcal-undistort-image			\
+	mrcal-redistort-points			\
+	mrcal-graft-cameramodel
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
 # hack because apparenly manpages from python tools is a crazy thing to want to

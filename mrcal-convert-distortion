@@ -5,7 +5,9 @@ r'''Converts a camera model from one distortion model to another
 
 SYNOPSIS
 
-  $ convert-distortion --viz --to DISTORTION_OPENCV4 left.cameramodel > left.opencv4.cameramodel
+  $ mrcal-convert-distortion
+      --viz --to DISTORTION_OPENCV4 left.cameramodel
+      > left.opencv4.cameramodel
 
   ... lots of output as the solve runs ...
   libdogleg at dogleg.c:1064: success! took 10 iterations

@@ -2189,7 +2189,7 @@ static bool computeUncertaintyMatrices(// out
 
         // I run a whole lotta randomized trials to make sure the observed
         // distributions match the analytical expressions. Those tests are in
-        // calibrate-cameras
+        // mrcal-calibrate-cameras
         for(int i=0; i<10000; i++)
         {
             // leave the last Nmeas-Nmeas_observations always at 0

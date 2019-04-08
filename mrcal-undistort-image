@@ -4,7 +4,7 @@ r'''Un-distorts image(s)
 
 SYNOPSIS
 
-  $ undistort-image --model left.cameramodel im1.png im2.png
+  $ mrcal-undistort-image --model left.cameramodel im1.png im2.png
   ... corresponding pinhole mrcal-native model
   Wrote im1-undistorted.png
   Wrote im2-undistorted.png

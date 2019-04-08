@@ -4,7 +4,7 @@ r'''Renders a difference in projection between two models
 
 SYNOPSIS
 
-  $ show-intrinsics-diff before.cameramodel after.cameramodel
+  $ mrcal-show-intrinsics-diff before.cameramodel after.cameramodel
   ... a plot pops up showing how two models differ in their projections
 
 

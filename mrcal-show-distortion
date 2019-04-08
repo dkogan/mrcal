@@ -4,7 +4,7 @@ r'''Renders a vector field to visualize the effect of a model
 
 SYNOPSIS
 
-  $ show-distortion --vectorfield left.cameramodel
+  $ mrcal-show-distortion --vectorfield left.cameramodel
   ... a plot pops up showing the distortion vector field
 
 This allows us to visually see what a distortion model does. Depending on the

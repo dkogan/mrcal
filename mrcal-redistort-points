@@ -4,7 +4,10 @@ r'''Converts distorted points from one model to another
 
 SYNOPSIS
 
-  $ redistort-points --from pinhole.cameramodel --to fisheye.cameramodel < input.vnl > output.vnl
+  $ mrcal-redistort-points
+      --from pinhole.cameramodel
+      --to fisheye.cameramodel
+      < input.vnl > output.vnl
 
 This tool takes a set of pixel observations corresponding to one camera model,
 and converts them to corresponding observations in another model. This is useful
