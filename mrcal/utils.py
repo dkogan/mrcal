@@ -1774,10 +1774,18 @@ def get_mapping_file_framecamera(files_per_camera):
     I take in a list of image paths per camera. I return a list:
 
     - a dict that maps each image filename to (framenumber,cameraindex)
-    - a string for the prefix of the FIRST set of images
-    - a string for the suffix of the FIRST set of images
+    - a string for the common prefix of the image filenames
+    - a string for the common suffix of the image filenames
 
     '''
+
+    # If I have just one camera, then I short-circuit all of this
+    if len(files_per_camera) == 1:
+        d = {}
+        for i in range(len(files_per_camera[0])):
+            d[files_per_camera[0][i]] = (i,0)
+        return d,'',''
+
 
     def get_longest_leading_trailing_substrings(strings):
         r'''Given a list of strings, returns the length of the longest leading and
