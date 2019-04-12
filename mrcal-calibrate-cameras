@@ -470,13 +470,20 @@ import numpysane as nps
 import cv2
 import fnmatch
 import subprocess
-import pipes
 import heapq
 from tempfile import mkstemp
 import shutil
 import glob
 import copy
 import time
+
+import pipes
+import shlex
+try:
+    shellquote = pipes.quote
+except:
+    # python3 puts this into a different module
+    shellquote = shlex.quote
 
 import mrcal
 
@@ -563,7 +570,7 @@ def get_observations(Nw, Nh, globs, corners_vnl=None, jobs=1, exclude=set()):
             args_mrgingham.extend(globs)
 
             sys.stderr.write("Computing chessboard corners by running:\n   {}\n". \
-                             format(' '.join(pipes.quote(s) for s in args_mrgingham)))
+                             format(' '.join(shellquote(s) for s in args_mrgingham)))
             if corners_vnl is not None:
                 # need to save the corners into a cache. I want to do this
                 # atomically: if the dot-finding is interrupted I don't want to
@@ -2093,7 +2100,8 @@ models = make_cameramodels(intrinsics, extrinsics, imagersizes,
                            invJtJ_intrinsics_observations_only)
 # The note says how we ran this, and contains the commented-out report
 note = \
-    "generated on '{}' with {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"), sys.argv) + \
+    "generated on '{}' with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                           ' '.join(shellquote(s) for s in sys.argv)) + \
     re.sub(r"^(.)", r"# \1", report, flags=re.M)
 for i_camera in xrange(len(models)):
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
