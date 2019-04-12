@@ -476,6 +476,7 @@ from tempfile import mkstemp
 import shutil
 import glob
 import copy
+import time
 
 import mrcal
 
@@ -2092,7 +2093,7 @@ models = make_cameramodels(intrinsics, extrinsics, imagersizes,
                            invJtJ_intrinsics_observations_only)
 # The note says how we ran this, and contains the commented-out report
 note = \
-    "generated with {}\n".format(sys.argv) + \
+    "generated on '{}' with {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"), sys.argv) + \
     re.sub(r"^(.)", r"# \1", report, flags=re.M)
 for i_camera in xrange(len(models)):
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
