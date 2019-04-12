@@ -596,7 +596,7 @@ def get_observations(Nw, Nh, globs, corners_vnl=None, jobs=1, exclude=set()):
                     # could be relative to the current directory. The image
                     # doesn't necessarily need to exist. I implement a few
                     # heuristics to figure this out
-                    if corners_dir is None             or \
+                    if corners_dir is None          or \
                        context['f'][0] == '/'       or \
                        os.path.isfile(context['f']):
                         filename_canonical = os.path.normpath(context['f'])
@@ -664,12 +664,12 @@ def get_observations(Nw, Nh, globs, corners_vnl=None, jobs=1, exclude=set()):
 
     # inputs[camera][image] = (image_filename, frame_number)
     mapping_file_corners,files_per_camera = get_dot_observations(Nw, Nh, globs, corners_vnl, exclude)
-    mapping_file_framecamera,_,_       = mrcal.get_mapping_file_framecamera(files_per_camera)
+    mapping_file_framecamera,_,_          = mrcal.get_mapping_file_framecamera(files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
     # {for(cameras) {}} loop will just end up looking at these files in order
     files_sorted = sorted(mapping_file_corners.keys(), key=lambda f: mapping_file_framecamera[f][1])
-    files_sorted = sorted(files_sorted,             key=lambda f: mapping_file_framecamera[f][0])
+    files_sorted = sorted(files_sorted,                key=lambda f: mapping_file_framecamera[f][0])
 
     i_observation = 0
 
@@ -1527,7 +1527,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                 focal_estimate       = args.focal,
                                 Ncameras             = Ncameras,
                                 indices_frame_camera = indices_frame_camera,
-                                corners                 = observations,
+                                corners              = observations,
                                 dot_spacing          = args.object_spacing,
                                 object_width_n       = args.object_width_n)
 
