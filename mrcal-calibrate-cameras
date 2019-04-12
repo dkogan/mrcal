@@ -2352,9 +2352,9 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                                focus_center is not None, we use that; otherwise
                                we use the imager center
 
-      elif how == 'regional':  Plots residuals grouped by discrete chunks of the
+      elif how == 'regional':  Plots residuals grouped by discrete regions of the
                                image. Useful to see specifically where the fit is
-                               bad
+                               poor
 
     i_camera is the camera in question. <0 means "all cameras"
 
