@@ -433,7 +433,7 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
                          for i in xrange(len(distortion_model))]), \
                grid
     else:
-        # shape: Ncameras,Nwidth,Nheight,3
+        # shape: Nwidth,Nheight,3
         return \
             mrcal.unproject(grid,
                             distortion_model,
