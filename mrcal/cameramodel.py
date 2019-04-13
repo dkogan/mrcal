@@ -36,7 +36,9 @@ def _validateExtrinsics(e):
 def _validateIntrinsics(imagersize,
                         i,
                         observed_pixel_uncertainty,
-                        invJtJ_intrinsics_full, invJtJ_intrinsics_observations_only):
+                        invJtJ_intrinsics_full,
+                        invJtJ_intrinsics_observations_only,
+                        valid_intrinsics_region_contour):
     r'''Raises an exception if given components of the intrinsics is invalid'''
 
     # need two integers in the imager size
@@ -123,6 +125,13 @@ def _validateIntrinsics(imagersize,
            invJtJ_intrinsics_observations_only is not None:
             raise Exception("If any invJtJ are given, the observed pixel uncertainty must be given too")
 
+    if valid_intrinsics_region_contour is not None:
+        try:
+            if len(valid_intrinsics_region_contour.shape) != 2 or \
+               valid_intrinsics_region_contour.shape[-1] != 2:
+                raise Exception("The valid extrinsics region must be a numpy array of shape (N,2)")
+        except:
+            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2)")
 
 class cameramodel(object):
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
@@ -189,7 +198,8 @@ class cameramodel(object):
                             self._intrinsics,
                             self._observed_pixel_uncertainty,
                             self._invJtJ_intrinsics_full,
-                            self._invJtJ_intrinsics_observations_only)
+                            self._invJtJ_intrinsics_observations_only,
+                            self._valid_intrinsics_region_contour)
         _validateExtrinsics(self._extrinsics)
 
         # I write this out manually instead of using repr for the whole thing
@@ -226,6 +236,11 @@ class cameramodel(object):
             f.write("    'invJtJ_intrinsics_observations_only': [\n")
             for row in self._invJtJ_intrinsics_observations_only:
                 f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))
+            f.write("],\n\n")
+        if self._valid_intrinsics_region_contour is not None:
+            f.write("    'valid_intrinsics_region_contour': [\n")
+            for row in self._valid_intrinsics_region_contour:
+                f.write(("    [ {:.10g}, {:.10g} ],\n").format(*row))
             f.write("],\n\n")
 
         N = len(self._extrinsics)
@@ -271,18 +286,25 @@ class cameramodel(object):
         if 'invJtJ_intrinsics_observations_only' in model:
             invJtJ_intrinsics_observations_only = np.array(model['invJtJ_intrinsics_observations_only'], dtype=float)
 
+        valid_intrinsics_region_contour = None
+        if 'valid_intrinsics_region_contour' in model:
+            valid_intrinsics_region_contour = np.array(model['valid_intrinsics_region_contour'])
+
         intrinsics = (model['distortion_model'], np.array(model['intrinsics'], dtype=float))
+
         _validateIntrinsics(model['imagersize'],
                             intrinsics,
                             observed_pixel_uncertainty,
                             invJtJ_intrinsics_full,
-                            invJtJ_intrinsics_observations_only)
+                            invJtJ_intrinsics_observations_only,
+                            valid_intrinsics_region_contour)
         _validateExtrinsics(model['extrinsics'])
 
         self._intrinsics                          = intrinsics
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
         self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
         self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
+        self._valid_intrinsics_region_contour     = valid_intrinsics_region_contour
         self._extrinsics                          = np.array(model['extrinsics'], dtype=float)
         self._imagersize                          = np.array(model['imagersize'], dtype=np.int32)
 
@@ -311,6 +333,7 @@ class cameramodel(object):
         - 'observed_pixel_uncertainty',          optionally
         - 'invJtJ_intrinsics_full',              optionally
         - 'invJtJ_intrinsics_observations_only', optionally
+        - 'valid_intrinsics_region_contour',     optionally
 
         '''
 
@@ -340,6 +363,7 @@ class cameramodel(object):
                 self._observed_pixel_uncertainty          = copy.deepcopy(file_or_model._observed_pixel_uncertainty)
                 self._invJtJ_intrinsics_full              = copy.deepcopy(file_or_model._invJtJ_intrinsics_full)
                 self._invJtJ_intrinsics_observations_only = copy.deepcopy(file_or_model._invJtJ_intrinsics_observations_only)
+                self._valid_intrinsics_region_contour     = copy.deepcopy(file_or_model._valid_intrinsics_region_contour)
 
 
             elif type(file_or_model) is str:
@@ -371,14 +395,16 @@ class cameramodel(object):
             keys_remaining -= extrinsics_keys
             if keys_remaining - set(('observed_pixel_uncertainty',
                                      'invJtJ_intrinsics_full',
-                                     'invJtJ_intrinsics_observations_only'),):
-                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'imagersize' and MAYBE 'invJtJ_intrinsics_full' and/or 'invJtJ_intrinsics_observations_only' and/or 'observed_pixel_uncertainty'. Questionable keys: '{}'".format(keys_remaining))
+                                     'invJtJ_intrinsics_observations_only',
+                                     'valid_intrinsics_region_contour'),):
+                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'imagersize' and MAYBE 'invJtJ_intrinsics_full' and/or 'invJtJ_intrinsics_observations_only' and/or 'valid_intrinsics_region_contour' and/or 'observed_pixel_uncertainty'. Questionable keys: '{}'".format(keys_remaining))
 
             self.intrinsics(kwargs['imagersize'],
                             kwargs['intrinsics'],
                             kwargs.get('observed_pixel_uncertainty'),
                             kwargs.get('invJtJ_intrinsics_full'),
-                            kwargs.get('invJtJ_intrinsics_observations_only'))
+                            kwargs.get('invJtJ_intrinsics_observations_only'),
+                            kwargs.get('valid_intrinsics_region_contour'))
 
             if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
             if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt(False, kwargs['extrinsics_Rt_fromref'])
@@ -419,7 +445,8 @@ class cameramodel(object):
                    intrinsics                          = None,
                    observed_pixel_uncertainty          = None,
                    invJtJ_intrinsics_full              = None,
-                   invJtJ_intrinsics_observations_only = None):
+                   invJtJ_intrinsics_observations_only = None,
+                   valid_intrinsics_region_contour     = None):
         r'''Get or set the intrinsics in this model
 
         if no arguments are given: this is a getter of the INTRINSICS parameters
@@ -445,20 +472,23 @@ class cameramodel(object):
            intrinsics                          is None and \
            observed_pixel_uncertainty          is None and \
            invJtJ_intrinsics_full              is None and \
-           invJtJ_intrinsics_observations_only is None:
+           invJtJ_intrinsics_observations_only is None and \
+           valid_intrinsics_region_contour     is None:
             return self._intrinsics
 
         _validateIntrinsics(imagersize,
                             intrinsics,
                             observed_pixel_uncertainty,
                             invJtJ_intrinsics_full,
-                            invJtJ_intrinsics_observations_only)
+                            invJtJ_intrinsics_observations_only,
+                            valid_intrinsics_region_contour)
 
         self._imagersize                          = imagersize
         self._intrinsics                          = intrinsics
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
         self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
         self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
+        self._valid_intrinsics_region_contour     = valid_intrinsics_region_contour
 
 
     def extrinsics_rt(self, toref, rt=None):
@@ -600,6 +630,23 @@ class cameramodel(object):
         if len(args) or len(kwargs):
             raise Exception("invJtJ_intrinsics_observations_only() is NOT a setter. Please use intrinsics() to set them all together")
         return self._invJtJ_intrinsics_observations_only
+
+    def valid_intrinsics_region_contour(self, *args, **kwargs):
+        r'''Get the valid-intrinsics region
+
+        This function is NOT a setter. Use intrinsics() to set all the
+        intrinsics together.
+
+        The contour is a numpy array of shape (N,2). These are a sequence of
+        pixel coordinates describing the shape of the valid region. The first
+        and last points aren't assumed to be the same; they have an implicit
+        connection to close the contour
+
+        '''
+
+        if len(args) or len(kwargs):
+            raise Exception("valid_intrinsics_region_contour() is NOT a setter. Please use intrinsics() to set them all together")
+        return self._valid_intrinsics_region_contour
 
     def set_cookie(self, cookie):
         r'''Store some arbitrary cookie for somebody to use later
