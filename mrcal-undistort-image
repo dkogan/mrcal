@@ -133,9 +133,8 @@ mapxy, intrinsics_pinhole, imagersize_pinhole = \
                                        report_new_pinhole_parameters = True)
 
 model_pinhole = mrcal.cameramodel( model )
-model_pinhole.intrinsics(('DISTORTION_NONE',
-                          intrinsics_pinhole))
-model_pinhole.imagersize(imagersize_pinhole)
+model_pinhole.intrinsics(imagersize_pinhole,
+                         ('DISTORTION_NONE', intrinsics_pinhole))
 
 print "Corresponding pinhole model (cameramodel):"
 print ""

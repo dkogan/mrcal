@@ -180,12 +180,11 @@ def _read(f):
                 distortion_model = 'DISTORTION_CAHVOR'
 
     m = cameramodel.cameramodel()
-    m.intrinsics( (distortion_model,
-                   nps.glue( np.array(_fxy_cxy(x), dtype=float),
-                             distortions,
-                             axis = -1)))
+    m.intrinsics( x['Dimensions'],
+                  (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
+                                               distortions,
+                                               axis = -1)))
     m.extrinsics_Rt(True, nps.glue(R_toref,t_toref, axis=-2))
-    m.imagersize(x['Dimensions'])
 
     # I write the whole thing into my structure so that I can pull it out later
     m.set_cookie(x)

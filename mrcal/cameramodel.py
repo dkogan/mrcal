@@ -33,10 +33,23 @@ def _validateExtrinsics(e):
 
     return True
 
-def _validateIntrinsics(i,
+def _validateIntrinsics(imagersize,
+                        i,
                         observed_pixel_uncertainty,
                         invJtJ_intrinsics_full, invJtJ_intrinsics_observations_only):
-    r'''Raises an exception if a given component is invalid'''
+    r'''Raises an exception if given components of the intrinsics is invalid'''
+
+    # need two integers in the imager size
+    try:
+        N = len(imagersize)
+        if N != 2:
+            raise Exception("The imagersize must be an iterable of two positive integers")
+        if imagersize[0] <= 0 or imagersize[1] <= 0:
+            raise Exception("The imagersize must be an iterable of two positive integers")
+        if imagersize[0] != int(imagersize[0]) or imagersize[1] != int(imagersize[1]):
+            raise Exception("The imagersize must be an iterable of two positive integers")
+    except:
+        raise Exception("The imagersize must be an iterable of two positive integers")
 
     try:
         N = len(i)
@@ -111,24 +124,6 @@ def _validateIntrinsics(i,
             raise Exception("If any invJtJ are given, the observed pixel uncertainty must be given too")
 
 
-def _validateImagersize(d):
-    r'''Raises an exception if the given imager size is invalid'''
-
-    # need two integers
-    try:
-        N = len(d)
-        if N != 2:
-            raise Exception()
-        if d[0] <= 0 or d[1] <= 0:
-            raise Exception()
-        if d[0] != int(d[0]) or d[1] != int(d[1]):
-            raise Exception()
-    except:
-        raise Exception("The imagersize must be an iterable of two positive integers")
-
-    return True
-
-
 class cameramodel(object):
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
 
@@ -190,7 +185,8 @@ class cameramodel(object):
         if note is not None:
             f.write('# ' + note + '\n')
 
-        _validateIntrinsics(self._intrinsics,
+        _validateIntrinsics(self._imagersize,
+                            self._intrinsics,
                             self._observed_pixel_uncertainty,
                             self._invJtJ_intrinsics_full,
                             self._invJtJ_intrinsics_observations_only)
@@ -276,12 +272,12 @@ class cameramodel(object):
             invJtJ_intrinsics_observations_only = np.array(model['invJtJ_intrinsics_observations_only'], dtype=float)
 
         intrinsics = (model['distortion_model'], np.array(model['intrinsics'], dtype=float))
-        _validateIntrinsics(intrinsics,
+        _validateIntrinsics(model['imagersize'],
+                            intrinsics,
                             observed_pixel_uncertainty,
                             invJtJ_intrinsics_full,
                             invJtJ_intrinsics_observations_only)
         _validateExtrinsics(model['extrinsics'])
-        _validateImagersize(model['imagersize'])
 
         self._intrinsics                          = intrinsics
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
@@ -377,9 +373,9 @@ class cameramodel(object):
                                      'invJtJ_intrinsics_full',
                                      'invJtJ_intrinsics_observations_only'),):
                 raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'imagersize' and MAYBE 'invJtJ_intrinsics_full' and/or 'invJtJ_intrinsics_observations_only' and/or 'observed_pixel_uncertainty'. Questionable keys: '{}'".format(keys_remaining))
-            self.imagersize(kwargs['imagersize'])
 
-            self.intrinsics(kwargs['intrinsics'],
+            self.intrinsics(kwargs['imagersize'],
+                            kwargs['intrinsics'],
                             kwargs.get('observed_pixel_uncertainty'),
                             kwargs.get('invJtJ_intrinsics_full'),
                             kwargs.get('invJtJ_intrinsics_observations_only'))
@@ -419,13 +415,17 @@ class cameramodel(object):
 
 
     def intrinsics(self,
+                   imagersize                          = None,
                    intrinsics                          = None,
                    observed_pixel_uncertainty          = None,
                    invJtJ_intrinsics_full              = None,
                    invJtJ_intrinsics_observations_only = None):
         r'''Get or set the intrinsics in this model
 
-        if no arguments are given: this is a getter; otherwise a setter.
+        if no arguments are given: this is a getter of the INTRINSICS parameters
+        only; otherwise this is a setter. As a setter, everything related to the
+        lens is set together (dimensions, distortion parameters, uncertainty,
+        etc)
 
         intrinsics is a tuple (distortion_model, parameters):
 
@@ -441,17 +441,20 @@ class cameramodel(object):
         '''
 
         if \
+           imagersize                          is None and \
            intrinsics                          is None and \
            observed_pixel_uncertainty          is None and \
            invJtJ_intrinsics_full              is None and \
            invJtJ_intrinsics_observations_only is None:
             return self._intrinsics
 
-
-        _validateIntrinsics(intrinsics,
+        _validateIntrinsics(imagersize,
+                            intrinsics,
                             observed_pixel_uncertainty,
                             invJtJ_intrinsics_full,
                             invJtJ_intrinsics_observations_only)
+
+        self._imagersize                          = imagersize
         self._intrinsics                          = intrinsics
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
         self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
@@ -544,19 +547,16 @@ class cameramodel(object):
         return True
 
 
-    def imagersize(self, d=None):
-        r'''Get or set the imager imagersize in this model
+    def imagersize(self, *args, **kwargs):
+        r'''Get the imager imagersize in this model
 
-        if d is None: this is a getter; otherwise a setter.
-
-        d is some sort of iterable of two numbers.
+        This function is NOT a setter. Use intrinsics() to set all the
+        intrinsics together
         '''
+        if len(args) or len(kwargs):
+            raise Exception("imagersize() is NOT a setter. Please use intrinsics() to set them all together")
 
-        if d is None:
-            return self._imagersize
-
-        _validateImagersize(d)
-        self._imagersize = np.array(d, dtype=np.int32)
+        return self._imagersize
 
     def observed_pixel_uncertainty(self, *args, **kwargs):
         r'''Get the observed pixel uncertainty in this model
