@@ -127,11 +127,23 @@ def _validateIntrinsics(imagersize,
 
     if valid_intrinsics_region_contour is not None:
         try:
-            if len(valid_intrinsics_region_contour.shape) != 2 or \
-               valid_intrinsics_region_contour.shape[-1] != 2:
-                raise Exception("The valid extrinsics region must be a numpy array of shape (N,2)")
+            if valid_intrinsics_region_contour.ndim != 2     or \
+               valid_intrinsics_region_contour.shape[1] != 2 or \
+               valid_intrinsics_region_contour.shape[0] < 3:
+                raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 3")
         except:
-            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2)")
+            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 3")
+
+def _close_contour(c):
+    r'''If a given polyline isn't closed, close it
+
+    Takes in a numpy array of shape (N,2): a sequence of 2d points. If the first
+    point and the last point are identical, returns the input. Otherwise returns
+    the same array as the input, except the first point is duplicated at the end
+    '''
+    if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
+        return c
+    return nps.glue(c, c[0,:], axis=-2)
 
 class cameramodel(object):
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
@@ -304,7 +316,7 @@ class cameramodel(object):
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
         self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
         self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
-        self._valid_intrinsics_region_contour     = valid_intrinsics_region_contour
+        self._valid_intrinsics_region_contour     = _close_contour(valid_intrinsics_region_contour)
         self._extrinsics                          = np.array(model['extrinsics'], dtype=float)
         self._imagersize                          = np.array(model['imagersize'], dtype=np.int32)
 
@@ -363,7 +375,7 @@ class cameramodel(object):
                 self._observed_pixel_uncertainty          = copy.deepcopy(file_or_model._observed_pixel_uncertainty)
                 self._invJtJ_intrinsics_full              = copy.deepcopy(file_or_model._invJtJ_intrinsics_full)
                 self._invJtJ_intrinsics_observations_only = copy.deepcopy(file_or_model._invJtJ_intrinsics_observations_only)
-                self._valid_intrinsics_region_contour     = copy.deepcopy(file_or_model._valid_intrinsics_region_contour)
+                self._valid_intrinsics_region_contour     = copy.deepcopy(_close_contour(file_or_model._valid_intrinsics_region_contour))
 
 
             elif type(file_or_model) is str:
@@ -488,7 +500,7 @@ class cameramodel(object):
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
         self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
         self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
-        self._valid_intrinsics_region_contour     = valid_intrinsics_region_contour
+        self._valid_intrinsics_region_contour     = _close_contour(valid_intrinsics_region_contour)
 
 
     def extrinsics_rt(self, toref, rt=None):
@@ -639,8 +651,7 @@ class cameramodel(object):
 
         The contour is a numpy array of shape (N,2). These are a sequence of
         pixel coordinates describing the shape of the valid region. The first
-        and last points aren't assumed to be the same; they have an implicit
-        connection to close the contour
+        and last points will be the same: this is a closed contour
 
         '''
 
