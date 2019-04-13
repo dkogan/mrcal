@@ -399,6 +399,15 @@ def homography_atinfinity_map( w, h, m0, m1 ):
     return p1, p0xy
 
 
+def _sample_imager(gridn_x, gridn_y, W, H):
+
+    w = np.linspace(0,W-1,gridn_x)
+    h = np.linspace(0,H-1,gridn_y)
+
+    # shape: Nwidth,Nheight,2
+    return nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+
+
 def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
     r'''Reports 3d observation vectors that regularly sample the imager
 
@@ -413,11 +422,8 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
 
     '''
 
-    w = np.linspace(0,W-1,gridn_x)
-    h = np.linspace(0,H-1,gridn_y)
-
     # shape: Nwidth,Nheight,2
-    grid = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+    grid = _sample_imager(gridn_x, gridn_y, W, H)
 
     if type(distortion_model) is list or type(intrinsics_data) is list:
         # shape: Ncameras,Nwidth,Nheight,3
@@ -1072,14 +1078,12 @@ def report_residual_statistics( obs, err,
     '''
 
     W,H=imagersize
-    w = np.linspace(0,W-1,gridn_x)
-    h = np.linspace(0,H-1,gridn_y)
 
     # shape: Nwidth,Nheight,2
-    c = nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+    c = _sample_imager(gridn_x, gridn_y, W, H)
 
-    wcell = w[1] - w[0]
-    hcell = h[1] - h[0]
+    wcell = float(W-1) / (gridn_x-1)
+    hcell = float(H-1) / (gridn_y-1)
     rcell = np.array((wcell,hcell), dtype=float) / 2.
 
     @nps.broadcast_define( (('N',2), ('N',), (2,)), (3,) )
