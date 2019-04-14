@@ -436,8 +436,7 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
         # shape: Nwidth,Nheight,3
         return \
             mrcal.unproject(grid,
-                            distortion_model,
-                            intrinsics_data), \
+                            distortion_model, intrinsics_data), \
             grid
 
 def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
@@ -1543,8 +1542,7 @@ def _intrinsics_diff_get_reprojections(q0, v0, v1,
 
     # Great. Got R. Reproject.
     return mrcal.project(nps.matmult(v0,R),
-                         distortion_models,
-                         intrinsics_data)
+                         distortion_models, intrinsics_data)
 
 
 
