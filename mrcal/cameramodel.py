@@ -7,6 +7,7 @@ models.
 
 import sys
 import numpy as np
+import numpysane as nps
 import numbers
 import ast
 import re
@@ -141,6 +142,7 @@ def _close_contour(c):
     point and the last point are identical, returns the input. Otherwise returns
     the same array as the input, except the first point is duplicated at the end
     '''
+    if c is None: return None
     if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
         return c
     return nps.glue(c, c[0,:], axis=-2)
