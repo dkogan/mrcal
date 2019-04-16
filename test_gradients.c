@@ -20,6 +20,11 @@ int main(int argc, char* argv[] )
         "If no details are given, we optimize everything. Otherwise, we start with an empty\n"
         "mrcal_problem_details_t, and each argument sets a bit\n";
 
+    if( argc >= 2 && argv[1][0] == '-' )
+    {
+        printf(usage, argv[0]);
+        return 0;
+    }
 
     mrcal_problem_details_t problem_details = {};
 
