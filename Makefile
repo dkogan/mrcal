@@ -17,6 +17,7 @@ LDLIBS    += $(LDLIBS_CV)
 LDLIBS    += -ldogleg
 
 CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
+CCXXFLAGS += -ffast-math
 
 AM_OLD_RH7 := $(shell grep "release 7" /etc/redhat-release 2>/dev/null)
 CCXXFLAGS  += -DOLD_OPENCV=$(if $(AM_OLD_RH7),1,0)
