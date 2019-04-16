@@ -94,8 +94,8 @@ calibration and sfm formulations are a little different
 // make sure this is positive and not unreasonably high
 #define POINT_MAXZ                    50000
 
-// This is hard-coded to 1.0; the computation of
-// scale_distortion_regularization below assumes it
+// This is hard-coded to 1.0; the computation of scale_distortion_regularization
+// below assumes it
 #define SCALE_DISTORTION              1.0
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
@@ -3260,11 +3260,10 @@ mrcal_optimize( // out
 
             double scale_regularization_distortion =
                 ({
-                    double normal_distortion_value   = 0.2;
+                    double normal_distortion_value = 0.2;
 
                     double expected_regularization_distortion_error_sq_noscale =
                         (double)Nmeasurements_regularization_distortion *
-                        normal_distortion_value *
                         normal_distortion_value;
 
                     double scale_sq =
@@ -3335,11 +3334,18 @@ mrcal_optimize( // out
                             // more strongly
                             scale *= 5.;
                         }
-                        double err = distortions_all[i_camera][j] * scale;
+
+                        // This exists to avoid /0 in the gradient
+                        const double eps = 1e-3;
+
+                        double sign         = copysign(1.0, distortions_all[i_camera][j]);
+                        double err_no_scale = sqrt(fabs(distortions_all[i_camera][j]) + eps);
+                        double err          = err_no_scale * scale;
+
                         x[iMeasurement]  = err;
                         norm2_error     += err*err;
                         STORE_JACOBIAN( i_var_intrinsic_distortions + j - NlockedLeadingDistortions,
-                                        scale * SCALE_DISTORTION );
+                                        scale * sign * SCALE_DISTORTION / (2. * err_no_scale) );
                         iMeasurement++;
                         if(dump_regularizaton_details)
                             MSG("regularization distortion: %g; norm2: %g", err, err*err);
@@ -3523,7 +3529,7 @@ mrcal_optimize( // out
             bool say_regularization_details = VERBOSE;
             if(ratio_regularization_cost > 0.05)
             {
-                MSG("WARNING: REGULARIZATION COST RATIO IS WAY TOO HIGH: %g. SOMETHING IS OFF ABOUT THIS SOLVE",
+                MSG("WARNING: REGULARIZATION COST RATIO IS  HIGH: %g. This may be ok",
                     ratio_regularization_cost);
                 say_regularization_details = true;
             }
