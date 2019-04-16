@@ -3357,12 +3357,10 @@ mrcal_optimize( // out
                                                          problem_details,
                                                          distortion_model);
 
-                    double err;
-
                     double cx_target = 0.5 * (double)(imagersizes[i_camera*2 + 0] - 1);
                     double cy_target = 0.5 * (double)(imagersizes[i_camera*2 + 1] - 1);
 
-                    err = scale_regularization_centerpixel *
+                    double err = scale_regularization_centerpixel *
                         (intrinsic_core_all[i_camera].center_xy[0] - cx_target);
                     x[iMeasurement]  = err;
                     norm2_error     += err*err;
