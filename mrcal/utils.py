@@ -1560,6 +1560,7 @@ def show_intrinsics_diff(models,
                          focus_radius     = -1.,
 
                          vectorfield      = False,
+                         vectorscale      = 1.0,
                          extratitle       = None,
                          hardcopy         = None,
                          cbmax            = None,
@@ -1677,7 +1678,7 @@ def show_intrinsics_diff(models,
         difflen = nps.clump(difflen, n=2)
 
         plot.plot( q0  [:,0], q0  [:,1],
-                   diff[:,0], diff[:,1],
+                   diff[:,0] * vectorscale, diff[:,1] * vectorscale,
                    difflen,
                    _with='vectors size screen 0.01,20 fixed filled palette',
                    tuplesize=5)

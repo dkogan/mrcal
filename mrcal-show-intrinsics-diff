@@ -78,6 +78,12 @@ def parse_args():
                         contains more information (magnitude AND direction), but
                         is less clear at a glance''')
 
+    parser.add_argument('--vectorscale',
+                        type = float,
+                        default = 1.0,
+                        help='''If plotting a vectorfield, scale all the vectors by this factor. Useful if
+the vectors are too small to see''')
+
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
@@ -104,6 +110,8 @@ args = parse_args()
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
 
+if args.vectorscale != 1.0 and not args.vectorfield:
+    raise Exception("--vectorscale only makes sense with --vectorfield")
 
 
 
@@ -123,6 +131,7 @@ plot = mrcal.show_intrinsics_diff(models,
                                   focus_center    = args.where,
                                   focus_radius    = args.radius,
                                   vectorfield     = args.vectorfield,
+                                  vectorscale     = args.vectorscale,
                                   hardcopy        = args.hardcopy,
                                   cbmax           = args.cbmax,
                                   extratitle      = args.extratitle,
