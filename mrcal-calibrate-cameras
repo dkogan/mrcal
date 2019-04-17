@@ -327,12 +327,12 @@ def parse_args():
                         default='.',
                         help='Directory for the output camera models')
     parser.add_argument('--object-spacing',
-                        required=True,
+                        required=False,
                         type=float,
                         help='Width of each square in the calibration board, in meters')
     parser.add_argument('--object-width-n',
                         type=int,
-                        required=True,
+                        default=10,
                         help='How many points the calibration board has per side')
     parser.add_argument('--distortion-model',
                         required=False,
@@ -462,6 +462,12 @@ args = parse_args()
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
+
+
+if args.object_spacing is None:
+    sys.stderr.write("Warning: assuming default calibration-object spacing of 0.1m. If this is wrong, all distances will be off by a scale factor\n")
+    args.object_spacing = 0.1
+
 
 
 
