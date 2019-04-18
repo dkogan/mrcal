@@ -75,7 +75,6 @@ def parse_args():
     parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        nargs=1,
                         help='''Input camera model. Assumed to be mrcal native''')
 
     return parser.parse_args()
@@ -94,7 +93,7 @@ plotkwargs_extra = {}
 if args.extraset is not None:
     plotkwargs_extra['set'] = args.extraset
 
-model = mrcal.cameramodel(args.model[0])
+model = mrcal.cameramodel(args.model)
 
 observed_pixel_uncertainty = model.observed_pixel_uncertainty()
 if observed_pixel_uncertainty is None:

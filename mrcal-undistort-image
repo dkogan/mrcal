@@ -36,7 +36,6 @@ def parse_args():
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         required=True,
-                        nargs=1,
                         help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
 
@@ -111,7 +110,7 @@ if not args.force:
             sys.stderr.write("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.\n".format(f))
             sys.exit(1)
 
-model = mrcal.cameramodel(args.model[0])
+model = mrcal.cameramodel(args.model)
 
 if args.fit is None:
     scale_f_pinhole = 1.0

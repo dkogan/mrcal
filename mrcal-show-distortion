@@ -70,7 +70,6 @@ def parse_args():
     parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        nargs=1,
                         help='''Input camera model. Assumed to be mrcal native, unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
 
@@ -93,7 +92,7 @@ import mrcal
 
 
 
-model_filename = args.model[0]
+model_filename = args.model
 model = mrcal.cameramodel(model_filename)
 
 if args.radial and args.vectorfield:

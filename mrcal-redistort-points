@@ -44,7 +44,6 @@ def parse_args():
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         required=True,
-                        nargs=1,
                         help='''Camera model for the INPUT points. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
 
@@ -52,7 +51,6 @@ def parse_args():
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         required=True,
-                        nargs=1,
                         help='''Camera model for the OUTPUT points. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
 
@@ -74,8 +72,8 @@ import mrcal
 
 # 'from' is reserved in python
 args_from  = getattr(args, 'from')
-model_from = mrcal.cameramodel(args_from[0])
-model_to   = mrcal.cameramodel(args.to[0])
+model_from = mrcal.cameramodel(args_from)
+model_to   = mrcal.cameramodel(args.to)
 
 
 p = np.genfromtxt(sys.stdin)
