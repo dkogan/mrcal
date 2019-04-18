@@ -1438,104 +1438,103 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     if focus_radius == 0:
         # We assume the geometry is fixed across the two models, and we fit
         # nothing
-        R = np.eye(3)
-
-    else:
-
-        V0cut   = nps.clump(v0,n=2)
-        V1cut   = nps.clump(v1,n=2)
-        icenter = np.array((v0.shape[:2]))/2
-        if focus_radius < 2*(W+H):
-            # We try to match the geometry in a particular region
-
-            q_off_center = q0 - focus_center
-            i = nps.norm2(q_off_center) < focus_radius*focus_radius
-            if np.count_nonzero(i)<3:
-                warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
-            else:
-                V0cut = v0[i, ...]
-                V1cut = v1[i, ...]
-
-                # get the nearest index on my grid to the requested center
-                icenter_flat = np.argmin(nps.norm2(q_off_center))
-
-                # This looks funny, but it's right. My grid is set up that you index
-                # with the x-coord and then the y-coord. This is opposite from the
-                # matrix convention that numpy uses: y then x.
-                ix = icenter_flat/v0.shape[1]
-                iy = icenter_flat - ix*v0.shape[1]
-                icenter = np.array((ix,iy))
-
-        # I compute a procrustes fit using ONLY data in the region of interest.
-        # This is used to seed the nonlinear optimizer
-        R_procrustes = align3d_procrustes( V0cut, V1cut, vectors=True)
-        r_procrustes,_ = cv2.Rodrigues(R_procrustes)
-        r_procrustes = r_procrustes.ravel()
-
-        e = angle_err(v0,v1,R_procrustes)
-
-        # throw away everything that's k times as wrong as the center of
-        # interest. I look at a connected component around the center. I pick a
-        # large k here, and use a robust error function further down
-        k = 10
-        angle_err_at_center = e[icenter[0],icenter[1]]
-        threshold = angle_err_at_center*k
-        import scipy.ndimage
-        regions,_ = scipy.ndimage.label(e < threshold)
-        mask = regions==regions[icenter[0],icenter[1]]
-        V0fit = v0[mask, ...]
-        V1fit = v1[mask, ...]
-        # V01fit are used by the optimization cost function
-
-        # Seed from the procrustes solve
-        r = r_procrustes
-
-        # gradient check
-        # r0 = r
-        # x0,J0 = residual_jacobian(r0)
-        # dr = np.random.random(3) * 1e-7
-        # r1 = r+dr
-        # x1,J1 = residual_jacobian(r1)
-        # dx_theory = nps.matmult(J0, nps.transpose(dr)).ravel()
-        # dx_got    = x1-x0
-        # relerr = (dx_theory-dx_got) / ( (np.abs(dx_theory)+np.abs(dx_got))/2. )
-        # import gnuplotlib as gp
-        # gp.plot(relerr)
-
-        import scipy.optimize
-        res = scipy.optimize.least_squares(residual, r, jac=jacobian,
-                                           method='dogbox',
-
-                                           loss='soft_l1',
-                                           f_scale=angle_err_at_center*3.0,
-                                           # max_nfev=1,
-                                           args=(cache,),
-                                           verbose=0)
-
-        r_fit = res.x
-        R_fit,_ = cv2.Rodrigues(r_fit)
-
-        R = R_fit
+        return np.eye(3)
 
 
-        # # A simpler routine to JUST move pitch/yaw to align the optical axes
-        # r,_ = cv2.Rodrigues(R)
-        # r[2] = 0
-        # R,_ = cv2.Rodrigues(r)
-        # dth_x = \
-        #     np.arctan2( intrinsics_data[i,2] - imagersizes[i,0],
-        #                 intrinsics_data[i,0] ) - \
-        #     np.arctan2( intrinsics_data[0,2] - imagersizes[0,0],
-        #                 intrinsics_data[0,0] )
-        # dth_y = \
-        #     np.arctan2( intrinsics_data[i,3] - imagersizes[i,1],
-        #                 intrinsics_data[i,1] ) - \
-        #     np.arctan2( intrinsics_data[0,3] - imagersizes[1,1],
-        #                 intrinsics_data[0,1] )
-        # r = np.array((-dth_y, dth_x, 0))
-        # R,_ = cv2.Rodrigues(r)
+    V0cut   = nps.clump(v0,n=2)
+    V1cut   = nps.clump(v1,n=2)
+    icenter = np.array((v0.shape[:2]))/2
+    if focus_radius < 2*(W+H):
+        # We try to match the geometry in a particular region
 
-        return R
+        q_off_center = q0 - focus_center
+        i = nps.norm2(q_off_center) < focus_radius*focus_radius
+        if np.count_nonzero(i)<3:
+            warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
+        else:
+            V0cut = v0[i, ...]
+            V1cut = v1[i, ...]
+
+            # get the nearest index on my grid to the requested center
+            icenter_flat = np.argmin(nps.norm2(q_off_center))
+
+            # This looks funny, but it's right. My grid is set up that you index
+            # with the x-coord and then the y-coord. This is opposite from the
+            # matrix convention that numpy uses: y then x.
+            ix = icenter_flat/v0.shape[1]
+            iy = icenter_flat - ix*v0.shape[1]
+            icenter = np.array((ix,iy))
+
+    # I compute a procrustes fit using ONLY data in the region of interest.
+    # This is used to seed the nonlinear optimizer
+    R_procrustes = align3d_procrustes( V0cut, V1cut, vectors=True)
+    r_procrustes,_ = cv2.Rodrigues(R_procrustes)
+    r_procrustes = r_procrustes.ravel()
+
+    e = angle_err(v0,v1,R_procrustes)
+
+    # throw away everything that's k times as wrong as the center of
+    # interest. I look at a connected component around the center. I pick a
+    # large k here, and use a robust error function further down
+    k = 10
+    angle_err_at_center = e[icenter[0],icenter[1]]
+    threshold = angle_err_at_center*k
+    import scipy.ndimage
+    regions,_ = scipy.ndimage.label(e < threshold)
+    mask = regions==regions[icenter[0],icenter[1]]
+    V0fit = v0[mask, ...]
+    V1fit = v1[mask, ...]
+    # V01fit are used by the optimization cost function
+
+    # Seed from the procrustes solve
+    r = r_procrustes
+
+    # gradient check
+    # r0 = r
+    # x0,J0 = residual_jacobian(r0)
+    # dr = np.random.random(3) * 1e-7
+    # r1 = r+dr
+    # x1,J1 = residual_jacobian(r1)
+    # dx_theory = nps.matmult(J0, nps.transpose(dr)).ravel()
+    # dx_got    = x1-x0
+    # relerr = (dx_theory-dx_got) / ( (np.abs(dx_theory)+np.abs(dx_got))/2. )
+    # import gnuplotlib as gp
+    # gp.plot(relerr)
+
+    import scipy.optimize
+    res = scipy.optimize.least_squares(residual, r, jac=jacobian,
+                                       method='dogbox',
+
+                                       loss='soft_l1',
+                                       f_scale=angle_err_at_center*3.0,
+                                       # max_nfev=1,
+                                       args=(cache,),
+                                       verbose=0)
+
+    r_fit = res.x
+    R_fit,_ = cv2.Rodrigues(r_fit)
+
+    R = R_fit
+
+
+    # # A simpler routine to JUST move pitch/yaw to align the optical axes
+    # r,_ = cv2.Rodrigues(R)
+    # r[2] = 0
+    # R,_ = cv2.Rodrigues(r)
+    # dth_x = \
+    #     np.arctan2( intrinsics_data[i,2] - imagersizes[i,0],
+    #                 intrinsics_data[i,0] ) - \
+    #     np.arctan2( intrinsics_data[0,2] - imagersizes[0,0],
+    #                 intrinsics_data[0,0] )
+    # dth_y = \
+    #     np.arctan2( intrinsics_data[i,3] - imagersizes[i,1],
+    #                 intrinsics_data[i,1] ) - \
+    #     np.arctan2( intrinsics_data[0,3] - imagersizes[1,1],
+    #                 intrinsics_data[0,1] )
+    # r = np.array((-dth_y, dth_x, 0))
+    # R,_ = cv2.Rodrigues(r)
+
+    return R
 
 
 def _intrinsics_diff_get_reprojections(q0, v0, v1,
