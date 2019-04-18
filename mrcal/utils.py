@@ -1351,14 +1351,11 @@ def show_distortion(distortion_model, intrinsics_data,
         return plot
 
 
-def _intrinsics_diff_get_reprojections(q0, v0, v1,
-                                       focus_center,
-                                       focus_radius,
-                                       distortion_models, intrinsics_data,
+def _intrinsics_diff_get_Rfit(q0, v0, v1,
+                              focus_center, focus_radius,
+                              imagersizes):
 
-                                       imagersizes):
-
-    r'''Computes a reprojection into camera1 from observations in camera0
+    r'''Computes a compensating rotation to fit two cameras' projections
 
     I sample the imager grid in all my cameras, and compute the rotation that
     maps the vectors to each other as closely as possible. Then I produce a
@@ -1538,9 +1535,27 @@ def _intrinsics_diff_get_reprojections(q0, v0, v1,
         # r = np.array((-dth_y, dth_x, 0))
         # R,_ = cv2.Rodrigues(r)
 
+        return R
 
 
-    # Great. Got R. Reproject.
+def _intrinsics_diff_get_reprojections(q0, v0, v1,
+                                       focus_center,
+                                       focus_radius,
+                                       distortion_models, intrinsics_data,
+
+                                       imagersizes):
+
+    r'''Computes a reprojection into camera1 from observations in camera0
+
+    This is a convenience function we can use if we don't need the compensating
+    rotation for anything else
+    '''
+
+    R = _intrinsics_diff_get_Rfit(q0, v0, v1,
+                                  focus_center,
+                                  focus_radius,
+                                  imagersizes)
+
     return mrcal.project(nps.matmult(v0,R),
                          distortion_models, intrinsics_data)
 
@@ -1652,11 +1667,15 @@ def show_intrinsics_diff(models,
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
-        q1   = _intrinsics_diff_get_reprojections(q0,
-                                                  v[0,...], v[1,...],
-                                                  focus_center, focus_radius,
-                                                  distortion_models[1], intrinsics_data[1],
-                                                  imagersizes)
+
+        Rcompensating = \
+            _intrinsics_diff_get_Rfit(q0,
+                                      v[0,...], v[1,...],
+                                      focus_center, focus_radius,
+                                      imagersizes)
+        q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating),
+                           distortion_models[1], intrinsics_data[1])
+
         diff    = q1 - q0
         difflen = np.sqrt(nps.inner(diff, diff))
 
