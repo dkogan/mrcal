@@ -2260,3 +2260,532 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                                 axis=-4)
 
     return observations, indices_frame_camera, files_sorted
+
+
+def estimate_local_calobject_poses( indices_frame_camera, \
+                                    corners, dot_spacing,
+                                    focal, imagersizes,
+                                    Nwant):
+    r"""Estimates pose of observed object in a single-camera view
+
+    Given observations, and an estimate of camera intrinsics (focal lengths,
+    imager size) computes an estimate of the pose of the calibration object in
+    respect to the camera for each frame. This assumes that all frames are
+    independent and all cameras are independent. This assumes a pinhole camera.
+
+    This function is a wrapper around the solvePnP() openCV call, which does all
+    the work.
+
+    The observations are given in a numpy array with axes:
+
+      (iframe, idot_x, idot_y, idot2d_xy)
+
+    So as an example, the observed pixel coord of the dot (3,4) in frame index 5
+    is the 2-vector corners[5,3,4,:]
+
+    Missing observations are given as negative pixel coords.
+
+    This function returns an (Nobservations,4,3) array, with the observations
+    aligned with the corners and indices_frame_camera arrays. Each observation
+    slice is (4,3) in glue(R, t, axis=-2)
+
+    """
+
+    Nobservations = indices_frame_camera.shape[0]
+
+    # this wastes memory, but makes it easier to keep track of which data goes
+    # with what
+    Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
+
+    full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+
+    for i_observation in xrange(Nobservations):
+
+        i_camera   = indices_frame_camera[i_observation,1]
+        imagersize = imagersizes[i_camera]
+        camera_matrix = np.array((( focal, 0,        (imagersize[0] - 1)/2), \
+                                  (        0, focal, (imagersize[1] - 1)/2), \
+                                  (        0,        0,                 1)))
+        d = corners[i_observation, ...]
+
+        d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
+        # d is (Nwant*Nwant,5); each row is an xy pixel observation followed by the xyz
+        # coord of the point in the calibration object. I pick off those rows
+        # where the observations are both >= 0. Result should be (N,5) where N
+        # <= Nwant*Nwant
+        i = (d[..., 0] >= 0) * (d[..., 1] >= 0)
+        d = d[i,:]
+
+        # copying because cv2.solvePnP() requires contiguous memory apparently
+        observations = np.array(d[:,:2][..., np.newaxis])
+        ref_object   = np.array(d[:,2:][..., np.newaxis])
+        result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
+                                        np.array(observations),
+                                        camera_matrix, None)
+        if not result:
+            raise Exception("solvePnP failed!")
+        if tvec[2] <= 0:
+
+            # The object ended up behind the camera. I flip it, and try to solve
+            # again
+            result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
+                                            np.array(observations),
+                                            camera_matrix, None,
+                                            rvec, -tvec,
+                                            useExtrinsicGuess = True)
+            if not result:
+                raise Exception("retried solvePnP failed!")
+            if tvec[2] <= 0:
+                raise Exception("retried solvePnP says that tvec.z <= 0")
+
+
+        Rt = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+
+        # visualize the fit
+        # x_cam    = nps.matmult(Rt[:3,:],ref_object)[..., 0] + Rt[3,:]
+        # x_imager = x_cam[...,:2]/x_cam[...,(2,)] * focal + (imagersize-1)/2
+        # import gnuplotlib as gp
+        # gp.plot( (x_imager[:,0],x_imager[:,1], dict(legend='solved')),
+        #          (observations[:,0,0],observations[:,1,0], dict(legend='observed')),
+        #          square=1,xrange=(0,4000),yrange=(4000,0),
+        #          wait=1)
+        # import IPython
+        # IPython.embed()
+        # sys.exit()
+
+        Rt_all[i_observation, :, :] = Rt
+
+
+    return Rt_all
+
+
+def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
+                           corners, dot_spacing, Ncameras,
+                           Nwant):
+    r'''Estimate camera poses in respect to each other
+
+    We are given poses of the calibration object in respect to each observing
+    camera. We also have multiple cameras observing the same calibration object
+    at the same time, and we have local poses for each. We can thus compute the
+    relative camera pose from these observations.
+
+    We have many frames that have different observations from the same set of
+    fixed-relative-pose cameras, so we compute the relative camera pose to
+    optimize the observations
+
+    '''
+
+    import heapq
+
+
+    # I need to compute an estimate of the pose of each camera in the coordinate
+    # system of camera0. This is only possible if there're enough overlapping
+    # observations. For instance if camera1 has overlapping observations with
+    # camera2, but neight overlap with camera0, then I can't relate camera1,2 to
+    # camera0. However if camera2 has overlap with camera2, then I can compute
+    # the relative pose of camera2 from its overlapping observations with
+    # camera0. And I can compute the camera1-camera2 pose from its overlapping
+    # data, and then transform to the camera0 coord system using the
+    # previously-computed camera2-camera0 pose
+    #
+    # I do this by solving a shortest-path problem using Dijkstra's algorithm to
+    # find a set of pair overlaps between cameras that leads to camera0. I favor
+    # edges with large numbers of shared observed frames
+
+    # list of camera-i to camera-0 transforms. I keep doing stuff until this
+    # list is full of valid data
+    Rt_0c = [None] * (Ncameras-1)
+
+    def compute_pairwise_Rt(icam_to, icam_from):
+
+        # I want to assume that icam_from > icam_to. If it's not true, compute the
+        # opposite transform, and invert
+        if icam_to > icam_from:
+            Rt = compute_pairwise_Rt(icam_from, icam_to)
+            return mrcal.invert_Rt(Rt)
+
+        if icam_to == icam_from:
+            raise Exception("Got icam_to == icam_from ( = {} ). This was probably a mistake".format(icam_to))
+
+        # Now I KNOW that icam_from > icam_to
+
+
+        Nobservations = indices_frame_camera.shape[0]
+
+        # This is a hack. I look at the correspondence of camera0 to camera i for i
+        # in 1:N-1. I ignore all correspondences between cameras i,j if i!=0 and
+        # j!=0. Good enough for now
+        full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+
+        A = np.array(())
+        B = np.array(())
+
+        # I traverse my observation list, and pick out observations from frames
+        # that had data from both my cameras
+        i_frame_last = -1
+        d0  = None
+        d1  = None
+        Rt0 = None
+        Rt1 = None
+        for i_observation in xrange(Nobservations):
+            i_frame_this,i_camera_this = indices_frame_camera[i_observation, ...]
+            if i_frame_this != i_frame_last:
+                d0  = None
+                d1  = None
+                Rt0 = None
+                Rt1 = None
+                i_frame_last = i_frame_this
+
+            # The cameras appear in order. And above I made sure that icam_from >
+            # icam_to, so I take advantage of that here
+            if i_camera_this == icam_to:
+                if Rt0 is not None:
+                    raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
+                                                                                            i_frame_this))
+                Rt0 = calobject_poses_local_Rt[i_observation, ...]
+                d0  = corners[i_observation, ...]
+            elif i_camera_this == icam_from:
+                if Rt0 is None: # have camera1 observation, but not camera0
+                    continue
+
+                if Rt1 is not None:
+                    raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
+                                                                                            i_frame_this))
+                Rt1 = calobject_poses_local_Rt[i_observation, ...]
+                d1  = corners[i_observation, ...]
+
+
+
+                # d looks at one frame and has shape (Nwant,Nwant,7). Each row is
+                #   xy pixel observation in left camera
+                #   xy pixel observation in right camera
+                #   xyz coord of dot in the calibration object coord system
+                d = nps.glue( d0, d1, full_object, axis=-1 )
+
+                # squash dims so that d is (Nwant*Nwant,7)
+                d = nps.clump(d, n=2)
+
+                ref_object = nps.clump(full_object, n=2)
+
+                # # It's possible that I could have incomplete views of the
+                # # calibration object, so I pull out only those point
+                # # observations that have a complete view. In reality, I
+                # # currently don't accept any incomplete views, and much outside
+                # # code would need an update to support that. This doesn't hurt, however
+
+                # # d looks at one frame and has shape (10,10,7). Each row is
+                # #   xy pixel observation in left camera
+                # #   xy pixel observation in right camera
+                # #   xyz coord of dot in the calibration object coord system
+                # d = nps.glue( d0, d1, full_object, axis=-1 )
+
+                # # squash dims so that d is (100,7)
+                # d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
+
+                # # I pick out those points that have observations in both frames
+                # i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0) * (d[..., 3] >= 0)
+                # d = d[i,:]
+
+                # # ref_object is (N,3)
+                # ref_object = d[:,4:]
+
+                A = nps.glue(A, nps.matmult( ref_object, nps.transpose(Rt0[:3,:])) + Rt0[3,:],
+                             axis = -2)
+                B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt1[:3,:])) + Rt1[3,:],
+                             axis = -2)
+
+        return mrcal.align3d_procrustes(A, B)
+
+
+    def compute_connectivity_matrix():
+        r'''Returns a connectivity matrix of camera observations
+
+        Returns a symmetric (Ncamera,Ncamera) matrix of integers, where each
+        entry contains the number of frames containing overlapping observations
+        for that pair of cameras
+
+        '''
+
+        camera_connectivity = np.zeros( (Ncameras,Ncameras), dtype=int )
+        def finish_frame(i0, i1):
+            for ic0 in xrange(i0, i1):
+                for ic1 in xrange(ic0+1, i1+1):
+                    camera_connectivity[indices_frame_camera[ic0,1], indices_frame_camera[ic1,1]] += 1
+                    camera_connectivity[indices_frame_camera[ic1,1], indices_frame_camera[ic0,1]] += 1
+
+        f_current       = -1
+        i_start_current = -1
+
+        for i in xrange(len(indices_frame_camera)):
+            f,c = indices_frame_camera[i]
+            if f < f_current:
+                raise Exception("I'm assuming the frame indices are increasing monotonically")
+            if f > f_current:
+                # first camera in this observation
+                f_current = f
+                if i_start_current >= 0:
+                    finish_frame(i_start_current, i-1)
+                i_start_current = i
+        finish_frame(i_start_current, len(indices_frame_camera)-1)
+        return camera_connectivity
+
+
+    shared_frames = compute_connectivity_matrix()
+
+    class Node:
+        def __init__(self, camera_idx):
+            self.camera_idx    = camera_idx
+            self.from_idx      = -1
+            self.cost_to_node  = None
+
+        def __lt__(self, other):
+            return self.cost_to_node < other.cost_to_node
+
+        def visit(self):
+            '''Dijkstra's algorithm'''
+            self.finish()
+
+            for neighbor_idx in xrange(Ncameras):
+                if neighbor_idx == self.camera_idx                  or \
+                   shared_frames[neighbor_idx,self.camera_idx] == 0:
+                    continue
+                neighbor = nodes[neighbor_idx]
+
+                if neighbor.visited():
+                    continue
+
+                cost_edge = Node.compute_edge_cost(shared_frames[neighbor_idx,self.camera_idx])
+
+                cost_to_neighbor_via_node = self.cost_to_node + cost_edge
+                if not neighbor.seen():
+                    neighbor.cost_to_node = cost_to_neighbor_via_node
+                    neighbor.from_idx     = self.camera_idx
+                    heapq.heappush(heap, neighbor)
+                else:
+                    if cost_to_neighbor_via_node < neighbor.cost_to_node:
+                        neighbor.cost_to_node = cost_to_neighbor_via_node
+                        neighbor.from_idx     = self.camera_idx
+                        heapq.heapify(heap) # is this the most efficient "update" call?
+
+        def finish(self):
+            '''A shortest path was found'''
+            if self.camera_idx == 0:
+                # This is the reference camera. Nothing to do
+                return
+
+            Rt_fc = compute_pairwise_Rt(self.from_idx, self.camera_idx)
+
+            if self.from_idx == 0:
+                Rt_0c[self.camera_idx-1] = Rt_fc
+                return
+
+            Rt_0f = Rt_0c[self.from_idx-1]
+            Rt_0c[self.camera_idx-1] = mrcal.compose_Rt( Rt_0f, Rt_fc)
+
+        def visited(self):
+            '''Returns True if this node went through the heap and has then been visited'''
+            return self.camera_idx == 0 or Rt_0c[self.camera_idx-1] is not None
+
+        def seen(self):
+            '''Returns True if this node has been in the heap'''
+            return self.cost_to_node is not None
+
+        @staticmethod
+        def compute_edge_cost(shared_frames):
+            # I want to MINIMIZE cost, so I MAXIMIZE the shared frames count and
+            # MINIMIZE the hop count. Furthermore, I really want to minimize the
+            # number of hops, so that's worth many shared frames.
+            cost = 100000 - shared_frames
+            assert(cost > 0) # dijkstra's algorithm requires this to be true
+            return cost
+
+
+
+    nodes = [Node(i) for i in xrange(Ncameras)]
+    nodes[0].cost_to_node = 0
+    heap = []
+
+    nodes[0].visit()
+    while heap:
+        node_top = heapq.heappop(heap)
+        node_top.visit()
+
+    if any([x is None for x in Rt_0c]):
+        raise Exception("ERROR: Don't have complete camera observations overlap!\n" +
+                        ("Past-camera-0 Rt:\n{}\n".format(Rt_0c))                   +
+                        ("Shared observations matrix:\n{}\n".format(shared_frames)))
+
+
+    return nps.cat(*Rt_0c)
+
+
+def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_frame_camera, dot_spacing,
+                         Nwant):
+    r'''Estimate poses of the calibration object observations
+
+    We're given
+
+    calobject_poses_local_Rt:
+
+      an array of dimensions (Nobservations,4,3) that contains a
+      calobject-to-camera transformation estimate, for each observation of the
+      board
+
+    camera_poses_Rt:
+
+      an array of dimensions (Ncameras-1,4,3) that contains a camerai-to-camera0
+      transformation estimate. camera0-to-camera0 is the identity, so this isn't
+      stored
+
+    indices_frame_camera:
+
+      an array of shape (Nobservations,2) that indicates which frame and which
+      camera has observed the board
+
+    With this data, I return an array of shape (Nframes,6) that contains an
+    estimate of the pose of each frame, in the camera0 coord system. Each row is
+    (r,t) where r is a Rodrigues rotation and t is a translation that map points
+    in the calobject coord system to that of camera 0
+
+    '''
+
+
+    def process(i_observation0, i_observation1):
+        R'''Given a range of observations corresponding to the same frame, estimate the
+        frame pose'''
+
+        def T_camera_board(i_observation):
+            r'''Transform from the board coords to the camera coords'''
+            i_frame,i_camera = indices_frame_camera[i_observation, ...]
+
+            Rt_f = calobject_poses_local_Rt[i_observation, :,:]
+            if i_camera == 0:
+                return Rt_f
+
+            # T_cami_cam0 T_cam0_board = T_cami_board
+            Rt_cam = camera_poses_Rt[i_camera-1, ...]
+
+            return mrcal.compose_Rt( Rt_cam, Rt_f)
+
+
+        # frame poses should map FROM the frame coord system TO the ref coord
+        # system (camera 0).
+
+        # special case: if there's a single observation, I just use it
+        if i_observation1 - i_observation0 == 1:
+            return T_camera_board(i_observation0)
+
+        # Multiple cameras have observed the object for this frame. I have an
+        # estimate of these for each camera. I merge them in a lame way: I
+        # average out the positions of each point, and fit the calibration
+        # object into the mean point cloud
+        obj = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+
+        sum_obj_unproj = obj*0
+        for i_observation in xrange(i_observation0, i_observation1):
+            Rt = T_camera_board(i_observation)
+            sum_obj_unproj += mrcal.transform_point_Rt(Rt, obj)
+
+        mean = sum_obj_unproj / (i_observation1 - i_observation0)
+
+        # Got my point cloud. fit
+
+        # transform both to shape = (N*N, 3)
+        obj  = nps.clump(obj,  n=2)
+        mean = nps.clump(mean, n=2)
+        return mrcal.align3d_procrustes( mean, obj )
+
+
+
+
+
+    frame_poses_rt = np.array(())
+
+    i_frame_current          = -1
+    i_observation_framestart = -1;
+
+    for i_observation in xrange(indices_frame_camera.shape[0]):
+        i_frame,i_camera = indices_frame_camera[i_observation, ...]
+
+        if i_frame != i_frame_current:
+            if i_observation_framestart >= 0:
+                Rt = process(i_observation_framestart, i_observation)
+                frame_poses_rt = nps.glue(frame_poses_rt, mrcal.rt_from_Rt(Rt), axis=-2)
+
+            i_observation_framestart = i_observation
+            i_frame_current = i_frame
+
+    if i_observation_framestart >= 0:
+        Rt = process(i_observation_framestart, indices_frame_camera.shape[0])
+        frame_poses_rt = nps.glue(frame_poses_rt, mrcal.rt_from_Rt(Rt), axis=-2)
+
+    return frame_poses_rt
+
+
+def make_seed_no_distortion( imagersizes,
+                             focal_estimate,
+                             Ncameras,
+                             indices_frame_camera,
+                             corners,
+                             dot_spacing,
+                             object_width_n):
+    r'''Generate a solution seed for a given input'''
+
+
+    def make_intrinsics_vector(i_camera):
+        imager_w,imager_h = imagersizes[i_camera]
+        return np.array( (focal_estimate, focal_estimate,
+                          float(imager_w-1)/2.,
+                          float(imager_h-1)/2.))
+
+    intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera) \
+                                 for i_camera in xrange(Ncameras)] )
+
+    # I compute an estimate of the poses of the calibration object in the local
+    # coord system of each camera for each frame. This is done for each frame
+    # and for each camera separately. This isn't meant to be precise, and is
+    # only used for seeding.
+    #
+    # I get rotation, translation in a (4,3) array, such that R*calobject + t
+    # produces the calibration object points in the coord system of the camera.
+    # The result has dimensions (N,4,3)
+    calobject_poses_local_Rt = \
+        mrcal.estimate_local_calobject_poses( indices_frame_camera,
+                                              corners,
+                                              dot_spacing,
+                                              focal_estimate,
+                                              imagersizes,
+                                              object_width_n)
+    # these map FROM the coord system of the calibration object TO the coord
+    # system of this camera
+
+    # I now have a rough estimate of calobject poses in the coord system of each
+    # frame. One can think of these as two sets of point clouds, each attached to
+    # their camera. I can move around the two sets of point clouds to try to match
+    # them up, and this will give me an estimate of the relative pose of the two
+    # cameras in respect to each other. I need to set up the correspondences, and
+    # align3d_procrustes() does the rest
+    #
+    # I get transformations that map points in 1-Nth camera coord system to 0th
+    # camera coord system. Rt have dimensions (N-1,4,3)
+    camera_poses_Rt = mrcal.estimate_camera_poses( calobject_poses_local_Rt,
+                                                   indices_frame_camera,
+                                                   corners,
+                                                   dot_spacing,
+                                                   Ncameras,
+                                                   object_width_n)
+
+    if len(camera_poses_Rt):
+        # extrinsics should map FROM the ref coord system TO the coord system of the
+        # camera in question. This is backwards from what I have
+        extrinsics = nps.atleast_dims( mrcal.rt_from_Rt(mrcal.invert_Rt(camera_poses_Rt)),
+                                       -2 )
+    else:
+        extrinsics = np.zeros((0,6))
+
+    frames = \
+        mrcal.estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt,
+                                   indices_frame_camera,
+                                   dot_spacing,
+                                   object_width_n)
+    return intrinsics_data,extrinsics,frames
