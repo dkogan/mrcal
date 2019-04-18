@@ -379,6 +379,28 @@ def undistort_image__compute_map(model,
         return mapxy
 
 
+def annotate_image__valid_intrinsics_region(model, image):
+    r'''Annotates a given image with a valid-intrinsics region
+
+    This function takes in a camera model and an image, and returns a numpy
+    array with the valid-intrinsics region drawn on top of the image. The image
+    can be a filename or a numpy array. The camera model should contain the
+    valid-intrinsics region; if not, the image is returned as is.
+
+    This is similar to mrcal.plot_valid_intrinsics_region(), but instead of
+    making a plot, it creates an image
+
+    '''
+
+    if not isinstance(image, np.ndarray):
+        image = cv2.imread(image)
+
+    valid_intrinsics_region_contour = model.valid_intrinsics_region_contour()
+    if valid_intrinsics_region_contour is not None:
+        cv2.polylines(image, [valid_intrinsics_region_contour], True, (0,0,255), 3)
+    return image
+
+
 def undistort_image(model, image,
                     scale_f_pinhole          = 1.0,
                     scale_imagersize_pinhole = 1.0,
@@ -429,8 +451,8 @@ def undistort_image(model, image,
     elif type(mapxy) is not np.ndarray:
         raise Exception('mapxy_cache MUST either be None or a numpy array')
 
-    if not isinstance(image, np.ndarray):
-        image = cv2.imread(image)
+    image = annotate_image__valid_intrinsics_region(model, image)
+
     return cv2.remap(image, mapxy[0], mapxy[1],
                      cv2.INTER_LINEAR)
 
