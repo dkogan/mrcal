@@ -483,12 +483,12 @@ import glob
 import copy
 import time
 
-import pipes
-import shlex
 try:
+    import pipes
     shellquote = pipes.quote
 except:
     # python3 puts this into a different module
+    import shlex
     shellquote = shlex.quote
 
 import mrcal
