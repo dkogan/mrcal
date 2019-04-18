@@ -1832,16 +1832,16 @@ def plot_valid_intrinsics_region(model, image,
 
     plot_data_args = []
 
-    if isinstance(image, np.ndarray):
-        plot_data_args.append( (image, dict(_with='image',
-                                            tuplesize = 3)))
-    else:
-        kwargs['rgbimage'] = image
+    if image is not None:
+        if isinstance(image, np.ndarray):
+            plot_data_args.append( (image, dict(_with='image',
+                                                tuplesize = 3)))
+        else:
+            kwargs['rgbimage'] = image
 
     valid_region = model.valid_intrinsics_region_contour()
     plot_data_args.append( (valid_region[:,0], valid_region[:,1],
-                            dict(_with = 'lines lw 3',
-                                 legend = "valid region")) )
+                            dict(_with = 'lines lw 3')) )
 
     plot = gp.gnuplotlib(square=1,
                          _xrange=[0,W],
