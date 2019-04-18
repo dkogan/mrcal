@@ -2207,9 +2207,16 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
         # fine, since a single observation in a camera isn't enough to be useful
         for i_camera in xrange(len(files_per_camera)):
             N = len(files_per_camera[i_camera])
-            if N < 2:
-                raise Exception("Found too few ({}; need at least 2) images containing a calibration pattern in camera {}; glob '{}'". \
-                                format(N, i_camera, globs[i_camera]))
+
+            # If I have multiple cameras, I use the filenames to figure out what
+            # indexes the frame and what indexes the camera, so I need at least
+            # two images for each camera to figure that out. If I only have one
+            # camera, however, then the details of the filenames don't matter,
+            # and I just make sure I have at least one image to look at
+            min_num_images = 2 if len(files_per_camera) > 1 else 1
+            if N < min_num_images:
+                raise Exception("Found too few ({}; need at least {}) images containing a calibration pattern in camera {}; glob '{}'". \
+                                format(N, min_num_images, i_camera, globs[i_camera]))
 
         return mapping,files_per_camera
 
