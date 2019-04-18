@@ -475,7 +475,6 @@ import numpy as np
 import numpysane as nps
 import cv2
 import heapq
-import glob
 import copy
 import time
 
