@@ -1907,6 +1907,17 @@ def get_correspondences_from_hugin(f):
     return _get_correspondences_from_hugin(f)
 
 
+# mrcal.shellquote is either pipes.quote or shlex.quote, depending on
+# python2/python3
+try:
+    import pipes
+    shellquote = pipes.quote
+except:
+    # python3 puts this into a different module
+    import shlex
+    shellquote = shlex.quote
+
+
 def get_mapping_file_framecamera(files_per_camera):
     r'''Parse image filenames to get the frame numbers
 

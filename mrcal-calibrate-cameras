@@ -479,14 +479,6 @@ import glob
 import copy
 import time
 
-try:
-    import pipes
-    shellquote = pipes.quote
-except:
-    # python3 puts this into a different module
-    import shlex
-    shellquote = shlex.quote
-
 import mrcal
 
 
@@ -1899,7 +1891,7 @@ models = make_cameramodels(intrinsics, extrinsics, imagersizes,
 # The note says how we ran this, and contains the commented-out report
 note = \
     "generated on '{}' with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
-                                           ' '.join(shellquote(s) for s in sys.argv)) + \
+                                           ' '.join(mrcal.shellquote(s) for s in sys.argv)) + \
     re.sub(r"^(.)", r"# \1", report, flags=re.M)
 for i_camera in xrange(len(models)):
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
