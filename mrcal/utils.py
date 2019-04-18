@@ -2262,16 +2262,19 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
     return observations, indices_frame_camera, files_sorted
 
 
-def estimate_local_calobject_poses( indices_frame_camera, \
-                                    corners, dot_spacing,
-                                    focal, imagersizes,
-                                    Nwant):
+def estimate_local_calobject_poses( indices_frame_camera,
+                                    corners,
+                                    dot_spacing,Nwant,
+                                    models_or_intrinsics = None,
+                                    focals               = None,
+                                    imagersizes          = None ):
     r"""Estimates pose of observed object in a single-camera view
 
-    Given observations, and an estimate of camera intrinsics (focal lengths,
-    imager size) computes an estimate of the pose of the calibration object in
-    respect to the camera for each frame. This assumes that all frames are
-    independent and all cameras are independent. This assumes a pinhole camera.
+    Given observations, and an estimate of camera intrinsics (focal
+    lengths/imager size/model) computes an estimate of the pose of the
+    calibration object in respect to the camera for each frame. This assumes
+    that all frames are independent and all cameras are independent. This
+    assumes a pinhole camera.
 
     This function is a wrapper around the solvePnP() openCV call, which does all
     the work.
@@ -2289,7 +2292,51 @@ def estimate_local_calobject_poses( indices_frame_camera, \
     aligned with the corners and indices_frame_camera arrays. Each observation
     slice is (4,3) in glue(R, t, axis=-2)
 
+    The camera model must be given as either (but not both)
+
+    - cameramodel object or (distortion_model,intrinsics_data) tuple in the
+      models_or_intrinsics argument
+
+    - a focal length estimate in the 'focals' argument, 'imagersizes'. This
+      assumes a pinhole model
+
     """
+
+    NintrinsicsGiven = 0
+    if models_or_intrinsics is not None:               NintrinsicsGiven += 1
+    if focals is not None and imagersizes is not None: NintrinsicsGiven += 1
+    else:
+        if focals is not None or imagersizes is not None:
+            raise Exception("Either ONLY models_or_intrinsics should be given OR BOTH focals,imagersizes should be given")
+    if NintrinsicsGiven != 1:
+        raise Exception("Either ONLY models_or_intrinsics should be given OR BOTH focals,imagersizes should be given")
+
+    if models_or_intrinsics is not None:
+        # I'm given models. I remove the distortion so that I can pass the data
+        # on to solvePnP()
+        distortion_models_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
+        distortion_models = [di[0] for di in distortion_models_intrinsics_data]
+        intrinsics_data   = [di[1] for di in distortion_models_intrinsics_data]
+
+        fx = [ i[0] for i in intrinsics_data ]
+        fy = [ i[1] for i in intrinsics_data ]
+        cx = [ i[2] for i in intrinsics_data ]
+        cy = [ i[3] for i in intrinsics_data ]
+
+        corners = corners.copy()
+        for i_observation in range(len(corners)):
+            i_camera = indices_frame_camera[i_observation,1]
+
+            v = mrcal.unproject(corners[i_observation,...],
+                                distortion_models[i_camera], intrinsics_data[i_camera])
+            corners[i_observation,...] = mrcal.project(v, 'DISTORTION_NONE',
+                                                       intrinsics_data[i_camera][:4])
+    else:
+        fx = focals
+        fy = focals
+        cx = [ (i[0]-1.) / 2. for i in imagersizes ]
+        cy = [ (i[1]-1.) / 2. for i in imagersizes ]
+
 
     Nobservations = indices_frame_camera.shape[0]
 
@@ -2301,11 +2348,10 @@ def estimate_local_calobject_poses( indices_frame_camera, \
 
     for i_observation in xrange(Nobservations):
 
-        i_camera   = indices_frame_camera[i_observation,1]
-        imagersize = imagersizes[i_camera]
-        camera_matrix = np.array((( focal, 0,        (imagersize[0] - 1)/2), \
-                                  (        0, focal, (imagersize[1] - 1)/2), \
-                                  (        0,        0,                 1)))
+        i_camera = indices_frame_camera[i_observation,1]
+        camera_matrix = np.array((( fx[i_camera], 0,            cx[i_camera]), \
+                                  ( 0,            fy[i_camera], cy[i_camera]), \
+                                  ( 0,            0,            1.)))
         d = corners[i_observation, ...]
 
         d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
@@ -2752,10 +2798,9 @@ def make_seed_no_distortion( imagersizes,
     calobject_poses_local_Rt = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
                                               corners,
-                                              dot_spacing,
-                                              focal_estimate,
-                                              imagersizes,
-                                              object_width_n)
+                                              dot_spacing, object_width_n,
+                                              focals      = (focal_estimate,),
+                                              imagersizes = imagersizes)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
 
