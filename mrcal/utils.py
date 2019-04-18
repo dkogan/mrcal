@@ -1545,6 +1545,31 @@ def _intrinsics_diff_get_reprojections(q0, v0, v1,
                          distortion_models, intrinsics_data)
 
 
+def _densify_polyline(p, spacing):
+    r'''Returns the input polyline, but resampled more densely
+    The input and output polylines are a numpy array of shape (N,2). The output
+    is resampled such that each input point is hit, but each linear segment is
+    also sampled with at least the given spacing
+
+    '''
+
+    p1 = np.array(p[0,:], dtype=p.dtype)
+
+    for i in range(1,len(p)):
+        a = p[i-1,:]
+        b = p[i,  :]
+        d = b-a
+        l = np.sqrt(nps.norm2(d))
+
+        # A hacky method of rounding up
+        N = int(l/spacing - 1e-6 + 1.)
+
+        for j in range(N):
+            p1 = nps.glue(p1,
+                          float(j+1) / N * d + a,
+                          axis=-2)
+    return p1
+
 
 # show_intrinsics_diff() takes models while
 # show_intrinsics_uncertainty_outlierness() takes raw intrinsics data.
@@ -1677,11 +1702,13 @@ def show_intrinsics_diff(models,
         diff    = nps.clump(diff,    n=2)
         difflen = nps.clump(difflen, n=2)
 
-        plot.plot( q0  [:,0], q0  [:,1],
-                   diff[:,0] * vectorscale, diff[:,1] * vectorscale,
-                   difflen,
-                   _with='vectors size screen 0.01,20 fixed filled palette',
-                   tuplesize=5)
+        plot_data_args = \
+            [ (q0  [:,0], q0  [:,1],
+               diff[:,0] * vectorscale, diff[:,1] * vectorscale,
+               difflen,
+               dict(_with='vectors size screen 0.01,20 fixed filled palette',
+                    tuplesize=5)) ]
+
     else:
         if 'set' not in kwargs:
             kwargs['set'] = []
@@ -1707,13 +1734,104 @@ def show_intrinsics_diff(models,
         # plotting the data a second time.
         # Yuck.
         # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot.plot(nps.transpose(difflen), # difflen has shape (W,H), but the
-                                          # plotter wants what numpy wants:
-                                          # (H,W)
-                  tuplesize=3,
-                  _with=np.array(('image','lines nosurface'),),
-                  legend = "", # needed to force contour labels
-                  using = colormap_using(imagersizes[0], gridn_x, gridn_y))
+        #
+        # difflen has shape (W,H), but the plotter wants what numpy wants: (H,W)
+        plot_data_args = [ (nps.transpose(difflen),
+                            dict( tuplesize=3,
+                                  _with=np.array(('image','lines nosurface'),),
+                                  legend = "", # needed to force contour labels
+                                  using = colormap_using(imagersizes[0], gridn_x, gridn_y)
+                            )) ]
+
+    valid_region0 = models[0].valid_intrinsics_region_contour()
+    if valid_region0 is not None:
+        if vectorfield:
+            # 2d plot
+            plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
+                                    dict(_with = 'lines lw 3',
+                                         legend = "valid region of 1st camera")) )
+        else:
+            # 3d plot
+            plot_data_args.append( (valid_region0[:,0], valid_region0[:,1], valid_region0[:,0]*0,
+                                    dict(_with = 'lines lw 3',
+                                         legend = "valid region of 1st camera")) )
+
+    valid_region1 = models[1].valid_intrinsics_region_contour()
+    if len(models) == 2 and valid_region1 is not None:
+        # The second camera has a valid region, and I should plot it. This has
+        # more complexity: each point on the contour of the valid region of the
+        # second camera needs to be transformed to the coordinate system of the
+        # first camera to make sense. The transformation is complex, and
+        # straight lines will not remain straight. I thus resample the polyline
+        # more densely.
+        v1 = mrcal.unproject(_densify_polyline(valid_region1, spacing = 50),
+                             distortion_models[1], intrinsics_data[1])
+        valid_region1 = mrcal.project( nps.matmult( v1, nps.transpose(Rcompensating) ),
+                                       distortion_models[0], intrinsics_data[0] )
+        if vectorfield:
+            # 2d plot
+            plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
+                                    dict(_with = 'lines lw 3',
+                                         legend = "valid region of 2nd camera")) )
+        else:
+            # 3d plot
+            plot_data_args.append( (valid_region1[:,0], valid_region1[:,1], valid_region1[:,0]*0,
+                                    dict(_with = 'lines lw 3',
+                                         legend = "valid region of 2nd camera")) )
+
+    plot.plot( *plot_data_args )
+
+    return plot
+
+
+def plot_valid_intrinsics_region(model, image,
+                                 title    = None,
+                                 hardcopy = None,
+                                 kwargs   = None):
+    r'''Annotates a given image with a valid-intrinsics region
+
+    This function takes in a camera model and an image, and makes a plot with
+    the valid-intrinsics region drawn on top of the image. The image can be a
+    filename or a numpy array. The camera model should contain the
+    valid-intrinsics region
+
+    This is similar to mrcal.annotate_image__valid_intrinsics_region(), but
+    instead of writing an image, makes a plot
+
+    '''
+
+    if kwargs is None: kwargs = {}
+
+    import gnuplotlib as gp
+
+    W,H = model.imagersize()
+
+    if 'title' not in kwargs and title is not None:
+        kwargs['title'] = title
+
+    if 'hardcopy' not in kwargs and hardcopy is not None:
+        kwargs['hardcopy'] = hardcopy
+
+    plot_data_args = []
+
+    if isinstance(image, np.ndarray):
+        plot_data_args.append( (image, dict(_with='image',
+                                            tuplesize = 3)))
+    else:
+        kwargs['rgbimage'] = image
+
+    valid_region = model.valid_intrinsics_region_contour()
+    plot_data_args.append( (valid_region[:,0], valid_region[:,1],
+                            dict(_with = 'lines lw 3',
+                                 legend = "valid region")) )
+
+    plot = gp.gnuplotlib(square=1,
+                         _xrange=[0,W],
+                         _yrange=[H,0],
+                         **kwargs)
+
+    plot.plot(*plot_data_args)
+
     return plot
 
 

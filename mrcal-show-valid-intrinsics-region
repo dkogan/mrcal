@@ -1,0 +1,110 @@
+#!/usr/bin/python2
+
+r'''Visualize the valid-intrinsics region
+
+SYNOPSIS
+
+  $ mrcal-show-valid-intrinsics-region --writeimage --model left.cameramodel image.png
+  Wrote image-valid-intrinsics-region.png
+
+Given a camera model, this tool renders the valid-intrinsics region. If an image
+is given, the region is rendered overlaid onto the image. If --writeimage is
+given also, the output is another IMAGE instead of a plot
+
+'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--model',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        required=True,
+                        help='''Input camera model.''')
+
+    parser.add_argument('--writeimage',
+                        action='store_true',
+                        help='''By default I make a plot. If --writeimage is given, I output an annotated
+                        image instead''')
+
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the plot''')
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--extraset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+
+    parser.add_argument('image',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The images must be readable files, but got '{}'".format(f)),
+                        help='''Image to annotate''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+if args.writeimage:
+    if args.image is None:
+        raise Exception("--writeimage NEEDS an image to annotate")
+
+    if args.title    is not None or \
+       args.hardcopy is not None or \
+       args.extraset is not None:
+        raise Exception("--title and --hardcopy and --extraset are only valid without --writeimage")
+
+
+
+
+import mrcal
+
+model = mrcal.cameramodel(args.model)
+
+if model.valid_intrinsics_region_contour() is None:
+    raise Exception("The given model has no valid-intrinsics contour, so there's nothing to visualize")
+
+if args.writeimage:
+
+    import cv2
+
+    def target_image_filename(f):
+        m = re.match("(.*)\.([a-z][a-z][a-z])$", f, flags=re.I)
+        if not m:
+            raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(imagefile))
+
+        return "{}-valid-intrinsics-region.{}".format(m.group(1),m.group(2))
+
+    imagefile_out = target_image_filename(args.image)
+    image_out = mrcal.annotate_image__valid_intrinsics_region(model, args.image)
+    cv2.imwrite(imagefile_out, image_out)
+    sys.stderr.write("Wrote {}\n".format(imagefile_out))
+
+else:
+
+    plotkwargs_extra = {}
+    if args.extraset is not None:
+        plotkwargs_extra['set'] = args.extraset
+
+    plot = mrcal.plot_valid_intrinsics_region( \
+               model, args.image,
+               hardcopy = args.hardcopy,
+               title    = args.title,
+               kwargs   = plotkwargs_extra)
+
+    if args.hardcopy is None:
+        plot.wait()
