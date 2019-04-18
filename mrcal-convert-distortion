@@ -101,7 +101,7 @@ def parse_args():
                         action='store_true',
                         help='''If given, we write the output in a cahvor file format''')
 
-    parser.add_argument('cameramodel',
+    parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         nargs=1,
@@ -130,7 +130,7 @@ except:
     raise Exception("Unknown distortion model: '{}'".format(distortionmodel_to))
 
 
-m = mrcal.cameramodel(args.cameramodel[0])
+m = mrcal.cameramodel(args.model[0])
 
 intrinsics_from = m.intrinsics()
 distortionmodel_from = intrinsics_from[0]
