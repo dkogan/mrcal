@@ -12,6 +12,16 @@
 #include "mrcal.h"
 
 
+#if PY_MAJOR_VERSION == 3
+#define PyString_FromString PyUnicode_FromString
+#define PyString_FromFormat PyUnicode_FromFormat
+#define PyInt_FromLong      PyLong_FromLong
+#define PyString_AsString   PyUnicode_AsUTF8
+#define PyInt_Check         PyLong_Check
+#define PyInt_AsLong        PyLong_AsLong
+#endif
+
+
 // Python is silly. There's some nuance about signal handling where it sets a
 // SIGINT (ctrl-c) handler to just set a flag, and the python layer then reads
 // this flag and does the thing. Here I'm running C code, so SIGINT would set a
@@ -1729,44 +1739,78 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+
+static const char optimize_docstring[] =
+#include "optimize.docstring.h"
+    ;
+static const char getNdistortionParams_docstring[] =
+#include "getNdistortionParams.docstring.h"
+    ;
+static const char getSupportedDistortionModels_docstring[] =
+#include "getSupportedDistortionModels.docstring.h"
+    ;
+static const char getNextDistortionModel_docstring[] =
+#include "getNextDistortionModel.docstring.h"
+    ;
+static const char project_docstring[] =
+#include "project.docstring.h"
+    ;
+static const char distort_docstring[] =
+#include "distort.docstring.h"
+    ;
+static PyMethodDef methods[] =
+    { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,getNdistortionParams,         METH_VARARGS),
+      PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
+      PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
+      PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,distort,                      METH_VARARGS | METH_KEYWORDS),
+      {}
+    };
+
+
+#if PY_MAJOR_VERSION == 2
+
 PyMODINIT_FUNC init_mrcal(void)
 {
-    static const char optimize_docstring[] =
-#include "optimize.docstring.h"
-        ;
-    static const char getNdistortionParams_docstring[] =
-#include "getNdistortionParams.docstring.h"
-        ;
-    static const char getSupportedDistortionModels_docstring[] =
-#include "getSupportedDistortionModels.docstring.h"
-        ;
-    static const char getNextDistortionModel_docstring[] =
-#include "getNextDistortionModel.docstring.h"
-        ;
-    static const char project_docstring[] =
-#include "project.docstring.h"
-        ;
-    static const char distort_docstring[] =
-#include "distort.docstring.h"
-        ;
-    static PyMethodDef methods[] =
-        { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
-          PYMETHODDEF_ENTRY(,getNdistortionParams,         METH_VARARGS),
-          PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
-          PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
-          PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
-          PYMETHODDEF_ENTRY(,distort,                      METH_VARARGS | METH_KEYWORDS),
-          {}
-        };
-
     if (PyType_Ready(&SolverContextType) < 0)
         return;
 
-    PyObject* module = Py_InitModule3("_mrcal", methods,
-                                      "Calibration and SFM routines");
-
+    PyObject* module =
+        Py_InitModule3("_mrcal", methods,
+                       "Calibration and SFM routines");
     Py_INCREF(&SolverContextType);
     PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
 
     import_array();
 }
+
+#else
+
+static struct PyModuleDef module_def =
+    {
+     PyModuleDef_HEAD_INIT,
+     "_mrcal",
+     "Calibration and SFM routines",
+     -1,
+     methods
+    };
+
+PyMODINIT_FUNC PyInit__mrcal(void)
+{
+    if (PyType_Ready(&SolverContextType) < 0)
+        return NULL;
+
+    PyObject* module =
+        PyModule_Create(&module_def);
+
+    Py_INCREF(&SolverContextType);
+    PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
+
+    import_array();
+
+    return module;
+}
+
+#endif
+
