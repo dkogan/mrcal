@@ -1,3 +1,5 @@
+PYTHON_VERSION_FOR_EXTENSIONS := 3
+
 include /usr/include/mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
@@ -91,7 +93,7 @@ mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal_pywrap.o libmrcal.so
 
 # The python libraries (compiled ones and ones written in python) all live in
 # mrcal/
-DIST_PY2_MODULES := mrcal
+DIST_PY3_MODULES := mrcal
 
 all: mrcal/_mrcal$(PY_EXT_SUFFIX)
 EXTRA_CLEAN += mrcal/*.so
