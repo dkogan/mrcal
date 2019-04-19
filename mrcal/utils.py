@@ -2135,12 +2135,13 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                 pipe_corners_write_fd,pipe_corners_write_tmpfilename = mkstemp('.vnl')
                 sys.stderr.write("Will save corners to '{}'\n".format(corners_cache_vnl))
 
-            corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                              encoding='utf-8')
             pipe_corners_read = corners_output.stdout
             computing_corners = True
         else:
             # Have an existing cache file. Just read it
-            pipe_corners_read = open(corners_cache_vnl, 'r')
+            pipe_corners_read = open(corners_cache_vnl, 'r', encoding='utf-8')
             computing_corners = False
 
 
@@ -2173,7 +2174,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
         for line in pipe_corners_read:
             if pipe_corners_write_fd is not None:
-                os.write(pipe_corners_write_fd, line)
+                os.write(pipe_corners_write_fd, line.encode())
 
             if line[0] == '#':
                 continue
