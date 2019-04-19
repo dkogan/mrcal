@@ -97,7 +97,7 @@ import mrcal
 def target_image_filename(f):
     m = re.match("(.*)\.([a-z][a-z][a-z])$", f, flags=re.I)
     if not m:
-        raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(imagefile))
+        raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(f))
 
     return "{}-undistorted.{}".format(m.group(1),m.group(2))
 
