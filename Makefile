@@ -86,14 +86,14 @@ mrcal_pywrap.o: CFLAGS += -Wno-cast-function-type
 mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS)
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 
-mrcal/_mrcal.so: mrcal_pywrap.o libmrcal.so
+mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal_pywrap.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
 # The python libraries (compiled ones and ones written in python) all live in
 # mrcal/
 DIST_PY2_MODULES := mrcal
 
-all: mrcal/_mrcal.so
+all: mrcal/_mrcal$(PY_EXT_SUFFIX)
 EXTRA_CLEAN += mrcal/*.so
 
 
