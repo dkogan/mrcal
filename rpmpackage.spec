@@ -13,8 +13,8 @@ BuildRequires: numpy
 BuildRequires: libdogleg-devel >= 0.15.2
 BuildRequires: lapack-devel
 BuildRequires: opencv-devel
-BuildRequires: python-devel
-BuildRequires: python-libs
+BuildRequires: python34-devel
+BuildRequires: python34-libs
 BuildRequires: libminimath-devel
 BuildRequires: mrbuild >= 0.61
 BuildRequires: mrbuild-tools >= 0.61
@@ -24,13 +24,13 @@ BuildRequires: numpysane
 BuildRequires: gnuplotlib
 BuildRequires: opencv-python
 BuildRequires: scipy
-BuildRequires: python
+BuildRequires: python34
 
 Requires: numpysane
 Requires: gnuplotlib
 Requires: opencv-python
 Requires: scipy
-Requires: python
+Requires: python34
 Requires: python-ipython-console
 
 %description
@@ -59,7 +59,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/*
 %{_mandir}/*
 %{_libdir}/*.so.*
-%{python2_sitelib}/*
+%{python3_sitelib}/*
 
 %files devel
 %{_includedir}/*
