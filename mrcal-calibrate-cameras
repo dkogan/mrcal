@@ -282,6 +282,8 @@ area of the imager, do something like this instead:
 
 '''
 
+from __future__ import print_function
+
 import sys
 import argparse
 import re
@@ -778,7 +780,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                     m++
                 else:
                     # I'm already at the most complex model
-                    print "Given distortion model doesn't fit in the required ROI!"
+                    print("Given distortion model doesn't fit in the required ROI!")
                     break
             else:
                 roi++
@@ -922,7 +924,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
             xold = x[maskold_only]
             xnew = x[masknew_only]
             if len(xnew) == 0:
-                print "RMS error: {}".format(stats['rms_reproj_error__pixels'])
+                print("RMS error: {}".format(stats['rms_reproj_error__pixels']))
                 return True,"Extended ROI contains no new data"
 
             wnew = k * len(xold)/len(xnew)
@@ -933,8 +935,8 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
 
 
 
-        print "RMS error: {}".format(stats['rms_reproj_error__pixels'])
-        print "In-ROI independent x,y stdev: {} (user says {})".format(s, args.observed_pixel_uncertainty)
+        print("RMS error: {}".format(stats['rms_reproj_error__pixels']))
+        print("In-ROI independent x,y stdev: {} (user says {})".format(s, args.observed_pixel_uncertainty))
 
         # If a model fits in a specific ROI, then (assuming no outliers) all the
         # error is attributable to input noise. I'm given an estimate of this
@@ -992,10 +994,10 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
     while iroi<Nroi:
         roi = get_scaled_roi(roi_final, iroi, Nroi)
 
-        print ""
+        print("")
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv next distortion/ROI:\n")
-        print "Distortion model: {}"         .format(distortion_model)
-        print "ROI:              {}/{}  ({})".format(iroi+1, Nroi, roi)
+        print("Distortion model: {}"         .format(distortion_model))
+        print("ROI:              {}/{}  ({})".format(iroi+1, Nroi, roi))
 
         state = copy.deepcopy( (intrinsics_data, extrinsics, frames), )
         stats = mrcal.optimize(state[0], state[1], state[2], None,
@@ -1167,15 +1169,15 @@ if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
 result,intrinsics,extrinsics,frames,roi,stats = \
     incremental_optimization_loop(args, imagersizes, observations, indices_frame_camera, outlier_indices, args.incremental)
 if args.incremental:
-    print ">>>>>>>>>>>>>>>>> " + result
-    print "Final Distortion model: {}".format(intrinsics[0])
-    print "Final ROI:              {}".format(roi)
+    print(">>>>>>>>>>>>>>>>> " + result)
+    print("Final Distortion model: {}".format(intrinsics[0]))
+    print("Final ROI:              {}".format(roi))
 
 
-if args.skip_outlier_rejection: print "We are NOT rejecting outliers"
-else:                           print "We ARE rejecting outliers"
-if args.skip_regularization:    print "We are NOT applying regularization in the solver"
-else:                           print "We ARE applying regularization in the solver"
+if args.skip_outlier_rejection: print("We are NOT rejecting outliers")
+else:                           print("We ARE rejecting outliers")
+if args.skip_regularization:    print("We are NOT applying regularization in the solver")
+else:                           print("We ARE applying regularization in the solver")
 
 
 # I now optimize again, primarily to get invJtJ_intrinsics_observations_only and solver_context. This should be
@@ -1304,7 +1306,7 @@ if args.num_cross_validation_splits > 1:
 
     plot.wait()
 
-    print "done!!!!!!"
+    print("done!!!!!!")
     sys.exit()
 
 
@@ -1352,7 +1354,7 @@ report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
            args.object_width_n*args.object_width_n*len(observations),
            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
-print report
+print(report)
 
 
 
@@ -1371,11 +1373,11 @@ note = \
 for i_camera in range(len(models)):
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
     models[i_camera].write(cahvorfile, note)
-    print "Wrote {}".format(cahvorfile)
+    print("Wrote {}".format(cahvorfile))
 
     cameramodelfile = '{}/camera-{}.cameramodel'.format(args.outdir, i_camera)
     models[i_camera].write(cameramodelfile, note)
-    print "Wrote {}".format(cameramodelfile)
+    print("Wrote {}".format(cameramodelfile))
 
 
 
@@ -1388,7 +1390,7 @@ if not args.explore:
 import gnuplotlib as gp
 
 
-print r'''Calibration results REPL.
+print(r'''Calibration results REPL.
 Potential things to look at:
 
     show_residuals_observation_worst(i_observation_in_order_from_worst)
@@ -1408,7 +1410,7 @@ Potential things to look at:
     rms_err_including_outliers_perimage
     rms_err_0_for_outliers_perimage
     paths[i_observations_worst[0]]
-'''
+''')
 
 
 projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n)
@@ -1540,9 +1542,10 @@ def check_confidence_computations():
     M      = np.linalg.pinv(J)
     MMt_ref = nps.matmult(M,nps.transpose(M))
     Nintrinsics = intrinsics[1].shape[-1]
-    print "MMt difference should be 0: {}".format(np.linalg.norm(MMt[i_camera]/args.observed_pixel_uncertainty/args.observed_pixel_uncertainty -
-                                                                 MMt_ref[Nintrinsics*i_camera:Nintrinsics*(i_camera+1),
-                                                                         Nintrinsics*i_camera:Nintrinsics*(i_camera+1)]))
+    print( "MMt difference should be 0: {}". \
+           format(np.linalg.norm(MMt[i_camera]/args.observed_pixel_uncertainty/args.observed_pixel_uncertainty -
+                                 MMt_ref[Nintrinsics*i_camera:Nintrinsics*(i_camera+1),
+                                         Nintrinsics*i_camera:Nintrinsics*(i_camera+1)])) )
 
     stats = mrcal.optimize(intrinsics[1], extrinsics, frames, None,
                            observations, indices_frame_camera,
@@ -1572,9 +1575,9 @@ def check_confidence_computations():
 
     dp_ref = nps.matmult(M, nps.transpose(dm)).ravel()
 
-    print "dp difference should be 0: {}".format(np.linalg.norm(dp - dp_observed))
-    print "dp difference should be 0: {}".format(np.linalg.norm(dp - dp_ref))
-    print "dx difference should be 0: {}".format(np.linalg.norm(dx - dx_observed))
+    print("dp difference should be 0: {}".format(np.linalg.norm(dp - dp_observed)))
+    print("dp difference should be 0: {}".format(np.linalg.norm(dp - dp_ref)))
+    print("dx difference should be 0: {}".format(np.linalg.norm(dx - dx_observed)))
     # gp.plot(nps.cat(dp,            dp_observed), legend=np.array(("computed",   "observed")), title="dp")
     # gp.plot(nps.cat(dp,            dp_ref),      legend=np.array(("computed",   "reference")),title="dp")
     # gp.plot(nps.cat(dx,            dx_observed), legend=np.array(("computed",   "observed")), title="dx")
@@ -1598,7 +1601,7 @@ def check_confidence_computations():
                       nps.matmult(D, Md) ),
                      nps.transpose(dm)).ravel()
     dq_observed = q1-q0
-    print "dq got, difference: {}, {}".format(dq, dq-dq_observed)
+    print("dq got, difference: {}, {}".format(dq, dq-dq_observed))
 
 
 plots_residuals = dict()
@@ -1825,7 +1828,7 @@ plots_intrinsics_uncertainty = [None] * Ncameras
 def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 60, gridn_y = 40, **kwargs):
 
     if invJtJ_intrinsics_observations_only is None:
-        print "No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work"
+        print("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work")
         return False
 
 

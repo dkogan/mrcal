@@ -21,6 +21,8 @@ store the required data
 
 '''
 
+from __future__ import print_function
+
 import sys
 import argparse
 import re

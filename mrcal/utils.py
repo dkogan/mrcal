@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from __future__ import print_function
+
 import numpy as np
 import numpysane as nps
 import sys
@@ -265,7 +267,7 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
         #         calobject_cam = nps.matmult( calobject_cam0, nps.transpose(Rc)) + tc
 
-        #     print "double-check this. I don't broadcast over the intrinsics anymore"
+        #     print("double-check this. I don't broadcast over the intrinsics anymore")
         #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, distortion_model, intrinsics_data[i_camera, ...])
         #     err = nps.clump(err, n=-3)
         #     rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))

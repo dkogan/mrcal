@@ -30,6 +30,8 @@ y pixel coord. Comments are allowed, and start with the '#' character.
 '''
 
 
+from __future__ import print_function
+
 import sys
 import argparse
 import re

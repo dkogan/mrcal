@@ -22,6 +22,8 @@ edges.
 
 '''
 
+from __future__ import print_function
+
 import sys
 import argparse
 import re
@@ -135,19 +137,19 @@ model_pinhole = mrcal.cameramodel( model )
 model_pinhole.intrinsics(imagersize_pinhole,
                          ('DISTORTION_NONE', intrinsics_pinhole))
 
-print "Corresponding pinhole model (cameramodel):"
-print ""
-print "====================================="
+print("Corresponding pinhole model (cameramodel):")
+print("")
+print("=====================================")
 model_pinhole.write(sys.stdout)
-print "====================================="
-print ""
+print("=====================================")
+print("")
 
-print "Corresponding pinhole model (cahvor):"
-print ""
-print "====================================="
+print("Corresponding pinhole model (cahvor):")
+print("")
+print("=====================================")
 model_pinhole.write(sys.stdout, cahvor=True)
-print "====================================="
-print ""
+print("=====================================")
+print("")
 
 
 def undistort_this(imagefile):

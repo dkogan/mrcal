@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from __future__ import print_function
+
 import numpy as np
 import numpysane as nps
 import cv2
@@ -129,11 +131,11 @@ def _transform_point_rt_withgradient(rt, x):
     #     vfit1 = mrcal.transform_point_rt(rt, vref + dvref)
     #     dvfit_observed = vfit1-vfit
     #     dvfit_expected = nps.matmult(dvfit_dvref, nps.dummy(dvref,-1))[...,0]
-    #     print np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.)))
+    #     print(np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.))))
     #     vfit1 = mrcal.transform_point_rt(rt + drt, vref)
     #     dvfit_observed = vfit1-vfit
     #     dvfit_expected = nps.matmult(dvfit_drt, nps.dummy(drt,-1))[...,0]
-    #     print np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.)))
+    #     print(np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.))))
     #     sys.exit()
 
     R,dRdr = cv2.Rodrigues(rt[:3])

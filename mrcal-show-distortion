@@ -17,6 +17,8 @@ vectorfield by passing in --vectorfield. Or we can see the radial distortion
 curve by passing --radial
 '''
 
+from __future__ import print_function
+
 import sys
 import argparse
 import re
