@@ -357,7 +357,7 @@ class cameramodel(object):
         if len(kwargs) == 0           and \
            type(file_or_model) is str and \
            re.match(".*\.cahvor$", file_or_model):
-            import cahvor
+            from . import cahvor
             file_or_model = cahvor.read(file_or_model)
             # now follow this usual path. This becomes a copy constructor.
 
@@ -438,13 +438,13 @@ class cameramodel(object):
         '''
 
         if cahvor:
-            import cahvor
+            from . import cahvor
             cahvor.write(f, self, note)
             return
 
         if type(f) is str:
             if re.match(".*\.cahvor$", f):
-                import cahvor
+                from . import cahvor
                 cahvor.write(f, self, note)
 
             else:

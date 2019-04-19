@@ -6,6 +6,9 @@ import numpy as np
 import numpysane as nps
 import cv2
 
+# for python3
+from functools import reduce
+
 
 @nps.broadcast_define( ((6,),),
                        (4,3,), )
