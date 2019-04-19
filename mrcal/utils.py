@@ -1445,7 +1445,7 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
 
     V0cut   = nps.clump(v0,n=2)
     V1cut   = nps.clump(v1,n=2)
-    icenter = np.array((v0.shape[:2]))/2
+    icenter = np.array((v0.shape[:2])) // 2
     if focus_radius < 2*(W+H):
         # We try to match the geometry in a particular region
 
@@ -1463,7 +1463,7 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
             # This looks funny, but it's right. My grid is set up that you index
             # with the x-coord and then the y-coord. This is opposite from the
             # matrix convention that numpy uses: y then x.
-            ix = icenter_flat/v0.shape[1]
+            ix = icenter_flat // v0.shape[1]
             iy = icenter_flat - ix*v0.shape[1]
             icenter = np.array((ix,iy))
 
@@ -2150,9 +2150,9 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
         def finish():
             if context['grid'].size:
-                if Nw*Nh != context['grid'].size/2:
+                if Nw*Nh != context['grid'].size//2:
                     raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
-                                    format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size/2))
+                                    format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size//2))
                 if context['f'] not in exclude:
                     # There is a bit of ambiguity here. The image path stored in
                     # the 'corners_cache_vnl' file is relative to what? It could be
