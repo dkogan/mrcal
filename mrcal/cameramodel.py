@@ -15,7 +15,6 @@ import ast
 import re
 
 import mrcal
-import poseutils
 
 def _validateExtrinsics(e):
     r'''Raises an exception if the given extrinsics are invalid'''
@@ -537,7 +536,7 @@ class cameramodel(object):
             # getter
             if not toref:
                 return self._extrinsics
-            return poseutils.invert_rt(self._extrinsics)
+            return mrcal.invert_rt(self._extrinsics)
 
 
         # setter
@@ -545,7 +544,7 @@ class cameramodel(object):
             self._extrinsics = rt
             return True
 
-        self._extrinsics = poseutils.invert_rt(rt)
+        self._extrinsics = mrcal.invert_rt(rt)
         return True
 
 
@@ -577,19 +576,19 @@ class cameramodel(object):
         if Rt is None:
             # getter
             rt_fromref = self._extrinsics
-            Rt_fromref = poseutils.Rt_from_rt(rt_fromref)
+            Rt_fromref = mrcal.Rt_from_rt(rt_fromref)
             if not toref:
                 return Rt_fromref
-            return poseutils.invert_Rt(Rt_fromref)
+            return mrcal.invert_Rt(Rt_fromref)
 
 
         # setter
         if toref:
-            Rt_fromref = poseutils.invert_Rt(Rt)
-            self._extrinsics = poseutils.rt_from_Rt(Rt_fromref)
+            Rt_fromref = mrcal.invert_Rt(Rt)
+            self._extrinsics = mrcal.rt_from_Rt(Rt_fromref)
             return True
 
-        self._extrinsics = poseutils.rt_from_Rt(Rt)
+        self._extrinsics = mrcal.rt_from_Rt(Rt)
         return True
 
 

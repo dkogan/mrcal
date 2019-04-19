@@ -10,7 +10,6 @@ import cv2
 import scipy.optimize
 
 import mrcal
-import _mrcal
 
 
 # Broadcasting available for points only; handled internally by the C layer
@@ -70,10 +69,10 @@ def project(v, distortion_model, intrinsics_data, get_gradients=False):
             return np.zeros(s[:-1] + (2,))
 
     if distortion_model != 'DISTORTION_CAHVORE':
-        return _mrcal.project(np.ascontiguousarray(v),
-                              distortion_model,
-                              intrinsics_data,
-                              get_gradients=get_gradients)
+        return mrcal._mrcal.project(np.ascontiguousarray(v),
+                                    distortion_model,
+                                    intrinsics_data,
+                                    get_gradients=get_gradients)
 
     # oof. CAHVORE. Legacy code follows
     if get_gradients:
