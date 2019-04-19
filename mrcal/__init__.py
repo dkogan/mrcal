@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # I want to refer to some stuff as mrcal.X instead of mrcal.Y.X
 # For instance:

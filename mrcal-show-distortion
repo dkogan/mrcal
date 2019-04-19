@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 r'''Renders a vector field to visualize the effect of a model
 

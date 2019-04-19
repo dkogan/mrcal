@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 r'''Renders the expected projection error due to calibration uncertainty
 
