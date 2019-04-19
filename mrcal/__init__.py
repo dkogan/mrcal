@@ -8,11 +8,11 @@
 # hopefully can go away eventually
 
 # I do this first to pull in _mrcal.project
-from _mrcal      import *
+from ._mrcal      import *
 # I do this second, do overwrite that. I want the projections version of
 # project() to be the one imported into mrcal. This is the only name conflict
-from projections import *
+from .projections import *
 
-from cameramodel import *
-from poseutils   import *
-from utils       import *
+from .cameramodel import *
+from .poseutils   import *
+from .utils       import *
