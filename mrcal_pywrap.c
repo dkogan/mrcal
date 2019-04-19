@@ -19,6 +19,9 @@
 #define PyString_AsString   PyUnicode_AsUTF8
 #define PyInt_Check         PyLong_Check
 #define PyInt_AsLong        PyLong_AsLong
+#define STRING_OBJECT       "U"
+#else
+#define STRING_OBJECT       "S"
 #endif
 
 
@@ -538,7 +541,7 @@ static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
     SET_SIGINT();
 
     PyObject* distortion_model_string = NULL;
-    if(!PyArg_ParseTuple( args, "S", &distortion_model_string ))
+    if(!PyArg_ParseTuple( args, STRING_OBJECT, &distortion_model_string ))
         goto done;
 
     const char* distortion_model_cstring =
@@ -687,7 +690,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 
 #define PROJECT_ARGUMENTS_REQUIRED(_)                                  \
     _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
-    _(distortion_model, PyObject*,      NULL,    "S",                                   , NULL,       -1,         {} ) \
+    _(distortion_model, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
     _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define PROJECT_ARGUMENTS_OPTIONAL(_) \
@@ -858,7 +861,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
 #define DISTORT_ARGUMENTS_REQUIRED(_)                                  \
     _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
-    _(distortion_model, PyObject*,      NULL,    "S",                                   , NULL,       -1,         {} ) \
+    _(distortion_model, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
     _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define DISTORT_ARGUMENTS_OPTIONAL(_) \
@@ -1038,7 +1041,7 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
     _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camera_board,  NPY_INT,    {-1 COMMA  2       } ) \
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camera_points, NPY_INT,    {-1 COMMA  2       } ) \
-    _(distortion_model,                   PyObject*,      NULL,    "S",  ,                                  NULL,                        -1,         {}                   ) \
+    _(distortion_model,                   PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
