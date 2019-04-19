@@ -116,7 +116,7 @@ p = cull_out_of_bounds_observations(p, cam_width, cam_height)
 def write_data(filename, p, W,H):
     with open(filename, "w") as f:
         f.write("# filename x y\n")
-        for i in xrange(len(p)):
+        for i in range(len(p)):
             np.savetxt(f, nps.clump(p[i,...], n=2), fmt='{:06d}.xxx %.3f %.3f'.format(i))
 
 write_data("synthetic-no-noise.vnl", p, cam_width, cam_height)

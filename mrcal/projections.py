@@ -90,7 +90,7 @@ def project(v, distortion_model, intrinsics_data, get_gradients=False):
     #
     # intrinsics shape I support: (a,b,c,..., Nintrinsics)
     # In my use case, at most one of a,b,c,... is != 1
-    idims_not1 = [ i for i in xrange(len(intrinsics_data.shape)-1) if intrinsics_data.shape[i] != 1 ]
+    idims_not1 = [ i for i in range(len(intrinsics_data.shape)-1) if intrinsics_data.shape[i] != 1 ]
     if len(idims_not1) > 1:
         raise Exception("More than 1D worth of broadcasting for the intrinsics not implemented")
 
@@ -108,7 +108,7 @@ def project(v, distortion_model, intrinsics_data, get_gradients=False):
     return \
         nps.mv( nps.cat(*[ project_one_cam(intrinsics_data[i].ravel(),
                                            vsplit[i])
-                           for i in xrange(Nbroadcast)]),
+                           for i in range(Nbroadcast)]),
                 0, idim_broadcast )
 
 def unproject(q, distortion_model, intrinsics_data):
@@ -489,7 +489,7 @@ def calobservations_project(distortion_model, intrinsics, extrinsics, frames, do
     return nps.mv( nps.cat(*[project( object_cam[...,i_camera,:,:,:],
                                       distortion_model,
                                       intrinsics[i_camera,:] ) for \
-                             i_camera in xrange(Ncameras)]),
+                             i_camera in range(Ncameras)]),
                    0,-4)
 
 def calobservations_compute_reproj_error(projected, observations, indices_frame_camera, Nwant,
@@ -517,7 +517,7 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
     Nobservations         = indices_frame_camera.shape[0]
     err_all_points        = np.zeros((Nobservations,Nwant,Nwant,2))
 
-    for i_observation in xrange(Nobservations):
+    for i_observation in range(Nobservations):
         i_frame, i_camera = indices_frame_camera[i_observation]
 
         err_all_points[i_observation] = projected[i_frame,i_camera] - observations[i_observation]

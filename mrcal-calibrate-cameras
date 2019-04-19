@@ -496,7 +496,7 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
     if args_imagersize is not None:
         return args_imagersize
     try:
-        iobservation0_thiscamera = next( i for i in xrange(len(paths)) if indices_frame_camera[i,1] == icamera )
+        iobservation0_thiscamera = next( i for i in range(len(paths)) if indices_frame_camera[i,1] == icamera )
     except:
         raise Exception("Couldn't find any images for camera '{}'".format(icamera))
 
@@ -577,7 +577,7 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
                               observed_pixel_uncertainty,
                               invJtJ_intrinsics_full,
                               invJtJ_intrinsics_observations_only,
-                              valid_intrinsics_region_contour) for i_camera in xrange(len(intrinsics[1])) ]
+                              valid_intrinsics_region_contour) for i_camera in range(len(intrinsics[1])) ]
 
 
 # # Test for this function
@@ -651,7 +651,7 @@ def get_observation_subset__from_indices(indices, observations, indices_frame_ca
 
 
         ifeature_threshold = iobs*Nfeatures_in_observation
-        for i in xrange(i0,len(outlier_indices)):
+        for i in range(i0,len(outlier_indices)):
             if outlier_indices[i] >= ifeature_threshold:
                 break
         else:
@@ -666,7 +666,7 @@ def get_observation_subset__from_indices(indices, observations, indices_frame_ca
             return i0,i0
 
         ifeature_threshold += Nfeatures_in_observation
-        for i in xrange(i0+1,len(outlier_indices)):
+        for i in range(i0+1,len(outlier_indices)):
             if outlier_indices[i] >= ifeature_threshold:
                 return i0,i
 
@@ -692,7 +692,7 @@ def get_observation_subset__from_indices(indices, observations, indices_frame_ca
         return iold1, i_outlier_indices_new + Noutliers_here
 
 
-    for iobs_new in xrange(len(indices)):
+    for iobs_new in range(len(indices)):
         iobs_old   = indices[iobs_new]
         iframe_old = indices_frame_camera_new[iobs_new,0]
         if iframe_old != iframe_old_last:
@@ -758,7 +758,7 @@ def get_observation_subset__right_of_threshold_and_within_center(point_x_thresho
 
         return np.count_nonzero(x) >= must_have_at_least_points
 
-    indices = np.array([i for i in xrange(len(observations)) if \
+    indices = np.array([i for i in range(len(observations)) if \
                         have_enough_points(i)],
                        dtype=int)
     return get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths)
@@ -1128,7 +1128,7 @@ observations, indices_frame_camera, paths = \
                                       jobs = args.jobs)
 
 # list of imager sizes; one per camera
-imagersizes = np.array([get_imagersize_one(icamera, indices_frame_camera, paths, args.imagersize) for icamera in xrange(Ncameras)],
+imagersizes = np.array([get_imagersize_one(icamera, indices_frame_camera, paths, args.imagersize) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
 if args.cull_random_observations_ratio >= 0:
@@ -1224,7 +1224,7 @@ if args.num_cross_validation_splits > 1:
         np.random.shuffle(i_observations)
 
         # I could do this:
-        #   s = [i_observations[isplit*N_insplit:(isplit+1)*N_insplit] for isplit in xrange(Nsplit)]
+        #   s = [i_observations[isplit*N_insplit:(isplit+1)*N_insplit] for isplit in range(Nsplit)]
         # But then I need to deal with the remaining observations. For instance,
         # trying to split 14 into 4 groups would create 4 groups of 3, and 2
         # observations remaining. I want to distribute these 2 extra observations
@@ -1232,7 +1232,7 @@ if args.num_cross_validation_splits > 1:
 
         s = [None] * Nsplit
         iobservation = 0
-        for isplit in xrange(Nsplit):
+        for isplit in range(Nsplit):
             N_inthissplit = int( (Nobservations - iobservation) / (Nsplit - isplit))
             s[isplit] = i_observations[iobservation:iobservation+N_inthissplit]
             iobservation += N_inthissplit
@@ -1250,7 +1250,7 @@ if args.num_cross_validation_splits > 1:
 
     cross_validation_models = []
 
-    for isplit in xrange(len(splits)):
+    for isplit in range(len(splits)):
 
         s = splits[isplit]
 
@@ -1289,7 +1289,7 @@ if args.num_cross_validation_splits > 1:
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ \n" + report)
 
         cross_validation_models.append( make_cameramodels(split_intrinsics, split_extrinsics, MMt=None) )
-    # for i_camera in xrange(len(intrinsics[1]):
+    # for i_camera in range(len(intrinsics[1]):
     i_camera = 0
     if roi is None:
         focus_center = None
@@ -1368,7 +1368,7 @@ note = \
     "generated on '{}' with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                            ' '.join(mrcal.shellquote(s) for s in sys.argv)) + \
     re.sub(r"^(.)", r"# \1", report, flags=re.M)
-for i_camera in xrange(len(models)):
+for i_camera in range(len(models)):
     cahvorfile = '{}/camera-{}.cahvor'.format(args.outdir, i_camera)
     models[i_camera].write(cahvorfile, note)
     print "Wrote {}".format(cahvorfile)
@@ -1423,7 +1423,7 @@ rms_err_0_for_outliers_perimage     = np.sqrt( nps.norm2( nps.clump(err_0_for_ou
                                                (args.object_width_n*args.object_width_n) )
 
 i_observations_worst    = list(reversed(np.argsort(rms_err_0_for_outliers_perimage)))
-i_observation_from_path = dict( [(paths[_i],_i) for _i in xrange(len(observations))] )
+i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations))] )
 
 def show_residuals_observation(observation, scale = 1.0, **kwargs):
     r'''Visualize calibration residuals

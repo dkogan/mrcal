@@ -239,7 +239,7 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
         # if i_camera is not None:
         #     i_observations_frames = [(i_observation,indices_frame_camera_board[i_observation,0]) \
-        #                              for i_observation in xrange(Nobservations) \
+        #                              for i_observation in range(Nobservations) \
         #                              if indices_frame_camera_board[i_observation,1] == i_camera]
 
         #     i_observations, i_frames = nps.transpose(np.array(i_observations_frames))
@@ -430,7 +430,7 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
         return np.array([mrcal.unproject(grid,
                                          distortion_model[i],
                                          intrinsics_data[i]) \
-                         for i in xrange(len(distortion_model))]), \
+                         for i in range(len(distortion_model))]), \
                grid
     else:
         # shape: Nwidth,Nheight,3
@@ -1685,7 +1685,7 @@ def show_intrinsics_diff(models,
                                                              v[0,...], v[i,...],
                                                              focus_center, focus_radius,
                                                              distortion_models[i], intrinsics_data[i],
-                                                             imagersizes) for i in xrange(1,len(v))])
+                                                             imagersizes) for i in range(1,len(v))])
         difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
 
     if 'title' not in kwargs:
@@ -1889,7 +1889,7 @@ def _get_correspondences_from_hugin(f):
     for l in f:
         m = re.match('^c .* x([0-9e\.-]+) y([0-9e\.-]+) X([0-9e\.-]+) Y([0-9e\.-]+)', l)
         if m:
-            p = nps.glue(p, np.array([m.group(i+1) for i in xrange(4)], dtype=float),
+            p = nps.glue(p, np.array([m.group(i+1) for i in range(4)], dtype=float),
                          axis=-2)
     return p
 
@@ -1954,12 +1954,12 @@ def get_mapping_file_framecamera(files_per_camera):
         # These feel inefficient, especially being written in python. There's
         # probably some built-in primitive I'm not seeing
         def longest_leading_substring(a,b):
-            for i in xrange(len(a)):
+            for i in range(len(a)):
                 if i >= len(b) or a[i] != b[i]:
                     return a[:i]
             return a
         def longest_trailing_substring(a,b):
-            for i in xrange(len(a)):
+            for i in range(len(a)):
                 if i >= len(b) or a[-i-1] != b[-i-1]:
                     if i == 0:
                         return ''
@@ -2023,7 +2023,7 @@ def get_mapping_file_framecamera(files_per_camera):
     mapping = {}
     prefix0 = None
     suffix0 = None
-    for icamera in xrange(Ncameras):
+    for icamera in range(Ncameras):
         if len(files_per_camera[icamera]) <= 1:
             raise Exception("Camera {} has <=1 images".format(icamera))
         framenumbers, leading, trailing = pull_framenumbers(files_per_camera[icamera])
@@ -2091,14 +2091,14 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
         Ncameras = len(globs)
         files_per_camera = []
-        for i in xrange(Ncameras):
+        for i in range(Ncameras):
             files_per_camera.append([])
 
         # images in corners_cache_vnl have paths relative to where the corners_cache_vnl lives
         corners_dir = None if corners_cache_vnl is None else os.path.dirname( corners_cache_vnl )
 
         def accum_files(f):
-            for i_camera in xrange(Ncameras):
+            for i_camera in range(Ncameras):
                 g = globs[i_camera]
                 if g[0] != '/':
                     g = '*/' + g
@@ -2205,7 +2205,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
         # I can't deal with cameras that have only one frame: the filenames
         # aren't enough to establish a pattern, so I ignore those. Which is
         # fine, since a single observation in a camera isn't enough to be useful
-        for i_camera in xrange(len(files_per_camera)):
+        for i_camera in range(len(files_per_camera)):
             N = len(files_per_camera[i_camera])
 
             # If I have multiple cameras, I use the filenames to figure out what
@@ -2346,7 +2346,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
-    for i_observation in xrange(Nobservations):
+    for i_observation in range(Nobservations):
 
         i_camera = indices_frame_camera[i_observation,1]
         camera_matrix = np.array((( fx[i_camera], 0,            cx[i_camera]), \
@@ -2473,7 +2473,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
         d1  = None
         Rt0 = None
         Rt1 = None
-        for i_observation in xrange(Nobservations):
+        for i_observation in range(Nobservations):
             i_frame_this,i_camera_this = indices_frame_camera[i_observation, ...]
             if i_frame_this != i_frame_last:
                 d0  = None
@@ -2554,15 +2554,15 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
 
         camera_connectivity = np.zeros( (Ncameras,Ncameras), dtype=int )
         def finish_frame(i0, i1):
-            for ic0 in xrange(i0, i1):
-                for ic1 in xrange(ic0+1, i1+1):
+            for ic0 in range(i0, i1):
+                for ic1 in range(ic0+1, i1+1):
                     camera_connectivity[indices_frame_camera[ic0,1], indices_frame_camera[ic1,1]] += 1
                     camera_connectivity[indices_frame_camera[ic1,1], indices_frame_camera[ic0,1]] += 1
 
         f_current       = -1
         i_start_current = -1
 
-        for i in xrange(len(indices_frame_camera)):
+        for i in range(len(indices_frame_camera)):
             f,c = indices_frame_camera[i]
             if f < f_current:
                 raise Exception("I'm assuming the frame indices are increasing monotonically")
@@ -2591,7 +2591,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
             '''Dijkstra's algorithm'''
             self.finish()
 
-            for neighbor_idx in xrange(Ncameras):
+            for neighbor_idx in range(Ncameras):
                 if neighbor_idx == self.camera_idx                  or \
                    shared_frames[neighbor_idx,self.camera_idx] == 0:
                     continue
@@ -2647,7 +2647,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
 
 
 
-    nodes = [Node(i) for i in xrange(Ncameras)]
+    nodes = [Node(i) for i in range(Ncameras)]
     nodes[0].cost_to_node = 0
     heap = []
 
@@ -2728,7 +2728,7 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
         obj = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
         sum_obj_unproj = obj*0
-        for i_observation in xrange(i_observation0, i_observation1):
+        for i_observation in range(i_observation0, i_observation1):
             Rt = T_camera_board(i_observation)
             sum_obj_unproj += mrcal.transform_point_Rt(Rt, obj)
 
@@ -2750,7 +2750,7 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
     i_frame_current          = -1
     i_observation_framestart = -1;
 
-    for i_observation in xrange(indices_frame_camera.shape[0]):
+    for i_observation in range(indices_frame_camera.shape[0]):
         i_frame,i_camera = indices_frame_camera[i_observation, ...]
 
         if i_frame != i_frame_current:
@@ -2785,7 +2785,7 @@ def make_seed_no_distortion( imagersizes,
                           float(imager_h-1)/2.))
 
     intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera) \
-                                 for i_camera in xrange(Ncameras)] )
+                                 for i_camera in range(Ncameras)] )
 
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame

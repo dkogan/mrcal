@@ -52,7 +52,7 @@ def model_matrix(q, order):
 
     '''
     q = nps.atleast_dims(q,-1)
-    return nps.transpose(nps.cat(*[q ** i for i in xrange(order)]))
+    return nps.transpose(nps.cat(*[q ** i for i in range(order)]))
 
 def func_reference(q):
     '''Reference function: reference_equation
@@ -435,7 +435,7 @@ def show_outlierness(order, N, q, f, query, cooks_threshold, **stats):
 def show_uncertainty(order, N, q, f, query, cooks_threshold, **stats):
 
     coeffs = stats['p']
-    fitted_equation = '+'.join(['{} * x**{}'.format(coeffs[i], i) for i in xrange(len(coeffs))])
+    fitted_equation = '+'.join(['{} * x**{}'.format(coeffs[i], i) for i in range(len(coeffs))])
 
     p = gp.gnuplotlib(equation='({})-({}) title "Fit error off ground truth; y2 axis +- noise stdev" axis x1y2'.format(reference_equation,fitted_equation),
                       title   = "Uncertainty with order={} Npoints={} stdev={}".format(order, N, noise_stdev),
