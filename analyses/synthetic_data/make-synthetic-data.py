@@ -249,9 +249,9 @@ while True:
 p += np.random.randn(*p.shape) * pixel_noise_xy_1stdev
 
 note = \
-    "generated on '{}' with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
-                                           ' '.join(mrcal.shellquote(s) for s in sys.argv))
-
+    "generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                         ' '.join(mrcal.shellquote(s) for s in sys.argv))
+sys.stdout.write("## " + note + "\n")
 sys.stdout.write("# filename x y\n")
 for iframe in range(Nframes):
     for icam in range(Ncameras):
