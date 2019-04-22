@@ -82,22 +82,26 @@ def parse_args():
                         type=float,
                         required=True,
                         nargs=6,
-                        help='''The pose of the calibration object is a normally-distributed random variable,
-                        independent over x,y,z,roll,pitch,yaw. It is given in
-                        the coordinate system of camera0. This is 6 values:
+                        help='''The pose of the calibration object is a uniformly-distributed random
+                        variable, independent over x,y,z,roll,pitch,yaw. It is
+                        given in the coordinate system of camera0 (if
+                        --relative-extrinsics) or the reference coordinate
+                        system (otherwise). This is 6 values:
                         x,y,z,roll,pitch,yaw, with the roll, pitch, yaw are
                         given in degrees. This argument is the mean of each
                         component.''')
-    parser.add_argument('--stdev-xyz-rpydeg',
+    parser.add_argument('--noiseradius-xyz-rpydeg',
                         type=float,
                         required=True,
                         nargs=6,
-                        help='''The pose of the calibration object is a normally-distributed random variable,
-                        independent over x,y,z,roll,pitch,yaw. It is given in
-                        the coordinate system of camera0. This is 6 values:
+                        help='''The pose of the calibration object is a uniformly-distributed random
+                        variable, independent over x,y,z,roll,pitch,yaw. It is
+                        given in the coordinate system of camera0 (if
+                        --relative-extrinsics) or the reference coordinate
+                        system (otherwise). This is 6 values:
                         x,y,z,roll,pitch,yaw, with the roll, pitch, yaw are
-                        given in degrees. This argument is the standard
-                        deviation of each component.''')
+                        given in degrees. This argument is the half-width of the
+                        random distribution''')
 
     parser.add_argument('models',
                         nargs='+',
@@ -191,14 +195,14 @@ def get_observation_chunk():
 
     '''
 
-    xyz       = np.array( args.at_xyz_rpydeg   [:3] )
-    rpy       = np.array( args.at_xyz_rpydeg   [3:] ) * np.pi/180.
-    xyz_stdev = np.array( args.stdev_xyz_rpydeg[:3] )
-    rpy_stdev = np.array( args.stdev_xyz_rpydeg[3:] ) * np.pi/180.
+    xyz             = np.array( args.at_xyz_rpydeg         [:3] )
+    rpy             = np.array( args.at_xyz_rpydeg         [3:] ) * np.pi/180.
+    xyz_noiseradius = np.array( args.noiseradius_xyz_rpydeg[:3] )
+    rpy_noiseradius = np.array( args.noiseradius_xyz_rpydeg[3:] ) * np.pi/180.
 
     # shape (Nframes,3)
-    xyz = xyz + np.random.randn(Nframes,3) * xyz_stdev
-    rpy = rpy + np.random.randn(Nframes,3) * rpy_stdev
+    xyz = xyz + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * xyz_noiseradius
+    rpy = rpy + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * rpy_noiseradius
 
     roll,pitch,yaw = nps.transpose(rpy)
 
