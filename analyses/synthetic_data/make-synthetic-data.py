@@ -1,6 +1,21 @@
 #!/usr/bin/python3
 
 r'''Generate synthetic data for calibration experiments
+
+This tool generates chessboard observations for a number of cameras. The camera
+models, chessboard motion, and noise characteristics are given on the
+commandline.
+
+The camera models are given on the commandline. Both intrinsics and extrinsics
+are used. If --relative-extrinsics, the extrinsics are used ONLY for relative
+poses: the calibration object motion is given in the coordinate system of camera
+0. Without --relative-extrinsics, the calibration object motion is given in the
+reference coordinate system.
+
+The user asks for --Nframes. The tool will keep generating data until it has
+Nframes of data where the observations of the whole board for each camera are in
+full view.
+
 '''
 
 from __future__ import print_function
@@ -55,6 +70,14 @@ def parse_args():
                         perfectly flat. If >0, the board is convex; if <0 it is
                         concave. The value (given in meters) specifies the size
                         of the off-flat gap in the center of the board''')
+    parser.add_argument('--relative-extrinsics',
+                        action='store_true',
+                        help='''By default, the calibration board moves in the reference coordinate system,
+                        with the transformation to the coordinate system of each
+                        camera give in the extrinsics. If --relative-extrinsics
+                        is given, the calibration board moves in the coordinate
+                        system of camera 0, and the extrinsics are used only for
+                        transformations between cameras''')
     parser.add_argument('--at-xyz-rpydeg',
                         type=float,
                         required=True,
@@ -146,7 +169,10 @@ Nframes  = args.Nframes
 Ncameras = len(args.models)
 
 models = [ mrcal.cameramodel(modelfile) for modelfile in args.models ]
-Rt_r0 = models[0].extrinsics_Rt(toref=True)
+if args.relative_extrinsics:
+    Rt_r0 = models[0].extrinsics_Rt(toref=True)
+else:
+    Rt_r0 = mrcal.identity_Rt()
 Rt_xr = [ m.extrinsics_Rt(toref=False) for m in models ]
 Rt_x0 = [ mrcal.compose_Rt( Rt_xr[i], Rt_r0 ) \
           for i in range(Ncameras) ]
