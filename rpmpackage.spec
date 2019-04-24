@@ -9,28 +9,33 @@ License:        proprietary
 URL:            https://github.jpl.nasa.gov/maritime-robotics/mrcal/
 Source0:        https://github.jpl.nasa.gov/maritime-robotics/mrcal/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
-BuildRequires: numpy
+BuildRequires: python36-numpy
+
+# need this too for the /usr/include/numpy link. It points to the same place as
+# the link in python36-numpy would point to, if they bothered to make one
+BuildRequires: python2-numpy
 BuildRequires: libdogleg-devel >= 0.15.2
 BuildRequires: lapack-devel
-BuildRequires: opencv-devel
-BuildRequires: python34-devel
-BuildRequires: python34-libs
+BuildRequires: opencv-devel >= 3.2
+BuildRequires: python36-devel
+BuildRequires: python36-libs
 BuildRequires: libminimath-devel
-BuildRequires: mrbuild >= 0.61
-BuildRequires: mrbuild-tools >= 0.61
+BuildRequires: mrbuild >= 1.3
+BuildRequires: mrbuild-tools >= 1.3
 
 # I need to run the python stuff in order to build the manpages
-BuildRequires: numpysane
-BuildRequires: gnuplotlib
-BuildRequires: opencv-python
-BuildRequires: scipy
-BuildRequires: python34
+BuildRequires: numpysane >= 0.18-2
+BuildRequires: gnuplotlib >= 0.28-3
+BuildRequires: opencv-python36
+BuildRequires: python36-scipy
+BuildRequires: python36
 
-Requires: numpysane
-Requires: gnuplotlib
-Requires: opencv-python
-Requires: scipy
-Requires: python34
+Requires: numpysane >= 0.18-2
+Requires: gnuplotlib >= 0.28-3
+Requires: opencv-python36
+Requires: python36-numpy >= 1.14.5
+Requires: python36-scipy >= 0.18.1
+Requires: python36
 Requires: python-ipython-console
 
 %description
