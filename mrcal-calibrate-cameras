@@ -1367,7 +1367,7 @@ models = make_cameramodels(intrinsics, extrinsics, imagersizes,
                            invJtJ_intrinsics_observations_only)
 # The note says how we ran this, and contains the commented-out report
 note = \
-    "generated on '{}' with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+    "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                            ' '.join(mrcal.shellquote(s) for s in sys.argv)) + \
     re.sub(r"^(.)", r"# \1", report, flags=re.M)
 for i_camera in range(len(models)):
