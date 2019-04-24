@@ -578,26 +578,20 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      cameramodel          Input camera model. Assumed to be mrcal native, Unless
-                           the name is xxx.cahvor, in which case the cahvor format
-                           is assumed
+      model                Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor, in which case the cahvor format is
+                           assumed
 
   OPTIONAL ARGUMENTS
       -h, --help           show this help message and exit
       --to TO              The target distortion model
       --verbose            Report the solver details
       --viz                Visualize the difference
-      --where WHERE WHERE  I use a subset of the imager to compute the fit. The
-                           active region is a circle centered on this point. If
-                           omitted, we will focus on the center of the imager
-      --radius RADIUS      I use a subset of the imager to compute the fit. The
-                           active region is a circle with a radius given by this
-                           paramter. If radius == 0, I'll use the whole imager for
-                           the fit. If radius < 0, this parameter specifies the
-                           width of the region at the corners that I should
-                           ignore: I will use sqrt(width^2 + height^2) -
-                           abs(radius). This is valid ONLY if we're focussing at
-                           the center of the imager
+      --where WHERE WHERE  I use a subset of the imager to compute the fit. The active region is a circle centered on this point. If omitted, we
+                           will focus on the center of the imager
+      --radius RADIUS      I use a subset of the imager to compute the fit. The active region is a circle with a radius given by this paramter. If
+                           radius == 0, I'll use the whole imager for the fit. If radius < 0, this parameter specifies the width of the region at
+                           the corners that I should ignore: I will use sqrt(width^2 + height^2) - abs(radius). This is valid ONLY if we're
+                           focussing at the center of the imager
       --writecahvor        If given, we write the output in a cahvor file format
 
 
@@ -624,29 +618,21 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model                 Input camera model. Assumed to be mrcal native, unless
-                            the name is xxx.cahvor, in which case the cahvor
-                            format is assumed
+      model                 Input camera model. Assumed to be mrcal native, unless the name is xxx.cahvor, in which case the cahvor format is
+                            assumed
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
-                            report a 60x40 grid
-      --scale SCALE         Scale the vectors by this factor. Default is 1.0
-                            (report the truth), but this is often too small to see
-      --radial              Show the radial distortion scale factor instead of a
-                            colormap/vectorfield
-      --vectorfield         Plot the diff as a vector field instead of as a heat
-                            map. The vector field contains more information
-                            (magnitude AND direction), but is less clear at a
-                            glance
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we report a 60x40 grid
+      --scale SCALE         Scale the vectors by this factor. Default is 1.0 (report the truth), but this is often too small to see
+      --radial              Show the radial distortion scale factor instead of a colormap/vectorfield
+      --vectorfield         Plot the diff as a vector field instead of as a heat map. The vector field contains more information (magnitude AND
+                            direction), but is less clear at a glance
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
-      --hardcopy HARDCOPY   Write the output to disk, instead of making an
-                            interactive plot
-      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
-                            multiple times
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an interactive plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
 
 
 #+END_EXAMPLE
@@ -761,6 +747,10 @@ OPTIONS
                             map. The vector field contains more information
                             (magnitude AND direction), but is less clear at a
                             glance
+      --vectorscale VECTORSCALE
+                            If plotting a vectorfield, scale all the vectors by
+                            this factor. Useful if the vectors are too small to
+                            see
       --hardcopy HARDCOPY   Write the output to disk, instead of making an
                             interactive plot
       --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
@@ -853,11 +843,9 @@ DESCRIPTION
 OPTIONS
   OPTIONAL ARGUMENTS
       -h, --help   show this help message and exit
-      --from FROM  Camera model for the INPUT points. Assumed to be mrcal native,
-                   Unless the name is xxx.cahvor, in which case the cahvor format
+      --from FROM  Camera model for the INPUT points. Assumed to be mrcal native, Unless the name is xxx.cahvor, in which case the cahvor format
                    is assumed
-      --to TO      Camera model for the OUTPUT points. Assumed to be mrcal native,
-                   Unless the name is xxx.cahvor, in which case the cahvor format
+      --to TO      Camera model for the OUTPUT points. Assumed to be mrcal native, Unless the name is xxx.cahvor, in which case the cahvor format
                    is assumed
 
 
@@ -883,11 +871,9 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      intrinsics  Input camera model for the intrinsics. Assumed to be mrcal
-                  native, Unless the name is xxx.cahvor, in which case the cahvor
+      intrinsics  Input camera model for the intrinsics. Assumed to be mrcal native, Unless the name is xxx.cahvor, in which case the cahvor
                   format is assumed
-      extrinsics  Input camera model for the extrinsics. Assumed to be mrcal
-                  native, Unless the name is xxx.cahvor, in which case the cahvor
+      extrinsics  Input camera model for the extrinsics. Assumed to be mrcal native, Unless the name is xxx.cahvor, in which case the cahvor
                   format is assumed
 
   OPTIONAL ARGUMENTS
