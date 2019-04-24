@@ -10,20 +10,15 @@
 #include <string.h>
 
 
-#if defined OLD_OPENCV && OLD_OPENCV
-  #include <opencv2/calib3d/calib3d.hpp>
-#else
+// This is a workaround for OpenCV's stupidity: they decided to break their C
+// API. Without this you get undefined references to cvRound() if you build
+// without optimizations.
+static inline int cvRound(float value)
+{
+    return (int)(value + (value >= 0 ? 0.5f : -0.5f));
+}
 
-  // This is a workaround for OpenCV's stupidity: they decided to break their C
-  // API. Without this you get undefined references to cvRound() if you build
-  // without optimizations.
-  static inline int cvRound(float value)
-  {
-      return (int)(value + (value >= 0 ? 0.5f : -0.5f));
-  }
-
-  #include <opencv2/calib3d/calib3d_c.h>
-#endif
+#include <opencv2/calib3d/calib3d_c.h>
 
 #include <dogleg.h>
 
