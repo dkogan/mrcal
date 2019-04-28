@@ -2273,6 +2273,12 @@ def estimate_local_calobject_poses( indices_frame_camera,
                                     imagersizes          = None ):
     r"""Estimates pose of observed object in a single-camera view
 
+    Returns an array of shape (Nobservations, 4, 3) that contains a Rt
+    transformation from the reference calibration object frame to the camera
+    frame FOR EACH OBSERVATION. I.e multiple simultaneous observations of the
+    same calibration object will have multiple observations (views of multiple
+    cameras) and multiple entries in the returned array.
+
     Given observations, and an estimate of camera intrinsics (focal
     lengths/imager size/model) computes an estimate of the pose of the
     calibration object in respect to the camera for each frame. This assumes
@@ -2290,10 +2296,6 @@ def estimate_local_calobject_poses( indices_frame_camera,
     is the 2-vector corners[5,3,4,:]
 
     Missing observations are given as negative pixel coords.
-
-    This function returns an (Nobservations,4,3) array, with the observations
-    aligned with the corners and indices_frame_camera arrays. Each observation
-    slice is (4,3) in glue(R, t, axis=-2)
 
     The camera model must be given as either (but not both)
 
@@ -2343,9 +2345,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     Nobservations = indices_frame_camera.shape[0]
 
-    # this wastes memory, but makes it easier to keep track of which data goes
-    # with what
-    Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
+    Rt_all_cam_ref = np.zeros( (Nobservations, 4, 3), dtype=float)
 
     full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
@@ -2366,6 +2366,9 @@ def estimate_local_calobject_poses( indices_frame_camera,
         d = d[i,:]
 
         # copying because cv2.solvePnP() requires contiguous memory apparently
+
+        # observations has shape (Nwant*Nwant,2,1)
+        # ref_object   has shape (Nwant*Nwant,3,1)
         observations = np.array(d[:,:2][..., np.newaxis])
         ref_object   = np.array(d[:,2:][..., np.newaxis])
         result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
@@ -2388,7 +2391,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
                 raise Exception("retried solvePnP says that tvec.z <= 0")
 
 
-        Rt = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+        Rt_cam_ref = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
         # visualize the fit
         # x_cam    = nps.matmult(Rt[:3,:],ref_object)[..., 0] + Rt[3,:]
@@ -2402,10 +2405,10 @@ def estimate_local_calobject_poses( indices_frame_camera,
         # IPython.embed()
         # sys.exit()
 
-        Rt_all[i_observation, :, :] = Rt
+        Rt_all_cam_ref[i_observation, :, :] = Rt_cam_ref
 
 
-    return Rt_all
+    return Rt_all_cam_ref
 
 
 def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
