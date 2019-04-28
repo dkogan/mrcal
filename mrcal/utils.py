@@ -2266,10 +2266,12 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
 
 def estimate_local_calobject_poses( indices_frame_camera,
+                                    Ncameras,
                                     corners,
                                     dot_spacing,Nwant,
                                     models_or_intrinsics = None,
-                                    focals               = None,
+                                    fx                   = None,
+                                    fy                   = None,
                                     imagersizes          = None ):
     r"""Estimates pose of observed object in a single-camera view
 
@@ -2302,19 +2304,21 @@ def estimate_local_calobject_poses( indices_frame_camera,
     - cameramodel object or (distortion_model,intrinsics_data) tuple in the
       models_or_intrinsics argument
 
-    - a focal length estimate in the 'focals' argument, 'imagersizes'. This
+    - focal length estimates in the 'fx', 'fy' arguments, 'imagersizes'. This
       assumes a pinhole model
+
+    All of these camera specifications (fx,fy,imagersizes,models_or_intrinsics)
+    must be given as iterable items for each camera present
 
     """
 
     NintrinsicsGiven = 0
-    if models_or_intrinsics is not None:               NintrinsicsGiven += 1
-    if focals is not None and imagersizes is not None: NintrinsicsGiven += 1
-    else:
-        if focals is not None or imagersizes is not None:
-            raise Exception("Either ONLY models_or_intrinsics should be given OR BOTH focals,imagersizes should be given")
+    if models_or_intrinsics is not None:
+        NintrinsicsGiven += 1
+    if fx is not None and fy is not None and imagersizes is not None:
+        NintrinsicsGiven += 1
     if NintrinsicsGiven != 1:
-        raise Exception("Either ONLY models_or_intrinsics should be given OR BOTH focals,imagersizes should be given")
+        raise Exception("Either ONLY models_or_intrinsics should be given OR BOTH fx,fy,imagersizes should be given")
 
     if models_or_intrinsics is not None:
         # I'm given models. I remove the distortion so that I can pass the data
@@ -2337,8 +2341,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
             corners[i_observation,...] = mrcal.project(v, 'DISTORTION_NONE',
                                                        intrinsics_data[i_camera][:4])
     else:
-        fx = focals
-        fy = focals
+        # fx,fy are already set up
         cx = [ (i[0]-1.) / 2. for i in imagersizes ]
         cy = [ (i[1]-1.) / 2. for i in imagersizes ]
 
@@ -2803,9 +2806,11 @@ def make_seed_no_distortion( imagersizes,
     # The result has dimensions (N,4,3)
     calobject_poses_local_Rt = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
+                                              Ncameras,
                                               corners,
                                               dot_spacing, object_width_n,
-                                              focals      = (focal_estimate,),
+                                              fx          = np.ones((Ncameras,),dtype=float) * focal_estimate,
+                                              fy          = np.ones((Ncameras,),dtype=float) * focal_estimate,
                                               imagersizes = imagersizes)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
