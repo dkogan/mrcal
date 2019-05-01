@@ -127,15 +127,10 @@ if args.scale <= 1e-6:
     sys.stderr.write("--scale should be given a reasonable value > 0.\n")
     sys.exit(1)
 
-mapxy, intrinsics_pinhole, imagersize_pinhole = \
+mapxy, model_pinhole = \
     mrcal.undistort_image__compute_map(model,
-                                       scale_f_pinhole               = scale_f_pinhole,
-                                       scale_imagersize_pinhole      = args.scale,
-                                       report_new_pinhole_parameters = True)
-
-model_pinhole = mrcal.cameramodel( model )
-model_pinhole.intrinsics(imagersize_pinhole,
-                         ('DISTORTION_NONE', intrinsics_pinhole))
+                                       scale_f_pinhole          = scale_f_pinhole,
+                                       scale_imagersize_pinhole = args.scale)
 
 print("Corresponding pinhole model (cameramodel):")
 print("")

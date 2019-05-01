@@ -305,22 +305,26 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
 
 
 def undistort_image__compute_map(model,
-                                 scale_f_pinhole               = 1.0,
-                                 scale_imagersize_pinhole      = 1.0,
-                                 report_new_pinhole_parameters = False):
+                                 scale_f_pinhole          = 1.0,
+                                 scale_imagersize_pinhole = 1.0):
     r'''Computes a distortion map useful in undistort_image()
 
     Synopsis:
 
-        mapxy = mrcal.undistort_image__compute_map(model)
+        mapxy, model_pinhole = mrcal.undistort_image__compute_map(model)
         image_undistorted =
             mrcal.undistort_image(model, imagefile, mapxy = mapxy)
 
-    Results of this could be passed to undistort_image() in the "mapxy"
-    argument.
+    Returns a tuple:
 
-    Return an array of shape (2,Nheight,Nwidth) because this fits into what
-    cv2.remap() wants. And uses opencv-specific functions if possible, for
+    - mapxy: the undistortion map. This is a numpy array of shape
+          (2,Nheight,Nwidth) because this fits into what cv2.remap() wants.
+
+    - model_pinhole: the pinhole model used to construct this undistortion map.
+          This model has the same extrinsics as the input model
+
+    Results of this could be passed to undistort_image() in the "mapxy"
+    argument. This routine uses opencv-specific functions if possible, for
     performance
 
     '''
@@ -374,10 +378,11 @@ def undistort_image__compute_map(model,
 
         mapxy = nps.reorder(mapxy, -1, -2, -3).astype(np.float32)
 
-    if report_new_pinhole_parameters:
-        return mapxy, np.array((fx1,fy1,cx1,cy1)), np.array((W1,H1))
-    else:
-        return mapxy
+
+    model_pinhole = mrcal.cameramodel( model )
+    model_pinhole.intrinsics(np.array((W1,H1)),
+                             ('DISTORTION_NONE', np.array((fx1,fy1,cx1,cy1))))
+    return mapxy, model_pinhole
 
 
 def annotate_image__valid_intrinsics_region(model, image):
@@ -446,9 +451,9 @@ def undistort_image(model, image,
     #     return cv2.remap(image, mapx, mapy, cv2.INTER_LINEAR)
 
     if mapxy is None:
-        mapxy = undistort_image__compute_map(model,
-                                             scale_f_pinhole,
-                                             scale_imagersize_pinhole)
+        mapxy,_ = undistort_image__compute_map(model,
+                                               scale_f_pinhole,
+                                               scale_imagersize_pinhole)
     elif type(mapxy) is not np.ndarray:
         raise Exception('mapxy_cache MUST either be None or a numpy array')
 
