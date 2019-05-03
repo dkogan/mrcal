@@ -179,7 +179,7 @@ def _read(f):
                 distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
                 distortion_model = 'DISTORTION_CAHVOR'
 
-    m = mrcal.cameramodel.cameramodel()
+    m = mrcal.cameramodel()
     m.intrinsics( x['Dimensions'],
                   (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                distortions,
@@ -197,7 +197,7 @@ def read(f):
     The input is a filename or an opened file'''
 
     if f is None:
-        return mrcal.cameramodel.cameramodel()
+        return mrcal.cameramodel()
 
     if type(f) is mrcal.cameramodel:
         return f
