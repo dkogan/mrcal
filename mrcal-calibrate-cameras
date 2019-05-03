@@ -7,7 +7,7 @@ SYNOPSIS
   $ mrcal-calibrate-cameras
       --corners-cache corners.vnl
       --focal 1700 --object-spacing 0.01 --object-width-n 10
-      --out /tmp
+      --outdir /tmp
       --distortion-model DISTORTION_OPENCV8
       --observed-pixel-uncertainty 0.5
       'left*.png' 'right*.png'
@@ -107,7 +107,7 @@ Once we have gathered input images, we can run the calibration procedure:
     --focal 2000
     --object-spacing 0.1
     --object-width-n 10
-    --out /tmp
+    --outdir /tmp
     --distortion-model DISTORTION_OPENCV8
     --observed-pixel-uncertainty 1.0
     --explore
@@ -137,7 +137,7 @@ the specific chessboard object you are using. --object-width-n is the corner
 count of the calibration object. Currently mrgingham more or less assumes that
 this is 10.
 
---out specifies the directory where the output models will be written
+--outdir specifies the directory where the output models will be written
 
 --distortion-model specifies which distortion model we're using for the cameras.
 At this time all OpenCV distortion models are supported, in addition to
