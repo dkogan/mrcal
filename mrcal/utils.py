@@ -353,7 +353,7 @@ def homography_atinfinity_map( w, h, m0, m1 ):
 
     def get_components(m):
         m = cahvor(m)
-        e = m.extrinsics_Rt(True)
+        e = m.extrinsics_Rt_toref()
         fx,fy,cx,cy = m.intrinsics()[1][:4]
         return e[:3,:],fx,fy,cx,cy
 

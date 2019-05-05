@@ -262,7 +262,7 @@ for i in range(40): # this many trials
 
 sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
 m_to = mrcal.cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
-                          extrinsics_rt_fromref = m.extrinsics_rt(False),
+                          extrinsics_rt_fromref = m.extrinsics_rt_fromref(),
                           imagersize            = dims )
 
 if args.writecahvor:

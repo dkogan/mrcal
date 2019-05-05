@@ -184,7 +184,7 @@ def _read(f):
                   (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                distortions,
                                                axis = -1)))
-    m.extrinsics_Rt(True, nps.glue(R_toref,t_toref, axis=-2))
+    m.extrinsics_Rt_toref(nps.glue(R_toref,t_toref, axis=-2))
 
     # I write the whole thing into my structure so that I can pull it out later
     m.set_cookie(x)
@@ -228,7 +228,7 @@ def _write(f, m, note=None):
 
 
     fx,fy,cx,cy = intrinsics[:4]
-    Rt_toref = m.extrinsics_Rt(True)
+    Rt_toref = m.extrinsics_Rt_toref()
     R_toref = Rt_toref[:3,:]
     t_toref = Rt_toref[ 3,:]
 

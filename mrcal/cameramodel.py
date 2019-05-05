@@ -421,10 +421,10 @@ class cameramodel(object):
                             kwargs.get('invJtJ_intrinsics_observations_only'),
                             kwargs.get('valid_intrinsics_region_contour'))
 
-            if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt(True,  kwargs['extrinsics_Rt_toref'  ])
-            if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt(False, kwargs['extrinsics_Rt_fromref'])
-            if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt(True,  kwargs['extrinsics_rt_toref'  ])
-            if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt(False, kwargs['extrinsics_rt_fromref'])
+            if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt_toref  (kwargs['extrinsics_Rt_toref'  ])
+            if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt_fromref(kwargs['extrinsics_Rt_fromref'])
+            if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt_toref  (kwargs['extrinsics_rt_toref'  ])
+            if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt_fromref(kwargs['extrinsics_rt_fromref'])
 
 
 
@@ -506,7 +506,7 @@ class cameramodel(object):
         self._valid_intrinsics_region_contour     = _close_contour(valid_intrinsics_region_contour)
 
 
-    def extrinsics_rt(self, toref, rt=None):
+    def _extrinsics_rt(self, toref, rt=None):
         r'''Get or set the extrinsics in this model
 
         This function represents the pose as a 6-long numpy array that contains
@@ -548,7 +548,57 @@ class cameramodel(object):
         return True
 
 
-    def extrinsics_Rt(self, toref, Rt=None):
+    def extrinsics_rt_toref(self, rt=None):
+        r'''Get or set the extrinsics in this model
+
+        This function represents the pose as a 6-long numpy array that contains
+        a 3-long Rodrigues rotation followed by a 3-long translation in the last
+        row:
+
+          r = rt[:3]
+          t = rt[3:]
+          R = cv2.Rodrigues(r)[0]
+
+        The transformation is b <-- R*a + t:
+
+          import numpysane as nps
+          b = nps.matmult(a, nps.transpose(R)) + t
+
+        if rt is None: this is a getter; otherwise a setter.
+
+        In this function rt maps points in the coord system of THIS camera to
+        the reference coord system
+
+        '''
+        return self._extrinsics_rt(True, rt)
+
+
+    def extrinsics_rt_fromref(self, rt=None):
+        r'''Get or set the extrinsics in this model
+
+        This function represents the pose as a 6-long numpy array that contains
+        a 3-long Rodrigues rotation followed by a 3-long translation in the last
+        row:
+
+          r = rt[:3]
+          t = rt[3:]
+          R = cv2.Rodrigues(r)[0]
+
+        The transformation is b <-- R*a + t:
+
+          import numpysane as nps
+          b = nps.matmult(a, nps.transpose(R)) + t
+
+        if rt is None: this is a getter; otherwise a setter.
+
+        In this function Rt maps points in the REFERENCE coord system to the
+        coordinate system of THIS camera
+
+        '''
+        return self._extrinsics_rt(False, rt)
+
+
+    def _extrinsics_Rt(self, toref, Rt=None):
         r'''Get or set the extrinsics in this model
 
         This function represents the pose as a shape (4,3) numpy array that
@@ -581,7 +631,6 @@ class cameramodel(object):
                 return Rt_fromref
             return mrcal.invert_Rt(Rt_fromref)
 
-
         # setter
         if toref:
             Rt_fromref = mrcal.invert_Rt(Rt)
@@ -590,6 +639,54 @@ class cameramodel(object):
 
         self._extrinsics = mrcal.rt_from_Rt(Rt)
         return True
+
+
+    def extrinsics_Rt_toref(self, Rt=None):
+        r'''Get or set the extrinsics in this model
+
+        This function represents the pose as a shape (4,3) numpy array that
+        contains a (3,3) rotation matrix, followed by a (1,3) translation in the
+        last row:
+
+          R = Rt[:3,:]
+          t = Rt[ 3,:]
+
+        The transformation is b <-- R*a + t:
+
+          import numpysane as nps
+          b = nps.matmult(a, nps.transpose(R)) + t
+
+        if Rt is None: this is a getter; otherwise a setter.
+
+        In this function Rt maps points in the coord system of THIS camera to
+        the reference coord system
+
+        '''
+        return self._extrinsics_Rt(True, Rt)
+
+
+    def extrinsics_Rt_fromref(self, Rt=None):
+        r'''Get or set the extrinsics in this model
+
+        This function represents the pose as a shape (4,3) numpy array that
+        contains a (3,3) rotation matrix, followed by a (1,3) translation in the
+        last row:
+
+          R = Rt[:3,:]
+          t = Rt[ 3,:]
+
+        The transformation is b <-- R*a + t:
+
+          import numpysane as nps
+          b = nps.matmult(a, nps.transpose(R)) + t
+
+        if Rt is None: this is a getter; otherwise a setter.
+
+        In this function Rt maps points in the REFERENCE coord system to the
+        coordinate system of THIS camera
+
+        '''
+        return self._extrinsics_Rt(False, Rt)
 
 
     def imagersize(self, *args, **kwargs):
