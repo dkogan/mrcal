@@ -20,8 +20,8 @@ BuildRequires: opencv-devel >= 3.2
 BuildRequires: python36-devel
 BuildRequires: python36-libs
 BuildRequires: libminimath-devel
-BuildRequires: mrbuild >= 1.3
-BuildRequires: mrbuild-tools >= 1.3
+BuildRequires: mrbuild >= 1.4
+BuildRequires: mrbuild-tools >= 1.4
 
 # I need to run the python stuff in order to build the manpages
 BuildRequires: numpysane >= 0.18-2
