@@ -2266,20 +2266,10 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
 
 def estimate_local_calobject_poses( indices_frame_camera,
-                                    Ncameras,
                                     corners,
                                     dot_spacing,Nwant,
-                                    models_or_intrinsics = None,
-                                    fx                   = None,
-                                    fy                   = None,
-                                    imagersizes          = None ):
+                                    models_or_intrinsics ):
     r"""Estimates pose of observed object in a single-camera view
-
-    Returns an array of shape (Nobservations, 4, 3) that contains a Rt
-    transformation from the reference calibration object frame to the camera
-    frame FOR EACH OBSERVATION. I.e multiple simultaneous observations of the
-    same calibration object will have multiple observations (views of multiple
-    cameras) and multiple entries in the returned array.
 
     Given observations, and an estimate of camera intrinsics (focal
     lengths/imager size/model) computes an estimate of the pose of the
@@ -2299,56 +2289,45 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     Missing observations are given as negative pixel coords.
 
-    The camera model must be given as either (but not both)
+    This function returns an (Nobservations,4,3) array, with the observations
+    aligned with the corners and indices_frame_camera arrays. Each observation
+    slice is (4,3) in glue(R, t, axis=-2)
 
-    - cameramodel object or (distortion_model,intrinsics_data) tuple in the
-      models_or_intrinsics argument
+    The camera models are given in the "models_or_intrinsics" argument as a list
+    of either:
 
-    - focal length estimates in the 'fx', 'fy' arguments, 'imagersizes'. This
-      assumes a pinhole model
-
-    All of these camera specifications (fx,fy,imagersizes,models_or_intrinsics)
-    must be given as iterable items for each camera present
+    - cameramodel object
+    - (distortion_model,intrinsics_data) tuple
 
     """
 
-    NintrinsicsGiven = 0
-    if models_or_intrinsics is not None:
-        NintrinsicsGiven += 1
-    if fx is not None and fy is not None and imagersizes is not None:
-        NintrinsicsGiven += 1
-    if NintrinsicsGiven != 1:
-        raise Exception("Either ONLY models_or_intrinsics should be given OR BOTH fx,fy,imagersizes should be given")
 
-    if models_or_intrinsics is not None:
-        # I'm given models. I remove the distortion so that I can pass the data
-        # on to solvePnP()
-        distortion_models_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
-        distortion_models = [di[0] for di in distortion_models_intrinsics_data]
-        intrinsics_data   = [di[1] for di in distortion_models_intrinsics_data]
+    # I'm given models. I remove the distortion so that I can pass the data
+    # on to solvePnP()
+    distortion_models_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
+    distortion_models = [di[0] for di in distortion_models_intrinsics_data]
+    intrinsics_data   = [di[1] for di in distortion_models_intrinsics_data]
 
-        fx = [ i[0] for i in intrinsics_data ]
-        fy = [ i[1] for i in intrinsics_data ]
-        cx = [ i[2] for i in intrinsics_data ]
-        cy = [ i[3] for i in intrinsics_data ]
+    fx = [ i[0] for i in intrinsics_data ]
+    fy = [ i[1] for i in intrinsics_data ]
+    cx = [ i[2] for i in intrinsics_data ]
+    cy = [ i[3] for i in intrinsics_data ]
 
-        corners = corners.copy()
-        for i_observation in range(len(corners)):
-            i_camera = indices_frame_camera[i_observation,1]
+    corners = corners.copy()
+    for i_observation in range(len(corners)):
+        i_camera = indices_frame_camera[i_observation,1]
 
-            v = mrcal.unproject(corners[i_observation,...],
-                                distortion_models[i_camera], intrinsics_data[i_camera])
-            corners[i_observation,...] = mrcal.project(v, 'DISTORTION_NONE',
-                                                       intrinsics_data[i_camera][:4])
-    else:
-        # fx,fy are already set up
-        cx = [ (i[0]-1.) / 2. for i in imagersizes ]
-        cy = [ (i[1]-1.) / 2. for i in imagersizes ]
+        v = mrcal.unproject(corners[i_observation,...],
+                            distortion_models[i_camera], intrinsics_data[i_camera])
+        corners[i_observation,...] = mrcal.project(v, 'DISTORTION_NONE',
+                                                   intrinsics_data[i_camera][:4])
 
 
     Nobservations = indices_frame_camera.shape[0]
 
-    Rt_all_cam_ref = np.zeros( (Nobservations, 4, 3), dtype=float)
+    # this wastes memory, but makes it easier to keep track of which data goes
+    # with what
+    Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
     full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
@@ -2369,9 +2348,6 @@ def estimate_local_calobject_poses( indices_frame_camera,
         d = d[i,:]
 
         # copying because cv2.solvePnP() requires contiguous memory apparently
-
-        # observations has shape (Nwant*Nwant,2,1)
-        # ref_object   has shape (Nwant*Nwant,3,1)
         observations = np.array(d[:,:2][..., np.newaxis])
         ref_object   = np.array(d[:,2:][..., np.newaxis])
         result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
@@ -2394,7 +2370,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
                 raise Exception("retried solvePnP says that tvec.z <= 0")
 
 
-        Rt_cam_ref = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+        Rt = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
         # visualize the fit
         # x_cam    = nps.matmult(Rt[:3,:],ref_object)[..., 0] + Rt[3,:]
@@ -2408,10 +2384,10 @@ def estimate_local_calobject_poses( indices_frame_camera,
         # IPython.embed()
         # sys.exit()
 
-        Rt_all_cam_ref[i_observation, :, :] = Rt_cam_ref
+        Rt_all[i_observation, :, :] = Rt
 
 
-    return Rt_all_cam_ref
+    return Rt_all
 
 
 def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
@@ -2804,14 +2780,13 @@ def make_seed_no_distortion( imagersizes,
     # I get rotation, translation in a (4,3) array, such that R*calobject + t
     # produces the calibration object points in the coord system of the camera.
     # The result has dimensions (N,4,3)
+    intrinsics = [('DISTORTION_NONE', np.array((focal_estimate,focal_estimate, (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
+                  for imagersize in imagersizes]
     calobject_poses_local_Rt = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
-                                              Ncameras,
                                               corners,
                                               dot_spacing, object_width_n,
-                                              fx          = np.ones((Ncameras,),dtype=float) * focal_estimate,
-                                              fy          = np.ones((Ncameras,),dtype=float) * focal_estimate,
-                                              imagersizes = imagersizes)
+                                              intrinsics)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
 
