@@ -173,32 +173,43 @@ def unproject(q, distortion_model, intrinsics_data):
         @nps.broadcast_define( ((2,),), )
         def undistort_this(q0):
 
-            def cost(vxy):
+            def cost_have_gradients(vxy):
                 '''Optimization functions'''
                 q,dqdxyz,_ = mrcal.project(np.array((vxy[0],vxy[1],1.)), distortion_model, intrinsics_data,
                                            get_gradients=True)
                 return q - q0, dqdxyz[:,:2]
+            def cost_no_gradients(vxy, *args, **kwargs):
+                '''Optimization functions'''
+                return \
+                    mrcal.project(np.array((vxy[0],vxy[1],1.)), distortion_model, intrinsics_data) - \
+                    q0
 
             # scipy.optimize.least_squares() has separate callbacks for the
             # function value and jacobians, while I compute them at the same
             # time. I have a caching mechanism to avoid recomputation
             undistort_this.cache_pfJ = [None,None,None]
-            def f_callback(p, *args, **kwargs):
+            def f_callback_have_gradients(p, *args, **kwargs):
                 p_cache = undistort_this.cache_pfJ[0]
                 if p_cache is None or np.linalg.norm(p_cache - p) > 1e-12:
                     undistort_this.cache_pfJ[0]  = np.array(p)
-                    undistort_this.cache_pfJ[1:] = cost(p)
+                    undistort_this.cache_pfJ[1:] = cost_have_gradients(p)
                 return undistort_this.cache_pfJ[1]
-            def J_callback(p, *args, **kwargs):
+            def J_callback_have_gradients(p, *args, **kwargs):
                 p_cache = undistort_this.cache_pfJ[0]
                 if p_cache is None or np.linalg.norm(p_cache - p) > 1e-12:
                     undistort_this.cache_pfJ[0]  = np.array(p)
-                    undistort_this.cache_pfJ[1:] = cost(p)
+                    undistort_this.cache_pfJ[1:] = cost_have_gradients(p)
                 return undistort_this.cache_pfJ[2]
 
             # seed assuming distortions aren't there
             vxy_seed = (q0 - cxy) / fxy
-            result = scipy.optimize.least_squares(f_callback, vxy_seed, J_callback)
+            if distortion_model == 'DISTORTION_CAHVORE':
+                # no gradients available
+                result = scipy.optimize.least_squares(cost_no_gradients, vxy_seed,
+                                                      '3-point')
+            else:
+                result = scipy.optimize.least_squares(f_callback_have_gradients, vxy_seed,
+                                                      J_callback_have_gradients)
 
             vxy = result.x
 
