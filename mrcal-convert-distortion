@@ -92,7 +92,7 @@ def parse_args():
                         type=float,
                         default=0.,
                         help='''I use a subset of the imager to compute the fit. The active region is a
-                        circle with a radius given by this paramter. If radius
+                        circle with a radius given by this parameter. If radius
                         == 0, I'll use the whole imager for the fit. If radius <
                         0, this parameter specifies the width of the region at
                         the corners that I should ignore: I will use
