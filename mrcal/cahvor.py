@@ -180,7 +180,7 @@ def _read(f):
                 distortion_model = 'DISTORTION_CAHVOR'
 
     m = mrcal.cameramodel()
-    m.intrinsics( x['Dimensions'],
+    m.intrinsics( x['Dimensions'].astype(np.int32),
                   (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                distortions,
                                                axis = -1)))
