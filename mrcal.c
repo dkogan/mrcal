@@ -145,7 +145,7 @@ const char* const* mrcal_getSupportedDistortionModels( void )
 // DISTORTION_NONE, so the next model from DISTORTION_NONE is not well-defined
 // without more information
 distortion_model_t mrcal_getNextDistortionModel( distortion_model_t distortion_model_now,
-                                                      distortion_model_t distortion_model_final )
+                                                 distortion_model_t distortion_model_final )
 {
     // if we're at the start of a sequence...
     if(distortion_model_now == DISTORTION_NONE)
@@ -362,30 +362,30 @@ static int get_N_j_nonzero( int Ncameras,
 
 // internal function used by the optimizer
 static point2_t project( // out
-                              double*         dxy_dintrinsic_core,
-                              double*         dxy_dintrinsic_distortions,
-                              point3_t* dxy_drcamera,
-                              point3_t* dxy_dtcamera,
-                              point3_t* dxy_drframe,
-                              point3_t* dxy_dtframe,
+                         double*         dxy_dintrinsic_core,
+                         double*         dxy_dintrinsic_distortions,
+                         point3_t* dxy_drcamera,
+                         point3_t* dxy_dtcamera,
+                         point3_t* dxy_drframe,
+                         point3_t* dxy_dtframe,
 
-                              // in
-                              const intrinsics_core_t* intrinsics_core,
-                              const double* distortions,
-                              const pose_t* camera_rt,
-                              const pose_t* frame_rt,
-                              bool camera_at_identity, // if true, camera_rt is unused
-                              distortion_model_t distortion_model,
+                         // in
+                         const intrinsics_core_t* intrinsics_core,
+                         const double* distortions,
+                         const pose_t* camera_rt,
+                         const pose_t* frame_rt,
+                         bool camera_at_identity, // if true, camera_rt is unused
+                         distortion_model_t distortion_model,
 
-                              // point index. If <0, a point at the origin is
-                              // assumed, dxy_drframe is expected to be NULL and
-                              // thus not filled-in, and frame_rt->r will not be
-                              // referenced. And the calibration_object_...
-                              // variables aren't used either
-                              int i_pt,
+                         // point index. If <0, a point at the origin is
+                         // assumed, dxy_drframe is expected to be NULL and
+                         // thus not filled-in, and frame_rt->r will not be
+                         // referenced. And the calibration_object_...
+                         // variables aren't used either
+                         int i_pt,
 
-                              double calibration_object_spacing,
-                              int    calibration_object_width_n)
+                         double calibration_object_spacing,
+                         int    calibration_object_width_n)
 {
     int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
 
