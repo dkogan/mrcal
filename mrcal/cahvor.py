@@ -88,8 +88,11 @@ def _read(f):
               'DISTORTION_OPENCV5',
               'DISTORTION_OPENCV8',
               'DISTORTION_OPENCV12',
-              'DISTORTION_OPENCV14'):
+              'DISTORTION_OPENCV14',
+              'VALID_INTRINSICS_REGION_CONTOUR'):
         if i in x:
+            # Any data that's composed only of digits and whitespaces (no "."),
+            # use integers
             if re.match('[0-9\s]+$', x[i]): totype = int
             else:                           totype = float
             x[i] = np.array( [ totype(v) for v in re.split('\s+', x[i])], dtype=totype)
@@ -122,6 +125,9 @@ def _read(f):
         distortion_model = 'DISTORTION_NONE'
     else:
         is_cahvor_or_cahvore = True
+
+    x['VALID_INTRINSICS_REGION_CONTOUR'] = \
+        x['VALID_INTRINSICS_REGION_CONTOUR'].reshape( len(x['VALID_INTRINSICS_REGION_CONTOUR'])//2, 2)
 
     # get extrinsics from cahvor
     if 'Model' not in x:
@@ -183,7 +189,8 @@ def _read(f):
     m.intrinsics( x['Dimensions'].astype(np.int32),
                   (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                distortions,
-                                               axis = -1)))
+                                               axis = -1)),
+                  valid_intrinsics_region_contour = x['VALID_INTRINSICS_REGION_CONTOUR'])
     m.extrinsics_Rt_toref(nps.glue(R_toref,t_toref, axis=-2))
 
     # I write the whole thing into my structure so that I can pull it out later
@@ -263,6 +270,13 @@ def _write(f, m, note=None):
         f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(distortion_model, *intrinsics[4:]))
     elif len(intrinsics) != 4:
         raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, distortion_model={}".format(len(intrinsics), distortion_model))
+
+    c = m.valid_intrinsics_region_contour()
+    if c is not None:
+        f.write("VALID_INTRINSICS_REGION_CONTOUR = ")
+        np.savetxt(f, c.ravel(), fmt='%.2f', newline=' ')
+        f.write('\n')
+
     Hs,Vs,Hc,Vc = intrinsics[:4]
     f.write("Hs = {}\n".format(Hs))
     f.write("Hc = {}\n".format(Hc))
