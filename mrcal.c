@@ -3521,15 +3521,7 @@ mrcal_optimize( // out
             double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
             double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
 
-            bool say_regularization_details = VERBOSE;
-            if(ratio_regularization_cost > 0.05)
-            {
-                MSG("WARNING: REGULARIZATION COST RATIO IS  HIGH: %g. This may be ok",
-                    ratio_regularization_cost);
-                say_regularization_details = true;
-            }
-
-            if(say_regularization_details)
+            if(VERBOSE)
             {
                 for(int i=0; i<Nmeasurements_regularization; i++)
                 {
