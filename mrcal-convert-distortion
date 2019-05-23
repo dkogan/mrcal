@@ -209,7 +209,7 @@ v = mrcal.unproject( q, *m.intrinsics() )
 ### models such as DISTORTION_OPENCV8
 err_rms_best = 1e10
 intrinsics_values_best = np.array(())
-for i in range(40): # this many trials
+for i in range(10): # this many trials
     # random seed for the new intrinsics
     intrinsics_core = m.intrinsics()[1][:4]
     distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-8 # random initial seed
