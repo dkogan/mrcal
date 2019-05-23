@@ -1360,11 +1360,89 @@ print(report)
 
 
 
+
+
+
+projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n)
+err_including_outliers,err_0_for_outliers = \
+    mrcal.calobservations_compute_reproj_error(projected, observations,
+                                               indices_frame_camera, args.object_width_n,
+                                               stats['outlier_indices'])
+
+def get_goodness_contour(i_camera,
+                         ignore_outliers = True,
+                         focus_center = None, focus_radius = -1):
+
+    '''THIS FUNCTION IS MADE UP. PLEASE FIX'''
+    idx = np.ones( err_including_outliers.shape[:-1], dtype=bool)
+
+    if i_camera >= 0:
+        idx[indices_frame_camera[:,1] != i_camera, ...] = False
+    if ignore_outliers:
+        nps.clump(idx, n=3)[stats['outlier_indices']] = False
+
+    err = err_including_outliers[idx, ...]
+    obs = observations          [idx, ...]
+
+    W,H=imagersizes[i_camera]
+    if focus_center is None:
+        focus_center = (imagersizes[i_camera]-1.)/2.
+
+    gridn_x,gridn_y = 20,10
+    mean,stdev,count,using = \
+        mrcal.report_residual_statistics(obs,err, imagersizes[i_camera],
+                                         gridn_x = gridn_x,
+                                         gridn_y = gridn_y)
+
+    if invJtJ_intrinsics_observations_only is None:
+        raise Exception("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work")
+
+    err = mrcal.compute_intrinsics_uncertainty(intrinsics[0],
+                                               intrinsics[1][i_camera],
+                                               imagersizes  [i_camera],
+                                               args.observed_pixel_uncertainty,
+                                               invJtJ_intrinsics_observations_only[i_camera],
+
+                                               gridn_x      = gridn_x,
+                                               gridn_y      = gridn_y,
+                                               focus_center = focus_center,
+                                               focus_radius = focus_radius)
+
+    try:
+
+        sys.stderr.write("These thresholds for the valid-intrinsics-region are completely made up\n")
+        im = (err < 1) * (mean < 0.5) * (stdev < 1.5) * (count > 10)
+
+        # I compute the contour. OpenCV can't process binary images, so I need to
+        # convert to a different image type first. AND findContours() reports the
+        # coordinates in the opposite order as how they're given (image is x,y;
+        # returned coords are y,x). Ugh
+        contour = cv2.findContours(nps.transpose(im).astype(np.uint8).copy(),
+                                   cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)[1][0][:,0,:].astype(float)
+
+        # I convert the contours back to the full-res image coordinate. The grid
+        # mapping is based on the corner pixels
+        contour[:,0] *= float(W-1)/(gridn_x-1)
+        contour[:,1] *= float(H-1)/(gridn_y-1)
+
+        return contour.round().astype(np.int32)
+
+    except:
+        return None
+
+
+valid_intrinsics_region_contour = [get_goodness_contour(i) for i in range(Ncameras)]
+
+
+
+
 # Write the output models
 models = make_cameramodels(intrinsics, extrinsics, imagersizes,
                            args.observed_pixel_uncertainty,
                            invJtJ_intrinsics_full,
-                           invJtJ_intrinsics_observations_only)
+                           invJtJ_intrinsics_observations_only,
+                           valid_intrinsics_region_contour)
 # The note says how we ran this, and contains the commented-out report
 note = \
     "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -1413,12 +1491,6 @@ Potential things to look at:
 ''')
 
 
-projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n)
-
-err_including_outliers,err_0_for_outliers = \
-    mrcal.calobservations_compute_reproj_error(projected, observations,
-                                               indices_frame_camera, args.object_width_n,
-                                               stats['outlier_indices'])
 rms_err_including_outliers_perimage = np.sqrt( nps.norm2( nps.clump(err_including_outliers,n=-3) ) /
                                                (args.object_width_n*args.object_width_n) )
 rms_err_0_for_outliers_perimage     = np.sqrt( nps.norm2( nps.clump(err_0_for_outliers,    n=-3) ) /
