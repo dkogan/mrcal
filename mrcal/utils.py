@@ -971,6 +971,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                                 observed_pixel_uncertainty,
                                 invJtJ_intrinsics,
                                 outlierness      = False,
+                                valid_intrinsics_region = None,
                                 gridn_x          = 60,
                                 gridn_y          = 40,
 
@@ -1041,6 +1042,19 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                           'key box opaque',
                           'cntrparam levels incremental 10,-0.2,0'])
 
+    plot_data_args = [(nps.transpose(err), # err has shape (W,H), but the plotter wants
+                                           # what numpy wants: (H,W)
+                       dict( tuplesize=3,
+                             _with=np.array(('image','lines nosurface'),),
+                             legend = "", # needed to force contour labels
+                             using = colormap_using(imagersize, gridn_x, gridn_y)))]
+
+    if valid_intrinsics_region is not None:
+        plot_data_args.append( (valid_intrinsics_region[:,0],
+                                valid_intrinsics_region[:,1],
+                                np.zeros(valid_intrinsics_region.shape[-2]),
+                                dict(_with  = 'lines lw 3',
+                                     legend = "Valid-intrinsics region")) )
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
@@ -1055,12 +1069,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     # plotting the data a second time.
     # Yuck.
     # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-    plot.plot(nps.transpose(err), # err has shape (W,H), but the plotter wants
-                                  # what numpy wants: (H,W)
-              tuplesize=3,
-              _with=np.array(('image','lines nosurface'),),
-              legend = "", # needed to force contour labels
-              using = colormap_using(imagersize, gridn_x, gridn_y))
+    plot.plot(*plot_data_args)
     return plot
 
 def report_residual_statistics( obs, err,

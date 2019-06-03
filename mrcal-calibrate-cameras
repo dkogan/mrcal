@@ -560,7 +560,7 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
                               observed_pixel_uncertainty          = observed_pixel_uncertainty,
                               invJtJ_intrinsics_full              = invJtJ_intrinsics_full,
                               invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only,
-                              valid_intrinsics_region     = valid_intrinsics_region)
+                              valid_intrinsics_region             = valid_intrinsics_region)
 
 def make_cameramodels(intrinsics, extrinsics, imagersizes,
                       observed_pixel_uncertainty,
@@ -1758,6 +1758,19 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
         err = err[idx, ...]
     # err,obs are now both of shape (N,2). Each slice is xy
 
+    valid_intrinsics_region_plotarg = None
+    if i_camera >= 0:
+        valid_intrinsics_region_plotarg_3d = \
+            (valid_intrinsics_region[i_camera][:,0],
+             valid_intrinsics_region[i_camera][:,1],
+             np.zeros(valid_intrinsics_region[i_camera].shape[-2]),
+             dict(_with  = 'lines lw 3',
+                  legend = "Valid-intrinsics region"))
+        valid_intrinsics_region_plotarg_2d = \
+            (valid_intrinsics_region[i_camera][:,0],
+             valid_intrinsics_region[i_camera][:,1],
+             dict(_with  = 'lines lw 3',
+                  legend = "Valid-intrinsics region"))
     if how == 'vectorfield':
         plots_how[i_camera+1] = \
             gp.gnuplotlib( square=1,
@@ -1767,12 +1780,14 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                            xlabel = 'Imager x',
                            ylabel = 'Imager y',
                            **kwargs)
-        plots_how[i_camera+1]. \
-            plot( obs[:,0], obs[:,1],
-                  err[:,0], err[:,1],
-                  np.sqrt(nps.norm2(err)),
-                  _with='vectors size screen 0.01,20 fixed filled palette',
-                  tuplesize=5)
+        plot_data_args = [(obs[:,0], obs[:,1],
+                           err[:,0], err[:,1],
+                           np.sqrt(nps.norm2(err)),
+                           dict(_with='vectors size screen 0.01,20 fixed filled palette',
+                                tuplesize=5))]
+        if valid_intrinsics_region_plotarg_2d is not None:
+            plot_data_args.append(valid_intrinsics_region_plotarg_2d)
+        plots_how[i_camera+1].plot(*plot_data_args)
     elif how == 'heatmap':
         plots_how[i_camera+1] = \
             gp.gnuplotlib( square=1,
@@ -1782,10 +1797,12 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                            xlabel = 'Imager x',
                            ylabel = 'Imager y',
                            **kwargs)
-        plots_how[i_camera+1]. \
-            plot( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
-                  _with='points pt 7 palette',
-                  tuplesize=3)
+        plot_data_args = [( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
+                            dict(_with='points pt 7 palette',
+                                 tuplesize=3))]
+        if valid_intrinsics_region_plotarg_2d is not None:
+            plot_data_args.append(valid_intrinsics_region_plotarg_2d)
+        plots_how[i_camera+1].plot(*plot_data_args)
 
     elif how == 'histogram':
 
@@ -1885,7 +1902,13 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                                        'view map'],
                                title = title,
                                **kwargs_here)
-            p.plot(nps.transpose(x), tuplesize=3, _with='image', using=using)
+            plot_data_args = [( nps.transpose(x),
+                                dict(tuplesize=3,
+                                     _with='image',
+                                     using=using))]
+            if valid_intrinsics_region_plotarg_3d is not None:
+                plot_data_args.append(valid_intrinsics_region_plotarg_3d)
+            p.plot(*plot_data_args)
             return p
 
         plots_how[i_camera+1] = [ mkplot(np.abs(mean), 'abs(mean)'),
@@ -1915,6 +1938,7 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
                                               args.observed_pixel_uncertainty,
                                               invJtJ_intrinsics_full[i_camera] if outlierness else invJtJ_intrinsics_observations_only[i_camera],
                                               outlierness,
+                                              valid_intrinsics_region[i_camera],
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_x=gridn_x,
                                               gridn_y=gridn_y,
@@ -1928,7 +1952,7 @@ def show_valid_intrinsics_region(i_camera = None, **kwargs):
         plots_valid_intrinsics_region[i_camera] = \
             mrcal.show_valid_intrinsics_region(models[i_camera],
                                                title = "Valid-intrinsics region for camera {}".format(i_camera),
-                                              **kwargs)
+                                               **kwargs)
 
 plots_distortion = [None] * Ncameras
 def show_distortion(mode, i_camera, gridn_x = 60, gridn_y = 40, **kwargs):
