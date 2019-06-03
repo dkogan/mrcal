@@ -1473,7 +1473,8 @@ Potential things to look at:
 
     show_residuals_observation_worst(i_observation_in_order_from_worst)
     show_residuals_observation(i_observation, scale=20)
-    show_intrinsics_uncertainty()
+    show_intrinsics_uncertainty(i_camera)
+    show_valid_intrinsics_region(i_camera)
     show_residuals('histogram',   i_camera)
     show_residuals('vectorfield', i_camera, ignore_outliers=False)
     show_residuals('heatmap',     i_camera)
@@ -1918,6 +1919,15 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
                                               gridn_x=gridn_x,
                                               gridn_y=gridn_y,
                                               cbmax=5,
+                                              **kwargs)
+plots_valid_intrinsics_region = [None] * Ncameras
+def show_valid_intrinsics_region(i_camera = None, **kwargs):
+    global plots_valid_intrinsics_region
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    for i_camera in i_camera_all:
+        plots_valid_intrinsics_region[i_camera] = \
+            mrcal.show_valid_intrinsics_region(models[i_camera],
+                                               title = "Valid-intrinsics region for camera {}".format(i_camera),
                                               **kwargs)
 
 plots_distortion = [None] * Ncameras
