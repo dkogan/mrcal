@@ -1100,7 +1100,7 @@ def report_residual_statistics( obs, err,
     def residual_stats(xy, z, center):
         r'''Generates localized residual statistics
 
-        Tekes in an array of residuals of shape (N,3) (contains (x,y,error)
+        Takes in an array of residuals of shape (N,3) (contains (x,y,error)
         slices)
 
         '''
