@@ -78,7 +78,7 @@ import mrcal
 
 model = mrcal.cameramodel(args.model)
 
-if model.valid_intrinsics_region_contour() is None:
+if model.valid_intrinsics_region() is None:
     raise Exception("The given model has no valid-intrinsics contour, so there's nothing to visualize")
 
 if args.writeimage:

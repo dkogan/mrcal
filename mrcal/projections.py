@@ -412,9 +412,9 @@ def annotate_image__valid_intrinsics_region(model, image):
     if not isinstance(image, np.ndarray):
         image = cv2.imread(image)
 
-    valid_intrinsics_region_contour = model.valid_intrinsics_region_contour()
-    if valid_intrinsics_region_contour is not None:
-        cv2.polylines(image, [valid_intrinsics_region_contour], True, (0,0,255), 3)
+    valid_intrinsics_region = model.valid_intrinsics_region()
+    if valid_intrinsics_region is not None:
+        cv2.polylines(image, [valid_intrinsics_region], True, (0,0,255), 3)
     return image
 
 

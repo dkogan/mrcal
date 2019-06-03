@@ -519,7 +519,7 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
                      observed_pixel_uncertainty,
                      invJtJ_intrinsics_full,
                      invJtJ_intrinsics_observations_only,
-                     valid_intrinsics_region_contour = None):
+                     valid_intrinsics_region = None):
     r'''Assemble one cameramodel from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -551,8 +551,8 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
         invJtJ_intrinsics_full = invJtJ_intrinsics_full[i_camera, ...]
     if invJtJ_intrinsics_observations_only is not None:
         invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only[i_camera, ...]
-    if valid_intrinsics_region_contour is not None:
-        valid_intrinsics_region_contour = valid_intrinsics_region_contour[i_camera]
+    if valid_intrinsics_region is not None:
+        valid_intrinsics_region = valid_intrinsics_region[i_camera]
 
     return mrcal.cameramodel( intrinsics                          = (intrinsics[0], intrinsics[1][i_camera,:]),
                               extrinsics_Rt_toref                 = Rt_rx,
@@ -560,13 +560,13 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
                               observed_pixel_uncertainty          = observed_pixel_uncertainty,
                               invJtJ_intrinsics_full              = invJtJ_intrinsics_full,
                               invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only,
-                              valid_intrinsics_region_contour     = valid_intrinsics_region_contour)
+                              valid_intrinsics_region     = valid_intrinsics_region)
 
 def make_cameramodels(intrinsics, extrinsics, imagersizes,
                       observed_pixel_uncertainty,
                       invJtJ_intrinsics_full,
                       invJtJ_intrinsics_observations_only,
-                      valid_intrinsics_region_contour = None):
+                      valid_intrinsics_region = None):
     r'''Assemble cameramodels from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -579,7 +579,7 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
                               observed_pixel_uncertainty,
                               invJtJ_intrinsics_full,
                               invJtJ_intrinsics_observations_only,
-                              valid_intrinsics_region_contour) for i_camera in range(len(intrinsics[1])) ]
+                              valid_intrinsics_region) for i_camera in range(len(intrinsics[1])) ]
 
 
 # # Test for this function
@@ -1432,7 +1432,7 @@ def get_goodness_contour(i_camera,
         return None
 
 
-valid_intrinsics_region_contour = [get_goodness_contour(i) for i in range(Ncameras)]
+valid_intrinsics_region = [get_goodness_contour(i) for i in range(Ncameras)]
 
 
 
@@ -1442,7 +1442,7 @@ models = make_cameramodels(intrinsics, extrinsics, imagersizes,
                            args.observed_pixel_uncertainty,
                            invJtJ_intrinsics_full,
                            invJtJ_intrinsics_observations_only,
-                           valid_intrinsics_region_contour)
+                           valid_intrinsics_region)
 # The note says how we ran this, and contains the commented-out report
 note = \
     "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),

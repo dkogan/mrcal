@@ -191,7 +191,7 @@ def _read(f):
                   (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                distortions,
                                                axis = -1)),
-                  valid_intrinsics_region_contour = x.get('VALID_INTRINSICS_REGION_CONTOUR'))
+                  valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION_CONTOUR'))
     m.extrinsics_Rt_toref(nps.glue(R_toref,t_toref, axis=-2))
 
     # I write the whole thing into my structure so that I can pull it out later
@@ -272,7 +272,7 @@ def _write(f, m, note=None):
     elif len(intrinsics) != 4:
         raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, distortion_model={}".format(len(intrinsics), distortion_model))
 
-    c = m.valid_intrinsics_region_contour()
+    c = m.valid_intrinsics_region()
     if c is not None:
         f.write("VALID_INTRINSICS_REGION_CONTOUR = ")
         np.savetxt(f, c.ravel(), fmt='%.2f', newline=' ')

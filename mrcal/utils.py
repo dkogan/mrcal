@@ -1763,7 +1763,7 @@ def show_intrinsics_diff(models,
                                   using = colormap_using(imagersizes[0], gridn_x, gridn_y)
                             )) ]
 
-    valid_region0 = models[0].valid_intrinsics_region_contour()
+    valid_region0 = models[0].valid_intrinsics_region()
     if valid_region0 is not None:
         if vectorfield:
             # 2d plot
@@ -1776,7 +1776,7 @@ def show_intrinsics_diff(models,
                                     dict(_with = 'lines lw 3',
                                          legend = "valid region of 1st camera")) )
 
-    valid_region1 = models[1].valid_intrinsics_region_contour()
+    valid_region1 = models[1].valid_intrinsics_region()
     if len(models) == 2 and valid_region1 is not None:
         # The second camera has a valid region, and I should plot it. This has
         # more complexity: each point on the contour of the valid region of the
@@ -1842,7 +1842,7 @@ def show_valid_intrinsics_region(model,
         else:
             kwargs['rgbimage'] = image
 
-    valid_region = model.valid_intrinsics_region_contour()
+    valid_region = model.valid_intrinsics_region()
     plot_data_args.append( (valid_region[:,0], valid_region[:,1],
                             dict(_with = 'lines lw 3')) )
 
