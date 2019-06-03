@@ -1411,7 +1411,7 @@ def get_goodness_contour(i_camera,
     try:
 
         sys.stderr.write("These thresholds for the valid-intrinsics-region are completely made up\n")
-        im = (err < 1) * (mean < 0.5) * (stdev < 1.5) * (count > 10)
+        im = (err < 1) * (mean < 0.5) * (stdev < 1.5) * (count > 3)
 
         # I compute the contour. OpenCV can't process binary images, so I need to
         # convert to a different image type first. AND findContours() reports the
