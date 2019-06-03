@@ -136,18 +136,6 @@ def _validateIntrinsics(imagersize,
         except:
             raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 3")
 
-def _close_contour(c):
-    r'''If a given polyline isn't closed, close it
-
-    Takes in a numpy array of shape (N,2): a sequence of 2d points. If the first
-    point and the last point are identical, returns the input. Otherwise returns
-    the same array as the input, except the first point is duplicated at the end
-    '''
-    if c is None: return None
-    if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
-        return c
-    return nps.glue(c, c[0,:], axis=-2)
-
 class cameramodel(object):
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
 
@@ -319,7 +307,7 @@ class cameramodel(object):
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
         self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
         self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
-        self._valid_intrinsics_region     = _close_contour(valid_intrinsics_region)
+        self._valid_intrinsics_region             = mrcal.close_contour(valid_intrinsics_region)
         self._extrinsics                          = np.array(model['extrinsics'], dtype=float)
         self._imagersize                          = np.array(model['imagersize'], dtype=np.int32)
 
@@ -378,7 +366,7 @@ class cameramodel(object):
                 self._observed_pixel_uncertainty          = copy.deepcopy(file_or_model._observed_pixel_uncertainty)
                 self._invJtJ_intrinsics_full              = copy.deepcopy(file_or_model._invJtJ_intrinsics_full)
                 self._invJtJ_intrinsics_observations_only = copy.deepcopy(file_or_model._invJtJ_intrinsics_observations_only)
-                self._valid_intrinsics_region     = copy.deepcopy(_close_contour(file_or_model._valid_intrinsics_region))
+                self._valid_intrinsics_region             = copy.deepcopy(mrcal.close_contour(file_or_model._valid_intrinsics_region))
 
 
             elif type(file_or_model) is str:
@@ -503,7 +491,7 @@ class cameramodel(object):
         self._observed_pixel_uncertainty          = observed_pixel_uncertainty
         self._invJtJ_intrinsics_full              = invJtJ_intrinsics_full
         self._invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only
-        self._valid_intrinsics_region     = _close_contour(valid_intrinsics_region)
+        self._valid_intrinsics_region             = mrcal.close_contour(valid_intrinsics_region)
 
 
     def _extrinsics_rt(self, toref, rt=None):

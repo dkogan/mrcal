@@ -1420,6 +1420,7 @@ def get_goodness_contour(i_camera,
         contour = cv2.findContours(nps.transpose(im).astype(np.uint8).copy(),
                                    cv2.RETR_EXTERNAL,
                                    cv2.CHAIN_APPROX_SIMPLE)[1][0][:,0,:].astype(float)
+        contour = mrcal.close_contour(contour)
 
         # I convert the contours back to the full-res image coordinate. The grid
         # mapping is based on the corner pixels

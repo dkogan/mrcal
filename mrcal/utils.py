@@ -2830,3 +2830,16 @@ def make_seed_no_distortion( imagersizes,
                                    dot_spacing,
                                    object_width_n)
     return intrinsics_data,extrinsics,frames
+
+
+def close_contour(c):
+    r'''If a given polyline isn't closed, close it
+
+    Takes in a numpy array of shape (N,2): a sequence of 2d points. If the first
+    point and the last point are identical, returns the input. Otherwise returns
+    the same array as the input, except the first point is duplicated at the end
+    '''
+    if c is None: return None
+    if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
+        return c
+    return nps.glue(c, c[0,:], axis=-2)
