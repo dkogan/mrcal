@@ -103,7 +103,7 @@ else:
     if args.extraset is not None:
         plotkwargs_extra['set'] = args.extraset
 
-    plot = mrcal.plot_valid_intrinsics_region( \
+    plot = mrcal.show_valid_intrinsics_region( \
                model, args.image,
                hardcopy = args.hardcopy,
                title    = args.title,

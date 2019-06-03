@@ -404,7 +404,7 @@ def annotate_image__valid_intrinsics_region(model, image):
     can be a filename or a numpy array. The camera model should contain the
     valid-intrinsics region; if not, the image is returned as is.
 
-    This is similar to mrcal.plot_valid_intrinsics_region(), but instead of
+    This is similar to mrcal.show_valid_intrinsics_region(), but instead of
     making a plot, it creates an image
 
     '''

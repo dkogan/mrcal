@@ -1804,7 +1804,7 @@ def show_intrinsics_diff(models,
     return plot
 
 
-def plot_valid_intrinsics_region(model, image,
+def show_valid_intrinsics_region(model, image,
                                  title    = None,
                                  hardcopy = None,
                                  kwargs   = None):
