@@ -312,6 +312,21 @@ def Rt_from_pq(pq):
     R = mrcal.poseutils.R_from_quat(q)
     return nps.glue(R,p, axis=-2)
 
+def pq_from_Rt(Rt):
+    r'''Converts an Rt transformation to an pq transformation
+
+    pq is a 7-long array: a 3-long translation followed by a 4-long unit
+    quaternion.
+
+    Rt is a (4,3) array: a (3,3) rotation matrix with a 3-long translation in
+    the last row
+
+    '''
+
+    R = Rt[:3,:]
+    t = Rt[ 3,:]
+    q = mrcal.poseutils.quat_from_R(R)
+    return nps.glue(t,q, axis=-1)
 
 def read_transforms(f):
     r'''Reads a file (a filename string, or a file-like object: an iterable
