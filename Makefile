@@ -30,7 +30,11 @@ DIST_BIN :=					\
 	mrcal-show-intrinsics-diff		\
 	mrcal-undistort-image			\
 	mrcal-redistort-points			\
-	mrcal-graft-cameramodel
+	mrcal-graft-cameramodel                 \
+	mrcal-show-valid-intrinsics-region      \
+	mrcal-check-intrinsics                  \
+	mrcal-to-cahvor                         \
+	mrcal-to-cameramodel
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
 # hack because apparenly manpages from python tools is a crazy thing to want to

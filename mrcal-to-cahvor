@@ -1,0 +1,58 @@
+#!/usr/bin/python3
+
+
+r'''Converts model to the cahvor file format
+
+SYNOPSIS
+
+  $ mrcal-to-cahvor model.cameramodel
+  Wrote model.cahvor
+
+
+DESCRIPTION
+
+This tool converts a given model to the cahvor file format. No changes to the
+content are made; this is purely a format converter
+
+'''
+
+
+from __future__ import print_function
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('model',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        help='''Input camera model''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+import os
+
+base,extension = os.path.splitext(args.model)
+if extension.lower() == '.cahvor':
+    sys.stderr.write("Input file is already in the cahvor format (judging from the filename). Doing nothing\n")
+    sys.exit()
+
+import mrcal
+m = mrcal.cameramodel(args.model)
+
+filename_out = base + '.cahvor'
+m.write(filename_out)
+print("Wrote " + filename_out)
