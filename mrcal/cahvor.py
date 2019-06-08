@@ -89,7 +89,7 @@ def _read(f):
               'DISTORTION_OPENCV8',
               'DISTORTION_OPENCV12',
               'DISTORTION_OPENCV14',
-              'VALID_INTRINSICS_REGION_CONTOUR'):
+              'VALID_INTRINSICS_REGION'):
         if i in x:
             # Any data that's composed only of digits and whitespaces (no "."),
             # use integers
@@ -126,9 +126,9 @@ def _read(f):
     else:
         is_cahvor_or_cahvore = True
 
-    if 'VALID_INTRINSICS_REGION_CONTOUR' in x:
-        x['VALID_INTRINSICS_REGION_CONTOUR'] = \
-            x['VALID_INTRINSICS_REGION_CONTOUR'].reshape( len(x['VALID_INTRINSICS_REGION_CONTOUR'])//2, 2)
+    if 'VALID_INTRINSICS_REGION' in x:
+        x['VALID_INTRINSICS_REGION'] = \
+            x['VALID_INTRINSICS_REGION'].reshape( len(x['VALID_INTRINSICS_REGION'])//2, 2)
 
     # get extrinsics from cahvor
     if 'Model' not in x:
@@ -191,7 +191,7 @@ def _read(f):
                   (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                distortions,
                                                axis = -1)),
-                  valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION_CONTOUR'))
+                  valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION'))
     m.extrinsics_Rt_toref(nps.glue(R_toref,t_toref, axis=-2))
 
     # I write the whole thing into my structure so that I can pull it out later
@@ -274,7 +274,7 @@ def _write(f, m, note=None):
 
     c = m.valid_intrinsics_region()
     if c is not None:
-        f.write("VALID_INTRINSICS_REGION_CONTOUR = ")
+        f.write("VALID_INTRINSICS_REGION = ")
         np.savetxt(f, c.ravel(), fmt='%.2f', newline=' ')
         f.write('\n')
 
