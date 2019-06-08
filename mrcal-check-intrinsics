@@ -1,21 +1,11 @@
 #!/usr/bin/python3
 
 
-r'''Takes a model and a single chessboard observation. Fits that observation to
-the model, and reports the fit. If the intrinsics line up, we'll see a good fit.
-
-
-WRITE DOC THING!
-
-
-
-
-
-Converts a camera model from one distortion model to another
+r'''Converts a camera model from one distortion model to another
 
 SYNOPSIS
 
-  $ mrcal-check-intrinsicsr
+  $ mrcal-check-intrinsics
       --viz --to DISTORTION_OPENCV4 left.cameramodel
       > left.opencv4.cameramodel
 
@@ -27,6 +17,12 @@ SYNOPSIS
 
 
 DESCRIPTION
+
+Takes a model and a single chessboard observation. Fits that observation to
+
+the model, and reports the fit. If the intrinsics line up, we'll see a good fit.
+
+
 
 This is a tool to convert a given camera model from one distortion model to
 another. The input and output models have identical extrinsics and an identical
