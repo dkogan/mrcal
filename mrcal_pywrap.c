@@ -254,7 +254,7 @@ static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
     return result;
 }
 static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* self,
-                                                          PyObject* args)
+                                                                 PyObject* args)
 {
     if( self->ctx == NULL )
     {
@@ -1322,7 +1322,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     SET_SIZE0_IF_NONE(extrinsics,                 NPY_DOUBLE, 0,6);
 
     SET_SIZE0_IF_NONE(frames,                     NPY_DOUBLE, 0,6);
-    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,2);
+    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,2); // arbitrary numbers; shouldn't matter
     SET_SIZE0_IF_NONE(indices_frame_camera_board, NPY_INT,    0,2);
 
     SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
@@ -1349,11 +1349,10 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         int NobservationsPoint = PyArray_DIMS(observations_point)[0];
 
         // The checks in optimize_validate_args() make sure these casts are kosher
-        double*       c_intrinsics = (double*)  PyArray_DATA(intrinsics);
-        pose_t*       c_extrinsics = (pose_t*)  PyArray_DATA(extrinsics);
-        pose_t*       c_frames     = (pose_t*)  PyArray_DATA(frames);
-        point3_t*     c_points     = (point3_t*)PyArray_DATA(points);
-
+        double*       c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
+        pose_t*       c_extrinsics     = (pose_t*)  PyArray_DATA(extrinsics);
+        pose_t*       c_frames         = (pose_t*)  PyArray_DATA(frames);
+        point3_t*     c_points         = (point3_t*)PyArray_DATA(points);
 
 
         observation_board_t c_observations_board[NobservationsBoard];

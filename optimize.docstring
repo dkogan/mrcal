@@ -6,7 +6,7 @@ SYNOPSIS
                             extrinsics,
                             frames, points
                             observations_board, indices_frame_camera,
-                            observations_point, indices_point_camera_points, 
+                            observations_point, indices_point_camera_points,
 
                             distortion_model,
                             imagersizes                       = imagersizes,

@@ -5,7 +5,6 @@
 
 #include "mrcal.h"
 
-
 int main(int argc, char* argv[] )
 {
     const char* usage = "Usage: %s DISTORTION_XXX [problem-details problem-details ...]\n"

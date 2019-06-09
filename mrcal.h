@@ -89,12 +89,6 @@ typedef struct
                                                      .do_optimize_frames                = true, \
                                                      .do_optimize_cahvor_optical_axis   = true, \
                                                      .do_skip_regularization            = false})
-#define IS_OPTIMIZE_NONE(x)                     \
-    (!(x).do_optimize_intrinsic_core &&         \
-     !(x).do_optimize_intrinsic_distortions &&  \
-     !(x).do_optimize_extrinsics &&             \
-     !(x).do_optimize_frames)
-
 
 const char*             mrcal_distortion_model_name       ( distortion_model_t model );
 distortion_model_t      mrcal_distortion_model_from_name  ( const char* name );
@@ -117,7 +111,7 @@ const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-term
 // DISTORTION_NONE, so the next model from DISTORTION_NONE is not well-defined
 // without more information
 distortion_model_t mrcal_getNextDistortionModel( distortion_model_t distortion_model_now,
-                                                      distortion_model_t distortion_model_final);
+                                                 distortion_model_t distortion_model_final);
 
 void mrcal_project( // out
                    point2_t* out,
@@ -125,8 +119,8 @@ void mrcal_project( // out
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics)
                    double*         dxy_dintrinsics,
-                   // Stored as a row-first array of shape (N,2). Each element
-                   // of this array is a point3_t
+                   // Stored as a row-first array of shape (N,2,3). Each
+                   // trailing ,3 dimension element is a point3_t
                    point3_t* dxy_dp,
 
                    // in

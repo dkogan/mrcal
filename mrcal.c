@@ -322,8 +322,8 @@ static int get_N_j_nonzero( int Ncameras,
     // initial estimate counts extrinsics for camera0, which need to be
     // subtracted off
     int Nintrinsics = getNintrinsicOptimizationParams(problem_details, distortion_model);
-    int N = NobservationsBoard * ( (problem_details.do_optimize_frames     ? 6 : 0) +
-                                   (problem_details.do_optimize_extrinsics ? 6 : 0) +
+    int N = NobservationsBoard * ( (problem_details.do_optimize_frames         ? 6 : 0) +
+                                   (problem_details.do_optimize_extrinsics     ? 6 : 0) +
                                    + Nintrinsics );
     if(problem_details.do_optimize_extrinsics)
         for(int i=0; i<NobservationsBoard; i++)
@@ -360,10 +360,14 @@ static int get_N_j_nonzero( int Ncameras,
     return N;
 }
 
-// internal function used by the optimizer
+// Projects ONE 3D point, and reports the projection, and all the gradients.
+// This is the main internal callback in the optimizer. If i_pt>0, then we're
+// looking at the i_pt-th point in the calibration target, with the target pose
+// in frame_rt. Otherwise we're looking at a single point at frame_rt->t;
+// frame_rt->r is then not referenced
 static point2_t project( // out
-                         double*         dxy_dintrinsic_core,
-                         double*         dxy_dintrinsic_distortions,
+                         double*   dxy_dintrinsic_core,
+                         double*   dxy_dintrinsic_distortions,
                          point3_t* dxy_drcamera,
                          point3_t* dxy_dtcamera,
                          point3_t* dxy_drframe,
@@ -374,6 +378,7 @@ static point2_t project( // out
                          const double* distortions,
                          const pose_t* camera_rt,
                          const pose_t* frame_rt,
+
                          bool camera_at_identity, // if true, camera_rt is unused
                          distortion_model_t distortion_model,
 
@@ -774,8 +779,8 @@ static point2_t project( // out
     {
         // I do this multiple times, one each for {r,t}{camera,frame}
         void propagate(point3_t* dxy_dparam,
-                       const double* _d_rj,
-                       const double* _d_tj)
+                       const double* _d_rj_dparam,
+                       const double* _d_tj_dparam)
         {
             if( dxy_dparam == NULL ) return;
 
@@ -796,8 +801,8 @@ static point2_t project( // out
             for(int i=0; i<3; i++)
             {
                 mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*i], &d_ptcam[3*i] );
-                mul_vec3_gen33     ( &d_ptcam[3*i],   _d_rj);
-                add_vec(3, &d_ptcam[3*i], &_d_tj[3*i] );
+                mul_vec3_gen33     ( &d_ptcam[3*i],   _d_rj_dparam);
+                add_vec(3, &d_ptcam[3*i], &_d_tj_dparam[3*i] );
             }
 
             if(d_distortion_xyz)
@@ -921,8 +926,8 @@ void mrcal_project( // out
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics)
                    double*         dxy_dintrinsics,
-                   // Stored as a row-first array of shape (N,2). Each element
-                   // of this array is a point3_t
+                   // Stored as a row-first array of shape (N,2,3). Each
+                   // trailing ,3 dimension element is a point3_t
                    point3_t* dxy_dp,
 
                    // in
@@ -2593,7 +2598,7 @@ mrcal_optimize( // out
                 Jcolidx[ iJacobian+2 ] = col0+2;        \
                 Jval   [ iJacobian+2 ] = g2;            \
             }                                           \
-            iJacobian +=3 ;                             \
+            iJacobian += 3;                             \
         } while(0)
 
 
@@ -2907,7 +2912,6 @@ mrcal_optimize( // out
             point3_t dxy_drcamera[2];
             point3_t dxy_dtcamera[2];
             point3_t dxy_dpoint  [2];
-
 
             // The array reference [-3] is intended, but the compiler throws a
             // warning. I silence it here
