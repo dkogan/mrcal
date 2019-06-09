@@ -406,6 +406,13 @@ def parse_args():
                         help='''By default the final stage of the solver doesn't say much. This option turns
                         on verbosity to get lots of diagnostics.''')
 
+    parser.add_argument('--optimize-calobject-warp',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='''By default we assume the calibration target is flat. If it isn't and we want
+                        to compute it, pass this option.''')
+
     parser.add_argument('--explore',
                         action='store_true',
                         required=False,
@@ -954,6 +961,10 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
         # We're not doing the incremental loop. Just solve it once and call it good
         distortion_model = args.distortion_model
         intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
+
+        print("=================== optimizing everything{}from seeded intrinsics". \
+              format(" except board warp " if args.optimize_calobject_warp else " "))
+
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
@@ -1320,11 +1331,18 @@ if args.num_cross_validation_splits > 1:
 
 
 
-sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get invJtJ_intrinsics_observations_only and solver_context\n")
+if args.optimize_calobject_warp:
+    calobject_warp = np.array((0,0), dtype=float)
+else:
+    calobject_warp = None
+
+sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, invJtJ_intrinsics_observations_only and solver_context\n")
 stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        observations, indices_frame_camera,
                        None, None,
                        intrinsics[0],
+                       do_optimize_calobject_warp        = args.optimize_calobject_warp,
+                       calobject_warp                    = calobject_warp,
                        imagersizes                       = imagersizes,
                        observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                        do_optimize_intrinsic_core        = True,

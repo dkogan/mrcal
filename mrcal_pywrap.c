@@ -356,6 +356,21 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
  done:
     return result;
 }
+static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
+                                                          PyObject* args)
+{
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
+
+    return Py_BuildValue("i",
+                         mrcal_state_index_calobject_warp(self->Npoints,
+                                                          self->Nframes, self->Ncameras,
+                                                          self->problem_details,
+                                                          self->distortion_model));
+}
 
 static PyObject* SolverContext_num_measurements(SolverContext* self)
 {
@@ -496,6 +511,9 @@ static const char SolverContext_state_index_frame_rt_docstring[] =
 static const char SolverContext_state_index_point_docstring[] =
 #include "SolverContext_state_index_point.docstring.h"
     ;
+static const char SolverContext_state_index_calobject_warp_docstring[] =
+#include "SolverContext_state_index_calobject_warp.docstring.h"
+    ;
 static const char SolverContext_num_measurements_docstring[] =
 #include "SolverContext_num_measurements.docstring.h"
     ;
@@ -513,6 +531,7 @@ static PyMethodDef SolverContext_methods[] =
       PYMETHODDEF_ENTRY(SolverContext_, state_index_camera_rt,             METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,              METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_point,                 METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_calobject_warp,        METH_NOARGS),
       PYMETHODDEF_ENTRY(SolverContext_, num_measurements,                  METH_NOARGS),
       PYMETHODDEF_ENTRY(SolverContext_, pack,                              METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, unpack,                            METH_VARARGS),
@@ -1045,11 +1064,13 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
+    _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp,              NPY_DOUBLE, {2}                  ) \
     _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_cahvor_optical_axis,    PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_calobject_warp,         PyObject*,      Py_False,"O",  ,                                  NULL,           -1,         {})  \
     _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
@@ -1080,6 +1101,13 @@ static bool optimize_validate_args( // out
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
     OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
 #pragma GCC diagnostic pop
+
+    if(PyObject_IsTrue(do_optimize_calobject_warp) &&
+       (calobject_warp == NULL || (PyObject*)calobject_warp == Py_None) )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "if(do_optimize_calobject_warp) then calobject_warp MUST be given as an array to seed the optimization and to receive the results");
+        return false;
+    }
 
     int Ncameras = PyArray_DIMS(intrinsics)[0];
     if( Ncameras-1 !=
@@ -1353,6 +1381,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
         pose_t*       c_extrinsics     = (pose_t*)  PyArray_DATA(extrinsics);
         pose_t*       c_frames         = (pose_t*)  PyArray_DATA(frames);
         point3_t*     c_points         = (point3_t*)PyArray_DATA(points);
+        point2_t*     c_calobject_warp =
+            calobject_warp == NULL || (PyObject*)calobject_warp == Py_None ?
+            NULL : (point2_t*)PyArray_DATA(calobject_warp);
 
 
         observation_board_t c_observations_board[NobservationsBoard];
@@ -1524,6 +1555,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
               .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
               .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
               .do_optimize_cahvor_optical_axis   = PyObject_IsTrue(do_optimize_cahvor_optical_axis),
+              .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),
               .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
             };
 
@@ -1609,6 +1641,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         c_extrinsics,
                         c_frames,
                         c_points,
+                        c_calobject_warp,
+
                         Ncameras, Nframes, Npoints,
 
                         c_observations_board,

@@ -15,6 +15,7 @@ int main(int argc, char* argv[] )
         "  cahvor-optical-axis\n"
         "  extrinsics\n"
         "  frames\n"
+        "  calobject-warp\n"
         "\n"
         "If no details are given, we optimize everything. Otherwise, we start with an empty\n"
         "mrcal_problem_details_t, and each argument sets a bit\n";
@@ -78,6 +79,11 @@ int main(int argc, char* argv[] )
                 problem_details.do_optimize_cahvor_optical_axis = true;
                 continue;
             }
+            if( 0 == strcmp(argv[iarg], "calobject-warp" ) )
+            {
+                problem_details.do_optimize_calobject_warp = true;
+                continue;
+            }
 
             fprintf(stderr, "Unknown optimization variable '%s'. Giving up.\n\n", argv[iarg]);
             fprintf(stderr, usage, argv[0]);
@@ -98,6 +104,8 @@ int main(int argc, char* argv[] )
     point3_t points[] =
         { {.xyz = {-5.3,   2.3, 20.4}},
           {.xyz = {-15.3, -3.2, 200.4}}};
+    point2_t calobject_warp = {.x = 0.001, .y = -0.005};
+
     int Npoints = sizeof(points)/sizeof(points[0]);
 
 #define calibration_object_width_n 10 /* arbitrary */
@@ -166,12 +174,12 @@ int main(int argc, char* argv[] )
 
     const double roi[] = { 1000., 1000., 400., 400.,
                             900., 1200., 300., 800. };
-
     mrcal_optimize( NULL, NULL, NULL, NULL, NULL, NULL,
                     intrinsics,
                     extrinsics,
                     frames,
                     points,
+                    &calobject_warp,
                     Ncameras, Nframes, Npoints,
 
                     observations_board,

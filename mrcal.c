@@ -81,6 +81,7 @@ calibration and sfm formulations are a little different
 #define SCALE_ROTATION_FRAME          (15.0 * M_PI/180.0)
 #define SCALE_TRANSLATION_FRAME       100.0
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
+#define SCALE_CALOBJECT_WARP          0.01
 
 #define DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M 1.0
 
@@ -202,18 +203,6 @@ int mrcal_getNintrinsicOptimizationParams(mrcal_problem_details_t problem_detail
     return getNintrinsicOptimizationParams(problem_details,
                                            distortion_model);
 }
-static point3_t get_refobject_point(int i_pt,
-                                          double calibration_object_spacing,
-                                          int    calibration_object_width_n)
-{
-    int y = i_pt / calibration_object_width_n;
-    int x = i_pt - y*calibration_object_width_n;
-
-    point3_t pt = {.x = (double)x* calibration_object_spacing,
-                         .y = (double)y* calibration_object_spacing,
-                         .z = 0.0 };
-    return pt;
-}
 
 static int get_Nstate(int Ncameras, int Nframes, int Npoints,
                       mrcal_problem_details_t problem_details,
@@ -223,14 +212,14 @@ static int get_Nstate(int Ncameras, int Nframes, int Npoints,
         // camera extrinsics
         (problem_details.do_optimize_extrinsics ? ((Ncameras-1) * 6) : 0) +
 
-        // frame poses
-        (problem_details.do_optimize_frames ? (Nframes * 6) : 0) +
-
-        // individual observed points
-        (problem_details.do_optimize_frames ? (Npoints * 3) : 0) +
+        // frame poses, individual observed points
+        (problem_details.do_optimize_frames ? (Nframes * 6 + Npoints * 3) : 0) +
 
         // camera intrinsics
-        (Ncameras * getNintrinsicOptimizationParams(problem_details, distortion_model));
+        (Ncameras * getNintrinsicOptimizationParams(problem_details, distortion_model)) +
+
+        // warp
+        (problem_details.do_optimize_calobject_warp ? 2 : 0);
 }
 
 static int getNmeasurements_observationsonly(int NobservationsBoard,
@@ -324,6 +313,7 @@ static int get_N_j_nonzero( int Ncameras,
     int Nintrinsics = getNintrinsicOptimizationParams(problem_details, distortion_model);
     int N = NobservationsBoard * ( (problem_details.do_optimize_frames         ? 6 : 0) +
                                    (problem_details.do_optimize_extrinsics     ? 6 : 0) +
+                                   (problem_details.do_optimize_calobject_warp ? 2 : 0) +
                                    + Nintrinsics );
     if(problem_details.do_optimize_extrinsics)
         for(int i=0; i<NobservationsBoard; i++)
@@ -372,21 +362,22 @@ static point2_t project( // out
                          point3_t* restrict dxy_dtcamera,
                          point3_t* restrict dxy_drframe,
                          point3_t* restrict dxy_dtframe,
+                         point2_t* restrict dxy_dcalobject_warp,
 
                          // in
                          const intrinsics_core_t* intrinsics_core,
                          const double* restrict distortions,
                          const pose_t* restrict camera_rt,
                          const pose_t* restrict frame_rt,
+                         const point2_t* restrict calobject_warp,
 
                          bool camera_at_identity, // if true, camera_rt is unused
                          distortion_model_t distortion_model,
 
-                         // point index. If <0, a point at the origin is
-                         // assumed, dxy_drframe is expected to be NULL and
-                         // thus not filled-in, and frame_rt->r will not be
-                         // referenced. And the calibration_object_...
-                         // variables aren't used either
+                         // point index. If <0, a point at frame_rt->t is
+                         // assumed; frame_rt->r isn't referenced, and
+                         // dxy_drframe is expected to be NULL. And the
+                         // calibration_object_... variables aren't used either
                          int i_pt,
 
                          double calibration_object_spacing,
@@ -442,11 +433,45 @@ static point2_t project( // out
     CvMat rf = cvMat(3,1, CV_64FC1, (double*)(i_pt <= 0 ? zero3 : frame_rt->r.xyz));
     CvMat tf = cvMat(3,1, CV_64FC1, (double*)frame_rt->t.xyz);
 
-    point3_t pt_ref =
-        i_pt >= 0 ? get_refobject_point(i_pt,
-                                        calibration_object_spacing,
-                                        calibration_object_width_n)
-        : (point3_t){};
+    point3_t pt_ref = {};
+    point2_t dpt_ref2_dwarp = {};
+
+    double r = 1./(double)(calibration_object_width_n-1);
+    if(i_pt >= 0)
+    {
+        // The calibration object has a simple grid geometry
+        int y = i_pt / calibration_object_width_n;
+        int x = i_pt - y*calibration_object_width_n;
+        pt_ref.x = (double)x * calibration_object_spacing;
+        pt_ref.y = (double)y * calibration_object_spacing;
+        // pt_ref.z = 0.0; This is already done
+
+        if(calobject_warp != NULL)
+        {
+            // Add a board warp here. I have two parameters, and they describe
+            // additive flex along the x axis and along the y axis. In each
+            // direction the flex is a parabola, with the parameter k describing
+            // the max deflection at the center. If the ends are at +- 1 I have
+            // d = k*(1 - x^2). If the ends are at (0,N-1) the equivalent
+            // expression is: d = k*( 1 - 4*x^2/(N-1)^2 + 4*x/(N-1) - 1 ) =
+            // d = 4*k*(x/(N-1) - x^2/(N-1)^2) =
+            // d = 4.*k*x*r(1. - x*r)
+            double xr = (double)x * r;
+            double yr = (double)y * r;
+            double dx = 4. * xr * (1. - xr);
+            double dy = 4. * yr * (1. - yr);
+            pt_ref.z += calobject_warp->x * dx;
+            pt_ref.z += calobject_warp->y * dy;
+            dpt_ref2_dwarp.x = dx;
+            dpt_ref2_dwarp.y = dy;
+        }
+    }
+    else
+    {
+        // We're not looking at a calibration board point, but rather a
+        // standalone point. I leave pt_ref at the origin, and take the
+        // coordinate from frame_rt->t
+    }
 
     if(!camera_at_identity)
     {
@@ -609,6 +634,36 @@ static point2_t project( // out
                     memcpy(dxy_drframe[1].xyz, &_dxy_drj[3*1], 3*sizeof(double));
                 }
             }
+        }
+        if( dxy_dcalobject_warp != NULL && i_pt >= 0)
+        {
+            // p = proj(R( warp(x) ) + t);
+            // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+            //       = dp/dt R dwarp/dw
+            // dp/dt is _dxy_dtj
+            // R is rodrigues(rj)
+            // dwarp/dw = [0 0]
+            //            [0 0]
+            //            [a b]
+            // Let R = [r0 r1 r2]
+            // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
+
+            double _Rj[3*3];
+            CvMat  Rj = cvMat(3,3,CV_64FC1, _Rj);
+            cvRodrigues2(p_rj, &Rj, NULL);
+
+            double d[] =
+                { _dxy_dtj[3*0 + 0] * _Rj[0*3 + 2] +
+                  _dxy_dtj[3*0 + 1] * _Rj[1*3 + 2] +
+                  _dxy_dtj[3*0 + 2] * _Rj[2*3 + 2],
+                  _dxy_dtj[3*1 + 0] * _Rj[0*3 + 2] +
+                  _dxy_dtj[3*1 + 1] * _Rj[1*3 + 2] +
+                  _dxy_dtj[3*1 + 2] * _Rj[2*3 + 2]};
+
+            dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
+            dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
+            dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
+            dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
         }
 
         return pt_out;
@@ -895,6 +950,39 @@ static point2_t project( // out
         propagate_r( dxy_drframe );
         propagate_t( dxy_dtframe );
     }
+
+    if( dxy_dcalobject_warp != NULL && i_pt >= 0)
+    {
+        assert(0);
+
+        // not yet implemented
+
+#if 0
+        // p = proj(R( warp(x) ) + t);
+        // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+        //       = dp/dt R dwarp/dw
+        // dp/dt is _dxy_dtj
+        // R is rodrigues(rj)
+        // dwarp/dw = [0 0]
+        //            [0 0]
+        //            [a b]
+        // Let R = [r0 r1 r2]
+        // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
+        double d[] =
+            { _dxy_dtj[3*0 + 0] * _Rj[0*3 + 2] +
+              _dxy_dtj[3*0 + 1] * _Rj[1*3 + 2] +
+              _dxy_dtj[3*0 + 2] * _Rj[2*3 + 2],
+              _dxy_dtj[3*1 + 0] * _Rj[0*3 + 2] +
+              _dxy_dtj[3*1 + 1] * _Rj[1*3 + 2] +
+              _dxy_dtj[3*1 + 2] * _Rj[2*3 + 2]};
+
+        dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
+        dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
+        dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
+        dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
+#endif
+    }
+
     return pt_out;
 }
 
@@ -954,13 +1042,14 @@ void mrcal_project( // out
         out[i] = project( dxy_dintrinsics != NULL ? dxy_dintrinsic_core        : NULL,
                           dxy_dintrinsics != NULL ? dxy_dintrinsic_distortions : NULL,
                           NULL, NULL, NULL,
-                          dxy_dp,
+                          dxy_dp, NULL,
 
                           // in
                           (const intrinsics_core_t*)(&intrinsics[0]),
                           &intrinsics[4],
                           NULL,
                           &frame,
+                          NULL,
                           true,
                           distortion_model,
 
@@ -1192,12 +1281,13 @@ bool mrcal_distort( // out
 
         out[i] = project( NULL, NULL,
                           NULL, NULL, NULL,
-                          NULL,
+                          NULL, NULL,
 
                           // in
                           core, distortions,
                           NULL,
                           &frame,
+                          NULL,
                           true,
                           distortion_model,
 
@@ -1222,7 +1312,8 @@ bool mrcal_distort( // out
 //   frame1
 //   frame2
 //   ....
-
+//   calobject_warp0
+//   calobject_warp1
 
 // From real values to unit-scale values. Optimizer sees unit-scale values
 static int pack_solver_state_intrinsics( // out
@@ -1276,6 +1367,7 @@ static void pack_solver_state( // out
                               const pose_t*            extrinsics, // Ncameras-1 of these
                               const pose_t*            frames,     // Nframes of these
                               const point3_t*          points,     // Npoints of these
+                              const point2_t*          calobject_warp, // 1 of these
                               mrcal_problem_details_t problem_details,
                               int Ncameras, int Nframes, int Npoints,
 
@@ -1318,6 +1410,12 @@ static void pack_solver_state( // out
             p[i_state++] = points[i_point].xyz[1] / SCALE_POSITION_POINT;
             p[i_state++] = points[i_point].xyz[2] / SCALE_POSITION_POINT;
         }
+    }
+
+    if( problem_details.do_optimize_calobject_warp )
+    {
+        p[i_state++] = calobject_warp->x / SCALE_CALOBJECT_WARP;
+        p[i_state++] = calobject_warp->y / SCALE_CALOBJECT_WARP;
     }
 
     assert(i_state == Nstate_ref);
@@ -1380,6 +1478,13 @@ void mrcal_pack_solver_state_vector( // out, in
             p[i_state++] = points->xyz[1] / SCALE_POSITION_POINT;
             p[i_state++] = points->xyz[2] / SCALE_POSITION_POINT;
         }
+    }
+
+    if( problem_details.do_optimize_calobject_warp )
+    {
+        point2_t* calobject_warp = (point2_t*)(&p[i_state]);
+        p[i_state++] = calobject_warp->x / SCALE_CALOBJECT_WARP;
+        p[i_state++] = calobject_warp->y / SCALE_CALOBJECT_WARP;
     }
 }
 
@@ -1521,6 +1626,18 @@ static int unpack_solver_state_point_one(// out
     return i_state;
 }
 
+static int unpack_solver_state_calobject_warp(// out
+                                              point2_t* calobject_warp,
+
+                                              // in
+                                              const double* p)
+{
+    int i_state = 0;
+    calobject_warp->xy[0] = p[i_state++] * SCALE_CALOBJECT_WARP;
+    calobject_warp->xy[1] = p[i_state++] * SCALE_CALOBJECT_WARP;
+    return i_state;
+}
+
 // From unit-scale values to real values. Optimizer sees unit-scale values
 static void unpack_solver_state( // out
                                  double* intrinsics, // Ncameras of these; each
@@ -1531,6 +1648,7 @@ static void unpack_solver_state( // out
                                  pose_t*       extrinsics, // Ncameras-1 of these
                                  pose_t*       frames,     // Nframes of these
                                  point3_t*     points,     // Npoints of these
+                                 point2_t*     calobject_warp, // 1 of these
 
                                  // in
                                  const double* p,
@@ -1554,6 +1672,9 @@ static void unpack_solver_state( // out
         for(int i_point = 0; i_point < Npoints; i_point++)
             i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
     }
+
+    if( problem_details.do_optimize_calobject_warp )
+        i_state += unpack_solver_state_calobject_warp(calobject_warp, &p[i_state]);
 
     assert(i_state == Nstate_ref);
 }
@@ -1591,6 +1712,11 @@ void mrcal_unpack_solver_state_vector( // out, in
         point3_t* points = (point3_t*)(&p[i_state]);
         for(int i_point = 0; i_point < Npoints; i_point++)
             i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
+    }
+    if( problem_details.do_optimize_calobject_warp )
+    {
+        point2_t* calobject_warp = (point2_t*)(&p[i_state]);
+        i_state += unpack_solver_state_calobject_warp(calobject_warp, &p[i_state]);
     }
 }
 
@@ -1639,6 +1765,16 @@ int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
         (Nframes * 6) +
         i_point*3;
 }
+int mrcal_state_index_calobject_warp(int Npoints,
+                                     int Nframes, int Ncameras,
+                                     mrcal_problem_details_t problem_details,
+                                     distortion_model_t distortion_model)
+{
+    return mrcal_state_index_point(Npoints, Nframes,  Ncameras,
+                                   problem_details,
+                                   distortion_model);
+}
+
 static int intrinsics_index_from_state_index( int i_state,
                                               const distortion_model_t distortion_model,
                                               mrcal_problem_details_t problem_details )
@@ -2260,28 +2396,30 @@ static bool computeUncertaintyMatrices(// out
                                         Ncameras, Nframes, Npoints);
 
             pose_t frame = {.t = {.xyz={-0.81691696, -0.02852554,  0.57604945}}};
-            point2_t v0 =  project( NULL,NULL,NULL,NULL,NULL,NULL,
-                                          // in
-                                          (const intrinsics_core_t*)(&p[0]),
-                                          &p[4],
-                                          NULL,
-                                          &frame,
-                                          true,
-                                          distortion_model,
-                                          -1,
-                                          1.0, 10);
+            point2_t v0 =  project( NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+                                    // in
+                                    (const intrinsics_core_t*)(&p[0]),
+                                    &p[4],
+                                    NULL,
+                                    &frame,
+                                    NULL,
+                                    true,
+                                    distortion_model,
+                                    -1,
+                                    1.0, 10);
             for(int i=0; i<Nstate; i++)
                 p[i] += ((double*)dp->x)[i];
-            point2_t v1 =  project( NULL,NULL,NULL,NULL,NULL,NULL,
-                                          // in
-                                          (const intrinsics_core_t*)(&p[0]),
-                                          &p[4],
-                                          NULL,
-                                          &frame,
-                                          true,
-                                          distortion_model,
-                                          -1,
-                                          1.0, 10);
+            point2_t v1 =  project( NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+                                    // in
+                                    (const intrinsics_core_t*)(&p[0]),
+                                    &p[4],
+                                    NULL,
+                                    &frame,
+                                    NULL,
+                                    true,
+                                    distortion_model,
+                                    -1,
+                                    1.0, 10);
             fprintf(stderr, "proj before: %.10f %10f\n", v0.x, v0.y);
             fprintf(stderr, "proj after:  %.10f %10f\n", v1.x, v1.y);
             fprintf(stderr, "proj diff:   %.10f %10f\n", v1.x-v0.x, v1.y-v0.y);
@@ -2480,6 +2618,7 @@ mrcal_optimize( // out
                 pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
                 pose_t*       frames,     // Nframes of these.    Transform TO   camera0 frame
                 point3_t*     points,     // Npoints of these.    In the camera0 frame
+                point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                 // in
                 int Ncameras, int Nframes, int Npoints,
@@ -2512,9 +2651,20 @@ mrcal_optimize( // out
         fprintf(stderr, "ERROR: either both or none of (invJtJ_intrinsics_full.invJtJ_intrinsics_observations_only) can be NULL\n");
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
+    if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
+    {
+        fprintf(stderr, "ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
+        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
 
-    if( IS_OPTIMIZE_NONE(problem_details) )
+    if(!problem_details.do_optimize_intrinsic_core        &&
+       !problem_details.do_optimize_intrinsic_distortions &&
+       !problem_details.do_optimize_extrinsics            &&
+       !problem_details.do_optimize_frames                &&
+       !problem_details.do_optimize_calobject_warp)
+    {
         MSG("Warning: Not optimizing any of our variables");
+    }
 
     dogleg_setDebug( VERBOSE ? DOGLEG_DEBUG_VNLOG : 0 );
 
@@ -2587,6 +2737,17 @@ mrcal_optimize( // out
             }                                   \
             iJacobian++;                        \
         } while(0)
+#define STORE_JACOBIAN2(col0, g0, g1)                   \
+        do                                              \
+        {                                               \
+            if(Jt) {                                    \
+                Jcolidx[ iJacobian+0 ] = col0+0;        \
+                Jval   [ iJacobian+0 ] = g0;            \
+                Jcolidx[ iJacobian+1 ] = col0+1;        \
+                Jval   [ iJacobian+1 ] = g1;            \
+            }                                           \
+            iJacobian += 2;                             \
+        } while(0)
 #define STORE_JACOBIAN3(col0, g0, g1, g2)               \
         do                                              \
         {                                               \
@@ -2616,6 +2777,14 @@ mrcal_optimize( // out
         intrinsics_core_t intrinsic_core_all[Ncameras];
         double distortions_all[Ncameras][Ndistortions];
         pose_t camera_rt[Ncameras];
+
+        point2_t calobject_warp_local = {};
+        const int i_var_calobject_warp = mrcal_state_index_calobject_warp(Npoints, Nframes, Ncameras, problem_details, distortion_model);
+        if(problem_details.do_optimize_calobject_warp)
+            unpack_solver_state_calobject_warp(&calobject_warp_local, &packed_state[i_var_calobject_warp]);
+        else if(calobject_warp != NULL)
+            calobject_warp_local = *calobject_warp;
+
         for(int i_camera=0; i_camera<Ncameras; i_camera++)
         {
             // First I pull in the chunks from the optimization vector
@@ -2696,7 +2865,7 @@ mrcal_optimize( // out
                 point3_t dxy_dtcamera[2];
                 point3_t dxy_drframe [2];
                 point3_t dxy_dtframe [2];
-
+                point2_t dxy_dcalobject_warp[2];
                 point2_t pt_hypothesis =
                     project(problem_details.do_optimize_intrinsic_core ?
                               dxy_dintrinsic_core : NULL,
@@ -2710,8 +2879,11 @@ mrcal_optimize( // out
                               dxy_drframe : NULL,
                             problem_details.do_optimize_frames ?
                               dxy_dtframe : NULL,
+                            problem_details.do_optimize_calobject_warp ?
+                              dxy_dcalobject_warp : NULL,
                             &intrinsic_core_all[i_camera], distortions_all[i_camera],
                             &camera_rt[i_camera-1], &frame_rt,
+                            calobject_warp == NULL ? NULL : &calobject_warp_local,
                             i_camera == 0,
                             distortion_model,
                             i_pt,
@@ -2806,6 +2978,13 @@ mrcal_optimize( // out
                                              weight * SCALE_TRANSLATION_FRAME);
                         }
 
+                        if( problem_details.do_optimize_calobject_warp )
+                        {
+                            STORE_JACOBIAN2( i_var_calobject_warp,
+                                             dxy_dcalobject_warp[i_xy].x * weight * SCALE_CALOBJECT_WARP,
+                                             dxy_dcalobject_warp[i_xy].y * weight * SCALE_CALOBJECT_WARP);
+                        }
+
                         iMeasurement++;
                     }
                 }
@@ -2859,6 +3038,10 @@ mrcal_optimize( // out
                             STORE_JACOBIAN3( i_var_frame_rt + 3, dframe*1.4, dframe*1.5, dframe*1.6);
                         }
 
+                        if( problem_details.do_optimize_calobject_warp )
+                            STORE_JACOBIAN2( i_var_calobject_warp, 0.0, 0.0 );
+
+
                         iMeasurement++;
                     }
                 }
@@ -2884,12 +3067,12 @@ mrcal_optimize( // out
             const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, Ncameras, problem_details, distortion_model);
 
             const int i_var_point                  = mrcal_state_index_point                 (i_point,  Nframes, Ncameras, problem_details, distortion_model);
-             point3_t point;
+            point3_t point;
 
             if(problem_details.do_optimize_frames)
                 unpack_solver_state_point_one(&point, &packed_state[i_var_point]);
             else
-                memcpy(&point, &points[i_point], sizeof(point3_t));
+                point = points[i_point];
 
 
             // Check for invalid points. I report a very poor cost if I see
@@ -2930,6 +3113,7 @@ mrcal_optimize( // out
                         NULL, // frame rotation. I only have a point position
                         problem_details.do_optimize_frames ?
                           dxy_dpoint : NULL,
+                        NULL,
                         &intrinsic_core_all[i_camera], distortions_all[i_camera],
                         &camera_rt[i_camera-1],
 
@@ -2937,6 +3121,7 @@ mrcal_optimize( // out
                         // points 3 back. The fake "r" here will not be
                         // referenced
                         (pose_t*)(&point.xyz[-3]),
+                        NULL,
 
                         i_camera == 0,
                         distortion_model,
@@ -3423,6 +3608,7 @@ mrcal_optimize( // out
                       extrinsics,
                       frames,
                       points,
+                      calobject_warp,
                       problem_details,
                       Ncameras, Nframes, Npoints, Nstate);
 
@@ -3488,6 +3674,7 @@ mrcal_optimize( // out
                              extrinsics, // Ncameras-1 of these
                              frames,     // Nframes of these
                              points,     // Npoints of these
+                             calobject_warp,
                              packed_state,
                              distortion_model,
                              problem_details,

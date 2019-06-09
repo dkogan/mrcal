@@ -82,12 +82,14 @@ typedef struct
     bool do_optimize_frames                : 1;
     bool do_skip_regularization            : 1;
     bool do_optimize_cahvor_optical_axis   : 1;
+    bool do_optimize_calobject_warp        : 1;
 } mrcal_problem_details_t;
 #define DO_OPTIMIZE_ALL ((mrcal_problem_details_t) { .do_optimize_intrinsic_core        = true, \
                                                      .do_optimize_intrinsic_distortions = true, \
                                                      .do_optimize_extrinsics            = true, \
                                                      .do_optimize_frames                = true, \
                                                      .do_optimize_cahvor_optical_axis   = true, \
+                                                     .do_optimize_calobject_warp        = true, \
                                                      .do_skip_regularization            = false})
 
 const char*             mrcal_distortion_model_name       ( distortion_model_t model );
@@ -203,6 +205,7 @@ mrcal_optimize( // out
                 pose_t*       camera_extrinsics,  // Ncameras-1 of these. Transform FROM camera0 frame
                 pose_t*       frames,             // Nframes of these.    Transform TO   camera0 frame
                 point3_t*     points,             // Npoints of these.    In the camera0 frame
+                point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                 // in
                 int Ncameras, int Nframes, int Npoints,
@@ -269,6 +272,10 @@ int mrcal_state_index_frame_rt(int i_frame, int Ncameras,
 int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
                             mrcal_problem_details_t problem_details,
                             distortion_model_t distortion_model);
+int mrcal_state_index_calobject_warp(int Npoints,
+                                     int Nframes, int Ncameras,
+                                     mrcal_problem_details_t problem_details,
+                                     distortion_model_t distortion_model);
 
 // packs/unpacks a vector
 void mrcal_pack_solver_state_vector( // out, in

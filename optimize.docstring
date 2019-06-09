@@ -115,10 +115,18 @@ REQUIRED ARGUMENTS
 
 OPTIONAL ARGUMENTS
 
+- calobject_warp
+
+  A numpy array of shape (2,) describing the non-flatness of the calibration
+  board. If omitted or None, the board is assumed to be perfectly flat. And if
+  do_optimize_calobject_warp then we optimize these parameters to find the
+  best-fitting board shape.
+
 - do_optimize_intrinsic_core
 - do_optimize_intrinsic_distortions
 - do_optimize_extrinsics
 - do_optimize_frames
+- do_optimize_calobject_warp
 
   Indicate whether to optimize a specific set of variables. The intrinsics core
   is fx,fy,cx,cy. These all default to True so if we specify none of these, we
