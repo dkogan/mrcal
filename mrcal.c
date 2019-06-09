@@ -366,18 +366,18 @@ static int get_N_j_nonzero( int Ncameras,
 // in frame_rt. Otherwise we're looking at a single point at frame_rt->t;
 // frame_rt->r is then not referenced
 static point2_t project( // out
-                         double*   dxy_dintrinsic_core,
-                         double*   dxy_dintrinsic_distortions,
-                         point3_t* dxy_drcamera,
-                         point3_t* dxy_dtcamera,
-                         point3_t* dxy_drframe,
-                         point3_t* dxy_dtframe,
+                         double*   restrict dxy_dintrinsic_core,
+                         double*   restrict dxy_dintrinsic_distortions,
+                         point3_t* restrict dxy_drcamera,
+                         point3_t* restrict dxy_dtcamera,
+                         point3_t* restrict dxy_drframe,
+                         point3_t* restrict dxy_dtframe,
 
                          // in
                          const intrinsics_core_t* intrinsics_core,
-                         const double* distortions,
-                         const pose_t* camera_rt,
-                         const pose_t* frame_rt,
+                         const double* restrict distortions,
+                         const pose_t* restrict camera_rt,
+                         const pose_t* restrict frame_rt,
 
                          bool camera_at_identity, // if true, camera_rt is unused
                          distortion_model_t distortion_model,
