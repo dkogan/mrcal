@@ -8,7 +8,7 @@ Build-Depends: debhelper (>= 9), mrbuild (>= 1.4), dh-python,
  pkg-config,
  perl,
  libpython3-all-dev,
- python3-gnuplotlib (>= 0.28-3), python3-numpysane (>= 0.18-2),
+ python3-gnuplotlib (>= 0.28-1), python3-numpysane (>= 0.17-1),
  python3, python3-opencv, python3-numpy, python3-scipy
 Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
 Standards-Version: 3.9.8
