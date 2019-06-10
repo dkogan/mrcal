@@ -7,9 +7,9 @@ Build-Depends: debhelper (>= 9), mrbuild (>= 1.4-1), dh-python,
  libopencv-dev,
  pkg-config,
  perl,
- libpython-all-dev,
- python-gnuplotlib (>= 0.24-1), python-numpysane (>= 0.16-1),
- python, python-opencv, python-numpy, python-scipy
+ libpython3-all-dev,
+ python3-gnuplotlib (>= 0.28-3), python3-numpysane (>= 0.18-2),
+ python3, python3-opencv, python3-numpy, python3-scipy
 Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
 Standards-Version: 3.9.8
 Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
@@ -31,10 +31,10 @@ Description: Calibration and SFM library
 Package: mrcal
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
-         python-mrcal (= ${binary:Version}), python,
-         python-gnuplotlib (>= 0.24-1), python-numpysane (>= 0.16-1),
-         python-scipy,  python-ipython,
-         python-opencv,
+         python3-mrcal (= ${binary:Version}), python,
+         python3-gnuplotlib (>= 0.24-1), python3-numpysane (>= 0.16-1),
+         python3-scipy,  python3-ipython,
+         python3-opencv,
          mrgingham (>= 1.5)
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
@@ -55,14 +55,14 @@ Description: Calibration and SFM library
  .
  This package provides the development C libraries
 
-Package: python-mrcal
+Package: python3-mrcal
 Section: python
 Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          ${python:Depends},
-         python-gnuplotlib, python-numpysane (>= 0.16-1),
-         python-scipy,  python-ipython
+         python3-gnuplotlib, python3-numpysane (>= 0.16-1),
+         python3-scipy,  python3-ipython
 Provides: ${python:Provides}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
