@@ -242,7 +242,7 @@ for i in range(10): # this many trials
                    distortionmodel_to,
 
                    imagersizes                       = nps.atleast_dims(dims, -2),
-                   do_optimize_intrinsic_core        = False,
+                   do_optimize_intrinsic_core        = True,
                    do_optimize_intrinsic_distortions = True,
                    do_optimize_extrinsics            = False,
                    do_optimize_frames                = False,
