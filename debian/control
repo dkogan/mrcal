@@ -3,12 +3,12 @@ Priority: optional
 Section: devel
 Build-Depends: debhelper (>= 9), mrbuild (>= 1.4), dh-python,
  libminimath-dev,
- libdogleg-dev (>= 0.15.2-1),
+ libdogleg-dev (>= 0.15.2),
  libopencv-dev,
  pkg-config,
  perl,
  libpython3-all-dev,
- python3-gnuplotlib (>= 0.28-1), python3-numpysane (>= 0.17-1),
+ python3-gnuplotlib (>= 0.28), python3-numpysane (>= 0.17),
  python3, python3-opencv, python3-numpy, python3-scipy,
  python-numpy
 Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
@@ -35,7 +35,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          python3-mrcal (= ${binary:Version}), python,
          python3-gnuplotlib (>= 0.24-1), python3-numpysane (>= 0.16-1),
          python3-scipy,  python3-ipython,
-         python3-opencv,
+         python3-opencv, python3,
          mrgingham (>= 1.5)
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
@@ -61,10 +61,10 @@ Section: python
 Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
-         ${python:Depends},
+         ${python3:Depends},
          python3-gnuplotlib, python3-numpysane (>= 0.16-1),
          python3-scipy,  python3-ipython
-Provides: ${python:Provides}
+Provides: ${python3:Provides}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
