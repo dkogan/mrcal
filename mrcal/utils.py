@@ -116,11 +116,20 @@ def Rodrigues_toR_broadcasted(r):
     return cv2.Rodrigues(r)[0]
 
 
-def get_ref_calibration_object(W, H, dot_spacing):
+def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
     r'''Returns the geometry of the calibration object in its own coordinate frame
 
     Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
     coordinate lives at (y,x,:)
+
+    By default the calibration object is flat: z = 0 for all points. If we want
+    to add bowing to the board, pass a length-2 iterable in calobject_warp.
+    These describe additive flex along the x axis and along the y axis, in that
+    order. In each direction the flex is a parabola, with the parameter k
+    describing the max deflection at the center. If the ends are at +- 1 I have
+    d = k*(1 - x^2). If the ends are at (0,N-1) the equivalent expression is: d
+    = k*( 1 - 4*x^2/(N-1)^2 + 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2)
+    = d = 4.*k*x*r(1. - x*r)
 
     '''
 
@@ -128,7 +137,18 @@ def get_ref_calibration_object(W, H, dot_spacing):
     full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
                            np.zeros((H,W,1)),
                            axis=-1) # shape (H,W,3)
-    return full_object * dot_spacing
+    full_object *= dot_spacing
+
+    if calobject_warp is not None:
+        xr = xx / (W-1)
+        yr = yy / (H-1)
+        dx = 4. * xr * (1. - xr)
+        dy = 4. * yr * (1. - yr)
+
+        full_object[..., 2] += calobject_warp[0] * dx
+        full_object[..., 2] += calobject_warp[1] * dy
+
+    return full_object
 
 
 def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
@@ -1852,8 +1872,9 @@ def show_valid_intrinsics_region(model,
             kwargs['rgbimage'] = image
 
     valid_region = model.valid_intrinsics_region()
-    plot_data_args.append( (valid_region[:,0], valid_region[:,1],
-                            dict(_with = 'lines lw 3')) )
+    if valid_region is not None:
+        plot_data_args.append( (valid_region[:,0], valid_region[:,1],
+                                dict(_with = 'lines lw 3')) )
 
     plot = gp.gnuplotlib(square=1,
                          _xrange=[0,W],
