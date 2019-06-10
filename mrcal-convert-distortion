@@ -249,8 +249,8 @@ for i in range(10): # this many trials
                    skip_outlier_rejection            = True,
                    VERBOSE                           = args.verbose)
     q_solved = mrcal.project( v,
-                                distortionmodel_to,
-                                intrinsics_to_values.ravel())
+                              distortionmodel_to,
+                              intrinsics_to_values.ravel())
     diff = q_solved - q
     err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
     sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
