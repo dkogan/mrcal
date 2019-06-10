@@ -155,10 +155,10 @@ Ncameras = len(args.models)
 
 models = [ mrcal.cameramodel(modelfile) for modelfile in args.models ]
 if args.relative_extrinsics:
-    Rt_r0 = models[0].extrinsics_Rt(toref=True)
+    Rt_r0 = models[0].extrinsics_Rt_toref()
 else:
     Rt_r0 = mrcal.identity_Rt()
-Rt_xr = [ m.extrinsics_Rt(toref=False) for m in models ]
+Rt_xr = [ m.extrinsics_Rt_fromref() for m in models ]
 Rt_x0 = [ mrcal.compose_Rt( Rt_xr[i], Rt_r0 ) \
           for i in range(Ncameras) ]
 
