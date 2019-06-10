@@ -63,13 +63,17 @@ def parse_args():
                         type=int,
                         default=10,
                         help='How many points the calibration board has per side')
-    parser.add_argument('--bowing',
+    parser.add_argument('--calobject-warp',
                         type=float,
-                        default=0.0,
-                        help='''How bowed the calibration board is. By default, this is 0: the board is
-                        perfectly flat. If >0, the board is convex; if <0 it is
-                        concave. The value (given in meters) specifies the size
-                        of the off-flat gap in the center of the board''')
+                        nargs=2,
+                        default=None,
+                        help='''How bowed the calibration board is. By default the board is perfectly flat.
+                        If we want to add bowing to the board, pass two values
+                        in this argument. These describe additive flex along the
+                        x axis and along the y axis, in that order. In each
+                        direction the flex is a parabola, with the given
+                        parameter k describing the maximum deflection at the
+                        center.''')
     parser.add_argument('--relative-extrinsics',
                         action='store_true',
                         help='''By default, the calibration board moves in the reference coordinate system,
@@ -137,34 +141,11 @@ import mrcal
 
 
 
-def make_calibration_board(N, w, bowing):
-    '''Returns a calibration object in its reference coord system
-
-    The output has shape (N,N,2)'''
-
-    board = mrcal.get_ref_calibration_object(N, N, w)
-
-    # I shift the board so that the center in at the origin
-    board -= (board[0,0,:]+board[-1,-1,:]) / 2.0
-
-    # I did some simple math to evaluate the bowing. If I assume that I live in
-    # 2d only and that the shape is a circular arc (until I make
-    # very-small-bowing assumptions that is), I get dz = (1 - x^2/u^2) z0. Where
-    # dz is the off-plane offset at x meters from the center, u is width/2 and
-    # z0 is the offset at the center. In my 3d world, I put my unbowed edges at
-    # the corners
-    u2 = nps.norm2(board[0,0,:] - board[-1,-1,:]) / 4.
-    x2 = nps.norm2(board)
-    dz = (1. - x2/u2) * bowing
-
-    board[:,:,2] += dz
-    return board
-
-
 # shape: (N,N,3)
-board_reference = make_calibration_board(args.object_width_n,
-                                         args.object_spacing,
-                                         args.bowing)
+board_reference = mrcal.get_ref_calibration_object(args.object_width_n,
+                                                   args.object_width_n,
+                                                   args.object_spacing,
+                                                   args.calobject_warp)
 # shape: (N*N,3)
 board_reference = nps.clump(board_reference, n=2)
 
