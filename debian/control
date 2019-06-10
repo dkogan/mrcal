@@ -1,7 +1,7 @@
 Source: mrcal
 Priority: optional
 Section: devel
-Build-Depends: debhelper (>= 9), mrbuild (>= 1.4-1), dh-python,
+Build-Depends: debhelper (>= 9), mrbuild (>= 1.4), dh-python,
  libminimath-dev,
  libdogleg-dev (>= 0.15.2-1),
  libopencv-dev,
