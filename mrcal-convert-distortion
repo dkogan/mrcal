@@ -101,7 +101,7 @@ def parse_args():
 
     parser.add_argument('--writecahvor',
                         action='store_true',
-                        help='''If given, we write the output in a cahvor file format''')
+                        help='''If given, we write the output using the cahvor file format''')
 
     parser.add_argument('model',
                         type=lambda f: f if os.path.isfile(f) else \
