@@ -1441,6 +1441,8 @@ def get_goodness_contour(i_camera,
                                    cv2.RETR_EXTERNAL,
                                    cv2.CHAIN_APPROX_SIMPLE)[1][0][:,0,:].astype(float)
         contour = mrcal.close_contour(contour)
+        if contour.ndim != 2 or contour.shape[0] <= 2:
+            return None
 
         # I convert the contours back to the full-res image coordinate. The grid
         # mapping is based on the corner pixels
@@ -1786,12 +1788,12 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
              valid_intrinsics_region[i_camera][:,1],
              np.zeros(valid_intrinsics_region[i_camera].shape[-2]),
              dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region"))
+                  legend = "Valid-intrinsics region")) if valid_intrinsics_region[i_camera] is not None else None
         valid_intrinsics_region_plotarg_2d = \
             (valid_intrinsics_region[i_camera][:,0],
              valid_intrinsics_region[i_camera][:,1],
              dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region"))
+                  legend = "Valid-intrinsics region")) if valid_intrinsics_region[i_camera] is not None else None
     if how == 'vectorfield':
         plots_how[i_camera+1] = \
             gp.gnuplotlib( square=1,
