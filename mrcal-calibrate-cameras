@@ -1441,7 +1441,9 @@ def get_goodness_contour(i_camera,
                                    cv2.RETR_EXTERNAL,
                                    cv2.CHAIN_APPROX_SIMPLE)[1][0][:,0,:].astype(float)
         contour = mrcal.close_contour(contour)
-        if contour.ndim != 2 or contour.shape[0] <= 2:
+        if contour.ndim != 2 or contour.shape[0] < 4:
+            # I have a closed contour, so the only way for it to not be
+            # degenerate is to include at least 4 points
             return None
 
         # I convert the contours back to the full-res image coordinate. The grid
