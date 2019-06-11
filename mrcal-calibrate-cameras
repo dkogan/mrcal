@@ -380,12 +380,6 @@ def parse_args():
                         required=False,
                         help='Path to read corner-finder data from or (if path does not exist) to write data to')
 
-    parser.add_argument('--muse-extrinsics',
-                        action='store_true',
-                        required=False,
-                        default=False,
-                        help='''Apply MUSE's non-identity rotation for camera0''')
-
     parser.add_argument('--skip-regularization',
                         action='store_true',
                         required=False,
@@ -535,24 +529,11 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
 
     '''
 
-    if args.muse_extrinsics:
-        Rt_r0 = np.array([[ 0.,  0.,  1.],
-                          [ 1.,  0.,  0.],
-                          [ 0.,  1.,  0.],
-                          [ 0.,  0.,  0.]])
-    else:
-        # identity
-        Rt_r0 = np.array([[ 1.,  0.,  0.],
-                          [ 0.,  1.,  0.],
-                          [ 0.,  0.,  1.],
-                          [ 0.,  0.,  0.]])
-
     if i_camera >= 1:
         rt_x0 = extrinsics[i_camera-1,:].ravel()
     else:
         rt_x0 = np.zeros(6)
-    Rt_rx = mrcal.compose_Rt(Rt_r0,
-                             mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0)))
+    Rt_rx = mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0))
 
     if invJtJ_intrinsics_full is not None:
         invJtJ_intrinsics_full = invJtJ_intrinsics_full[i_camera, ...]
