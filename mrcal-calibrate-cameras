@@ -1660,9 +1660,9 @@ def check_confidence_computations():
                            skip_outlier_rejection            = True,
                            skip_regularization               = True)
 
-    p1          = nps.glue( intrinsics[1].ravel(),
-                            frames.ravel(),
-                            axis=-1)
+    p1 = nps.glue( intrinsics[1].ravel(),
+                   frames.ravel(),
+                   axis=-1)
     x1 = stats['x']
     intrinsics1 = intrinsics[1]
     E0 = np.sqrt(nps.inner(x0,x0)/(x0.shape[0]/2))
