@@ -1390,9 +1390,9 @@ err_including_outliers,err_0_for_outliers = \
                                                indices_frame_camera, args.object_width_n,
                                                stats['outlier_indices'])
 
-def get_goodness_contour(i_camera,
-                         ignore_outliers = True,
-                         focus_center = None, focus_radius = -1):
+def get_valid_intrinsics_region(i_camera,
+                                ignore_outliers = True,
+                                focus_center = None, focus_radius = -1):
 
     '''THIS FUNCTION IS MADE UP. PLEASE FIX'''
     idx = np.ones( err_including_outliers.shape[:-1], dtype=bool)
@@ -1458,7 +1458,7 @@ def get_goodness_contour(i_camera,
         return None
 
 
-valid_intrinsics_region = [get_goodness_contour(i) for i in range(Ncameras)]
+valid_intrinsics_region = [get_valid_intrinsics_region(i) for i in range(Ncameras)]
 
 
 
