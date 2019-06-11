@@ -1368,10 +1368,11 @@ Npoints = args.object_width_n*args.object_width_n*len(observations)
 xyerr = stats['x'][:Npoints*2].reshape(Npoints,2)
 worst_point_err = np.sqrt(np.max(nps.inner(xyerr,xyerr)))
 report += "Worst reprojection error: {:.01f} pixels\n".format(worst_point_err)
-report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
-    format(stats['Noutliers'],
-           args.object_width_n*args.object_width_n*len(observations),
-           100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
+if args.skip_outlier_rejection:
+    report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
+        format(stats['Noutliers'],
+               args.object_width_n*args.object_width_n*len(observations),
+               100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
 if calobject_warp is not None:
     report += "calobject_warp = {}".format(calobject_warp)
 print(report)
