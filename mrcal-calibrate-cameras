@@ -1512,6 +1512,7 @@ Potential things to look at:
     rms_err_including_outliers_perimage
     rms_err_0_for_outliers_perimage
     paths[i_observations_worst[0]]
+    calobject_warp
 ''')
 
 
