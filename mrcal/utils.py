@@ -1850,6 +1850,13 @@ def show_valid_intrinsics_region(model,
 
     '''
 
+    # other similar functions take in the model constituents, not a full object.
+    # For instance, see show_intrinsics_uncertainty() xxx
+
+    valid_region = model.valid_intrinsics_region()
+    if valid_region is None:
+        raise Exception("No valid-intrinsics region is defined")
+
     if kwargs is None: kwargs = {}
 
     import gnuplotlib as gp
@@ -1871,10 +1878,8 @@ def show_valid_intrinsics_region(model,
         else:
             kwargs['rgbimage'] = image
 
-    valid_region = model.valid_intrinsics_region()
-    if valid_region is not None:
-        plot_data_args.append( (valid_region[:,0], valid_region[:,1],
-                                dict(_with = 'lines lw 3')) )
+    plot_data_args.append( (valid_region[:,0], valid_region[:,1],
+                            dict(_with = 'lines lw 3')) )
 
     plot = gp.gnuplotlib(square=1,
                          _xrange=[0,W],
