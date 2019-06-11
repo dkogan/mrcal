@@ -1372,6 +1372,8 @@ report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
     format(stats['Noutliers'],
            args.object_width_n*args.object_width_n*len(observations),
            100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
+if calobject_warp is not None:
+    report += "calobject_warp = {}".format(calobject_warp)
 print(report)
 
 
