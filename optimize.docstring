@@ -153,7 +153,7 @@ OPTIONAL ARGUMENTS
 - outlier_indices: Feature indices that are to be considered outliers. Each
   "feature" is an observed point, meaning either 2 measurements (x,y) or 3
   measurements for ranged points (x,y,range). Normally this is None: no outliers
-  at the start.
+  at the start. This is honored regardless of skip_outlier_rejection.
 
 - roi: A region of interest. This is the area in the imager we're interested in.
   Errors in observations outside this area will be attenuated significantly. If
@@ -168,7 +168,8 @@ OPTIONAL ARGUMENTS
   to False
 
 - skip_outlier_rejection: if True, don't bother with detecting or rejecting
-  outliers. Defaults to False
+  outliers. The values in outlier_indices are honered regardless. Defaults to
+  False
 
 - skip_regularization: if True, don't include regularization terms in the
   solver. Defaults to False
