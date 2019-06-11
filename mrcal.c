@@ -449,13 +449,13 @@ static point2_t project( // out
         if(calobject_warp != NULL)
         {
             // Add a board warp here. I have two parameters, and they describe
-            // additive flex along the x axis and along the y axis. In each
-            // direction the flex is a parabola, with the parameter k describing
-            // the max deflection at the center. If the ends are at +- 1 I have
-            // d = k*(1 - x^2). If the ends are at (0,N-1) the equivalent
-            // expression is: d = k*( 1 - 4*x^2/(N-1)^2 + 4*x/(N-1) - 1 ) =
-            // d = 4*k*(x/(N-1) - x^2/(N-1)^2) =
-            // d = 4.*k*x*r(1. - x*r)
+            // additive flex along the x axis and along the y axis, in that
+            // order. In each direction the flex is a parabola, with the
+            // parameter k describing the max deflection at the center. If the
+            // ends are at +- 1 I have d = k*(1 - x^2). If the ends are at
+            // (0,N-1) the equivalent expression is: d = k*( 1 - 4*x^2/(N-1)^2 +
+            // 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2) = d =
+            // 4.*k*x*r(1. - x*r)
             double xr = (double)x * r;
             double yr = (double)y * r;
             double dx = 4. * xr * (1. - xr);
