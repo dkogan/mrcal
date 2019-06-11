@@ -142,10 +142,12 @@ import mrcal
 
 
 # shape: (N,N,3)
-board_reference = mrcal.get_ref_calibration_object(args.object_width_n,
-                                                   args.object_width_n,
-                                                   args.object_spacing,
-                                                   args.calobject_warp)
+board_reference = \
+    mrcal.get_ref_calibration_object(args.object_width_n,
+                                     args.object_width_n,
+                                     args.object_spacing,
+                                     args.calobject_warp) - \
+                                     (args.object_width_n-1)*args.object_spacing/2. * np.array((1,1,0))
 # shape: (N*N,3)
 board_reference = nps.clump(board_reference, n=2)
 
