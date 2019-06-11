@@ -268,6 +268,7 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
         #     frames = frames[i_frames, ...]
 
 
+        # I don't bother with calobject_warp here. It'll look close-enough
         calobject_ref = get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
         Rf = mrcal.utils.Rodrigues_toR_broadcasted(frames[..., :3])
@@ -2365,6 +2366,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
     # with what
     Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
+    # No calobject_warp. Good-enough for the seeding
     full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
     for i_observation in range(Nobservations):
@@ -2482,6 +2484,8 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
         # This is a hack. I look at the correspondence of camera0 to camera i for i
         # in 1:N-1. I ignore all correspondences between cameras i,j if i!=0 and
         # j!=0. Good enough for now
+        #
+        # No calobject_warp. Good-enough for the seeding
         full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
         A = np.array(())
@@ -2746,6 +2750,8 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
         # estimate of these for each camera. I merge them in a lame way: I
         # average out the positions of each point, and fit the calibration
         # object into the mean point cloud
+        #
+        # No calobject_warp. Good-enough for the seeding
         obj = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
 
         sum_obj_unproj = obj*0

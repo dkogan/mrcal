@@ -474,13 +474,13 @@ def undistort_image(model, image,
                      cv2.INTER_LINEAR)
 
 
-def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant):
+def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
     the projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)
 
     '''
 
-    object_ref = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+    object_ref = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing, calobject_warp)
     Rf = mrcal.Rodrigues_toR_broadcasted(frames[:,:3])
     Rf = nps.mv(Rf,           0, -5)
     tf = nps.mv(frames[:,3:], 0, -5)

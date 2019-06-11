@@ -1384,7 +1384,7 @@ print(report)
 
 
 
-projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n)
+projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n, calobject_warp)
 err_including_outliers,err_0_for_outliers = \
     mrcal.calobservations_compute_reproj_error(projected, observations,
                                                indices_frame_camera, args.object_width_n,
