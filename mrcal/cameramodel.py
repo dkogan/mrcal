@@ -129,12 +129,14 @@ def _validateIntrinsics(imagersize,
 
     if valid_intrinsics_region is not None:
         try:
+            # valid intrinsics region is a closed contour, so I need at least 4 points to be valid
             if valid_intrinsics_region.ndim != 2     or \
                valid_intrinsics_region.shape[1] != 2 or \
-               valid_intrinsics_region.shape[0] < 3:
-                raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 3")
+               valid_intrinsics_region.shape[0] < 4:
+                raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4")
         except:
-            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 3")
+            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
+                            format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
 
 class cameramodel(object):
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
