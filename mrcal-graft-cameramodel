@@ -28,6 +28,9 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--writecahvor',
+                        action='store_true',
+                        help='''If given, we write the output using the cahvor file format''')
     parser.add_argument('intrinsics',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The camera model must be an existing readable file, but got '{}'".format(f)),
@@ -71,4 +74,9 @@ sys.stderr.write("Combined intrinsics from '{}'\nExtrinsics from '{}'\n". \
     format(args.intrinsics,
            args.extrinsics))
 
-joint.write(sys.stdout, note=note)
+
+if args.writecahvor:
+    import mrcal.cahvor
+    mrcal.cahvor.write(sys.stdout, joint)
+else:
+    joint.write(sys.stdout)
