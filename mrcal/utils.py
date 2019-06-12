@@ -185,6 +185,9 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
     import gnuplotlib as gp
 
+    if i_camera is not None:
+        raise Exception("This isn't done yet. Sorry")
+
     def extend_axes_for_plotting(axes):
         r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
         this into a 3x6 array that can be gnuplotted "with vectors"
