@@ -157,7 +157,7 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
                            distortion_model,
 
                            axis_scale = 1.0,
-                           dot_spacing = 0, Nwant = 10, i_camera=None):
+                           object_spacing = 0, object_width_n = 10, i_camera=None):
     r'''Plot what a hypothetical 3d calibrated world looks like
 
     Can be used to visualize the output (or input) of mrcal.optimize(). Not
@@ -269,17 +269,17 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
 
         # I don't bother with calobject_warp here. It'll look close-enough
-        calobject_ref = get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+        calobject_ref = get_ref_calibration_object(object_width_n, object_width_n, object_spacing)
 
         Rf = mrcal.utils.Rodrigues_toR_broadcasted(frames[..., :3])
         Rf = nps.mv(Rf,              0, -4)
         tf = nps.mv(frames[..., 3:], 0, -4)
 
-        # object in the cam0 coord system. shape=(Nframes, Nwant, Nwant, 3)
+        # object in the cam0 coord system. shape=(Nframes, object_width_n, object_width_n, 3)
         calobject_cam0 = nps.matmult( calobject_ref, nps.transpose(Rf)) + tf
 
         # if i_camera is not None:
-        #     # shape=(Nobservations, Nwant, Nwant, 2)
+        #     # shape=(Nobservations, object_width_n, object_width_n, 2)
         #     if i_camera == 0:
         #         calobject_cam = calobject_cam0
         #     else:
@@ -291,13 +291,13 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
         #     print("double-check this. I don't broadcast over the intrinsics anymore")
         #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, distortion_model, intrinsics_data[i_camera, ...])
         #     err = nps.clump(err, n=-3)
-        #     rms = np.sqrt(nps.inner(err,err) / (Nwant*Nwant))
+        #     rms = np.sqrt(nps.inner(err,err) / (object_width_n*object_width_n))
         #     # igood = rms <  0.4
         #     # ibad  = rms >= 0.4
         #     # rms[igood] = 0
         #     # rms[ibad] = 1
         #     calobject_cam0 = nps.glue( calobject_cam0,
-        #                             nps.dummy( nps.mv(rms, -1, -3) * np.ones((Nwant,Nwant)),
+        #                             nps.dummy( nps.mv(rms, -1, -3) * np.ones((object_width_n,object_width_n)),
         #                                        -1 ),
         #                             axis = -1)
 
