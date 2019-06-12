@@ -1270,6 +1270,101 @@ static bool optimize_validate_args( // out
         }
     }
 
+    // make sure the indices arrays are valid: the data is monotonic and
+    // in-range
+    int Nframes = 0;
+    if( frames != NULL && Py_None != (PyObject*)frames )
+        Nframes = PyArray_DIMS(frames)[0];
+    int i_frame_last  = -1;
+    int i_camera_last = -1;
+    for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
+    {
+        // check for monotonicity and in-rangeness
+        int i_frame  = ((int*)PyArray_DATA(indices_frame_camera_board))[i_observation*2 + 0];
+        int i_camera = ((int*)PyArray_DATA(indices_frame_camera_board))[i_observation*2 + 1];
+
+        // First I make sure everything is in-range
+        if(i_frame < 0 || i_frame >= Nframes)
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be in [0,%d], instead got %d in row %d of indices_frame_camera_board",
+                         Nframes-1, i_frame, i_observation);
+            return false;
+        }
+        if(i_camera < 0 || i_camera >= Ncameras)
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_camera MUST be in [0,%d], instead got %d in row %d of indices_frame_camera_board",
+                         Ncameras-1, i_camera, i_observation);
+            return false;
+        }
+
+        // And then I check monotonicity
+        if(i_frame == i_frame_last)
+        {
+            if( i_camera <= i_camera_last )
+            {
+                PyErr_Format(PyExc_RuntimeError, "i_camera MUST be monotonically increasing in indices_frame_camera_board. Instead row %d (frame %d) of indices_frame_camera_board has i_camera=%d after seeing i_camera=%d",
+                             i_observation, i_frame, i_camera, i_camera_last);
+                return false;
+            }
+        }
+        else if( i_frame < i_frame_last )
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be monotonically increasing in indices_frame_camera_board. Instead row %d of indices_frame_camera_board has i_frame=%d after seeing i_frame=%d",
+                         i_observation, i_frame, i_frame_last);
+            return false;
+        }
+
+        i_frame_last  = i_frame;
+        i_camera_last = i_camera;
+    }
+    int Npoints = 0;
+    if( points != NULL && Py_None != (PyObject*)points )
+        Npoints = PyArray_DIMS(points)[0];
+    int i_point_last = -1;
+    i_camera_last = -1;
+    for(int i_observation=0; i_observation<NobservationsPoint; i_observation++)
+    {
+        int i_point  = ((int*)PyArray_DATA(indices_point_camera_points))[i_observation*2 + 0];
+        int i_camera = ((int*)PyArray_DATA(indices_point_camera_points))[i_observation*2 + 1];
+
+        // First I make sure everything is in-range
+        if(i_point < 0 || i_point >= Npoints)
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_point MUST be in [0,%d], instead got %d in row %d of indices_point_camera_points",
+                         Npoints-1, i_point, i_observation);
+            return false;
+        }
+        if(i_camera < 0 || i_camera >= Ncameras)
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_camera MUST be in [0,%d], instead got %d in row %d of indices_point_camera_points",
+                         Ncameras-1, i_camera, i_observation);
+            return false;
+        }
+
+        // And then I check monotonicity
+        if(i_point == i_point_last)
+        {
+            if( i_camera <= i_camera_last )
+            {
+                PyErr_Format(PyExc_RuntimeError, "i_camera MUST be monotonically increasing in indices_point_camera_points. Instead row %d (point %d) of indices_point_camera_points has i_camera=%d after seeing i_camera=%d",
+                             i_observation, i_point, i_camera, i_camera_last);
+                return false;
+            }
+        }
+        else if( i_point < i_point_last )
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_point MUST be monotonically increasing in indices_point_camera_points. Instead row %d of indices_point_camera_points has i_point=%d after seeing i_point=%d",
+                         i_observation, i_point, i_point_last);
+            return false;
+        }
+
+        i_point_last  = i_point;
+        i_camera_last = i_camera;
+    }
+
+
+
+
     if( PyObject_IsTrue(skip_outlier_rejection) )
     {
         // skipping outlier rejection. The pixel uncertainty isn't used and
