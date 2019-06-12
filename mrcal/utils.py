@@ -301,6 +301,8 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
         #                                        -1 ),
         #                             axis = -1)
 
+        # calobject_cam0 shape: (3, Nframes, object_width_n*object_width_n).
+        # This will broadcast nicely
         calobject_cam0 = nps.clump( nps.mv(calobject_cam0, -1, -4), n=-2)
 
         # if i_camera is not None:
@@ -328,7 +330,6 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
     curves_calobjects = gen_curves_calobjects()
     curves_points     = gen_curves_points()
 
-    # Need ascii=1 because I'm plotting labels.
     plot = gp.gnuplotlib(_3d=1, square=1, ascii=1,
                          xlabel='x',
                          ylabel='y',
