@@ -178,6 +178,9 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
     The inputs are the same as to mrcal.optimize(). If i_camera is not None, the
     visualization is colored by the reprojection-error-quality of the fit
 
+    object_spacing may be omitted ONLY if we are not observing any calibration
+    boards
+
     '''
 
     import gnuplotlib as gp
@@ -256,6 +259,8 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
            len(indices_frame_camera_board) == 0:
             return []
 
+        if object_spacing <= 0:
+            raise Exception("We're observing calibration boards, but their spacing is 0: please pass a valid object_spacing")
 
         Nobservations = len(indices_frame_camera_board)
 
