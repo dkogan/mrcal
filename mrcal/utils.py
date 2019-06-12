@@ -310,7 +310,7 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
         # else:
         calobject_curveopts = {'with':'lines', 'tuplesize': 3}
 
-        return tuple(list(calobject_cam0) + [calobject_curveopts,])
+        return [tuple(list(calobject_cam0) + [calobject_curveopts,])]
 
 
     def gen_curves_points():
