@@ -55,6 +55,7 @@ args = parse_args()
 import numpy as np
 import numpysane as nps
 import mrcal
+import time
 
 intrinsics = mrcal.cameramodel(args.intrinsics)
 extrinsics = mrcal.cameramodel(args.extrinsics)
@@ -67,10 +68,9 @@ joint = mrcal.cameramodel( intrinsics                          = intrinsics.intr
                            observed_pixel_uncertainty          = intrinsics.observed_pixel_uncertainty(),
                            valid_intrinsics_region             = intrinsics.valid_intrinsics_region())
 
-note = "Generated with '{}'\nIntrinsics from '{}'\nExtrinsics from '{}'". \
-    format(' '.join(sys.argv),
-           args.intrinsics,
-           args.extrinsics)
+note = \
+    "Generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                         ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
 sys.stderr.write("Combined intrinsics from '{}'\nExtrinsics from '{}'\n". \
     format(args.intrinsics,
@@ -79,6 +79,6 @@ sys.stderr.write("Combined intrinsics from '{}'\nExtrinsics from '{}'\n". \
 
 if args.writecahvor:
     import mrcal.cahvor
-    mrcal.cahvor.write(sys.stdout, joint)
+    mrcal.cahvor.write(sys.stdout, joint, note)
 else:
-    joint.write(sys.stdout)
+    joint.write(sys.stdout, note)
