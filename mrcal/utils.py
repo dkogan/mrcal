@@ -157,7 +157,12 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
                            distortion_model,
 
                            axis_scale = 1.0,
-                           object_spacing = 0, object_width_n = 10, i_camera=None):
+                           object_spacing = 0, object_width_n = 10, i_camera=None,
+
+                           title       = None,
+                           hardcopy    = None,
+                           kwargs      = None):
+
     r'''Plot what a hypothetical 3d calibrated world looks like
 
     Can be used to visualize the output (or input) of mrcal.optimize(). Not
@@ -182,6 +187,8 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
     boards
 
     '''
+
+    if kwargs is None: kwargs = {}
 
     import gnuplotlib as gp
 
@@ -334,6 +341,15 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
 
 
+    if extratitle is not None:
+        if 'title' in kwargs:
+            kwargs['title'] = kwargs['title'] + extratitle
+        else:
+            kwargs['title'] = extratitle
+
+    if 'hardcopy' not in kwargs and hardcopy is not None:
+        kwargs['hardcopy'] = hardcopy
+
     curves_cameras    = gen_curves_cameras()
     curves_calobjects = gen_curves_calobjects()
     curves_points     = gen_curves_points()
@@ -341,7 +357,8 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
     plot = gp.gnuplotlib(_3d=1, square=1, ascii=1,
                          xlabel='x',
                          ylabel='y',
-                         zlabel='z')
+                         zlabel='z',
+                         **kwargs)
 
 
 
