@@ -982,9 +982,7 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
         kwargs['set'] = []
     elif type(kwargs['set']) is not list:
         kwargs['set'] = [kwargs['set']]
-    kwargs['set'].extend(['xrange [:] noextend',
-                          'yrange [:] noextend reverse',
-                          'view equal xy',
+    kwargs['set'].extend(['view equal xy',
                           'view map',
                           'contour surface',
                           'key box opaque',
@@ -1245,12 +1243,10 @@ def show_distortion(distortion_model, intrinsics_data,
             kwargs['set'] = []
         elif type(kwargs['set']) is not list:
             kwargs['set'] = [kwargs['set']]
-        kwargs['set'].extend(['xrange [:] noextend',
-                                  'yrange [:] noextend reverse',
-                                  'view equal xy',
-                                  'view map',
-                                  'contour surface',
-                                  'cntrparam levels incremental {},-1,0'.format(cbmax)])
+        kwargs['set'].extend([ 'view equal xy',
+                               'view map',
+                               'contour surface',
+                               'cntrparam levels incremental {},-1,0'.format(cbmax)])
 
         # shape: gridn_x*gridn_y,2
         delta = dgrid-grid
@@ -1691,9 +1687,7 @@ def show_intrinsics_diff(models,
             kwargs['set'] = []
         elif type(kwargs['set']) is not list:
             kwargs['set'] = [kwargs['set']]
-        kwargs['set'].extend(['xrange [:] noextend',
-                              'yrange [:] noextend reverse',
-                              'view equal xy',
+        kwargs['set'].extend(['view equal xy',
                               'view map',
                               'contour surface',
                               'key box opaque',
