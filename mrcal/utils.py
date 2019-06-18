@@ -341,11 +341,11 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
 
 
-    if extratitle is not None:
+    if title is not None:
         if 'title' in kwargs:
-            kwargs['title'] = kwargs['title'] + extratitle
+            kwargs['title'] = kwargs['title'] + title
         else:
-            kwargs['title'] = extratitle
+            kwargs['title'] = title
 
     if 'hardcopy' not in kwargs and hardcopy is not None:
         kwargs['hardcopy'] = hardcopy
