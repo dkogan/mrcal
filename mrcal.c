@@ -1435,6 +1435,17 @@ bool mrcal_undistort( // out
         out[i]= q[i]; // seed from the distorted value
         double norm2x =
             dogleg_optimize_dense(out[i].xy, 2, 2, cb, NULL, NULL);
+        //This needs to be precise; if it isn't, I barf. Shouldn't happen
+        //very often
+        static bool already_complained = false;
+        if(!already_complained && norm2x/2.0 > 1e-4)
+        {
+            MSG("WARNING: I wasn't able to precisely compute some points. Returning nan for those. Will complain just once");
+            already_complained = true;
+            double nan = strtod("NAN", NULL);
+            out[i].x = nan;
+            out[i].y = nan;
+        }
     }
 
     return true;
