@@ -151,6 +151,31 @@ bool mrcal_distort( // out
                    double cx_pinhole,
                    double cy_pinhole);
 
+// Maps a set of distorted 2D imager points q to a set of imager points that
+// would result from observing the same vectors with an undistorted model. Here the
+// undistorted model is a pinhole camera with the given parameters. Any of these
+// pinhole parameters can be given as <= 0, in which case the corresponding
+// parameter from the distorted model will be used
+//
+// This is the "reverse" direction, so we need a nonlinear optimization to compute
+// this result. OpenCV has cvUndistortPoints() (and cv2.undistortPoints()), but
+// these are inaccurate: https://github.com/opencv/opencv/issues/8811
+//
+// This function does this precisely AND supports distortions other than OpenCV's
+bool mrcal_undistort( // out
+                     point2_t* out,
+
+                     // in
+                     const point2_t* q,
+                     int N,
+                     distortion_model_t distortion_model,
+                     // core, distortions concatenated
+                     const double* intrinsics,
+                     double fx_pinhole,
+                     double fy_pinhole,
+                     double cx_pinhole,
+                     double cy_pinhole);
+
 
 
 #define MRCAL_STATS_ITEM(_)                                           \

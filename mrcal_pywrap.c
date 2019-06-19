@@ -892,7 +892,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 #define DISTORT_ARGUMENTS_ALL(_) \
     DISTORT_ARGUMENTS_REQUIRED(_) \
     DISTORT_ARGUMENTS_OPTIONAL(_)
-static bool distort_validate_args( // out
+static bool _un_distort_validate_args( // out
                                   distortion_model_t* distortion_model_type,
 
                                   // in
@@ -958,9 +958,10 @@ static bool distort_validate_args( // out
 
     return true;
 }
-static PyObject* distort(PyObject* NPY_UNUSED(self),
-                         PyObject* args,
-                         PyObject* kwargs)
+static PyObject* _un_distort(PyObject* NPY_UNUSED(self),
+                             PyObject* args,
+                             PyObject* kwargs,
+                             bool direction_distort)
 {
     PyObject*      result          = NULL;
     SET_SIGINT();
@@ -985,10 +986,10 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
         goto done;
 
     distortion_model_t distortion_model_type;
-    if(!distort_validate_args( &distortion_model_type,
-                               DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
-                               DISTORT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
-                               NULL))
+    if(!_un_distort_validate_args( &distortion_model_type,
+                                DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
+                                DISTORT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                                NULL))
         goto done;
 
     // if the input points array is degenerate, return a degenerate thing
@@ -1024,19 +1025,24 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
                                                 NPY_DOUBLE);
     }
 
-    if(! mrcal_distort((point2_t*)PyArray_DATA(out),
-
-                       (const point2_t*)PyArray_DATA(points),
-                       Npoints,
-                       distortion_model_type,
-                       // core, distortions concatenated
-                       (const double*)PyArray_DATA(intrinsics),
-                       fx,fy,cx,cy))
-    {
-       PyErr_SetString(PyExc_RuntimeError, "mrcal_distort() failed!");
-       Py_DECREF((PyObject*)out);
-       goto done;
+#define DOTHING(what)                                                   \
+    if(! what((point2_t*)PyArray_DATA(out),                             \
+                                                                        \
+                       (const point2_t*)PyArray_DATA(points),           \
+                       Npoints,                                         \
+                       distortion_model_type,                           \
+                       /* core, distortions concatenated */             \
+                       (const double*)PyArray_DATA(intrinsics),         \
+                       fx,fy,cx,cy))                                    \
+    {                                                                   \
+        PyErr_SetString(PyExc_RuntimeError, #what "() failed!");        \
+        Py_DECREF((PyObject*)out);                                      \
+        goto done;                                                      \
     }
+
+
+    if(direction_distort) { DOTHING(mrcal_distort);   }
+    else                  { DOTHING(mrcal_undistort); }
 
     result = (PyObject*)out;
 
@@ -1050,6 +1056,19 @@ static PyObject* distort(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+static PyObject* distort(PyObject* NPY_UNUSED(self),
+                         PyObject* args,
+                         PyObject* kwargs)
+{
+    return _un_distort(NULL, args, kwargs, true);
+}
+
+static PyObject* undistort(PyObject* NPY_UNUSED(self),
+                           PyObject* args,
+                           PyObject* kwargs)
+{
+    return _un_distort(NULL, args, kwargs, false);
+}
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
@@ -1889,6 +1908,9 @@ static const char project_docstring[] =
 static const char distort_docstring[] =
 #include "distort.docstring.h"
     ;
+static const char undistort_docstring[] =
+#include "undistort.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,getNdistortionParams,         METH_VARARGS),
@@ -1896,6 +1918,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
       PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,distort,                      METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,undistort,                    METH_VARARGS | METH_KEYWORDS),
       {}
     };
 

@@ -1335,6 +1335,114 @@ bool mrcal_distort( // out
     return true;
 }
 
+
+// Maps a set of distorted 2D imager points q to a set of imager points that
+// would result from observing the same vectors with an undistorted model. Here the
+// undistorted model is a pinhole camera with the given parameters. Any of these
+// pinhole parameters can be given as <= 0, in which case the corresponding
+// parameter from the distorted model will be used
+//
+// This is the "reverse" direction, so we need a nonlinear optimization to compute
+// this result. OpenCV has cvUndistortPoints() (and cv2.undistortPoints()), but
+// these are inaccurate: https://github.com/opencv/opencv/issues/8811
+//
+// This function does this precisely AND supports distortions other than OpenCV's
+bool mrcal_undistort( // out
+                     point2_t* out,
+
+                     // in
+                     const point2_t* q,
+                     int N,
+                     distortion_model_t distortion_model,
+                     // core, distortions concatenated
+                     const double* intrinsics,
+                     double fx_pinhole,
+                     double fy_pinhole,
+                     double cx_pinhole,
+                     double cy_pinhole)
+{
+    const intrinsics_core_t* core =
+        (const intrinsics_core_t*)intrinsics;
+    const double* distortions = &intrinsics[4];
+
+    if(fx_pinhole <= 0) fx_pinhole = core->focal_xy [0];
+    if(fy_pinhole <= 0) fy_pinhole = core->focal_xy [1];
+    if(cx_pinhole <= 0) cx_pinhole = core->center_xy[0];
+    if(cy_pinhole <= 0) cy_pinhole = core->center_xy[1];
+
+    const double fx_recip_distort = 1.0 / core->focal_xy[0];
+    const double fy_recip_distort = 1.0 / core->focal_xy[1];
+    const double fx_recip_pinhole = 1.0 / fx_pinhole;
+    const double fy_recip_pinhole = 1.0 / fy_pinhole;
+
+    // easy special-case
+    if( distortion_model == DISTORTION_NONE )
+    {
+        for(int i=0; i<N; i++)
+        {
+            double x = (q[i].x - core->focal_xy[0]) * fx_recip_distort;
+            double y = (q[i].y - core->focal_xy[1]) * fy_recip_distort;
+            out[i].x = x*fx_recip_pinhole + cx_pinhole;
+            out[i].y = y*fy_recip_pinhole + cy_pinhole;
+        }
+        return true;
+    }
+
+    if( distortion_model == DISTORTION_CAHVORE )
+    {
+        fprintf(stderr, "mrcal_undistort(DISTORTION_CAHVORE) not yet implemented. No gradients available\n");
+        return false;
+    }
+
+
+    pose_t frame = {.r = {},
+                    .t = {.z = 1.0}};
+
+    for(int i=0; i<N; i++)
+    {
+        void cb(const double*   xy,
+                double*         x,
+                double*         J,
+                void*           cookie __attribute__((unused)))
+        {
+            // I want q[i] == distort(xy)
+
+            frame.t.x = (xy[0] - core->center_xy[0]) * fx_recip_distort;
+            frame.t.y = (xy[1] - core->center_xy[1]) * fy_recip_distort;
+            // initializing this above: frame.t.z = 1.0;
+
+            point3_t dxy_dtframe[2];
+            point2_t q_hypothesis =
+                project( NULL, NULL,
+                         NULL, NULL, NULL, dxy_dtframe,
+                         NULL,
+
+                         // in
+                         core, distortions,
+                         NULL,
+                         &frame,
+                         NULL,
+                         true,
+                         distortion_model,
+
+                         -1, 0.0, 0);
+            x[0] = q_hypothesis.x - q[i].x;
+            x[1] = q_hypothesis.y - q[i].y;
+            J[0*2 + 0] = dxy_dtframe[0].x*fx_recip_distort;
+            J[0*2 + 1] = dxy_dtframe[0].y*fy_recip_distort;
+            J[1*2 + 0] = dxy_dtframe[1].x*fx_recip_distort;
+            J[1*2 + 1] = dxy_dtframe[1].y*fy_recip_distort;
+        }
+
+        out[i]= q[i]; // seed from the distorted value
+        double norm2x =
+            dogleg_optimize_dense(out[i].xy, 2, 2, cb, NULL, NULL);
+    }
+
+    return true;
+}
+
+
 // The following functions define/use the layout of the state vector. In general
 // I do:
 //
