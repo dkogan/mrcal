@@ -480,9 +480,9 @@ def redistort_image(model0, model1, image0, ignore_rotation=False):
     Takes in
 
     - two camera models (filenames or objects)
-    - an image captured with model0 (filename or array)
+    - image(s) captured with model0 (filename or array)
 
-    Produces an image of the same scene that would have been observed by
+    Produces image(s) of the same scene that would have been observed by
     camera1. If the intrinsics and the rotation were correct, this remapped
     camera0 image woudl match the camera1 image for objects infinitely-far away.
     This is thus a good validation function.
@@ -513,13 +513,19 @@ def redistort_image(model0, model1, image0, ignore_rotation=False):
 
     q = mrcal.project(v, *m[0].intrinsics())
 
-    if not isinstance(image0, np.ndarray):
-        image0 = cv2.imread(image0)
+    q0 = q[..., 0].astype(np.float32)
+    q1 = q[..., 1].astype(np.float32)
 
-    return cv2.remap(image0,
-                     q[..., 0].astype(np.float32),
-                     q[..., 1].astype(np.float32),
-                     cv2.INTER_LINEAR)
+    # The images can be given as a numpy array or as a filename string. And they
+    # can be an iterable or not
+    def do_one(im):
+        if isinstance(im, str): im = cv2.imread(im)
+        return cv2.remap(im, q0, q1, cv2.INTER_LINEAR)
+
+    if isinstance(image0, str) or isinstance(image0, np.ndarray):
+        return do_one(image0)
+
+    return [do_one(im) for im in image0]
 
 
 def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
