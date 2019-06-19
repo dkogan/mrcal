@@ -503,11 +503,7 @@ static point2_t project( // out
     }
 
 
-    if( distortion_model == DISTORTION_OPENCV4 ||
-        distortion_model == DISTORTION_OPENCV5 ||
-        distortion_model == DISTORTION_OPENCV8 ||
-        distortion_model == DISTORTION_OPENCV12 ||
-        distortion_model == DISTORTION_OPENCV14 )
+    if( DISTORTION_IS_OPENCV(distortion_model) )
     {
         // OpenCV does the projection AND the gradient propagation for me, so I
         // implement a separate code path for it
