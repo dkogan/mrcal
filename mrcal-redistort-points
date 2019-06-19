@@ -9,9 +9,12 @@ SYNOPSIS
       --to fisheye.cameramodel
       < input.vnl > output.vnl
 
-This tool takes a set of pixel observations corresponding to one camera model,
-and converts them to corresponding observations in another model. This is useful
-in conjunction with the 'undistort-points' tool. An envisioned usage:
+This tool takes a set of pixel observations made by one camera model, and
+transforms them into corresponding observations in made by another model. This
+always ignores the translation component of the extrinsics, and ignores the
+rotation as well if --ignore-rotation. The two sets of intrinsics are always
+used. This is useful in conjunction with the 'undistort-points' tool. An
+envisioned usage:
 
 - undistort-points --model fisheye.cameramodel input.png
   This produces an undistorted image and a corresponding pinhole camera model.
@@ -27,8 +30,10 @@ The input data comes in on standard input, and the output data goes out on
 standard output. Both are vnlog data: human-readable text with 2 columns: x and
 y pixel coord. Comments are allowed, and start with the '#' character.
 
-'''
+mrcal-redistort-image is a similar tool that remaps a whole image instead of a
+set of discrete points.
 
+'''
 
 from __future__ import print_function
 
@@ -46,8 +51,8 @@ def parse_args():
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
                         required=True,
-                        help='''Camera model for the INPUT points. Assumed to be mrcal native, Unless the name is xxx.cahvor,
-                        in which case the cahvor format is assumed''')
+                        help='''Camera model for the INPUT points. Assumed to be mrcal native, Unless the
+                        name is xxx.cahvor, in which case the cahvor format is used.''')
 
     parser.add_argument('--to',
                         type=lambda f: f if os.path.isfile(f) else \
@@ -55,6 +60,11 @@ def parse_args():
                         required=True,
                         help='''Camera model for the OUTPUT points. Assumed to be mrcal native, Unless the name is xxx.cahvor,
                         in which case the cahvor format is assumed''')
+
+    parser.add_argument('--ignore-rotation',
+                        action='store_true',
+                        help='''By default the relative camera rotation is used in the transformation. If we
+                        want to use the intrinsics ONLY, pass --ignore-rotation''')
 
     return parser.parse_args()
 
@@ -81,6 +91,12 @@ model_to   = mrcal.cameramodel(args.to)
 p = np.genfromtxt(sys.stdin)
 
 v = mrcal.unproject(p, *model_from.intrinsics())
+
+if not args.ignore_rotation:
+    R = nps.matmult( model_to.  extrinsics_Rt_fromref()[:3,:],
+                     model_from.extrinsics_Rt_toref  ()[:3,:] )
+    v = nps.matmult(R, nps.dummy(v, -1))[..., 0]
+
 p = mrcal.project  (v, *model_to  .intrinsics())
 
 np.savetxt(sys.stdout, p, fmt='%f', header='x y')
