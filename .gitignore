@@ -17,3 +17,5 @@ debian/*/
 
 *.pickle
 test_gradients
+
+*.pod
