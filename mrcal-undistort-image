@@ -20,6 +20,10 @@ center pixel values as the original, but no distortions. Thus the undistorted
 images might cut out chunks of the original, or leave empty borders on the
 edges.
 
+The output goes into the same directory as the input image, with a slightly
+different filename: image.png -> image-undistorted.png
+This tool will refuse to overwrite any existing files unless --force.
+
 '''
 
 from __future__ import print_function
