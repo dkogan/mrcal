@@ -474,7 +474,7 @@ def undistort_image(model, image,
                      cv2.INTER_LINEAR)
 
 
-def remap_via_atinfinity_homography(model0, model1, image0):
+def redistort_image(model0, model1, image0, ignore_rotation=False):
     r'''Remaps a given image into another model, assuming no translation
 
     Takes in
@@ -482,11 +482,13 @@ def remap_via_atinfinity_homography(model0, model1, image0):
     - two camera models (filenames or objects)
     - an image captured with model0 (filename or array)
 
-    Ignoring the translation between the two cameras produces an image of the
-    same scene that would have been observed by camera1. If the intrinsics and
-    the rotation were correct, this remapped camera0 image woudl match the
-    camera1 image for objects infinitely-far away. This is thus a good
-    validation function
+    Produces an image of the same scene that would have been observed by
+    camera1. If the intrinsics and the rotation were correct, this remapped
+    camera0 image woudl match the camera1 image for objects infinitely-far away.
+    This is thus a good validation function.
+
+    This function always ignores the translation between the two cameras. The
+    rotation is ignored as well if ignore_rotation
 
     '''
 
@@ -496,9 +498,6 @@ def remap_via_atinfinity_homography(model0, model1, image0):
     W,H = m[1].imagersize()
     distortion_model, intrinsics_data = m[1].intrinsics()
 
-    R01 = nps.matmult( m[0].extrinsics_Rt_fromref()[:3,:],
-                       m[1].extrinsics_Rt_toref  ()[:3,:] )
-
     # I want to do this:
     #   v,_ = mrcal.utils._sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
     # but that would involve a python loop that's REALLY slow, so I do this instead
@@ -507,7 +506,11 @@ def remap_via_atinfinity_homography(model0, model1, image0):
     mapxy = nps.mv(mapxy, 0, -1)
     v = mrcal.unproject( mapxy, *m1_pinhole.intrinsics())
 
-    v = nps.matmult(R01, nps.dummy(v, -1))[..., 0]
+    if not ignore_rotation:
+        R01 = nps.matmult( m[0].extrinsics_Rt_fromref()[:3,:],
+                           m[1].extrinsics_Rt_toref  ()[:3,:] )
+        v = nps.matmult(R01, nps.dummy(v, -1))[..., 0]
+
     q = mrcal.project(v, *m[0].intrinsics())
 
     if not isinstance(image0, np.ndarray):
