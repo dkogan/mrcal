@@ -515,13 +515,8 @@ def redistort_image(model0, model1, image0, ignore_rotation=False):
     W,H = m[1].imagersize()
     distortion_model, intrinsics_data = m[1].intrinsics()
 
-    # I want to do this:
-    #   v,_ = mrcal.utils._sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
-    # but that would involve a python loop that's REALLY slow, so I do this instead
-    mapxy,m1_pinhole = undistort_image__compute_map(m[1])
-    # shape (2,H,W) -> (H,W,2)
-    mapxy = nps.mv(mapxy, 0, -1)
-    v = mrcal.unproject( mapxy, *m1_pinhole.intrinsics())
+    v,_ = mrcal.utils._sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
+    v = nps.reorder(v, 1,0,2)
 
     if not ignore_rotation:
         R01 = nps.matmult( m[0].extrinsics_Rt_fromref()[:3,:],
