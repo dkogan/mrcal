@@ -1024,6 +1024,48 @@ void mrcal_project( // out
     int Ndistortions = mrcal_getNdistortionParams(distortion_model);
     int Nintrinsics  = Ndistortions + 4;
 
+    // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
+    // project() have a lot of overhead apparently, and calling either in a loop
+    // is very slow. I can call it once, and use its fast internal loop,
+    // however. This special case does the same thing, but much faster.
+
+    if(dxy_dintrinsics == NULL && dxy_dp == NULL &&
+       (DISTORTION_IS_OPENCV(distortion_model) ||
+        distortion_model == DISTORTION_NONE))
+    {
+        const intrinsics_core_t* intrinsics_core = (const intrinsics_core_t*)intrinsics;
+        double fx = intrinsics_core->focal_xy [0];
+        double fy = intrinsics_core->focal_xy [1];
+        double cx = intrinsics_core->center_xy[0];
+        double cy = intrinsics_core->center_xy[1];
+        double _camera_matrix[] =
+            { fx,  0, cx,
+              0, fy, cy,
+              0,  0,  1 };
+        CvMat camera_matrix = cvMat(3,3, CV_64FC1, _camera_matrix);
+
+        int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
+        CvMat _distortions;
+        if(NdistortionParams > 0)
+            _distortions = cvMat( NdistortionParams, 1, CV_64FC1,
+                                  // removing const, but that's just because
+                                  // OpenCV's API is incomplete. It IS const
+                                  (double*)&intrinsics[4]);
+
+        CvMat object_points  = cvMat(3,N, CV_64FC1, (double*)p  ->xyz);
+        CvMat image_points   = cvMat(2,N, CV_64FC1, (double*)out->xy);
+        double _zero3[3] = {};
+        CvMat zero3 = cvMat(3,1,CV_64FC1, _zero3);
+        cvProjectPoints2(&object_points,
+                         &zero3, &zero3,
+                         &camera_matrix,
+                         NdistortionParams > 0 ? &_distortions : NULL,
+                         &image_points,
+                         NULL, NULL, NULL, NULL, NULL, 0 );
+        return;
+    }
+
+
     for(int i=0; i<N; i++)
     {
         pose_t frame = {.r = {},
