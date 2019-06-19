@@ -1313,7 +1313,7 @@ bool mrcal_distort( // out
         // pinhole model
         frame.t.x = (q[i].x - cx_pinhole) / fx_pinhole;
         frame.t.y = (q[i].y - cy_pinhole) / fy_pinhole;
-        // initializing this above: frame.t[2] = 1.0;
+        // initializing this above: frame.t.z = 1.0;
 
         out[i] = project( NULL, NULL,
                           NULL, NULL, NULL,
