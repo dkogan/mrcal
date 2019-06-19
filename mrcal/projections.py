@@ -155,8 +155,25 @@ def unproject(q, distortion_model, intrinsics_data):
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
 
-    q = mrcal.undistort(np.ascontiguousarray(q), distortion_model, intrinsics_data)
-    vxy = (q - cxy) / fxy
+    if 0:
+        # This is imprecise: https://github.com/opencv/opencv/issues/8811
+        # But much faster
+        if re.match("DISTORTION_OPENCV",distortion_model):
+
+            A = np.array(((fxy[0],   0,    cxy[0]),
+                          ( 0,     fxy[1], cxy[1]),
+                          ( 0,       0,     1)))
+
+            # opencv is silly, and I feed it what it wants
+            qshape = q.shape
+            qsize  = q.size
+            vxy = cv2.undistortPoints(q.astype(float).reshape(1,qsize//2,2), A, intrinsics_data[4:]).reshape(*qshape)
+        else:
+            raise Exception("Imprecise path exists only for opencv distortions")
+    else:
+        # Normal path. mrcal libdogleg optimization to reverse mrcal.project()
+        q = mrcal.undistort(np.ascontiguousarray(q), distortion_model, intrinsics_data)
+        vxy = (q - cxy) / fxy
 
     # I append a 1. shape = (..., 3)
     v = nps.glue(vxy, np.ones( vxy.shape[:-1] + (1,) ), axis=-1)
