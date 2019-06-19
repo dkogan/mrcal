@@ -474,6 +474,51 @@ def undistort_image(model, image,
                      cv2.INTER_LINEAR)
 
 
+def remap_via_atinfinity_homography(model0, model1, image0):
+    r'''Remaps a given image into another model, assuming no translation
+
+    Takes in
+
+    - two camera models (filenames or objects)
+    - an image captured with model0 (filename or array)
+
+    Ignoring the translation between the two cameras produces an image of the
+    same scene that would have been observed by camera1. If the intrinsics and
+    the rotation were correct, this remapped camera0 image woudl match the
+    camera1 image for objects infinitely-far away. This is thus a good
+    validation function
+
+    '''
+
+    m = [mrcal.cameramodel(model0),
+         mrcal.cameramodel(model1)]
+
+    W,H = m[1].imagersize()
+    distortion_model, intrinsics_data = m[1].intrinsics()
+
+    R01 = nps.matmult( m[0].extrinsics_Rt_fromref()[:3,:],
+                       m[1].extrinsics_Rt_toref  ()[:3,:] )
+
+    # I want to do this:
+    #   v,_ = mrcal.utils._sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
+    # but that would involve a python loop that's REALLY slow, so I do this instead
+    mapxy,m1_pinhole = undistort_image__compute_map(m[1])
+    # shape (2,H,W) -> (H,W,2)
+    mapxy = nps.mv(mapxy, 0, -1)
+    v = mrcal.unproject( mapxy, *m1_pinhole.intrinsics())
+
+    v = nps.matmult(R01, nps.dummy(v, -1))[..., 0]
+    q = mrcal.project(v, *m[0].intrinsics())
+
+    if not isinstance(image0, np.ndarray):
+        image0 = cv2.imread(image0)
+
+    return cv2.remap(image0,
+                     q[..., 0].astype(np.float32),
+                     q[..., 1].astype(np.float32),
+                     cv2.INTER_LINEAR)
+
+
 def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
     the projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)
