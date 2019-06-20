@@ -637,7 +637,7 @@ static PyObject* getNextDistortionModel(PyObject* NPY_UNUSED(self),
 
     PyObject* distortion_model_now_string   = NULL;
     PyObject* distortion_model_final_string = NULL;
-    if(!PyArg_ParseTuple( args, "SS",
+    if(!PyArg_ParseTuple( args, STRING_OBJECT STRING_OBJECT,
                           &distortion_model_now_string,
                           &distortion_model_final_string))
         goto done;
