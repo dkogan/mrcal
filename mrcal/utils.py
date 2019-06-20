@@ -1373,7 +1373,9 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
 
     def angle_err(v0,v1,R):
         # cos(x) = inner(v0,v1) ~ 1 - x*x
-        c = nps.inner(nps.matmult(v0,R), v1)
+        # clip to handle roundoff
+        c = np.clip( nps.inner(nps.matmult(v0,R), v1),
+                     -1, 1 )
         return np.sqrt(1-c)
 
     def residual_jacobian(r):
