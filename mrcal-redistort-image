@@ -5,10 +5,10 @@ r'''Remaps a captured image into another camera model
 SYNOPSIS
 
   $ mrcal-redistort-image
-      --from pinhole.cameramodel
-      --to fisheye.cameramodel
-      image.png
-  Wrote image-remapped.png
+      --from camera0.cameramodel
+      --to   camera1.cameramodel
+      image0.png
+  Wrote image0-remapped.png
 
 This tool takes an image captured by one camera model, and transforms it into
 another model. The two sets of intrinsics are always used. One way in which this
@@ -22,8 +22,22 @@ This tool always ignores the translation component of the extrinsics, and
 ignores the rotation as well if --ignore-rotation.
 
 The output goes into the same directory as the input image, with a slightly
-different filename: image.png -> image-remapped.png
-This tool will refuse to overwrite any existing files unless --force.
+different filename: image.png -> image-remapped.png This tool will refuse to
+overwrite any existing files unless --force.
+
+As described above, this tool will remove distortion from the given image using
+ITS camera model, and then apply the distortion from the second camera model.
+Applying a distortion is a VERY slow operation, since for each pixel a nonlinear
+optimization problem needs to be solved. This is really REALLY slow, so it is
+recommended to pass '--undistort1 image1.png' in addition to image0.png. This
+would write out two images:
+
+- image0-undistorted-remapped.png
+- image1-undistorted.png
+
+As before, these two images can be compared, and their view of
+infinitely-far-away objects will line up if the rotations and intrinsics are
+correct. Except this computation would finish in a reasonable time.
 
 '''
 
@@ -66,11 +80,28 @@ def parse_args():
                         help='''By default I don't overwrite existing files. Pass --force to overwrite them
                         without complaint''')
 
+    parser.add_argument('--undistort1',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The image1 must be a readable file, but got '{}'".format(f)),
+                        help='''By default I remap image0 into the distorted coordinates of image1. This is
+                        very slow, so a much faster option is to undistort both
+                        images. Pass the second image here to do that''')
+
+    parser.add_argument('--fit',
+                        type=str,
+                        required=False,
+                        help='''If --undistort1 is given, we undistort both images. This can be done with any
+                        set of pinhole intrinsics. This argument allows us to
+                        select how this is done. If given, we'll scale the focal
+                        length of the pinhole model to fit some of the original
+                        image into the output. This is one of "corners",
+                        "centers-horizontal", "centers-vertical". If omitted, we
+                        keep the focal lengths the same''')
+
     parser.add_argument('image',
                         type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The images must be readable files, but got '{}'".format(f)),
-                        nargs='+',
-                        help='''Images to remap''')
+                                parser.error("The image0 must be a readable file, but got '{}'".format(f)),
+                        help='''Image to remap''')
 
     return parser.parse_args()
 
@@ -91,37 +122,57 @@ import cv2
 import mrcal
 
 
-def target_image_filename(f):
+def target_image_filename(f,suffix):
     m = re.match("(.*)\.([a-z][a-z][a-z])$", f, flags=re.I)
     if not m:
         raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(f))
 
-    return "{}-remapped.{}".format(m.group(1),m.group(2))
+    f = "{}-{}.{}".format(m.group(1),suffix,m.group(2))
+    if not args.force and os.path.isfile(f):
+        sys.stderr.write("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.\n".format(f))
+        sys.exit(1)
+    return f
 
 
 
-if not args.force:
-    for imagefile in args.image:
-        f = target_image_filename(imagefile)
-        if os.path.isfile(f):
-            sys.stderr.write("Target image '{}' already exists. Doing nothing, and giving up. Pass -f to overwrite.\n".format(f))
-            sys.exit(1)
+if args.undistort1 is None:
+    image0_output_filename = target_image_filename(args.image, 'remapped')
 
+    image0_remapped = mrcal.redistort_image( # 'from' is reserved in python
+                                    getattr(args, 'from'), getattr(args, 'to'),
+                                    args.image,
+                                    ignore_rotation = args.ignore_rotation)
 
-args_from  = getattr(args, 'from')
-model_from = mrcal.cameramodel(args_from)
-model_to   = mrcal.cameramodel(args.to)
+    cv2.imwrite(image0_output_filename, image0_remapped)
+    sys.stderr.write("Wrote {}\n".format(image0_output_filename))
 
+else:
 
-image1 = mrcal.redistort_image( # 'from' is reserved in python
-                                getattr(args, 'from'), getattr(args, 'to'),
-                                args.image,
-                                ignore_rotation = args.ignore_rotation)
+    image0_output_filename = target_image_filename(args.image,      'undistorted-remapped')
+    image1_output_filename = target_image_filename(args.undistort1, 'undistorted')
 
-for i in range(len(args.image)):
-    im = image1[i]
-    f  = target_image_filename(args.image[i])
-    cv2.imwrite(f, im)
-    sys.stderr.write("Wrote {}\n".format(f))
+    models = (mrcal.cameramodel(getattr(args, 'from')),
+              mrcal.cameramodel(args.to) )
 
+    if args.fit is None:
+        scale_f_pinhole = (1.0, 1.0)
+    elif re.match("^(corners|centers-horizontal|centers-vertical)$", args.fit):
+        scale_f_pinhole = [mrcal.compute_scale_f_pinhole_for_fit(m, args.fit) for m in models]
+    else:
+        sys.stderr.write("--fit must be one of ('corners','centers-horizontal','centers-vertical')\n")
+        sys.exit(1)
 
+    mapxy1,model_pinhole1 = \
+        mrcal.undistort_image__compute_map(models[1],
+                                           scale_f_pinhole = scale_f_pinhole[1])
+    image1_undistorted = mrcal.undistort_image(models[1], args.undistort1,
+                                               mapxy = mapxy1)
+
+    image0_remapped = mrcal.redistort_image( models[0], model_pinhole1,
+                                             args.image,
+                                             ignore_rotation = args.ignore_rotation )
+
+    cv2.imwrite(image0_output_filename, image0_remapped)
+    sys.stderr.write("Wrote {}\n".format(image0_output_filename))
+    cv2.imwrite(image1_output_filename, image1_undistorted)
+    sys.stderr.write("Wrote {}\n".format(image1_output_filename))
