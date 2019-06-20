@@ -232,16 +232,18 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
         raise Exception("fit must be either None or a numpy array of one of ('corners','centers-horizontal','centers-vertical')")
 
     distortion_model,intrinsics_data = model.intrinsics()
+
     v_edges = mrcal.unproject(q_edges, distortion_model, intrinsics_data)
 
-    # I have points in space now. My scaled pinhole camera would map these to
-    # (k*fx*x/z+cx, fy*y/z+cy). I pick a k sure that this is in-bounds for all my
-    # points, and that the points occupy as large a chunk of the imager as possible.
-    # I can look at just the normalized x and y. Just one of the query points should
-    # land on the edge; the rest should be in-bounds
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
     fx,fy,cx,cy  = intrinsics_data[:4]
+
+    # I have points in space now. My scaled pinhole camera would map these to
+    # (k*fx*x/z+cx, k*fy*y/z+cy). I pick a k sure that this is in-bounds for all
+    # my points, and that the points occupy as large a chunk of the imager as
+    # possible. I can look at just the normalized x and y. Just one of the query
+    # points should land on the edge; the rest should be in-bounds
 
     W1 = int(W*scale_imagersize_pinhole + 0.5)
     H1 = int(H*scale_imagersize_pinhole + 0.5)
