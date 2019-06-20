@@ -1378,10 +1378,10 @@ bool mrcal_undistort( // out
     {
         for(int i=0; i<N; i++)
         {
-            double x = (q[i].x - core->focal_xy[0]) * fx_recip_distort;
-            double y = (q[i].y - core->focal_xy[1]) * fy_recip_distort;
-            out[i].x = x*fx_recip_pinhole + cx_pinhole;
-            out[i].y = y*fy_recip_pinhole + cy_pinhole;
+            double x = (q[i].x - core->center_xy[0]) * fx_recip_distort;
+            double y = (q[i].y - core->center_xy[1]) * fy_recip_distort;
+            out[i].x = x*fx_pinhole + cx_pinhole;
+            out[i].y = y*fy_pinhole + cy_pinhole;
         }
         return true;
     }
@@ -1403,10 +1403,9 @@ bool mrcal_undistort( // out
                 double*         J,
                 void*           cookie __attribute__((unused)))
         {
-            // I want q[i] == distort(xy)
-
-            frame.t.x = (xy[0] - core->center_xy[0]) * fx_recip_distort;
-            frame.t.y = (xy[1] - core->center_xy[1]) * fy_recip_distort;
+            // I want q[i] == project(xy1)
+            frame.t.x = xy[0];
+            frame.t.y = xy[1];
             // initializing this above: frame.t.z = 1.0;
 
             point3_t dxy_dtframe[2];
@@ -1426,28 +1425,41 @@ bool mrcal_undistort( // out
                          -1, 0.0, 0);
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
-            J[0*2 + 0] = dxy_dtframe[0].x*fx_recip_distort;
-            J[0*2 + 1] = dxy_dtframe[0].y*fy_recip_distort;
-            J[1*2 + 0] = dxy_dtframe[1].x*fx_recip_distort;
-            J[1*2 + 1] = dxy_dtframe[1].y*fy_recip_distort;
+            J[0*2 + 0] = dxy_dtframe[0].x;
+            J[0*2 + 1] = dxy_dtframe[0].y;
+            J[1*2 + 0] = dxy_dtframe[1].x;
+            J[1*2 + 1] = dxy_dtframe[1].y;
         }
 
-        out[i]= q[i]; // seed from the distorted value
+        // seed from the distorted value
+        out[i].x = (q[i].x - core->center_xy[0]) * fx_recip_distort;
+        out[i].y = (q[i].y - core->center_xy[1]) * fy_recip_distort;
+
         double norm2x =
             dogleg_optimize_dense(out[i].xy, 2, 2, cb, NULL, NULL);
         //This needs to be precise; if it isn't, I barf. Shouldn't happen
         //very often
         static bool already_complained = false;
-        if(!already_complained && norm2x/2.0 > 1e-4)
+        if(norm2x/2.0 > 1e-4)
         {
-            MSG("WARNING: I wasn't able to precisely compute some points. Returning nan for those. Will complain just once");
-            already_complained = true;
+            if(!already_complained)
+            {
+                MSG("WARNING: I wasn't able to precisely compute some points. norm2x=%f. Returning nan for those. Will complain just once",
+                    norm2x);
+                already_complained = true;
+            }
             double nan = strtod("NAN", NULL);
             out[i].x = nan;
             out[i].y = nan;
         }
+        else
+        {
+            // (out[i].x, out[i].y, 1) is the observation vector. I project it
+            // into my pinhole model, and return it
+            out[i].x = out[i].x*fx_pinhole + cx_pinhole;
+            out[i].y = out[i].y*fy_pinhole + cy_pinhole;
+        }
     }
-
     return true;
 }
 
