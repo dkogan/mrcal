@@ -1371,26 +1371,23 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     # rotation
     cache = {'r': None}
 
-    def angle_err(v0,v1,R):
+    def angle_err_sq(v0,v1,R):
         # cos(x) = inner(v0,v1) ~ 1 - x*x
-        # clip to handle roundoff
-        c = np.clip( nps.inner(nps.matmult(v0,R), v1),
-                     -1, 1 )
-        return np.sqrt(1-c)
+        return 1 - nps.inner(nps.matmult(v0,R), v1)
 
     def residual_jacobian(r):
         R,dRdr = cv2.Rodrigues(r)
         dRdr = nps.transpose(dRdr) # fix opencv's weirdness. Now shape=(9,3)
 
-        x = angle_err(V0fit, V1fit, R)
+        x = angle_err_sq(V0fit, V1fit, R)
 
-        # dx/dr = 1/(2x) d(1-c)/dr = -1/(2x) V1ct dV0R/dr
+        # dx/dr = d(1-c)/dr = - V1ct dV0R/dr
         dV0R_dr = \
             nps.dummy(V0fit[..., (0,)], axis=-1) * dRdr[0:3,:] + \
             nps.dummy(V0fit[..., (1,)], axis=-1) * dRdr[3:6,:] + \
             nps.dummy(V0fit[..., (2,)], axis=-1) * dRdr[6:9,:]
 
-        J = -nps.matmult(nps.dummy(V1fit, -2), dV0R_dr)[..., 0, :] / (2. * nps.dummy(x, -1))
+        J = -nps.matmult(nps.dummy(V1fit, -2), dV0R_dr)[..., 0, :]
         return x,J
 
     def residual(r, cache, **kwargs):
@@ -1445,16 +1442,16 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     r_procrustes,_ = cv2.Rodrigues(R_procrustes)
     r_procrustes = r_procrustes.ravel()
 
-    e = angle_err(v0,v1,R_procrustes)
+    esq = angle_err_sq(v0,v1,R_procrustes)
 
     # throw away everything that's k times as wrong as the center of
     # interest. I look at a connected component around the center. I pick a
     # large k here, and use a robust error function further down
     k = 10
-    angle_err_at_center = e[icenter[0],icenter[1]]
-    threshold = angle_err_at_center*k
+    angle_err_sq_at_center = esq[icenter[0],icenter[1]]
+    thresholdsq = angle_err_sq_at_center*k*k
     import scipy.ndimage
-    regions,_ = scipy.ndimage.label(e < threshold)
+    regions,_ = scipy.ndimage.label(esq < thresholdsq)
     mask = regions==regions[icenter[0],icenter[1]]
     V0fit = v0[mask, ...]
     V1fit = v1[mask, ...]
@@ -1480,11 +1477,10 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
                                        method='dogbox',
 
                                        loss='soft_l1',
-                                       f_scale=angle_err_at_center*3.0,
+                                       f_scale=angle_err_sq_at_center*3.0,
                                        # max_nfev=1,
                                        args=(cache,),
                                        verbose=0)
-
     r_fit = res.x
     R_fit,_ = cv2.Rodrigues(r_fit)
 
