@@ -98,7 +98,7 @@ def _validateIntrinsics(imagersize,
         if not (len(s) == 2 and s0 == Nintrinsics and s1 == Nintrinsics):
             raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
 
-        if np.linalg.norm(invJtJ - invJtJ.transpose()) > 1e-9:
+        if not np.allclose(invJtJ, invJtJ.transpose()):
             raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't even symmetric")
 
         # surely computing ALL the eigenvalues is overkill for just figuring out if
