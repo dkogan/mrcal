@@ -13,6 +13,7 @@ import numpysane as nps
 import numbers
 import ast
 import re
+import warnings
 
 import mrcal
 
@@ -35,6 +36,10 @@ def _validateExtrinsics(e):
 
     return True
 
+class BadInvJtJ_Exception(Exception):
+    pass
+class BadValidIntrinsicsRegion_Exception(Exception):
+    pass
 def _validateIntrinsics(imagersize,
                         i,
                         observed_pixel_uncertainty,
@@ -93,23 +98,23 @@ def _validateIntrinsics(imagersize,
             s0 = s[0]
             s1 = s[1]
         except:
-            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
+            raise BadInvJtJ_Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
 
         if not (len(s) == 2 and s0 == Nintrinsics and s1 == Nintrinsics):
-            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
+            raise BadInvJtJ_Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
 
         if not np.allclose(invJtJ, invJtJ.transpose()):
-            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't even symmetric")
+            raise BadInvJtJ_Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't even symmetric")
 
         # surely computing ALL the eigenvalues is overkill for just figuring out if
         # this thing is positive-semi-definite or not?
         try:
             eigenvalue_smallest = np.linalg.eigvalsh(invJtJ)[0]
         except:
-            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; couldn't compute eigenvalues")
+            raise BadInvJtJ_Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; couldn't compute eigenvalues")
 
         if eigenvalue_smallest < -1e-9:
-            raise Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't positive-semi-definite; smallest eigenvalue: {}".format(eigenvalue_smallest))
+            raise BadInvJtJ_Exception("A valid invJtJ is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't positive-semi-definite; smallest eigenvalue: {}".format(eigenvalue_smallest))
 
 
     check_invJtJ(invJtJ_intrinsics_full)
@@ -121,11 +126,11 @@ def _validateIntrinsics(imagersize,
         except:
             not_positive = True
         if not_positive:
-            raise Exception("observed_pixel_uncertainty must be a positive number")
+            raise BadInvJtJ_Exception("observed_pixel_uncertainty must be a positive number")
     else:
         if invJtJ_intrinsics_full              is not None or \
            invJtJ_intrinsics_observations_only is not None:
-            raise Exception("If any invJtJ are given, the observed pixel uncertainty must be given too")
+            raise BadInvJtJ_Exception("If any invJtJ are given, the observed pixel uncertainty must be given too")
 
     if valid_intrinsics_region is not None:
         try:
@@ -133,9 +138,9 @@ def _validateIntrinsics(imagersize,
             if valid_intrinsics_region.ndim != 2     or \
                valid_intrinsics_region.shape[1] != 2 or \
                valid_intrinsics_region.shape[0] < 4:
-                raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4")
+                raise BadValidIntrinsicsRegion_Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4")
         except:
-            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
+            raise BadValidIntrinsicsRegion_Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
                             format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
 
 class cameramodel(object):
@@ -205,6 +210,7 @@ class cameramodel(object):
                             self._invJtJ_intrinsics_full,
                             self._invJtJ_intrinsics_observations_only,
                             self._valid_intrinsics_region)
+
         _validateExtrinsics(self._extrinsics)
 
         # I write this out manually instead of using repr for the whole thing
@@ -297,12 +303,21 @@ class cameramodel(object):
 
         intrinsics = (model['distortion_model'], np.array(model['intrinsics'], dtype=float))
 
-        _validateIntrinsics(model['imagersize'],
-                            intrinsics,
-                            observed_pixel_uncertainty,
-                            invJtJ_intrinsics_full,
-                            invJtJ_intrinsics_observations_only,
-                            valid_intrinsics_region)
+        try:
+            _validateIntrinsics(model['imagersize'],
+                                intrinsics,
+                                observed_pixel_uncertainty,
+                                invJtJ_intrinsics_full,
+                                invJtJ_intrinsics_observations_only,
+                                valid_intrinsics_region)
+        except BadInvJtJ_Exception as e:
+            warnings.warn("Invalid invJtJ; skipping invJtJ and valid_intrinsics_region: '{}'".format(e))
+            invJtJ_intrinsics_full              = None
+            invJtJ_intrinsics_observations_only = None
+            valid_intrinsics_region             = None
+        except BadValidIntrinsicsRegion_Exception as e:
+            warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
+
         _validateExtrinsics(model['extrinsics'])
 
         self._intrinsics                          = intrinsics
@@ -481,12 +496,20 @@ class cameramodel(object):
            valid_intrinsics_region     is None:
             return self._intrinsics
 
-        _validateIntrinsics(imagersize,
-                            intrinsics,
-                            observed_pixel_uncertainty,
-                            invJtJ_intrinsics_full,
-                            invJtJ_intrinsics_observations_only,
-                            valid_intrinsics_region)
+        try:
+            _validateIntrinsics(imagersize,
+                                intrinsics,
+                                observed_pixel_uncertainty,
+                                invJtJ_intrinsics_full,
+                                invJtJ_intrinsics_observations_only,
+                                valid_intrinsics_region)
+        except BadInvJtJ_Exception as e:
+            warnings.warn("Invalid invJtJ; skipping invJtJ and valid_intrinsics_region: '{}'".format(e))
+            invJtJ_intrinsics_full              = None
+            invJtJ_intrinsics_observations_only = None
+            valid_intrinsics_region             = None
+        except BadValidIntrinsicsRegion_Exception as e:
+            warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
 
         self._imagersize                          = imagersize
         self._intrinsics                          = intrinsics
