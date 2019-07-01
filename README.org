@@ -430,59 +430,93 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      images                A glob-per-camera for the images. Include a glob for each camera. It is assumed that the image filenames in each glob
-                            are of of the form xxxNNNyyy where xxx and yyy are common to all images in the set, and NNN varies. This NNN is a
-                            frame number, and identical frame numbers across different globs signify a time-synchronized observation. I.e. you can
-                            pass 'left*.jpg' and 'right*.jpg' to find images 'left0.jpg', 'left1.jpg', ..., 'right0.jpg', 'right1.jpg', ...
+      images                A glob-per-camera for the images. Include a glob for
+                            each camera. It is assumed that the image filenames in
+                            each glob are of of the form xxxNNNyyy where xxx and
+                            yyy are common to all images in the set, and NNN
+                            varies. This NNN is a frame number, and identical
+                            frame numbers across different globs signify a time-
+                            synchronized observation. I.e. you can pass
+                            'left*.jpg' and 'right*.jpg' to find images
+                            'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
+                            'right1.jpg', ...
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
       --focal FOCAL         Initial estimate of the focal length, in pixels
       --imagersize IMAGERSIZE IMAGERSIZE
-                            Size of the imager. This is only required if we pass --corners-cache AND if none of the image files on disk actually
-                            exist
+                            Size of the imager. This is only required if we pass
+                            --corners-cache AND if none of the image files on disk
+                            actually exist
       --outdir OUTDIR       Directory for the output camera models
       --object-spacing OBJECT_SPACING
-                            Width of each square in the calibration board, in meters
+                            Width of each square in the calibration board, in
+                            meters
       --object-width-n OBJECT_WIDTH_N
                             How many points the calibration board has per side
       --distortion-model DISTORTION_MODEL
-                            Which distortion model we're using. By default I use DISTORTION_OPENCV4
+                            Which distortion model we're using. By default I use
+                            DISTORTION_OPENCV4
       --roi ROI ROI ROI ROI
-                            Region of interest of the calibration. This is the area in the imager we're interested in. Errors in observations
-                            outside this area will be attenuated significantly. If we want to use all the data evenly, omit this argument.
-                            Otherwise pass 4 values for each --roi: (x_center,y_center,x_radius,y_radius). The region is an axis-aligned
-                            ellipsoid. If passing in ANY roi, you MUST pass in the ROI for EACH camera; a separate '--roi' for each one.
-      --incremental         If passed, we incrementally increase ROI and distortion model complexity across multiple solves. In this mode the
-                            requested ROI is a target, and the requested distortion model is the upper bound. If we can get away with a simpler
-                            one, we use that.
+                            Region of interest of the calibration. This is the
+                            area in the imager we're interested in. Errors in
+                            observations outside this area will be attenuated
+                            significantly. If we want to use all the data evenly,
+                            omit this argument. Otherwise pass 4 values for each
+                            --roi: (x_center,y_center,x_radius,y_radius). The
+                            region is an axis-aligned ellipsoid. If passing in ANY
+                            roi, you MUST pass in the ROI for EACH camera; a
+                            separate '--roi' for each one.
+      --incremental         If passed, we incrementally increase ROI and
+                            distortion model complexity across multiple solves. In
+                            this mode the requested ROI is a target, and the
+                            requested distortion model is the upper bound. If we
+                            can get away with a simpler one, we use that.
       --num-cross-validation-splits NUM_CROSS_VALIDATION_SPLITS
-                            If passed, we cross-validate the results with this many splits. This only makes sense as an integer >1. THIS IS
-                            EXPERIMENTAL.
-      --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make. Affects only the chessboard corner finder. If we are reading a cache
-                            file, this does nothing
+                            If passed, we cross-validate the results with this
+                            many splits. This only makes sense as an integer >1.
+                            THIS IS EXPERIMENTAL.
+      --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make.
+                            Affects only the chessboard corner finder. If we are
+                            reading a cache file, this does nothing
       --corners-cache CORNERS_CACHE
-                            Path to read corner-finder data from or (if path does not exist) to write data to
+                            Path to read corner-finder data from or (if path does
+                            not exist) to write data to
       --skip-regularization
-                            By default we apply regularization to the solver. This option turns that off
+                            By default we apply regularization to the solver. This
+                            option turns that off
       --skip-outlier-rejection
-                            By default we throw out outliers. This option turns that off
-      --verbose-solver      By default the final stage of the solver doesn't say much. This option turns on verbosity to get lots of diagnostics.
+                            By default we throw out outliers. This option turns
+                            that off
+      --verbose-solver      By default the final stage of the solver doesn't say
+                            much. This option turns on verbosity to get lots of
+                            diagnostics.
       --optimize-calobject-warp
-                            By default we assume the calibration target is flat. If it isn't and we want to compute it, pass this option.
-      --explore             After the solve open an interactive shell to examine the solution
+                            By default we assume the calibration target is flat.
+                            If it isn't and we want to compute it, pass this
+                            option.
+      --explore             After the solve open an interactive shell to examine
+                            the solution
       --observed-pixel-uncertainty OBSERVED_PIXEL_UNCERTAINTY
-                            The standard deviation of x and y pixel coordinates of the input observations. The distribution of the inputs is
-                            assumed to be gaussian, with the standard deviation specified by this argument. Note: this is the x and y standard
-                            deviation, treated independently. If each of these is s, then the LENGTH of the deviation of each pixel is a Rayleigh
-                            distribution with expected value s*sqrt(pi/2) ~ s*1.25
+                            The standard deviation of x and y pixel coordinates of
+                            the input observations. The distribution of the inputs
+                            is assumed to be gaussian, with the standard deviation
+                            specified by this argument. Note: this is the x and y
+                            standard deviation, treated independently. If each of
+                            these is s, then the LENGTH of the deviation of each
+                            pixel is a Rayleigh distribution with expected value
+                            s*sqrt(pi/2) ~ s*1.25
       --cull-points-left-of CULL_POINTS_LEFT_OF
-                            For testing. Throw out all observations with x < the given value
+                            For testing. Throw out all observations with x < the
+                            given value
       --cull-points-rad-off-center CULL_POINTS_RAD_OFF_CENTER
-                            For testing. Throw out all observations with dist_from_center > the given value
+                            For testing. Throw out all observations with
+                            dist_from_center > the given value
       --cull-random-observations-ratio CULL_RANDOM_OBSERVATIONS_RATIO
-                            For testing. Throw out a random number of board observations. The ratio of observations is given as the argument. 1.0
-                            = throw out ALL the observations; 0.0 = throw out NONE of the observations
+                            For testing. Throw out a random number of board
+                            observations. The ratio of observations is given as
+                            the argument. 1.0 = throw out ALL the observations;
+                            0.0 = throw out NONE of the observations
 
 
 #+END_EXAMPLE
@@ -547,21 +581,28 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model                Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor, in which case the cahvor format is
-                           assumed
+      model                Input camera model. Assumed to be mrcal native, Unless
+                           the name is xxx.cahvor, in which case the cahvor format
+                           is assumed
 
   OPTIONAL ARGUMENTS
       -h, --help           show this help message and exit
       --to TO              The target distortion model
       --verbose            Report the solver details
       --viz                Visualize the difference
-      --where WHERE WHERE  I use a subset of the imager to compute the fit. The active region is a circle centered on this point. If omitted, we
-                           will focus on the center of the imager
-      --radius RADIUS      I use a subset of the imager to compute the fit. The active region is a circle with a radius given by this parameter.
-                           If radius == 0, I'll use the whole imager for the fit. If radius < 0, this parameter specifies the width of the region
-                           at the corners that I should ignore: I will use sqrt(width^2 + height^2) - abs(radius). This is valid ONLY if we're
-                           focussing at the center of the imager. DEFAULT. I want <0, but this won't work if not at center
-      --writecahvor        If given, we write the output using the cahvor file format
+      --where WHERE WHERE  I use a subset of the imager to compute the fit. The
+                           active region is a circle centered on this point. If
+                           omitted, we will focus on the center of the imager
+      --radius RADIUS      I use a subset of the imager to compute the fit. The
+                           active region is a circle with a radius given by this
+                           parameter. If radius == 0, I'll use the whole imager
+                           for the fit. If radius < 0, this parameter specifies
+                           the width of the region at the corners that I should
+                           ignore: I will use sqrt(width^2 + height^2) -
+                           abs(radius). This is valid ONLY if we're focussing at
+                           the center of the imager
+      --writecahvor        If given, we write the output using the cahvor file
+                           format
 
 
 #+END_EXAMPLE
@@ -625,8 +666,6 @@ SYNOPSIS
       ... this model
 
 DESCRIPTION
-    docs
-
     A calibration process produces the best-fitting camera parameters
     (intrinsics and extrinsics) and a inv(JtJ) matrix representing the
     uncertainty in these parameters. When we use the intrinsics to project
@@ -644,18 +683,28 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we report a 60x40 grid
-      --where WHERE WHERE   Center of the region of interest. Uncertainty is a relative concept, so I focus on a particular area. I compute an
-                            implied rotation to make that area as certain as possible. The center of this focus area is given by this argument. If
-                            omitted, we will focus on the center of the imager
-      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT fit an implied rotation at all. If omitted or <0, we use a
-                            "reasonable value: min(width,height)/6. To fit with data across the WHOLE imager: pass in a very large radius
-      --outlierness         Report an outlierness-based uncertainty, not an input-noise-based one
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            report a 60x40 grid
+      --where WHERE WHERE   Center of the region of interest. Uncertainty is a
+                            relative concept, so I focus on a particular area. I
+                            compute an implied rotation to make that area as
+                            certain as possible. The center of this focus area is
+                            given by this argument. If omitted, we will focus on
+                            the center of the imager
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
+                            fit an implied rotation at all. If omitted or <0, we
+                            use a "reasonable value: min(width,height)/6. To fit
+                            with data across the WHOLE imager: pass in a very
+                            large radius
+      --outlierness         Report an outlierness-based uncertainty, not an input-
+                            noise-based one
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
-      --hardcopy HARDCOPY   Write the output to disk, instead of an interactive plot
-      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
+      --hardcopy HARDCOPY   Write the output to disk, instead of an interactive
+                            plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
 
 
 #+END_EXAMPLE
@@ -672,13 +721,10 @@ SYNOPSIS
 DESCRIPTION
     If we're given exactly 2 models then I can either show a vector field of
     a heat map of the differences. I N > 2 then a vector field isn't
-    possible and we show a
-
-    CORRECT
-
-    heat map of the standard deviation of the differences. Note that for N=2
-    the difference shows in a-b, which is NOT the standard deviation (that
-    is (a-b)/2). I use the standard deviation for N > 2
+    possible and we show a heat map of the standard deviation of the
+    differences. Note that for N=2 the difference shows in a-b, which is NOT
+    the standard deviation (that is (a-b)/2). I use the standard deviation
+    for N > 2
 
     This routine fits the implied camera rotation to align the models as
     much as possible. This is required because a camera pitch/yaw motion
@@ -689,28 +735,9 @@ DESCRIPTION
     intrinsics by IGNORING rotations, I would get a large diff because of
     the cx,cy difference.
 
-    REWRITE ALL THIS
-
     In all 3 cases I try to find the largest matching region around the area
     of interest. So the recommentation is to specify where['center'], but to
     omit where['radius'].
-
-            if focus_radius > 0:
-               I use observation vectors within focus_radius pixels of the
-               focus_center. To use ALL the data, pass in a very large focus_radius.
-
-            if focus_radius < 0:
-               I fit a compensating rotation using a "reasonable" area in the center
-               of the imager. I use focus_radius = min(width,height)/6.
-
-            if focus_radius == 0:
-               I do NOT fit a compensating rotation. Rationale: with radius == 0, I
-               have no fitting data, so I do not fit anything at all.
-
-            if focus_center is None:
-               focus_center is at the center of the imager
-
-    document --vectorscale
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -718,21 +745,34 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we report a 60x40 grid
-      --where WHERE WHERE   Center of the region of interest for this diff. It is usually impossible for the models to match everywhere, but
-                            focusing on a particular area can work better. The implied rotation will be fit to match as large as possible an area
-                            centered on this argument. If omitted, we will focus on the center of the imager
-      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT fit an implied rotation at all. If omitted or <0, we use a
-                            "reasonable value: min(width,height)/6. To fit with data across the WHOLE imager: pass in a very large radius
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            report a 60x40 grid
+      --where WHERE WHERE   Center of the region of interest for this diff. It is
+                            usually impossible for the models to match everywhere,
+                            but focusing on a particular area can work better. The
+                            implied rotation will be fit to match as large as
+                            possible an area centered on this argument. If
+                            omitted, we will focus on the center of the imager
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
+                            fit an implied rotation at all. If omitted or <0, we
+                            use a "reasonable value: min(width,height)/6. To fit
+                            with data across the WHOLE imager: pass in a very
+                            large radius
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
-      --vectorfield         Plot the diff as a vector field instead of as a heat map. The vector field contains more information (magnitude AND
-                            direction), but is less clear at a glance
+      --vectorfield         Plot the diff as a vector field instead of as a heat
+                            map. The vector field contains more information
+                            (magnitude AND direction), but is less clear at a
+                            glance
       --vectorscale VECTORSCALE
-                            If plotting a vectorfield, scale all the vectors by this factor. Useful if the vectors are too small to see
-      --hardcopy HARDCOPY   Write the output to disk, instead of making an interactive plot
-      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
+                            If plotting a vectorfield, scale all the vectors by
+                            this factor. Useful if the vectors are too small to
+                            see
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
 
 
 #+END_EXAMPLE
