@@ -1954,6 +1954,12 @@ def get_mapping_file_framecamera(files_per_camera):
 
     def pull_framenumbers(files):
 
+        if len(files) == 1:
+            # special case where only one file is given. In this case I can't
+            # tell where the frame number is, but I don't really care. I just
+            # say that the frame number is 0
+            return [0], '', files[0]
+
         leading,trailing = get_longest_leading_trailing_substrings(files)
         Nleading  = len(leading)
         Ntrailing = len(trailing)
@@ -1999,8 +2005,6 @@ def get_mapping_file_framecamera(files_per_camera):
     prefix0 = None
     suffix0 = None
     for icamera in range(Ncameras):
-        if len(files_per_camera[icamera]) <= 1:
-            raise Exception("Camera {} has <=1 images".format(icamera))
         framenumbers, leading, trailing = pull_framenumbers(files_per_camera[icamera])
         if framenumbers is not None:
             if prefix0 is None: prefix0 = leading
