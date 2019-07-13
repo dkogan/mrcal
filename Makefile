@@ -31,10 +31,10 @@ DIST_BIN :=					\
 	mrcal-undistort-image			\
 	mrcal-redistort-points			\
 	mrcal-graft-cameramodel                 \
-	mrcal-show-valid-intrinsics-region      \
-	mrcal-check-intrinsics                  \
 	mrcal-to-cahvor                         \
 	mrcal-to-cameramodel                    \
+	mrcal-show-valid-intrinsics-region      \
+	mrcal-check-intrinsics                  \
 	mrcal-redistort-image
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky

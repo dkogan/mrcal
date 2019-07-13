@@ -41,6 +41,14 @@ partially supported. The toolkit includes:
     maps them from one distortion model to the other
   - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
     the extrinsics of another
+  - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
+    format to the =.cahvor= format. This exists for compatibility only, and does
+    not touch the data: the lens distortion may or may not use the CAHVOR
+    distortion model
+  - =mrcal-to-cameramodel=: Converts a model stored in the legacy =.cahvor= file
+    format to the =.cameramodel= format. This exists for compatibility only, and
+    does not touch the data: the lens distortion may or may not use the CAHVOR
+    distortion model
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -160,6 +168,14 @@ xxx-manpage-mrcal-redistort-points-xxx
 ** mrcal-graft-cameramodel
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-graft-cameramodel-xxx
+#+END_EXAMPLE
+** mrcal-to-cahvor
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-to-cahvor-xxx
+#+END_EXAMPLE
+** mrcal-to-cameramodel
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-to-cameramodel-xxx
 #+END_EXAMPLE
 
 * REPOSITORY
