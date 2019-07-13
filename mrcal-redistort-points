@@ -5,33 +5,31 @@ r'''Converts distorted points from one model to another
 SYNOPSIS
 
   $ mrcal-redistort-points
-      --from pinhole.cameramodel
-      --to fisheye.cameramodel
+      pinhole.cameramodel fisheye.cameramodel
       < input.vnl > output.vnl
 
-This tool takes a set of pixel observations made by one camera model, and
-transforms them into corresponding observations in made by another model. This
-always ignores the translation component of the extrinsics, and ignores the
-rotation as well if --ignore-rotation. The two sets of intrinsics are always
-used. This is useful in conjunction with the 'undistort-points' tool. An
-envisioned usage:
+This tool takes a set of pixel observations of world points captured by one
+camera model, and transforms them into observations of the same points made by
+another model. This is similar to mrcal-redistort-image, but acts on discrete
+points, rather than a full image. The two sets of intrinsics are always used.
+The translation component of the extrinsics is always ignored; the rotation is
+ignored as well if --ignore-rotation.
 
-- undistort-points --model fisheye.cameramodel input.png
-  This produces an undistorted image and a corresponding pinhole camera model.
+This allows you to combine multiple image-processing techniques that expect
+different images. For instance:
 
-- Run some sort of feature-detection thing on the input_undistorted.png thing we
-  just made. This feature-detection thing can make geometric assumptions that
-  wouldn't hold in the distorted image
+1. mrcal-undistort-image --model fisheye.cameramodel input.png This produces an
+   undistorted image and a corresponding pinhole camera model.
 
-- redistort-points to convert the pixel coords we got from the feature detector back
-  into the space of the original image
+2. Feed the image we just made (input_undistorted.png) to an image-processing
+   tool that expects images from a pinhole camera.
+
+3. mrcal-redistort-points to convert the pixel coordinates computed in step 2
+   back into the space of the original image
 
 The input data comes in on standard input, and the output data goes out on
 standard output. Both are vnlog data: human-readable text with 2 columns: x and
 y pixel coord. Comments are allowed, and start with the '#' character.
-
-mrcal-redistort-image is a similar tool that remaps a whole image instead of a
-set of discrete points.
 
 '''
 
@@ -47,24 +45,26 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--from',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        required=True,
-                        help='''Camera model for the INPUT points. Assumed to be mrcal native, Unless the
-                        name is xxx.cahvor, in which case the cahvor format is used.''')
-
-    parser.add_argument('--to',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        required=True,
-                        help='''Camera model for the OUTPUT points. Assumed to be mrcal native, Unless the name is xxx.cahvor,
-                        in which case the cahvor format is assumed''')
 
     parser.add_argument('--ignore-rotation',
                         action='store_true',
                         help='''By default the relative camera rotation is used in the transformation. If we
-                        want to use the intrinsics ONLY, pass --ignore-rotation''')
+                        want to use the intrinsics ONLY, pass
+                        --ignore-rotation''')
+
+    parser.add_argument('model-from',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        help='''Camera model for the input points. Assumed to be mrcal native, Unless the
+                        name is xxx.cahvor, in which case the cahvor format is
+                        used.''')
+
+    parser.add_argument('model-to',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        help='''Camera model for the output points. Assumed to be mrcal native, Unless the
+                        name is xxx.cahvor, in which case the cahvor format is
+                        assumed''')
 
     return parser.parse_args()
 
@@ -82,10 +82,8 @@ import numpysane as nps
 
 import mrcal
 
-# 'from' is reserved in python
-args_from  = getattr(args, 'from')
-model_from = mrcal.cameramodel(args_from)
-model_to   = mrcal.cameramodel(args.to)
+model_from = mrcal.cameramodel(getattr(args, 'model-from'))
+model_to   = mrcal.cameramodel(getattr(args, 'model-to'))
 
 
 p = np.genfromtxt(sys.stdin)
