@@ -86,7 +86,7 @@ model_from = mrcal.cameramodel(getattr(args, 'model-from'))
 model_to   = mrcal.cameramodel(getattr(args, 'model-to'))
 
 
-p = np.genfromtxt(sys.stdin)
+p = nps.atleast_dims(np.genfromtxt(sys.stdin), -2)
 
 v = mrcal.unproject(p, *model_from.intrinsics())
 
@@ -96,5 +96,4 @@ if not args.ignore_rotation:
     v = nps.matmult(R, nps.dummy(v, -1))[..., 0]
 
 p = mrcal.project  (v, *model_to  .intrinsics())
-
 np.savetxt(sys.stdout, p, fmt='%f', header='x y')
