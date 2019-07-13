@@ -4,7 +4,7 @@ r'''Un-distorts image(s)
 
 SYNOPSIS
 
-  $ mrcal-undistort-image --model left.cameramodel im1.png im2.png
+  $ mrcal-undistort-image left.cameramodel im1.png im2.png
   ... corresponding pinhole mrcal-native model
   Wrote im1-undistorted.png
   Wrote im2-undistorted.png
@@ -38,12 +38,6 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--model',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        required=True,
-                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
-                        in which case the cahvor format is assumed''')
 
     parser.add_argument('--fit',
                         type=str,
@@ -72,7 +66,11 @@ def parse_args():
                         default=1,
                         help='''parallelize the processing JOBS-ways. This is like GNU make, except you're
                         required to explicitly specify a job count.''')
-
+    parser.add_argument('model',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
+                        in which case the cahvor format is assumed''')
     parser.add_argument('image',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The images must be readable files, but got '{}'".format(f)),
