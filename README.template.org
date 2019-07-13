@@ -39,6 +39,8 @@ partially supported. The toolkit includes:
     new set of images that have removed the distortion
   - =mrcal-redistort-points=: Given two distortion models and a set of points,
     maps them from one distortion model to the other
+  - =mrcal-redistort-image=: Given two distortion models and two images, maps
+    them from one distortion model to the other
   - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
     the extrinsics of another
   - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
@@ -164,6 +166,10 @@ xxx-manpage-mrcal-undistort-image-xxx
 ** mrcal-redistort-points
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-redistort-points-xxx
+#+END_EXAMPLE
+** mrcal-redistort-image
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-redistort-image-xxx
 #+END_EXAMPLE
 ** mrcal-graft-cameramodel
 #+BEGIN_EXAMPLE
