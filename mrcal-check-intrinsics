@@ -76,11 +76,6 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--model',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        required=True,
-                        help='''Input camera model.''')
     parser.add_argument('--object-width-n',
                         type=int,
                         default=10,
@@ -90,6 +85,10 @@ def parse_args():
                                 parser.error("--corners-cache requires an existing, readable file as the arg or a non-existing path, but got '{}'".format(f)),
                         required=False,
                         help='Path to read corner-finder data from or (if path does not exist) to write data to')
+    parser.add_argument('model',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        help='''Input camera model.''')
     parser.add_argument('image',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The image must be a readable files, but got '{}'".format(f)),
