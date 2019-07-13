@@ -4,7 +4,7 @@ r'''Visualize the valid-intrinsics region
 
 SYNOPSIS
 
-  $ mrcal-show-valid-intrinsics-region --writeimage --model left.cameramodel image.png
+  $ mrcal-show-valid-intrinsics-region --writeimage left.cameramodel image.png
   Wrote image-valid-intrinsics-region.png
 
 Given a camera model, this tool renders the valid-intrinsics region. If an image
@@ -25,11 +25,6 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--model',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        required=True,
-                        help='''Input camera model.''')
 
     parser.add_argument('--writeimage',
                         action='store_true',
@@ -47,7 +42,10 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
-
+    parser.add_argument('model',
+                        type=lambda f: f if os.path.isfile(f) else \
+                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        help='''Input camera model.''')
     parser.add_argument('image',
                         nargs='?',
                         type=lambda f: f if os.path.isfile(f) else \
