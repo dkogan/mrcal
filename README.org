@@ -39,8 +39,18 @@ partially supported. The toolkit includes:
     new set of images that have removed the distortion
   - =mrcal-redistort-points=: Given two distortion models and a set of points,
     maps them from one distortion model to the other
+  - =mrcal-redistort-image=: Given two distortion models and two images, maps
+    them from one distortion model to the other
   - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
     the extrinsics of another
+  - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
+    format to the =.cahvor= format. This exists for compatibility only, and does
+    not touch the data: the lens distortion may or may not use the CAHVOR
+    distortion model
+  - =mrcal-to-cameramodel=: Converts a model stored in the legacy =.cahvor= file
+    format to the =.cameramodel= format. This exists for compatibility only, and
+    does not touch the data: the lens distortion may or may not use the CAHVOR
+    distortion model
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -528,7 +538,7 @@ NAME
 
 SYNOPSIS
       $ mrcal-convert-distortion
-          --viz --to DISTORTION_OPENCV4 left.cameramodel
+          --viz DISTORTION_OPENCV4 left.cameramodel
           > left.opencv4.cameramodel
 
       ... lots of output as the solve runs ...
@@ -581,13 +591,13 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
+      to                   The target distortion model
       model                Input camera model. Assumed to be mrcal native, Unless
                            the name is xxx.cahvor, in which case the cahvor format
                            is assumed
 
   OPTIONAL ARGUMENTS
       -h, --help           show this help message and exit
-      --to TO              The target distortion model
       --verbose            Report the solver details
       --viz                Visualize the difference
       --where WHERE WHERE  I use a subset of the imager to compute the fit. The
@@ -600,7 +610,8 @@ OPTIONS
                            the width of the region at the corners that I should
                            ignore: I will use sqrt(width^2 + height^2) -
                            abs(radius). This is valid ONLY if we're focussing at
-                           the center of the imager
+                           the center of the imager. DEFAULT. I want <0, but this
+                           won't work if not at center
       --writecahvor        If given, we write the output using the cahvor file
                            format
 
@@ -666,6 +677,8 @@ SYNOPSIS
       ... this model
 
 DESCRIPTION
+    docs
+
     A calibration process produces the best-fitting camera parameters
     (intrinsics and extrinsics) and a inv(JtJ) matrix representing the
     uncertainty in these parameters. When we use the intrinsics to project
@@ -721,10 +734,13 @@ SYNOPSIS
 DESCRIPTION
     If we're given exactly 2 models then I can either show a vector field of
     a heat map of the differences. I N > 2 then a vector field isn't
-    possible and we show a heat map of the standard deviation of the
-    differences. Note that for N=2 the difference shows in a-b, which is NOT
-    the standard deviation (that is (a-b)/2). I use the standard deviation
-    for N > 2
+    possible and we show a
+
+    CORRECT
+
+    heat map of the standard deviation of the differences. Note that for N=2
+    the difference shows in a-b, which is NOT the standard deviation (that
+    is (a-b)/2). I use the standard deviation for N > 2
 
     This routine fits the implied camera rotation to align the models as
     much as possible. This is required because a camera pitch/yaw motion
@@ -735,9 +751,28 @@ DESCRIPTION
     intrinsics by IGNORING rotations, I would get a large diff because of
     the cx,cy difference.
 
+    REWRITE ALL THIS
+
     In all 3 cases I try to find the largest matching region around the area
     of interest. So the recommentation is to specify where['center'], but to
     omit where['radius'].
+
+            if focus_radius > 0:
+               I use observation vectors within focus_radius pixels of the
+               focus_center. To use ALL the data, pass in a very large focus_radius.
+
+            if focus_radius < 0:
+               I fit a compensating rotation using a "reasonable" area in the center
+               of the imager. I use focus_radius = min(width,height)/6.
+
+            if focus_radius == 0:
+               I do NOT fit a compensating rotation. Rationale: with radius == 0, I
+               have no fitting data, so I do not fit anything at all.
+
+            if focus_center is None:
+               focus_center is at the center of the imager
+
+    document --vectorscale
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -782,7 +817,7 @@ NAME
     mrcal-undistort-image - Un-distorts image(s)
 
 SYNOPSIS
-      $ mrcal-undistort-image --model left.cameramodel im1.png im2.png
+      $ mrcal-undistort-image left.cameramodel im1.png im2.png
       ... corresponding pinhole mrcal-native model
       Wrote im1-undistorted.png
       Wrote im2-undistorted.png
@@ -806,18 +841,26 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
+      model                 Input camera model. Assumed to be mrcal native, Unless
+                            the name is xxx.cahvor, in which case the cahvor
+                            format is assumed
       image                 Images to undistort
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --model MODEL         Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor, in which case the cahvor format is
-                            assumed
-      --fit FIT             If given, we'll scale the focal length of the pinhole model to fit some of the original image into the output. This is
-                            one of "corners", "centers-horizontal", "centers-vertical". If omitted, we keep the focal lengths the same
-      --scale SCALE         If given, we scale the size of the pinhole image by this factor. By default the scale is 1.0, i.e. the undistorted and
-                            distorted images have the same size
-      --force, -f           By default I don't overwrite existing files. Pass --force to overwrite them without complaint
-      --jobs JOBS, -j JOBS  parallelize the processing JOBS-ways. This is like GNU make, except you're required to explicitly specify a job count.
+      --fit FIT             If given, we'll scale the focal length of the pinhole
+                            model to fit some of the original image into the
+                            output. This is one of "corners", "centers-
+                            horizontal", "centers-vertical". If omitted, we keep
+                            the focal lengths the same
+      --scale SCALE         If given, we scale the size of the pinhole image by
+                            this factor. By default the scale is 1.0, i.e. the
+                            undistorted and distorted images have the same size
+      --force, -f           By default I don't overwrite existing files. Pass
+                            --force to overwrite them without complaint
+      --jobs JOBS, -j JOBS  parallelize the processing JOBS-ways. This is like GNU
+                            make, except you're required to explicitly specify a
+                            job count.
 
 
 #+END_EXAMPLE
@@ -829,48 +872,122 @@ NAME
 
 SYNOPSIS
       $ mrcal-redistort-points
-          --from pinhole.cameramodel
-          --to fisheye.cameramodel
+          pinhole.cameramodel fisheye.cameramodel
           < input.vnl > output.vnl
 
 DESCRIPTION
-    This tool takes a set of pixel observations made by one camera model,
-    and transforms them into corresponding observations in made by another
-    model. This always ignores the translation component of the extrinsics,
-    and ignores the rotation as well if --ignore-rotation. The two sets of
-    intrinsics are always used. This is useful in conjunction with the
-    'undistort-points' tool. An envisioned usage:
+    This tool takes a set of pixel observations of world points captured by
+    one camera model, and transforms them into observations of the same
+    points made by another model. This is similar to mrcal-redistort-image,
+    but acts on discrete points, rather than a full image. The two sets of
+    intrinsics are always used. The translation component of the extrinsics
+    is always ignored; the rotation is ignored as well if --ignore-rotation.
 
-    - undistort-points --model fisheye.cameramodel input.png This produces
-    an undistorted image and a corresponding pinhole camera model.
+    This allows you to combine multiple image-processing techniques that
+    expect different images. For instance:
 
-    - Run some sort of feature-detection thing on the input_undistorted.png
-    thing we just made. This feature-detection thing can make geometric
-    assumptions that wouldn't hold in the distorted image
+    1. mrcal-undistort-image --model fisheye.cameramodel input.png This
+    produces an undistorted image and a corresponding pinhole camera model.
 
-    - redistort-points to convert the pixel coords we got from the feature
-    detector back into the space of the original image
+    2. Feed the image we just made (input_undistorted.png) to an
+    image-processing tool that expects images from a pinhole camera.
+
+    3. mrcal-redistort-points to convert the pixel coordinates computed in
+    step 2 back into the space of the original image
 
     The input data comes in on standard input, and the output data goes out
     on standard output. Both are vnlog data: human-readable text with 2
     columns: x and y pixel coord. Comments are allowed, and start with the
     '#' character.
 
-    mrcal-redistort-image is a similar tool that remaps a whole image
-    instead of a set of discrete points.
-
 OPTIONS
-  OPTIONAL ARGUMENTS
-      -h, --help         show this help message and exit
-      --from FROM        Camera model for the INPUT points. Assumed to be mrcal
+  POSITIONAL ARGUMENTS
+      model-from         Camera model for the input points. Assumed to be mrcal
                          native, Unless the name is xxx.cahvor, in which case the
                          cahvor format is used.
-      --to TO            Camera model for the OUTPUT points. Assumed to be mrcal
+      model-to           Camera model for the output points. Assumed to be mrcal
                          native, Unless the name is xxx.cahvor, in which case the
                          cahvor format is assumed
+
+  OPTIONAL ARGUMENTS
+      -h, --help         show this help message and exit
       --ignore-rotation  By default the relative camera rotation is used in the
                          transformation. If we want to use the intrinsics ONLY,
                          pass --ignore-rotation
+
+
+#+END_EXAMPLE
+** mrcal-redistort-image
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-redistort-image - Remaps a captured image into another camera
+    model
+
+SYNOPSIS
+      $ mrcal-redistort-image
+          camera0.cameramodel camera1.cameramodel
+          image0.png image1.png
+      Wrote image0-undistorted-remapped.png
+      Wrote image1-undistorted.png
+
+DESCRIPTION
+    This tool takes an image of a scene captured by one camera model, and
+    generates an image of the same scene, as it would appear if captured by
+    a different model. This is similar to mrcal-redistort-points, but acts
+    on a full image, rather than a discrete set of points. The two sets of
+    intrinsics are always used. The translation component of the extrinsics
+    is always ignored; the rotation is ignored as well if --ignore-rotation.
+
+    One way in which this is useful is for validation of the rotation and
+    the intrinsics: if these are correct, then observations of
+    infinitely-far-away objects in the remapped image would match the
+    observations made by the second camera.
+
+    The tool takes in the two camera models, the image from the first
+    camera, and optionally, the image from the second camera as well. If the
+    second image is omitted, the first image is remapped into the second
+    camera's coordinates, and this remapped image can then be compared to
+    the second image directly. This is what is normally desired, but it
+    requires an "undistort" remapping, which could be very slow,
+    computationally. As a workaround, you can pass in the second image as
+    well. Then both images will be remapped into a common undistorted
+    coordinate system. As before, these two remapped images can be compared,
+    and their view of infinitely-far-away objects will line up if the
+    rotations and intrinsics are correct.
+
+    The output image(s) are written into the same directory as the input
+    image(s), with annotations in the filename. This tool will refuse to
+    overwrite any existing files unless --force is given.
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model-from         Camera model for the FROM image. Assumed to be mrcal
+                         native, Unless the name is xxx.cahvor, in which case the
+                         cahvor format is used.
+      model-to           Camera model for the TO image. Assumed to be mrcal
+                         native, Unless the name is xxx.cahvor, in which case the
+                         cahvor format is assumed
+      image-from         Image to undistort, remap (unless --ignore-rotation), and
+                         redistort (unless IMAGE-TO is omitted)
+      image-to           By default I remap image0 into the distorted coordinates
+                         of image1. This is very slow, so a much faster option is
+                         to undistort both images. Pass the second image here to
+                         do that
+
+  OPTIONAL ARGUMENTS
+      -h, --help         show this help message and exit
+      --ignore-rotation  By default the relative camera rotation is used in the
+                         transformation. If we want to use the intrinsics ONLY,
+                         pass --ignore-rotation
+      --force, -f        By default I don't overwrite existing files. Pass --force
+                         to overwrite them without complaint
+      --fit FIT          If IMAGE-TO is given, we undistort both images. This can
+                         be done with any set of pinhole intrinsics. This argument
+                         allows us to select how this is done. If given, we'll
+                         scale the focal length of the pinhole model to fit some
+                         of the original image into the output. This is one of
+                         "corners", "centers-horizontal", "centers-vertical". If
+                         omitted, we keep the focal lengths the same
 
 
 #+END_EXAMPLE
@@ -905,6 +1022,54 @@ OPTIONS
   OPTIONAL ARGUMENTS
       -h, --help     show this help message and exit
       --writecahvor  If given, we write the output using the cahvor file format
+
+
+#+END_EXAMPLE
+** mrcal-to-cahvor
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-to-cahvor - Converts model to the cahvor file format
+
+SYNOPSIS
+      $ mrcal-to-cahvor model.cameramodel
+      Wrote model.cahvor
+
+DESCRIPTION
+    DESCRIPTION
+
+    This tool converts a given model to the cahvor file format. No changes
+    to the content are made; this is purely a format converter
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model       Input camera model
+
+  OPTIONAL ARGUMENTS
+      -h, --help  show this help message and exit
+
+
+#+END_EXAMPLE
+** mrcal-to-cameramodel
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-to-cameramodel - Converts model to the cameramodel file format
+
+SYNOPSIS
+      $ mrcal-to-cameramodel model.cahvor
+      Wrote model.cameramodel
+
+DESCRIPTION
+    DESCRIPTION
+
+    This tool converts a given model to the cameramodel file format. No
+    changes to the content are made; this is purely a format converter
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model       Input camera model
+
+  OPTIONAL ARGUMENTS
+      -h, --help  show this help message and exit
 
 
 #+END_EXAMPLE
