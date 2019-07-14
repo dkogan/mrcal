@@ -349,32 +349,28 @@ def undistort_image__compute_map(model,
     return mapxy, model_pinhole
 
 
-def annotate_image__valid_intrinsics_region(model, image):
+def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
     r'''Annotates a given image with a valid-intrinsics region
 
     This function takes in a camera model and an image, and returns a numpy
     array with the valid-intrinsics region drawn on top of the image. The image
-    can be a filename or a numpy array. The camera model should contain the
-    valid-intrinsics region; if not, the image is returned as is.
+    is a numpy array. The camera model should contain the valid-intrinsics
+    region; if not, the image is returned as is.
 
     This is similar to mrcal.show_valid_intrinsics_region(), but instead of
     making a plot, it creates an image
 
     '''
-
-    if not isinstance(image, np.ndarray):
-        image = cv2.imread(image)
-
     valid_intrinsics_region = model.valid_intrinsics_region()
     if valid_intrinsics_region is not None:
-        cv2.polylines(image, [valid_intrinsics_region], True, (0,0,255), 3)
-    return image
+        cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
 
 
 def undistort_image(model, image,
-                    scale_f_pinhole          = 1.0,
-                    scale_imagersize_pinhole = 1.0,
-                    mapxy                    = None):
+                    scale_f_pinhole              = 1.0,
+                    scale_imagersize_pinhole     = 1.0,
+                    mapxy                        = None,
+                    show_valid_intrinsics_region = False):
     r'''Removes the distortion from a given image
 
     Given an image and a distortion model (and optionally, a scaling), generates
@@ -421,13 +417,19 @@ def undistort_image(model, image,
     elif type(mapxy) is not np.ndarray:
         raise Exception('mapxy_cache MUST either be None or a numpy array')
 
-    image = annotate_image__valid_intrinsics_region(model, image)
+    if not isinstance(image, np.ndarray):
+        image = cv2.imread(image)
+
+    if show_valid_intrinsics_region:
+        annotate_image__valid_intrinsics_region(model, image)
 
     return cv2.remap(image, mapxy[0], mapxy[1],
                      cv2.INTER_LINEAR)
 
 
-def redistort_image(model0, model1, image0, ignore_rotation=False):
+def redistort_image(model0, model1, image0,
+                    ignore_rotation=False,
+                    show_valid_intrinsics_region = False):
     r'''Remaps a given image into another model, assuming no translation
 
     Takes in
@@ -468,7 +470,17 @@ def redistort_image(model0, model1, image0, ignore_rotation=False):
     # can be an iterable or not
     def do_one(im):
         if isinstance(im, str): im = cv2.imread(im)
-        return cv2.remap(im, q0, q1, cv2.INTER_LINEAR)
+
+        if show_valid_intrinsics_region:
+            annotate_image__valid_intrinsics_region(m[0], im, color=(0,0,255))
+
+        image_out = cv2.remap(im, q0, q1, cv2.INTER_LINEAR)
+
+        if show_valid_intrinsics_region:
+            annotate_image__valid_intrinsics_region(m[1], image_out, color=(0,255,0))
+
+        return image_out
+
 
     if isinstance(image0, str) or isinstance(image0, np.ndarray):
         return do_one(image0)
