@@ -1509,9 +1509,21 @@ i_observations_worst    = list(reversed(np.argsort(rms_err_0_for_outliers_perima
 i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations))] )
 
 def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
-    r'''Visualize calibration residuals
+    r'''Visualize calibration residuals for a single observation
 
-    Takes either an integer (observation index) or a string (path)
+    Given a single observation, plots the chessboard image overlaid with its
+    residuals. Each residual is plotted as a circle, color-coded by the error
+    size, and with a vector showing the error itself. If a point was thrown out
+    as an outlier, the vector is shown, but the circle is omitted.
+
+    The observation is given in the first argument as either an integer
+    (observation index) or a string (path).
+
+    Usually the errors are small, and hard to see. So for legibility the error
+    vectors can be scaled up by passing in a 'vectorscale' argument.
+
+    All kwargs are passed on to the gnuplotlib constructor to control the
+    generated plot.
 
     '''
 
