@@ -1461,10 +1461,8 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     V1fit = v1[mask, ...]
     # V01fit are used by the optimization cost function
 
-    # Seed from the procrustes solve
-    r = r_procrustes
-
     # gradient check
+    # r = r_procrustes
     # r0 = r
     # x0,J0 = residual_jacobian(r0)
     # dr = np.random.random(3) * 1e-7
@@ -1477,7 +1475,8 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     # gp.plot(relerr)
 
     import scipy.optimize
-    res = scipy.optimize.least_squares(residual, r, jac=jacobian,
+    # Seed from the procrustes solve
+    res = scipy.optimize.least_squares(residual, r_procrustes, jac=jacobian,
                                        method='dogbox',
 
                                        loss='soft_l1',
@@ -1487,9 +1486,6 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
                                        verbose=0)
     r_fit = res.x
     R_fit,_ = cv2.Rodrigues(r_fit)
-
-    R = R_fit
-
 
     # # A simpler routine to JUST move pitch/yaw to align the optical axes
     # r,_ = cv2.Rodrigues(R)
@@ -1508,7 +1504,7 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     # r = np.array((-dth_y, dth_x, 0))
     # R,_ = cv2.Rodrigues(r)
 
-    return R
+    return R_fit
 
 
 def _intrinsics_diff_get_reprojections(q0, v0, v1,
@@ -1574,41 +1570,42 @@ def show_intrinsics_diff(models,
                          hardcopy         = None,
                          cbmax            = None,
                          kwargs = None):
-    r'''Visualize the different between N intrinsic models
+    r'''Visualize the difference in projection between N models
 
-    If we're given exactly 2 models then I can either show a vector field of a
-    heat map of the differences. I N > 2 then a vector field isn't possible and
-    we show a heat map of the standard deviation of the differences. Note that
-    for N=2 the difference shows in a-b, which is NOT the standard deviation
-    (that is (a-b)/2). I use the standard deviation for N > 2
 
-    This routine fits the implied camera rotation to align the models as much as
-    possible. This is required because a camera pitch/yaw motion looks a lot
-    like a shift in the camera optical axis (cx,cy). So I could be comparing two
-    sets of intrinsics that both represent the same lens faithfully, but imply
-    different rotations: the rotation would be compensated for by a shift in
-    cx,cy. If I compare the two sets of intrinsics by IGNORING rotations, I
-    would get a large diff because of the cx,cy difference. I select the fitting
-    region like this:
+    If we're given exactly 2 models then I show the projection DIFFERENCE. I
+    show this as either a vector field or a heat map. If N > 2 then a vector
+    field isn't possible and we show a heat map of the STANDARD DEVIATION of the
+    differences.
 
-        if focus_radius > 0:
-           I use observation vectors within focus_radius pixels of the
-           focus_center. To use ALL the data, pass in a very large focus_radius.
+    This routine takes into account the potential variability of camera rotation by
+    fitting this implied camera rotation to align the models as much as possible.
+    This is required because a camera pitch/yaw motion looks a lot like a shift in
+    the camera optical axis (cx,cy). So I could be comparing two sets of intrinsics
+    that both represent the same lens faithfully, but imply different rotations: the
+    rotation would be compensated for by a shift in cx,cy. If I compare the two sets
+    of intrinsics by IGNORING the rotations, the cx,cy difference would produce a
+    large diff despite both models being right.
 
-        if focus_radius < 0 (this is the default):
-           I fit a compensating rotation using a "reasonable" area in the center
-           of the imager. I use focus_radius = min(width,height)/6.
+    The implied rotation is fit using a subset of the imager data:
 
-        if focus_radius == 0:
-           I do NOT fit a compensating rotation. Rationale: with radius == 0, I
-           have no fitting data, so I do not fit anything at all.
+      if focus_radius < 0 (the default):
+         I fit a compensating rotation using a "reasonable" area in the center of
+         the imager. I use focus_radius = min(width,height)/6.
 
-        if focus_center is None (this is the default):
-           focus_center is at the center of the imager
+      if focus_radius > 0:
+         I use observation vectors within focus_radius pixels of focus_center.
+         To use ALL the data, pass in a very large focus_radius.
 
-    When fitting a rotation, I try to find the largest matching region around
-    the center of the area of interest. So the recommentation is to specify
-    focus_center and to use a modest focus_radius
+      if focus_radius == 0:
+         I do NOT fit a compensating rotation. Rationale: with radius == 0, I have
+         no fitting data, so I do not fit anything at all.
+
+      if focus_center is omitted (the default):
+         focus_center is at the center of the imager
+
+    Generally the computation isn't very sensitive to choices of focus_radius
+    and focus_center, so omitting these is recommended.
 
     '''
 
@@ -1649,13 +1646,41 @@ def show_intrinsics_diff(models,
         difflen = np.sqrt(nps.inner(diff, diff))
 
     else:
-        # comment is wrongff
         # Many models. Look at the stdev
         grids = nps.cat(*[_intrinsics_diff_get_reprojections(q0,
                                                              v[0,...], v[i,...],
                                                              focus_center, focus_radius,
                                                              distortion_models[i], intrinsics_data[i],
                                                              imagersizes) for i in range(1,len(v))])
+
+        # I look at synthetic data with calibrations fit off ONLY the right half
+        # of the image. I look to see how well I'm doing on the left half of the
+        # image. I expect this wouldn't work well, and indeed it doesn't: diffs
+        # off the reference look poor. BUT cross-validation says we're doing
+        # well: diffs off the various solutions look good. Here I look at a
+        # point in the diff map the is clearly wrong (diff-off-reference says it
+        # is), but that the cross-validation says is fine.
+        #
+        # Command:
+        #   dima@fatty:~/src_boats/mrcal/studies/syntheticdata/scans.DISTORTION_OPENCV4.cull_leftof2000$ ../../../mrcal-show-intrinsics-diff  --cbmax 2 *.cameramodel ../../../analyses/synthetic_data/reference.cameramodel  --where 800 1080
+        #
+        # I plot the projection points for the reference and for each of my
+        # models. I can see that the models cluster: things look consistent so
+        # cross-validation says we're confident. But I can also see the
+        # reference off to the side: they're all wrong. Hmmm.
+
+        # g = grids[:,10,19,:]
+        # r = g[-1,:]
+        # g = nps.glue(q0[10,19], g[:-1,:], axis=-2)
+        # gp.plot((r[0],r[1],               dict(legend='reference')),
+        #         (g[...,0,None],g[...,1,None], dict(legend=np.arange(len(g)))),
+        #         square=1, _with='points', wait=1)
+        # sys.exit()
+
+        # I also had this: is it better?
+        # stdevs  = np.std(grids, axis=0)
+        # difflen = np.sqrt(nps.inner(stdevs, stdevs))
+
         difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
 
     if 'title' not in kwargs:
@@ -1786,9 +1811,6 @@ def show_valid_intrinsics_region(model,
     instead of writing an image, makes a plot
 
     '''
-
-    # other similar functions take in the model constituents, not a full object.
-    # For instance, see show_intrinsics_uncertainty() xxx
 
     valid_region = model.valid_intrinsics_region()
     if valid_region is None:
