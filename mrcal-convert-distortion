@@ -86,14 +86,16 @@ def parse_args():
                         focus on the center of the imager''')
     parser.add_argument('--radius',
                         type=float,
-                        default=0.,
+                        default=-1e8, # -large number to indicate that we're taking the default
                         help='''I use a subset of the imager to compute the fit. The active region is a
                         circle with a radius given by this parameter. If radius
                         == 0, I'll use the whole imager for the fit. If radius <
                         0, this parameter specifies the width of the region at
                         the corners that I should ignore: I will use
                         sqrt(width^2 + height^2) - abs(radius). This is valid
-                        ONLY if we're focussing at the center of the imager''')
+                        ONLY if we're focusing at the center of the imager. By
+                        default I ignore a large-ish chunk area at the
+                        corners.''')
 
     parser.add_argument('--writecahvor',
                         action='store_true',
@@ -146,7 +148,20 @@ if distortionmodel_from == distortionmodel_to:
 if distortionmodel_to == 'DISTORTION_CAHVORE':
     raise Exception("DISTORTION_CAHVORE models aren't supported at this time: gradients aren't implemented")
 
+dims = m.imagersize()
+if dims is None:
+    sys.stderr.write("Warning: imager size not available. Using centerpixel*2\n")
+    dims = m.intrinsics()[1][2:4] * 2
 
+if args.radius < -1e6:
+    # By default use 1/4 of the smallest dimension
+    args.radius = -np.min(m.imagersize()) // 4
+    sys.stderr.write("Default radius: {}. We're ignoring the regions {} pixels from each corner\n". \
+                     format(args.radius, -args.radius))
+    if args.where is not None and \
+       nps.norm2(args.where - (dims - 1.) / 2) > 1e-3:
+        sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center: use an explicit --radius, or omit --where\n")
+        sys.exit(1)
 
 
 # Alrighty. Let's actually do the work. I do this:
@@ -155,11 +170,6 @@ if distortionmodel_to == 'DISTORTION_CAHVORE':
 # 2. Unproject to get the 3d observation vectors
 # 3. Solve a new model that fits those vectors to the known observations, but
 #    using the new model
-dims = m.imagersize()
-if dims is None:
-    sys.stderr.write("Warning: imager size not available. Using centerpixel*2\n")
-    dims = m.intrinsics()[1][2:4] * 2
-
 
 ### I sample the pixels in an NxN grid
 N = 60
@@ -180,7 +190,7 @@ if args.radius != 0:
         r = args.radius
     else:
         if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
-            sys.stderr.write("A radius <0 is only implemented if we're focussing on the imager center\n")
+            sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center\n")
             sys.exit(1)
         r = np.sqrt(nps.norm2(dims))/2. + args.radius
 
