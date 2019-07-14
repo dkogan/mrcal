@@ -624,10 +624,7 @@ def colormap_using(imagersize, gridn_x, gridn_y):
     W,H = imagersize
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
-def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
-                                    imagersize,
-                                    observed_pixel_uncertainty,
-                                    invJtJ_intrinsics,
+def compute_intrinsics_uncertainty( model,
                                     outlierness  = False,
                                     gridn_x      = 60,
                                     gridn_y      = 40,
@@ -879,6 +876,18 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
 
     '''
 
+    distortion_model, intrinsics_data = model.intrinsics()
+    imagersize                        = model.imagersize()
+
+    if args.outlierness:
+        invJtJ_intrinsics = model.invJtJ_intrinsics_full()
+        if invJtJ_intrinsics is None:
+            raise Exception("The given camera model doesn't have full intrinsics inv(JtJ). Can't visualize them.")
+    else:
+        invJtJ_intrinsics_full = model.invJtJ_intrinsics_observations_only()
+        if invJtJ_intrinsics is None:
+            raise Exception("The given camera model doesn't have observations-only intrinsics inv(JtJ). Can't visualize them.")
+
     W,H = imagersize
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
     if focus_radius < 0:     focus_radius = min(W,H)/6.
@@ -910,7 +919,7 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
 
         # I'm going to pretend that sqrt(E0) - sqrt(E1) = sqrt(E0 - E1). This is
         # true if E0 ~ E1, which maybe is OK here
-        return observed_pixel_uncertainty * np.sqrt(tr)
+        return model.observed_pixel_uncertainty() * np.sqrt(tr)
 
     else:
 
@@ -927,16 +936,12 @@ def compute_intrinsics_uncertainty( distortion_model, intrinsics_data,
         dqdpt_dqdp = \
             nps.matmult(nps.transpose(dq_dp_corrected),
                         dq_dp_corrected)
-        return observed_pixel_uncertainty * \
+        return model.observed_pixel_uncertainty() * \
             np.sqrt(np.sum(nps.clump(invJtJ_intrinsics * dqdpt_dqdp,
                                      n = -2),
                            axis = -1))
-def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                imagersize,
-                                observed_pixel_uncertainty,
-                                invJtJ_intrinsics,
+def show_intrinsics_uncertainty(model,
                                 outlierness      = False,
-                                valid_intrinsics_region = None,
                                 gridn_x          = 60,
                                 gridn_y          = 40,
 
@@ -965,11 +970,8 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
     if kwargs is None: kwargs = {}
 
     import gnuplotlib as gp
-    W,H=imagersize
-    err = compute_intrinsics_uncertainty(distortion_model, intrinsics_data,
-                                         imagersize,
-                                         observed_pixel_uncertainty,
-                                         invJtJ_intrinsics,
+    W,H=model.imagersize()
+    err = compute_intrinsics_uncertainty(model,
                                          outlierness,
                                          gridn_x, gridn_y,
                                          focus_center = focus_center,
@@ -1012,7 +1014,8 @@ def show_intrinsics_uncertainty(distortion_model, intrinsics_data,
                              legend = "", # needed to force contour labels
                              using = colormap_using(imagersize, gridn_x, gridn_y)))]
 
-    if valid_intrinsics_region is not None:
+    valid_intrinsics_region = model.valid_intrinsics_region()
+    if valid_intrinsics_region() is not None:
         plot_data_args.append( (valid_intrinsics_region[:,0],
                                 valid_intrinsics_region[:,1],
                                 np.zeros(valid_intrinsics_region.shape[-2]),
@@ -1094,9 +1097,7 @@ def report_residual_statistics( obs, err,
                                -1, 0)
     return mean,stdev,count,colormap_using(imagersize, gridn_x, gridn_y)
 
-
-def show_distortion(distortion_model, intrinsics_data,
-                    imagersize,
+def show_distortion(model,
                     mode,
                     scale            = 1.,
                     cbmax            = 25.0,
@@ -1131,6 +1132,9 @@ def show_distortion(distortion_model, intrinsics_data,
     '''
 
     import gnuplotlib as gp
+
+    distortion_model, intrinsics_data = model.intrinsics()
+    imagersize                        = model.imagersize()
 
     if kwargs is None: kwargs = {}
     if 'title' not in kwargs:
@@ -1555,10 +1559,6 @@ def _densify_polyline(p, spacing):
     return p1
 
 
-# show_intrinsics_diff() takes models while
-# show_intrinsics_uncertainty_outlierness() takes raw intrinsics data.
-# get_intrinsics_uncertainty() does something too
-# Yuck. It should be one or the other consistently)
 def show_intrinsics_diff(models,
                          gridn_x          = 60,
                          gridn_y          = 40,

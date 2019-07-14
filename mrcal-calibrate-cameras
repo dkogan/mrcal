@@ -1399,12 +1399,20 @@ def get_valid_intrinsics_region(i_camera,
     if invJtJ_intrinsics_observations_only is None:
         raise Exception("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work")
 
-    err = mrcal.compute_intrinsics_uncertainty(intrinsics[0],
-                                               intrinsics[1][i_camera],
-                                               imagersizes  [i_camera],
-                                               args.observed_pixel_uncertainty,
-                                               invJtJ_intrinsics_observations_only[i_camera],
-
+    invJtJ_intrinsics_full_here              = None
+    invJtJ_intrinsics_observations_only_here = None
+    if invJtJ_intrinsics_full is not None:
+        invJtJ_intrinsics_full_here = invJtJ_intrinsics_full[i_camera, ...]
+    if invJtJ_intrinsics_observations_only is not None:
+        invJtJ_intrinsics_observations_only_here = invJtJ_intrinsics_observations_only[i_camera, ...]
+    model = \
+        mrcal.cameramodel( intrinsics                          = (intrinsics[0], intrinsics[1][i_camera,:]),
+                           extrinsics_rt_toref                 = np.zeros(6,dtype=float),
+                           imagersize                          = imagersizes[i_camera],
+                           observed_pixel_uncertainty          = args.observed_pixel_uncertainty,
+                           invJtJ_intrinsics_full              = invJtJ_intrinsics_full_here,
+                           invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only_here)
+    err = mrcal.compute_intrinsics_uncertainty(model,
                                                gridn_x      = gridn_x,
                                                gridn_y      = gridn_y,
                                                focus_center = focus_center,
@@ -1952,13 +1960,8 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
         plots_intrinsics_uncertainty[i_camera] = \
-            mrcal.show_intrinsics_uncertainty(intrinsics[0],
-                                              intrinsics[1][i_camera],
-                                              imagersizes  [i_camera],
-                                              args.observed_pixel_uncertainty,
-                                              invJtJ_intrinsics_full[i_camera] if outlierness else invJtJ_intrinsics_observations_only[i_camera],
+            mrcal.show_intrinsics_uncertainty(models[i_camera],
                                               outlierness,
-                                              valid_intrinsics_region[i_camera],
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_x=gridn_x,
                                               gridn_y=gridn_y,
@@ -1981,8 +1984,7 @@ def show_distortion(mode, i_camera, gridn_x = 60, gridn_y = 40, **kwargs):
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
         plots_distortion[i_camera] = \
-            mrcal.show_distortion(intrinsics[0],intrinsics[1][i_camera],
-                                  imagersizes[i_camera],
+            mrcal.show_distortion(model,
                                   mode,
                                   extratitle = "camera {}".format(i_camera),
                                   gridn_x=gridn_x,

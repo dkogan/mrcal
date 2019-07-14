@@ -109,9 +109,7 @@ plotkwargs = {}
 if args.extraset is not None:
     plotkwargs['set'] = args.extraset
 
-distortion_model,intrinsics_data = model.intrinsics()
-plot = mrcal.show_distortion(distortion_model, intrinsics_data,
-                             model.imagersize(),
+plot = mrcal.show_distortion(model,
                              mode,
                              args.scale,
                              args.cbmax,
