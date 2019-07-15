@@ -389,21 +389,27 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
 
     '''
 
+    # I return unit vectors. Not clear this is necessary, but I do it just in
+    # case
+    def normalize(x):
+        return x / nps.dummy(np.sqrt(nps.norm2(x,x)), axis=-1)
+
+
     # shape: Nwidth,Nheight,2
     grid = _sample_imager(gridn_x, gridn_y, W, H)
 
     if type(distortion_model) is list or type(intrinsics_data) is list:
         # shape: Ncameras,Nwidth,Nheight,3
-        return np.array([mrcal.unproject(grid,
-                                         distortion_model[i],
-                                         intrinsics_data[i]) \
+        return np.array([normalize(mrcal.unproject(grid,
+                                                   distortion_model[i],
+                                                   intrinsics_data[i])) \
                          for i in range(len(distortion_model))]), \
                grid
     else:
         # shape: Nwidth,Nheight,3
         return \
-            mrcal.unproject(grid,
-                            distortion_model, intrinsics_data), \
+            normalize(mrcal.unproject(grid,
+                                      distortion_model, intrinsics_data)), \
             grid
 
 def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,

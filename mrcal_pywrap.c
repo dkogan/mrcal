@@ -707,7 +707,13 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     return PyArray_Converter(obj,address);
 }
 
-#define PROJECT_ARGUMENTS_REQUIRED(_)                                  \
+
+// project(), unproject() and unproject_z1() have very similar arguments and
+// operation, so the logic is consolidated as much as possible in these
+// functions. The first arg is called "points" in both cases, but is 2d in one
+// case, and 3d in the other
+
+#define PROJECT_ARGUMENTS_REQUIRED(_)                                   \
     _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
     _(distortion_model, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
     _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
@@ -715,22 +721,20 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 #define PROJECT_ARGUMENTS_OPTIONAL(_) \
     _(get_gradients,    PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
 
-#define PROJECT_ARGUMENTS_ALL(_) \
-    PROJECT_ARGUMENTS_REQUIRED(_) \
-    PROJECT_ARGUMENTS_OPTIONAL(_)
-static bool project_validate_args( // out
-                                  distortion_model_t* distortion_model_type,
+static bool _un_project_validate_args( // out
+                                      distortion_model_t* distortion_model_type,
 
-                                  // in
-                                  PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
-                                  PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
-                                  void* dummy __attribute__((unused)))
+                                      // in
+                                      int dim_points, // 3 for project(), 2 for unproject()
+                                      PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
+                                      PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
+                                      void* dummy __attribute__((unused)))
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    PROJECT_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+    PROJECT_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    PROJECT_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
-
 
     if( PyArray_NDIM(intrinsics) != 1 )
     {
@@ -743,9 +747,10 @@ static bool project_validate_args( // out
         PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
         return false;
     }
-    if( 3 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
+    if( dim_points != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
     {
-        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 3. Instead got %ld",
+        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be %d. Instead got %ld",
+                     dim_points,
                      PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
         return false;
     }
@@ -780,82 +785,115 @@ static bool project_validate_args( // out
 
     return true;
 }
+
+#define _UN_PROJECT_PREAMBLE(ARGUMENTS_REQUIRED,ARGUMENTS_OPTIONAL,ARGUMENTS_OPTIONAL_VALIDATE,dim_points_in,dim_points_out) \
+    PyObject*      result          = NULL;                              \
+                                                                        \
+    SET_SIGINT();                                                       \
+    PyArrayObject* out             = NULL;                              \
+    __attribute__((unused)) PyArrayObject* dxy_dintrinsics = NULL;      \
+    __attribute__((unused)) PyArrayObject* dxy_dp          = NULL;      \
+                                                                        \
+    ARGUMENTS_REQUIRED(ARG_DEFINE);                                     \
+    ARGUMENTS_OPTIONAL(ARG_DEFINE);                                     \
+                                                                        \
+    char* keywords[] = { ARGUMENTS_REQUIRED(NAMELIST)                   \
+                         ARGUMENTS_OPTIONAL(NAMELIST)                   \
+                         NULL};                                         \
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,                      \
+                                     ARGUMENTS_REQUIRED(PARSECODE) "|"  \
+                                     ARGUMENTS_OPTIONAL(PARSECODE),     \
+                                                                        \
+                                     keywords,                          \
+                                                                        \
+                                     ARGUMENTS_REQUIRED(PARSEARG)       \
+                                     ARGUMENTS_OPTIONAL(PARSEARG) NULL)) \
+        goto done;                                                      \
+                                                                        \
+    /* if the input points array is degenerate, return a degenerate thing */ \
+    if( points == NULL  || (PyObject*)points == Py_None)                \
+    {                                                                   \
+        result = Py_None;                                               \
+        Py_INCREF(result);                                              \
+        goto done;                                                      \
+    }                                                                   \
+                                                                        \
+    distortion_model_t distortion_model_type;                           \
+    if(!_un_project_validate_args( &distortion_model_type,              \
+                                   dim_points_in,                       \
+                                   ARGUMENTS_REQUIRED(ARG_LIST_CALL)    \
+                                   ARGUMENTS_OPTIONAL_VALIDATE(ARG_LIST_CALL) \
+                                   NULL))                               \
+        goto done;                                                      \
+                                                                        \
+    int Nintrinsics = PyArray_DIMS(intrinsics)[0];                      \
+                                                                        \
+    /* poor man's broadcasting of the inputs. I compute the total number of */ \
+    /* points by multiplying the extra broadcasted dimensions. And I set up the */ \
+    /* outputs to have the appropriate broadcasted dimensions        */ \
+    const npy_intp* leading_dims  = PyArray_DIMS(points);               \
+    int             Nleading_dims = PyArray_NDIM(points)-1;             \
+    int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];   \
+    bool get_gradients_bool = get_gradients && PyObject_IsTrue(get_gradients); \
+                                                                        \
+    {                                                                   \
+        npy_intp dims[Nleading_dims+2]; /* one extra for the gradients */ \
+        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));      \
+                                                                        \
+        dims[Nleading_dims + 0] = dim_points_out;                       \
+        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,        \
+                                                dims,                   \
+                                                NPY_DOUBLE);            \
+        if( get_gradients_bool )                                        \
+        {                                                               \
+            dims[Nleading_dims + 0] = 2;                                \
+            dims[Nleading_dims + 1] = Nintrinsics;                      \
+            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
+                                                                dims,   \
+                                                                NPY_DOUBLE); \
+                                                                        \
+            dims[Nleading_dims + 0] = 2;                                \
+            dims[Nleading_dims + 1] = 3;                                \
+            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
+                                                                dims,   \
+                                                                NPY_DOUBLE); \
+        }                                                               \
+    }
+
+#define _UN_PROJECT_POSTAMBLE(ARGUMENTS_REQUIRED,       \
+                              ARGUMENTS_OPTIONAL)       \
+                                                        \
+ done:                                                  \
+    ARGUMENTS_REQUIRED(FREE_PYARRAY) ;                  \
+    ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;                  \
+    RESET_SIGINT();                                     \
+    return result
+
+
+
 static PyObject* project(PyObject* NPY_UNUSED(self),
                          PyObject* args,
                          PyObject* kwargs)
 {
-    PyObject*      result          = NULL;
-    SET_SIGINT();
+    _UN_PROJECT_PREAMBLE(PROJECT_ARGUMENTS_REQUIRED,
+                         PROJECT_ARGUMENTS_OPTIONAL,
+                         PROJECT_ARGUMENTS_OPTIONAL,
+                         3, 2);
 
-    PyArrayObject* out             = NULL;
-    PyArrayObject* dxy_dintrinsics = NULL;
-    PyArrayObject* dxy_dp          = NULL;
+    if(! mrcal_project((point2_t*)PyArray_DATA(out),
+                       get_gradients_bool ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
+                       get_gradients_bool ? (point3_t*)PyArray_DATA(dxy_dp)  : NULL,
 
-    PROJECT_ARGUMENTS_ALL(ARG_DEFINE) ;
-    char* keywords[] = { PROJECT_ARGUMENTS_REQUIRED(NAMELIST)
-                         PROJECT_ARGUMENTS_OPTIONAL(NAMELIST)
-                         NULL};
-
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     PROJECT_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                     PROJECT_ARGUMENTS_OPTIONAL(PARSECODE),
-
-                                     keywords,
-
-                                     PROJECT_ARGUMENTS_REQUIRED(PARSEARG)
-                                     PROJECT_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-        goto done;
-
-    distortion_model_t distortion_model_type;
-    if(!project_validate_args( &distortion_model_type,
-                               PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
-                               PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
-                               NULL))
-        goto done;
-
-    int Nintrinsics = PyArray_DIMS(intrinsics)[0];
-
-    // poor man's broadcasting of the inputs. I compute the total number of
-    // points by multiplying the extra broadcasted dimensions. And I set up the
-    // outputs to have the appropriate broadcasted dimensions
-    const npy_intp* leading_dims  = PyArray_DIMS(points);
-    int             Nleading_dims = PyArray_NDIM(points)-1;
-    int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];
-    bool get_gradients_bool = get_gradients && PyObject_IsTrue(get_gradients);
-
+                       (const point3_t*)PyArray_DATA(points),
+                       Npoints,
+                       distortion_model_type,
+                       // core, distortions concatenated
+                       (const double*)PyArray_DATA(intrinsics)))
     {
-        npy_intp dims[Nleading_dims+2];
-        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
-
-        dims[Nleading_dims + 0] = 2;
-        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
-                                                dims,
-                                                NPY_DOUBLE);
-        if( get_gradients_bool )
-        {
-            dims[Nleading_dims + 0] = 2;
-            dims[Nleading_dims + 1] = Nintrinsics;
-            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
-                                                                dims,
-                                                                NPY_DOUBLE);
-
-            dims[Nleading_dims + 0] = 2;
-            dims[Nleading_dims + 1] = 3;
-            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
-                                                                dims,
-                                                                NPY_DOUBLE);
-        }
+        PyErr_SetString(PyExc_RuntimeError, "mrcal_project() failed!");
+        Py_DECREF((PyObject*)out);
+        goto done;
     }
-
-    mrcal_project((point2_t*)PyArray_DATA(out),
-                  get_gradients_bool ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
-                  get_gradients_bool ? (point3_t*)PyArray_DATA(dxy_dp)  : NULL,
-
-                  (const point3_t*)PyArray_DATA(points),
-                  Npoints,
-                  distortion_model_type,
-                  // core, distortions concatenated
-                  (const double*)PyArray_DATA(intrinsics));
 
     if( get_gradients_bool )
     {
@@ -867,207 +905,78 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     else
         result = (PyObject*)out;
 
- done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    PROJECT_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    PROJECT_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
-#pragma GCC diagnostic pop
-    RESET_SIGINT();
-    return result;
+    _UN_PROJECT_POSTAMBLE(PROJECT_ARGUMENTS_REQUIRED,
+                          PROJECT_ARGUMENTS_OPTIONAL);
 }
 
+#define UNPROJECT_ARGUMENTS_REQUIRED(_) PROJECT_ARGUMENTS_REQUIRED(_)
+#define UNPROJECT_ARGUMENTS_OPTIONAL(_)
 
-#define DISTORT_ARGUMENTS_REQUIRED(_)                                  \
-    _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
-    _(distortion_model, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
-    _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
-
-#define DISTORT_ARGUMENTS_OPTIONAL(_) \
-    _(fx,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {}) \
-    _(fy,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {}) \
-    _(cx,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {}) \
-    _(cy,               double,         -1.0,    "d",  ,                                  NULL,       -1,         {})
-
-#define DISTORT_ARGUMENTS_ALL(_) \
-    DISTORT_ARGUMENTS_REQUIRED(_) \
-    DISTORT_ARGUMENTS_OPTIONAL(_)
-static bool _un_distort_validate_args( // out
-                                  distortion_model_t* distortion_model_type,
-
-                                  // in
-                                  DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
-                                  DISTORT_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
-                                  void* dummy __attribute__((unused)))
-{
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    DISTORT_ARGUMENTS_ALL(CHECK_LAYOUT) ;
-#pragma GCC diagnostic pop
-
-    if( PyArray_NDIM(intrinsics) != 1 )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
-        return false;
-    }
-
-    // points can be None, or have no elements potentially
-    if( !( points == NULL || (PyObject*)points == Py_None || PyArray_SIZE(points) == 0) )
-    {
-        if( PyArray_NDIM(points) < 1 )
-        {
-            PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
-            return false;
-        }
-
-        if( 2 != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
-        {
-            PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be 2. Instead got %ld",
-                         PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
-            return false;
-        }
-    }
-
-    const char* distortion_model_cstring = PyString_AsString(distortion_model);
-    if( distortion_model_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
-                        ")");
-        return false;
-    }
-
-    *distortion_model_type = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( *distortion_model_type == DISTORTION_INVALID )
-    {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
-                     ")",
-                     distortion_model_cstring);
-        return false;
-    }
-
-    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
-    if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
-    {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[0] MUST be %d. Instead got %ld",
-                     N_INTRINSICS_CORE + NdistortionParams,
-                     PyArray_DIMS(intrinsics)[0] );
-        return false;
-    }
-
-    return true;
-}
-static PyObject* _un_distort(PyObject* NPY_UNUSED(self),
-                             PyObject* args,
-                             PyObject* kwargs,
-                             bool direction_distort)
-{
-    PyObject*      result          = NULL;
-    SET_SIGINT();
-
-    PyArrayObject* out             = NULL;
-    PyArrayObject* dxy_dintrinsics = NULL;
-    PyArrayObject* dxy_dp          = NULL;
-
-    DISTORT_ARGUMENTS_ALL(ARG_DEFINE) ;
-    char* keywords[] = { DISTORT_ARGUMENTS_REQUIRED(NAMELIST)
-                         DISTORT_ARGUMENTS_OPTIONAL(NAMELIST)
-                         NULL};
-
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     DISTORT_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                     DISTORT_ARGUMENTS_OPTIONAL(PARSECODE),
-
-                                     keywords,
-
-                                     DISTORT_ARGUMENTS_REQUIRED(PARSEARG)
-                                     DISTORT_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-        goto done;
-
-    distortion_model_t distortion_model_type;
-    if(!_un_distort_validate_args( &distortion_model_type,
-                                DISTORT_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
-                                DISTORT_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
-                                NULL))
-        goto done;
-
-    // if the input points array is degenerate, return a degenerate thing
-    if( points == NULL  || (PyObject*)points == Py_None)
-    {
-        result = Py_None;
-        Py_INCREF(result);
-        goto done;
-    }
-    if(PyArray_SIZE(points) == 0)
-    {
-        result = (PyObject*)points;
-        Py_INCREF(result);
-        goto done;
-    }
-
-    int Nintrinsics = PyArray_DIMS(intrinsics)[0];
-
-    // poor man's broadcasting of the inputs. I compute the total number of
-    // points by multiplying the extra broadcasted dimensions. And I set up the
-    // outputs to have the appropriate broadcasted dimensions
-    const npy_intp* leading_dims  = PyArray_DIMS(points);
-    int             Nleading_dims = PyArray_NDIM(points)-1;
-    int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];
-
-    {
-        npy_intp dims[Nleading_dims+2];
-        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
-
-        dims[Nleading_dims + 0] = 2;
-        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
-                                                dims,
-                                                NPY_DOUBLE);
-    }
-
-#define DOTHING(what)                                                   \
-    if(! what((point2_t*)PyArray_DATA(out),                             \
-                                                                        \
-                       (const point2_t*)PyArray_DATA(points),           \
-                       Npoints,                                         \
-                       distortion_model_type,                           \
-                       /* core, distortions concatenated */             \
-                       (const double*)PyArray_DATA(intrinsics),         \
-                       fx,fy,cx,cy))                                    \
-    {                                                                   \
-        PyErr_SetString(PyExc_RuntimeError, #what "() failed!");        \
-        Py_DECREF((PyObject*)out);                                      \
-        goto done;                                                      \
-    }
-
-
-    if(direction_distort) { DOTHING(mrcal_distort);   }
-    else                  { DOTHING(mrcal_undistort); }
-
-    result = (PyObject*)out;
-
- done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    DISTORT_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    DISTORT_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
-#pragma GCC diagnostic pop
-    RESET_SIGINT();
-    return result;
-}
-
-static PyObject* distort(PyObject* NPY_UNUSED(self),
-                         PyObject* args,
-                         PyObject* kwargs)
-{
-    return _un_distort(NULL, args, kwargs, true);
-}
-
-static PyObject* undistort(PyObject* NPY_UNUSED(self),
+static PyObject* unproject(PyObject* NPY_UNUSED(self),
                            PyObject* args,
                            PyObject* kwargs)
 {
-    return _un_distort(NULL, args, kwargs, false);
+    // unproject, unproject_z1() have the same arguments as project(), except no
+    // optional ones (no gradient reporting). The first arg is called "points"
+    // in both cases, but is 2d in one case, and 3d in the other
+    PyObject* get_gradients = NULL;
+
+#define UNPROJECT_ARGUMENTS_OPTIONAL(_)
+    _UN_PROJECT_PREAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
+                         UNPROJECT_ARGUMENTS_OPTIONAL,
+                         PROJECT_ARGUMENTS_OPTIONAL,
+                         2, 3);
+
+    if(! mrcal_unproject((point3_t*)PyArray_DATA(out),
+
+                         (const point2_t*)PyArray_DATA(points),
+                         Npoints,
+                         distortion_model_type,
+                         /* core, distortions concatenated */
+                         (const double*)PyArray_DATA(intrinsics)))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "mrcal_unproject() failed!");
+        Py_DECREF((PyObject*)out);
+        goto done;
+    }
+
+    result = (PyObject*)out;
+
+    _UN_PROJECT_POSTAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
+                          UNPROJECT_ARGUMENTS_OPTIONAL);
+}
+
+static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
+                              PyObject* args,
+                              PyObject* kwargs)
+{
+    // unproject, unproject_z1() have the same arguments as project(), except no
+    // optional ones (no gradient reporting). The first arg is called "points"
+    // in both cases, but is 2d in one case, and 3d in the other
+    PyObject* get_gradients = NULL;
+
+    _UN_PROJECT_PREAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
+                         UNPROJECT_ARGUMENTS_OPTIONAL,
+                         PROJECT_ARGUMENTS_OPTIONAL,
+                         2, 2);
+
+    if(! mrcal_unproject_z1((point2_t*)PyArray_DATA(out),
+
+                            (const point2_t*)PyArray_DATA(points),
+                            Npoints,
+                            distortion_model_type,
+                            /* core, distortions concatenated */
+                            (const double*)PyArray_DATA(intrinsics)))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "mrcal_unproject_z1() failed!");
+        Py_DECREF((PyObject*)out);
+        goto done;
+    }
+
+    result = (PyObject*)out;
+
+    _UN_PROJECT_POSTAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
+                          UNPROJECT_ARGUMENTS_OPTIONAL);
 }
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
@@ -1905,11 +1814,11 @@ static const char getNextDistortionModel_docstring[] =
 static const char project_docstring[] =
 #include "project.docstring.h"
     ;
-static const char distort_docstring[] =
-#include "distort.docstring.h"
+static const char unproject_docstring[] =
+#include "unproject.docstring.h"
     ;
-static const char undistort_docstring[] =
-#include "undistort.docstring.h"
+static const char unproject_z1_docstring[] =
+#include "unproject_z1.docstring.h"
     ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
@@ -1917,8 +1826,8 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
       PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
       PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,distort,                      METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,undistort,                    METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,unproject,                    METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,unproject_z1,                 METH_VARARGS | METH_KEYWORDS),
       {}
     };
 

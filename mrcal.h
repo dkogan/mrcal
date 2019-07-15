@@ -115,7 +115,13 @@ const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-term
 distortion_model_t mrcal_getNextDistortionModel( distortion_model_t distortion_model_now,
                                                  distortion_model_t distortion_model_final);
 
-void mrcal_project( // out
+// Wrapper around the internal project() function. This is the function used in
+// the inner optimization loop to map world points to their observed pixel
+// coordinates, and to optionally provide gradients. dxy_dintrinsics and/or
+// dxy_dp are allowed to be NULL if we're not interested in gradients.
+//
+// This function supports CAHVORE distortions if we don't ask for gradients
+bool mrcal_project( // out
                    point2_t* out,
 
                    // core, distortions concatenated. Stored as a row-first
@@ -132,49 +138,37 @@ void mrcal_project( // out
                    // core, distortions concatenated
                    const double* intrinsics);
 
-// Maps a set of undistorted 2D imager points q to a set of imager points that
-// would result from observing the same vectors with a distorted model. Here the
-// undistorted model is a pinhole camera with the given parameters. Any of these
-// pinhole parameters can be given as <= 0, in which case the corresponding
-// parameter from the distorted model will be used
-bool mrcal_distort( // out
-                   point2_t* out,
-
-                   // in
-                   const point2_t* q,
-                   int N,
-                   distortion_model_t distortion_model,
-                   // core, distortions concatenated
-                   const double* intrinsics,
-                   double fx_pinhole,
-                   double fy_pinhole,
-                   double cx_pinhole,
-                   double cy_pinhole);
-
-// Maps a set of distorted 2D imager points q to a set of imager points that
-// would result from observing the same vectors with an undistorted model. Here the
-// undistorted model is a pinhole camera with the given parameters. Any of these
-// pinhole parameters can be given as <= 0, in which case the corresponding
-// parameter from the distorted model will be used
+// Maps a set of distorted 2D imager points q to a 3d vector in camera
+// coordinates that produced these pixel observations. The 3d vector is defined
+// up-to-length, so the vectors reported here will all have z = 1.
 //
-// This is the "reverse" direction, so we need a nonlinear optimization to compute
-// this result. OpenCV has cvUndistortPoints() (and cv2.undistortPoints()), but
-// these are inaccurate: https://github.com/opencv/opencv/issues/8811
+// This is the "reverse" direction, so an iterative nonlinear optimization is
+// performed internally to compute this result. This is much slower than
+// mrcal_project. For OpenCV distortions specifically, OpenCV has
+// cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
+// https://github.com/opencv/opencv/issues/8811
 //
-// This function does this precisely AND supports distortions other than OpenCV's
-bool mrcal_undistort( // out
-                     point2_t* out,
+// This function does NOT support CAHVORE
+bool mrcal_unproject( // out
+                     point3_t* out,
 
                      // in
                      const point2_t* q,
                      int N,
                      distortion_model_t distortion_model,
                      // core, distortions concatenated
-                     const double* intrinsics,
-                     double fx_pinhole,
-                     double fy_pinhole,
-                     double cx_pinhole,
-                     double cy_pinhole);
+                     const double* intrinsics);
+// Exactly the same as mrcal_unproject(), but reports 2d points, omitting the
+// redundant z=1
+bool mrcal_unproject_z1( // out
+                        point2_t* out,
+
+                        // in
+                        const point2_t* q,
+                        int N,
+                        distortion_model_t distortion_model,
+                        // core, distortions concatenated
+                        const double* intrinsics);
 
 
 

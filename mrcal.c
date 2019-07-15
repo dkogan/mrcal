@@ -1001,139 +1001,21 @@ static double region_of_interest_weight(const point2_t* pt,
     return region_of_interest_weight_from_unitless_rad(dx*dx + dy*dy);
 }
 
-// external function. Mostly a wrapper around project()
-void mrcal_project( // out
-                   point2_t* out,
-
-                   // core, distortions concatenated. Stored as a row-first
-                   // array of shape (N,2,Nintrinsics)
-                   double*         dxy_dintrinsics,
-                   // Stored as a row-first array of shape (N,2,3). Each
-                   // trailing ,3 dimension element is a point3_t
-                   point3_t* dxy_dp,
-
-                   // in
-                   const point3_t* p,
-                   int N,
-                   distortion_model_t distortion_model,
-                   // core, distortions concatenated
-                   const double* intrinsics)
-{
-    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
-    int Nintrinsics  = Ndistortions + 4;
-
-    // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
-    // project() have a lot of overhead apparently, and calling either in a loop
-    // is very slow. I can call it once, and use its fast internal loop,
-    // however. This special case does the same thing, but much faster.
-
-    if(dxy_dintrinsics == NULL && dxy_dp == NULL &&
-       (DISTORTION_IS_OPENCV(distortion_model) ||
-        distortion_model == DISTORTION_NONE))
-    {
-        const intrinsics_core_t* intrinsics_core = (const intrinsics_core_t*)intrinsics;
-        double fx = intrinsics_core->focal_xy [0];
-        double fy = intrinsics_core->focal_xy [1];
-        double cx = intrinsics_core->center_xy[0];
-        double cy = intrinsics_core->center_xy[1];
-        double _camera_matrix[] =
-            { fx,  0, cx,
-              0, fy, cy,
-              0,  0,  1 };
-        CvMat camera_matrix = cvMat(3,3, CV_64FC1, _camera_matrix);
-
-        int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
-        CvMat _distortions;
-        if(NdistortionParams > 0)
-            _distortions = cvMat( NdistortionParams, 1, CV_64FC1,
-                                  // removing const, but that's just because
-                                  // OpenCV's API is incomplete. It IS const
-                                  (double*)&intrinsics[4]);
-
-        CvMat object_points  = cvMat(3,N, CV_64FC1, (double*)p  ->xyz);
-        CvMat image_points   = cvMat(2,N, CV_64FC1, (double*)out->xy);
-        double _zero3[3] = {};
-        CvMat zero3 = cvMat(3,1,CV_64FC1, _zero3);
-        cvProjectPoints2(&object_points,
-                         &zero3, &zero3,
-                         &camera_matrix,
-                         NdistortionParams > 0 ? &_distortions : NULL,
-                         &image_points,
-                         NULL, NULL, NULL, NULL, NULL, 0 );
-        return;
-    }
-
-
-    for(int i=0; i<N; i++)
-    {
-        pose_t frame = {.r = {},
-                        .t = p[i]};
-
-        // The data is laid out differently in mrcal_project() and project(), so
-        // I need to project() into these temporary variables, and then populate
-        // my output array
-        double dxy_dintrinsic_core       [2*4];
-        double dxy_dintrinsic_distortions[2*Ndistortions];
-
-        out[i] = project( dxy_dintrinsics != NULL ? dxy_dintrinsic_core        : NULL,
-                          dxy_dintrinsics != NULL ? dxy_dintrinsic_distortions : NULL,
-                          NULL, NULL, NULL,
-                          dxy_dp, NULL,
-
-                          // in
-                          (const intrinsics_core_t*)(&intrinsics[0]),
-                          &intrinsics[4],
-                          NULL,
-                          &frame,
-                          NULL,
-                          true,
-                          distortion_model,
-
-                          -1, 0.0, 0);
-        if(dxy_dintrinsics != NULL)
-        {
-            for(int j=0; j<4; j++)
-            {
-                dxy_dintrinsics[j + 0*Nintrinsics] = dxy_dintrinsic_core[j+0];
-                dxy_dintrinsics[j + 1*Nintrinsics] = dxy_dintrinsic_core[j+4];
-            }
-            for(int j=0; j<Ndistortions; j++)
-            {
-                dxy_dintrinsics[j+4 + 0*Nintrinsics] = dxy_dintrinsic_distortions[j+0           ];
-                dxy_dintrinsics[j+4 + 1*Nintrinsics] = dxy_dintrinsic_distortions[j+Ndistortions];
-            }
-
-            dxy_dintrinsics = &dxy_dintrinsics[2*Nintrinsics];
-        }
-        if(dxy_dp != NULL)
-            dxy_dp = &dxy_dp[2];
-    }
-}
-
-// For the other ..._distort() functions I reuse project(). But since project()
-// doesn't support CAHVORE, I need to special-case it here
 static
-bool cahvore_distort( // out
+bool _project_cahvore( // out
                       point2_t* out,
 
                       // in
-                      const point2_t* q,
+                      const point3_t* q,
                       int N,
 
-                      const intrinsics_core_t* core,
-                      const double*            distortions,
-                      const double             fx_pinhole,
-                      const double             fy_pinhole,
-                      const double             cx_pinhole,
-                      const double             cy_pinhole)
+                      // core, distortions concatenated
+                      const double* intrinsics)
 {
     // Apply a CAHVORE warp to an un-distorted point
 
-    //  Given intrinsic parameters of a CAHVORE model and a pinhole-projected
-    //  point(s) numpy array of shape (..., 2), return the projected point(s) that
-    //  we'd get with distortion. By default we assume the same fx,fy,cx,cy. A scale
-    //  parameter allows us to scale the size of the output image by scaling the
-    //  focal lengths
+    //  Given intrinsic parameters of a CAHVORE model and a set of
+    //  camera-coordinate points, return the projected point(s)
 
     // This comes from cmod_cahvore_3d_to_2d_general() in
     // m-jplv/libcmod/cmod_cahvore.c
@@ -1148,23 +1030,20 @@ bool cahvore_distort( // out
     //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
     //   lock), and that would make my solver unhappy
     // So o = { s_al*c_be, s_be,  c_al*c_be }
-    const double alpha     = distortions[0];
-    const double beta      = distortions[1];
-    const double r0        = distortions[2];
-    const double r1        = distortions[3];
-    const double r2        = distortions[4];
-    const double e0        = distortions[5];
-    const double e1        = distortions[6];
-    const double e2        = distortions[7];
-    const double linearity = distortions[8];
+    const intrinsics_core_t* core = (const intrinsics_core_t*)intrinsics;
+    const double alpha     = intrinsics[4 + 0];
+    const double beta      = intrinsics[4 + 1];
+    const double r0        = intrinsics[4 + 2];
+    const double r1        = intrinsics[4 + 3];
+    const double r2        = intrinsics[4 + 4];
+    const double e0        = intrinsics[4 + 5];
+    const double e1        = intrinsics[4 + 6];
+    const double e2        = intrinsics[4 + 7];
+    const double linearity = intrinsics[4 + 8];
 
     for(int i=0; i<N; i++)
     {
-        // q is a 2d point. Convert to a 3d point by unprojecting using a
-        // pinhole model
-        double v[] = { (q[i].x - cx_pinhole) / fx_pinhole,
-                       (q[i].y - cy_pinhole) / fy_pinhole,
-                       1.0};
+        const double* v = q[i].xyz;
 
         double sa,ca;
         sincos(alpha, &sa, &ca);
@@ -1261,7 +1140,8 @@ bool cahvore_distort( // out
             for(int i=0; i<3; i++) vv[i] = (1. + mu)*ll[i];
 
             for(int i=0; i<3; i++)
-                v[i] = uu[i] + vv[i];
+                u[i] = uu[i] + vv[i];
+            v = u;
         }
 
         // now I apply a normal projection to the warped 3d point v
@@ -1271,56 +1151,104 @@ bool cahvore_distort( // out
     return true;
 }
 
-
-// Maps a set of undistorted 2D imager points q to a set of imager points that
-// would result from observing the same vectors with a distorted model. Here the
-// undistorted model is a pinhole camera with the given parameters. Any of these
-// pinhole parameters can be given as <= 0, in which case the corresponding
-// parameter from the distorted model will be used
-bool mrcal_distort( // out
+// Wrapper around the internal project() function. This is the function used in
+// the inner optimization loop to map world points to their observed pixel
+// coordinates, and to optionally provide gradients. dxy_dintrinsics and/or
+// dxy_dp are allowed to be NULL if we're not interested in gradients.
+//
+// This function supports CAHVORE distortions if we don't ask for gradients
+bool mrcal_project( // out
                    point2_t* out,
 
+                   // core, distortions concatenated. Stored as a row-first
+                   // array of shape (N,2,Nintrinsics)
+                   double*         dxy_dintrinsics,
+                   // Stored as a row-first array of shape (N,2,3). Each
+                   // trailing ,3 dimension element is a point3_t
+                   point3_t* dxy_dp,
+
                    // in
-                   const point2_t* q,
+                   const point3_t* p,
                    int N,
                    distortion_model_t distortion_model,
                    // core, distortions concatenated
-                   const double* intrinsics,
-                   double fx_pinhole,
-                   double fy_pinhole,
-                   double cx_pinhole,
-                   double cy_pinhole)
+                   const double* intrinsics)
 {
-    const intrinsics_core_t* core =
-        (const intrinsics_core_t*)intrinsics;
-    const double* distortions = &intrinsics[4];
-
-    if(fx_pinhole <= 0) fx_pinhole = core->focal_xy [0];
-    if(fy_pinhole <= 0) fy_pinhole = core->focal_xy [1];
-    if(cx_pinhole <= 0) cx_pinhole = core->center_xy[0];
-    if(cy_pinhole <= 0) cy_pinhole = core->center_xy[1];
-
     // project() doesn't handle cahvore, so I special-case it here
     if( distortion_model == DISTORTION_CAHVORE )
-        return cahvore_distort( out, q, N, core, distortions,
-                                fx_pinhole, fy_pinhole, cx_pinhole, cy_pinhole );
+    {
+        if(dxy_dintrinsics != NULL || dxy_dp != NULL)
+        {
+            fprintf(stderr, "mrcal_project(DISTORTION_CAHVORE) is not yet implemented if we're asking for gradients\n");
+            return false;
+        }
+        return _project_cahvore(out, p, N, intrinsics);
+    }
 
-    pose_t frame = {.r = {},
-                    .t = {.z = 1.0}};
+    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
+    int Nintrinsics  = Ndistortions + 4;
+
+    // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
+    // project() have a lot of overhead apparently, and calling either in a loop
+    // is very slow. I can call it once, and use its fast internal loop,
+    // however. This special case does the same thing, but much faster.
+
+    if(dxy_dintrinsics == NULL && dxy_dp == NULL &&
+       (DISTORTION_IS_OPENCV(distortion_model) ||
+        distortion_model == DISTORTION_NONE))
+    {
+        const intrinsics_core_t* intrinsics_core = (const intrinsics_core_t*)intrinsics;
+        double fx = intrinsics_core->focal_xy [0];
+        double fy = intrinsics_core->focal_xy [1];
+        double cx = intrinsics_core->center_xy[0];
+        double cy = intrinsics_core->center_xy[1];
+        double _camera_matrix[] =
+            { fx,  0, cx,
+              0, fy, cy,
+              0,  0,  1 };
+        CvMat camera_matrix = cvMat(3,3, CV_64FC1, _camera_matrix);
+
+        int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
+        CvMat _distortions;
+        if(NdistortionParams > 0)
+            _distortions = cvMat( NdistortionParams, 1, CV_64FC1,
+                                  // removing const, but that's just because
+                                  // OpenCV's API is incomplete. It IS const
+                                  (double*)&intrinsics[4]);
+
+        CvMat object_points  = cvMat(3,N, CV_64FC1, (double*)p  ->xyz);
+        CvMat image_points   = cvMat(2,N, CV_64FC1, (double*)out->xy);
+        double _zero3[3] = {};
+        CvMat zero3 = cvMat(3,1,CV_64FC1, _zero3);
+        cvProjectPoints2(&object_points,
+                         &zero3, &zero3,
+                         &camera_matrix,
+                         NdistortionParams > 0 ? &_distortions : NULL,
+                         &image_points,
+                         NULL, NULL, NULL, NULL, NULL, 0 );
+        return true;
+    }
+
+
     for(int i=0; i<N; i++)
     {
-        // q is a 2d point. Convert to a 3d point by unprojecting using a
-        // pinhole model
-        frame.t.x = (q[i].x - cx_pinhole) / fx_pinhole;
-        frame.t.y = (q[i].y - cy_pinhole) / fy_pinhole;
-        // initializing this above: frame.t.z = 1.0;
+        pose_t frame = {.r = {},
+                        .t = p[i]};
 
-        out[i] = project( NULL, NULL,
+        // The data is laid out differently in mrcal_project() and project(), so
+        // I need to project() into these temporary variables, and then populate
+        // my output array
+        double dxy_dintrinsic_core       [2*4];
+        double dxy_dintrinsic_distortions[2*Ndistortions];
+
+        out[i] = project( dxy_dintrinsics != NULL ? dxy_dintrinsic_core        : NULL,
+                          dxy_dintrinsics != NULL ? dxy_dintrinsic_distortions : NULL,
                           NULL, NULL, NULL,
-                          NULL, NULL,
+                          dxy_dp, NULL,
 
                           // in
-                          core, distortions,
+                          (const intrinsics_core_t*)(&intrinsics[0]),
+                          &intrinsics[4],
                           NULL,
                           &frame,
                           NULL,
@@ -1328,70 +1256,72 @@ bool mrcal_distort( // out
                           distortion_model,
 
                           -1, 0.0, 0);
-    }
+        if(dxy_dintrinsics != NULL)
+        {
+            for(int j=0; j<4; j++)
+            {
+                dxy_dintrinsics[j + 0*Nintrinsics] = dxy_dintrinsic_core[j+0];
+                dxy_dintrinsics[j + 1*Nintrinsics] = dxy_dintrinsic_core[j+4];
+            }
+            for(int j=0; j<Ndistortions; j++)
+            {
+                dxy_dintrinsics[j+4 + 0*Nintrinsics] = dxy_dintrinsic_distortions[j+0           ];
+                dxy_dintrinsics[j+4 + 1*Nintrinsics] = dxy_dintrinsic_distortions[j+Ndistortions];
+            }
 
+            dxy_dintrinsics = &dxy_dintrinsics[2*Nintrinsics];
+        }
+        if(dxy_dp != NULL)
+            dxy_dp = &dxy_dp[2];
+    }
     return true;
 }
 
 
-// Maps a set of distorted 2D imager points q to a set of imager points that
-// would result from observing the same vectors with an undistorted model. Here the
-// undistorted model is a pinhole camera with the given parameters. Any of these
-// pinhole parameters can be given as <= 0, in which case the corresponding
-// parameter from the distorted model will be used
-//
-// This is the "reverse" direction, so we need a nonlinear optimization to compute
-// this result. OpenCV has cvUndistortPoints() (and cv2.undistortPoints()), but
-// these are inaccurate: https://github.com/opencv/opencv/issues/8811
-//
-// This function does this precisely AND supports distortions other than OpenCV's
-bool mrcal_undistort( // out
-                     point2_t* out,
+// internal function for mrcal_unproject() and mrcal_unproject_z1()
+static
+bool _unproject( // out
+                double* out,
+                bool output_2d_z1,
 
-                     // in
-                     const point2_t* q,
-                     int N,
-                     distortion_model_t distortion_model,
-                     // core, distortions concatenated
-                     const double* intrinsics,
-                     double fx_pinhole,
-                     double fy_pinhole,
-                     double cx_pinhole,
-                     double cy_pinhole)
+                // in
+                const point2_t* q,
+                int N,
+                distortion_model_t distortion_model,
+                // core, distortions concatenated
+                const double* intrinsics)
 {
+    if( distortion_model == DISTORTION_CAHVORE )
+    {
+        fprintf(stderr, "mrcal_unproject(DISTORTION_CAHVORE) not yet implemented. No gradients available\n");
+        return false;
+    }
+
+
     const intrinsics_core_t* core =
         (const intrinsics_core_t*)intrinsics;
     const double* distortions = &intrinsics[4];
 
-    if(fx_pinhole <= 0) fx_pinhole = core->focal_xy [0];
-    if(fy_pinhole <= 0) fy_pinhole = core->focal_xy [1];
-    if(cx_pinhole <= 0) cx_pinhole = core->center_xy[0];
-    if(cy_pinhole <= 0) cy_pinhole = core->center_xy[1];
-
     const double fx_recip_distort = 1.0 / core->focal_xy[0];
     const double fy_recip_distort = 1.0 / core->focal_xy[1];
-    const double fx_recip_pinhole = 1.0 / fx_pinhole;
-    const double fy_recip_pinhole = 1.0 / fy_pinhole;
 
     // easy special-case
     if( distortion_model == DISTORTION_NONE )
     {
         for(int i=0; i<N; i++)
         {
-            double x = (q[i].x - core->center_xy[0]) * fx_recip_distort;
-            double y = (q[i].y - core->center_xy[1]) * fy_recip_distort;
-            out[i].x = x*fx_pinhole + cx_pinhole;
-            out[i].y = y*fy_pinhole + cy_pinhole;
+            out[0] = (q[i].x - core->center_xy[0]) * fx_recip_distort;
+            out[1] = (q[i].y - core->center_xy[1]) * fy_recip_distort;
+            if(output_2d_z1)
+                out = &out[2];
+            else
+            {
+                out[2] = 1.0;
+                out = &out[3];
+            }
         }
         return true;
     }
-
-    if( distortion_model == DISTORTION_CAHVORE )
-    {
-        fprintf(stderr, "mrcal_undistort(DISTORTION_CAHVORE) not yet implemented. No gradients available\n");
-        return false;
-    }
-
 
     pose_t frame = {.r = {},
                     .t = {.z = 1.0}};
@@ -1432,13 +1362,15 @@ bool mrcal_undistort( // out
         }
 
         // seed from the distorted value
-        out[i].x = (q[i].x - core->center_xy[0]) * fx_recip_distort;
-        out[i].y = (q[i].y - core->center_xy[1]) * fy_recip_distort;
+        out[0] = (q[i].x - core->center_xy[0]) * fx_recip_distort;
+        out[1] = (q[i].y - core->center_xy[1]) * fy_recip_distort;
+
 
         double norm2x =
-            dogleg_optimize_dense(out[i].xy, 2, 2, cb, NULL, NULL);
+            dogleg_optimize_dense(out, 2, 2, cb, NULL, NULL);
         //This needs to be precise; if it isn't, I barf. Shouldn't happen
         //very often
+
         static bool already_complained = false;
         if(norm2x/2.0 > 1e-4)
         {
@@ -1452,17 +1384,54 @@ bool mrcal_undistort( // out
             out[i].x = nan;
             out[i].y = nan;
         }
+        if(output_2d_z1)
+            out = &out[2];
         else
         {
-            // (out[i].x, out[i].y, 1) is the observation vector. I project it
-            // into my pinhole model, and return it
-            out[i].x = out[i].x*fx_pinhole + cx_pinhole;
-            out[i].y = out[i].y*fy_pinhole + cy_pinhole;
+            out[2] = 1.0;
+            out = &out[3];
         }
     }
     return true;
 }
 
+// Maps a set of distorted 2D imager points q to a 3d vector in camera
+// coordinates that produced these pixel observations. The 3d vector is defined
+// up-to-length, so the vectors reported here will all have z = 1.
+//
+// This is the "reverse" direction, so an iterative nonlinear optimization is
+// performed internally to compute this result. This is much slower than
+// mrcal_project. For OpenCV distortions specifically, OpenCV has
+// cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
+// https://github.com/opencv/opencv/issues/8811
+//
+// This function does NOT support CAHVORE
+bool mrcal_unproject( // out
+                     point3_t* out,
+
+                     // in
+                     const point2_t* q,
+                     int N,
+                     distortion_model_t distortion_model,
+                     // core, distortions concatenated
+                     const double* intrinsics)
+{
+    return _unproject(out->xyz, false, q,N,distortion_model,intrinsics);
+}
+// Exactly the same as mrcal_unproject(), but reports 2d points, omitting the
+// redundant z=1
+bool mrcal_unproject_z1( // out
+                        point2_t* out,
+
+                        // in
+                        const point2_t* q,
+                        int N,
+                        distortion_model_t distortion_model,
+                        // core, distortions concatenated
+                        const double* intrinsics)
+{
+    return _unproject(out->xy, true, q,N,distortion_model,intrinsics);
+}
 
 // The following functions define/use the layout of the state vector. In general
 // I do:

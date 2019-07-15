@@ -12,176 +12,6 @@ import scipy.optimize
 import mrcal
 
 
-# Broadcasting available for points only; handled internally by the C layer
-def project(v, distortion_model, intrinsics_data, get_gradients=False):
-    r'''Projects 3D point(s) using the given camera intrinsics
-
-    Most of the time this invokes _mrcal.project() directly UNLESS we're using
-    CAHVORE. _mrcal.project() does not support CAHVORE, so we implement our own
-    path here. gradients are NOT implemented for CAHVORE
-
-    This function is broadcastable over points only.
-
-    Inputs:
-
-    - v 3D point(s) in the camera coord system. This is unaffected by scale, so
-      from the point of view of a camera, this is an observation vector
-
-    - distortion_model: a string that says what the values in the intrinsics
-      array mean. The supported values are reported by
-      mrcal.getSupportedDistortionModels(). At the time of this
-      writing, the supported values are
-
-        DISTORTION_NONE
-        DISTORTION_OPENCV4
-        DISTORTION_OPENCV5
-        DISTORTION_OPENCV8
-        DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
-        DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
-        DISTORTION_CAHVOR
-        DISTORTION_CAHVORE
-
-    - intrinsics_data: a numpy array containing
-      - fx
-      - fy
-      - cx
-      - cy
-      - distortion-specific values
-
-    if get_gradients: instead of returning the projected points I return a tuple
-
-    - (...,2) array of projected pixel coordinates
-    - (...,2,3) array of the gradients of the pixel coordinates in respect to
-      the input 3D point positions
-    - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
-      respect to the intrinsics
-
-    '''
-
-    if v is None: return v
-    if v.size == 0:
-        if get_gradients:
-            Nintrinsics = intrinsics_data.shape[-1]
-            s = v.shape
-            return np.zeros(s[:-1] + (2,)), np.zeros(s[:-1] + (2,3)), np.zeros(s[:-1] + (2,Nintrinsics))
-        else:
-            s = v.shape
-            return np.zeros(s[:-1] + (2,))
-
-    if distortion_model != 'DISTORTION_CAHVORE':
-        return mrcal._mrcal.project(np.ascontiguousarray(v),
-                                    distortion_model,
-                                    intrinsics_data,
-                                    get_gradients=get_gradients)
-
-    # oof. CAHVORE. Legacy code follows
-    if get_gradients:
-        raise Exception("Gradients not implemented for CAHVORE")
-
-    def project_one_cam(intrinsics, v):
-        fxy = intrinsics[:2]
-        cxy = intrinsics[2:4]
-        q    = v[..., :2]/v[..., (2,)] * fxy + cxy
-        return mrcal.distort(q, 'DISTORTION_CAHVORE', intrinsics)
-
-
-    # manually broadcast over intrinsics[]. The broadcast over v happens
-    # implicitly. Note that I'm not implementing broadcasting over intrinsics in
-    # the non-cahvore path above. I might at some point
-    #
-    # intrinsics shape I support: (a,b,c,..., Nintrinsics)
-    # In my use case, at most one of a,b,c,... is != 1
-    idims_not1 = [ i for i in range(len(intrinsics_data.shape)-1) if intrinsics_data.shape[i] != 1 ]
-    if len(idims_not1) > 1:
-        raise Exception("More than 1D worth of broadcasting for the intrinsics not implemented")
-
-    if len(idims_not1) == 0:
-        return project_one_cam(intrinsics_data.ravel(), v)
-
-    idim_broadcast = idims_not1[0] - len(intrinsics_data.shape)
-    Nbroadcast = intrinsics_data.shape[idim_broadcast]
-    if v.shape[idim_broadcast] != Nbroadcast:
-        raise Exception("Inconsistent dimensionality for broadcast at idim {}. v.shape: {} and intrinsics_data.shape: {}".format(idim_broadcast, v.shape, intrinsics_data.shape))
-
-    vsplit          = nps.mv(v,               idim_broadcast, 0)
-    intrinsics_data = nps.mv(intrinsics_data, idim_broadcast, 0)
-
-    return \
-        nps.mv( nps.cat(*[ project_one_cam(intrinsics_data[i].ravel(),
-                                           vsplit[i])
-                           for i in range(Nbroadcast)]),
-                0, idim_broadcast )
-
-def unproject(q, distortion_model, intrinsics_data):
-    r'''Computes unit vector(s) corresponding to pixel observation(s)
-
-    This function is broadcastable over q (using numpy primitives intead of
-    nps.broadcast_define() to avoid a slow python broadcasting loop).
-
-    This function is NOT broadcastable over the intrinsics
-
-    Inputs:
-
-    - q 2D pixel coordinate(s)
-
-    - distortion_model: a string that says what the values in the intrinsics
-      array mean. The supported values are reported by
-      mrcal.getSupportedDistortionModels(). At the time of this
-      writing, the supported values are
-
-        DISTORTION_NONE
-        DISTORTION_OPENCV4
-        DISTORTION_OPENCV5
-        DISTORTION_OPENCV8
-        DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
-        DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
-        DISTORTION_CAHVOR
-        DISTORTION_CAHVORE
-
-    - intrinsics_data: a numpy array containing
-      - fx
-      - fy
-      - cx
-      - cy
-      - distortion-specific values
-
-    '''
-
-    if q is None: return q
-    if q.size == 0:
-        s = q.shape
-        return np.zeros(s[:-1] + (3,))
-
-    fxy = intrinsics_data[ :2]
-    cxy = intrinsics_data[2:4]
-
-    if 0:
-        # This is imprecise: https://github.com/opencv/opencv/issues/8811
-        # But much faster
-        if re.match("DISTORTION_OPENCV",distortion_model):
-
-            A = np.array(((fxy[0],   0,    cxy[0]),
-                          ( 0,     fxy[1], cxy[1]),
-                          ( 0,       0,     1)))
-
-            # opencv is silly, and I feed it what it wants
-            qshape = q.shape
-            qsize  = q.size
-            vxy = cv2.undistortPoints(q.astype(float).reshape(1,qsize//2,2), A, intrinsics_data[4:]).reshape(*qshape)
-        else:
-            raise Exception("Imprecise path exists only for opencv distortions")
-    else:
-        # Normal path. mrcal libdogleg optimization to reverse mrcal.project()
-        q = mrcal.undistort(np.ascontiguousarray(q), distortion_model, intrinsics_data)
-        vxy = (q - cxy) / fxy
-
-    # I append a 1. shape = (..., 3)
-    v = nps.glue(vxy, np.ones( vxy.shape[:-1] + (1,) ), axis=-1)
-
-    # normalize each vector
-    return v / nps.dummy(np.sqrt(nps.inner(v,v)), -1)
-
-
 def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     r'''Compute best value of scale_f_pinhole for undistort_image()
 
@@ -425,6 +255,38 @@ def undistort_image(model, image,
 
     return cv2.remap(image, mapxy[0], mapxy[1],
                      cv2.INTER_LINEAR)
+
+
+def distort(q, distortion_model, intrinsics_data,
+            fx_pinhole = -1,
+            fy_pinhole = -1,
+            cx_pinhole = -1,
+            cy_pinhole = -1):
+    r'''Converts points observed by a distorted lens to pinhole observations
+
+    This function takes in
+
+    - A set of pixel observations q
+    - (distortion_model, intrinsics_data) describing the lens used to capture q
+    - Optionally, pinhole parameters of a distortion-free lens. If omitted, we
+      use the pinhole parameters from the original camera model
+
+    This function then computes the pixel observations that would result if the
+    scene that was observed to produce q was observed by the pinhole camera
+
+    '''
+
+    if fx_pinhole <= 0: fx_pinhole = intrinsics_data[0]
+    if fy_pinhole <= 0: fy_pinhole = intrinsics_data[1]
+    if cx_pinhole <= 0: cx_pinhole = intrinsics_data[2]
+    if cy_pinhole <= 0: cy_pinhole = intrinsics_data[3]
+
+    fxy = np.array((fx_pinhole, fy_pinhole))
+    cxy = np.array((cx_pinhole, cy_pinhole))
+    return mrcal.project( nps.glue( (q-cxy)/fxy,
+                                    np.ones(q.shape[:-1] + (1,), dtype=float),
+                                    axis = -1 ),
+                          distortion_model, intrinsics_data )
 
 
 def redistort_image(model0, model1, image0,

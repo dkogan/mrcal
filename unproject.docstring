@@ -1,0 +1,50 @@
+Removes distortion from pixel observations
+
+SYNOPSIS
+
+    v = mrcal.unproject( # (N,2) array of pixel observations
+                         q,
+                         distortion_model, intrinsics_data )
+
+Maps a set of 2D imager points q to a 3d vector in camera coordinates that
+produced these pixel observations. The 3d vector is defined up-to-length, so the
+vectors reported here will all have z = 1.
+
+This is the "reverse" direction, so an iterative nonlinear optimization is
+performed internally to compute this result. This is much slower than
+mrcal_project. For OpenCV distortions specifically, OpenCV has
+cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
+https://github.com/opencv/opencv/issues/8811
+
+This function does NOT support CAHVORE.
+
+There's a 2D flavor of unproject() that returns 2d points, omitting the z=1
+component: unproject_z1(). This is a fundamental building block of an
+undistort() function.
+
+
+ARGUMENTS
+
+- q: array of dims (...,2); the pixel coordinates we're unprojecting. This
+  supports broadcasting fully, and any leading dimensions are allowed, including
+  none
+
+- distortion_model: a string such as
+
+  DISTORTION_NONE
+  DISTORTION_OPENCV4
+  DISTORTION_OPENCV5
+  DISTORTION_OPENCV8
+  DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
+  DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
+  DISTORTION_CAHVOR
+
+- intrinsics_data: array of dims (Nintrinsics):
+
+    (focal_x, focal_y, center_pixel_x, center_pixel_y, distorion0, distortion1,
+    ...)
+
+  The focal lengths are given in pixels.
+
+We return an (...,3) array of points in camera coordinates, where the last
+column contains 1.
