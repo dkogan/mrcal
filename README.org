@@ -609,9 +609,9 @@ OPTIONS
                            for the fit. If radius < 0, this parameter specifies
                            the width of the region at the corners that I should
                            ignore: I will use sqrt(width^2 + height^2) -
-                           abs(radius). This is valid ONLY if we're focussing at
-                           the center of the imager. DEFAULT. I want <0, but this
-                           won't work if not at center
+                           abs(radius). This is valid ONLY if we're focusing at
+                           the center of the imager. By default I ignore a large-
+                           ish chunk area at the corners.
       --writecahvor        If given, we write the output using the cahvor file
                            format
 
@@ -668,8 +668,8 @@ OPTIONS
 ** mrcal-show-intrinsics-uncertainty
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-intrinsics-uncertainty - Renders the expected projection
-    error due to calibration uncertainty
+    mrcal-show-intrinsics-uncertainty - Visualize the expected projection
+    error due to uncertainty in the input
 
 SYNOPSIS
       $ mrcal-show-intrinsics-uncertainty left.cameramodel
@@ -677,18 +677,20 @@ SYNOPSIS
       ... this model
 
 DESCRIPTION
-    docs
-
-    A calibration process produces the best-fitting camera parameters
-    (intrinsics and extrinsics) and a inv(JtJ) matrix representing the
-    uncertainty in these parameters. When we use the intrinsics to project
-    3D points into the image plane, this intrinsics uncertainty creates an
-    uncertainty in the resulting projection point. This tool plots the
-    expected value of this projection error across the imager. Areas with a
-    high expected projection error are unreliable for further work.
+    A calibration process produces the best-fitting camera parameters and
+    the uncertainty in these parameters. This tool examines the uncertainty
+    in the intrinsics. The intrinsics are used to project points in space to
+    pixel coordinates on the image plane. Thus the uncertainty in the
+    intrinsics can be translated to uncertainty in projection. This tool
+    plots the expected value of this projection error across the imager.
+    Areas with a high expected projection error are unreliable for further
+    work.
 
     Only mrcal-native .cameramodel files are supported because .cahvor files
-    don't store the required data
+    don't store the data used in these computations.
+
+    See mrcal.compute_intrinsics_uncertainty() for a full description of the
+    computation performed here
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -724,55 +726,48 @@ OPTIONS
 ** mrcal-show-intrinsics-diff
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-intrinsics-diff - Renders a difference in projection between
-    two models
+    mrcal-show-intrinsics-diff - Visualize the difference in projection
+    between some models
 
 SYNOPSIS
       $ mrcal-show-intrinsics-diff before.cameramodel after.cameramodel
-      ... a plot pops up showing how two models differ in their projections
+      ... a plot pops up showing how these two models differ in their projections
 
 DESCRIPTION
-    If we're given exactly 2 models then I can either show a vector field of
-    a heat map of the differences. I N > 2 then a vector field isn't
-    possible and we show a
+    If we're given exactly 2 models then I show the projection DIFFERENCE. I
+    show this as either a vector field or a heat map. If N > 2 then a vector
+    field isn't possible and we show a heat map of the STANDARD DEVIATION of
+    the differences.
 
-    CORRECT
-
-    heat map of the standard deviation of the differences. Note that for N=2
-    the difference shows in a-b, which is NOT the standard deviation (that
-    is (a-b)/2). I use the standard deviation for N > 2
-
-    This routine fits the implied camera rotation to align the models as
+    This routine takes into account the potential variability of camera
+    rotation by fitting this implied camera rotation to align the models as
     much as possible. This is required because a camera pitch/yaw motion
     looks a lot like a shift in the camera optical axis (cx,cy). So I could
     be comparing two sets of intrinsics that both represent the same lens
     faithfully, but imply different rotations: the rotation would be
     compensated for by a shift in cx,cy. If I compare the two sets of
-    intrinsics by IGNORING rotations, I would get a large diff because of
-    the cx,cy difference.
+    intrinsics by IGNORING the rotations, the cx,cy difference would produce
+    a large diff despite both models being right.
 
-    REWRITE ALL THIS
+    The implied rotation is fit using a subset of the imager data:
 
-    In all 3 cases I try to find the largest matching region around the area
-    of interest. So the recommentation is to specify where['center'], but to
-    omit where['radius'].
+      if --radius < 0 (the default):
+         I fit a compensating rotation using a "reasonable" area in the center of
+         the imager. I use --radius = min(width,height)/6.
 
-            if focus_radius > 0:
-               I use observation vectors within focus_radius pixels of the
-               focus_center. To use ALL the data, pass in a very large focus_radius.
+      if --radius > 0:
+         I use observation vectors within --radius pixels of --where. To use ALL the
+         data, pass in a very large --radius.
 
-            if focus_radius < 0:
-               I fit a compensating rotation using a "reasonable" area in the center
-               of the imager. I use focus_radius = min(width,height)/6.
+      if --radius == 0:
+         I do NOT fit a compensating rotation. Rationale: with radius == 0, I have
+         no fitting data, so I do not fit anything at all.
 
-            if focus_radius == 0:
-               I do NOT fit a compensating rotation. Rationale: with radius == 0, I
-               have no fitting data, so I do not fit anything at all.
+      if --where is omitted (the default):
+         --where is at the center of the imager
 
-            if focus_center is None:
-               focus_center is at the center of the imager
-
-    document --vectorscale
+    Generally the computation isn't very sensitive to choices of --radius
+    and --where, so omitting these is recommended.
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -802,8 +797,8 @@ OPTIONS
                             glance
       --vectorscale VECTORSCALE
                             If plotting a vectorfield, scale all the vectors by
-                            this factor. Useful if the vectors are too small to
-                            see
+                            this factor. Useful to improve legibility if the
+                            vectors are too small to see
       --hardcopy HARDCOPY   Write the output to disk, instead of making an
                             interactive plot
       --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
