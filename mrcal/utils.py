@@ -408,7 +408,7 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
     else:
         # shape: Nwidth,Nheight,3
         return \
-            normalize(mrcal.unproject(grid,
+            normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                       distortion_model, intrinsics_data)), \
             grid
 

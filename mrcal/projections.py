@@ -323,7 +323,10 @@ def redistort_image(model0, model1, image0,
                            m[1].extrinsics_Rt_toref  ()[:3,:] )
         v = nps.matmult(R01, nps.dummy(v, -1))[..., 0]
 
-    q = mrcal.project(v, *m[0].intrinsics())
+    # I don't strictly need "contiguous" here because the non-contiguity is in
+    # the broadcasting dimensions, so the C layer shouldn't really care. The
+    # pywrap layer should be smarter about this
+    q = mrcal.project(np.ascontiguousarray(v), *m[0].intrinsics())
 
     q0 = q[..., 0].astype(np.float32)
     q1 = q[..., 1].astype(np.float32)
