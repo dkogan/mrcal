@@ -392,7 +392,7 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
     # I return unit vectors. Not clear this is necessary, but I do it just in
     # case
     def normalize(x):
-        return x / nps.dummy(np.sqrt(nps.norm2(x,x)), axis=-1)
+        return x / nps.dummy(np.sqrt(nps.norm2(x)), axis=-1)
 
 
     # shape: Nwidth,Nheight,2
