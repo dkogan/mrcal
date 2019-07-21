@@ -224,7 +224,7 @@ mrcal_optimize( // out
                 pose_t*       camera_extrinsics,  // Ncameras-1 of these. Transform FROM camera0 frame
                 pose_t*       frames,             // Nframes of these.    Transform TO   camera0 frame
                 point3_t*     points,             // Npoints of these.    In the camera0 frame
-                point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                 // in
                 int Ncameras, int Nframes, int Npoints,
