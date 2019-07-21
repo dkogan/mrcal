@@ -871,6 +871,41 @@ static point2_t project( // out
         propagate( dxy_dtcamera, _d_rj_tc, _d_tj_tc );
         propagate( dxy_dtframe,  _d_rj_tf, _d_tj_tf );
         propagate( dxy_drframe,  _d_rj_rf, _d_tj_rf );
+
+        point3_t* p_dxy_dt = dxy_dtcamera;
+        if( dxy_dcalobject_warp != NULL && i_pt >= 0)
+        {
+            // p = proj(Rc Rf warp(x) + Rc tf + tc);
+            // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+            //       = dp/dtc RcRf dwarp/dw
+            // dp/dtc is dxy_dtcamera
+            // R is rodrigues(rj)
+            // dwarp/dw = [0 0]
+            //            [0 0]
+            //            [a b]
+            // Let R = [r0 r1 r2]
+            // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
+            point3_t dxy_dt_forwarp[2];
+            if(!p_dxy_dt)
+            {
+                // if we were asked for the calobject gradient, but not the
+                // tframe gradient
+                propagate( dxy_dt_forwarp, _d_rj_tc, _d_tj_tc );
+                p_dxy_dt = dxy_dt_forwarp;
+            }
+            double d[] =
+                { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
+                  p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
+                  p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
+                  p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
+                  p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
+                  p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
+
+            dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
+            dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
+            dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
+            dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
+        }
     }
     else
     {
@@ -943,38 +978,41 @@ static point2_t project( // out
 
         propagate_r( dxy_drframe );
         propagate_t( dxy_dtframe );
-    }
 
-    if( dxy_dcalobject_warp != NULL && i_pt >= 0)
-    {
-        assert(0);
+        point3_t* p_dxy_dt = dxy_dtframe;
+        if( dxy_dcalobject_warp != NULL && i_pt >= 0)
+        {
+            // p = proj(Rf warp(x) + tf);
+            // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+            //       = dp/dtf R dwarp/dw
+            // dp/dtf is dxy_dtframe
+            // R is rodrigues(rj)
+            // dwarp/dw = [0 0]
+            //            [0 0]
+            //            [a b]
+            // Let R = [r0 r1 r2]
+            // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
+            point3_t dxy_dt_forwarp[2];
+            if(!p_dxy_dt)
+            {
+                // if we were asked for the calobject gradient, but not the
+                // tframe gradient
+                propagate_t( dxy_dt_forwarp );
+                p_dxy_dt = dxy_dt_forwarp;
+            }
+            double d[] =
+                { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
+                  p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
+                  p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
+                  p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
+                  p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
+                  p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
 
-        // not yet implemented
-
-#if 0
-        // p = proj(R( warp(x) ) + t);
-        // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
-        //       = dp/dt R dwarp/dw
-        // dp/dt is _dxy_dtj
-        // R is rodrigues(rj)
-        // dwarp/dw = [0 0]
-        //            [0 0]
-        //            [a b]
-        // Let R = [r0 r1 r2]
-        // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
-        double d[] =
-            { _dxy_dtj[3*0 + 0] * _Rj[0*3 + 2] +
-              _dxy_dtj[3*0 + 1] * _Rj[1*3 + 2] +
-              _dxy_dtj[3*0 + 2] * _Rj[2*3 + 2],
-              _dxy_dtj[3*1 + 0] * _Rj[0*3 + 2] +
-              _dxy_dtj[3*1 + 1] * _Rj[1*3 + 2] +
-              _dxy_dtj[3*1 + 2] * _Rj[2*3 + 2]};
-
-        dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
-        dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
-        dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
-        dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
-#endif
+            dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
+            dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
+            dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
+            dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
+        }
     }
 
     return pt_out;
