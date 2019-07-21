@@ -984,7 +984,7 @@ static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
     _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics,                  NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames,                      NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,                      NPY_DOUBLE, {-1 COMMA  3       } ) \
-    _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA -1 } ) \
+    _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA 2 } ) \
     _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camera_board,  NPY_INT,    {-1 COMMA  2       } ) \
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camera_points, NPY_INT,    {-1 COMMA  2       } ) \
