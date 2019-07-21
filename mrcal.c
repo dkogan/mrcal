@@ -93,7 +93,7 @@ calibration and sfm formulations are a little different
 #define SCALE_DISTORTION              1.0
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#define MSG_IF_VERBOSE(...) do { if(VERBOSE) MSG( __VA_ARGS__ ); } while(0)
+#define MSG_IF_VERBOSE(...) do { if(verbose) MSG( __VA_ARGS__ ); } while(0)
 
 
 
@@ -2600,7 +2600,7 @@ bool markOutliers(// output, input
 
                   const double* x_measurements,
                   double expected_xy_stdev,
-                  bool VERBOSE)
+                  bool verbose)
 {
     // I define an outlier as a feature that's > k stdevs past the mean. The
     // threshold stdev is the worse of
@@ -2769,7 +2769,7 @@ mrcal_optimize( // out
                 int Noutlier_indices_input,
                 int* outlier_indices_input,
                 const double* roi,
-                bool VERBOSE,
+                bool verbose,
                 const bool skip_outlier_rejection,
 
                 distortion_model_t distortion_model,
@@ -2802,7 +2802,7 @@ mrcal_optimize( // out
         MSG("Warning: Not optimizing any of our variables");
     }
 
-    dogleg_setDebug( VERBOSE ? DOGLEG_DEBUG_VNLOG : 0 );
+    dogleg_setDebug( verbose ? DOGLEG_DEBUG_VNLOG : 0 );
 
 #warning update these parameters
     // These were derived empirically, seeking high accuracy, fast convergence
@@ -3217,7 +3217,7 @@ mrcal_optimize( // out
             if( point.z <= 0.0 || point.z >= POINT_MAXZ )
             {
                 have_invalid_point = true;
-                if(VERBOSE)
+                if(verbose)
                     MSG( "Saw invalid point distance: z = %g! obs/point/cam: %d %d %d",
                          point.z,
                          i_observation_point, i_point, i_camera);
@@ -3760,7 +3760,7 @@ mrcal_optimize( // out
             stats.Noutliers++;
         }
 
-        if(VERBOSE)
+        if(verbose)
         {
             reportFitMsg = "Before";
 #warning hook this up
@@ -3785,7 +3785,7 @@ mrcal_optimize( // out
 #if 0
             // Not using dogleg_markOutliers() (for now?)
 
-            if(outliernessScale < 0.0 && VERBOSE)
+            if(outliernessScale < 0.0 && verbose)
                 // These are for debug reporting
                 dogleg_reportOutliers(getConfidence,
                                       &outliernessScale,
@@ -3803,7 +3803,7 @@ mrcal_optimize( // out
                               roi,
                               solver_context->beforeStep->x,
                               observed_pixel_uncertainty,
-                              VERBOSE) );
+                              verbose) );
 
         // Done. I have the final state. I spit it back out
         unpack_solver_state( intrinsics, // Ncameras of these
@@ -3815,7 +3815,7 @@ mrcal_optimize( // out
                              distortion_model,
                              problem_details,
                              Ncameras, Nframes, Npoints, Nstate);
-        if(VERBOSE)
+        if(verbose)
         {
             // Not using dogleg_markOutliers() (for now?)
 #if 0
@@ -3848,7 +3848,7 @@ mrcal_optimize( // out
             double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
             double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
 
-            if(VERBOSE)
+            if(verbose)
             {
                 for(int i=0; i<Nmeasurements_regularization; i++)
                 {

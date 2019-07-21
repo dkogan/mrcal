@@ -246,7 +246,7 @@ mrcal_optimize( // out
                 // (x_center, y_center, x_width, y_width)
                 const double* roi,
 
-                bool VERBOSE,
+                bool verbose,
                 const bool skip_outlier_rejection,
 
                 distortion_model_t distortion_model,
