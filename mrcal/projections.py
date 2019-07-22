@@ -382,9 +382,9 @@ def calobservations_project(distortion_model, intrinsics, extrinsics, frames, do
     # loop over Ncameras. project() will broadcast over the points
     intrinsics = nps.atleast_dims(intrinsics, -2)
     Ncameras = intrinsics.shape[-2]
-    return nps.mv( nps.cat(*[project( object_cam[...,i_camera,:,:,:],
-                                      distortion_model,
-                                      intrinsics[i_camera,:] ) for \
+    return nps.mv( nps.cat(*[mrcal.project( object_cam[...,i_camera,:,:,:],
+                                            distortion_model,
+                                            intrinsics[i_camera,:] ) for \
                              i_camera in range(Ncameras)]),
                    0,-4)
 
