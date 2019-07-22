@@ -7,7 +7,7 @@ ABI_VERSION  := 0
 TAIL_VERSION := 0
 
 LIB_SOURCES += mrcal.c
-BIN_SOURCES += test_gradients.c test/test_cahvor.c
+BIN_SOURCES += test-gradients.c test/test_cahvor.c
 
 
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)

@@ -16,6 +16,6 @@ debian/files
 debian/*/
 
 *.pickle
-test_gradients
+test-gradients
 
 *.pod

@@ -41,7 +41,7 @@ for my $test (@tests)
     say $test;
 
     my $fd;
-    open $fd, '-|', "$Bin/../test_gradients $test 2>/dev/null | vnl-filter --eval '{print ivar,imeasurement,error,error_relative}'";
+    open $fd, '-|', "$Bin/../test-gradients $test 2>/dev/null | vnl-filter --eval '{print ivar,imeasurement,error,error_relative}'";
 
     my $err_relative_max           = -1.0;
     my $err_absolute_corresponding = -1.0;
