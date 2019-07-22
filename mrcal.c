@@ -1027,7 +1027,7 @@ static double region_of_interest_weight_from_unitless_rad(double rsq)
     if( rsq < 1.0 ) return 1.0;
     return 1e-3;
 }
-static double region_of_interest_weight(const point2_t* pt,
+static double region_of_interest_weight(const point3_t* pt,
                                         const double* roi, int i_camera)
 {
     if(roi == NULL) return 1.0;
@@ -2678,8 +2678,9 @@ bool markOutliers(// output, input
             i_pt < calibration_object_width_n*calibration_object_width_n; \
             i_pt++, i_feature++)                                        \
         {                                                               \
-            const point2_t* pt_observed = &observation->px[i_pt]; \
-            double weight = region_of_interest_weight(pt_observed, roi, i_camera);
+            const point3_t* pt_observed = &observation->px[i_pt]; \
+            double weight_roi = region_of_interest_weight(pt_observed, roi, i_camera); \
+            double weight = weight_roi * pt_observed->z;
 
 
 #define LOOP_FEATURE_END() \
@@ -2689,8 +2690,8 @@ bool markOutliers(// output, input
     // I loop through my data 3 times: 2 times to compute the stdev, and then
     // once more to use that value to identify the outliers
 
-    int Nfeatures_active = 0;
-    double sum_mean = 0.0;
+    double sum_mean   = 0.0;
+    double sum_weight = 0.0;
     LOOP_FEATURE_BEGIN()
     {
         if(markedOutliers[i_feature].marked)
@@ -2698,30 +2699,31 @@ bool markOutliers(// output, input
           (*Noutliers)++;
           continue;
         }
-        if(weight != 1.0) continue;
+        if(weight_roi != 1.0) continue;
 
-        Nfeatures_active++;
         sum_mean +=
-            x_measurements[2*i_feature + 0] +
-            x_measurements[2*i_feature + 1];
+            weight *
+            (x_measurements[2*i_feature + 0] +
+             x_measurements[2*i_feature + 1]);
+        sum_weight += weight;
     }
     LOOP_FEATURE_END();
-    sum_mean /= (double)(2*Nfeatures_active);
+    sum_mean /= (2. * sum_weight);
 
     double var = 0.0;
     LOOP_FEATURE_BEGIN()
     {
         if(markedOutliers[i_feature].marked)
           continue;
-        if(weight != 1.0) continue;
+        if(weight_roi != 1.0) continue;
 
         double dx = (x_measurements[2*i_feature + 0] - sum_mean);
         double dy = (x_measurements[2*i_feature + 1] - sum_mean);
 
-        var += dx*dx + dy*dy;
+        var += weight*(dx*dx + dy*dy);
     }
     LOOP_FEATURE_END();
-    var /= (double)(2*Nfeatures_active);
+    var /= (2.*sum_weight);
 
     if(var < expected_xy_stdev*expected_xy_stdev)
         var = expected_xy_stdev*expected_xy_stdev;
@@ -2731,7 +2733,7 @@ bool markOutliers(// output, input
     {
         if(markedOutliers[i_feature].marked)
           continue;
-        if(weight != 1.0) continue;
+        if(weight_roi != 1.0) continue;
 
         double dx = (x_measurements[2*i_feature + 0] - sum_mean);
         double dy = (x_measurements[2*i_feature + 1] - sum_mean);
@@ -3028,8 +3030,9 @@ mrcal_optimize( // out
                 i_pt < calibration_object_width_n*calibration_object_width_n;
                 i_pt++)
             {
-                const point2_t* pt_observed = &observation->px[i_pt];
+                const point3_t* pt_observed = &observation->px[i_pt];
                 double weight = region_of_interest_weight(pt_observed, roi, i_camera);
+                weight *= pt_observed->z;
 
                 // these are computed in respect to the real-unit parameters,
                 // NOT the unit-scale parameters used by the optimizer
@@ -3074,7 +3077,7 @@ mrcal_optimize( // out
                     // gradient and store them
                     for( int i_xy=0; i_xy<2; i_xy++ )
                     {
-                        const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy]) * weight;
+                        const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy]) * weight;
 
                         if( reportFitMsg )
                         {
@@ -3233,8 +3236,9 @@ mrcal_optimize( // out
             const int i_camera = observation->i_camera;
             const int i_point  = observation->i_point;
 
-            const point2_t* pt_observed = &observation->px;
+            const point3_t* pt_observed = &observation->px;
             double weight = region_of_interest_weight(pt_observed, roi, i_camera);
+            weight *= pt_observed->z;
 
             const int i_var_intrinsic_core         = mrcal_state_index_intrinsic_core        (i_camera,           problem_details, distortion_model);
             const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           problem_details, distortion_model);
@@ -3319,7 +3323,7 @@ mrcal_optimize( // out
 
                 for( int i_xy=0; i_xy<2; i_xy++ )
                 {
-                    const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xy[i_xy])*invalid_point_scale*weight;
+                    const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy])*invalid_point_scale*weight;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
@@ -3967,7 +3971,7 @@ mrcal_optimize( // out
                     i_pt < calibration_object_width_n*calibration_object_width_n;
                     i_pt++)
                 {
-                    const point2_t* pt_observed = &observation->px[i_pt];
+                    const point3_t* pt_observed = &observation->px[i_pt];
                     double weight = region_of_interest_weight(pt_observed, roi, i_camera);
                     if( weight != 1.0 )
                         outside_ROI_indices_final[stats.NoutsideROI++] =

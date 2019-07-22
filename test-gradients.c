@@ -110,8 +110,8 @@ int main(int argc, char* argv[] )
 
 #define calibration_object_width_n 10 /* arbitrary */
 
-    point2_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
-    point2_t observations_point_px[4] = {};
+    point3_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
+    point3_t observations_point_px[4] = {};
 
 #define NobservationsBoard 6
 #define NobservationsPoint 4
@@ -125,11 +125,14 @@ int main(int argc, char* argv[] )
                     1000.0 + (double)k - 10.0*(double)j + (double)(i*j*k);
                 observations_px[i][calibration_object_width_n*j + k].y =
                     1000.0 - (double)k + 30.0*(double)j - (double)(i*j*k);
+                observations_px[i][calibration_object_width_n*j + k].z =
+                    1. / (double)(1 << ((i+j+k) % 3));
             }
     for(int i=0; i<NobservationsPoint; i++)
     {
         observations_point_px[i].x = 1100.0 + (double)i*20.0;
         observations_point_px[i].y = 800.0  - (double)i*12.0;
+        observations_point_px[i].z = 1. / (double)(1 << (i % 3));
     }
 
     observation_board_t observations_board[NobservationsBoard] =

@@ -25,7 +25,14 @@ typedef struct
     int  i_frame          : 31;
     bool skip_observation : 1;
 
-    point2_t* px; // NUM_POINTS_IN_CALOBJECT of these
+    // NUM_POINTS_IN_CALOBJECT of these.
+    // .x, .y are the pixel observations
+    // .z is the weight of the observation. Most of the weights are expected to
+    // be 1.0, which implies that the noise on the observation is gaussian,
+    // independent on x,y, and has standard deviation of
+    // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
+    // with the weight.
+    point3_t* px;
 } observation_board_t;
 
 typedef struct
@@ -36,7 +43,13 @@ typedef struct
     bool skip_observation : 1;
 
     // Observed pixel coordinates
-    point2_t px;
+    // .x, .y are the pixel observations
+    // .z is the weight of the observation. Most of the weights are expected to
+    // be 1.0, which implies that the noise on the observation is gaussian,
+    // independent on x,y, and has standard deviation of
+    // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
+    // with the weight.
+    point3_t px;
 
     // Reference distance. This is optional; skipped if <= 0
     double dist;

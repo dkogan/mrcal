@@ -2050,9 +2050,10 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
       observations, indices_frame_camera, files_sorted
 
-    where observations is an (N,object-width-n,object-width-n,2) array
+    where observations is an (N,object-width-n,object-width-n,3) array
     describing N board observations where the board has dimensions
-    (object-width-n,object-width-n) and each point is an (x,y) pixel observation
+    (object-width-n,object-width-n) and each point is an (x,y,weight) pixel
+    observation
 
     indices_frame_camera is an (N,2) array of integers where each observation is
     (index_frame,index_camera)
@@ -2151,7 +2152,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
         mapping = {}
         context = dict(f     = '',
-                       grid  = np.zeros((Nh*Nw,2), dtype=float),
+                       grid  = np.ones((Nh*Nw,3), dtype=float),
                        igrid = 0)
 
         def finish_chessboard_observation():
@@ -2173,9 +2174,9 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                     else:
                         filename_canonical = os.path.join(corners_dir, context['f'])
                     if accum_files(filename_canonical):
-                        mapping[filename_canonical] = context['grid'].reshape(Nh,Nw,2)
+                        mapping[filename_canonical] = context['grid'].reshape(Nh,Nw,3)
                 context['f']     = ''
-                context['grid']  = np.zeros((Nh*Nw,2), dtype=float)
+                context['grid']  = np.ones((Nh*Nw,3), dtype=float)
                 context['igrid'] = 0
 
         for line in pipe_corners_read:
@@ -2194,7 +2195,17 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                 finish_chessboard_observation()
                 context['f'] = m.group(1)
 
-            context['grid'][context['igrid'],:2] = np.fromstring(m.group(2), sep=' ', dtype=np.float)
+            # The row may have 2 or 3 values: if 3, it contains a weight. If
+            # 2, a weight of 1.0 is assumed
+            row = np.fromstring(m.group(2), sep=' ', dtype=np.float)
+            if len(row) < 2:
+                raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead gogt line '{}'".format(line))
+            else:
+                context['grid'][context['igrid'],:2] = row[:2]
+                if len(row) == 3:
+                    # convert decimation level to weight
+                    context['grid'][context['igrid'],2] = 1. / (1 << row[2])
+
             context['igrid'] += 1
 
         finish_chessboard_observation()
@@ -2272,7 +2283,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
 
 def estimate_local_calobject_poses( indices_frame_camera,
-                                    corners,
+                                    observations,
                                     dot_spacing,Nwant,
                                     models_or_intrinsics ):
     r"""Estimates pose of observed object in a single-camera view
@@ -2288,15 +2299,15 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     The observations are given in a numpy array with axes:
 
-      (iframe, idot_x, idot_y, idot2d_xy)
+      (iframe, idot_x, idot_y, idot2d_xyweight)
 
     So as an example, the observed pixel coord of the dot (3,4) in frame index 5
-    is the 2-vector corners[5,3,4,:]
+    is the 2-vector observations[5,3,4,:2] with weight observations[5,3,4,2]
 
     Missing observations are given as negative pixel coords.
 
     This function returns an (Nobservations,4,3) array, with the observations
-    aligned with the corners and indices_frame_camera arrays. Each observation
+    aligned with the observations and indices_frame_camera arrays. Each observation
     slice is (4,3) in glue(R, t, axis=-2)
 
     The camera models are given in the "models_or_intrinsics" argument as a list
@@ -2307,6 +2318,8 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     """
 
+    # For now I ignore all the weights
+    observations = observations[..., :2]
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
@@ -2319,13 +2332,13 @@ def estimate_local_calobject_poses( indices_frame_camera,
     cx = [ i[2] for i in intrinsics_data ]
     cy = [ i[3] for i in intrinsics_data ]
 
-    corners = corners.copy()
-    for i_observation in range(len(corners)):
+    observations = observations.copy()
+    for i_observation in range(len(observations)):
         i_camera = indices_frame_camera[i_observation,1]
 
-        v = mrcal.unproject(corners[i_observation,...],
+        v = mrcal.unproject(observations[i_observation,...],
                             distortion_models[i_camera], intrinsics_data[i_camera])
-        corners[i_observation,...] = mrcal.project(v, 'DISTORTION_NONE',
+        observations[i_observation,...] = mrcal.project(v, 'DISTORTION_NONE',
                                                    intrinsics_data[i_camera][:4])
 
 
@@ -2344,7 +2357,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
         camera_matrix = np.array((( fx[i_camera], 0,            cx[i_camera]), \
                                   ( 0,            fy[i_camera], cy[i_camera]), \
                                   ( 0,            0,            1.)))
-        d = corners[i_observation, ...]
+        d = observations[i_observation, ...]
 
         d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
         # d is (Nwant*Nwant,5); each row is an xy pixel observation followed by the xyz
@@ -2355,10 +2368,10 @@ def estimate_local_calobject_poses( indices_frame_camera,
         d = d[i,:]
 
         # copying because cv2.solvePnP() requires contiguous memory apparently
-        observations = np.array(d[:,:2][..., np.newaxis])
-        ref_object   = np.array(d[:,2:][..., np.newaxis])
-        result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
-                                        np.array(observations),
+        observations_local = np.array(d[:,:2][..., np.newaxis])
+        ref_object         = np.array(d[:,2:][..., np.newaxis])
+        result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
+                                        np.array(observations_local),
                                         camera_matrix, None)
         if not result:
             raise Exception("solvePnP failed!")
@@ -2367,7 +2380,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
             # The object ended up behind the camera. I flip it, and try to solve
             # again
             result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
-                                            np.array(observations),
+                                            np.array(observations_local),
                                             camera_matrix, None,
                                             rvec, -tvec,
                                             useExtrinsicGuess = True)
@@ -2384,7 +2397,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
         # x_imager = x_cam[...,:2]/x_cam[...,(2,)] * focal + (imagersize-1)/2
         # import gnuplotlib as gp
         # gp.plot( (x_imager[:,0],x_imager[:,1], dict(legend='solved')),
-        #          (observations[:,0,0],observations[:,1,0], dict(legend='observed')),
+        #          (observations_local[:,0,0],observations_local[:,1,0], dict(legend='observed')),
         #          square=1,xrange=(0,4000),yrange=(4000,0),
         #          wait=1)
         # import IPython
@@ -2398,7 +2411,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
 
 def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
-                           corners, dot_spacing, Ncameras,
+                           observations, dot_spacing, Ncameras,
                            Nwant):
     r'''Estimate camera poses in respect to each other
 
@@ -2483,7 +2496,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                     raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
                                                                                             i_frame_this))
                 Rt0 = calobject_poses_local_Rt[i_observation, ...]
-                d0  = corners[i_observation, ...]
+                d0  = observations[i_observation, ..., :2]
             elif i_camera_this == icam_from:
                 if Rt0 is None: # have camera1 observation, but not camera0
                     continue
@@ -2492,7 +2505,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                     raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
                                                                                             i_frame_this))
                 Rt1 = calobject_poses_local_Rt[i_observation, ...]
-                d1  = corners[i_observation, ...]
+                d1  = observations[i_observation, ..., :2]
 
 
 
@@ -2768,7 +2781,7 @@ def make_seed_no_distortion( imagersizes,
                              focal_estimate,
                              Ncameras,
                              indices_frame_camera,
-                             corners,
+                             observations,
                              dot_spacing,
                              object_width_n):
     r'''Generate a solution seed for a given input'''
@@ -2795,7 +2808,7 @@ def make_seed_no_distortion( imagersizes,
                   for imagersize in imagersizes]
     calobject_poses_local_Rt = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
-                                              corners,
+                                              observations,
                                               dot_spacing, object_width_n,
                                               intrinsics)
     # these map FROM the coord system of the calibration object TO the coord
@@ -2812,7 +2825,7 @@ def make_seed_no_distortion( imagersizes,
     # camera coord system. Rt have dimensions (N-1,4,3)
     camera_poses_Rt = mrcal.estimate_camera_poses( calobject_poses_local_Rt,
                                                    indices_frame_camera,
-                                                   corners,
+                                                   observations,
                                                    dot_spacing,
                                                    Ncameras,
                                                    object_width_n)

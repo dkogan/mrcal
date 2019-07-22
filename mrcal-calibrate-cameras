@@ -740,7 +740,7 @@ def get_observation_subset__right_of_threshold_and_within_center(point_x_thresho
         if point_x_threshold > 0:
             x = observations[i,:,:,0] >= point_x_threshold
         if rad_threshold > 0:
-            y = nps.norm2(observations[i,...] - (imagersizes[indices_frame_camera[i,1]] - 1.)/2.) < rad_threshold*rad_threshold
+            y = nps.norm2(observations[i, ..., :2] - (imagersizes[indices_frame_camera[i,1]] - 1.)/2.) < rad_threshold*rad_threshold
             if x is None:
                 x = y
             else:
@@ -790,7 +790,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                       focal_estimate       = args.focal,
                                       Ncameras             = Ncameras,
                                       indices_frame_camera = indices_frame_camera,
-                                      corners              = observations,
+                                      observations         = observations,
                                       dot_spacing          = args.object_spacing,
                                       object_width_n       = args.object_width_n)
 
@@ -1144,14 +1144,14 @@ if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
     # any observations that lie partially outside the threshold remain. I cut
     # out individual points as outliers
     if args.cull_points_left_of > 0:
-        outlier_indices0 = set(np.flatnonzero(observations[...,0] < args.cull_points_left_of))
+        outlier_indices0 = set(np.flatnonzero(observations[..., 0] < args.cull_points_left_of))
     else:
         outlier_indices0 = set()
 
     if args.cull_points_rad_off_center > 0:
         centerpixels = (imagersizes[ indices_frame_camera[:,1] ] - 1.)[:,np.newaxis,np.newaxis,:] / 2.
         radsq = args.cull_points_rad_off_center*args.cull_points_rad_off_center
-        outlier_indices1 = set(np.flatnonzero(nps.norm2(observations - centerpixels) > radsq))
+        outlier_indices1 = set(np.flatnonzero(nps.norm2(observations[..., :2] - centerpixels) > radsq))
     else:
         outlier_indices1 = set()
 
@@ -1384,7 +1384,7 @@ def get_valid_intrinsics_region(i_camera,
         nps.clump(idx, n=3)[stats['outlier_indices']] = False
 
     err = err_including_outliers[idx, ...]
-    obs = observations          [idx, ...]
+    obs = observations          [idx, ..., :2]
 
     W,H=imagersizes[i_camera]
     if focus_center is None:
@@ -1546,7 +1546,7 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     ioutlier1 = np.searchsorted(stats['outlier_indices'], args.object_width_n*args.object_width_n*(i_observation+1), 'left')
     outlier_indices_thisobservation = stats['outlier_indices'][ioutlier0:ioutlier1] - args.object_width_n*args.object_width_n*i_observation
 
-    obs              = nps.clump( observations[i_observation], n=2)
+    obs              = nps.clump( observations[i_observation, ..., :2], n=2)
     i_frame,i_camera = indices_frame_camera[i_observation]
     reproj           = nps.clump( projected[i_frame,i_camera], n=2)
 
@@ -1770,7 +1770,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
         nps.clump(idx, n=3)[stats['outlier_indices']] = False
 
     err = err_including_outliers[idx, ...]
-    obs = observations          [idx, ...]
+    obs = observations          [idx, ..., :2]
 
     W,H=imagersizes[i_camera]
     if focus_center is None:
@@ -1998,7 +1998,7 @@ def show_roi(i_camera = None, **kwargs):
 
     NboardPoints     = args.object_width_n*args.object_width_n
     Nfeatures        = NboardPoints*len(observations)
-    feats            = observations.reshape(Nfeatures,2)
+    feats            = observations[..., :2].reshape(Nfeatures,2)
 
     def append_icamera(iFeatures):
         '''input: (N,) array of feature indices; output: (2,N) array of feature,camera indices)'''

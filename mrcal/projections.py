@@ -395,7 +395,7 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
     Given
 
     - projected (shape [Nframes,Ncameras,Nwant,Nwant,2])
-    - observations (shape [Nframes,Nwant,Nwant,2])
+    - observations (shape [Nframes,Nwant,Nwant,3])
     - indices_frame_camera (shape [Nobservations,2])
     - outlier_indices, a list of point indices that were deemed to be outliers.
       These are plain integers indexing the flattened observations array, but
@@ -416,7 +416,7 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
     for i_observation in range(Nobservations):
         i_frame, i_camera = indices_frame_camera[i_observation]
 
-        err_all_points[i_observation] = projected[i_frame,i_camera] - observations[i_observation]
+        err_all_points[i_observation] = projected[i_frame,i_camera] - observations[i_observation, ..., :2]
 
     err_ignoring_outliers = err_all_points.copy()
     err_ignoring_outliers.ravel()[outlier_indices*2  ] = 0

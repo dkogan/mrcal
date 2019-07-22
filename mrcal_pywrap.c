@@ -984,9 +984,9 @@ static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
     _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics,                  NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames,                      NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,                      NPY_DOUBLE, {-1 COMMA  3       } ) \
-    _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA 2 } ) \
+    _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA 3 } ) \
     _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camera_board,  NPY_INT,    {-1 COMMA  2       } ) \
-    _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  3       } ) \
+    _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  4       } ) \
     _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camera_points, NPY_INT,    {-1 COMMA  2       } ) \
     _(distortion_model,                   PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
@@ -1092,7 +1092,7 @@ static bool optimize_validate_args( // out
         if( calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
             calibration_object_width_n != PyArray_DIMS(observations_board)[2] )
         {
-            PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,2). Instead got (%ld,%ld,%ld)",
+            PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,3). Instead got (%ld,%ld,%ld)",
                          calibration_object_width_n, calibration_object_width_n,
                          PyArray_DIMS(observations_board)[1],
                          PyArray_DIMS(observations_board)[2],
@@ -1323,6 +1323,10 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* kwargs)
 {
+    // are -log2 of the accuracy of the observation.
+    //   I.e. 0 = full-res, 1 = 1/2 scale, 2 = 1/4 scale, ...
+
+
     PyObject* result = NULL;
 
     PyArrayObject* x_final                             = NULL;
@@ -1373,11 +1377,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     SET_SIZE0_IF_NONE(extrinsics,                 NPY_DOUBLE, 0,6);
 
     SET_SIZE0_IF_NONE(frames,                     NPY_DOUBLE, 0,6);
-    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,2); // arbitrary numbers; shouldn't matter
+    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
     SET_SIZE0_IF_NONE(indices_frame_camera_board, NPY_INT,    0,2);
 
     SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
-    SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,3);
+    SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,4);
     SET_SIZE0_IF_NONE(indices_point_camera_points,NPY_INT,    0,2);
     SET_SIZE0_IF_NONE(imagersizes,                NPY_INT,    0,2);
 #undef SET_NULL_IF_NONE
@@ -1432,7 +1436,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
             c_observations_board[i_observation].i_camera         = i_camera;
             c_observations_board[i_observation].i_frame          = i_frame;
-            c_observations_board[i_observation].px               = &((point2_t*)PyArray_DATA(observations_board))[calibration_object_width_n*calibration_object_width_n*i_observation];
+            c_observations_board[i_observation].px               = &((point3_t*)PyArray_DATA(observations_board))[calibration_object_width_n*calibration_object_width_n*i_observation];
 
             // I skip this frame if I skip ALL observations of this frame
             if( i_frame_current_skipped >= 0 &&
@@ -1513,8 +1517,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
             c_observations_point[i_observation].i_camera         = i_camera;
             c_observations_point[i_observation].i_point          = i_point;
-            c_observations_point[i_observation].px               = *(point2_t*)(&((double*)PyArray_DATA(observations_point))[i_observation*3]);
-            c_observations_point[i_observation].dist             = ((double*)PyArray_DATA(observations_point))[i_observation*3 + 2];
+            c_observations_point[i_observation].px               = *(point3_t*)(&((double*)PyArray_DATA(observations_point))[i_observation*4]);
+            c_observations_point[i_observation].dist             = ((double*)PyArray_DATA(observations_point))[i_observation*4 + 3];
 
             // I skip this point if I skip ALL observations of this point
             if( i_point_current_skipped >= 0 &&

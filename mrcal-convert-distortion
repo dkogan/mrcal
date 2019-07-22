@@ -225,8 +225,8 @@ for i in range(10): # this many trials
     distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-8 # random initial seed
     intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
                                      axis=-2)
-    # range-less points
-    observations_points = nps.glue(q, -np.ones((Npoints, 1),), axis=-1)
+    # range-less points with weight 1.0
+    observations_points = nps.glue(q, np.ones((Npoints, 1),), -np.ones((Npoints, 1),), axis=-1)
     observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
     # Which points we're observing. This is dense and kinda silly for this
