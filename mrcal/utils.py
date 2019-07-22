@@ -1018,10 +1018,10 @@ def show_intrinsics_uncertainty(model,
                        dict( tuplesize=3,
                              _with=np.array(('image','lines nosurface'),),
                              legend = "", # needed to force contour labels
-                             using = colormap_using(imagersize, gridn_x, gridn_y)))]
+                             using = colormap_using(model.imagersize(), gridn_x, gridn_y)))]
 
     valid_intrinsics_region = model.valid_intrinsics_region()
-    if valid_intrinsics_region() is not None:
+    if valid_intrinsics_region is not None:
         plot_data_args.append( (valid_intrinsics_region[:,0],
                                 valid_intrinsics_region[:,1],
                                 np.zeros(valid_intrinsics_region.shape[-2]),
