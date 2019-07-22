@@ -2150,14 +2150,15 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
 
         mapping = {}
-        context = {'f':    '',
-                   'grid': np.array(())}
+        context = dict(f     = '',
+                       grid  = np.zeros((Nh*Nw,2), dtype=float),
+                       igrid = 0)
 
         def finish_chessboard_observation():
-            if context['grid'].size:
-                if Nw*Nh != context['grid'].size//2:
-                    raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
-                                    format(context['f'], Nw,Nh,Nw*Nh, context['grid'].size//2))
+            if context['igrid']:
+                if Nw*Nh != context['igrid']:
+                    raise Exception("File '{}' expected to have {} points, but got {}". \
+                                    format(context['f'], Nw*Nh, context['igrid']))
                 if context['f'] not in exclude:
                     # There is a bit of ambiguity here. The image path stored in
                     # the 'corners_cache_vnl' file is relative to what? It could be
@@ -2172,9 +2173,10 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                     else:
                         filename_canonical = os.path.join(corners_dir, context['f'])
                     if accum_files(filename_canonical):
-                        mapping[filename_canonical] = context['grid']
-                context['f']    = ''
-                context['grid'] = np.array(())
+                        mapping[filename_canonical] = context['grid'].reshape(Nh,Nw,2)
+                context['f']     = ''
+                context['grid']  = np.zeros((Nh*Nw,2), dtype=float)
+                context['igrid'] = 0
 
         for line in pipe_corners_read:
             if pipe_corners_write_fd is not None:
@@ -2192,9 +2194,9 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                 finish_chessboard_observation()
                 context['f'] = m.group(1)
 
-            context['grid'] = nps.glue(context['grid'],
-                                       np.fromstring(m.group(2), sep=' ', dtype=np.float),
-                                       axis=-2)
+            context['grid'][context['igrid'],:2] = np.fromstring(m.group(2), sep=' ', dtype=np.float)
+            context['igrid'] += 1
+
         finish_chessboard_observation()
 
         if corners_output is not None:
@@ -2263,7 +2265,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                                         np.array((index_frame, i_camera), dtype=np.int32),
                                         axis=-2)
         observations = nps.glue(observations,
-                                mapping_file_corners[f].reshape(Nh,Nw,2),
+                                mapping_file_corners[f],
                                 axis=-4)
 
     return observations, indices_frame_camera, files_sorted
