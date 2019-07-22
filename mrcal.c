@@ -1381,8 +1381,8 @@ bool _unproject( // out
                 already_complained = true;
             }
             double nan = strtod("NAN", NULL);
-            out[i].x = nan;
-            out[i].y = nan;
+            out[0] = nan;
+            out[1] = nan;
         }
         if(output_2d_z1)
             out = &out[2];
