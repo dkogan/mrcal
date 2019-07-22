@@ -890,7 +890,7 @@ def compute_intrinsics_uncertainty( model,
         if invJtJ_intrinsics is None:
             raise Exception("The given camera model doesn't have full intrinsics inv(JtJ). Can't visualize them.")
     else:
-        invJtJ_intrinsics_full = model.invJtJ_intrinsics_observations_only()
+        invJtJ_intrinsics = model.invJtJ_intrinsics_observations_only()
         if invJtJ_intrinsics is None:
             raise Exception("The given camera model doesn't have observations-only intrinsics inv(JtJ). Can't visualize them.")
 
