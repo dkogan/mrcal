@@ -2143,18 +2143,17 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
             corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                               encoding='utf-8')
             pipe_corners_read = corners_output.stdout
-            computing_corners = True
         else:
             # Have an existing cache file. Just read it
             pipe_corners_read = open(corners_cache_vnl, 'r', encoding='utf-8')
-            computing_corners = False
+            corners_output    = None
 
 
         mapping = {}
         context = {'f':    '',
                    'grid': np.array(())}
 
-        def finish():
+        def finish_chessboard_observation():
             if context['grid'].size:
                 if Nw*Nh != context['grid'].size//2:
                     raise Exception("File '{}' expected to have {}*{}={} elements, but got {}". \
@@ -2187,18 +2186,18 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
             if m is None:
                 raise Exception("Unexpected line in the corners output: '{}'".format(line))
             if m.group(2)[:2] == '- ':
-                finish()
+                finish_chessboard_observation()
                 continue
             if context['f'] != m.group(1):
-                finish()
+                finish_chessboard_observation()
                 context['f'] = m.group(1)
 
             context['grid'] = nps.glue(context['grid'],
                                        np.fromstring(m.group(2), sep=' ', dtype=np.float),
                                        axis=-2)
-        finish()
+        finish_chessboard_observation()
 
-        if computing_corners:
+        if corners_output is not None:
             sys.stderr.write("Done computing chessboard corners\n")
 
             if corners_output.wait() != 0:
