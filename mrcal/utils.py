@@ -885,7 +885,7 @@ def compute_intrinsics_uncertainty( model,
     distortion_model, intrinsics_data = model.intrinsics()
     imagersize                        = model.imagersize()
 
-    if args.outlierness:
+    if outlierness:
         invJtJ_intrinsics = model.invJtJ_intrinsics_full()
         if invJtJ_intrinsics is None:
             raise Exception("The given camera model doesn't have full intrinsics inv(JtJ). Can't visualize them.")
