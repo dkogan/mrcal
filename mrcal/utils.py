@@ -400,7 +400,7 @@ def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data
 
     if type(distortion_model) is list or type(intrinsics_data) is list:
         # shape: Ncameras,Nwidth,Nheight,3
-        return np.array([normalize(mrcal.unproject(grid,
+        return np.array([normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                                    distortion_model[i],
                                                    intrinsics_data[i])) \
                          for i in range(len(distortion_model))]), \
