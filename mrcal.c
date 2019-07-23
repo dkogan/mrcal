@@ -1967,90 +1967,12 @@ static int intrinsics_index_from_state_index( int i_state,
 }
 
 
-//////////// duplicated in docstring for compute_intrinsics_uncertainty() in utils.py //////////
 // This function is part of sensitivity analysis to quantify how much errors in
 // the input pixel observations affect our solution. A "good" solution will not
 // be very sensitive: measurement noise doesn't affect the solution very much.
 //
-// I minimize a cost function E = norm2(x) where x is the measurements. Some
-// elements of x depend on inputs, and some don't (regularization for instance).
-// I perturb the inputs, reoptimize (assuming everything is linear) and look
-// what happens to the state p. I'm at an optimum p*:
-//
-//   dE/dp (p=p*) = 2 Jt x (p=p*) = 0
-//
-// I perturb the inputs:
-//
-//   E(x(p+dp, m+dm)) = norm2( x + J dp + dx/dm dm)
-//
-// And I reoptimize:
-//
-//   dE/ddp ~ ( x + J dp + dx/dm dm)t J = 0
-//
-// I'm at an optimum, so Jtx = 0, so
-//
-//   -Jt dx/dm dm = JtJ dp
-//
-// So if I perturb my input observation vector m by dm, the resulting effect on
-// the parameters is dp = M dm
-//
-//   where M = -inv(JtJ) Jt dx/dm
-//
-// In order to be useful I need to do something with M. I want to quantify
-// how precise our optimal intrinsics are. Ultimately these are always used
-// in a projection operation. So given a 3d observation vector v, I project
-// it onto our image plane:
-//
-//   q = project(v, intrinsics)
-//
-// I assume an independent, gaussian noise on my input observations, and for a
-// set of given observation vectors v, I compute the effect on the projection.
-//
-//   dq = dproj/dintrinsics dintrinsics
-//      = dproj/dintrinsics Mi dm
-//
-// dprojection/dintrinsics comes from cvProjectPoints2(). I'm assuming
-// everything is locally linear, so this is a constant matrix for each v.
-// dintrinsics is the shift in the intrinsics of this camera. Mi
-// is the subset of M that corresponds to these intrinsics
-//
-// If dm represents noise of the zero-mean, independent, gaussian variety,
-// then dp and dq are also zero-mean gaussian, but no longer independent
-//
-//   Var(dq) = (dproj/dintrinsics Mi) Var(dm) (dproj/dintrinsics Mi)t =
-//           = (dproj/dintrinsics Mi) (dproj/dintrinsics Mi)t s^2
-//           = dproj/dintrinsics (Mi Mit) dproj/dintrinsicst s^2
-//
-// where s is the standard deviation of the noise of each parameter in dm.
-//
-// For mrcal, the measurements are
-//
-// 1. reprojection errors of chessboard grid observations
-// 2. reprojection errors of individual point observations
-// 3. range errors for points with known range
-// 4. regularization terms
-//
-// The observed pixel measurements come into play directly into 1 and 2 above,
-// but NOT 3 and 4. Let's say I'm doing ordinary least squares, so x = f(p) - m
-//
-//   dx/dm = [ -I ]
-//           [  0 ]
-//
-// I thus ignore measurements past the observation set.
-//
-//     [ ... ]           [ ...  ...    ... ]
-// M = [  Mi ] and MMt = [ ...  MiMit  ... ]
-//     [ ... ]           [ ...  ...    ... ]
-//
-// MMt = inv(JtJ) Jt dx/dm dx/dmt J inv(JtJ)
-//
-// For another uncertainty computation I need a similar measure, but without the
-// dx/dm piece:
-//
-//   inv(JtJ) Jt J inv(JtJ) = inv(JtJ)
-//
-// As before, I return the subset of the matrix for each set of camera
-// intrinsics
+// A detailed derivation appears in the docstring for
+// compute_intrinsics_uncertainty() in utils.py
 //
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I
 // need here, and return these densely to the upper levels (python). These
@@ -2062,8 +1984,7 @@ static int intrinsics_index_from_state_index( int i_state,
 // Note that libdogleg sees everything in the unitless space of scaled
 // parameters, and I want this scaling business to be contained in the C code,
 // and to not leak out to python. Let's say I have parameters p and their
-// unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. From
-// above I have Var(dp*) = M* M*t s^2. So Var(dp) = D M* M*t D s^2. So when
+// unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. So when
 // talking to the upper level, I need to report M = DM*.
 static bool computeUncertaintyMatrices(// out
                                        // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)

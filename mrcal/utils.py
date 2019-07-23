@@ -687,27 +687,31 @@ def compute_intrinsics_uncertainty( model,
 
       I minimize a cost function E = norm2(x) where x is the measurements. Some
       elements of x depend on inputs, and some don't (regularization for instance).
-      I perturb the inputs, reoptimize (assuming everything is linear) and look
-      what happens to the state p. I'm at an optimum p*:
+      For inputs, x is a weighted reprojection error: xi = wi (qi - qrefi). The
+      noise on qrefi (on x and on y separately) is assumed to be mean-0 gaussian
+      with stdev observed_pixel_uncertainty/wi, so the noise on xi has stdev
+      observed_pixel_uncertainty. I perturb the inputs, reoptimize (assuming
+      everything is linear) and look what happens to the state p. I'm at an optimum
+      p*:
 
         dE/dp (p=p*) = 2 Jt x (p=p*) = 0
 
       I perturb the inputs:
 
-        E(x(p+dp, m+dm)) = norm2( x + J dp + dx/dm dm)
+        E(x(p+dp, qref+dqref)) = norm2( x + J dp + dx/dqref dqref)
 
       And I reoptimize:
 
-        dE/ddp ~ ( x + J dp + dx/dm dm)t J = 0
+        dE/ddp ~ ( x + J dp + dx/dqref dqref)t J = 0
 
       I'm at an optimum, so Jtx = 0, so
 
-        -Jt dx/dm dm = JtJ dp
+        -Jt dx/dqref dqref = JtJ dp
 
-      So if I perturb my input observation vector m by dm, the resulting effect on
-      the parameters is dp = M dm
+      So if I perturb my input observation vector qref by dqref, the resulting
+      effect on the parameters is dp = M dqref
 
-        where M = -inv(JtJ) Jt dx/dm
+        where M = -inv(JtJ) Jt dx/dqref
 
       In order to be useful I need to do something with M. I want to quantify
       how precise our optimal intrinsics are. Ultimately these are always used
@@ -720,24 +724,23 @@ def compute_intrinsics_uncertainty( model,
       set of given observation vectors v, I compute the effect on the projection.
 
         dq = dproj/dintrinsics dintrinsics
-           = dproj/dintrinsics Mi dm
+           = dproj/dintrinsics Mi dqref
 
-      dprojection/dintrinsics comes from cvProjectPoints2(). A compensating
-      rotation may be applied by compute_Rcorrected_dq_dintrinsics(); see the
-      description in that function.
-
-      I'm assuming everything is locally linear, so this is a constant matrix
-      for each v. dintrinsics is the shift in the intrinsics of this camera. Mi
+      dprojection/dintrinsics comes from mrcal_project(). I'm assuming
+      everything is locally linear, so this is a constant matrix for each v.
+      dintrinsics is the shift in the intrinsics of this camera. Mi
       is the subset of M that corresponds to these intrinsics
 
-      If dm represents noise of the zero-mean, independent, gaussian variety,
+      If dqref represents noise of the zero-mean, independent, gaussian variety,
       then dp and dq are also zero-mean gaussian, but no longer independent
 
-        Var(dq) = (dproj/dintrinsics Mi) Var(dm) (dproj/dintrinsics Mi)t =
-                = (dproj/dintrinsics Mi) (dproj/dintrinsics Mi)t s^2
-                = dproj/dintrinsics (Mi Mit) dproj/dintrinsicst s^2
+        Var(dq) = (dproj/dintrinsics Mi) Var(dqref) (dproj/dintrinsics Mi)t
+        Var(dq) = (dproj/dintrinsics Mi) W^-2 s^2   (dproj/dintrinsics Mi)t
 
-      where s is the standard deviation of the noise of each parameter in dm.
+      where
+
+        W is a diagonal matrix of weights
+        s is observed_pixel_uncertainty
 
       For mrcal, the measurements are
 
@@ -747,10 +750,10 @@ def compute_intrinsics_uncertainty( model,
       4. regularization terms
 
       The observed pixel measurements come into play directly into 1 and 2 above,
-      but NOT 3 and 4. Let's say I'm doing ordinary least squares, so x = f(p) - m
+      but NOT 3 and 4. x = W ( f(p) - qref )
 
-        dx/dm = [ -I ]
-                [  0 ]
+        dx/dqref = [ -W ]
+                   [  0 ]
 
       I thus ignore measurements past the observation set.
 
@@ -758,16 +761,20 @@ def compute_intrinsics_uncertainty( model,
       M = [  Mi ] and MMt = [ ...  MiMit  ... ]
           [ ... ]           [ ...  ...    ... ]
 
-      The MiMit is the covariance input to this function
-
-      MMt = inv(JtJ) Jt dx/dm dx/dmt J inv(JtJ)
+      Mi = -inv(JtJ) Jt dx/dqref =
+         =  inv(JtJ) Jit W
+      -> Var(dq) = (dproj/dintrinsics Mi) W^-2 s^2   (dproj/dintrinsics Mi)t
+                 = dproj/dintrinsics inv(JtJ) Jit W W^-2 W Ji inv(JtJ) (dproj/dintrinsics)t s^2
+                 = dproj/dintrinsics inv(JtJ) JitJi inv(JtJ) (dproj/dintrinsics)t s^2
+                 = (dproj/dintrinsics inv(JtJ) Jit) (dproj/dintrinsics inv(JtJ) Jit)t s^2
 
     *** outlierness-based
 
-      This is completely different. I computed a calibration with some input
-      data. Let's pretend we use this calibrated camera to observe a 3D vector
-      v. The projection of this vector has the same expected observation noise
-      as above: diag(s^2).
+      This is a completely different technique of estimating uncertainty, but
+      produces a very similar result. I computed a calibration with some input
+      data. Let's pretend we use this calibrated camera to observe a 3D vector v.
+      The projection of this vector has the same expected observation noise as
+      above.
 
       If I add this new observation to the optimization, the solution will
       shift, and the reprojection error of this new observation will improve. By
@@ -876,7 +883,7 @@ def compute_intrinsics_uncertainty( model,
       Putting this together I expect norm2(x*) to improve by x*t (I - B*B) x*.
       x* is a random variable and E(x*t (I - B*B) x*) = tr( (I - B*B) Var(x*) )
 
-      As before, Var(x*) = s^2 I
+      Let's say the weights on x* are 1.0, so Var(x*) = s^2 I
 
       So E() = s^2 tr( I - B*B )
 
