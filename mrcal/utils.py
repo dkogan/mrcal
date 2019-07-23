@@ -2195,8 +2195,8 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                 finish_chessboard_observation()
                 context['f'] = m.group(1)
 
-            # The row may have 2 or 3 values: if 3, it contains a weight. If
-            # 2, a weight of 1.0 is assumed
+            # The row may have 2 or 3 values: if 3, it contains a weight. If 2,
+            # a weight of 1.0 is assumed. The array is pre-filled with 1.0
             row = np.fromstring(m.group(2), sep=' ', dtype=np.float)
             if len(row) < 2:
                 raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead gogt line '{}'".format(line))
@@ -2204,7 +2204,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                 context['grid'][context['igrid'],:2] = row[:2]
                 if len(row) == 3:
                     # convert decimation level to weight
-                    context['grid'][context['igrid'],2] = 1. / (1 << row[2])
+                    context['grid'][context['igrid'],2] = 1. / (1 << int(row[2]))
 
             context['igrid'] += 1
 
