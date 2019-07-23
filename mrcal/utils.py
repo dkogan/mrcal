@@ -888,11 +888,11 @@ def compute_intrinsics_uncertainty( model,
     if outlierness:
         invJtJ_intrinsics = model.invJtJ_intrinsics_full()
         if invJtJ_intrinsics is None:
-            raise Exception("The given camera model doesn't have full intrinsics inv(JtJ). Can't visualize them.")
+            raise Exception("The given camera model doesn't have full intrinsics inv(JtJ). Can't compute uncertainty.")
     else:
         invJtJ_intrinsics = model.invJtJ_intrinsics_observations_only()
         if invJtJ_intrinsics is None:
-            raise Exception("The given camera model doesn't have observations-only intrinsics inv(JtJ). Can't visualize them.")
+            raise Exception("The given camera model doesn't have observations-only intrinsics inv(JtJ). Can't compute uncertainty.")
 
     W,H = imagersize
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
