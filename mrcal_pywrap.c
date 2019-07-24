@@ -372,7 +372,7 @@ static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
                                                           self->distortion_model));
 }
 
-static PyObject* SolverContext_num_measurements(SolverContext* self)
+static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
 {
     if( self->ctx == NULL )
     {
@@ -514,8 +514,8 @@ static const char SolverContext_state_index_point_docstring[] =
 static const char SolverContext_state_index_calobject_warp_docstring[] =
 #include "SolverContext_state_index_calobject_warp.docstring.h"
     ;
-static const char SolverContext_num_measurements_docstring[] =
-#include "SolverContext_num_measurements.docstring.h"
+static const char SolverContext_num_measurements_dict_docstring[] =
+#include "SolverContext_num_measurements_dict.docstring.h"
     ;
 static const char SolverContext_pack_docstring[] =
 #include "SolverContext_pack.docstring.h"
@@ -532,7 +532,7 @@ static PyMethodDef SolverContext_methods[] =
       PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,              METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_point,                 METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_calobject_warp,        METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, num_measurements,                  METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, num_measurements_dict,             METH_NOARGS),
       PYMETHODDEF_ENTRY(SolverContext_, pack,                              METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, unpack,                            METH_VARARGS),
       {}
