@@ -228,6 +228,30 @@ static PyObject* SolverContext_J(SolverContext* self)
     return result;
 }
 
+static PyObject* SolverContext_p(SolverContext* self)
+{
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
+
+    cholmod_sparse* Jt = self->ctx->beforeStep->Jt;
+    return PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nrow}), NPY_DOUBLE, self->ctx->beforeStep->p);
+}
+
+static PyObject* SolverContext_x(SolverContext* self)
+{
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
+
+    cholmod_sparse* Jt = self->ctx->beforeStep->Jt;
+    return PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->ncol}), NPY_DOUBLE, self->ctx->beforeStep->x);
+}
+
 static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
                                                           PyObject* args)
 {
@@ -496,6 +520,12 @@ static PyObject* SolverContext_unpack(SolverContext* self, PyObject* args)
 static const char SolverContext_J_docstring[] =
 #include "SolverContext_J.docstring.h"
     ;
+static const char SolverContext_p_docstring[] =
+#include "SolverContext_p.docstring.h"
+    ;
+static const char SolverContext_x_docstring[] =
+#include "SolverContext_x.docstring.h"
+    ;
 static const char SolverContext_state_index_intrinsic_core_docstring[] =
 #include "SolverContext_state_index_intrinsic_core.docstring.h"
     ;
@@ -526,6 +556,8 @@ static const char SolverContext_unpack_docstring[] =
 
 static PyMethodDef SolverContext_methods[] =
     { PYMETHODDEF_ENTRY(SolverContext_, J,                                 METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, p,                                 METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, x,                                 METH_NOARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsic_core,        METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsic_distortions, METH_VARARGS),
       PYMETHODDEF_ENTRY(SolverContext_, state_index_camera_rt,             METH_VARARGS),

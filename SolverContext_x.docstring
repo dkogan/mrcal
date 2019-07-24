@@ -1,0 +1,3 @@
+Return the vector of measurements at this operating point
+
+These are the measurements seen by the optimizer.
