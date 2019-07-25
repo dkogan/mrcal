@@ -143,7 +143,7 @@ stats = mrcal.optimize(nps.dummy(m.intrinsics()[1], 0),
                        observed_pixel_uncertainty = 1.0,
                        skip_outlier_rejection = True,
 
-                       VERBOSE = False)
+                       verbose = False)
 
 xy = stats['x'].reshape(args.object_width_n*args.object_width_n, 2)
 rms = np.sqrt(np.mean(nps.norm2(xy)))

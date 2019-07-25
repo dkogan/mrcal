@@ -18,7 +18,7 @@ SYNOPSIS
                             calibration_object_width_n        = 10,
                             skip_outlier_rejection            = False,
                             skip_regularization               = False,
-                            VERBOSE                           = False)
+                            verbose                           = False)
 
 This is a flexible implementation of a calibration system core that uses sparse
 Jacobians, peforms outlier rejection and reports some metrics back to the user.
@@ -176,7 +176,7 @@ OPTIONAL ARGUMENTS
 - get_invJtJ_intrinsics: defaults to False. If True, I compute the inv(JtJ)
   matrices and include them in the dict I return
 
-- VERBOSE: if True, write out all sorts of diagnostic data to STDERR. Defaults
+- verbose: if True, write out all sorts of diagnostic data to STDERR. Defaults
   to False
 
 - skip_outlier_rejection: if True, don't bother with detecting or rejecting

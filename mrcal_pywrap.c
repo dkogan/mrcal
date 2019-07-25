@@ -1037,7 +1037,7 @@ static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
     _(calibration_object_width_n,         int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
     _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, roi,            NPY_DOUBLE, {-1 COMMA 4} ) \
-    _(VERBOSE,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
@@ -1713,7 +1713,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                         Noutlier_indices,
                         c_outlier_indices,
                         c_roi,
-                        VERBOSE &&                PyObject_IsTrue(VERBOSE),
+                        verbose &&                PyObject_IsTrue(verbose),
                         skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                         distortion_model_type,
                         observed_pixel_uncertainty,

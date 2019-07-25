@@ -811,7 +811,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                            outlier_indices                   = outlier_indices,
                            roi                               = args.roi,
                            get_invJtJ_intrinsics             = False,
-                           VERBOSE                           = False)
+                           verbose                           = False)
     sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
     sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only\n")
@@ -830,7 +830,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                            outlier_indices                   = outlier_indices,
                            roi                               = args.roi,
                            get_invJtJ_intrinsics             = False,
-                           VERBOSE                           = False)
+                           verbose                           = False)
     sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
     # I favor the center pixel at the center of the imager
 
@@ -961,7 +961,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
                                get_invJtJ_intrinsics             = False,
-                               VERBOSE                           = args.verbose_solver)
+                               verbose                           = args.verbose_solver)
         return "fixed solve", (distortion_model, intrinsics_data), extrinsics, frames, args.roi, stats
 
 
@@ -1007,7 +1007,7 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
                                outlier_indices                   = outlier_indices,
                                roi                               = roi,
                                get_invJtJ_intrinsics             = False,
-                               VERBOSE                           = args.verbose_solver)
+                               verbose                           = args.verbose_solver)
 
         solution_acceptable,solution_description = eval_solution(stats, outside_ROI_indices__prevROI)
 
@@ -1274,7 +1274,7 @@ if args.num_cross_validation_splits > 1:
                                outlier_indices                   = split_outlier_indices,
                                roi                               = roi,
                                get_invJtJ_intrinsics             = True,
-                               VERBOSE                           = False,
+                               verbose                           = False,
                                solver_context                    = solver_context)
 
         invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
@@ -1335,7 +1335,7 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        outlier_indices                   = stats['outlier_indices'],
                        roi                               = roi,
                        get_invJtJ_intrinsics             = True,
-                       VERBOSE                           = False,
+                       verbose                           = False,
                        solver_context                    = solver_context)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
@@ -1658,7 +1658,7 @@ def check_confidence_computations():
                            do_optimize_intrinsic_distortions = True,
                            calibration_object_spacing        = args.object_spacing,
                            calibration_object_width_n        = args.object_width_n,
-                           VERBOSE                           = False,
+                           verbose                           = False,
                            skip_outlier_rejection            = True,
                            skip_regularization               = True)
 

@@ -257,7 +257,7 @@ for i in range(10): # this many trials
                    do_optimize_extrinsics            = False,
                    do_optimize_frames                = False,
                    skip_outlier_rejection            = True,
-                   VERBOSE                           = args.verbose)
+                   verbose                           = args.verbose)
     q_solved = mrcal.project( v,
                               distortionmodel_to,
                               intrinsics_to_values.ravel())
