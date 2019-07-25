@@ -2048,7 +2048,7 @@ def get_mapping_file_framecamera(files_per_camera):
     return mapping, prefix0, suffix0
 
 
-def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, exclude=set()):
+def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, exclude=set(), weighted=True):
     r'''Computes the point observations and returns them in a usable form
 
     We are given globs of images (one glob per camera), where the filenames
@@ -2209,7 +2209,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                 raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead gogt line '{}'".format(line))
             else:
                 context['grid'][context['igrid'],:2] = row[:2]
-                if len(row) == 3:
+                if len(row) == 3 and weighted:
                     # convert decimation level to weight
                     context['grid'][context['igrid'],2] = 1. / (1 << int(row[2]))
 

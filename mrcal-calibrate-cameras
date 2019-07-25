@@ -393,6 +393,12 @@ def parse_args():
                         default=False,
                         help='''By default we throw out outliers. This option turns that off''')
 
+    parser.add_argument('--unweighted-corners',
+                        action='store_true',
+                        help='''By default we weight each corner error contribution using information from
+                        mrgingham. If we want to ignore this information, and
+                        weigh them all the same, pass --unweighted-corners.''')
+
     parser.add_argument('--verbose-solver',
                         action='store_true',
                         required=False,
@@ -1119,7 +1125,8 @@ observations, indices_frame_camera, paths = \
                                       args.object_width_n,
                                       args.images,
                                       args.corners_cache,
-                                      jobs = args.jobs)
+                                      jobs = args.jobs,
+                                      weighted = not args.unweighted_corners)
 
 # list of imager sizes; one per camera
 imagersizes = np.array([get_imagersize_one(icamera, indices_frame_camera, paths, args.imagersize) for icamera in range(Ncameras)],
