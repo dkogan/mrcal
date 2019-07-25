@@ -146,19 +146,23 @@ static PyObject* SolverContext_str(SolverContext* self)
                                self->problem_details.do_optimize_cahvor_optical_axis);
 }
 
-static PyObject* SolverContext_J(SolverContext* self)
-{
-    if( self->ctx == NULL )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
-        return NULL;
-    }
+static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
 
+                                          // These are allowed to be NULL; If
+                                          // so, I'll use the data in Jt. THE Jt
+                                          // STILL OWNS THE DATA
+                                          PyObject* P,
+                                          PyObject* I,
+                                          PyObject* X)
+{
     // I do the Python equivalent of this;
     // scipy.sparse.csr_matrix((data, indices, indptr))
+
+
+    PyObject* result = NULL;
+
     PyObject* module = NULL;
     PyObject* method = NULL;
-    PyObject* result = NULL;
     PyObject* args   = NULL;
     if(NULL == (module = PyImport_ImportModule("scipy.sparse")))
     {
@@ -171,12 +175,17 @@ static PyObject* SolverContext_J(SolverContext* self)
         goto done;
     }
 
-    cholmod_sparse* Jt = self->ctx->beforeStep->Jt;
     // Here I'm assuming specific types in my cholmod arrays. I tried to
     // static_assert it, but internally cholmod uses void*, so I can't do that
-    PyObject* P         = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->ncol + 1}), NPY_INT32,  Jt->p);
-    PyObject* I         = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_INT32,  Jt->i);
-    PyObject* X         = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_DOUBLE, Jt->x);
+    if(P == NULL) P = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->ncol + 1}), NPY_INT32,  Jt->p);
+    else Py_INCREF(P);
+
+    if(I == NULL) I = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_INT32,  Jt->i);
+    else Py_INCREF(I);
+
+    if(X == NULL) X = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_DOUBLE, Jt->x);
+    else Py_INCREF(X);
+
     PyObject* MatrixDef = PyTuple_Pack(3, X, I, P);
     args                = PyTuple_Pack(1, MatrixDef);
     Py_DECREF(P);
@@ -186,7 +195,6 @@ static PyObject* SolverContext_J(SolverContext* self)
 
     if(NULL == (result = PyObject_CallObject(method, args)))
         goto done; // reuse already-set error
-
 
     // Testing code to dump out a dense representation of this matrix to a file.
     // Can compare that file to what this function returns like this:
@@ -219,13 +227,23 @@ static PyObject* SolverContext_J(SolverContext* self)
     // #undef X
     // }
 
-
  done:
     Py_XDECREF(module);
     Py_XDECREF(method);
     Py_XDECREF(args);
 
     return result;
+}
+
+static PyObject* SolverContext_J(SolverContext* self)
+{
+    if( self->ctx == NULL )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        return NULL;
+    }
+
+    return csr_from_cholmod_sparse(self->ctx->beforeStep->Jt, NULL,NULL,NULL);
 }
 
 static PyObject* SolverContext_p(SolverContext* self)
