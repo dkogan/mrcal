@@ -1991,7 +1991,7 @@ def show_distortion(mode, i_camera, gridn_x = 60, gridn_y = 40, **kwargs):
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
         plots_distortion[i_camera] = \
-            mrcal.show_distortion(model,
+            mrcal.show_distortion(models[i_camera],
                                   mode,
                                   extratitle = "camera {}".format(i_camera),
                                   gridn_x=gridn_x,
