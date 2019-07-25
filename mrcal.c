@@ -202,9 +202,9 @@ int mrcal_getNintrinsicOptimizationParams(mrcal_problem_details_t problem_detail
                                            distortion_model);
 }
 
-static int get_Nstate(int Ncameras, int Nframes, int Npoints,
-                      mrcal_problem_details_t problem_details,
-                      distortion_model_t distortion_model)
+int mrcal_getNstate(int Ncameras, int Nframes, int Npoints,
+                    mrcal_problem_details_t problem_details,
+                    distortion_model_t distortion_model)
 {
     return
         // camera extrinsics
@@ -293,14 +293,14 @@ int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
         mrcal_getNmeasurements_regularization( Ncameras, problem_details, distortion_model);
 }
 
-static int get_N_j_nonzero( int Ncameras,
-                            const observation_board_t* observations_board,
-                            int NobservationsBoard,
-                            const observation_point_t* observations_point,
-                            int NobservationsPoint,
-                            mrcal_problem_details_t problem_details,
-                            distortion_model_t distortion_model,
-                            int calibration_object_width_n)
+int mrcal_getN_j_nonzero( int Ncameras,
+                          const observation_board_t* observations_board,
+                          int NobservationsBoard,
+                          const observation_point_t* observations_point,
+                          int NobservationsPoint,
+                          mrcal_problem_details_t problem_details,
+                          distortion_model_t distortion_model,
+                          int calibration_object_width_n)
 {
     // each observation depends on all the parameters for THAT frame and for
     // THAT camera. Camera0 doesn't have extrinsics, so I need to loop through
@@ -2677,7 +2677,6 @@ bool markOutliers(// output, input
 #undef LOOP_FEATURE_END
 }
 
-
 typedef struct
 {
     const double*       intrinsics; // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
@@ -3687,10 +3686,6 @@ mrcal_optimize( // out
     dogleg_setMaxIterations(300);
     //dogleg_setTrustregionUpdateParameters(0.1, 0.15, 4.0, 0.75);
 
-
-    const int Nstate = get_Nstate(Ncameras, Nframes, Npoints,
-                                  problem_details,
-                                  distortion_model);
     const int Npoints_fromBoards =
         NobservationsBoard *
         calibration_object_width_n*calibration_object_width_n;
@@ -3729,12 +3724,12 @@ mrcal_optimize( // out
                                                                  calibration_object_width_n,
                                                                  problem_details,
                                                                  distortion_model),
-        .N_j_nonzero                = get_N_j_nonzero(Ncameras,
-                                                      observations_board, NobservationsBoard,
-                                                      observations_point, NobservationsPoint,
-                                                      problem_details,
-                                                      distortion_model,
-                                                      calibration_object_width_n),
+        .N_j_nonzero                = mrcal_getN_j_nonzero(Ncameras,
+                                                           observations_board, NobservationsBoard,
+                                                           observations_point, NobservationsPoint,
+                                                           problem_details,
+                                                           distortion_model,
+                                                           calibration_object_width_n),
         .Ndistortions               = mrcal_getNdistortionParams(distortion_model),
 
         .markedOutliers = markedOutliers};
@@ -3747,6 +3742,9 @@ mrcal_optimize( // out
     if(_solver_context != NULL && *_solver_context != NULL)
         dogleg_freeContext((dogleg_solverContext_t**)_solver_context);
 
+    const int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
+                                       problem_details,
+                                       distortion_model);
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       intrinsics,

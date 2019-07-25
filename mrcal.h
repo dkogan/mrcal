@@ -283,6 +283,17 @@ int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
 int mrcal_getNmeasurements_regularization(int Ncameras,
                                           mrcal_problem_details_t problem_details,
                                           distortion_model_t distortion_model);
+int mrcal_getNstate(int Ncameras, int Nframes, int Npoints,
+                    mrcal_problem_details_t problem_details,
+                    distortion_model_t distortion_model);
+int mrcal_getN_j_nonzero( int Ncameras,
+                          const observation_board_t* observations_board,
+                          int NobservationsBoard,
+                          const observation_point_t* observations_point,
+                          int NobservationsPoint,
+                          mrcal_problem_details_t problem_details,
+                          distortion_model_t distortion_model,
+                          int calibration_object_width_n);
 
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
 // this is void
