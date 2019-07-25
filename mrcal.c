@@ -3658,12 +3658,12 @@ mrcal_optimize( // out
     if( ( invJtJ_intrinsics_full && !invJtJ_intrinsics_observations_only) ||
         (!invJtJ_intrinsics_full &&  invJtJ_intrinsics_observations_only) )
     {
-        fprintf(stderr, "ERROR: either both or none of (invJtJ_intrinsics_full.invJtJ_intrinsics_observations_only) can be NULL\n");
+        MSG("ERROR: either both or none of (invJtJ_intrinsics_full.invJtJ_intrinsics_observations_only) can be NULL");
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
     if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
     {
-        fprintf(stderr, "ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
+        MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
 
