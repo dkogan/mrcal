@@ -267,7 +267,7 @@ static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
     {
         PyErr_Format(PyExc_RuntimeError,
                      "i_camera must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Ncameras,i_camera);
+                     self->Ncameras-1,i_camera);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -292,7 +292,7 @@ static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* 
     {
         PyErr_Format(PyExc_RuntimeError,
                      "i_camera must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Ncameras,i_camera);
+                     self->Ncameras-1,i_camera);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -317,7 +317,7 @@ static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
     {
         PyErr_Format(PyExc_RuntimeError,
                      "i_camera must refer to a valid camera that's NOT the first camera i.e. be in the range [1,%d] inclusive. Instead I got %d. The first camera defines the reference coordinate system, so it has no state",
-                     self->Ncameras,i_camera);
+                     self->Ncameras-1,i_camera);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -343,7 +343,7 @@ static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
     {
         PyErr_Format(PyExc_RuntimeError,
                      "i_frame must refer to a valid frame i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Nframes,i_frame);
+                     self->Nframes-1,i_frame);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -369,7 +369,7 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
     {
         PyErr_Format(PyExc_RuntimeError,
                      "i_point must refer to a valid point i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Npoints,i_point);
+                     self->Npoints-1,i_point);
         goto done;
     }
     result = Py_BuildValue("i",
