@@ -2210,7 +2210,9 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
             else:
                 context['grid'][context['igrid'],:2] = row[:2]
                 if len(row) == 3 and weighted:
-                    # convert decimation level to weight
+                    # convert decimation level to weight. The weight is
+                    # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
+                    # weight=0.5, etc
                     context['grid'][context['igrid'],2] = 1. / (1 << int(row[2]))
 
             context['igrid'] += 1
