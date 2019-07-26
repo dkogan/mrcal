@@ -1,0 +1,36 @@
+Call the optimization callback function
+
+SYNOPSIS
+
+    x,Jt = mrcal.optimizerCallback( intrinsics_data,
+                                    extrinsics,
+                                    frames, points
+                                    observations_board, indices_frame_camera,
+                                    observations_point, indices_point_camera_points,
+
+                                    distortion_model,
+                                    imagersizes                       = imagersizes,
+                                    do_optimize_intrinsic_core        = True,
+                                    do_optimize_intrinsic_distortions = True,
+                                    do_optimize_cahvor_optical_axis   = True,
+                                    calibration_object_spacing        = object_spacing,
+                                    calibration_object_width_n        = 10,
+                                    skip_regularization               = False,
+                                    verbose                           = False)
+
+This exists for debugging. The main optimization routine in mrcal.optimize()
+calls a function repeatedly to find a set of parameters that minimize the errors
+norm2(x). For debugging, this function is available by itself here. The
+arguments are largely the same as those to mrcal.optimize(), but the inputs are
+all read-only. The only output is returned in the return tuple:
+
+- x: a vector of measurements
+
+- J: a sparse matrix of gradients of the measurements in respect to the
+  parameters
+
+Note that the optimizer uses some weights on the measurements, and some scaling
+on the parameters. The values returned here are the optimizer-internal values.
+To bring the jacobian into real units, call solver_context.pack(J)
+
+See mrcal.opimize() for a description of the arguments

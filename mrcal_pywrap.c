@@ -1029,7 +1029,8 @@ static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
                           UNPROJECT_ARGUMENTS_OPTIONAL);
 }
 
-#define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
+
+#define OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
     _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics,                  NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames,                      NPY_DOUBLE, {-1 COMMA  6       } ) \
@@ -1041,7 +1042,7 @@ static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
     _(distortion_model,                   PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
-#define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
+#define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
     _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp,              NPY_DOUBLE, {2}                  ) \
     _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
@@ -1056,9 +1057,16 @@ static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
     _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, roi,            NPY_DOUBLE, {-1 COMMA 4} ) \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
+
+#define OPTIMIZERCALLBACK_ARGUMENTS_ALL(_) \
+    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_) \
+    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_)
+
+#define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_) \
+    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
+#define OPTIMIZE_ARGUMENTS_OPTIONAL(_) OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
 
@@ -1066,6 +1074,7 @@ static PyObject* unproject_z1(PyObject* NPY_UNUSED(self),
     OPTIMIZE_ARGUMENTS_REQUIRED(_) \
     OPTIMIZE_ARGUMENTS_OPTIONAL(_)
 
+// Using this for both optimize() and optimizerCallback()
 static bool optimize_validate_args( // out
                                     distortion_model_t* distortion_model_type,
 
@@ -1077,7 +1086,7 @@ static bool optimize_validate_args( // out
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+    OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
 #pragma GCC diagnostic pop
 
     if(PyObject_IsTrue(do_optimize_calobject_warp) &&
@@ -1343,7 +1352,7 @@ static bool optimize_validate_args( // out
 
 
 
-    if( PyObject_IsTrue(skip_outlier_rejection) )
+    if(skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection) )
     {
         // skipping outlier rejection. The pixel uncertainty isn't used and
         // doesn't matter
@@ -1354,7 +1363,7 @@ static bool optimize_validate_args( // out
         // must be valid
         if( observed_pixel_uncertainty <= 0.0 )
         {
-            PyErr_Format(PyExc_RuntimeError, "Observed_pixel_uncertainty MUST be a valid float > 0");
+            PyErr_Format(PyExc_RuntimeError, "observed_pixel_uncertainty MUST be a valid float > 0");
             return false;
         }
     }
@@ -1369,14 +1378,12 @@ static bool optimize_validate_args( // out
 
     return true;
 }
-static PyObject* optimize(PyObject* NPY_UNUSED(self),
-                          PyObject* args,
-                          PyObject* kwargs)
+
+static
+PyObject* _optimize(bool is_optimize, // or optimizerCallback
+                    PyObject* args,
+                    PyObject* kwargs)
 {
-    // are -log2 of the accuracy of the observation.
-    //   I.e. 0 = full-res, 1 = 1/2 scale, 2 = 1/4 scale, ...
-
-
     PyObject* result = NULL;
 
     PyArrayObject* x_final                             = NULL;
@@ -1388,24 +1395,45 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
     SET_SIGINT();
 
+    // define a superset of the variables: the ones used in optimize()
     OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
-    char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
-                         NULL};
 
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+    if( is_optimize )
+    {
+        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                             NULL};
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
 
-                                     keywords,
+                                         keywords,
 
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-        goto done;
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+            goto done;
+    }
+    else
+    {
+        char* keywords[] = { OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
+                             OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
+                             NULL};
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                         keywords,
+
+                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+            goto done;
+
+        skip_outlier_rejection = Py_True;
+    }
 
 
     // Some of my input arguments can be empty (None). The code all assumes that
-    // everything is a properly-dimensions numpy array, with "empty" meaning
+    // everything is a properly-dimensioned numpy array, with "empty" meaning
     // some dimension is 0. Here I make this conversion. The user can pass None,
     // and we still do the right thing.
     //
@@ -1440,6 +1468,8 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
     distortion_model_t distortion_model_type;
+    // Check the arguments for optimize(). If optimizerCallback, then the other
+    // stuff is defined, but it all has valid, default values
     if( !optimize_validate_args(&distortion_model_type,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
@@ -1642,9 +1672,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
                                                        problem_details,
                                                        distortion_model_type);
 
-        x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
-        double* c_x_final = PyArray_DATA(x_final);
-
         int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model_type);
 
         double* c_invJtJ_intrinsics_full              = NULL;
@@ -1662,15 +1689,6 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
             c_invJtJ_intrinsics_observations_only = PyArray_DATA(invJtJ_intrinsics_observations_only);
         }
 
-        const int Npoints_fromBoards =
-            NobservationsBoard *
-            calibration_object_width_n*calibration_object_width_n;
-        outlier_indices_final     = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
-        outside_ROI_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
-
-        // output
-        int* c_outlier_indices_final     = PyArray_DATA(outlier_indices_final);
-        int* c_outside_ROI_indices_final = PyArray_DATA(outside_ROI_indices_final);
         // input
         int* c_outlier_indices;
         int Noutlier_indices;
@@ -1707,137 +1725,221 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
         }
 
-        mrcal_stats_t stats =
-        mrcal_optimize( c_x_final,
-                        c_invJtJ_intrinsics_full,
-                        c_invJtJ_intrinsics_observations_only,
-                        c_outlier_indices_final,
-                        c_outside_ROI_indices_final,
-                        (void**)solver_context_optimizer,
-                        c_intrinsics,
-                        c_extrinsics,
-                        c_frames,
-                        c_points,
-                        c_calobject_warp,
+        // both optimize() and optimizerCallback() use this
+        x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
+        double* c_x_final = PyArray_DATA(x_final);
 
-                        Ncameras, Nframes, Npoints,
-
-                        c_observations_board,
-                        NobservationsBoard,
-                        c_observations_point,
-                        NobservationsPoint,
-
-                        false,
-                        Noutlier_indices,
-                        c_outlier_indices,
-                        c_roi,
-                        verbose &&                PyObject_IsTrue(verbose),
-                        skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
-                        distortion_model_type,
-                        observed_pixel_uncertainty,
-                        c_imagersizes,
-                        problem_details,
-
-                        calibration_object_spacing,
-                        calibration_object_width_n);
-
-        if(stats.rms_reproj_error__pixels < 0.0)
+        if( is_optimize )
         {
-            // Error! I throw an exception
-            PyErr_SetString(PyExc_RuntimeError, "mrcal.optimize() failed!");
-            goto done;
-        }
+            const int Npoints_fromBoards =
+                NobservationsBoard *
+                calibration_object_width_n*calibration_object_width_n;
+            outlier_indices_final     = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
+            outside_ROI_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
 
-        pystats = PyDict_New();
-        if(pystats == NULL)
-        {
-            PyErr_SetString(PyExc_RuntimeError, "PyDict_New() failed!");
-            goto done;
-        }
-    #define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)     \
-        {                                                               \
-            PyObject* obj = pyconverter( (type)stats.name);             \
-            if( obj == NULL)                                            \
+            // output
+            int* c_outlier_indices_final     = PyArray_DATA(outlier_indices_final);
+            int* c_outside_ROI_indices_final = PyArray_DATA(outside_ROI_indices_final);
+
+            mrcal_stats_t stats =
+                mrcal_optimize( c_x_final,
+                                c_invJtJ_intrinsics_full,
+                                c_invJtJ_intrinsics_observations_only,
+                                c_outlier_indices_final,
+                                c_outside_ROI_indices_final,
+                                (void**)solver_context_optimizer,
+                                c_intrinsics,
+                                c_extrinsics,
+                                c_frames,
+                                c_points,
+                                c_calobject_warp,
+
+                                Ncameras, Nframes, Npoints,
+
+                                c_observations_board,
+                                NobservationsBoard,
+                                c_observations_point,
+                                NobservationsPoint,
+
+                                false,
+                                Noutlier_indices,
+                                c_outlier_indices,
+                                c_roi,
+                                verbose &&                PyObject_IsTrue(verbose),
+                                skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
+                                distortion_model_type,
+                                observed_pixel_uncertainty,
+                                c_imagersizes,
+                                problem_details,
+
+                                calibration_object_spacing,
+                                calibration_object_width_n);
+
+            if(stats.rms_reproj_error__pixels < 0.0)
+            {
+                // Error! I throw an exception
+                PyErr_SetString(PyExc_RuntimeError, "mrcal.optimize() failed!");
+                goto done;
+            }
+
+            pystats = PyDict_New();
+            if(pystats == NULL)
+            {
+                PyErr_SetString(PyExc_RuntimeError, "PyDict_New() failed!");
+                goto done;
+            }
+#define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)         \
             {                                                           \
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't make PyObject for '" #name "'"); \
-                goto done;                                              \
-            }                                                           \
+                PyObject* obj = pyconverter( (type)stats.name);         \
+                if( obj == NULL)                                        \
+                {                                                       \
+                    PyErr_SetString(PyExc_RuntimeError, "Couldn't make PyObject for '" #name "'"); \
+                    goto done;                                          \
+                }                                                       \
                                                                         \
-            if( 0 != PyDict_SetItemString(pystats, #name, obj) )        \
-            {                                                           \
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict '" #name "'"); \
-                Py_DECREF(obj);                                         \
-                goto done;                                              \
-            }                                                           \
-        }
-        MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
+                if( 0 != PyDict_SetItemString(pystats, #name, obj) )    \
+                {                                                       \
+                    PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict '" #name "'"); \
+                    Py_DECREF(obj);                                     \
+                    goto done;                                          \
+                }                                                       \
+            }
+            MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
 
-        if( 0 != PyDict_SetItemString(pystats, "x",
-                                      (PyObject*)x_final) )
-        {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'x'");
-            goto done;
-        }
-        if( invJtJ_intrinsics_full &&
-            0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_full",
-                                      (PyObject*)invJtJ_intrinsics_full) )
-        {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_full'");
-            goto done;
-        }
-        if( invJtJ_intrinsics_observations_only &&
-            0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_observations_only",
-                                      (PyObject*)invJtJ_intrinsics_observations_only) )
-        {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_observations_only'");
-            goto done;
-        }
-        // The outlier_indices_final numpy array has Nfeatures elements,
-        // but I want to return only the first Noutliers elements
-        if( NULL == PyArray_Resize(outlier_indices_final,
-                                   &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.Noutliers}),
-                                                    .len = 1 },
-                                   true,
-                                   NPY_ANYORDER))
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't resize outlier_indices_final to %d elements",
-                         stats.Noutliers);
-            goto done;
-        }
-        if( 0 != PyDict_SetItemString(pystats, "outlier_indices",
-                                      (PyObject*)outlier_indices_final) )
-        {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outlier_indices'");
-            goto done;
-        }
-        // The outside_ROI_indices_final numpy array has Nfeatures elements,
-        // but I want to return only the first NoutsideROI elements
-        if( NULL == PyArray_Resize(outside_ROI_indices_final,
-                                   &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.NoutsideROI}),
-                                                    .len = 1 },
-                                   true,
-                                   NPY_ANYORDER))
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't resize outside_ROI_indices_final to %d elements",
-                         stats.NoutsideROI);
-            goto done;
-        }
-        if( 0 != PyDict_SetItemString(pystats, "outside_ROI_indices",
-                                      (PyObject*)outside_ROI_indices_final) )
-        {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outside_ROI_indices'");
-            goto done;
-        }
+            if( 0 != PyDict_SetItemString(pystats, "x",
+                                          (PyObject*)x_final) )
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'x'");
+                goto done;
+            }
+            if( invJtJ_intrinsics_full &&
+                0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_full",
+                                          (PyObject*)invJtJ_intrinsics_full) )
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_full'");
+                goto done;
+            }
+            if( invJtJ_intrinsics_observations_only &&
+                0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_observations_only",
+                                          (PyObject*)invJtJ_intrinsics_observations_only) )
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_observations_only'");
+                goto done;
+            }
+            // The outlier_indices_final numpy array has Nfeatures elements,
+            // but I want to return only the first Noutliers elements
+            if( NULL == PyArray_Resize(outlier_indices_final,
+                                       &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.Noutliers}),
+                                           .len = 1 },
+                                       true,
+                                       NPY_ANYORDER))
+            {
+                PyErr_Format(PyExc_RuntimeError, "Couldn't resize outlier_indices_final to %d elements",
+                             stats.Noutliers);
+                goto done;
+            }
+            if( 0 != PyDict_SetItemString(pystats, "outlier_indices",
+                                          (PyObject*)outlier_indices_final) )
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outlier_indices'");
+                goto done;
+            }
+            // The outside_ROI_indices_final numpy array has Nfeatures elements,
+            // but I want to return only the first NoutsideROI elements
+            if( NULL == PyArray_Resize(outside_ROI_indices_final,
+                                       &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.NoutsideROI}),
+                                           .len = 1 },
+                                       true,
+                                       NPY_ANYORDER))
+            {
+                PyErr_Format(PyExc_RuntimeError, "Couldn't resize outside_ROI_indices_final to %d elements",
+                             stats.NoutsideROI);
+                goto done;
+            }
+            if( 0 != PyDict_SetItemString(pystats, "outside_ROI_indices",
+                                          (PyObject*)outside_ROI_indices_final) )
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outside_ROI_indices'");
+                goto done;
+            }
 
-        result = pystats;
-        Py_INCREF(result);
+            result = pystats;
+            Py_INCREF(result);
+        }
+        else
+        {
+            int N_j_nonzero = mrcal_getN_j_nonzero(Ncameras,
+                                                   c_observations_board, NobservationsBoard,
+                                                   c_observations_point, NobservationsPoint,
+                                                   problem_details,
+                                                   distortion_model_type,
+                                                   calibration_object_width_n);
+            int Ndistortions = mrcal_getNdistortionParams(distortion_model_type);
+
+            int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
+                                         problem_details, distortion_model_type);
+
+            PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
+            PyArrayObject* I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
+            PyArrayObject* X = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_DOUBLE);
+
+            cholmod_sparse Jt = {
+                .nrow   = Nstate,
+                .ncol   = Nmeasurements,
+                .nzmax  = N_j_nonzero,
+                .stype  = 0,
+                .itype  = CHOLMOD_INT,
+                .xtype  = CHOLMOD_REAL,
+                .dtype  = CHOLMOD_DOUBLE,
+                .sorted = 1,
+                .packed = 1,
+                .p = PyArray_DATA(P),
+                .i = PyArray_DATA(I),
+                .x = PyArray_DATA(X) };
+
+            mrcal_optimizerCallback( c_x_final,
+                                     &Jt,
+
+                                     c_intrinsics,
+                                     c_extrinsics,
+                                     c_frames,
+                                     c_points,
+                                     c_calobject_warp,
+
+                                     Ncameras, Nframes, Npoints,
+
+                                     c_observations_board,
+                                     NobservationsBoard,
+                                     c_observations_point,
+                                     NobservationsPoint,
+
+                                     Noutlier_indices,
+                                     c_outlier_indices,
+                                     c_roi,
+                                     verbose && PyObject_IsTrue(verbose),
+                                     distortion_model_type,
+                                     c_imagersizes,
+                                     problem_details,
+
+                                     calibration_object_spacing,
+                                     calibration_object_width_n,
+                                     Ndistortions, Nmeasurements, N_j_nonzero);
+
+            result = PyTuple_Pack(2, x_final, csr_from_cholmod_sparse(&Jt,
+                                                                      (PyObject*)P,
+                                                                      (PyObject*)I,
+                                                                      (PyObject*)X));
+            Py_DECREF(P);
+            Py_DECREF(I);
+            Py_DECREF(X);
+        }
     }
 
  done:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
     if(x_final)               Py_DECREF(x_final);
@@ -1852,9 +1954,27 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+static PyObject* optimizerCallback(PyObject* NPY_UNUSED(self),
+                                   PyObject* args,
+                                   PyObject* kwargs)
+{
+    return _optimize(false, args, kwargs);
+}
+static PyObject* optimize(PyObject* NPY_UNUSED(self),
+                          PyObject* args,
+                          PyObject* kwargs)
+{
+    return _optimize(true, args, kwargs);
+}
+
+
+
 
 static const char optimize_docstring[] =
 #include "optimize.docstring.h"
+    ;
+static const char optimizerCallback_docstring[] =
+#include "optimizerCallback.docstring.h"
     ;
 static const char getNdistortionParams_docstring[] =
 #include "getNdistortionParams.docstring.h"
@@ -1876,6 +1996,7 @@ static const char unproject_z1_docstring[] =
     ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,optimizerCallback,            METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,getNdistortionParams,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
       PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),

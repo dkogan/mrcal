@@ -270,6 +270,48 @@ mrcal_optimize( // out
                 double calibration_object_spacing,
                 int calibration_object_width_n);
 
+struct cholmod_sparse_struct;
+// callback function. This is primarily for debugging
+void mrcal_optimizerCallback(// output measurements
+                             double*         x,
+
+                             // output Jacobian. May be NULL if we don't need it.
+                             struct cholmod_sparse_struct* Jt,
+
+                             // in
+                             // intrinsics is a concatenation of the intrinsics core
+                             // and the distortion params. The specific distortion
+                             // parameters may vary, depending on distortion_model, so
+                             // this is a variable-length structure
+                             const double*       intrinsics, // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
+                             const pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
+                             const pose_t*       frames,     // Nframes of these.    Transform TO   camera0 frame
+                             const point3_t*     points,     // Npoints of these.    In the camera0 frame
+                             const point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+
+                             int Ncameras, int Nframes, int Npoints,
+
+                             const observation_board_t* observations_board,
+                             int NobservationsBoard,
+
+                             const observation_point_t* observations_point,
+                             int NobservationsPoint,
+
+                             int Noutlier_indices_input,
+                             const int* outlier_indices_input,
+                             const double* roi,
+                             bool verbose,
+
+                             distortion_model_t distortion_model,
+                             const int* imagersizes, // Ncameras*2 of these
+
+                             mrcal_problem_details_t problem_details,
+
+                             double calibration_object_spacing,
+                             int calibration_object_width_n,
+                             int Ndistortions, int Nmeasurements, int N_j_nonzero);
+
+
 int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
                                const observation_point_t* observations_point,
                                int NobservationsPoint,

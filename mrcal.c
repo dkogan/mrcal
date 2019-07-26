@@ -3591,6 +3591,121 @@ void optimizerCallback(// input state
     }
 }
 
+void mrcal_optimizerCallback(// output measurements
+                             double*         x,
+                             // output Jacobian. May be NULL if we don't need it
+                             cholmod_sparse* Jt,
+
+                             // in
+                             // intrinsics is a concatenation of the intrinsics core
+                             // and the distortion params. The specific distortion
+                             // parameters may vary, depending on distortion_model, so
+                             // this is a variable-length structure
+                             const double*       intrinsics, // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
+                             const pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
+                             const pose_t*       frames,     // Nframes of these.    Transform TO   camera0 frame
+                             const point3_t*     points,     // Npoints of these.    In the camera0 frame
+                             const point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+
+                             int Ncameras, int Nframes, int Npoints,
+
+                             const observation_board_t* observations_board,
+                             int NobservationsBoard,
+
+                             const observation_point_t* observations_point,
+                             int NobservationsPoint,
+
+                             int Noutlier_indices_input,
+                             const int* outlier_indices_input,
+                             const double* roi,
+                             bool verbose,
+
+                             distortion_model_t distortion_model,
+                             const int* imagersizes, // Ncameras*2 of these
+
+                             mrcal_problem_details_t problem_details,
+
+                             double calibration_object_spacing,
+                             int calibration_object_width_n,
+
+                             int Ndistortions, int Nmeasurements, int N_j_nonzero)
+{
+    if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
+    {
+        MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
+        return;
+    }
+
+    if(!problem_details.do_optimize_intrinsic_core        &&
+       !problem_details.do_optimize_intrinsic_distortions &&
+       !problem_details.do_optimize_extrinsics            &&
+       !problem_details.do_optimize_frames                &&
+       !problem_details.do_optimize_calobject_warp)
+    {
+        MSG("Warning: Not optimizing any of our variables");
+        return;
+    }
+
+    const int Npoints_fromBoards =
+        NobservationsBoard *
+        calibration_object_width_n*calibration_object_width_n;
+
+#warning "outliers only work with board observations for now. I assume consecutive xy measurements, but points can have xyr sprinkled in there. I should make the range-full points always follow the range-less points. Then this will work"
+    struct dogleg_outliers_t* markedOutliers = malloc(Npoints_fromBoards*sizeof(struct dogleg_outliers_t));
+    if(markedOutliers == NULL)
+    {
+        MSG("Failed to allocate markedOutliers!");
+        return;
+    }
+    memset(markedOutliers, 0, Npoints_fromBoards*sizeof(markedOutliers[0]));
+
+    const callback_context_t ctx = {
+        .intrinsics                 = intrinsics,
+        .extrinsics                 = extrinsics,
+        .frames                     = frames,
+        .points                     = points,
+        .calobject_warp             = calobject_warp,
+        .Ncameras                   = Ncameras,
+        .Nframes                    = Nframes,
+        .Npoints                    = Npoints,
+        .observations_board         = observations_board,
+        .NobservationsBoard         = NobservationsBoard,
+        .observations_point         = observations_point,
+        .NobservationsPoint         = NobservationsPoint,
+        .verbose                    = verbose,
+        .distortion_model           = distortion_model,
+        .imagersizes                = imagersizes,
+        .problem_details            = problem_details,
+        .calibration_object_spacing = calibration_object_spacing,
+        .calibration_object_width_n = calibration_object_width_n,
+        .roi                        = roi,
+        .Nmeasurements              = Nmeasurements,
+        .N_j_nonzero                = N_j_nonzero,
+        .Ndistortions               = Ndistortions,
+        .markedOutliers             = markedOutliers};
+
+    const int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
+                                       problem_details,
+                                       distortion_model);
+    double packed_state[Nstate];
+    pack_solver_state(packed_state,
+                      intrinsics,
+                      distortion_model,
+                      extrinsics,
+                      frames,
+                      points,
+                      calobject_warp,
+                      problem_details,
+                      Ncameras, Nframes, Npoints, Nstate);
+
+    double norm2_error = -1.0;
+    for(int i=0; i<Noutlier_indices_input; i++)
+        markedOutliers[outlier_indices_input[i]].marked = true;
+
+    optimizerCallback(packed_state, x, Jt, &ctx);
+    free(markedOutliers);
+}
+
 mrcal_stats_t
 mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
