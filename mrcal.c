@@ -3679,9 +3679,8 @@ mrcal_optimize( // out
                 }
                 MSG("norm2_error: %f", norm2_error);
                 MSG("norm2_err_regularization: %f", norm2_err_regularization);
-            }
-            else
                 MSG("regularization cost ratio: %g", ratio_regularization_cost);
+            }
         }
     }
     else
