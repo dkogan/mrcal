@@ -1972,7 +1972,8 @@ static int intrinsics_index_from_state_index( int i_state,
 // be very sensitive: measurement noise doesn't affect the solution very much.
 //
 // A detailed derivation appears in the docstring for
-// compute_intrinsics_uncertainty() in utils.py
+// compute_intrinsics_uncertainty() in utils.py. Everything is double-checked in
+// check_confidence_computations() in mrcal-calibrate-cameras
 //
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I
 // need here, and return these densely to the upper levels (python). These

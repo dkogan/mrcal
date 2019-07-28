@@ -675,6 +675,9 @@ def compute_intrinsics_uncertainty( model,
 
     *** input-noise-based method
 
+      The below derivation is double-checked in check_confidence_computations()
+      in mrcal-calibrate-cameras
+
       The pixel observations input to the calibration method are noisy. I assume
       they are zero-mean, independent and gaussian. I treat the x and y
       coordinates of the observations as two independent measurements. I propagate
@@ -683,16 +686,18 @@ def compute_intrinsics_uncertainty( model,
       resulting uncertainty in projected pixels. Areas with a high expected
       projection error are unreliable for further work.
 
-      Details (from comment for computeUncertaintyMatrices() in mrcal.c):
+      Details:
 
-      I minimize a cost function E = norm2(x) where x is the measurements. Some
-      elements of x depend on inputs, and some don't (regularization for instance).
-      For inputs, x is a weighted reprojection error: xi = wi (qi - qrefi). The
-      noise on qrefi (on x and on y separately) is assumed to be mean-0 gaussian
-      with stdev observed_pixel_uncertainty/wi, so the noise on xi has stdev
+      I minimize a cost function E = norm2(x) where x is the measurements. In
+      the full optimization some elements of x depend on inputs, and some don't
+      (regularization for instance). For the purposes of this analysis, let's look
+      ONLY at the measurements representing the errors: x is a weighted
+      reprojection error: xi = wi (qi - qrefi). The noise on qrefi (on x and on y
+      separately) is assumed to be mean-0 gaussian with stdev
+      observed_pixel_uncertainty/wi, so the noise on xi has stdev
       observed_pixel_uncertainty. I perturb the inputs, reoptimize (assuming
-      everything is linear) and look what happens to the state p. I'm at an optimum
-      p*:
+      everything is linear) and look what happens to the state p. I'm at an
+      optimum p*:
 
         dE/dp (p=p*) = 2 Jt x (p=p*) = 0
 
@@ -708,10 +713,14 @@ def compute_intrinsics_uncertainty( model,
 
         -Jt dx/dqref dqref = JtJ dp
 
+      Since x = W ( f(p) - qref ) I have dx/dqref = -W and
+
+        Jt W dqref = JtJ dp
+
       So if I perturb my input observation vector qref by dqref, the resulting
       effect on the parameters is dp = M dqref
 
-        where M = -inv(JtJ) Jt dx/dqref
+        where M = inv(JtJ) Jt W
 
       In order to be useful I need to do something with M. I want to quantify
       how precise our optimal intrinsics are. Ultimately these are always used
@@ -720,55 +729,56 @@ def compute_intrinsics_uncertainty( model,
 
         q = project(v, intrinsics)
 
-      I assume an independent, gaussian noise on my input observations, and for a
-      set of given observation vectors v, I compute the effect on the projection.
-
         dq = dproj/dintrinsics dintrinsics
            = dproj/dintrinsics Mi dqref
 
       dprojection/dintrinsics comes from mrcal_project(). I'm assuming
       everything is locally linear, so this is a constant matrix for each v.
       dintrinsics is the shift in the intrinsics of this camera. Mi
-      is the subset of M that corresponds to these intrinsics
+      is the subset of M that corresponds to the intrinsics (Mi contains a
+      limited number of rows of M)
 
       If dqref represents noise of the zero-mean, independent, gaussian variety,
       then dp and dq are also zero-mean gaussian, but no longer independent
 
         Var(dq) = (dproj/dintrinsics Mi) Var(dqref) (dproj/dintrinsics Mi)t
-        Var(dq) = (dproj/dintrinsics Mi) W^-2 s^2   (dproj/dintrinsics Mi)t
+                = (dproj/dintrinsics Mi) W^-2 s^2 (dproj/dintrinsics Mi)t
 
-      where
+      where s is observed_pixel_uncertainty
 
-        W is a diagonal matrix of weights
-        s is observed_pixel_uncertainty
+      Mi W^-1 = inv(JtJ)[intrinsics] Jt W W^-1 =
+              = inv(JtJ)[intrinsics] Jt
 
-      For mrcal, the measurements are
+      -> Var(dq) = (dproj/dintrinsics inv(JtJ)[intrinsics] Jt)
+                   (dproj/dintrinsics inv(JtJ)[intrinsics] Jt)t
+                   s^2
 
-      1. reprojection errors of chessboard grid observations
-      2. reprojection errors of individual point observations
-      3. range errors for points with known range
-      4. regularization terms
+      Let's say I sliced an inverse of a matrix:
 
-      The observed pixel measurements come into play directly into 1 and 2 above,
-      but NOT 3 and 4. x = W ( f(p) - qref )
+            [ A ]     [ A X ]
+        I = [ B ] X = [ B X ] -> B X = [0 I 0]
+            [ C ]     [ C X ]
 
-        dx/dqref = [ -W ]
-                   [  0 ]
+      -> Var(dq) = (dproj/dintrinsics inv(JtJ)[intrinsics] JtJ inv(JtJ)[intrinsics]t dproj/dintrinsicst) s^2 =
+                   (dproj/dintrinsics [0 I 0] inv(JtJ)[intrinsics]t dproj/dintrinsicst) s^2 =
+                   (dproj/dintrinsics inv(JtJ)[intrinsics,intrinsics] dproj/dintrinsicst) s^2 =
 
-      I thus ignore measurements past the observation set.
 
-          [ ... ]           [ ...  ...    ... ]
-      M = [  Mi ] and MMt = [ ...  MiMit  ... ]
-          [ ... ]           [ ...  ...    ... ]
+      I want to convert Var(dq) into a single number that describes my
+      projection uncertainty at q. I'd like E(sqrt(norm2(dq))), but this is hard,
+      so I approximate with sqrt(E(norm2(dq))). dq has 0 mean, so
 
-      Mi = -inv(JtJ) Jt dx/dqref =
-         =  inv(JtJ) Jit W
-      -> Var(dq) = (dproj/dintrinsics Mi) W^-2 s^2   (dproj/dintrinsics Mi)t
-                 = dproj/dintrinsics inv(JtJ) Jit W W^-2 W Ji inv(JtJ) (dproj/dintrinsics)t s^2
-                 = dproj/dintrinsics inv(JtJ) JitJi inv(JtJ) (dproj/dintrinsics)t s^2
-                 = (dproj/dintrinsics inv(JtJ) Jit) (dproj/dintrinsics inv(JtJ) Jit)t s^2
+        E(norm2(dq)) = E(dq0*dq0 + dq1*dq1) = E(dq0*dq0) + E(dq1*dq1) = trace(Var(dq))
+
+      tr(AB) = tr(BA) ->
+      trace(Var(dq)) = s^2 tr( inv(JtJ)[intrinsics,intrinsics] dproj/dintrinsicst dproj/dintrinsics )
+                     = sum(elementwise_product(inv(JtJ)[intrinsics,intrinsics],
+                                               dqdpt_dqdp))
 
     *** outlierness-based
+
+      The below was written before weighted measurements. It's mostly all
+      unused, so I'm not updating this to handle weighting
 
       This is a completely different technique of estimating uncertainty, but
       produces a very similar result. I computed a calibration with some input
