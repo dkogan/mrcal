@@ -780,12 +780,6 @@ static bool _un_project_validate_args( // out
                                       PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
                                       void* dummy __attribute__((unused)))
 {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    PROJECT_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
-    PROJECT_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-#pragma GCC diagnostic pop
-
     if( PyArray_NDIM(intrinsics) != 1 )
     {
         PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
@@ -804,6 +798,12 @@ static bool _un_project_validate_args( // out
                      PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
         return false;
     }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    PROJECT_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    PROJECT_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
+#pragma GCC diagnostic pop
 
     const char* distortion_model_cstring = PyString_AsString(distortion_model);
     if( distortion_model_cstring == NULL)
@@ -1084,11 +1084,6 @@ static bool optimize_validate_args( // out
 
                                     void* dummy __attribute__((unused)))
 {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
-#pragma GCC diagnostic pop
-
     if(PyObject_IsTrue(do_optimize_calobject_warp) &&
        (calobject_warp == NULL || (PyObject*)calobject_warp == Py_None) )
     {
@@ -1121,6 +1116,11 @@ static bool optimize_validate_args( // out
     }
 
     static_assert( sizeof(pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
 
     long int NobservationsBoard = PyArray_DIMS(observations_board)[0];
     if( PyArray_DIMS(indices_frame_camera_board)[0] != NobservationsBoard )
