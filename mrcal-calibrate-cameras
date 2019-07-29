@@ -1342,7 +1342,7 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        outlier_indices                   = stats['outlier_indices'],
                        roi                               = roi,
                        get_invJtJ_intrinsics             = True,
-                       verbose                           = False,
+                       verbose                           = args.verbose_solver,
                        solver_context                    = solver_context)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
