@@ -1419,9 +1419,11 @@ def get_valid_intrinsics_region(i_camera,
                            observed_pixel_uncertainty          = args.observed_pixel_uncertainty,
                            invJtJ_intrinsics_full              = invJtJ_intrinsics_full_here,
                            invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only_here)
-    err = mrcal.compute_intrinsics_uncertainty(model,
-                                               gridn_x      = gridn_x,
-                                               gridn_y      = gridn_y,
+    v,_ = mrcal.sample_imager_unproject(gridn_x, gridn_y,
+                                        intrinsics[0], intrinsics[1][i_camera,:],
+                                        *imagersizes[i_camera])
+
+    err = mrcal.compute_intrinsics_uncertainty(model, v,
                                                focus_center = focus_center,
                                                focus_radius = focus_radius)
 

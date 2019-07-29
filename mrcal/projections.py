@@ -315,7 +315,7 @@ def redistort_image(model0, model1, image0,
     W,H = m[1].imagersize()
     distortion_model, intrinsics_data = m[1].intrinsics()
 
-    v,_ = mrcal.utils._sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
+    v,_ = mrcal.utils.sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
     v = nps.reorder(v, 1,0,2)
 
     if not ignore_rotation:

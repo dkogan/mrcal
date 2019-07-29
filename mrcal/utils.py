@@ -375,7 +375,7 @@ def _sample_imager(gridn_x, gridn_y, W, H):
     return nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
 
-def _sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
+def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
     r'''Reports 3d observation vectors that regularly sample the imager
 
     This is a utility function for the various visualization routines.
@@ -630,10 +630,8 @@ def colormap_using(imagersize, gridn_x, gridn_y):
     W,H = imagersize
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
-def compute_intrinsics_uncertainty( model,
+def compute_intrinsics_uncertainty( model, v,
                                     outlierness  = False,
-                                    gridn_x      = 60,
-                                    gridn_y      = 40,
 
                                     # fit a "reasonable" area in the center by
                                     # default
@@ -915,9 +913,6 @@ def compute_intrinsics_uncertainty( model,
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
     if focus_radius < 0:     focus_radius = min(W,H)/6.
 
-    v,_ = _sample_imager_unproject(gridn_x, gridn_y,
-                                   distortion_model, intrinsics_data,
-                                   *imagersize)
     q,dq_dv,dq_dp = \
         mrcal.project(v, distortion_model, intrinsics_data, get_gradients=True)
 
@@ -994,9 +989,14 @@ def show_intrinsics_uncertainty(model,
 
     import gnuplotlib as gp
     W,H=model.imagersize()
-    err = compute_intrinsics_uncertainty(model,
+
+    distortion_model, intrinsics_data = model.intrinsics()
+    imagersize                        = model.imagersize()
+    v,_ =sample_imager_unproject(gridn_x, gridn_y,
+                                 distortion_model, intrinsics_data,
+                                 *imagersize)
+    err = compute_intrinsics_uncertainty(model, v,
                                          outlierness,
-                                         gridn_x, gridn_y,
                                          focus_center = focus_center,
                                          focus_radius = focus_radius)
 
@@ -1650,9 +1650,9 @@ def show_intrinsics_diff(models,
     intrinsics_data   = [model.intrinsics()[1] for model in models]
 
 
-    v,q0 = _sample_imager_unproject(gridn_x, gridn_y,
-                                    distortion_models, intrinsics_data,
-                                    W, H)
+    v,q0 = sample_imager_unproject(gridn_x, gridn_y,
+                                   distortion_models, intrinsics_data,
+                                   W, H)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
