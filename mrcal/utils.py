@@ -641,7 +641,9 @@ def compute_intrinsics_uncertainty( model, v,
 
     Given a (broadcastable) 3D vector, and the inv(JtJ) matrix for the
     intrinsics, returns the uncertainty of the projection of that vector,
-    measured in pixels. This function implements two different methods:
+    measured in pixels. This function broadcasts over v.
+
+    This function implements two different methods:
 
     - input-noise-based (default; selected with outlierness=False)
     - outlierness-based (selected with outlierness=True)
@@ -688,8 +690,7 @@ def compute_intrinsics_uncertainty( model, v,
 
       I minimize a cost function E = norm2(x) where x is the measurements. In
       the full optimization some elements of x depend on inputs, and some don't
-      (regularization for instance). For the purposes of this analysis, let's look
-      ONLY at the measurements representing the errors: x is a weighted
+      (regularization for instance). For most measurements we have a weighted
       reprojection error: xi = wi (qi - qrefi). The noise on qrefi (on x and on y
       separately) is assumed to be mean-0 gaussian with stdev
       observed_pixel_uncertainty/wi, so the noise on xi has stdev
@@ -711,14 +712,17 @@ def compute_intrinsics_uncertainty( model, v,
 
         -Jt dx/dqref dqref = JtJ dp
 
-      Since x = W ( f(p) - qref ) I have dx/dqref = -W and
+      For the reprojection errors I have xobservation = W ( f(p) - qref ), so
 
-        Jt W dqref = JtJ dp
+        dx/dqref = [ -W ]
+                   [  0 ]
+
+        Jobservationst W dqref = JtJ dp
 
       So if I perturb my input observation vector qref by dqref, the resulting
       effect on the parameters is dp = M dqref
 
-        where M = inv(JtJ) Jt W
+        where M = inv(JtJ) Jobservationst W
 
       In order to be useful I need to do something with M. I want to quantify
       how precise our optimal intrinsics are. Ultimately these are always used
@@ -734,7 +738,7 @@ def compute_intrinsics_uncertainty( model, v,
       everything is locally linear, so this is a constant matrix for each v.
       dintrinsics is the shift in the intrinsics of this camera. Mi
       is the subset of M that corresponds to the intrinsics (Mi contains a
-      limited number of rows of M)
+      subset of rows of M)
 
       If dqref represents noise of the zero-mean, independent, gaussian variety,
       then dp and dq are also zero-mean gaussian, but no longer independent
@@ -744,23 +748,25 @@ def compute_intrinsics_uncertainty( model, v,
 
       where s is observed_pixel_uncertainty
 
-      Mi W^-1 = inv(JtJ)[intrinsics] Jt W W^-1 =
-              = inv(JtJ)[intrinsics] Jt
+      Mi W^-1 = inv(JtJ)[intrinsics] Jobservationst W W^-1 =
+              = inv(JtJ)[intrinsics] Jobservationst
 
-      -> Var(dq) = (dproj/dintrinsics inv(JtJ)[intrinsics] Jt)
-                   (dproj/dintrinsics inv(JtJ)[intrinsics] Jt)t
+      -> Var(dq) = (dproj/dintrinsics inv(JtJ)[intrinsics] Jobservationst)
+                   (dproj/dintrinsics inv(JtJ)[intrinsics] Jobservationst)t
                    s^2
 
-      Let's say I sliced an inverse of a matrix:
+      This almost simplifies a lot. If Jobservations was J then I'd be looking
+      at a sliced inverse:
 
-            [ A ]     [ A X ]
-        I = [ B ] X = [ B X ] -> B X = [0 I 0]
-            [ C ]     [ C X ]
+            [ A ]         [ AX ]
+        I = [ B ] [ X ] = [ BX ] -> B X = [0 I 0] = inv(JtJ)[intrinsics] JtJ
+            [ C ]         [ CX ]
 
-      -> Var(dq) = (dproj/dintrinsics inv(JtJ)[intrinsics] JtJ inv(JtJ)[intrinsics]t dproj/dintrinsicst) s^2 =
-                   (dproj/dintrinsics [0 I 0] inv(JtJ)[intrinsics]t dproj/dintrinsicst) s^2 =
-                   (dproj/dintrinsics inv(JtJ)[intrinsics,intrinsics] dproj/dintrinsicst) s^2 =
+      But I don't have this. So I leave it as is:
 
+      Q = inv(JtJ)[intrinsics] Jobservationst Jobservations inv(JtJ)[intrinsics]t
+
+      -> Var(dq) = (dproj/dintrinsics Q dproj/dintrinsicst) s^2
 
       I want to convert Var(dq) into a single number that describes my
       projection uncertainty at q. I'd like E(sqrt(norm2(dq))), but this is hard,
@@ -769,14 +775,14 @@ def compute_intrinsics_uncertainty( model, v,
         E(norm2(dq)) = E(dq0*dq0 + dq1*dq1) = E(dq0*dq0) + E(dq1*dq1) = trace(Var(dq))
 
       tr(AB) = tr(BA) ->
-      trace(Var(dq)) = s^2 tr( inv(JtJ)[intrinsics,intrinsics] dproj/dintrinsicst dproj/dintrinsics )
-                     = sum(elementwise_product(inv(JtJ)[intrinsics,intrinsics],
+      trace(Var(dq)) = s^2 tr( Q dproj/dintrinsicst dproj/dintrinsics )
+                     = sum(elementwise_product(Q,
                                                dqdpt_dqdp))
 
     *** outlierness-based
 
-      The below was written before weighted measurements. It's mostly all
-      unused, so I'm not updating this to handle weighting
+      The below was written before weighted measurements were implemented. It's
+      mostly all unused, so I'm not updating this to handle weighting
 
       This is a completely different technique of estimating uncertainty, but
       produces a very similar result. I computed a calibration with some input
