@@ -769,10 +769,10 @@ def compute_intrinsics_uncertainty( model, v,
       -> Var(dq) = (dproj/dintrinsics Q dproj/dintrinsicst) s^2
 
       I want to convert Var(dq) into a single number that describes my
-      projection uncertainty at q. I'd like E(sqrt(norm2(dq))), but this is hard,
-      so I approximate with sqrt(E(norm2(dq))). dq has 0 mean, so
+      projection uncertainty at q. The two components of dq will be roughly
+      independent, with roughly the same stdev, so I estimate this stdev:
 
-        E(norm2(dq)) = E(dq0*dq0 + dq1*dq1) = E(dq0*dq0) + E(dq1*dq1) = trace(Var(dq))
+      stdev(dq) ~ sqrt( trace(Var(dq))/2 )
 
       tr(AB) = tr(BA) ->
       trace(Var(dq)) = s^2 tr( Q dproj/dintrinsicst dproj/dintrinsics )
@@ -947,23 +947,14 @@ def compute_intrinsics_uncertainty( model, v,
 
     else:
 
-        # Let x be a 0-mean normally-distributed 2-vector with covariance V. I want
-        # E(sqrt(norm2(x))). This is somewhat like a Rayleigh distribution, but with
-        # an arbitrary covariance, instead of sI (which is what the Rayleigh
-        # distribution expects). I thus compute sqrt(E(norm2(x))) instead of
-        # E(sqrt(norm2(x))). Hopefully that's close enough
-        #
-        # E(norm2(x)) = E(x0*x0 + x1*x1) = E(x0*x0) + E(x1*x1) = trace(V)
-        #
-        # trace(V) = trace(covariance_intrinsics * dqdpt_dqdp) =
-        #          = sum(elementwise_product(covariance_intrinsics, dqdpt_dqdp))
         dqdpt_dqdp = \
             nps.matmult(nps.transpose(dq_dp_corrected),
                         dq_dp_corrected)
         return model.observed_pixel_uncertainty() * \
             np.sqrt(np.sum(nps.clump(invJtJ_intrinsics * dqdpt_dqdp,
                                      n = -2),
-                           axis = -1))
+                           axis = -1) \
+                    / 2.)
 def show_intrinsics_uncertainty(model,
                                 outlierness      = False,
                                 gridn_x          = 60,
