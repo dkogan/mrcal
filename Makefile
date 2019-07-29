@@ -86,7 +86,10 @@ EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 # compiler to chill
 mrcal_pywrap.o: CFLAGS += -Wno-cast-function-type
 
-mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS)
+# Newer pythons include -flto in their build flags. This maybe makes something
+# faster, but it makes debugging not work. The gcc manpage says that -flto
+# fights with -g, so I guess this isn't a bug. I simply remove the -flto here
+mrcal_pywrap.o: CFLAGS += $(filter-out -flto%,$(PY_MRBUILD_CFLAGS))
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal_pywrap.o libmrcal.so
