@@ -348,38 +348,45 @@ int mrcal_getN_j_nonzero( int Ncameras,
     return N;
 }
 
-// Projects ONE 3D point, and reports the projection, and all the gradients.
-// This is the main internal callback in the optimizer. If i_pt>0, then we're
-// looking at the i_pt-th point in the calibration target, with the target pose
-// in frame_rt. Otherwise we're looking at a single point at frame_rt->t;
-// frame_rt->r is then not referenced
-static point2_t project( // out
-                         double*   restrict dxy_dintrinsic_core,
-                         double*   restrict dxy_dintrinsic_distortions,
-                         point3_t* restrict dxy_drcamera,
-                         point3_t* restrict dxy_dtcamera,
-                         point3_t* restrict dxy_drframe,
-                         point3_t* restrict dxy_dtframe,
-                         point2_t* restrict dxy_dcalobject_warp,
+// Projects 3D point(s), and reports the projection, and all the gradients. This
+// is the main internal callback in the optimizer. This operates in one of two modes:
+//
+// if(calibration_object_width_n == 0) then we're projecting ONE point. In world
+// coords this point is at frame_rt->t. frame_rt->r is not referenced. pt_out and the
+// gradients reference 2 values (x,y in the imager)
+//
+// if(calibration_object_width_n > 0) then we're projecting a whole calibration
+// object. The pose of this object is given in frame_rt. We project ALL
+// calibration_object_width_n*calibration_object_width_n points. pt_out and the
+// gradients reference ALL of these points
+static
+void project( // out
+             point2_t* restrict pt_out,
+             double*   restrict dxy_dintrinsic_core,
+             double*   restrict dxy_dintrinsic_distortions,
+             point3_t* restrict dxy_drcamera,
+             point3_t* restrict dxy_dtcamera,
+             point3_t* restrict dxy_drframe,
+             point3_t* restrict dxy_dtframe,
+             point2_t* restrict dxy_dcalobject_warp,
 
-                         // in
-                         const intrinsics_core_t* intrinsics_core,
-                         const double* restrict distortions,
-                         const pose_t* restrict camera_rt,
-                         const pose_t* restrict frame_rt,
-                         const point2_t* restrict calobject_warp,
+             // in
+             const intrinsics_core_t* intrinsics_core,
+             const double* restrict distortions,
+             const pose_t* restrict camera_rt,
+             const pose_t* restrict frame_rt,
+             const point2_t* restrict calobject_warp,
 
-                         bool camera_at_identity, // if true, camera_rt is unused
-                         distortion_model_t distortion_model,
+             bool camera_at_identity, // if true, camera_rt is unused
+             distortion_model_t distortion_model,
 
-                         // point index. If <0, a point at frame_rt->t is
-                         // assumed; frame_rt->r isn't referenced, and
-                         // dxy_drframe is expected to be NULL. And the
-                         // calibration_object_... variables aren't used either
-                         int i_pt,
+             // point index. If <0, a point at frame_rt->t is
+             // assumed; frame_rt->r isn't referenced, and
+             // dxy_drframe is expected to be NULL. And the
+             // calibration_object_... variables aren't used either
 
-                         double calibration_object_spacing,
-                         int    calibration_object_width_n)
+             double calibration_object_spacing,
+             int    calibration_object_width_n)
 {
     int NdistortionParams = mrcal_getNdistortionParams(distortion_model);
 
@@ -428,48 +435,8 @@ static point2_t project( // out
     const double zero3[3] = {};
     // removing const, but that's just because OpenCV's API is incomplete. It IS
     // const
-    CvMat rf = cvMat(3,1, CV_64FC1, (double*)(i_pt < 0 ? zero3 : frame_rt->r.xyz));
+    CvMat rf = cvMat(3,1, CV_64FC1, (double*)(calibration_object_width_n ? frame_rt->r.xyz : zero3));
     CvMat tf = cvMat(3,1, CV_64FC1, (double*)frame_rt->t.xyz);
-
-    point3_t pt_ref = {};
-    point2_t dpt_ref2_dwarp = {};
-
-    double r = 1./(double)(calibration_object_width_n-1);
-    if(i_pt >= 0)
-    {
-        // The calibration object has a simple grid geometry
-        int y = i_pt / calibration_object_width_n;
-        int x = i_pt - y*calibration_object_width_n;
-        pt_ref.x = (double)x * calibration_object_spacing;
-        pt_ref.y = (double)y * calibration_object_spacing;
-        // pt_ref.z = 0.0; This is already done
-
-        if(calobject_warp != NULL)
-        {
-            // Add a board warp here. I have two parameters, and they describe
-            // additive flex along the x axis and along the y axis, in that
-            // order. In each direction the flex is a parabola, with the
-            // parameter k describing the max deflection at the center. If the
-            // ends are at +- 1 I have d = k*(1 - x^2). If the ends are at
-            // (0,N-1) the equivalent expression is: d = k*( 1 - 4*x^2/(N-1)^2 +
-            // 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2) = d =
-            // 4.*k*x*r(1. - x*r)
-            double xr = (double)x * r;
-            double yr = (double)y * r;
-            double dx = 4. * xr * (1. - xr);
-            double dy = 4. * yr * (1. - yr);
-            pt_ref.z += calobject_warp->x * dx;
-            pt_ref.z += calobject_warp->y * dy;
-            dpt_ref2_dwarp.x = dx;
-            dpt_ref2_dwarp.y = dy;
-        }
-    }
-    else
-    {
-        // We're not looking at a calibration board point, but rather a
-        // standalone point. I leave pt_ref at the origin, and take the
-        // coordinate from frame_rt->t
-    }
 
     if(!camera_at_identity)
     {
@@ -503,17 +470,67 @@ static point2_t project( // out
 
     if( DISTORTION_IS_OPENCV(distortion_model) )
     {
+        const int Npoints =
+            calibration_object_width_n ?
+            calibration_object_width_n*calibration_object_width_n : 1;
+
+        point3_t pt_ref        [Npoints];
+        point2_t dpt_ref2_dwarp[Npoints];
+        memset(pt_ref,         0, Npoints * sizeof(pt_ref[0]));
+        memset(dpt_ref2_dwarp, 0, Npoints * sizeof(dpt_ref2_dwarp[0]));
+        if(calibration_object_width_n)
+        {
+            int i_pt = 0;
+
+            // The calibration object has a simple grid geometry
+            for(int y = 0; y<calibration_object_width_n; y++)
+                for(int x = 0; x<calibration_object_width_n; x++)
+                {
+                    pt_ref[i_pt].x = (double)x * calibration_object_spacing;
+                    pt_ref[i_pt].y = (double)y * calibration_object_spacing;
+                    // pt_ref[i_pt].z = 0.0; This is already done
+
+                    if(calobject_warp != NULL)
+                    {
+                        // Add a board warp here. I have two parameters, and they describe
+                        // additive flex along the x axis and along the y axis, in that
+                        // order. In each direction the flex is a parabola, with the
+                        // parameter k describing the max deflection at the center. If the
+                        // ends are at +- 1 I have d = k*(1 - x^2). If the ends are at
+                        // (0,N-1) the equivalent expression is: d = k*( 1 - 4*x^2/(N-1)^2 +
+                        // 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2) = d =
+                        // 4.*k*x*r(1. - x*r)
+                        double r = 1./(double)(calibration_object_width_n-1);
+
+                        double xr = (double)x * r;
+                        double yr = (double)y * r;
+                        double dx = 4. * xr * (1. - xr);
+                        double dy = 4. * yr * (1. - yr);
+                        pt_ref[i_pt].z += calobject_warp->x * dx;
+                        pt_ref[i_pt].z += calobject_warp->y * dy;
+                        dpt_ref2_dwarp[i_pt].x = dx;
+                        dpt_ref2_dwarp[i_pt].y = dy;
+                    }
+
+                    i_pt++;
+                }
+        }
+        else
+        {
+            // We're not looking at a calibration board point, but rather a
+            // standalone point. I leave pt_ref at the origin, and take the
+            // coordinate from frame_rt->t
+        }
+
         // OpenCV does the projection AND the gradient propagation for me, so I
         // implement a separate code path for it
-        point2_t pt_out;
+        CvMat object_points  = cvMat(3,Npoints, CV_64FC1, pt_ref[0].xyz);
+        CvMat image_points   = cvMat(2,Npoints, CV_64FC1, pt_out[0].xy);
 
-        CvMat object_points  = cvMat(3,1, CV_64FC1, pt_ref.xyz);
-        CvMat image_points   = cvMat(2,1, CV_64FC1, pt_out.xy);
-
-        double _dxy_drj[6];
-        double _dxy_dtj[6];
-        CvMat  dxy_drj = cvMat(2,3, CV_64FC1, _dxy_drj);
-        CvMat  dxy_dtj = cvMat(2,3, CV_64FC1, _dxy_dtj);
+        double _dxy_drj[2*Npoints*3];
+        double _dxy_dtj[2*Npoints*3];
+        CvMat  dxy_drj = cvMat(2*Npoints,3, CV_64FC1, _dxy_drj);
+        CvMat  dxy_dtj = cvMat(2*Npoints,3, CV_64FC1, _dxy_dtj);
 
         double fx = intrinsics_core->focal_xy [0];
         double fy = intrinsics_core->focal_xy [1];
@@ -533,30 +550,25 @@ static point2_t project( // out
         // but it doesn't work. I suspect OpenCV has a bug, but debugging this
         // is taking too much time, so I just copy stuff instead. I wanted this:
         //
-        // CvMat  dpdf           = cvMat( 2, 2,
-        //                                CV_64FC1, ((intrinsics_core_t*)dxy_dintrinsic_core)->focal_xy);
+        // CvMat dpdf = cvMat( 2, 2,
+        //                     CV_64FC1, ((intrinsics_core_t*)dxy_dintrinsic_core)->focal_xy);
         // dpdf.step = sizeof(double) * 4;
-
-        double _dpdf[2*2];
-        CvMat dpdf = cvMat(2,2, CV_64FC1, _dpdf);
+        double _dpdf[2*Npoints*2];
+        CvMat dpdf = cvMat(2*Npoints,2, CV_64FC1, _dpdf);
         // instead I do this ^^^^^^^^^^^^^^^^
 
         CvMat dpddistortions;
 
-        CvMat* p_dpdf;
-        CvMat* p_dpddistortions;
+        CvMat* p_dpdf           = NULL;
+        CvMat* p_dpddistortions = NULL;
 
         if( dxy_dintrinsic_core != NULL )
             p_dpdf = &dpdf;
-        else
-            p_dpdf = NULL;
         if( dxy_dintrinsic_distortions != NULL )
         {
-            dpddistortions = cvMat(2, NdistortionParams, CV_64FC1, dxy_dintrinsic_distortions);
+            dpddistortions = cvMat(2*Npoints, NdistortionParams, CV_64FC1, dxy_dintrinsic_distortions);
             p_dpddistortions = &dpddistortions;
         }
-        else
-            p_dpddistortions = NULL;
 
         cvProjectPoints2(&object_points,
                          p_rj, p_tj,
@@ -572,64 +584,87 @@ static point2_t project( // out
 
         if( dxy_dintrinsic_core != NULL )
         {
-            intrinsics_core_t* dxy_dintrinsics0 = (intrinsics_core_t*)dxy_dintrinsic_core;
-            intrinsics_core_t* dxy_dintrinsics1 = (intrinsics_core_t*)&dxy_dintrinsic_core[N_INTRINSICS_CORE];
+            void set_dxy_dintrinsic_core(int i_pt)
+            {
+                intrinsics_core_t* dxy_dintrinsics0 = (intrinsics_core_t*)&dxy_dintrinsic_core[i_pt*2*N_INTRINSICS_CORE];
+                intrinsics_core_t* dxy_dintrinsics1 = &dxy_dintrinsics0[1];
 
-            dxy_dintrinsics0->focal_xy [0] = _dpdf[0];
-            dxy_dintrinsics0->center_xy[0] = 1.0;
-            dxy_dintrinsics0->focal_xy [1] = 0.0;
-            dxy_dintrinsics0->center_xy[1] = 0.0;
-            dxy_dintrinsics1->focal_xy [0] = 0.0;
-            dxy_dintrinsics1->center_xy[0] = 0.0;
-            dxy_dintrinsics1->focal_xy [1] = _dpdf[3];
-            dxy_dintrinsics1->center_xy[1] = 1.0;
+                dxy_dintrinsics0->focal_xy [0] = _dpdf[i_pt*4 + 0];
+                dxy_dintrinsics0->center_xy[0] = 1.0;
+                dxy_dintrinsics0->focal_xy [1] = 0.0;
+                dxy_dintrinsics0->center_xy[1] = 0.0;
+                dxy_dintrinsics1->focal_xy [0] = 0.0;
+                dxy_dintrinsics1->center_xy[0] = 0.0;
+                dxy_dintrinsics1->focal_xy [1] = _dpdf[i_pt*4 + 3];
+                dxy_dintrinsics1->center_xy[1] = 1.0;
+            }
+
+            if(calibration_object_width_n)
+                for(int i_pt = 0;
+                    i_pt<calibration_object_width_n*calibration_object_width_n;
+                    i_pt++)
+                    set_dxy_dintrinsic_core(i_pt);
+            else
+                set_dxy_dintrinsic_core(0);
         }
 
         if( dxy_drcamera != NULL || dxy_drframe != NULL ||
             dxy_dtcamera != NULL || dxy_dtframe != NULL )
         {
-            if(!camera_at_identity)
+            void set_dxy_drtframe(int i_pt)
             {
-                // I do this multiple times, one each for {r,t}{camera,frame}
-                void propagate(// out
-                               point3_t* dxy_dparam,
-
-                               // in
-                               const double* _d_rj_dparam,
-                               const double* _d_tj_dparam)
+                if(!camera_at_identity)
                 {
-                    if( dxy_dparam == NULL ) return;
+                    // I do this multiple times, one each for {r,t}{camera,frame}
+                    void propagate(// out
+                                   point3_t* dxy_dparam,
 
-                    // I have dproj/drj and dproj/dtj
-                    // I want dproj/drc, dproj/dtc, dproj/drf, dprof/dtf
-                    //
-                    // dproj_drc = dproj/drj drj_drc + dproj/dtj dtj_drc
+                                   // in
+                                   const double* _d_rj_dparam,
+                                   const double* _d_tj_dparam)
+                    {
+                        if( dxy_dparam == NULL ) return;
 
-                    mul_genN3_gen33_vout  (2, _dxy_drj, _d_rj_dparam, dxy_dparam[0].xyz);
-                    mul_genN3_gen33_vaccum(2, _dxy_dtj, _d_tj_dparam, dxy_dparam[0].xyz);
+                        // I have dproj/drj and dproj/dtj
+                        // I want dproj/drc, dproj/dtc, dproj/drf, dprof/dtf
+                        //
+                        // dproj_drc = dproj/drj drj_drc + dproj/dtj dtj_drc
+
+                        mul_genN3_gen33_vout  (2, &_dxy_drj[i_pt*2*3], _d_rj_dparam, dxy_dparam[i_pt*2].xyz);
+                        mul_genN3_gen33_vaccum(2, &_dxy_dtj[i_pt*2*3], _d_tj_dparam, dxy_dparam[i_pt*2].xyz);
+                    }
+
+                    propagate( dxy_drcamera, _d_rj_rc, _d_tj_rc );
+                    propagate( dxy_dtcamera, _d_rj_tc, _d_tj_tc );
+                    propagate( dxy_dtframe , _d_rj_tf, _d_tj_tf );
+                    propagate( dxy_drframe , _d_rj_rf, _d_tj_rf );
                 }
-
-                propagate( dxy_drcamera, _d_rj_rc, _d_tj_rc );
-                propagate( dxy_dtcamera, _d_rj_tc, _d_tj_tc );
-                propagate( dxy_dtframe,  _d_rj_tf, _d_tj_tf );
-                propagate( dxy_drframe,  _d_rj_rf, _d_tj_rf );
+                else
+                {
+                    // My gradient is already computed. Copy it
+                    if(dxy_dtframe)
+                    {
+                        memcpy(dxy_dtframe[i_pt*2 + 0].xyz, &_dxy_dtj[i_pt*2*3 + 3*0], 3*sizeof(double));
+                        memcpy(dxy_dtframe[i_pt*2 + 1].xyz, &_dxy_dtj[i_pt*2*3 + 3*1], 3*sizeof(double));
+                    }
+                    if(dxy_drframe)
+                    {
+                        memcpy(dxy_drframe[i_pt*2 + 0].xyz, &_dxy_drj[i_pt*2*3 + 3*0], 3*sizeof(double));
+                        memcpy(dxy_drframe[i_pt*2 + 1].xyz, &_dxy_drj[i_pt*2*3 + 3*1], 3*sizeof(double));
+                    }
+                }
             }
+
+            if(calibration_object_width_n)
+                for(int i_pt = 0;
+                    i_pt<calibration_object_width_n*calibration_object_width_n;
+                    i_pt++)
+                    set_dxy_drtframe(i_pt);
             else
-            {
-                // My gradient is already computed. Copy it
-                if(dxy_dtframe)
-                {
-                    memcpy(dxy_dtframe[0].xyz, &_dxy_dtj[3*0], 3*sizeof(double));
-                    memcpy(dxy_dtframe[1].xyz, &_dxy_dtj[3*1], 3*sizeof(double));
-                }
-                if(dxy_drframe)
-                {
-                    memcpy(dxy_drframe[0].xyz, &_dxy_drj[3*0], 3*sizeof(double));
-                    memcpy(dxy_drframe[1].xyz, &_dxy_drj[3*1], 3*sizeof(double));
-                }
-            }
+                set_dxy_drtframe(0);
         }
-        if( dxy_dcalobject_warp != NULL && i_pt >= 0)
+
+        if( dxy_dcalobject_warp != NULL && calibration_object_width_n )
         {
             // p = proj(R( warp(x) ) + t);
             // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
@@ -646,23 +681,27 @@ static point2_t project( // out
             CvMat  Rj = cvMat(3,3,CV_64FC1, _Rj);
             cvRodrigues2(p_rj, &Rj, NULL);
 
-            double d[] =
-                { _dxy_dtj[3*0 + 0] * _Rj[0*3 + 2] +
-                  _dxy_dtj[3*0 + 1] * _Rj[1*3 + 2] +
-                  _dxy_dtj[3*0 + 2] * _Rj[2*3 + 2],
-                  _dxy_dtj[3*1 + 0] * _Rj[0*3 + 2] +
-                  _dxy_dtj[3*1 + 1] * _Rj[1*3 + 2] +
-                  _dxy_dtj[3*1 + 2] * _Rj[2*3 + 2]};
+            for(int i_pt = 0;
+                i_pt<calibration_object_width_n*calibration_object_width_n;
+                i_pt++)
+            {
+                double d[] =
+                    { _dxy_dtj[i_pt*2*3 + 3*0 + 0] * _Rj[0*3 + 2] +
+                      _dxy_dtj[i_pt*2*3 + 3*0 + 1] * _Rj[1*3 + 2] +
+                      _dxy_dtj[i_pt*2*3 + 3*0 + 2] * _Rj[2*3 + 2],
+                      _dxy_dtj[i_pt*2*3 + 3*1 + 0] * _Rj[0*3 + 2] +
+                      _dxy_dtj[i_pt*2*3 + 3*1 + 1] * _Rj[1*3 + 2] +
+                      _dxy_dtj[i_pt*2*3 + 3*1 + 2] * _Rj[2*3 + 2]};
 
-            dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
-            dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
-            dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
-            dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
+                dxy_dcalobject_warp[i_pt*2 + 0].x = d[0]*dpt_ref2_dwarp[i_pt].x;
+                dxy_dcalobject_warp[i_pt*2 + 0].y = d[0]*dpt_ref2_dwarp[i_pt].y;
+                dxy_dcalobject_warp[i_pt*2 + 1].x = d[1]*dpt_ref2_dwarp[i_pt].x;
+                dxy_dcalobject_warp[i_pt*2 + 1].y = d[1]*dpt_ref2_dwarp[i_pt].y;
+            }
         }
 
-        return pt_out;
+        return;
     }
-
 
 
 
@@ -675,296 +714,187 @@ static point2_t project( // out
 
     cvRodrigues2(p_rj, &Rj, &d_Rj_rj);
 
-    // Rj * pt + tj -> pt
-    point3_t pt_cam;
-    mul_vec3_gen33t_vout(pt_ref.xyz, _Rj, pt_cam.xyz);
-    add_vec(3, pt_cam.xyz,  p_tj->data.db);
-
-    double dxyz_ddistortion[3*NdistortionParams];
-    double* d_distortion_xyz = NULL;
-    double  _d_distortion_xyz[3*3] = {};
-
-    // pt_cam is now in the camera coordinates. I can project
-    if( distortion_model == DISTORTION_CAHVOR )
+    void project_point(const point3_t* pt_ref, const point2_t* dpt_ref2_dwarp, int i_pt)
     {
-        // I perturb pt_cam, and then apply the focal length, center pixel stuff
-        // normally
-        d_distortion_xyz = _d_distortion_xyz;
+        // Rj * pt + tj -> pt
+        point3_t pt_cam;
+        mul_vec3_gen33t_vout(pt_ref->xyz, _Rj, pt_cam.xyz);
+        add_vec(3, pt_cam.xyz,  p_tj->data.db);
 
-        // distortion parameter layout:
-        //   alpha
-        //   beta
-        //   r0
-        //   r1
-        //   r2
-        double alpha = distortions[0];
-        double beta  = distortions[1];
-        double r0    = distortions[2];
-        double r1    = distortions[3];
-        double r2    = distortions[4];
+        double dxyz_ddistortion[3*NdistortionParams];
+        double* d_distortion_xyz = NULL;
+        double  _d_distortion_xyz[3*3] = {};
 
-        double s_al, c_al, s_be, c_be;
-        sincos(alpha, &s_al, &c_al);
-        sincos(beta,  &s_be, &c_be);
-
-        // I parametrize the optical axis such that
-        // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
-        //   if both parameters are 0
-        // - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
-        //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
-        //   lock), and that would make my solver unhappy
-        double o     []         = {  s_al*c_be, s_be,  c_al*c_be };
-        double do_dalpha[]      = {  c_al*c_be,    0, -s_al*c_be };
-        double do_dbeta[]       = { -s_al*s_be, c_be, -c_al*s_be };
-
-        double norm2p        = norm2_vec(3, pt_cam.xyz);
-        double omega         = dot_vec(3, pt_cam.xyz, o);
-        double domega_dalpha = dot_vec(3, pt_cam.xyz, do_dalpha);
-        double domega_dbeta  = dot_vec(3, pt_cam.xyz, do_dbeta);
-
-        double omega_recip = 1.0 / omega;
-        double tau         = norm2p * omega_recip*omega_recip - 1.0;
-        double s__dtau_dalphabeta__domega_dalphabeta = -2.0*norm2p * omega_recip*omega_recip*omega_recip;
-        double dmu_dtau = r1 + 2.0*tau*r2;
-        double dmu_dxyz[3];
-        for(int i=0; i<3; i++)
-            dmu_dxyz[i] = dmu_dtau *
-                (2.0 * pt_cam.xyz[i] * omega_recip*omega_recip + s__dtau_dalphabeta__domega_dalphabeta * o[i]);
-        double mu = r0 + tau*r1 + tau*tau*r2;
-        double s__dmu_dalphabeta__domega_dalphabeta = dmu_dtau * s__dtau_dalphabeta__domega_dalphabeta;
-
-        for(int i=0; i<3; i++)
+        // pt_cam is now in the camera coordinates. I can project
+        if( distortion_model == DISTORTION_CAHVOR )
         {
-            double dmu_ddist[5] = { s__dmu_dalphabeta__domega_dalphabeta * domega_dalpha,
-                                    s__dmu_dalphabeta__domega_dalphabeta * domega_dbeta,
-                                    1.0,
-                                    tau,
-                                    tau * tau };
+            // I perturb pt_cam, and then apply the focal length, center pixel stuff
+            // normally
+            d_distortion_xyz = _d_distortion_xyz;
 
-            dxyz_ddistortion[i*NdistortionParams + 0] = pt_cam.xyz[i] * dmu_ddist[0];
-            dxyz_ddistortion[i*NdistortionParams + 1] = pt_cam.xyz[i] * dmu_ddist[1];
-            dxyz_ddistortion[i*NdistortionParams + 2] = pt_cam.xyz[i] * dmu_ddist[2];
-            dxyz_ddistortion[i*NdistortionParams + 3] = pt_cam.xyz[i] * dmu_ddist[3];
-            dxyz_ddistortion[i*NdistortionParams + 4] = pt_cam.xyz[i] * dmu_ddist[4];
+            // distortion parameter layout:
+            //   alpha
+            //   beta
+            //   r0
+            //   r1
+            //   r2
+            double alpha = distortions[0];
+            double beta  = distortions[1];
+            double r0    = distortions[2];
+            double r1    = distortions[3];
+            double r2    = distortions[4];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
+            double s_al, c_al, s_be, c_be;
+            sincos(alpha, &s_al, &c_al);
+            sincos(beta,  &s_be, &c_be);
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
+            // I parametrize the optical axis such that
+            // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
+            //   if both parameters are 0
+            // - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
+            //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
+            //   lock), and that would make my solver unhappy
+            double o     []         = {  s_al*c_be, s_be,  c_al*c_be };
+            double do_dalpha[]      = {  c_al*c_be,    0, -s_al*c_be };
+            double do_dbeta[]       = { -s_al*s_be, c_be, -c_al*s_be };
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
+            double norm2p        = norm2_vec(3, pt_cam.xyz);
+            double omega         = dot_vec(3, pt_cam.xyz, o);
+            double domega_dalpha = dot_vec(3, pt_cam.xyz, do_dalpha);
+            double domega_dbeta  = dot_vec(3, pt_cam.xyz, do_dbeta);
 
+            double omega_recip = 1.0 / omega;
+            double tau         = norm2p * omega_recip*omega_recip - 1.0;
+            double s__dtau_dalphabeta__domega_dalphabeta = -2.0*norm2p * omega_recip*omega_recip*omega_recip;
+            double dmu_dtau = r1 + 2.0*tau*r2;
+            double dmu_dxyz[3];
+            for(int i=0; i<3; i++)
+                dmu_dxyz[i] = dmu_dtau *
+                    (2.0 * pt_cam.xyz[i] * omega_recip*omega_recip + s__dtau_dalphabeta__domega_dalphabeta * o[i]);
+            double mu = r0 + tau*r1 + tau*tau*r2;
+            double s__dmu_dalphabeta__domega_dalphabeta = dmu_dtau * s__dtau_dalphabeta__domega_dalphabeta;
 
-            _d_distortion_xyz[3*i + i] = mu+1.0;
-            for(int j=0; j<3; j++)
+            for(int i=0; i<3; i++)
             {
-                _d_distortion_xyz[3*i + j] += (pt_cam.xyz[i] - omega*o[i]) * dmu_dxyz[j];
-                _d_distortion_xyz[3*i + j] -= mu*o[i]*o[j];
+                double dmu_ddist[5] = { s__dmu_dalphabeta__domega_dalphabeta * domega_dalpha,
+                    s__dmu_dalphabeta__domega_dalphabeta * domega_dbeta,
+                    1.0,
+                    tau,
+                    tau * tau };
+
+                dxyz_ddistortion[i*NdistortionParams + 0] = pt_cam.xyz[i] * dmu_ddist[0];
+                dxyz_ddistortion[i*NdistortionParams + 1] = pt_cam.xyz[i] * dmu_ddist[1];
+                dxyz_ddistortion[i*NdistortionParams + 2] = pt_cam.xyz[i] * dmu_ddist[2];
+                dxyz_ddistortion[i*NdistortionParams + 3] = pt_cam.xyz[i] * dmu_ddist[3];
+                dxyz_ddistortion[i*NdistortionParams + 4] = pt_cam.xyz[i] * dmu_ddist[4];
+
+                dxyz_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
+                dxyz_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
+                dxyz_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
+                dxyz_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
+                dxyz_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
+
+                dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
+                dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
+
+                dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
+                dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
+
+
+                _d_distortion_xyz[3*i + i] = mu+1.0;
+                for(int j=0; j<3; j++)
+                {
+                    _d_distortion_xyz[3*i + j] += (pt_cam.xyz[i] - omega*o[i]) * dmu_dxyz[j];
+                    _d_distortion_xyz[3*i + j] -= mu*o[i]*o[j];
+                }
+
+                pt_cam.xyz[i] += mu * (pt_cam.xyz[i] - omega*o[i]);
             }
-
-            pt_cam.xyz[i] += mu * (pt_cam.xyz[i] - omega*o[i]);
         }
-    }
-    else if( distortion_model == DISTORTION_NONE )
-    {
-        d_distortion_xyz = NULL;
-    }
-    else
-    {
-        d_distortion_xyz = NULL;
-        MSG("Unhandled distortion model: %d (%s)",
-            distortion_model,
-            mrcal_distortion_model_name(distortion_model));
-        assert(0);
-    }
+        else if( distortion_model == DISTORTION_NONE )
+        {
+        }
+        else
+        {
+            MSG("Unhandled distortion model: %d (%s)",
+                distortion_model,
+                mrcal_distortion_model_name(distortion_model));
+            assert(0);
+        }
 
 
 
 
-    point2_t pt_out;
-    const double fx = intrinsics_core->focal_xy [0];
-    const double fy = intrinsics_core->focal_xy [1];
-    const double cx = intrinsics_core->center_xy[0];
-    const double cy = intrinsics_core->center_xy[1];
-    double z_recip = 1.0 / pt_cam.z;
-    pt_out.x = pt_cam.x*z_recip * fx + cx;
-    pt_out.y = pt_cam.y*z_recip * fy + cy;
-
-    // I have the projection, and I now need to propagate the gradients
-    if( dxy_dintrinsic_core != NULL )
-    {
-        intrinsics_core_t* dxy_dintrinsics0 = (intrinsics_core_t*)dxy_dintrinsic_core;
-        intrinsics_core_t* dxy_dintrinsics1 = (intrinsics_core_t*)&dxy_dintrinsic_core[N_INTRINSICS_CORE];
+        const double fx = intrinsics_core->focal_xy [0];
+        const double fy = intrinsics_core->focal_xy [1];
+        const double cx = intrinsics_core->center_xy[0];
+        const double cy = intrinsics_core->center_xy[1];
+        double z_recip = 1.0 / pt_cam.z;
+        pt_out[i_pt].x = pt_cam.x*z_recip * fx + cx;
+        pt_out[i_pt].y = pt_cam.y*z_recip * fy + cy;
 
         // I have the projection, and I now need to propagate the gradients
-        //
-        // xy = fxy * distort(xy)/distort(z) + cxy
-        dxy_dintrinsics0->focal_xy [0] = pt_cam.x*z_recip;
-        dxy_dintrinsics0->center_xy[0] = 1.0;
-        dxy_dintrinsics0->focal_xy [1] = 0.0;
-        dxy_dintrinsics0->center_xy[1] = 0.0;
-        dxy_dintrinsics1->focal_xy [0] = 0.0;
-        dxy_dintrinsics1->center_xy[0] = 0.0;
-        dxy_dintrinsics1->focal_xy [1] = pt_cam.y*z_recip;
-        dxy_dintrinsics1->center_xy[1] = 1.0;
-    }
-
-    if( dxy_dintrinsic_distortions != NULL )
-        for(int i=0; i<NdistortionParams; i++)
+        if( dxy_dintrinsic_core != NULL )
         {
-            const double dx = dxyz_ddistortion[i + 0*NdistortionParams];
-            const double dy = dxyz_ddistortion[i + 1*NdistortionParams];
-            const double dz = dxyz_ddistortion[i + 2*NdistortionParams];
-            dxy_dintrinsic_distortions[i                    ] = fx * z_recip * (dx - pt_cam.x*z_recip*dz);
-            dxy_dintrinsic_distortions[i + NdistortionParams] = fy * z_recip * (dy - pt_cam.y*z_recip*dz);
-        }
+            intrinsics_core_t* dxy_dintrinsics0 = (intrinsics_core_t*)&dxy_dintrinsic_core[i_pt*2*N_INTRINSICS_CORE];
+            intrinsics_core_t* dxy_dintrinsics1 = &dxy_dintrinsics0[1];
 
-    if(!camera_at_identity)
-    {
-        // I do this multiple times, one each for {r,t}{camera,frame}
-        void propagate(point3_t* dxy_dparam,
-                       const double* _d_rj_dparam,
-                       const double* _d_tj_dparam)
-        {
-            if( dxy_dparam == NULL ) return;
-
-            // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
-            // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
+            // I have the projection, and I now need to propagate the gradients
             //
-            // pt_cam.x    = Rj[row0]*pt_ref + tj.x
-            // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
-            // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
-            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
-
-            double d_undistorted_ptcam[3*3];
-            double d_distorted_ptcam[3*3];
-            double* d_ptcam;
-            if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
-            else                 d_ptcam = d_distorted_ptcam;
-
-            for(int i=0; i<3; i++)
-            {
-                mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*i], &d_ptcam[3*i] );
-                mul_vec3_gen33     ( &d_ptcam[3*i],   _d_rj_dparam);
-                add_vec(3, &d_ptcam[3*i], &_d_tj_dparam[3*i] );
-            }
-
-            if(d_distortion_xyz)
-                // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
-                mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
-
-            for(int i=0; i<3; i++)
-            {
-                dxy_dparam[0].xyz[i] =
-                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam.x * z_recip * d_distorted_ptcam[3*2 + i]);
-                dxy_dparam[1].xyz[i] =
-                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
-            }
+            // xy = fxy * distort(xy)/distort(z) + cxy
+            dxy_dintrinsics0->focal_xy [0] = pt_cam.x*z_recip;
+            dxy_dintrinsics0->center_xy[0] = 1.0;
+            dxy_dintrinsics0->focal_xy [1] = 0.0;
+            dxy_dintrinsics0->center_xy[1] = 0.0;
+            dxy_dintrinsics1->focal_xy [0] = 0.0;
+            dxy_dintrinsics1->center_xy[0] = 0.0;
+            dxy_dintrinsics1->focal_xy [1] = pt_cam.y*z_recip;
+            dxy_dintrinsics1->center_xy[1] = 1.0;
         }
 
-        propagate( dxy_drcamera, _d_rj_rc, _d_tj_rc );
-        propagate( dxy_dtcamera, _d_rj_tc, _d_tj_tc );
-        propagate( dxy_dtframe,  _d_rj_tf, _d_tj_tf );
-        propagate( dxy_drframe,  _d_rj_rf, _d_tj_rf );
-
-        point3_t* p_dxy_dt = dxy_dtcamera;
-        if( dxy_dcalobject_warp != NULL && i_pt >= 0)
-        {
-            // p = proj(Rc Rf warp(x) + Rc tf + tc);
-            // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
-            //       = dp/dtc RcRf dwarp/dw
-            // dp/dtc is dxy_dtcamera
-            // R is rodrigues(rj)
-            // dwarp/dw = [0 0]
-            //            [0 0]
-            //            [a b]
-            // Let R = [r0 r1 r2]
-            // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
-            point3_t dxy_dt_forwarp[2];
-            if(!p_dxy_dt)
+        if( dxy_dintrinsic_distortions != NULL )
+            for(int i=0; i<NdistortionParams; i++)
             {
-                // if we were asked for the calobject gradient, but not the
-                // tframe gradient
-                propagate( dxy_dt_forwarp, _d_rj_tc, _d_tj_tc );
-                p_dxy_dt = dxy_dt_forwarp;
+                const double dx = dxyz_ddistortion[i + 0*NdistortionParams];
+                const double dy = dxyz_ddistortion[i + 1*NdistortionParams];
+                const double dz = dxyz_ddistortion[i + 2*NdistortionParams];
+                dxy_dintrinsic_distortions[(2*i_pt + 0)*NdistortionParams + i ] = fx * z_recip * (dx - pt_cam.x*z_recip*dz);
+                dxy_dintrinsic_distortions[(2*i_pt + 1)*NdistortionParams + i ] = fy * z_recip * (dy - pt_cam.y*z_recip*dz);
             }
-            double d[] =
-                { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
-                  p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
-                  p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
-                  p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
-                  p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
-                  p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
 
-            dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
-            dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
-            dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
-            dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
-        }
-    }
-    else
-    {
-        void propagate_r(point3_t* dxy_dparam)
+        if(!camera_at_identity)
         {
-            if( dxy_dparam == NULL ) return;
-
-            // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
-            // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
-            //
-            // pt_cam.x       = Rj[row0]*pt_ref + ...
-            // d(pt_cam.x)/dr = d(Rj[row0])*pt_ref
-            // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
-
-            double d_undistorted_ptcam[3*3];
-            double d_distorted_ptcam[3*3];
-            double* d_ptcam;
-            if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
-            else                 d_ptcam = d_distorted_ptcam;
-
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*0], &d_ptcam[3*0]);
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*1], &d_ptcam[3*1]);
-            mul_vec3_gen33_vout( pt_ref.xyz, &_d_Rj_rj[9*2], &d_ptcam[3*2]);
-
-            if(d_distortion_xyz)
-                // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
-                mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
-
-            for(int i=0; i<3; i++)
+            // I do this multiple times, one each for {r,t}{camera,frame}
+            void propagate(point3_t* dxy_dparam,
+                           const double* _d_rj_dparam,
+                           const double* _d_tj_dparam)
             {
-                dxy_dparam[0].xyz[i] =
-                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam.x * z_recip * d_distorted_ptcam[3*2 + i]);
-                dxy_dparam[1].xyz[i] =
-                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
-            }
-        }
-        void propagate_t(point3_t* dxy_dparam)
-        {
-            if( dxy_dparam == NULL ) return;
+                if( dxy_dparam == NULL ) return;
 
-            // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
-            // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
-            //
-            // pt_cam.x    = ... + tj.x
-            // d(pt_cam.x)/dt = identity
-            if( d_distortion_xyz == NULL)
-            {
-                dxy_dparam[0].xyz[0] = fx * z_recip;
-                dxy_dparam[1].xyz[0] = 0.0;
+                // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
+                // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
+                //
+                // pt_cam.x    = Rj[row0]*pt_ref + tj.x
+                // d(pt_cam.x) = d(Rj[row0])*pt_ref + d(tj.x);
+                // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
+                // dRj[row0]/drc = dRj[row0]/drj * drj_drc
 
-                dxy_dparam[0].xyz[1] = 0.0;
-                dxy_dparam[1].xyz[1] = fy * z_recip;
+                double d_undistorted_ptcam[3*3];
+                double d_distorted_ptcam[3*3];
+                double* d_ptcam;
+                if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
+                else                 d_ptcam = d_distorted_ptcam;
 
-                dxy_dparam[0].xyz[2] = -fx * z_recip * pt_cam.x * z_recip;
-                dxy_dparam[1].xyz[2] = -fy * z_recip * pt_cam.y * z_recip;
-            }
-            else
-            {
-                double* d_distorted_ptcam = d_distortion_xyz;
+                for(int i=0; i<3; i++)
+                {
+                    mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*i], &d_ptcam[3*i] );
+                    mul_vec3_gen33     ( &d_ptcam[3*i],   _d_rj_dparam);
+                    add_vec(3, &d_ptcam[3*i], &_d_tj_dparam[3*i] );
+                }
+
+                if(d_distortion_xyz)
+                    // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
+                    mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
 
                 for(int i=0; i<3; i++)
                 {
@@ -974,48 +904,197 @@ static point2_t project( // out
                         fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
                 }
             }
-        }
 
-        propagate_r( dxy_drframe );
-        propagate_t( dxy_dtframe );
+            propagate( &dxy_drcamera[2*i_pt], _d_rj_rc, _d_tj_rc );
+            propagate( &dxy_dtcamera[2*i_pt], _d_rj_tc, _d_tj_tc );
+            propagate( &dxy_dtframe [2*i_pt],  _d_rj_tf, _d_tj_tf );
+            propagate( &dxy_drframe [2*i_pt],  _d_rj_rf, _d_tj_rf );
 
-        point3_t* p_dxy_dt = dxy_dtframe;
-        if( dxy_dcalobject_warp != NULL && i_pt >= 0)
-        {
-            // p = proj(Rf warp(x) + tf);
-            // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
-            //       = dp/dtf R dwarp/dw
-            // dp/dtf is dxy_dtframe
-            // R is rodrigues(rj)
-            // dwarp/dw = [0 0]
-            //            [0 0]
-            //            [a b]
-            // Let R = [r0 r1 r2]
-            // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
-            point3_t dxy_dt_forwarp[2];
-            if(!p_dxy_dt)
+            point3_t* p_dxy_dt = &dxy_dtcamera[2*i_pt];
+            if( dxy_dcalobject_warp != NULL && calibration_object_width_n)
             {
-                // if we were asked for the calobject gradient, but not the
-                // tframe gradient
-                propagate_t( dxy_dt_forwarp );
-                p_dxy_dt = dxy_dt_forwarp;
-            }
-            double d[] =
-                { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
-                  p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
-                  p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
-                  p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
-                  p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
-                  p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
+                // p = proj(Rc Rf warp(x) + Rc tf + tc);
+                // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+                //       = dp/dtc RcRf dwarp/dw
+                // dp/dtc is dxy_dtcamera
+                // R is rodrigues(rj)
+                // dwarp/dw = [0 0]
+                //            [0 0]
+                //            [a b]
+                // Let R = [r0 r1 r2]
+                // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
+                point3_t dxy_dt_forwarp[2];
+                if(!p_dxy_dt)
+                {
+                    // if we were asked for the calobject gradient, but not the
+                    // tframe gradient
+                    propagate( dxy_dt_forwarp, _d_rj_tc, _d_tj_tc );
+                    p_dxy_dt = dxy_dt_forwarp;
+                }
+                double d[] =
+                    { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
+                      p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
+                      p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
+                      p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
+                      p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
+                      p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
 
-            dxy_dcalobject_warp[0].x = d[0]*dpt_ref2_dwarp.x;
-            dxy_dcalobject_warp[0].y = d[0]*dpt_ref2_dwarp.y;
-            dxy_dcalobject_warp[1].x = d[1]*dpt_ref2_dwarp.x;
-            dxy_dcalobject_warp[1].y = d[1]*dpt_ref2_dwarp.y;
+                dxy_dcalobject_warp[2*i_pt + 0].x = d[0]*dpt_ref2_dwarp->x;
+                dxy_dcalobject_warp[2*i_pt + 0].y = d[0]*dpt_ref2_dwarp->y;
+                dxy_dcalobject_warp[2*i_pt + 1].x = d[1]*dpt_ref2_dwarp->x;
+                dxy_dcalobject_warp[2*i_pt + 1].y = d[1]*dpt_ref2_dwarp->y;
+            }
+        }
+        else
+        {
+            void propagate_r(point3_t* dxy_dparam)
+            {
+                if( dxy_dparam == NULL ) return;
+
+                // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
+                // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
+                //
+                // pt_cam.x       = Rj[row0]*pt_ref + ...
+                // d(pt_cam.x)/dr = d(Rj[row0])*pt_ref
+                // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
+
+                double d_undistorted_ptcam[3*3];
+                double d_distorted_ptcam[3*3];
+                double* d_ptcam;
+                if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
+                else                 d_ptcam = d_distorted_ptcam;
+
+                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*0], &d_ptcam[3*0]);
+                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*1], &d_ptcam[3*1]);
+                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*2], &d_ptcam[3*2]);
+
+                if(d_distortion_xyz)
+                    // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
+                    mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
+
+                for(int i=0; i<3; i++)
+                {
+                    dxy_dparam[0].xyz[i] =
+                        fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam.x * z_recip * d_distorted_ptcam[3*2 + i]);
+                    dxy_dparam[1].xyz[i] =
+                        fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
+                }
+            }
+            void propagate_t(point3_t* dxy_dparam)
+            {
+                if( dxy_dparam == NULL ) return;
+
+                // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
+                // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
+                //
+                // pt_cam.x    = ... + tj.x
+                // d(pt_cam.x)/dt = identity
+                if( d_distortion_xyz == NULL)
+                {
+                    dxy_dparam[0].xyz[0] = fx * z_recip;
+                    dxy_dparam[1].xyz[0] = 0.0;
+
+                    dxy_dparam[0].xyz[1] = 0.0;
+                    dxy_dparam[1].xyz[1] = fy * z_recip;
+
+                    dxy_dparam[0].xyz[2] = -fx * z_recip * pt_cam.x * z_recip;
+                    dxy_dparam[1].xyz[2] = -fy * z_recip * pt_cam.y * z_recip;
+                }
+                else
+                {
+                    double* d_distorted_ptcam = d_distortion_xyz;
+
+                    for(int i=0; i<3; i++)
+                    {
+                        dxy_dparam[0].xyz[i] =
+                            fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam.x * z_recip * d_distorted_ptcam[3*2 + i]);
+                        dxy_dparam[1].xyz[i] =
+                            fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam.y * z_recip * d_distorted_ptcam[3*2 + i]);
+                    }
+                }
+            }
+
+            propagate_r( &dxy_drframe[2*i_pt] );
+            propagate_t( &dxy_dtframe[2*i_pt] );
+
+            point3_t* p_dxy_dt = &dxy_dtframe[2*i_pt];
+            if( dxy_dcalobject_warp != NULL && calibration_object_width_n)
+            {
+                // p = proj(Rf warp(x) + tf);
+                // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+                //       = dp/dtf R dwarp/dw
+                // dp/dtf is dxy_dtframe
+                // R is rodrigues(rj)
+                // dwarp/dw = [0 0]
+                //            [0 0]
+                //            [a b]
+                // Let R = [r0 r1 r2]
+                // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
+                point3_t dxy_dt_forwarp[2];
+                if(!p_dxy_dt)
+                {
+                    // if we were asked for the calobject gradient, but not the
+                    // tframe gradient
+                    propagate_t( dxy_dt_forwarp );
+                    p_dxy_dt = dxy_dt_forwarp;
+                }
+                double d[] =
+                    { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
+                      p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
+                      p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
+                      p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
+                      p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
+                      p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
+
+                dxy_dcalobject_warp[2*i_pt + 0].x = d[0]*dpt_ref2_dwarp->x;
+                dxy_dcalobject_warp[2*i_pt + 0].y = d[0]*dpt_ref2_dwarp->y;
+                dxy_dcalobject_warp[2*i_pt + 1].x = d[1]*dpt_ref2_dwarp->x;
+                dxy_dcalobject_warp[2*i_pt + 1].y = d[1]*dpt_ref2_dwarp->y;
+            }
         }
     }
 
-    return pt_out;
+
+    if( !calibration_object_width_n )
+        project_point( &(point3_t){}, NULL, 0);
+    else
+    {
+        int i_pt = 0;
+
+         // The calibration object has a simple grid geometry
+        for(int y = 0; y<calibration_object_width_n; y++)
+            for(int x = 0; x<calibration_object_width_n; x++)
+            {
+                point3_t pt_ref = {.x = (double)x * calibration_object_spacing,
+                                   .y = (double)y * calibration_object_spacing};
+                point2_t dpt_ref2_dwarp = {};
+
+                if(calobject_warp != NULL)
+                {
+                    // Add a board warp here. I have two parameters, and they describe
+                    // additive flex along the x axis and along the y axis, in that
+                    // order. In each direction the flex is a parabola, with the
+                    // parameter k describing the max deflection at the center. If the
+                    // ends are at +- 1 I have d = k*(1 - x^2). If the ends are at
+                    // (0,N-1) the equivalent expression is: d = k*( 1 - 4*x^2/(N-1)^2 +
+                    // 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2) = d =
+                    // 4.*k*x*r(1. - x*r)
+                    double r = 1./(double)(calibration_object_width_n-1);
+
+                    double xr = (double)x * r;
+                    double yr = (double)y * r;
+                    double dx = 4. * xr * (1. - xr);
+                    double dy = 4. * yr * (1. - yr);
+                    pt_ref.z += calobject_warp->x * dx;
+                    pt_ref.z += calobject_warp->y * dy;
+                    dpt_ref2_dwarp.x = dx;
+                    dpt_ref2_dwarp.y = dy;
+                }
+
+                project_point(&pt_ref, &dpt_ref2_dwarp, i_pt);
+                i_pt++;
+            }
+    }
 }
 
 // Compute the region-of-interest weight. The region I care about is in r=[0,1];
@@ -1279,21 +1358,21 @@ bool mrcal_project( // out
         double dxy_dintrinsic_core       [2*4];
         double dxy_dintrinsic_distortions[2*Ndistortions];
 
-        out[i] = project( dxy_dintrinsics != NULL ? dxy_dintrinsic_core        : NULL,
-                          dxy_dintrinsics != NULL ? dxy_dintrinsic_distortions : NULL,
-                          NULL, NULL, NULL,
-                          dxy_dp, NULL,
+        project( &out[i],
+                 dxy_dintrinsics != NULL ? dxy_dintrinsic_core        : NULL,
+                 dxy_dintrinsics != NULL ? dxy_dintrinsic_distortions : NULL,
+                 NULL, NULL, NULL,
+                 dxy_dp, NULL,
 
-                          // in
-                          (const intrinsics_core_t*)(&intrinsics[0]),
-                          &intrinsics[4],
-                          NULL,
-                          &frame,
-                          NULL,
-                          true,
-                          distortion_model,
-
-                          -1, 0.0, 0);
+                 // in
+                 (const intrinsics_core_t*)(&intrinsics[0]),
+                 &intrinsics[4],
+                 NULL,
+                 &frame,
+                 NULL,
+                 true,
+                 distortion_model,
+                 0.0, 0);
         if(dxy_dintrinsics != NULL)
         {
             for(int j=0; j<4; j++)
@@ -1377,20 +1456,20 @@ bool _unproject( // out
             // initializing this above: frame.t.z = 1.0;
 
             point3_t dxy_dtframe[2];
-            point2_t q_hypothesis =
-                project( NULL, NULL,
-                         NULL, NULL, NULL, dxy_dtframe,
-                         NULL,
+            point2_t q_hypothesis;
+            project( &q_hypothesis,
+                     NULL, NULL,
+                     NULL, NULL, NULL, dxy_dtframe,
+                     NULL,
 
-                         // in
-                         core, distortions,
-                         NULL,
-                         &frame,
-                         NULL,
-                         true,
-                         distortion_model,
-
-                         -1, 0.0, 0);
+                     // in
+                     core, distortions,
+                     NULL,
+                     &frame,
+                     NULL,
+                     true,
+                     distortion_model,
+                     0.0, 0);
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
             J[0*2 + 0] = dxy_dtframe[0].x;
@@ -2552,6 +2631,39 @@ void optimizerCallback(// input state
         const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           ctx->problem_details, ctx->distortion_model);
         const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, ctx->Ncameras, ctx->problem_details, ctx->distortion_model);
 
+        // these are computed in respect to the real-unit parameters,
+        // NOT the unit-scale parameters used by the optimizer
+        double dxy_dintrinsic_core       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2 * N_INTRINSICS_CORE];
+        double dxy_dintrinsic_distortions[ctx->calibration_object_width_n*ctx->calibration_object_width_n][2 * ctx->Ndistortions];
+        point3_t dxy_drcamera            [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dxy_dtcamera            [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dxy_drframe             [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dxy_dtframe             [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point2_t dxy_dcalobject_warp     [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point2_t pt_hypothesis           [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
+        project(pt_hypothesis,
+                ctx->problem_details.do_optimize_intrinsic_core ?
+                (double*)dxy_dintrinsic_core : NULL,
+                ctx->problem_details.do_optimize_intrinsic_distortions ?
+                (double*)dxy_dintrinsic_distortions : NULL,
+                ctx->problem_details.do_optimize_extrinsics ?
+                (point3_t*)dxy_drcamera : NULL,
+                ctx->problem_details.do_optimize_extrinsics ?
+                (point3_t*)dxy_dtcamera : NULL,
+                ctx->problem_details.do_optimize_frames ?
+                (point3_t*)dxy_drframe : NULL,
+                ctx->problem_details.do_optimize_frames ?
+                (point3_t*)dxy_dtframe : NULL,
+                ctx->problem_details.do_optimize_calobject_warp ?
+                (point2_t*)dxy_dcalobject_warp : NULL,
+                &intrinsic_core_all[i_camera], distortions_all[i_camera],
+                &camera_rt[i_camera-1], &frame_rt,
+                ctx->calobject_warp == NULL ? NULL : &calobject_warp_local,
+                i_camera == 0,
+                ctx->distortion_model,
+                ctx->calibration_object_spacing,
+                ctx->calibration_object_width_n);
+
         for(int i_pt=0;
             i_pt < ctx->calibration_object_width_n*ctx->calibration_object_width_n;
             i_pt++)
@@ -2559,39 +2671,6 @@ void optimizerCallback(// input state
             const point3_t* pt_observed = &observation->px[i_pt];
             double weight = region_of_interest_weight(pt_observed, ctx->roi, i_camera);
             weight *= pt_observed->z;
-
-            // these are computed in respect to the real-unit parameters,
-            // NOT the unit-scale parameters used by the optimizer
-            double dxy_dintrinsic_core       [2 * N_INTRINSICS_CORE];
-            double dxy_dintrinsic_distortions[2 * ctx->Ndistortions];
-            point3_t dxy_drcamera[2];
-            point3_t dxy_dtcamera[2];
-            point3_t dxy_drframe [2];
-            point3_t dxy_dtframe [2];
-            point2_t dxy_dcalobject_warp[2];
-            point2_t pt_hypothesis =
-                project(ctx->problem_details.do_optimize_intrinsic_core ?
-                        dxy_dintrinsic_core : NULL,
-                        ctx->problem_details.do_optimize_intrinsic_distortions ?
-                        dxy_dintrinsic_distortions : NULL,
-                        ctx->problem_details.do_optimize_extrinsics ?
-                        dxy_drcamera : NULL,
-                        ctx->problem_details.do_optimize_extrinsics ?
-                        dxy_dtcamera : NULL,
-                        ctx->problem_details.do_optimize_frames ?
-                        dxy_drframe : NULL,
-                        ctx->problem_details.do_optimize_frames ?
-                        dxy_dtframe : NULL,
-                        ctx->problem_details.do_optimize_calobject_warp ?
-                        dxy_dcalobject_warp : NULL,
-                        &intrinsic_core_all[i_camera], distortions_all[i_camera],
-                        &camera_rt[i_camera-1], &frame_rt,
-                        ctx->calobject_warp == NULL ? NULL : &calobject_warp_local,
-                        i_camera == 0,
-                        ctx->distortion_model,
-                        i_pt,
-                        ctx->calibration_object_spacing,
-                        ctx->calibration_object_width_n);
 
             if(!observation->skip_observation &&
 
@@ -2603,7 +2682,7 @@ void optimizerCallback(// input state
                 // gradient and store them
                 for( int i_xy=0; i_xy<2; i_xy++ )
                 {
-                    const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy]) * weight;
+                    const double err = (pt_hypothesis[i_pt].xy[i_xy] - pt_observed->xyz[i_xy]) * weight;
 
                     if( ctx->reportFitMsg )
                     {
@@ -2625,67 +2704,67 @@ void optimizerCallback(// input state
                     if( ctx->problem_details.do_optimize_intrinsic_core )
                     {
                         STORE_JACOBIAN( i_var_intrinsic_core + 0,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 0] *
+                                        dxy_dintrinsic_core[i_pt][i_xy * N_INTRINSICS_CORE + 0] *
                                         weight * SCALE_INTRINSICS_FOCAL_LENGTH );
                         STORE_JACOBIAN( i_var_intrinsic_core + 1,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 1] *
+                                        dxy_dintrinsic_core[i_pt][i_xy * N_INTRINSICS_CORE + 1] *
                                         weight * SCALE_INTRINSICS_FOCAL_LENGTH );
                         STORE_JACOBIAN( i_var_intrinsic_core + 2,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 2] *
+                                        dxy_dintrinsic_core[i_pt][i_xy * N_INTRINSICS_CORE + 2] *
                                         weight * SCALE_INTRINSICS_CENTER_PIXEL );
                         STORE_JACOBIAN( i_var_intrinsic_core + 3,
-                                        dxy_dintrinsic_core[i_xy * N_INTRINSICS_CORE + 3] *
+                                        dxy_dintrinsic_core[i_pt][i_xy * N_INTRINSICS_CORE + 3] *
                                         weight * SCALE_INTRINSICS_CENTER_PIXEL );
                     }
 
                     if( ctx->problem_details.do_optimize_intrinsic_distortions )
                         for(int i = NlockedLeadingDistortions; i<ctx->Ndistortions; i++)
                             STORE_JACOBIAN( i_var_intrinsic_distortions + i - NlockedLeadingDistortions,
-                                            dxy_dintrinsic_distortions[i_xy * ctx->Ndistortions + i] *
+                                            dxy_dintrinsic_distortions[i_pt][i_xy * ctx->Ndistortions + i] *
                                             weight * SCALE_DISTORTION );
 
                     if( ctx->problem_details.do_optimize_extrinsics )
                         if( i_camera != 0 )
                         {
                             STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                             dxy_drcamera[i_xy].xyz[0] *
+                                             dxy_drcamera[i_pt][i_xy].xyz[0] *
                                              weight * SCALE_ROTATION_CAMERA,
-                                             dxy_drcamera[i_xy].xyz[1] *
+                                             dxy_drcamera[i_pt][i_xy].xyz[1] *
                                              weight * SCALE_ROTATION_CAMERA,
-                                             dxy_drcamera[i_xy].xyz[2] *
+                                             dxy_drcamera[i_pt][i_xy].xyz[2] *
                                              weight * SCALE_ROTATION_CAMERA);
                             STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                             dxy_dtcamera[i_xy].xyz[0] *
+                                             dxy_dtcamera[i_pt][i_xy].xyz[0] *
                                              weight * SCALE_TRANSLATION_CAMERA,
-                                             dxy_dtcamera[i_xy].xyz[1] *
+                                             dxy_dtcamera[i_pt][i_xy].xyz[1] *
                                              weight * SCALE_TRANSLATION_CAMERA,
-                                             dxy_dtcamera[i_xy].xyz[2] *
+                                             dxy_dtcamera[i_pt][i_xy].xyz[2] *
                                              weight * SCALE_TRANSLATION_CAMERA);
                         }
 
                     if( ctx->problem_details.do_optimize_frames )
                     {
                         STORE_JACOBIAN3( i_var_frame_rt + 0,
-                                         dxy_drframe[i_xy].xyz[0] *
+                                         dxy_drframe[i_pt][i_xy].xyz[0] *
                                          weight * SCALE_ROTATION_FRAME,
-                                         dxy_drframe[i_xy].xyz[1] *
+                                         dxy_drframe[i_pt][i_xy].xyz[1] *
                                          weight * SCALE_ROTATION_FRAME,
-                                         dxy_drframe[i_xy].xyz[2] *
+                                         dxy_drframe[i_pt][i_xy].xyz[2] *
                                          weight * SCALE_ROTATION_FRAME);
                         STORE_JACOBIAN3( i_var_frame_rt + 3,
-                                         dxy_dtframe[i_xy].xyz[0] *
+                                         dxy_dtframe[i_pt][i_xy].xyz[0] *
                                          weight * SCALE_TRANSLATION_FRAME,
-                                         dxy_dtframe[i_xy].xyz[1] *
+                                         dxy_dtframe[i_pt][i_xy].xyz[1] *
                                          weight * SCALE_TRANSLATION_FRAME,
-                                         dxy_dtframe[i_xy].xyz[2] *
+                                         dxy_dtframe[i_pt][i_xy].xyz[2] *
                                          weight * SCALE_TRANSLATION_FRAME);
                     }
 
                     if( ctx->problem_details.do_optimize_calobject_warp )
                     {
                         STORE_JACOBIAN2( i_var_calobject_warp,
-                                         dxy_dcalobject_warp[i_xy].x * weight * SCALE_CALOBJECT_WARP,
-                                         dxy_dcalobject_warp[i_xy].y * weight * SCALE_CALOBJECT_WARP);
+                                         dxy_dcalobject_warp[i_pt][i_xy].x * weight * SCALE_CALOBJECT_WARP,
+                                         dxy_dcalobject_warp[i_pt][i_xy].y * weight * SCALE_CALOBJECT_WARP);
                     }
 
                     iMeasurement++;
@@ -2804,34 +2883,33 @@ void optimizerCallback(// input state
         // warning. I silence it here
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
-        point2_t pt_hypothesis =
-            project(ctx->problem_details.do_optimize_intrinsic_core ?
-                    dxy_dintrinsic_core        : NULL,
-                    ctx->problem_details.do_optimize_intrinsic_distortions ?
-                    dxy_dintrinsic_distortions : NULL,
+        point2_t pt_hypothesis;
+        project(&pt_hypothesis,
+                ctx->problem_details.do_optimize_intrinsic_core ?
+                dxy_dintrinsic_core        : NULL,
+                ctx->problem_details.do_optimize_intrinsic_distortions ?
+                dxy_dintrinsic_distortions : NULL,
 
-                    ctx->problem_details.do_optimize_extrinsics ?
-                    dxy_drcamera : NULL,
-                    ctx->problem_details.do_optimize_extrinsics ?
-                    dxy_dtcamera : NULL,
-                    NULL, // frame rotation. I only have a point position
-                    ctx->problem_details.do_optimize_frames ?
-                    dxy_dpoint : NULL,
-                    NULL,
-                    &intrinsic_core_all[i_camera], distortions_all[i_camera],
-                    &camera_rt[i_camera-1],
+                ctx->problem_details.do_optimize_extrinsics ?
+                dxy_drcamera : NULL,
+                ctx->problem_details.do_optimize_extrinsics ?
+                dxy_dtcamera : NULL,
+                NULL, // frame rotation. I only have a point position
+                ctx->problem_details.do_optimize_frames ?
+                dxy_dpoint : NULL,
+                NULL,
+                &intrinsic_core_all[i_camera], distortions_all[i_camera],
+                &camera_rt[i_camera-1],
 
-                    // I only have the point position, so the 'rt' memory
-                    // points 3 back. The fake "r" here will not be
-                    // referenced
-                    (pose_t*)(&point.xyz[-3]),
-                    NULL,
+                // I only have the point position, so the 'rt' memory
+                // points 3 back. The fake "r" here will not be
+                // referenced
+                (pose_t*)(&point.xyz[-3]),
+                NULL,
 
-                    i_camera == 0,
-                    ctx->distortion_model,
-                    -1,
-                    ctx->calibration_object_spacing,
-                    ctx->calibration_object_width_n);
+                i_camera == 0,
+                ctx->distortion_model,
+                0,0);
 #pragma GCC diagnostic pop
 
         if(!observation->skip_observation
