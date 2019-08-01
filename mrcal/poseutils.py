@@ -17,7 +17,7 @@ def Rt_from_rt(rt):
 
     r = rt[:3]
     t = rt[3:]
-    R = cv2.Rodrigues(r)[0]
+    R = cv2.Rodrigues(r.astype(float))[0]
     return nps.glue( R, t, axis=-2)
 
 @nps.broadcast_define( ((4,3),),
@@ -27,7 +27,7 @@ def rt_from_Rt(Rt):
 
     R = Rt[:3,:]
     t = Rt[ 3,:]
-    r = cv2.Rodrigues(R)[0].ravel()
+    r = cv2.Rodrigues(R.astype(float))[0].ravel()
     return nps.glue( r, t, axis=-1)
 
 @nps.broadcast_define( ((4,3,),),
@@ -141,7 +141,7 @@ def _transform_point_rt_withgradient(rt, x):
     #     print(np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.))))
     #     sys.exit()
 
-    R,dRdr = cv2.Rodrigues(rt[:3])
+    R,dRdr = cv2.Rodrigues(rt[:3].astype(float))
     dRdr = nps.transpose(dRdr) # fix opencv's weirdness. Now shape=(9,3)
 
     xx = nps.matmult(x, nps.transpose(R)) + rt[3:]
