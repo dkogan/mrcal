@@ -1483,8 +1483,13 @@ bool _unproject( // out
         out[1] = (q[i].y - core->center_xy[1]) * fy_recip_distort;
 
 
+        dogleg_parameters2_t dogleg_parameters;
+        dogleg_getDefaultParameters(&dogleg_parameters);
+        dogleg_parameters.dogleg_debug = 0;
         double norm2x =
-            dogleg_optimize_dense(out, 2, 2, cb, NULL, NULL);
+            dogleg_optimize_dense2(out, 2, 2, cb, NULL,
+                                   &dogleg_parameters,
+                                   NULL);
         //This needs to be precise; if it isn't, I barf. Shouldn't happen
         //very often
 
@@ -3569,15 +3574,22 @@ mrcal_optimize( // out
         MSG("Warning: Not optimizing any of our variables");
     }
 
-    dogleg_setDebug( verbose ? DOGLEG_DEBUG_VNLOG : 0 );
+    dogleg_parameters2_t dogleg_parameters;
+    dogleg_getDefaultParameters(&dogleg_parameters);
+    dogleg_parameters.dogleg_debug = verbose ? DOGLEG_DEBUG_VNLOG : 0;
 
 #warning update these parameters
     // These were derived empirically, seeking high accuracy, fast convergence
     // and without serious concern for performance. I looked only at a single
     // frame. Tweak them please
-    dogleg_setThresholds(0, 1e-6, 0);
-    dogleg_setMaxIterations(300);
-    //dogleg_setTrustregionUpdateParameters(0.1, 0.15, 4.0, 0.75);
+    dogleg_parameters.Jt_x_threshold = 0;
+    dogleg_parameters.update_threshold = 1e-6;
+    dogleg_parameters.trustregion_threshold = 0;
+    dogleg_parameters.max_iterations = 300;
+    // dogleg_parameters.trustregion_decrease_factor    = 0.1;
+    // dogleg_parameters.trustregion_decrease_threshold = 0.15;
+    // dogleg_parameters.trustregion_increase_factor    = 4.0
+    // dogleg_parameters.trustregion_increase_threshold = 0.75;
 
     const int Npoints_fromBoards =
         NobservationsBoard *
@@ -3673,9 +3685,11 @@ mrcal_optimize( // out
         double outliernessScale = -1.0;
         do
         {
-            norm2_error = dogleg_optimize(packed_state,
-                                          Nstate, ctx.Nmeasurements, ctx.N_j_nonzero,
-                                          (dogleg_callback_t*)&optimizerCallback, &ctx, &solver_context);
+            norm2_error = dogleg_optimize2(packed_state,
+                                           Nstate, ctx.Nmeasurements, ctx.N_j_nonzero,
+                                           (dogleg_callback_t*)&optimizerCallback, &ctx,
+                                           &dogleg_parameters,
+                                           &solver_context);
             if(_solver_context != NULL)
                 *_solver_context = solver_context;
 

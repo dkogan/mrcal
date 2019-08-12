@@ -14,7 +14,8 @@ BuildRequires: python36-numpy
 # need this too for the /usr/include/numpy link. It points to the same place as
 # the link in python36-numpy would point to, if they bothered to make one
 BuildRequires: python2-numpy
-BuildRequires: libdogleg-devel >= 0.15.2
+# For the non-global parameters
+BuildRequires: libdogleg-devel >= 0.15.3
 BuildRequires: lapack-devel
 BuildRequires: opencv-devel >= 3.2
 BuildRequires: python36-devel
