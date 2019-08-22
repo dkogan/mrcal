@@ -21,7 +21,7 @@ LDLIBS    += -ldogleg
 CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 CCXXFLAGS += -ffast-math
 
-DIST_INCLUDE    += basic_points.h mrcal.h
+DIST_INCLUDE += basic_points.h mrcal.h
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-distortion		\
