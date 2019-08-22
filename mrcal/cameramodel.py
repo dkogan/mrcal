@@ -341,7 +341,7 @@ class cameramodel(object):
         intrinsics (None initially; will need to be set later), and identity
         extrinsics
 
-        if f is none and we have kwargs:
+        if f is None and we have kwargs:
 
         - 'intrinsics'
         - Exactly ONE of the following for theextrinsics:
