@@ -841,8 +841,8 @@ static bool _un_project_validate_args( // out
                                                                         \
     SET_SIGINT();                                                       \
     PyArrayObject* out             = NULL;                              \
-    __attribute__((unused)) PyArrayObject* dxy_dintrinsics = NULL;      \
-    __attribute__((unused)) PyArrayObject* dxy_dp          = NULL;      \
+    __attribute__((unused)) PyArrayObject* dq_dintrinsics = NULL;       \
+    __attribute__((unused)) PyArrayObject* dq_dp          = NULL;       \
                                                                         \
     ARGUMENTS_REQUIRED(ARG_DEFINE);                                     \
     ARGUMENTS_OPTIONAL(ARG_DEFINE);                                     \
@@ -898,13 +898,13 @@ static bool _un_project_validate_args( // out
         {                                                               \
             dims[Nleading_dims + 0] = 2;                                \
             dims[Nleading_dims + 1] = Nintrinsics;                      \
-            dxy_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
+            dq_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
                                                                 dims,   \
                                                                 NPY_DOUBLE); \
                                                                         \
             dims[Nleading_dims + 0] = 2;                                \
             dims[Nleading_dims + 1] = 3;                                \
-            dxy_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
+            dq_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
                                                                 dims,   \
                                                                 NPY_DOUBLE); \
         }                                                               \
@@ -930,9 +930,9 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
                          PROJECT_ARGUMENTS_OPTIONAL,
                          3, 2);
 
-    if(! mrcal_project((point2_t*)PyArray_DATA(out),
-                       get_gradients_bool ? (double*)PyArray_DATA(dxy_dintrinsics) : NULL,
-                       get_gradients_bool ? (point3_t*)PyArray_DATA(dxy_dp)  : NULL,
+    if(! mrcal_project((point2_t*)PyArray_DATA(q),
+                       get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
+                       get_gradients_bool ? (point3_t*)PyArray_DATA(dq_dp)  : NULL,
 
                        (const point3_t*)PyArray_DATA(points),
                        Npoints,
@@ -941,19 +941,19 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
                        (const double*)PyArray_DATA(intrinsics)))
     {
         PyErr_SetString(PyExc_RuntimeError, "mrcal_project() failed!");
-        Py_DECREF((PyObject*)out);
+        Py_DECREF((PyObject*)q);
         goto done;
     }
 
     if( get_gradients_bool )
     {
-        result = PyTuple_Pack(3, out, dxy_dp, dxy_dintrinsics);
-        Py_DECREF(out);
-        Py_DECREF(dxy_dp);
-        Py_DECREF(dxy_dintrinsics);
+        result = PyTuple_Pack(3, q, dq_dp, dq_dintrinsics);
+        Py_DECREF(q);
+        Py_DECREF(dq_dp);
+        Py_DECREF(dq_dintrinsics);
     }
     else
-        result = (PyObject*)out;
+        result = (PyObject*)q;
 
     _UN_PROJECT_POSTAMBLE(PROJECT_ARGUMENTS_REQUIRED,
                           PROJECT_ARGUMENTS_OPTIONAL);

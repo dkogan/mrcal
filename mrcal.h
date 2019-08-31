@@ -135,14 +135,14 @@ distortion_model_t mrcal_getNextDistortionModel( distortion_model_t distortion_m
 //
 // This function supports CAHVORE distortions if we don't ask for gradients
 bool mrcal_project( // out
-                   point2_t* out,
+                   point2_t* q,
 
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics)
-                   double*   dxy_dintrinsics,
+                   double*   dq_dintrinsics,
                    // Stored as a row-first array of shape (N,2,3). Each
                    // trailing ,3 dimension element is a point3_t
-                   point3_t* dxy_dp,
+                   point3_t* dq_dp,
 
                    // in
                    const point3_t* p,

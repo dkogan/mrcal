@@ -1270,19 +1270,19 @@ bool _project_cahvore( // out
 
 // Wrapper around the internal project() function. This is the function used in
 // the inner optimization loop to map world points to their observed pixel
-// coordinates, and to optionally provide gradients. dxy_dintrinsics and/or
-// dxy_dp are allowed to be NULL if we're not interested in gradients.
+// coordinates, and to optionally provide gradients. dq_dintrinsics and/or
+// dq_dp are allowed to be NULL if we're not interested in gradients.
 //
 // This function supports CAHVORE distortions if we don't ask for gradients
 bool mrcal_project( // out
-                   point2_t* out,
+                   point2_t* q,
 
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics)
-                   double*   dxy_dintrinsics,
+                   double*   dq_dintrinsics,
                    // Stored as a row-first array of shape (N,2,3). Each
                    // trailing ,3 dimension element is a point3_t
-                   point3_t* dxy_dp,
+                   point3_t* dq_dp,
 
                    // in
                    const point3_t* p,
@@ -1294,12 +1294,12 @@ bool mrcal_project( // out
     // project() doesn't handle cahvore, so I special-case it here
     if( distortion_model == DISTORTION_CAHVORE )
     {
-        if(dxy_dintrinsics != NULL || dxy_dp != NULL)
+        if(dq_dintrinsics != NULL || dq_dp != NULL)
         {
             fprintf(stderr, "mrcal_project(DISTORTION_CAHVORE) is not yet implemented if we're asking for gradients\n");
             return false;
         }
-        return _project_cahvore(out, p, N, intrinsics);
+        return _project_cahvore(q, p, N, intrinsics);
     }
 
     int Ndistortions = mrcal_getNdistortionParams(distortion_model);
@@ -1310,7 +1310,7 @@ bool mrcal_project( // out
     // is very slow. I can call it once, and use its fast internal loop,
     // however. This special case does the same thing, but much faster.
 
-    if(dxy_dintrinsics == NULL && dxy_dp == NULL &&
+    if(dq_dintrinsics == NULL && dq_dp == NULL &&
        (DISTORTION_IS_OPENCV(distortion_model) ||
         distortion_model == DISTORTION_NONE))
     {
@@ -1333,8 +1333,8 @@ bool mrcal_project( // out
                                   // OpenCV's API is incomplete. It IS const
                                   (double*)&intrinsics[4]);
 
-        CvMat object_points  = cvMat(3,N, CV_64FC1, (double*)p  ->xyz);
-        CvMat image_points   = cvMat(2,N, CV_64FC1, (double*)out->xy);
+        CvMat object_points  = cvMat(3,N, CV_64FC1, (double*)p->xyz);
+        CvMat image_points   = cvMat(2,N, CV_64FC1, (double*)q->xy);
         double _zero3[3] = {};
         CvMat zero3 = cvMat(3,1,CV_64FC1, _zero3);
         cvProjectPoints2(&object_points,
@@ -1355,14 +1355,14 @@ bool mrcal_project( // out
         // The data is laid out differently in mrcal_project() and project(), so
         // I need to project() into these temporary variables, and then populate
         // my output array
-        double dxy_dintrinsic_core       [2*4];
-        double dxy_dintrinsic_distortions[2*Ndistortions];
+        double dq_dintrinsic_core       [2*4];
+        double dq_dintrinsic_distortions[2*Ndistortions];
 
-        project( &out[i],
-                 dxy_dintrinsics != NULL ? dxy_dintrinsic_core        : NULL,
-                 dxy_dintrinsics != NULL ? dxy_dintrinsic_distortions : NULL,
+        project( &q[i],
+                 dq_dintrinsics != NULL ? dq_dintrinsic_core        : NULL,
+                 dq_dintrinsics != NULL ? dq_dintrinsic_distortions : NULL,
                  NULL, NULL, NULL,
-                 dxy_dp, NULL,
+                 dq_dp, NULL,
 
                  // in
                  (const intrinsics_core_t*)(&intrinsics[0]),
@@ -1373,23 +1373,23 @@ bool mrcal_project( // out
                  true,
                  distortion_model,
                  0.0, 0);
-        if(dxy_dintrinsics != NULL)
+        if(dq_dintrinsics != NULL)
         {
             for(int j=0; j<4; j++)
             {
-                dxy_dintrinsics[j + 0*Nintrinsics] = dxy_dintrinsic_core[j+0];
-                dxy_dintrinsics[j + 1*Nintrinsics] = dxy_dintrinsic_core[j+4];
+                dq_dintrinsics[j + 0*Nintrinsics] = dq_dintrinsic_core[j+0];
+                dq_dintrinsics[j + 1*Nintrinsics] = dq_dintrinsic_core[j+4];
             }
             for(int j=0; j<Ndistortions; j++)
             {
-                dxy_dintrinsics[j+4 + 0*Nintrinsics] = dxy_dintrinsic_distortions[j+0           ];
-                dxy_dintrinsics[j+4 + 1*Nintrinsics] = dxy_dintrinsic_distortions[j+Ndistortions];
+                dq_dintrinsics[j+4 + 0*Nintrinsics] = dq_dintrinsic_distortions[j+0           ];
+                dq_dintrinsics[j+4 + 1*Nintrinsics] = dq_dintrinsic_distortions[j+Ndistortions];
             }
 
-            dxy_dintrinsics = &dxy_dintrinsics[2*Nintrinsics];
+            dq_dintrinsics = &dq_dintrinsics[2*Nintrinsics];
         }
-        if(dxy_dp != NULL)
-            dxy_dp = &dxy_dp[2];
+        if(dq_dp != NULL)
+            dq_dp = &dq_dp[2];
     }
     return true;
 }
