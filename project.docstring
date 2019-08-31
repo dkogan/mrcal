@@ -32,7 +32,7 @@ ARGUMENTS
 
 - intrinsics: array of dims (Nintrinsics):
 
-    (focal_x, focal_y, center_pixel_x, center_pixel_y, distorion0, distortion1,
+    (focal_x, focal_y, center_pixel_x, center_pixel_y, distortion0, distortion1,
     ...)
 
   The focal lengths are given in pixels.
