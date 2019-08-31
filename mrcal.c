@@ -1279,7 +1279,7 @@ bool mrcal_project( // out
 
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics)
-                   double*         dxy_dintrinsics,
+                   double*   dxy_dintrinsics,
                    // Stored as a row-first array of shape (N,2,3). Each
                    // trailing ,3 dimension element is a point3_t
                    point3_t* dxy_dp,

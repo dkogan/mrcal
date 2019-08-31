@@ -128,10 +128,10 @@ const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-term
 distortion_model_t mrcal_getNextDistortionModel( distortion_model_t distortion_model_now,
                                                  distortion_model_t distortion_model_final);
 
-// Wrapper around the internal project() function. This is the function used in
-// the inner optimization loop to map world points to their observed pixel
+// Wrapper around the internal project() function: the function used in the
+// inner optimization loop. These map world points to their observed pixel
 // coordinates, and to optionally provide gradients. dxy_dintrinsics and/or
-// dxy_dp are allowed to be NULL if we're not interested in gradients.
+// dxy_dp are allowed to be NULL if we're not interested those gradients.
 //
 // This function supports CAHVORE distortions if we don't ask for gradients
 bool mrcal_project( // out
@@ -139,7 +139,7 @@ bool mrcal_project( // out
 
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics)
-                   double*         dxy_dintrinsics,
+                   double*   dxy_dintrinsics,
                    // Stored as a row-first array of shape (N,2,3). Each
                    // trailing ,3 dimension element is a point3_t
                    point3_t* dxy_dp,
