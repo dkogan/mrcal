@@ -1394,6 +1394,73 @@ bool mrcal_project( // out
     return true;
 }
 
+bool mrcal_project_z1( // out
+                       point2_t* q,
+
+                       // core, distortions concatenated. Stored as a row-first
+                       // array of shape (N,2,Nintrinsics)
+                       double*   dq_dintrinsics,
+
+                       // Stored as a row-first array of shape (N,2,2). Each
+                       // trailing ,2 dimension element is a point2_t
+                       point2_t* dq_dVxy,
+
+                       // in
+                       const point2_t* Vxy,
+                       int N,
+                       distortion_model_t distortion_model,
+                       // core, distortions concatenated
+                       const double* intrinsics)
+{
+    // I allocate/deallocate some temporary arrays, and use the normal
+    // mrcal_project(). Would be nice to not allocate or deallocate anything
+    int N_to_allocate = N;
+    if(dq_dVxy != NULL)
+        N_to_allocate += N*2;
+
+    point3_t* pool = (point3_t*)malloc(N_to_allocate*sizeof(point3_t));
+    if(!pool)
+    {
+        MSG("Couldn't not allocate memory for %d point3_t objects!",
+            N_to_allocate);
+        return false;
+    }
+
+    point3_t* p     = &pool[0];
+    point3_t* dq_dp = dq_dVxy != NULL ? &pool[N] : NULL;
+
+    for(int i=0; i<N; i++)
+    {
+        p[i].x = Vxy[i].x;
+        p[i].y = Vxy[i].y;
+        p[i].z = 1.0;
+    }
+
+    bool result = mrcal_project( q,
+                                 dq_dintrinsics,
+                                 dq_dp,
+                                 p,
+                                 N,
+                                 distortion_model,
+                                 intrinsics);
+    if(!result)           goto done;
+    if( dq_dVxy == NULL ) goto done;
+
+    // I have dq/dp. I want dq/dVxy = dq/dp dp/dVxy
+    // We constructed p from Vxy above, so dp/dVxy = [ I 0 ]t
+    for(int i=0; i<N; i++)
+    {
+        dq_dVxy[2*i + 0].x = dq_dp[2*i + 0].x;
+        dq_dVxy[2*i + 0].y = dq_dp[2*i + 0].y;
+        dq_dVxy[2*i + 1].x = dq_dp[2*i + 1].x;
+        dq_dVxy[2*i + 1].y = dq_dp[2*i + 1].y;
+    }
+
+ done:
+    free(pool);
+
+    return result;
+}
 
 // internal function for mrcal_unproject() and mrcal_unproject_z1()
 static

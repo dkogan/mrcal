@@ -151,6 +151,27 @@ bool mrcal_project( // out
                    // core, distortions concatenated
                    const double* intrinsics);
 
+// Similar to mrcal_project(), but instead of projecting 3D points world
+// coordinates, takes in 2D vectors Vxy, which represent a 3D point (Vx,Vy,1).
+// For each point this produces a 2x2 gradient dxy_dVxy instead of a 2x3
+// gradient dxy_dp
+bool mrcal_project_z1( // out
+                       point2_t* q,
+
+                       // core, distortions concatenated. Stored as a row-first
+                       // array of shape (N,2,Nintrinsics)
+                       double*   dq_dintrinsics,
+                       // Stored as a row-first array of shape (N,2,2). Each
+                       // trailing ,2 dimension element is a point2_t
+                       point2_t* dq_dVxy,
+
+                       // in
+                       const point2_t* Vxy,
+                       int N,
+                       distortion_model_t distortion_model,
+                       // core, distortions concatenated
+                       const double* intrinsics);
+
 // Maps a set of distorted 2D imager points q to a 3d vector in camera
 // coordinates that produced these pixel observations. The 3d vector is defined
 // up-to-length, so the vectors reported here will all have z = 1.

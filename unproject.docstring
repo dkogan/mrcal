@@ -7,8 +7,11 @@ SYNOPSIS
                          distortion_model, intrinsics_data )
 
 Maps a set of 2D imager points q to a 3d vector in camera coordinates that
-produced these pixel observations. The 3d vector is defined up-to-length, so the
-vectors reported here will all have z = 1.
+produced these pixel observations. The 3d vector is unique only up-to-length, so
+the result vectors either
+
+- if not z1: are reported as (3,) arrays with z = 1
+- if z1:     are reported as (2,) arrays, implying that z = 1
 
 This is the "reverse" direction, so an iterative nonlinear optimization is
 performed internally to compute this result. This is much slower than
@@ -17,12 +20,7 @@ cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
 https://github.com/opencv/opencv/issues/8811
 
 This function does NOT support CAHVORE.
-
-There's a 2D flavor of unproject() that returns 2d points, omitting the z=1
-component: unproject_z1(). This is a fundamental building block of an
-undistort() function.
-
-
+ 
 ARGUMENTS
 
 - q: array of dims (...,2); the pixel coordinates we're unprojecting. This
@@ -46,5 +44,11 @@ ARGUMENTS
 
   The focal lengths are given in pixels.
 
-We return an (...,3) array of points in camera coordinates, where the last
-column contains 1.
+- z1: optional boolean that defaults to False
+
+  if False: we return an (...,3) array of points in camera coordinates, where
+  the last column (z) contains 1
+
+  if True: we return an (...,2) array. This represents points in camera
+  coordinates, where the x,y components are present in this array, and the z is
+  omitted, and assumed to be 1
