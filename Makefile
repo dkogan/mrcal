@@ -104,6 +104,7 @@ EXTRA_CLEAN += mrcal/*.so
 
 # Set up the test suite to be runnable in parallel
 TESTS :=					\
+  test/test-poseutils.py			\
   test/test-cameramodel.py
 TESTS_RUN := $(addsuffix .RUN,$(TESTS))
 test check: $(TESTS_RUN)
