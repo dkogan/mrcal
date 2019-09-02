@@ -89,6 +89,14 @@ testutils.confirm_equal( mrcal.transform_point_rt( mrcal.rt_from_Rt(Rt), p ),
                          Tp,
                          msg = 'transform_point_rt')
 
+testutils.confirm_equal( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt), Tp ),
+                         p,
+                         msg = 'transform_point_Rt inverse')
+
+testutils.confirm_equal( mrcal.transform_point_rt( mrcal.invert_rt(mrcal.rt_from_Rt(Rt)), Tp ),
+                         p,
+                         msg = 'transform_point_rt inverse')
+
 testutils.confirm_equal( mrcal.R_from_quat( mrcal.quat_from_R(R) ),
                          R,
                          msg = 'quaternion stuff')
