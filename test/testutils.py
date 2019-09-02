@@ -101,13 +101,13 @@ def confirm_equal(x, xref, msg='', eps=1e-6):
         return False
 
     if N != 0:
-        try:  # Can I subtract?
-            x - xref
+        try:  # I I can subtract, get the error that way
+            diff = x - xref
 
             def norm2sq(x):
                 """Return 2 norm"""
                 return np.inner(x, x)
-            rms = np.sqrt(norm2sq(x - xref) / N)
+            rms = np.sqrt(norm2sq(diff) / N)
             if not np.all(np.isfinite(rms)):
                 print_red("FAILED{}: Some comparison results are NaN or Inf. "
                           "rms error = {}. x = {}, xref = {}".format(
@@ -117,7 +117,7 @@ def confirm_equal(x, xref, msg='', eps=1e-6):
             if rms > eps:
                 print_red("FAILED{}: rms error = {}.\nx,xref,err =\n{}".format(
                     (': ' + msg) if msg else '', rms,
-                    np.vstack((x, xref, x - xref)).transpose()))
+                    np.vstack((x, xref, diff)).transpose()))
                 NchecksFailed = NchecksFailed + 1
                 return False
         except:  # Can't subtract. Do == instead

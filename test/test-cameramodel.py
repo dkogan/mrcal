@@ -6,7 +6,6 @@ import sys
 import numpy as np
 import numpysane as nps
 import os
-import tempfile
 import atexit
 
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -17,6 +16,7 @@ import mrcal
 import testutils
 
 
+import tempfile
 workdir = tempfile.mkdtemp()
 def cleanup():
     global workdir
