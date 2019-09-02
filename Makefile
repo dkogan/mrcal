@@ -102,5 +102,17 @@ DIST_PY3_MODULES := mrcal
 all: mrcal/_mrcal$(PY_EXT_SUFFIX)
 EXTRA_CLEAN += mrcal/*.so
 
+# Set up the test suite to be runnable in parallel
+TESTS :=					\
+  test/test-cameramodel.py
+TESTS_RUN := $(addsuffix .RUN,$(TESTS))
+test check: $(TESTS_RUN)
+	@echo "All tests in the test suite passed!"
+$(TESTS_RUN): all
+.PHONY: test check
+
+%.RUN: %
+	$<
+
 
 include /usr/include/mrbuild/Makefile.common.footer
