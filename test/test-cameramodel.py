@@ -6,8 +6,6 @@ import sys
 import numpy as np
 import numpysane as nps
 import os
-import atexit
-import shutil
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -18,6 +16,8 @@ import testutils
 
 
 import tempfile
+import atexit
+import shutil
 workdir = tempfile.mkdtemp()
 def cleanup():
     global workdir

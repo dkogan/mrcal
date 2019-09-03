@@ -6,7 +6,6 @@ import sys
 import numpy as np
 import numpysane as nps
 import os
-import atexit
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
