@@ -123,6 +123,7 @@ args = parse_args()
 import numpy as np
 import numpysane as nps
 import cv2
+import time
 
 import mrcal
 
@@ -275,11 +276,17 @@ m_to = mrcal.cameramodel( intrinsics            = (distortionmodel_to, intrinsic
                           extrinsics_rt_fromref = m.extrinsics_rt_fromref(),
                           imagersize            = dims )
 
+
+# The note says how we ran this, and contains the commented-out report
+note = \
+    "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                           ' '.join(mrcal.shellquote(s) for s in sys.argv))
+
 if args.writecahvor:
     import mrcal.cahvor
-    mrcal.cahvor.write(sys.stdout, m_to)
+    mrcal.cahvor.write(sys.stdout, m_to, note=note)
 else:
-    m_to.write(sys.stdout)
+    m_to.write(sys.stdout, note=note)
 
 if args.viz:
 
