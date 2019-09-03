@@ -68,7 +68,7 @@ do {                                                                    \
 #define PARSEARG(       name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) parseprearg &name,
 #define FREE_PYARRAY(   name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) Py_XDECREF(name_pyarrayobj);
 #define CHECK_LAYOUT(   name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
-    if(name_pyarrayobj != NULL && (PyObject*)name_pyarrayobj != (PyObject*)Py_None) {                  \
+    if(!IS_NULL(name_pyarrayobj)) {                                     \
         int dims[] = dims_ref;                                          \
         int ndims = (int)sizeof(dims)/(int)sizeof(dims[0]);             \
                                                                         \
@@ -863,7 +863,7 @@ static bool _un_project_validate_args( // out
         goto done;                                                      \
                                                                         \
     /* if the input points array is degenerate, return a degenerate thing */ \
-    if( points == NULL  || (PyObject*)points == Py_None)                \
+    if( IS_NULL(points) )                                               \
     {                                                                   \
         result = Py_None;                                               \
         Py_INCREF(result);                                              \
@@ -1084,7 +1084,7 @@ static bool optimize_validate_args( // out
                                     void* dummy __attribute__((unused)))
 {
     if(PyObject_IsTrue(do_optimize_calobject_warp) &&
-       (calobject_warp == NULL || (PyObject*)calobject_warp == Py_None) )
+       IS_NULL(calobject_warp))
     {
         PyErr_SetString(PyExc_RuntimeError, "if(do_optimize_calobject_warp) then calobject_warp MUST be given as an array to seed the optimization and to receive the results");
         return false;
@@ -1106,7 +1106,7 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(imagersizes)[0]);
         return false;
     }
-    if( roi != NULL && (PyObject*)roi != Py_None && PyArray_DIMS(roi)[0] != Ncameras )
+    if( !IS_NULL(roi) && PyArray_DIMS(roi)[0] != Ncameras )
     {
         PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'roi' says %ld",
                      PyArray_DIMS(extrinsics)[0] + 1,
@@ -1198,8 +1198,7 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    if( skipped_observations_board != NULL &&
-        skipped_observations_board != Py_None)
+    if( !IS_NULL(skipped_observations_board) )
     {
         if( !PySequence_Check(skipped_observations_board) )
         {
@@ -1227,8 +1226,7 @@ static bool optimize_validate_args( // out
         }
     }
 
-    if( skipped_observations_point != NULL &&
-        skipped_observations_point != Py_None)
+    if( !IS_NULL(skipped_observations_point))
     {
         if( !PySequence_Check(skipped_observations_point) )
         {
@@ -1259,7 +1257,7 @@ static bool optimize_validate_args( // out
     // make sure the indices arrays are valid: the data is monotonic and
     // in-range
     int Nframes = 0;
-    if( frames != NULL && Py_None != (PyObject*)frames )
+    if( !IS_NULL(frames) )
         Nframes = PyArray_DIMS(frames)[0];
     int i_frame_last  = -1;
     int i_camera_last = -1;
@@ -1304,7 +1302,7 @@ static bool optimize_validate_args( // out
         i_camera_last = i_camera;
     }
     int Npoints = 0;
-    if( points != NULL && Py_None != (PyObject*)points )
+    if( !IS_NULL(points) )
         Npoints = PyArray_DIMS(points)[0];
     int i_point_last = -1;
     i_camera_last = -1;
@@ -1367,8 +1365,7 @@ static bool optimize_validate_args( // out
         }
     }
 
-    if( !(solver_context == NULL ||
-          (PyObject*)solver_context == Py_None ||
+    if( !(IS_NULL(solver_context) ||
           Py_TYPE(solver_context) == &SolverContextType) )
     {
         PyErr_Format(PyExc_RuntimeError, "solver_context must be None or of type mrcal.SolverContext");
@@ -1442,7 +1439,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     // separate dims[] (PyArray_SimpleNew is a macro too)
 #define SET_SIZE0_IF_NONE(x, type, ...)                                 \
     ({                                                                  \
-        if( x == NULL || Py_None == (PyObject*)x )                      \
+        if( IS_NULL(x) )                                                \
         {                                                               \
             if( x != NULL ) Py_DECREF(x);                               \
             npy_intp dims[] = {__VA_ARGS__};                            \
@@ -1488,14 +1485,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         pose_t*       c_frames         = (pose_t*)  PyArray_DATA(frames);
         point3_t*     c_points         = (point3_t*)PyArray_DATA(points);
         point2_t*     c_calobject_warp =
-            calobject_warp == NULL || (PyObject*)calobject_warp == Py_None ?
+            IS_NULL(calobject_warp) ?
             NULL : (point2_t*)PyArray_DATA(calobject_warp);
 
 
         observation_board_t c_observations_board[NobservationsBoard];
         int Nskipped_observations_board =
-            ( skipped_observations_board == NULL ||
-              skipped_observations_board == Py_None ) ?
+            IS_NULL(skipped_observations_board) ?
             0 :
             (int)PySequence_Size(skipped_observations_board);
         int i_skipped_observation_board = 0;
@@ -1575,8 +1571,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         observation_point_t c_observations_point[NobservationsPoint];
         int Nskipped_observations_point =
-            ( skipped_observations_point == NULL ||
-              skipped_observations_point == Py_None ) ?
+            IS_NULL(skipped_observations_point) ?
             0 :
             (int)PySequence_Size(skipped_observations_point);
         int i_skipped_observation_point = 0;
@@ -1691,7 +1686,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         // input
         int* c_outlier_indices;
         int Noutlier_indices;
-        if(outlier_indices == NULL || (PyObject*)outlier_indices == Py_None)
+        if(IS_NULL(outlier_indices))
         {
             c_outlier_indices = NULL;
             Noutlier_indices  = 0;
@@ -1703,7 +1698,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         }
 
         double* c_roi;
-        if(roi == NULL || (PyObject*)roi == Py_None)
+        if(IS_NULL(roi))
             c_roi = NULL;
         else
             c_roi = PyArray_DATA(roi);
@@ -1711,7 +1706,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         dogleg_solverContext_t** solver_context_optimizer = NULL;
-        if(solver_context != NULL && (PyObject*)solver_context != Py_None)
+        if(!IS_NULL(solver_context))
         {
             solver_context_optimizer                   = &solver_context->ctx;
             solver_context->distortion_model           = distortion_model_type;
