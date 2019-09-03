@@ -24,8 +24,8 @@
 #define STRING_OBJECT       "S"
 #endif
 
-
 #define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
+#define IS_TRUE(x) ((x) != NULL && PyObject_IsTrue(x))
 
 // Python is silly. There's some nuance about signal handling where it sets a
 // SIGINT (ctrl-c) handler to just set a flag, and the python layer then reads
@@ -872,7 +872,7 @@ static bool _un_project_validate_args( // out
                                                                         \
     distortion_model_t distortion_model_type;                           \
     if(!_un_project_validate_args( &distortion_model_type,              \
-                                   IS_NULL(z1) ? dim_points_in_notz1 : dim_points_in_z1, \
+                                   IS_TRUE(z1) ? dim_points_in_z1 : dim_points_in_notz1, \
                                    ARGUMENTS_REQUIRED(ARG_LIST_CALL)    \
                                    ARGUMENTS_OPTIONAL_VALIDATE(ARG_LIST_CALL) \
                                    NULL))                               \
@@ -886,13 +886,13 @@ static bool _un_project_validate_args( // out
     const npy_intp* leading_dims  = PyArray_DIMS(points);               \
     int             Nleading_dims = PyArray_NDIM(points)-1;             \
     int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];   \
-    bool get_gradients_bool = IS_NULL(get_gradients);                   \
+    bool get_gradients_bool = IS_TRUE(get_gradients);                   \
                                                                         \
     {                                                                   \
         npy_intp dims[Nleading_dims+2]; /* one extra for the gradients */ \
         memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));      \
                                                                         \
-        dims[Nleading_dims + 0] = IS_NULL(z1) ? dim_points_out_notz1 : dim_points_out_z1; \
+        dims[Nleading_dims + 0] = IS_TRUE(z1) ? dim_points_out_z1 : dim_points_out_notz1; \
         out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,        \
                                                 dims,                   \
                                                 NPY_DOUBLE);            \
@@ -905,7 +905,7 @@ static bool _un_project_validate_args( // out
                                                                NPY_DOUBLE); \
                                                                         \
             dims[Nleading_dims + 0] = 2;                                \
-            dims[Nleading_dims + 1] = IS_NULL(z1) ? dim_points_in_notz1 : dim_points_in_z1; \
+            dims[Nleading_dims + 1] = IS_TRUE(z1) ? dim_points_in_z1 : dim_points_in_notz1; \
             dq_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
                                                                dims,    \
                                                                NPY_DOUBLE); \
@@ -934,18 +934,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
                          2, 2);
 
     bool mrcal_result;
-    if( IS_NULL(z1) )
-        mrcal_result =
-            mrcal_project((point2_t*)PyArray_DATA(out),
-                          get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
-                          get_gradients_bool ? (point3_t*)PyArray_DATA(dq_dp)  : NULL,
-
-                          (const point3_t*)PyArray_DATA(points),
-                          Npoints,
-                          distortion_model_type,
-                          // core, distortions concatenated
-                          (const double*)PyArray_DATA(intrinsics));
-    else
+    if( IS_TRUE(z1) )
         mrcal_result =
             mrcal_project_z1((point2_t*)PyArray_DATA(out),
                              get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
@@ -956,6 +945,17 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
                              distortion_model_type,
                              // core, distortions concatenated
                              (const double*)PyArray_DATA(intrinsics));
+    else
+        mrcal_result =
+            mrcal_project((point2_t*)PyArray_DATA(out),
+                          get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
+                          get_gradients_bool ? (point3_t*)PyArray_DATA(dq_dp)  : NULL,
+
+                          (const point3_t*)PyArray_DATA(points),
+                          Npoints,
+                          distortion_model_type,
+                          // core, distortions concatenated
+                          (const double*)PyArray_DATA(intrinsics));
 
 
     if(!mrcal_result)
@@ -996,18 +996,8 @@ static PyObject* unproject(PyObject* NPY_UNUSED(self),
                          PROJECT_ARGUMENTS_OPTIONAL,
                          2, 2,
                          3, 2);
-
     bool mrcal_result;
-    if( IS_NULL(z1) )
-        mrcal_result =
-            mrcal_unproject((point3_t*)PyArray_DATA(out),
-
-                            (const point2_t*)PyArray_DATA(points),
-                            Npoints,
-                            distortion_model_type,
-                            /* core, distortions concatenated */
-                            (const double*)PyArray_DATA(intrinsics));
-    else
+    if( IS_TRUE(z1) )
         mrcal_result =
             mrcal_unproject_z1((point2_t*)PyArray_DATA(out),
 
@@ -1016,6 +1006,15 @@ static PyObject* unproject(PyObject* NPY_UNUSED(self),
                                distortion_model_type,
                                /* core, distortions concatenated */
                                (const double*)PyArray_DATA(intrinsics));
+    else
+        mrcal_result =
+            mrcal_unproject((point3_t*)PyArray_DATA(out),
+
+                            (const point2_t*)PyArray_DATA(points),
+                            Npoints,
+                            distortion_model_type,
+                            /* core, distortions concatenated */
+                            (const double*)PyArray_DATA(intrinsics));
     if(!mrcal_result)
     {
         PyErr_SetString(PyExc_RuntimeError, "mrcal_unproject() failed!");
