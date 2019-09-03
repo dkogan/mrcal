@@ -7,6 +7,7 @@ import numpy as np
 import numpysane as nps
 import os
 import atexit
+import shutil
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -21,7 +22,7 @@ workdir = tempfile.mkdtemp()
 def cleanup():
     global workdir
     try:
-        deltree(workdir)
+        shutil.rmtree(workdir)
         workdir = None
     except:
         pass
