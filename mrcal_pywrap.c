@@ -1062,9 +1062,9 @@ static PyObject* unproject(PyObject* NPY_UNUSED(self),
     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_) \
     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_)
 
-#define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_) \
-    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
+#define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
+    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
