@@ -67,7 +67,6 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
 
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
-    fx,fy,cx,cy  = intrinsics_data[:4]
 
     # I have points in space now. My scaled pinhole camera would map these to
     # (k*fx*x/z+cx, k*fy*y/z+cy). I pick a k sure that this is in-bounds for all
@@ -75,14 +74,14 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     # possible. I can look at just the normalized x and y. Just one of the query
     # points should land on the edge; the rest should be in-bounds
 
-    W1 = int(W*scale_imagersize_pinhole + 0.5)
-    H1 = int(H*scale_imagersize_pinhole + 0.5)
-    cx1 = cx / float(W - 1) * float(W1 - 1)
-    cy1 = cy / float(H - 1) * float(H1 - 1)
+    WH   = np.array(model.imagersize(), dtype=float)
+    WH1  = np.round( WH * scale_imagersize_pinhole )
+    cxy1 = cxy * scale_imagersize_pinhole
+    fxy1 = fxy * scale_imagersize_pinhole
 
     normxy_edges = v_edges[:,:2] / v_edges[:,(2,)]
-    normxy_min   = (                               - np.array((cx1,cy1))) / fxy
-    normxy_max   = (np.array((W1,H1), dtype=float) - 1.0 - np.array((cx1,cy1))) / fxy
+    normxy_min   = (       - cxy1) / fxy1
+    normxy_max   = (WH1-1. - cxy1) / fxy1
 
     # Each query point will imply a scale to just fit into the imager I take the
     # most conservative of these. For each point I look at the normalization sign to
@@ -127,15 +126,14 @@ def undistort_image__compute_map(model,
     W,H                              = model.imagersize()
     fx,fy,cx,cy                      = intrinsics_data[ :4]
 
-
     W1 = int(W*scale_imagersize_pinhole + 0.5)
     H1 = int(H*scale_imagersize_pinhole + 0.5)
     output_shape = (W1, H1)
 
-    cx1 = cx / float(W - 1) * float(W1 - 1)
-    cy1 = cy / float(H - 1) * float(H1 - 1)
-    fx1 = fx * scale_f_pinhole
-    fy1 = fy * scale_f_pinhole
+    cx1 = cx * scale_imagersize_pinhole
+    cy1 = cy * scale_imagersize_pinhole
+    fx1 = fx * scale_imagersize_pinhole * scale_f_pinhole
+    fy1 = fy * scale_imagersize_pinhole * scale_f_pinhole
 
     if re.match("DISTORTION_OPENCV",distortion_model):
         # OpenCV models have a special-case path here. This works
