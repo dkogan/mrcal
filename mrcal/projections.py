@@ -39,7 +39,7 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     # I look at a number of points on the edge of the input image. Of the points
     # I look at I choose k so that all the points end up inside the undistorted
     # image, leaving the worst one at the edge
-    if fit is None: return 1.0
+    if fit is None: return scale_imagersize_pinhole
 
     W,H = model.imagersize()
     if type(fit) is np.ndarray:
