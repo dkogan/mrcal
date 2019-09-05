@@ -37,7 +37,7 @@ Requires: opencv-python36
 Requires: python36-numpy >= 1.14.5
 Requires: python36-scipy >= 0.18.1
 Requires: python36
-Requires: python-ipython-console
+Requires: python36-ipython-console
 
 %description
 Calibration library
