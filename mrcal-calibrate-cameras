@@ -488,7 +488,8 @@ import time
 
 import mrcal
 
-
+# wider printing is more convenient here
+np.set_printoptions(linewidth=300)
 
 
 def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
