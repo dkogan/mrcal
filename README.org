@@ -498,6 +498,10 @@ OPTIONS
       --skip-outlier-rejection
                             By default we throw out outliers. This option turns
                             that off
+      --unweighted-corners  By default we weight each corner error contribution
+                            using information from mrgingham. If we want to ignore
+                            this information, and weigh them all the same, pass
+                            --unweighted-corners.
       --verbose-solver      By default the final stage of the solver doesn't say
                             much. This option turns on verbosity to get lots of
                             diagnostics.
@@ -867,7 +871,7 @@ NAME
 
 SYNOPSIS
       $ mrcal-redistort-points
-          pinhole.cameramodel fisheye.cameramodel
+          from.cameramodel to.cameramodel
           < input.vnl > output.vnl
 
 DESCRIPTION
