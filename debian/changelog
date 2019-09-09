@@ -1,3 +1,10 @@
+mrcal (0.27) unstable; urgency=medium
+
+  * Added mrcal_project_z1(), project(z1=True), unproject(z1=True)
+  * First cut at a real test suite. Low coverage for now, but increasing
+
+ -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 09 Sep 2019 13:50:01 -0700
+
 mrcal (0.26) unstable; urgency=medium
 
   * Updates
