@@ -8,8 +8,13 @@ SYNOPSIS
   Wrote image-valid-intrinsics-region.png
 
 Given a camera model, this tool renders the valid-intrinsics region. If an image
-is given, the region is rendered overlaid onto the image. If --writeimage is
-given also, the output is another IMAGE instead of a plot
+is given, the region is rendered overlaid onto the image.
+
+Without --writeimage we make a plot with gnuplot. If --points then we also read
+x,y points from STDIN, and plot those.
+
+With --writeimage, the output is another IMAGE instead of a plot. We don't plot
+points from STDIN in this case
 
 '''
 
@@ -30,7 +35,10 @@ def parse_args():
                         action='store_true',
                         help='''By default I make a plot. If --writeimage is given, I output an annotated
                         image instead''')
-
+    parser.add_argument('--points',
+                        action='store_true',
+                        help='''If given, I read a set of xy points from STDIN, and include them in the plot.
+                        This applies ONLY if not --writeimage''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
@@ -69,10 +77,14 @@ if args.writeimage:
        args.extraset is not None:
         raise Exception("--title and --hardcopy and --extraset are only valid without --writeimage")
 
+    if args.points and args.writeimage:
+        raise Exception("Currently --points is implemented ONLY if not --writeimage")
+
 
 
 
 import mrcal
+import numpy as np
 
 model = mrcal.cameramodel(args.model)
 
@@ -97,12 +109,17 @@ if args.writeimage:
 
 else:
 
+    points = None
+    if args.points:
+        points = np.loadtxt(sys.stdin)
+
     plotkwargs_extra = {}
     if args.extraset is not None:
         plotkwargs_extra['set'] = args.extraset
 
     plot = mrcal.show_valid_intrinsics_region( \
                model, args.image,
+               points = points,
                hardcopy = args.hardcopy,
                title    = args.title,
                kwargs   = plotkwargs_extra)

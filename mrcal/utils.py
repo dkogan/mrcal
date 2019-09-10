@@ -1817,6 +1817,7 @@ def show_intrinsics_diff(models,
 
 def show_valid_intrinsics_region(model,
                                  image    = None,
+                                 points   = None,
                                  title    = None,
                                  hardcopy = None,
                                  kwargs   = None):
@@ -1825,7 +1826,10 @@ def show_valid_intrinsics_region(model,
     This function takes in a camera model and an image, and makes a plot with
     the valid-intrinsics region drawn on top of the image. The image can be a
     filename or a numpy array. The camera model should contain the
-    valid-intrinsics region
+    valid-intrinsics region.
+
+    If given, points is a (2,N) numpy array of points to draw onto the image
+    also
 
     This is similar to mrcal.annotate_image__valid_intrinsics_region(), but
     instead of writing an image, makes a plot
@@ -1859,6 +1863,10 @@ def show_valid_intrinsics_region(model,
 
     plot_data_args.append( (valid_region[:,0], valid_region[:,1],
                             dict(_with = 'lines lw 3')) )
+
+    if points is not None:
+        plot_data_args.append( (points, dict(tuplesize = -2,
+                                             _with = 'points pt 7 ps 1')))
 
     plot = gp.gnuplotlib(square=1,
                          _xrange=[0,W],

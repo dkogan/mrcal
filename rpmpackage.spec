@@ -32,7 +32,7 @@ BuildRequires: python36-scipy
 BuildRequires: python36
 
 Requires: numpysane >= 0.18-2
-Requires: gnuplotlib >= 0.28-3
+Requires: gnuplotlib >= 0.21
 Requires: opencv-python36
 Requires: python36-numpy >= 1.14.5
 Requires: python36-scipy >= 0.18.1
