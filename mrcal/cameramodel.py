@@ -14,6 +14,7 @@ import numbers
 import ast
 import re
 import warnings
+import io
 
 import mrcal
 
@@ -436,6 +437,31 @@ class cameramodel(object):
                             kwargs.get('valid_intrinsics_region'))
 
 
+    def __str__(self):
+        '''Stringification
+
+        I return what would be written to a .cameramodel file'''
+
+        f = io.StringIO()
+        self._write(f)
+        return f.getvalue()
+
+    def __repr__(self):
+        '''Representation
+
+        I return a string of a constructor function call'''
+
+        funcs = (self.imagersize,
+                 self.intrinsics,
+                 self.extrinsics_rt_fromref,
+                 self.observed_pixel_uncertainty,
+                 self.invJtJ_intrinsics_full,
+                 self.invJtJ_intrinsics_observations_only,
+                 self.valid_intrinsics_region)
+
+        return 'mrcal.cameramodel(' + \
+            ', '.join( f.__func__.__code__.co_name + '=' + repr(f()) for f in funcs ) + \
+            ')'
 
 
     def write(self, f, note=None, cahvor=False):
