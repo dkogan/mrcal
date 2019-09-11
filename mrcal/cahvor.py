@@ -192,10 +192,6 @@ def _read(f):
                                                                     axis = -1)),
                           valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION'),
                           extrinsics_Rt_toref = nps.glue(R_toref,t_toref, axis=-2))
-
-    # I write the whole thing into my structure so that I can pull it out later
-    m.set_cookie(x)
-
     return m
 
 def read(f):
