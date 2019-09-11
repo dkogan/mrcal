@@ -186,13 +186,12 @@ def _read(f):
                 distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
                 distortion_model = 'DISTORTION_CAHVOR'
 
-    m = mrcal.cameramodel()
-    m.intrinsics( x['Dimensions'].astype(np.int32),
-                  (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
-                                               distortions,
-                                               axis = -1)),
-                  valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION'))
-    m.extrinsics_Rt_toref(nps.glue(R_toref,t_toref, axis=-2))
+    m = mrcal.cameramodel(imagersize = x['Dimensions'].astype(np.int32),
+                          intrinsics = (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
+                                                                    distortions,
+                                                                    axis = -1)),
+                          valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION'),
+                          extrinsics_Rt_toref = nps.glue(R_toref,t_toref, axis=-2))
 
     # I write the whole thing into my structure so that I can pull it out later
     m.set_cookie(x)
@@ -203,9 +202,6 @@ def read(f):
     r'''Reads a .cahvor file into a cameramodel
 
     The input is a filename or an opened file'''
-
-    if f is None:
-        return mrcal.cameramodel()
 
     if type(f) is mrcal.cameramodel:
         return f

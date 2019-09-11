@@ -333,27 +333,26 @@ class cameramodel(object):
         r'''Initializes a new camera-model object
 
         If file_or_model is not None: we read the camera model from a filename,
-        a pre-opened file or from another camera model (copy constructor). If
-        reading a filename, and the filename is xxx.cahvor, then we assume a
-        legacy cahvor file format instead of the usual one
+        a pre-opened file or from another camera model (copy constructor). In
+        this case kwargs MUST be None. If reading a filename, and the filename
+        is xxx.cahvor, then we assume a legacy cahvor file format instead of the
+        usual one
 
-        If f is None and kwargs is empty: we init the model with invalid
-        intrinsics (None initially; will need to be set later), and identity
-        extrinsics
+        if file_or_model is None, then the input comes from kwargs, and they
+        must NOT be None. The following keys are expected
 
-        if f is None and we have kwargs:
-
-        - 'intrinsics'
-        - Exactly ONE of the following for theextrinsics:
+        - 'intrinsics': REQUIRED tuple (distortion_model, parameters)
+        - Exactly ONE or ZERO of the following for the extrinsics (if omitted we
+          use an identity transformation):
           - 'extrinsics_Rt_toref'
           - 'extrinsics_Rt_fromref'
           - 'extrinsics_rt_toref'
           - 'extrinsics_rt_fromref'
-        - 'imagersize'
-        - 'observed_pixel_uncertainty',          optionally
-        - 'invJtJ_intrinsics_full',              optionally
-        - 'invJtJ_intrinsics_observations_only', optionally
-        - 'valid_intrinsics_region',     optionally
+        - 'imagersize': REQUIRED iterable for the (width,height) of the imager
+        - 'observed_pixel_uncertainty': OPTIONAL
+        - 'invJtJ_intrinsics_full': OPTIONAL
+        - 'invJtJ_intrinsics_observations_only': OPTIONAL
+        - 'valid_intrinsics_region': OPTIONAL
 
         '''
 
@@ -372,8 +371,7 @@ class cameramodel(object):
 
         if len(kwargs) == 0:
             if file_or_model is None:
-                self._extrinsics = np.zeros(6)
-                self._intrinsics = None
+                raise Exception("We have neither an existing model to read nor a set of parameters")
 
             elif type(file_or_model) is cameramodel:
                 import copy
@@ -395,7 +393,7 @@ class cameramodel(object):
 
         else:
             if file_or_model is not None:
-                raise Exception("We have kwargs AND file_or_model. These are supposed to be mutually exclusive")
+                raise Exception("We have kwargs AND file_or_model. Should have gotten exactly one of these")
 
             keys_remaining = set( kwargs.keys() )
 
@@ -410,14 +408,25 @@ class cameramodel(object):
                                    'extrinsics_rt_toref',
                                    'extrinsics_rt_fromref'))
             extrinsics_got = keys_remaining.intersection(extrinsics_keys)
-            if len(extrinsics_got) != 1:
-                raise Exception("No file_or_model was given, so we MUST have gotten one of {}".format(extrinsics_keys))
+            if len(extrinsics_got) == 0:
+                # No extrinsics. Use the identity
+                self.extrinsics_rt_fromref(np.zeros((6,),dtype=float))
+            elif len(extrinsics_got) == 1:
+                if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt_toref  (kwargs['extrinsics_Rt_toref'  ])
+                if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt_fromref(kwargs['extrinsics_Rt_fromref'])
+                if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt_toref  (kwargs['extrinsics_rt_toref'  ])
+                if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt_fromref(kwargs['extrinsics_rt_fromref'])
+            else:
+                raise Exception("No file_or_model was given, so we can take ONE of {}. Instead we got '{}". \
+                                format(extrinsics_keys, extrinsics_got))
             keys_remaining -= extrinsics_keys
-            if keys_remaining - set(('observed_pixel_uncertainty',
-                                     'invJtJ_intrinsics_full',
-                                     'invJtJ_intrinsics_observations_only',
-                                     'valid_intrinsics_region'),):
-                raise Exception("No file_or_model was given, so we MUST have gotten 'intrinsics', 'extrinsics_...', 'imagersize' and MAYBE 'invJtJ_intrinsics_full' and/or 'invJtJ_intrinsics_observations_only' and/or 'valid_intrinsics_region' and/or 'observed_pixel_uncertainty'. Questionable keys: '{}'".format(keys_remaining))
+
+            keys_remaining -= set(('observed_pixel_uncertainty',
+                                   'invJtJ_intrinsics_full',
+                                   'invJtJ_intrinsics_observations_only',
+                                   'valid_intrinsics_region'),)
+            if keys_remaining:
+                raise Exception("We were given some unknown parameters: {}".format(keys_remaining))
 
             self.intrinsics(kwargs['imagersize'],
                             kwargs['intrinsics'],
@@ -426,10 +435,6 @@ class cameramodel(object):
                             kwargs.get('invJtJ_intrinsics_observations_only'),
                             kwargs.get('valid_intrinsics_region'))
 
-            if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt_toref  (kwargs['extrinsics_Rt_toref'  ])
-            if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt_fromref(kwargs['extrinsics_Rt_fromref'])
-            if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt_toref  (kwargs['extrinsics_rt_toref'  ])
-            if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt_fromref(kwargs['extrinsics_rt_fromref'])
 
 
 
