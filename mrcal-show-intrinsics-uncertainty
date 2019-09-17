@@ -62,7 +62,7 @@ def parse_args():
                         help='''Report an outlierness-based uncertainty, not an input-noise-based one''')
     parser.add_argument('--cbmax',
                         type=float,
-                        default=5,
+                        default=3,
                         help='''Maximum range of the colorbar''')
     parser.add_argument('--extratitle',
                         type=str,

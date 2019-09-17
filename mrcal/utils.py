@@ -967,7 +967,7 @@ def show_intrinsics_uncertainty(model,
 
                                 extratitle       = None,
                                 hardcopy         = None,
-                                cbmax            = None,
+                                cbmax            = 3,
                                 kwargs           = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
@@ -1025,7 +1025,7 @@ def show_intrinsics_uncertainty(model,
                           'view map',
                           'contour surface',
                           'key box opaque',
-                          'cntrparam levels incremental 10,-0.2,0'])
+                          'cntrparam levels incremental 3,-0.5,0'])
 
     plot_data_args = [(nps.transpose(err), # err has shape (W,H), but the plotter wants
                                            # what numpy wants: (H,W)
@@ -1588,7 +1588,7 @@ def show_intrinsics_diff(models,
                          vectorscale      = 1.0,
                          extratitle       = None,
                          hardcopy         = None,
-                         cbmax            = None,
+                         cbmax            = 4,
                          kwargs = None):
     r'''Visualize the difference in projection between N models
 
@@ -1751,7 +1751,7 @@ def show_intrinsics_diff(models,
                               'view map',
                               'contour surface',
                               'key box opaque',
-                              'cntrparam levels incremental 10,-1,0'])
+                              'cntrparam levels incremental 4,-0.5,0'])
         plot = \
             gp.gnuplotlib(_3d=1,
                           unset='grid',

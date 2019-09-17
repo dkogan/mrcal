@@ -2131,7 +2131,6 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_x=gridn_x,
                                               gridn_y=gridn_y,
-                                              cbmax=5,
                                               **kwargs)
 plots_valid_intrinsics_region = [None] * Ncameras
 def show_valid_intrinsics_region(i_camera = None, **kwargs):
