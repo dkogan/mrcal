@@ -1090,6 +1090,13 @@ static bool optimize_validate_args( // out
         return false;
     }
 
+    static_assert( sizeof(pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
+
     int Ncameras = PyArray_DIMS(intrinsics)[0];
     if( Ncameras-1 !=
         PyArray_DIMS(extrinsics)[0] )
@@ -1113,13 +1120,6 @@ static bool optimize_validate_args( // out
                      PyArray_DIMS(roi)[0]);
         return false;
     }
-
-    static_assert( sizeof(pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
-#pragma GCC diagnostic pop
 
     long int NobservationsBoard = PyArray_DIMS(observations_board)[0];
     if( PyArray_DIMS(indices_frame_camera_board)[0] != NobservationsBoard )
