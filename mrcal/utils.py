@@ -2370,7 +2370,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     # this wastes memory, but makes it easier to keep track of which data goes
     # with what
-    Rt_all = np.zeros( (Nobservations, 4, 3), dtype=float)
+    Rt_cf_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
     # No calobject_warp. Good-enough for the seeding
     full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
@@ -2414,10 +2414,10 @@ def estimate_local_calobject_poses( indices_frame_camera,
                 raise Exception("retried solvePnP says that tvec.z <= 0")
 
 
-        Rt = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+        Rt_cf = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
         # visualize the fit
-        # x_cam    = nps.matmult(Rt[:3,:],ref_object)[..., 0] + Rt[3,:]
+        # x_cam    = nps.matmult(Rt_cf[:3,:],ref_object)[..., 0] + Rt_cf[3,:]
         # x_imager = x_cam[...,:2]/x_cam[...,(2,)] * focal + (imagersize-1)/2
         # import gnuplotlib as gp
         # gp.plot( (x_imager[:,0],x_imager[:,1], dict(legend='solved')),
@@ -2428,13 +2428,13 @@ def estimate_local_calobject_poses( indices_frame_camera,
         # IPython.embed()
         # sys.exit()
 
-        Rt_all[i_observation, :, :] = Rt
+        Rt_cf_all[i_observation, :, :] = Rt_cf
 
 
-    return Rt_all
+    return Rt_cf_all
 
 
-def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
+def estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                            observations, dot_spacing, Ncameras,
                            Nwant):
     r'''Estimate camera poses in respect to each other
@@ -2519,7 +2519,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                 if Rt0 is not None:
                     raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
                                                                                             i_frame_this))
-                Rt0 = calobject_poses_local_Rt[i_observation, ...]
+                Rt0 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d0  = observations[i_observation, ..., :2]
             elif i_camera_this == icam_from:
                 if Rt0 is None: # have camera1 observation, but not camera0
@@ -2528,7 +2528,7 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
                 if Rt1 is not None:
                     raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
                                                                                             i_frame_this))
-                Rt1 = calobject_poses_local_Rt[i_observation, ...]
+                Rt1 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d1  = observations[i_observation, ..., :2]
 
 
@@ -2696,22 +2696,22 @@ def estimate_camera_poses( calobject_poses_local_Rt, indices_frame_camera, \
     return nps.cat(*Rt_0c)
 
 
-def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_frame_camera, dot_spacing,
-                         Nwant):
+def estimate_frame_poses(calobject_poses_local_Rt_cf, camera_poses_Rt01, indices_frame_camera,
+                         dot_spacing, Nwant):
     r'''Estimate poses of the calibration object observations
 
     We're given
 
-    calobject_poses_local_Rt:
+    calobject_poses_local_Rt_cf:
 
       an array of dimensions (Nobservations,4,3) that contains a
-      calobject-to-camera transformation estimate, for each observation of the
+      camera-from-calobject transformation estimate, for each observation of the
       board
 
-    camera_poses_Rt:
+    camera_poses_Rt01:
 
-      an array of dimensions (Ncameras-1,4,3) that contains a camerai-to-camera0
-      transformation estimate. camera0-to-camera0 is the identity, so this isn't
+      an array of dimensions (Ncameras-1,4,3) that contains a camera0-from-camerai
+      transformation estimate. camera0-from-camera0 is the identity, so this isn't
       stored
 
     indices_frame_camera:
@@ -2726,7 +2726,6 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
 
     '''
 
-
     def process(i_observation0, i_observation1):
         R'''Given a range of observations corresponding to the same frame, estimate the
         frame pose'''
@@ -2735,14 +2734,12 @@ def estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt, indices_fram
             r'''Transform from the board coords to the camera coords'''
             i_frame,i_camera = indices_frame_camera[i_observation, ...]
 
-            Rt_f = calobject_poses_local_Rt[i_observation, :,:]
+            Rt_cf = calobject_poses_local_Rt_cf[i_observation, :,:]
             if i_camera == 0:
-                return Rt_f
+                return Rt_cf
 
             # T_cami_cam0 T_cam0_board = T_cami_board
-            Rt_cam = camera_poses_Rt[i_camera-1, ...]
-
-            return mrcal.compose_Rt( Rt_cam, Rt_f)
+            return mrcal.compose_Rt( camera_poses_Rt01[i_camera-1, ...], Rt_cf)
 
 
         # frame poses should map FROM the frame coord system TO the ref coord
@@ -2830,7 +2827,7 @@ def make_seed_no_distortion( imagersizes,
     # The result has dimensions (N,4,3)
     intrinsics = [('DISTORTION_NONE', np.array((focal_estimate,focal_estimate, (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
                   for imagersize in imagersizes]
-    calobject_poses_local_Rt = \
+    calobject_poses_local_Rt_cf = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
                                               observations,
                                               dot_spacing, object_width_n,
@@ -2847,26 +2844,26 @@ def make_seed_no_distortion( imagersizes,
     #
     # I get transformations that map points in 1-Nth camera coord system to 0th
     # camera coord system. Rt have dimensions (N-1,4,3)
-    camera_poses_Rt = mrcal.estimate_camera_poses( calobject_poses_local_Rt,
-                                                   indices_frame_camera,
-                                                   observations,
-                                                   dot_spacing,
-                                                   Ncameras,
-                                                   object_width_n)
+    camera_poses_Rt01 = mrcal.estimate_camera_poses( calobject_poses_local_Rt_cf,
+                                                     indices_frame_camera,
+                                                     observations,
+                                                     dot_spacing,
+                                                     Ncameras,
+                                                     object_width_n)
 
-    if len(camera_poses_Rt):
+    if len(camera_poses_Rt01):
         # extrinsics should map FROM the ref coord system TO the coord system of the
         # camera in question. This is backwards from what I have
-        extrinsics = nps.atleast_dims( mrcal.rt_from_Rt(mrcal.invert_Rt(camera_poses_Rt)),
+        extrinsics = nps.atleast_dims( mrcal.rt_from_Rt(mrcal.invert_Rt(camera_poses_Rt01)),
                                        -2 )
     else:
         extrinsics = np.zeros((0,6))
 
     frames = \
-        mrcal.estimate_frame_poses(calobject_poses_local_Rt, camera_poses_Rt,
+        mrcal.estimate_frame_poses(calobject_poses_local_Rt_cf, camera_poses_Rt01,
                                    indices_frame_camera,
-                                   dot_spacing,
-                                   object_width_n)
+                                   dot_spacing, object_width_n)
+
     return intrinsics_data,extrinsics,frames
 
 
