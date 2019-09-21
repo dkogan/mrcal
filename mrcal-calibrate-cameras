@@ -314,15 +314,15 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--focal',
                         type=float,
-                        default=1970,
-                        required=True,
-                        help='Initial estimate of the focal length, in pixels')
+                        help='Initial estimate of the focal length, in pixels. Required unless --seed is given')
     parser.add_argument('--imagersize',
                         nargs=2,
                         type=int,
                         required=False,
-                        help='''Size of the imager. This is only required if we pass --corners-cache AND if none
-                        of the image files on disk actually exist''')
+                        help='''Size of the imager. This is only required if we pass --corners-cache AND if
+                        none of the image files on disk actually exist and if we
+                        don't have a --seed. If we do have a --seed, the
+                        --imagersize values must match the --seed exactly''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
                                 parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
@@ -338,8 +338,8 @@ def parse_args():
                         help='How many points the calibration board has per side')
     parser.add_argument('--distortion-model',
                         required=False,
-                        default='DISTORTION_OPENCV4',
-                        help='''Which distortion model we're using. By default I use DISTORTION_OPENCV4''')
+                        help='''Which distortion model we're using. This is required unless we have a
+                        --seed''')
     parser.add_argument('--roi',
                         nargs=4,
                         type=float,
@@ -358,11 +358,25 @@ def parse_args():
                         required=False,
                         default=False,
                         action='store_true',
-                        help='''If passed, we incrementally increase ROI and distortion model complexity
-                        across multiple solves. In this mode the requested ROI
-                        is a target, and the requested distortion model is the
-                        upper bound. If we can get away with a simpler one, we
-                        use that.''')
+                        help='''THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet. If passed, we
+                        incrementally increase ROI and distortion model
+                        complexity across multiple solves. In this mode the
+                        requested ROI is a target, and the requested distortion
+                        model is the upper bound. If we can get away with a
+                        simpler one, we use that.''')
+    parser.add_argument('--seed',
+                        required=False,
+                        type=str,
+                        help='''A comma-separated whitespace-less list of camera model globs to use as a seed
+                        for the intrinsics and extrinsics. The number of models
+                        must match the number of cameras exactly. Expanded globs
+                        are sorted alphanumerically. This is useful to bootstrap
+                        the solve or to validate an existing set of models, or
+                        to recompute just the extrinsics or just the intrinsics
+                        of a solve. If omitted, we estimate a seed. Exclusive
+                        with --focal. If given, --imagersize is omitted or it
+                        must match EXACTLY with whatever is in the --seed
+                        models''')
     parser.add_argument('--num-cross-validation-splits',
                         required=False,
                         default=1,
@@ -485,6 +499,7 @@ import numpysane as nps
 import cv2
 import copy
 import time
+import glob
 
 import mrcal
 
@@ -492,7 +507,7 @@ import mrcal
 np.set_printoptions(linewidth=300)
 
 
-def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
+def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, seedmodel):
     r'''Returns the imager size for a given camera
 
     This reports the size for ONE camera. I only look at the first match. It is
@@ -505,6 +520,9 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
     '''
     if args_imagersize is not None:
         return args_imagersize
+    if seedmodel is not None:
+        return seedmodel.imagersize()
+
     try:
         iobservation0_thiscamera = next( i for i in range(len(paths)) if indices_frame_camera[i,1] == icamera )
     except:
@@ -517,9 +535,6 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize):
         raise Exception("I needed to read '{}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize". \
                         format(paths[iobservation0_thiscamera]))
 
-    if args_imagersize is not None:
-        if w != args_imagersize[0] or h != args_imagersize[1]:
-            raise Exception("Inconsistent imager size. Cmdline says {}, but image says {}. Since the image exists on disk, you don't need to pass --imagesize at all".format(args_imagersize, [w,h]))
     return [w,h]
 
 
@@ -760,7 +775,8 @@ def get_observation_subset__right_of_threshold_and_within_center(point_x_thresho
                        dtype=int)
     return get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths)
 
-def incremental_optimization_loop(args, imagersizes, observations, indices_frame_camera, outlier_indices, incremental):
+def incremental_optimization_loop(args, seedmodels, imagersizes, observations, indices_frame_camera,
+                                  outlier_indices, incremental):
     '''Solve an incrementally-expanding optimization problem in several passes
 
     The logic is this:
@@ -791,59 +807,98 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
 
     Ncameras = len(args.images)
 
-    distortion_model = 'DISTORTION_NONE'
-    intrinsics_data,extrinsics,frames = \
-        mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
-                                      focal_estimate       = args.focal,
-                                      Ncameras             = Ncameras,
-                                      indices_frame_camera = indices_frame_camera,
-                                      observations         = observations,
-                                      dot_spacing          = args.object_spacing,
-                                      object_width_n       = args.object_width_n)
+    if seedmodels is None:
+        # I have no seed. I compute a rough seed, and run a few preliminary,
+        # incremental optimizations to get it reasonably-close to the right
+        # answer
+        distortion_model = 'DISTORTION_NONE'
+        intrinsics_data,extrinsics,frames = \
+            mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
+                                          focal_estimate       = args.focal,
+                                          Ncameras             = Ncameras,
+                                          indices_frame_camera = indices_frame_camera,
+                                          observations         = observations,
+                                          dot_spacing          = args.object_spacing,
+                                          object_width_n       = args.object_width_n)
 
-    # done with the preliminaries. Run the calibration, in several passes
-    sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
-    stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                           observations, indices_frame_camera,
-                           None, None,
-                           distortion_model,
-                           imagersizes                       = imagersizes,
-                           observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                           do_optimize_intrinsic_core        = False,
-                           do_optimize_intrinsic_distortions = False,
-                           calibration_object_spacing        = args.object_spacing,
-                           calibration_object_width_n        = args.object_width_n,
-                           skip_outlier_rejection            = True,
-                           skip_regularization               = True,
-                           outlier_indices                   = outlier_indices,
-                           roi                               = args.roi,
-                           get_invJtJ_intrinsics             = False,
-                           verbose                           = False)
-    sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
+        sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
+        stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+                               observations, indices_frame_camera,
+                               None, None,
+                               distortion_model,
+                               imagersizes                       = imagersizes,
+                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
+                               do_optimize_intrinsic_core        = False,
+                               do_optimize_intrinsic_distortions = False,
+                               calibration_object_spacing        = args.object_spacing,
+                               calibration_object_width_n        = args.object_width_n,
+                               skip_outlier_rejection            = True,
+                               skip_regularization               = True,
+                               outlier_indices                   = outlier_indices,
+                               roi                               = args.roi,
+                               get_invJtJ_intrinsics             = False,
+                               verbose                           = False)
+        sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
-    sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only\n")
-    stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                           observations, indices_frame_camera,
-                           None, None,
-                           distortion_model,
-                           imagersizes                       = imagersizes,
-                           observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                           do_optimize_intrinsic_core        = True,
-                           do_optimize_intrinsic_distortions = False,
-                           calibration_object_spacing        = args.object_spacing,
-                           calibration_object_width_n        = args.object_width_n,
-                           skip_outlier_rejection            = True,
-                           skip_regularization               = True,
-                           outlier_indices                   = outlier_indices,
-                           roi                               = args.roi,
-                           get_invJtJ_intrinsics             = False,
-                           verbose                           = False)
-    sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
-    # I favor the center pixel at the center of the imager
+        sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only\n")
+        stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+                               observations, indices_frame_camera,
+                               None, None,
+                               distortion_model,
+                               imagersizes                       = imagersizes,
+                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
+                               do_optimize_intrinsic_core        = True,
+                               do_optimize_intrinsic_distortions = False,
+                               calibration_object_spacing        = args.object_spacing,
+                               calibration_object_width_n        = args.object_width_n,
+                               skip_outlier_rejection            = True,
+                               skip_regularization               = True,
+                               outlier_indices                   = outlier_indices,
+                               roi                               = args.roi,
+                               get_invJtJ_intrinsics             = False,
+                               verbose                           = False)
+        sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
-    intrinsics_data[:,2:4] = (imagersizes - 1) / 2
+    else:
 
-    Nfeatures = args.object_width_n*args.object_width_n*len(observations)
+        # The caller made sure that all the models use the same distortion model
+        distortion_model = seedmodels[0].intrinsics()[0]
+        intrinsics_data  = nps.cat( *[m.intrinsics()[1] for m in seedmodels])
+
+        # I keep the relative camera poses constant, but place camera0 at the
+        # origin
+        Rt_r0 = seedmodels[0].extrinsics_Rt_toref()
+        extrinsics = \
+            nps.cat( *[ mrcal.rt_from_Rt( mrcal.compose_Rt( m.extrinsics_Rt_fromref(),Rt_r0))
+                        for m in seedmodels[1:]])
+
+        # I have a GOOD extrinsics estimate, so I could compute a GOOD frame
+        # pose estimate by triangulating:
+        #
+        #   import deltapose_lite
+        #   for corresponding images:
+        #       for points in chessboard:
+        #           lindstrom to get point in 3d
+        #           procrustes fit to get frame transformation
+        #
+        # But this takes a lot of typing, and wouldn't handle special cases:
+        # - what if for a given frame only 1 camera is observing the board?
+        # - what if for a given frame more than 2 cameras are observing the board?
+        #
+        # So I do the less-accurate-but-more-robust thing using pinhole
+        # monocular observations. This is what mrcal.make_seed_no_distortion()
+        # does in the no-seed-available case
+        calobject_poses_local_Rt_cf = \
+            mrcal.estimate_local_calobject_poses( indices_frame_camera,
+                                                  observations,
+                                                  args.object_spacing, args.object_width_n,
+                                                  seedmodels)
+        frames = \
+            mrcal.estimate_frame_poses_from_monocular_views(
+                calobject_poses_local_Rt_cf, extrinsics,
+                indices_frame_camera,
+                args.object_spacing, args.object_width_n)
+
 
     def get_scaled_roi(roi_final, iroi, Nroi):
 
@@ -943,6 +998,10 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
         return stdev_error_ratio < q_threshold, "stdev_error_ratio={} (wanted < {})".format(stdev_error_ratio, q_threshold)
 
 
+
+
+
+
     # Alrighty. All the preliminary business is finished. I should have a usable
     # seed now. And thus I now run the main optimization loop
     if not incremental:
@@ -973,6 +1032,16 @@ def incremental_optimization_loop(args, imagersizes, observations, indices_frame
 
 
 
+
+    if seedmodels is not None:
+        # What do I do here? Probably I want to start out at the seeded
+        # distortion model? This maybe just works, actually, but somebody needs
+        # to think about it
+        raise Exception("--seed and --incremental are currently not supported together")
+
+
+    # I favor the center pixel at the center of the imager
+    intrinsics_data[:,2:4] = (imagersizes - 1) / 2
 
     Nroi = 8
     if args.roi is None:
@@ -1111,6 +1180,45 @@ if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
+if (args.seed and args.focal) or \
+   (not args.seed and not args.focal):
+   raise Exception("Exactly one of --focal and --seed MUST be given")
+if args.distortion_model is None and args.seed is None:
+    raise Exception("--distortion-model is required if no --seed")
+
+if args.seed:
+    def seedmodels_iterator():
+        for g in args.seed.split(','):
+            globbed_filenames = sorted(glob.glob(g))
+            if 0 == len(globbed_filenames):
+                raise Exception("seed glob '{}' matched no files!".format(g))
+            for f in globbed_filenames:
+                yield mrcal.cameramodel(f)
+    seedmodels = list(seedmodels_iterator())
+
+    if Ncameras != len(seedmodels):
+        raise Exception("I saw {} image globs, but {} --seed models. Both represent cameras, so I should have identical counts". \
+                        format(Ncameras, len(seedmodels)))
+
+    if args.imagersize is not None:
+        for m in seedmodels:
+            if args.imagersize != m.imagersize():
+                raise Exception("Both --seed and --imagersize were given, so they must match exactly. But I had --imagersize {} and one model has imagersize() = {}". \
+                                format(args.imagersize, m.imagersize()))
+    distortion_model = seedmodels[0].intrinsics()[0]
+    for m in seedmodels[1:]:
+        if distortion_model != m.intrinsics()[0]:
+            raise Exception("I expect all cameras to use the same distortion model, but --seed saw {} and {}". \
+                            format(distortion_model,
+                                   m.intrinsics()[0]))
+
+    if args.distortion_model is None:
+        args.distortion_model = distortion_model
+
+
+else:
+    seedmodels = None
+
 if args.roi is not None:
     if len(args.roi) != Ncameras:
         raise Exception("Globs say we have {} cameras, but --roi suggests I have {}. These MUST match". \
@@ -1130,7 +1238,7 @@ observations, indices_frame_camera, paths = \
                                       weighted = not args.unweighted_corners)
 
 # list of imager sizes; one per camera
-imagersizes = np.array([get_imagersize_one(icamera, indices_frame_camera, paths, args.imagersize) for icamera in range(Ncameras)],
+imagersizes = np.array([get_imagersize_one(icamera, indices_frame_camera, paths, args.imagersize, seedmodels[icamera]) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
 if args.cull_random_observations_ratio >= 0:
@@ -1167,7 +1275,7 @@ if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
 
 
 result,intrinsics,extrinsics,frames,roi,stats = \
-    incremental_optimization_loop(args, imagersizes, observations, indices_frame_camera, outlier_indices, args.incremental)
+    incremental_optimization_loop(args, seedmodels, imagersizes, observations, indices_frame_camera, outlier_indices, args.incremental)
 if args.incremental:
     print(">>>>>>>>>>>>>>>>> " + result)
     print("Final Distortion model: {}".format(intrinsics[0]))
