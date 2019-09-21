@@ -2696,9 +2696,9 @@ def estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
     return nps.cat(*Rt_0c)
 
 
-def estimate_frame_poses(calobject_poses_local_Rt_cf, camera_poses_Rt01, indices_frame_camera,
-                         dot_spacing, Nwant):
-    r'''Estimate poses of the calibration object observations
+def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, camera_poses_Rt01, indices_frame_camera,
+                                              dot_spacing, Nwant):
+    r'''Estimate poses of the calibration object using no extrinsic information
 
     We're given
 
@@ -2860,9 +2860,10 @@ def make_seed_no_distortion( imagersizes,
         extrinsics = np.zeros((0,6))
 
     frames = \
-        mrcal.estimate_frame_poses(calobject_poses_local_Rt_cf, camera_poses_Rt01,
-                                   indices_frame_camera,
-                                   dot_spacing, object_width_n)
+        mrcal.estimate_frame_poses_from_monocular_views(
+            calobject_poses_local_Rt_cf, camera_poses_Rt01,
+            indices_frame_camera,
+            dot_spacing, object_width_n)
 
     return intrinsics_data,extrinsics,frames
 
