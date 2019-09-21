@@ -400,12 +400,21 @@ def parse_args():
                         default=False,
                         help='''By default we apply regularization to the solver. This option turns that
                         off''')
-
     parser.add_argument('--skip-outlier-rejection',
                         action='store_true',
                         required=False,
                         default=False,
                         help='''By default we throw out outliers. This option turns that off''')
+    parser.add_argument('--skip-extrinsics-solve',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='''Keep the seeded extrinsics, if given. Allowed only if --seed''')
+    parser.add_argument('--skip-intrinsics-solve',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='''Keep the seeded intrinsics, if given. Allowed only if --seed''')
 
     parser.add_argument('--unweighted-corners',
                         action='store_true',
@@ -1018,8 +1027,9 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                distortion_model,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                               do_optimize_intrinsic_core        = True,
-                               do_optimize_intrinsic_distortions = True,
+                               do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
+                               do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
+                               do_optimize_extrinsics            = not args.skip_extrinsics_solve,
                                calibration_object_spacing        = args.object_spacing,
                                calibration_object_width_n        = args.object_width_n,
                                skip_outlier_rejection            = args.skip_outlier_rejection,
@@ -1036,7 +1046,8 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
     if seedmodels is not None:
         # What do I do here? Probably I want to start out at the seeded
         # distortion model? This maybe just works, actually, but somebody needs
-        # to think about it
+        # to think about it. This currently doesn't touch
+        # --skip-extrinsics-solve,--skip-intrinsics-solve
         raise Exception("--seed and --incremental are currently not supported together")
 
 
@@ -1180,13 +1191,12 @@ if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
-if (args.seed and args.focal) or \
-   (not args.seed and not args.focal):
-   raise Exception("Exactly one of --focal and --seed MUST be given")
-if args.distortion_model is None and args.seed is None:
-    raise Exception("--distortion-model is required if no --seed")
-
 if args.seed:
+
+    if args.focal:
+        raise Exception("Exactly one of --focal and --seed MUST be given")
+
+
     def seedmodels_iterator():
         for g in args.seed.split(','):
             globbed_filenames = sorted(glob.glob(g))
@@ -1217,7 +1227,20 @@ if args.seed:
 
 
 else:
+    if not args.focal:
+        raise Exception("Exactly one of --focal and --seed MUST be given")
+
+    if not args.distortion_model:
+        raise Exception("--distortion-model is required if no --seed")
+
+    if args.skip_extrinsics_solve:
+        raise Exception("--skip-extrinsics-solve requires --seed")
+    if args.skip_intrinsics_solve:
+        raise Exception("--skip-intrinsics-solve requires --seed")
+
     seedmodels = None
+
+
 
 if args.roi is not None:
     if len(args.roi) != Ncameras:
@@ -1378,8 +1401,9 @@ if args.num_cross_validation_splits > 1:
                                split_intrinsics[0],
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                               do_optimize_intrinsic_core        = True,
-                               do_optimize_intrinsic_distortions = True,
+                               do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
+                               do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
+                               do_optimize_extrinsics            = not args.skip_extrinsics_solve,
                                calibration_object_spacing        = args.object_spacing,
                                calibration_object_width_n        = args.object_width_n,
                                skip_outlier_rejection            = args.skip_outlier_rejection,
@@ -1439,8 +1463,9 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        calobject_warp                    = calobject_warp,
                        imagersizes                       = imagersizes,
                        observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                       do_optimize_intrinsic_core        = True,
-                       do_optimize_intrinsic_distortions = True,
+                       do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
+                       do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
+                       do_optimize_extrinsics            = not args.skip_extrinsics_solve,
                        calibration_object_spacing        = args.object_spacing,
                        calibration_object_width_n        = args.object_width_n,
                        skip_outlier_rejection            = True, # use outliers in outlier_indices
@@ -1453,8 +1478,12 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 
-invJtJ_intrinsics_full              = stats.get('invJtJ_intrinsics_full')
-invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
+if args.skip_intrinsics_solve:
+    invJtJ_intrinsics_full              = None
+    invJtJ_intrinsics_observations_only = None
+else:
+    invJtJ_intrinsics_full              = stats.get('invJtJ_intrinsics_full')
+    invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -1489,6 +1518,11 @@ def get_valid_intrinsics_region(i_camera,
                                 focus_center = None, focus_radius = -1):
 
     '''THIS FUNCTION IS MADE UP. PLEASE FIX'''
+
+    if args.skip_intrinsics_solve:
+        return None
+
+
     idx = np.ones( err_including_outliers.shape[:-1], dtype=bool)
 
     if i_camera >= 0:
@@ -1736,8 +1770,9 @@ def check_confidence_computations(solver_context):
                                     do_optimize_calobject_warp        = args.optimize_calobject_warp,
                                     calobject_warp                    = calobject_warp,
                                     imagersizes                       = imagersizes,
-                                    do_optimize_intrinsic_core        = True,
-                                    do_optimize_intrinsic_distortions = True,
+                                    do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
+                                    do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
+                                    do_optimize_extrinsics            = not args.skip_extrinsics_solve,
                                     calibration_object_spacing        = args.object_spacing,
                                     calibration_object_width_n        = args.object_width_n,
                                     skip_regularization               = args.skip_regularization,
@@ -1878,8 +1913,9 @@ def check_confidence_computations(solver_context):
                                 do_optimize_calobject_warp        = args.optimize_calobject_warp,
                                 calobject_warp                    = calobject_warp_resolved,
                                 imagersizes                       = imagersizes,
-                                do_optimize_intrinsic_core        = True,
-                                do_optimize_intrinsic_distortions = True,
+                                do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
+                                do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
+                                do_optimize_extrinsics            = not args.skip_extrinsics_solve,
                                 calibration_object_spacing        = args.object_spacing,
                                 calibration_object_width_n        = args.object_width_n,
                                 skip_outlier_rejection            = True, # use outliers in outlier_indices
