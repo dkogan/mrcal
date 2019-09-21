@@ -2696,7 +2696,7 @@ def estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
     return nps.cat(*Rt_0c)
 
 
-def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, camera_poses_Rt01, indices_frame_camera,
+def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, extrinsics_rt10, indices_frame_camera,
                                               dot_spacing, Nwant):
     r'''Estimate poses of the calibration object using no extrinsic information
 
@@ -2708,9 +2708,9 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, camer
       camera-from-calobject transformation estimate, for each observation of the
       board
 
-    camera_poses_Rt01:
+    extrinsics_rt10:
 
-      an array of dimensions (Ncameras-1,4,3) that contains a camera0-from-camerai
+      an array of dimensions (Ncameras-1,6) that contains a camerai-from-camera0
       transformation estimate. camera0-from-camera0 is the identity, so this isn't
       stored
 
@@ -2726,6 +2726,9 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, camer
 
     '''
 
+    Rt_0c = mrcal.invert_Rt( mrcal.Rt_from_rt( extrinsics_rt10 ))
+
+
     def process(i_observation0, i_observation1):
         R'''Given a range of observations corresponding to the same frame, estimate the
         frame pose'''
@@ -2739,7 +2742,7 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, camer
                 return Rt_cf
 
             # T_cami_cam0 T_cam0_board = T_cami_board
-            return mrcal.compose_Rt( camera_poses_Rt01[i_camera-1, ...], Rt_cf)
+            return mrcal.compose_Rt( Rt_0c[i_camera-1, ...], Rt_cf)
 
 
         # frame poses should map FROM the frame coord system TO the ref coord
@@ -2861,7 +2864,7 @@ def make_seed_no_distortion( imagersizes,
 
     frames = \
         mrcal.estimate_frame_poses_from_monocular_views(
-            calobject_poses_local_Rt_cf, camera_poses_Rt01,
+            calobject_poses_local_Rt_cf, extrinsics,
             indices_frame_camera,
             dot_spacing, object_width_n)
 
