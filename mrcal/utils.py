@@ -2882,3 +2882,184 @@ def close_contour(c):
     if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
         return c
     return nps.glue(c, c[0,:], axis=-2)
+
+
+def get_homography_headon_view(intrinsics0, intrinsics1,
+                               q0, q1 = None,
+                               Rt10   = None,
+                               range0 = None):
+    r'''Compute a local homogeneous-coordinate homography
+
+    Let's say I'm observing a small planar patch in the world, parametrized into
+    some uv coordinates. uv is an orthonormal coordinate system. Let's say uv0 =
+    [u v 0]t and p = Ruv uv0 + tuv = Ruv01 uv + tuv
+
+    dq0/duv = dq0/dp0         dp0/duv = dq0/dp0     Ruv01
+    dq1/duv = dq1/dp1 dp1/dp0 dp0/duv = dq1/dp1 R10 Ruv01
+
+    I can compute the local relationship: dq1/dq0 = dq1/duv duv/dq0
+
+    And I then combine this local relationship with a q0->q1 translation into a
+    homography that I return.
+
+    If I know the geometry of the cameras and the geometry of the object I'm
+    looking at, I can compute this directly. Otherwise, I can make some
+    assumptions to fill in the missing information. This function does not know
+    what we're looking at, and assumes that it's a plane perpendicular to the
+    viewing vector.
+
+    This function REQUIRES q0: the pixel observation in camera0. If q1 is None,
+    we must have the range to the object in range0. If no extrinsics are
+    available, we assume either no relative rotation or that we're looking very
+    far away.
+
+    '''
+
+    # This is temporary. mrcal should not depend on deltapose_lite
+    import deltapose_lite
+
+
+
+    def get_R_0_uv_headon(p0, p1 = None, Rt10 = None):
+        r'''Returns a rotation between head-on plane and world coords
+
+        Two cameras are observing a point. I assume this point lies on a plane
+        that's observed as head-on as possible by both cameras. The plane is
+        parametrized in some 2D uv coordinates. Let uv0 = [u v 0]t and p = Ruv uv0 +
+        tuv = Ruv01 uv + tuv. Here I return Ruv. p is assumed to lie in the
+        coordinates of camera 0
+
+        If we don't have reliable extrinsics, set Rt10 to None, and we'll return
+        a head-on rotation looking just at camera0. For far-away objects viewer
+        by mostly-aligned cameras this should be ok
+
+        '''
+
+        def mean_direction(n0, n1):
+            r'''Given two unit vectors, returns an "average"'''
+
+            v = n0+n1
+            return v / np.sqrt(nps.norm2(v))
+
+        def get_R_abn(n):
+            r'''Return a rotation with the given n as the last column
+
+            n is assumed to be a normal vector: nps.norm2(n) = 1
+
+            Returns a rotation matrix where the 3rd column is the given vector n. The
+            first two vectors are arbitrary, but are guaranteed to produce a valid
+            rotation: RtR = I, det(R) = 1
+            '''
+
+            # arbitrary, but can't be exactly n
+            a = np.array((1., 0, 0, ))
+            proj = nps.inner(a, n)
+            if abs(proj) > 0.8:
+                # Any other orthogonal vector will do. If this projection was >
+                # 0.8, I'm guaranteed that all others will be smaller
+                a = np.array((0, 1., 0, ))
+                proj = nps.inner(a, n)
+
+            a -= proj*n
+            a /= np.sqrt(nps.norm2(a))
+            b = np.cross(n,a)
+            return nps.transpose(nps.cat(a,b,n))
+
+
+        n0 = p0/np.sqrt(nps.norm2(p0))
+
+        if Rt10 is None:
+            return get_R_abn(n0)
+
+        if p1 is None:
+            p1 = mrcal.transform_point_Rt(Rt10, p0)
+        n1 = p1/np.sqrt(nps.norm2(p1))   # n1 in cam1 coords
+        n1 = nps.matmult(n1, Rt10[:3,:]) # n1 in cam0 coords
+        n = mean_direction(n0, n1)
+
+        return get_R_abn(n)
+
+
+
+
+
+    if (q1 is     None and range0 is     None) or \
+       (q1 is not None and range0 is not None):
+        raise Exception("I need exactly one of (q1,range0) to be given")
+
+    if Rt10 is None:
+        if q1 is None:
+            # I don't know anything. Assume an identity homography
+            return np.eye(3)
+
+        # I have no extrinsics, but I DO have a set of pixel observations.
+        # Assume we're looking at faraway objects
+        if range0 is not None:
+            v0 = mrcal.unproject(q0, *intrinsics0)
+            p0 = v0 / np.sqrt(nps.norm2(v0)) * range0
+            p1 = p0
+        else:
+            v0 = mrcal.unproject(q0, *intrinsics0)
+            p0 = v0 / np.sqrt(nps.norm2(v0)) * 1000.
+            v1 = mrcal.unproject(q1, *intrinsics1)
+            p1 = v1 / np.sqrt(nps.norm2(v1)) * 1000.
+    else:
+
+        if range0 is not None:
+            v0 = mrcal.unproject(q0, *intrinsics0)
+            p0 = v0 / np.sqrt(nps.norm2(v0)) * range0
+        else:
+            p0 = deltapose_lite. \
+                compute_3d_intersection_lindstrom( mrcal.rt_from_Rt(Rt10),
+                                                   intrinsics0, intrinsics1,
+                                                   q0, q1).ravel()
+
+        p1 = mrcal.transform_point_Rt(Rt10, p0)
+
+
+    _,          dq0_dp0,_ = mrcal.project(p0, *intrinsics0, get_gradients=True)
+    q1_estimate,dq1_dp1,_ = mrcal.project(p1, *intrinsics1, get_gradients=True)
+
+    if q1 is None:
+        q1 = q1_estimate
+
+    # To transform from the uv0 coord system to cam0 coord system: p0 = R_0_uv0
+    # puv0 + t0_uv0 -> dp0/dpuv0 = R_0_uv0. And if we constrain ourselves to the
+    # uv surface we have dp0/dpuv = R_0_uv
+    #
+    # Similarly, p1 = R10 p0 + t10 -> dp1/dp0 = R10
+    if Rt10 is not None:
+        R10 = Rt10[:3,:]
+    else:
+        R10 = np.eye(3)
+
+    R_0_uv0 = get_R_0_uv_headon(p0, p1, Rt10)
+    R_0_uv  = R_0_uv0[:,:2]
+    dq0_duv = nps.matmult(dq0_dp0,      R_0_uv)
+    dq1_duv = nps.matmult(dq1_dp1, R10, R_0_uv)
+
+    dq0_dq1 = nps.matmult( dq0_duv,
+                           np.linalg.inv(dq1_duv) )
+    # I now have the relative pixel homography dq0/dq1 now. This is a 2x2
+    # matrix. I embed it into a homogeneous-coordinate homography in a 3x3
+    # matrix. And I make sure that q1 maps to q0, so this becomes an
+    # absolute-coordinate mapping
+    H01 = nps.glue( nps.glue( dq0_dq1,
+                              nps.transpose(q0) - nps.matmult(dq0_dq1,nps.transpose(q1)),
+                              axis=-1),
+                    np.array((0,0,1)), axis=-2)
+    return H01
+
+
+def apply_homography(H, q):
+    r'''Apply a homogeneous-coordinate homography to a set of 2d points
+
+    Broadcasting is fully supported
+
+    The homography is a (...., 3,3) matrix: a homogeneous-coordinate
+    transformation. The point(s) are in a (...., 2) array.
+
+    '''
+
+    Hq = nps.matmult( nps.dummy(q, -2), nps.transpose(H[..., :,:2]))[..., 0, :] + H[..., 2]
+    return Hq[..., :2] / Hq[..., (2,)]
