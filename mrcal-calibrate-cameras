@@ -516,7 +516,7 @@ import mrcal
 np.set_printoptions(linewidth=300)
 
 
-def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, seedmodel):
+def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, seedmodels):
     r'''Returns the imager size for a given camera
 
     This reports the size for ONE camera. I only look at the first match. It is
@@ -529,8 +529,8 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     '''
     if args_imagersize is not None:
         return args_imagersize
-    if seedmodel is not None:
-        return seedmodel.imagersize()
+    if seedmodels is not None:
+        return seedmodels[icamera].imagersize()
 
     try:
         iobservation0_thiscamera = next( i for i in range(len(paths)) if indices_frame_camera[i,1] == icamera )
@@ -1261,7 +1261,11 @@ observations, indices_frame_camera, paths = \
                                       weighted = not args.unweighted_corners)
 
 # list of imager sizes; one per camera
-imagersizes = np.array([get_imagersize_one(icamera, indices_frame_camera, paths, args.imagersize, seedmodels[icamera]) for icamera in range(Ncameras)],
+imagersizes = np.array([get_imagersize_one(icamera,
+                                           indices_frame_camera,
+                                           paths,
+                                           args.imagersize,
+                                           seedmodels) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
 if args.cull_random_observations_ratio >= 0:
