@@ -357,19 +357,6 @@ class cameramodel(object):
 
         '''
 
-        # special-case cahvor logic. This is here purely for legacy
-        # compatibility
-        if len(kwargs) == 0           and \
-           type(file_or_model) is str and \
-           re.match(".*\.cahvor$", file_or_model):
-            from . import cahvor
-            file_or_model = cahvor.read(file_or_model)
-            # now follow this usual path. This becomes a copy constructor.
-
-
-
-
-
         if len(kwargs) == 0:
             if file_or_model is None:
                 raise Exception("We have neither an existing model to read nor a set of parameters")
@@ -386,8 +373,26 @@ class cameramodel(object):
 
 
             elif type(file_or_model) is str:
-                with open(file_or_model, 'r') as openedfile:
-                    self._read_into_self(openedfile)
+                if re.match(".*\.cahvor$", file_or_model):
+                    # Read a .cahvor. This is more complicated than it looks. I
+                    # want to read the .cahvor file into self, but the current
+                    # cahvor interface wants to generate a new model object. So
+                    # I do that, write it as a .cameramodel to a pipe, and then
+                    # read that pipe back into self. Inefficient, but this is
+                    # far from a hot path
+                    from . import cahvor
+                    import os
+                    model = cahvor.read(file_or_model)
+                    r,w = os.pipe()
+                    filew = os.fdopen(w, "w")
+                    filer = os.fdopen(r, "r")
+                    model.write(filew)
+                    filew.close()
+                    self._read_into_self(filer)
+                    filer.close()
+                else:
+                    with open(file_or_model, 'r') as openedfile:
+                        self._read_into_self(openedfile)
 
             else:
                 self._read_into_self(file_or_model)
