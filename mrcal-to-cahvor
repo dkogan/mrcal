@@ -11,8 +11,10 @@ SYNOPSIS
 
 DESCRIPTION
 
-This tool converts a given model to the cahvor file format. No changes to the
-content are made; this is purely a format converter
+This tool converts a given model to the cahvor file format. No changes to
+the content are made; this is purely a format converter. If the model is given
+as "-", the input is read from standard input, and the output is written to
+standard output
 
 '''
 
@@ -31,8 +33,7 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('model',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        type=str,
                         help='''Input camera model''')
 
     return parser.parse_args()
@@ -44,15 +45,19 @@ args = parse_args()
 
 
 import os
-
-base,extension = os.path.splitext(args.model)
-if extension.lower() == '.cahvor':
-    sys.stderr.write("Input file is already in the cahvor format (judging from the filename). Doing nothing\n")
-    sys.exit()
-
 import mrcal
-m = mrcal.cameramodel(args.model)
 
-filename_out = base + '.cahvor'
-m.write(filename_out)
-print("Wrote " + filename_out)
+if args.model == '-':
+    m = mrcal.cameramodel(args.model)
+    m.write(sys.stdout, cahvor = True)
+else:
+
+    base,extension = os.path.splitext(args.model)
+    if extension.lower() == '.cahvor':
+        sys.stderr.write("Input file is already in the cahvor format (judging from the filename). Doing nothing\n")
+        sys.exit()
+
+    m = mrcal.cameramodel(args.model)
+    filename_out = base + '.cahvor'
+    m.write(filename_out)
+    print("Wrote " + filename_out)

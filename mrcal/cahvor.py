@@ -47,10 +47,10 @@ def _fxy_cxy(cahvor):
     r'''Given a cahvor dict returns a tuple containing (fx,fy,cx,cy)'''
     return _HVs_HVc_HVp(cahvor)[:4]
 
-def _read(f):
+def _read(s, name):
     r'''Reads a .cahvor file into a cameramodel
 
-    The input is a an opened file'''
+    The input is the .cahvor file contents as a string'''
 
 
     re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
@@ -63,7 +63,7 @@ def _read(f):
     # mold, since the values span multiple lines. But since I don't care about
     # covariances, I happily ignore them
     x = {}
-    for l in f:
+    for l in s.splitlines():
         if re.match('^\s*#|^\s*$', l):
             continue
 
@@ -72,7 +72,7 @@ def _read(f):
         if m:
             key = m.group(1)
             if key in x:
-                raise Exception("Reading '{}': key '{}' seen more than once".format(f.name,
+                raise Exception("Reading '{}': key '{}' seen more than once".format(name,
                                                                                     m.group(1)))
             x[key] = m.group(2)
 
@@ -101,7 +101,7 @@ def _read(f):
     for k in ('Dimensions','C','A','H','V'):
         if not k in x:
             raise Exception("Cahvor file '{}' incomplete. Missing values for: {}".
-                            format(f.name, k))
+                            format(name, k))
 
 
     is_cahvor_or_cahvore = False
@@ -159,7 +159,7 @@ def _read(f):
         if is_cahvore:
             # CAHVORE
             if 'E' not in x:
-                raise Exception('Cahvor file {} LOOKS like a cahvore, but lacks the E'.format(f.name))
+                raise Exception('Cahvor file {} LOOKS like a cahvore, but lacks the E'.format(name))
             R0,R1,R2 = x['R'].ravel()
             E0,E1,E2 = x['E'].ravel()
 
@@ -169,7 +169,7 @@ def _read(f):
         else:
             # CAHVOR
             if 'E' in x:
-                raise Exception('Cahvor file {} LOOKS like a cahvor, but has an E'.format(f.name))
+                raise Exception('Cahvor file {} LOOKS like a cahvor, but has an E'.format(name))
 
             if abs(beta) < 1e-8 and \
                ( 'R' not in x or np.linalg.norm(x['R']) < 1e-8):
@@ -204,9 +204,12 @@ def read(f):
 
     if type(f) is str:
         with open(f, 'r') as openedfile:
-            return _read(openedfile)
+            return _read(openedfile.read(), f)
 
-    return _read(f)
+    return _read(f.read(), f.name)
+
+def read_from_string(s):
+    return _read(s, "<string>")
 
 def _write(f, m, note=None):
     r'''Writes a cameramodel as a .cahvor to a writeable file object'''

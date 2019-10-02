@@ -266,19 +266,29 @@ class cameramodel(object):
 
 
     def _read_into_self(self, f):
-        r'''Reads in a model from an open file'''
+        r'''Reads in a model from an open file, or the model given as a string
 
-        s = ''.join(f)
+        Note that the string is NOT a filename, it's the model data'''
+
+        # workaround for python3 idiocy
+        try:
+            filetype = file
+        except:
+            filetype = io.IOBase
+        if isinstance(f, filetype):
+            s    = f.read()
+            name = f.name
+        else:
+            s    = f
+            name = None
 
         try:
             model = ast.literal_eval(s)
         except:
-            name = f.name
             if name is None:
-                sys.stderr.write("Failed to parse cameramodel!\n")
+                raise Exception("Failed to parse cameramodel!\n")
             else:
-                sys.stderr.write("Failed to parse cameramodel '{}'\n".format(name))
-            raise
+                raise Exception("Failed to parse cameramodel '{}'\n".format(name))
 
         keys_required = set(('distortion_model',
                              'intrinsics',
@@ -337,7 +347,7 @@ class cameramodel(object):
         a pre-opened file or from another camera model (copy constructor). In
         this case kwargs MUST be None. If reading a filename, and the filename
         is xxx.cahvor, then we assume a legacy cahvor file format instead of the
-        usual one
+        usual one. If the filename is '-' we read standard input
 
         if file_or_model is None, then the input comes from kwargs, and they
         must NOT be None. The following keys are expected
@@ -373,23 +383,30 @@ class cameramodel(object):
 
 
             elif type(file_or_model) is str:
-                if re.match(".*\.cahvor$", file_or_model):
+
+                if file_or_model == '-':
+                    modelstring = sys.stdin.read()
+                    try:
+                        self._read_into_self(modelstring)
+                    except:
+                        from . import cahvor
+                        model = cahvor.read_from_string(modelstring)
+                        modelfile = io.StringIO()
+                        model.write(modelfile)
+                        self._read_into_self(modelfile.getvalue())
+
+                elif re.match(".*\.cahvor$", file_or_model):
                     # Read a .cahvor. This is more complicated than it looks. I
                     # want to read the .cahvor file into self, but the current
                     # cahvor interface wants to generate a new model object. So
-                    # I do that, write it as a .cameramodel to a pipe, and then
-                    # read that pipe back into self. Inefficient, but this is
-                    # far from a hot path
+                    # I do that, write it as a .cameramodel-formatted string,
+                    # and then read that back into self. Inefficient, but this
+                    # is far from a hot path
                     from . import cahvor
-                    import os
                     model = cahvor.read(file_or_model)
-                    r,w = os.pipe()
-                    filew = os.fdopen(w, "w")
-                    filer = os.fdopen(r, "r")
-                    model.write(filew)
-                    filew.close()
-                    self._read_into_self(filer)
-                    filer.close()
+                    modelfile = io.StringIO()
+                    model.write(modelfile)
+                    self._read_into_self(modelfile.getvalue())
                 else:
                     with open(file_or_model, 'r') as openedfile:
                         self._read_into_self(openedfile)
