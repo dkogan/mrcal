@@ -1260,6 +1260,8 @@ observations, indices_frame_camera, paths = \
                                       jobs = args.jobs,
                                       weighted = not args.unweighted_corners)
 
+Nobservations = len(observations)
+
 # list of imager sizes; one per camera
 imagersizes = np.array([get_imagersize_one(icamera,
                                            indices_frame_camera,
@@ -1379,7 +1381,6 @@ if args.num_cross_validation_splits > 1:
 
 
 
-    Nobservations = indices_frame_camera.shape[0]
     splits = cross_validation_makesplit(Nobservations, args.num_cross_validation_splits)
 
     cross_validation_models = []
@@ -1491,10 +1492,14 @@ else:
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
-Npoints = args.object_width_n*args.object_width_n*len(observations)
-xyerr = stats['x'][:Npoints*2].reshape(Npoints,2)
-worst_point_err = np.sqrt(np.max(nps.inner(xyerr,xyerr)))
-report += "Worst reprojection error: {:.01f} pixels\n".format(worst_point_err)
+Npoints_chessboard = args.object_width_n*args.object_width_n*Nobservations
+
+# shape (Nobservations,Nwant,Nwant,2)
+measurements_0_for_outliers = \
+    stats['x'][:Npoints_chessboard*2]. \
+    reshape(Nobservations, args.object_width_n, args.object_width_n, 2)
+worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(measurements_0_for_outliers, n=3) )))
+report += "Worst reprojection error (by measurement): {:.01f} pixels\n".format(worst_point_err)
 if not args.skip_outlier_rejection:
     report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
         format(stats['Noutliers'],
@@ -1504,18 +1509,19 @@ if calobject_warp is not None:
     report += "calobject_warp = {}".format(calobject_warp)
 print(report)
 
+# shape (Nframes,Ncameras,Nwant,Nwant,2)
+projected = \
+    mrcal.calobservations_project(intrinsics[0], intrinsics[1],
+                                  extrinsics, frames,
+                                  args.object_spacing, args.object_width_n, calobject_warp)
 
-
-
-
-
-
-
-projected = mrcal.calobservations_project(intrinsics[0], intrinsics[1], extrinsics, frames, args.object_spacing, args.object_width_n, calobject_warp)
-err_including_outliers,err_0_for_outliers = \
+# Each has shape (Nobservations,Nwant,Nwant,2)
+reproj_err_including_outliers, reproj_err_0_for_outliers = \
     mrcal.calobservations_compute_reproj_error(projected, observations,
                                                indices_frame_camera, args.object_width_n,
                                                stats['outlier_indices'])
+
+
 
 def get_valid_intrinsics_region(i_camera,
                                 ignore_outliers = True,
@@ -1527,21 +1533,23 @@ def get_valid_intrinsics_region(i_camera,
         return None
 
 
-    idx = np.ones( err_including_outliers.shape[:-1], dtype=bool)
+    idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
 
     if i_camera >= 0:
         idx[indices_frame_camera[:,1] != i_camera, ...] = False
     if ignore_outliers:
         nps.clump(idx, n=3)[stats['outlier_indices']] = False
 
-    err = err_including_outliers[idx, ...]
-    obs = observations          [idx, ..., :2]
+    err = reproj_err_including_outliers[idx, ...]
+    obs = observations                 [idx, ..., :2]
 
     W,H=imagersizes[i_camera]
     if focus_center is None:
         focus_center = (imagersizes[i_camera]-1.)/2.
 
     gridn_x,gridn_y = 20,10
+    # This looks at reprojection errors EVEN FOR POINTS THROWN OUT AS OUTLIERS
+    # This IGNORES measurement weighting
     mean,stdev,count,using = \
         mrcal.report_residual_statistics(obs,err, imagersizes[i_camera],
                                          gridn_x = gridn_x,
@@ -1644,7 +1652,7 @@ Potential things to look at:
     show_intrinsics_uncertainty(i_camera)
     show_valid_intrinsics_region(i_camera)
     show_residuals('histogram',   i_camera)
-    show_residuals('vectorfield', i_camera, ignore_outliers=False)
+    show_residuals('vectorfield', i_camera, show_all_reproj_errors=True)
     show_residuals('heatmap',     i_camera)
     show_residuals('radial',      i_camera)
     show_residuals('regional',    i_camera)
@@ -1654,19 +1662,33 @@ Potential things to look at:
     show_roi(i_camera)
     stats
     i_observations_worst
-    rms_err_including_outliers_perimage
-    rms_err_0_for_outliers_perimage
+    rms_reproj_err_including_outliers_perobservation
+    rms_reproj_err_0_for_outliers_perobservation
+    rms_measurements_0_for_outliers_perobservation
     paths[i_observations_worst[0]]
     calobject_warp
 ''')
 
 
-rms_err_including_outliers_perimage = np.sqrt( nps.norm2( nps.clump(err_including_outliers,n=-3) ) /
-                                               (args.object_width_n*args.object_width_n) )
-rms_err_0_for_outliers_perimage     = np.sqrt( nps.norm2( nps.clump(err_0_for_outliers,    n=-3) ) /
-                                               (args.object_width_n*args.object_width_n) )
+non_outlier_mask = np.ones( (Nobservations,
+                             args.object_width_n,
+                             args.object_width_n), dtype=bool)
+non_outlier_mask.ravel()[stats['outlier_indices']] = False
+non_outliers_per_observation = np.sum( nps.clump(non_outlier_mask, n=-2).astype(int),
+                                       axis=-1)
 
-i_observations_worst    = list(reversed(np.argsort(rms_err_0_for_outliers_perimage)))
+rms_reproj_err_including_outliers_perobservation = \
+    np.sqrt( nps.norm2( nps.clump(reproj_err_including_outliers,n=-3) ) /
+             (args.object_width_n*args.object_width_n) )
+rms_reproj_err_0_for_outliers_perobservation     = \
+    np.sqrt( nps.norm2( nps.clump(reproj_err_0_for_outliers,n=-3) ) /
+             non_outliers_per_observation )
+rms_measurements_0_for_outliers_perobservation   = \
+    np.sqrt( nps.norm2( nps.clump(measurements_0_for_outliers,n=-3) ) /
+             non_outliers_per_observation )
+
+
+i_observations_worst    = list(reversed(np.argsort(rms_measurements_0_for_outliers_perobservation)))
 i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations))] )
 
 def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
@@ -1695,31 +1717,33 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     else:
         raise Exception("observation should be a string (image path) or an integer; got type(observation) = {}".format(type(observation)))
 
-    ioutlier0 = np.searchsorted(stats['outlier_indices'], args.object_width_n*args.object_width_n*i_observation,     'left')
-    ioutlier1 = np.searchsorted(stats['outlier_indices'], args.object_width_n*args.object_width_n*(i_observation+1), 'left')
-    outlier_indices_thisobservation = stats['outlier_indices'][ioutlier0:ioutlier1] - args.object_width_n*args.object_width_n*i_observation
-
     obs              = nps.clump( observations[i_observation, ..., :2], n=2)
     i_frame,i_camera = indices_frame_camera[i_observation]
     reproj           = nps.clump( projected[i_frame,i_camera], n=2)
 
-    # error per dot
-    err     = reproj - obs
-    err_len = np.sqrt(nps.norm2(err))
+    # Reprojection error per point. These may or may not have been thrown out as
+    # outliers. And these may have been scaled in the measurement vector
+    err = reproj - obs
 
-    nonoutlier_indices_thisobservation = np.ones((args.object_width_n*args.object_width_n,),dtype=bool)
-    nonoutlier_indices_thisobservation[outlier_indices_thisobservation] = False
-    obs_ignoring_outliers = obs[nonoutlier_indices_thisobservation, :]
+    # non_outlier_mask[i_observation] is dtype=bool, shape=(Nwant,Nwant), so I
+    # can use it as an index. measurements_0_for_outliers has shape
+    # (Nobservations,Nwant,Nwant,2)
+    # This thing has shape (Nvalidpoints,2)
+    measurements_no_outliers = \
+        measurements_0_for_outliers[i_observation,
+                                    non_outlier_mask[i_observation],
+                                    :]
+    obs_ignoring_outliers = obs[non_outlier_mask[i_observation].ravel(), :]
 
     imagepath = paths[i_observation]
     plotkwargs = \
         dict(square=1,cbmin=0,
-             title='{}: i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={}, error_RMS_ignoring_outliers={}'. \
+             title='{}: i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={:.2f}, measurement_RMS_ignoring_outliers={:.2f}'. \
                format( intrinsics[0],
                        i_observation, i_frame, i_camera,
                        paths[i_observation],
-                       rms_err_including_outliers_perimage[i_observation],
-                       rms_err_0_for_outliers_perimage[i_observation]),
+                       rms_reproj_err_including_outliers_perobservation[i_observation],
+                       rms_measurements_0_for_outliers_perobservation[i_observation]),
              **kwargs)
     if os.path.isfile(imagepath):
         # only plot an image overlay if the image exists
@@ -1730,7 +1754,7 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
         plotkwargs['xrange'] = [0,W-1]
         plotkwargs['yrange'] = [H-1,0]
 
-    gp.plot( (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], err_len[nonoutlier_indices_thisobservation],
+    gp.plot( (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], np.sqrt(nps.norm2(measurements_no_outliers)),
               dict(_with     = 'points pt 7 ps 2 palette',
                    legend    = 'reprojection error',
                    tuplesize = 3)),
@@ -2020,7 +2044,9 @@ def check_confidence_computations(solver_context):
 
 
 plots_residuals = dict()
-def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02, ignore_outliers=True, **kwargs):
+def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.02,
+                   vectorscale = 1.0,
+                   show_all_reproj_errors=False, **kwargs):
 
     r'''Visualize the optimized reprojection errors
 
@@ -2050,8 +2076,12 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
 
     i_camera is the camera in question. <0 means "all cameras"
 
-    if ignore_outliers: we show the distribution without outliers: this is the
-    default, and this is what the optimizer actually ended up optimizing.
+    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
+    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
+    outliers, and errors were scaled to trust poor corner detections less.
+
+    if not show_all_reproj_errors: we show what was actually optimized. The
+    outliers do not appear, and the errors are scaled. This is the default
 
     '''
 
@@ -2062,7 +2092,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
 
     if i_camera < 0: i_camera = -1
 
-    # I have a bunch of errors in err_including_outliers. I need to pick out
+    # I have a bunch of errors in reproj_err_including_outliers. I need to pick out
     # - the ones for THIS camera (if requested)
     # - the non-outliers         (if requested)
     #
@@ -2076,15 +2106,18 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
     # to pull out the correct data
 
     # all true by default, cutting out the last dimension: x,y
-    idx = np.ones( err_including_outliers.shape[:-1], dtype=bool)
+    idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
 
     if i_camera >= 0:
         idx[indices_frame_camera[:,1] != i_camera, ...] = False
-    if ignore_outliers:
-        nps.clump(idx, n=3)[stats['outlier_indices']] = False
 
-    err = err_including_outliers[idx, ...]
-    obs = observations          [idx, ..., :2]
+    if not show_all_reproj_errors:
+        nps.clump(idx, n=3)[stats['outlier_indices']] = False
+        err = measurements_0_for_outliers[idx, ...]
+    else:
+        err = reproj_err_including_outliers[idx, ...]
+
+    obs = observations                 [idx, ..., :2]
 
     W,H=imagersizes[i_camera]
     if focus_center is None:
@@ -2123,7 +2156,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
                            ylabel = 'Imager y',
                            **kwargs)
         plot_data_args = [(obs[:,0], obs[:,1],
-                           err[:,0], err[:,1],
+                           vectorscale*err[:,0], vectorscale*err[:,1],
                            np.sqrt(nps.norm2(err)),
                            dict(_with='vectors size screen 0.01,20 fixed filled palette',
                                 tuplesize=5))]
