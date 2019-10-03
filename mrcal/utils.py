@@ -508,9 +508,11 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
          ~ v + cross(k,v) th
 
     Let my rotation be represented as a Rodrigues vector r = k th. And let V be
-    a skew-symmetric matrix representing cross(v, ...):
+    a skew-symmetric matrix representing a cross product:
 
-      Rv ~ v - Vr
+      cross(k,v) = -cross(v,k) = -Vk ->
+
+      Rv ~ v + cross(k,v) th = v - V k th = v - V r
 
     So
 
