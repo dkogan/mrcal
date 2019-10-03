@@ -140,7 +140,7 @@ if args.fit is None:
     if args.scale_focal is None:
         scale_f_pinhole = 1.
     else:
-        scale_f_pinhole = args.scale_focal
+        scale_f_pinhole = float(args.scale_focal)
 else:
     if re.match("^\\d+(,\\d+)*$", args.fit):
         xy = np.array([int(x) for x in args.fit.split(',')], dtype=float)
