@@ -41,18 +41,34 @@ def parse_args():
 
     parser.add_argument('--fit',
                         type=str,
-                        required=False,
                         help='''If given, we'll scale the focal length of the pinhole model to fit some of
-                        the original image into the output. This is one of
-                        "corners", "centers-horizontal", "centers-vertical". If
-                        omitted, we keep the focal lengths the same''')
+                        the original image into the output. This is a "zoom"
+                        operation. We compute the focal-length scaling based on
+                        this argument. If we KNOW the scaling we want, that can
+                        be passed-in directly with --scale-focal instead. The
+                        argument could be one of ("corners",
+                        "centers-horizontal", "centers-vertical"). Or the
+                        argument could be given as a list of points
+                        x0,y0,x1,y1,x2,y2,.... The focal length scale will be
+                        chosen to zoom in as far as possible, while fitting all
+                        of these points. If omitted, we keep the focal lengths
+                        the same''')
 
-    parser.add_argument('--scale',
+    parser.add_argument('--scale-focal',
+                        type=float,
+                        help='''If given, we'll scale the focal length of the pinhole model by this factor.
+                        This is a "zoom" operation. If we don't know the
+                        scaling, but wish to compute it based on fitting some
+                        points, use --fit instead''')
+
+    parser.add_argument('--scale-image',
                         type=float,
                         default=1.0,
-                        help='''If given, we scale the size of the pinhole image by this factor. By default
-                        the scale is 1.0, i.e. the undistorted and distorted
-                        images have the same size''')
+                        help='''If given, we scale the dimensions of the pinhole image by this factor. By
+                        default the scale is 1.0, i.e. the undistorted and
+                        distorted images have the same size. This parameter
+                        changes the RESOLUTION of the output, unlike
+                        --scale-focal, which ZOOMS the output''')
 
     parser.add_argument('--force', '-f',
                         action='store_true',
@@ -80,6 +96,10 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
+
+if args.scale_focal is not None and args.fit is not None:
+    sys.stderr.write("Pass either --scale-focal or --fit, but not both\n")
+    sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -117,22 +137,37 @@ if not args.force:
 model = mrcal.cameramodel(args.model)
 
 if args.fit is None:
-    scale_f_pinhole = 1.0
-elif re.match("^(corners|centers-horizontal|centers-vertical)$", args.fit):
-    scale_f_pinhole =  mrcal.compute_scale_f_pinhole_for_fit(model, args.fit,
-                                                             scale_imagersize_pinhole = args.scale)
+    if args.scale_focal is None:
+        scale_f_pinhole = 1.
+    else:
+        scale_f_pinhole = args.scale_focal
 else:
-    sys.stderr.write("--fit must be one of ('corners','centers-horizontal','centers-vertical')\n")
-    sys.exit(1)
+    if re.match("^\\d+(,\\d+)*$", args.fit):
+        xy = np.array([int(x) for x in args.fit.split(',')], dtype=float)
+        Nxy = len(xy)
+        if Nxy % 2 or Nxy < 4:
+            sys.stderr.write(f"If passing pixel coordinates to --fit, I need at least 2 x,y pairs. Instead got {Nxy} values\n")
+            sys.exit(1)
+        fit = xy.reshape(Nxy//2, 2)
+    elif re.match("^(corners|centers-horizontal|centers-vertical)$", args.fit):
+        fit = args.fit
+    else:
+        sys.stderr.write("--fit must be a comma-separated list of integers or one of ('corners','centers-horizontal','centers-vertical')\n")
+        sys.exit(1)
 
-if args.scale <= 1e-6:
-    sys.stderr.write("--scale should be given a reasonable value > 0.\n")
+    scale_f_pinhole = \
+        mrcal.compute_scale_f_pinhole_for_fit(model, fit,
+                                              scale_imagersize_pinhole = args.scale)
+    sys.stderr.write(f"scale_f_pinhole = {scale_f_pinhole}")
+
+if args.scale_image <= 1e-6:
+    sys.stderr.write("--scale-image should be given a reasonable value > 0.\n")
     sys.exit(1)
 
 mapxy, model_pinhole = \
     mrcal.undistort_image__compute_map(model,
                                        scale_f_pinhole          = scale_f_pinhole,
-                                       scale_imagersize_pinhole = args.scale)
+                                       scale_imagersize_pinhole = args.scale_image)
 
 print("Corresponding pinhole model (cameramodel):")
 print("")
