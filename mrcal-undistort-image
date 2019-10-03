@@ -169,19 +169,9 @@ mapxy, model_pinhole = \
                                        scale_f_pinhole          = scale_f_pinhole,
                                        scale_imagersize_pinhole = args.scale_image)
 
-print("Corresponding pinhole model (cameramodel):")
-print("")
-print("=====================================")
+print("# Corresponding pinhole model:")
 model_pinhole.write(sys.stdout)
-print("=====================================")
-print("")
 
-print("Corresponding pinhole model (cahvor):")
-print("")
-print("=====================================")
-model_pinhole.write(sys.stdout, cahvor=True)
-print("=====================================")
-print("")
 
 
 def undistort_this(imagefile):
