@@ -78,9 +78,9 @@ def parse_args():
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
 
     parser.add_argument('model',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        help='''Input camera model. Assumed to be mrcal native''')
+                        type=str,
+                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
+                        in which case the cahvor format is assumed. If "-' is given, we read standard input''')
 
     return parser.parse_args()
 

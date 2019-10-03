@@ -70,10 +70,9 @@ def parse_args():
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
 
     parser.add_argument('model',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
-                        help='''Input camera model. Assumed to be mrcal native, unless the name is xxx.cahvor,
-                        in which case the cahvor format is assumed''')
+                        type=str,
+                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
+                        in which case the cahvor format is assumed. If "-' is given, we read standard input''')
 
     return parser.parse_args()
 
@@ -94,8 +93,7 @@ import mrcal
 
 
 
-model_filename = args.model
-model = mrcal.cameramodel(model_filename)
+model = mrcal.cameramodel(args.model)
 
 if args.radial and args.vectorfield:
     sys.stderr.write("Usage error: at most one of --radial and --vectorfield can be given\n")
