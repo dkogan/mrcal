@@ -1956,6 +1956,10 @@ def get_mapping_file_framecamera(files_per_camera):
 
     '''
 
+    i_empty = [i for i in range(len(files_per_camera)) if len(files_per_camera[i]) == 0]
+    if len(i_empty) > 0:
+        raise Exception("These camera globs matched no files: {}".format(i_empty))
+
     # If I have just one camera, then I short-circuit all of this
     if len(files_per_camera) == 1:
         d = {}
