@@ -2170,11 +2170,11 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
                 sys.stderr.write("Will save corners to '{}'\n".format(corners_cache_vnl))
 
             corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                              encoding='utf-8')
+                                              encoding='ascii')
             pipe_corners_read = corners_output.stdout
         else:
             # Have an existing cache file. Just read it
-            pipe_corners_read = open(corners_cache_vnl, 'r', encoding='utf-8')
+            pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
             corners_output    = None
 
 
