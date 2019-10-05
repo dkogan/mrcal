@@ -400,7 +400,7 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
       one per POINT, not (x,y) independently
 
     Return (err_all_points,err_ignoring_outliers). Each is the reprojection
-    error for each point: shape [Nobservations,Nwant,Nwant,2]. One includes the
+    error for each point: shape (Nobservations,Nwant,Nwant,2). One includes the
     outliers in the returned errors, and the other does not
 
     '''
