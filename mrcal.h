@@ -225,6 +225,8 @@ mrcal_optimize( // out
                 double* x_final,
                 double* invJtJ_intrinsics_full,
                 double* invJtJ_intrinsics_observations_only,
+                double* invJtJ_extrinsics,
+
                 // Buffer should be at least Nfeatures long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,

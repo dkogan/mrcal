@@ -2100,24 +2100,6 @@ int mrcal_state_index_calobject_warp(int Npoints,
                                    distortion_model);
 }
 
-static int intrinsics_index_from_state_index( int i_state,
-                                              const distortion_model_t distortion_model,
-                                              mrcal_problem_details_t problem_details )
-{
-    // the caller of this thing assumes that the only difference between the
-    // packed and unpacked vectors is the scaling. problem_details could make
-    // the contents vary in other ways, and I make sure this doesn't happen.
-    // It's possible to make this work in general, but it's tricky, and I don't
-    // need to spent the time right now
-    assert(problem_details.do_optimize_intrinsic_core &&
-           problem_details.do_optimize_intrinsic_distortions &&
-           ( !(!problem_details.do_optimize_cahvor_optical_axis &&
-               ( distortion_model == DISTORTION_CAHVOR ||
-                 distortion_model == DISTORTION_CAHVORE ))));
-    return i_state;
-}
-
-
 // This function is part of sensitivity analysis to quantify how much errors in
 // the input pixel observations affect our solution. A "good" solution will not
 // be very sensitive: measurement noise doesn't affect the solution very much.
@@ -2138,10 +2120,14 @@ static int intrinsics_index_from_state_index( int i_state,
 // and to not leak out to python. Let's say I have parameters p and their
 // unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. So when
 // talking to the upper level, I need to report M = DM*.
+//
+// The returned matrices are symmetric, but I return both halves for now
 static bool computeUncertaintyMatrices(// out
                                        // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
                                        double* invJtJ_intrinsics_full,
                                        double* invJtJ_intrinsics_observations_only,
+                                       // dimensions ((Ncameras-1)*6,(Ncameras-1)*6)
+                                       double* invJtJ_extrinsics,
 
                                        // in
                                        distortion_model_t distortion_model,
@@ -2171,14 +2157,57 @@ static bool computeUncertaintyMatrices(// out
     int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
                                                                NobservationsPoint,
                                                                calibration_object_width_n);
-    memset(invJtJ_intrinsics_observations_only, 0,
-           Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
 
-    if( !problem_details.do_optimize_intrinsic_core        &&
-        !problem_details.do_optimize_intrinsic_distortions )
+    if(invJtJ_intrinsics_observations_only)
+        memset(invJtJ_intrinsics_observations_only, 0,
+               Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
+    // this one isn't strictly necessary (the computation isn't incremental), but
+    // it keeps the logic simple
+    if(invJtJ_intrinsics_full)
+        memset(invJtJ_intrinsics_full, 0,
+               Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
+    if(invJtJ_extrinsics)
+        memset(invJtJ_extrinsics, 0,
+               6*(Ncameras-1) * 6*(Ncameras-1) * sizeof(double));
+
+    if( !(problem_details.do_optimize_intrinsic_core        ||
+          problem_details.do_optimize_intrinsic_distortions ||
+          problem_details.do_optimize_extrinsics) )
     {
-        // We're not optimizing any of the intrinsics. MMt is 0
+        // We're not optimizing anything I care about here
         return true;
+    }
+
+    if( !(invJtJ_intrinsics_full ||
+          invJtJ_intrinsics_observations_only ||
+          invJtJ_extrinsics))
+    {
+        // no buffers to fill in
+        return true;
+    }
+
+    if( !problem_details.do_optimize_extrinsics &&
+        invJtJ_extrinsics)
+    {
+        invJtJ_extrinsics = NULL;
+    }
+
+    if( invJtJ_intrinsics_full || invJtJ_intrinsics_observations_only)
+    {
+        if( !problem_details.do_optimize_intrinsic_core        &&
+            !problem_details.do_optimize_intrinsic_distortions )
+        {
+            invJtJ_intrinsics_full = invJtJ_intrinsics_observations_only = NULL;
+        }
+        else if( (!problem_details.do_optimize_intrinsic_core        &&
+                   problem_details.do_optimize_intrinsic_distortions ) ||
+                 ( problem_details.do_optimize_intrinsic_core        &&
+                  !problem_details.do_optimize_intrinsic_distortions ) )
+        {
+            MSG("Can't compute any invJtJ_intrinsics_... if we aren't optimizing the WHOLE intrinsics: core and distortions");
+            return false;
+        }
+
     }
 
     cholmod_sparse* Jt     = solverCtx->beforeStep->Jt;
@@ -2218,168 +2247,191 @@ static bool computeUncertaintyMatrices(// out
                                 CHOLMOD_REAL,
                                 &solverCtx->common );
 
-
-
     // As described above, I'm looking at what input noise does, so I only look
     // at the measurements that pertain to the input observations directly. In
     // mrcal, this is the leading ones, before the range errors and the
     // regularization
 
-    // Compute invJtJ_intrinsics_full
-    for(int icam = 0; icam < Ncameras; icam++)
-    {
-        // Here I want the diagonal blocks of inv(JtJ) for each camera's
-        // intrinsics. I get them by doing solve(JtJ, [0; I; 0])
-        void compute_invJtJ_block(double* JtJ, const int istate0, int N)
+    // Compute invJtJ_intrinsics_full. This is the intrinsics-per-camera
+    // diagonal block inv(JtJ) for each camera separately
+    if(invJtJ_intrinsics_full)
+        for(int icam = 0; icam < Ncameras; icam++)
         {
+            // Here I want the diagonal blocks of inv(JtJ) for each camera's
+            // intrinsics. I get them by doing solve(JtJ, [0; I; 0])
+            void compute_invJtJ_block(double* JtJ, const int istate0, int N)
+            {
+                // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
+                // dense. cholmod doesn't have functions for this exact case. so I use
+                // the dense-sparse-dense function, and densify the input. Instead of
+                // sparse-sparse-sparse and the densifying the output. This feels like
+                // it'd be more efficient
+
+                int istate = istate0;
+
+                // I can do chunk_size cols at a time
+                while(1)
+                {
+                    int Ncols = N < chunk_size ? N : chunk_size;
+                    Jt_slice->ncol = Ncols;
+                    memset( Jt_slice->x, 0, Jt_slice->nrow*Ncols*sizeof(double) );
+                    for(int icol=0; icol<Ncols; icol++)
+                        // The J are unitless. I need to scale them to get real units
+                        ((double*)Jt_slice->x)[ istate + icol + icol*Jt_slice->nrow] =
+                            get_scale_solver_state_intrinsics_onecamera(istate + icol - istate0,
+                                                                        Nintrinsics_per_camera_state - N_INTRINSICS_CORE,
+                                                                        problem_details);
+
+                    cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+                                                      Jt_slice,
+                                                      &solverCtx->common);
+
+                    // The cols/rows I want are in M. I pull them out, and apply
+                    // scaling (because my J are unitless, and I want full-unit
+                    // data)
+                    for(int icol=0; icol<Ncols; icol++)
+                        unpack_solver_state_intrinsics_onecamera( (intrinsics_core_t*)&JtJ[icol*Nintrinsics_per_camera_state],
+                                                                  distortion_model,
+                                                                  &JtJ[icol*Nintrinsics_per_camera_state + N_INTRINSICS_CORE],
+
+                                                                  &((double*)(M->x))[icol*M->nrow + istate0],
+                                                                  Nintrinsics_per_camera_state - N_INTRINSICS_CORE,
+                                                                  problem_details );
+                    cholmod_free_dense (&M, &solverCtx->common);
+
+                    N -= Ncols;
+                    if(N <= 0) break;
+                    istate += Ncols;
+                    JtJ = &JtJ[Ncols*Nintrinsics_per_camera_state];
+                }
+            }
+
+
+
+
+            const int istate0 = Nintrinsics_per_camera_state * icam;
+            double* JtJ_thiscam = &invJtJ_intrinsics_full[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+            compute_invJtJ_block( JtJ_thiscam, istate0, Nintrinsics_per_camera_state );
+        }
+
+    // Compute invJtJ_intrinsics_observations_only. This is the
+    // intrinsics-per-camera diagonal block
+    //   inv(JtJ)[intrinsics] Jobservationst Jobservations inv(JtJ)[intrinsics]t
+    // for each camera separately
+    //
+    // And also compute invJtJ_extrinsics. This is similar, except all the
+    // extrinsics together are reported as a single diagonal block
+    if(invJtJ_intrinsics_observations_only ||
+       invJtJ_extrinsics)
+    {
+        int istate_intrinsics0 = mrcal_state_index_intrinsic_core(0,
+                                                                  problem_details,
+                                                                  distortion_model);
+        int istate_extrinsics0 = mrcal_state_index_camera_rt(1, Ncameras,
+                                                             problem_details,
+                                                             distortion_model);
+
+        for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
+        {
+            // sparse to dense for a chunk of Jt
+            memset( Jt_slice->x, 0, Jt_slice->nrow*chunk_size*sizeof(double) );
+            for(unsigned int icol=0; icol<(unsigned)chunk_size; icol++)
+            {
+                if( (int)(i_meas + icol) >= Nmeas_observations )
+                {
+                    // at the end, we could have one chunk with less that chunk_size
+                    // columns
+                    Jt_slice->ncol = icol;
+                    break;
+                }
+
+                for(unsigned int i0=P(Jt, icol+i_meas); i0<P(Jt, icol+i_meas+1); i0++)
+                {
+                    int irow = I(Jt,i0);
+                    double x0 = X(Jt,i0);
+                    ((double*)Jt_slice->x)[irow + icol*Jt_slice->nrow] = x0;
+                }
+            }
+
             // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
             // dense. cholmod doesn't have functions for this exact case. so I use
             // the dense-sparse-dense function, and densify the input. Instead of
             // sparse-sparse-sparse and the densifying the output. This feels like
             // it'd be more efficient
+            cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+                                              Jt_slice,
+                                              &solverCtx->common);
 
-            int istate = istate0;
-
-            // I can do chunk_size cols at a time
-            while(1)
+            // I now have chunk_size columns of M. I accumulate sum of the outer
+            // products. This is symmetric, but I store both halves; for now
+            for(unsigned int icol=0; icol<M->ncol; icol++)
             {
-                int Ncols = N < chunk_size ? N : chunk_size;
-                Jt_slice->ncol = Ncols;
-                memset( Jt_slice->x, 0, Jt_slice->nrow*Ncols*sizeof(double) );
-                for(int icol=0; icol<Ncols; icol++)
-                    // The J are unitless. I need to scale them to get real units
-                    ((double*)Jt_slice->x)[ istate + icol + icol*Jt_slice->nrow] =
-                        get_scale_solver_state_intrinsics_onecamera(istate + icol - istate0,
-                                                                    Nintrinsics_per_camera_state - N_INTRINSICS_CORE,
-                                                                    problem_details);
+                // the unpack_solver_state_vector() call assumes that the only
+                // difference between the packed and unpacked vectors is the
+                // scaling. problem_details could make the contents vary in other
+                // ways, and I make sure this doesn't happen. It's possible to make
+                // this work in general, but it's tricky, and I don't need to spent
+                // the time right now. This will fail if I'm locking down some
+                // parameters
+                assert(Nintrinsics_per_camera_all == Nintrinsics_per_camera_state);
 
-                cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
-                                                  Jt_slice,
-                                                  &solverCtx->common);
+                // The M I have here is a unitless, scaled M*. I need to scale it to get
+                // M. See comment above.
+                mrcal_unpack_solver_state_vector( &((double*)(M->x))[icol*M->nrow],
+                                                  distortion_model,
+                                                  problem_details,
+                                                  Ncameras, Nframes, Npoints);
 
-                // The cols/rows I want are in M. I pull them out, and apply
-                // scaling (because my J are unitless, and I want full-unit
-                // data)
-                for(int icol=0; icol<Ncols; icol++)
-                    unpack_solver_state_intrinsics_onecamera( (intrinsics_core_t*)&JtJ[icol*Nintrinsics_per_camera_state],
-                                                              distortion_model,
-                                                              &JtJ[icol*Nintrinsics_per_camera_state + N_INTRINSICS_CORE],
-
-                                                              &((double*)(M->x))[icol*M->nrow + istate0],
-                                                              Nintrinsics_per_camera_state - N_INTRINSICS_CORE,
-                                                              problem_details );
-                cholmod_free_dense (&M, &solverCtx->common);
-
-                N -= Ncols;
-                if(N <= 0) break;
-                istate += Ncols;
-                JtJ = &JtJ[Ncols*Nintrinsics_per_camera_state];
-            }
-        }
-
-
-
-
-        const int istate0 = Nintrinsics_per_camera_state * icam;
-        double* JtJ_thiscam = &invJtJ_intrinsics_full[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
-        compute_invJtJ_block( JtJ_thiscam, istate0, Nintrinsics_per_camera_state );
-    }
-
-    // Compute invJtJ_intrinsics_observations_only
-    for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
-    {
-        // sparse to dense for a chunk of Jt
-        memset( Jt_slice->x, 0, Jt_slice->nrow*chunk_size*sizeof(double) );
-        for(unsigned int icol=0; icol<(unsigned)chunk_size; icol++)
-        {
-            if( (int)(i_meas + icol) >= Nmeas_observations )
-            {
-                // at the end, we could have one chunk with less that chunk_size
-                // columns
-                Jt_slice->ncol = icol;
-                break;
-            }
-
-            for(unsigned int i0=P(Jt, icol+i_meas); i0<P(Jt, icol+i_meas+1); i0++)
-            {
-                int irow = I(Jt,i0);
-                double x0 = X(Jt,i0);
-                ((double*)Jt_slice->x)[irow + icol*Jt_slice->nrow] = x0;
-            }
-        }
-
-        // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
-        // dense. cholmod doesn't have functions for this exact case. so I use
-        // the dense-sparse-dense function, and densify the input. Instead of
-        // sparse-sparse-sparse and the densifying the output. This feels like
-        // it'd be more efficient
-        cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
-                                          Jt_slice,
-                                          &solverCtx->common);
-
-        // I now have chunk_size columns of M. I accumulate sum of the outer
-        // products. This is symmetric, but I store both halves; for now
-        for(unsigned int icol=0; icol<M->ncol; icol++)
-        {
-            // the unpack_solver_state_vector() call assumes that the only
-            // difference between the packed and unpacked vectors is the
-            // scaling. problem_details could make the contents vary in other
-            // ways, and I make sure this doesn't happen. It's possible to make
-            // this work in general, but it's tricky, and I don't need to spent
-            // the time right now
-            assert(Nintrinsics_per_camera_all == Nintrinsics_per_camera_state);
-
-
-            // The M I have here is a unitless, scaled M*. I need to scale it to get
-            // M. See comment above.
-            mrcal_unpack_solver_state_vector( &((double*)(M->x))[icol*M->nrow],
-                                              distortion_model,
-                                              problem_details,
-                                              Ncameras, Nframes, Npoints);
-
-
-
-            for(unsigned int irow0=0; irow0<M->nrow; irow0++)
-            {
-                double x0 = ((double*)(M->x))[irow0 + icol*M->nrow];
-
-                int icam0 = irow0 / Nintrinsics_per_camera_state;
-                if( icam0 >= Ncameras )
-                    // not a camera intrinsic parameter
-                    continue;
-
-                double* MMt_thiscam = &invJtJ_intrinsics_observations_only[icam0*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
-
-                int i_intrinsics0 = intrinsics_index_from_state_index( irow0 - icam0*Nintrinsics_per_camera_state,
-                                                                       distortion_model,
-                                                                       problem_details );
-
-
-                // special-case process the diagonal param
-                MMt_thiscam[(Nintrinsics_per_camera_all+1)*i_intrinsics0] += x0*x0;
-
-                // Now the off-diagonal
-                for(unsigned int irow1=irow0+1; irow1<M->nrow; irow1++)
+                void accumulate_invJtJ(double* invJtJ, unsigned int irow_chunk_start, unsigned int Nstate_chunk)
                 {
-                    int icam1 = irow1 / Nintrinsics_per_camera_state;
+                    for(unsigned int irow0=irow_chunk_start;
+                        irow0<irow_chunk_start+Nstate_chunk;
+                        irow0++)
+                    {
+                        int i_intrinsics0 = irow0 - irow_chunk_start;
+                        // special-case process the diagonal param
+                        double x0 = ((double*)(M->x))[irow0 + icol*M->nrow];
+                        invJtJ[(Nstate_chunk+1)*i_intrinsics0] += x0*x0;
 
-                    // I want to look at each camera individually, so I ignore the
-                    // interactions between the parameters across cameras
-                    if( icam0 != icam1 )
-                        continue;
+                        // Now the off-diagonal
 
-                    double x1 = ((double*)(M->x))[irow1 + icol*M->nrow];
-                    double x0x1 = x0*x1;
-                    int i_intrinsics1 = intrinsics_index_from_state_index( irow1 - icam1*Nintrinsics_per_camera_state,
-                                                                           distortion_model,
-                                                                           problem_details );
-                    MMt_thiscam[Nintrinsics_per_camera_all*i_intrinsics0 + i_intrinsics1] += x0x1;
-                    MMt_thiscam[Nintrinsics_per_camera_all*i_intrinsics1 + i_intrinsics0] += x0x1;
+                        // I want to look at each camera individually, so I ignore the
+                        // interactions between the parameters across cameras
+                        for(unsigned int irow1=irow0+1;
+                            irow1<irow_chunk_start+Nstate_chunk;
+                            irow1++)
+                        {
+                            double x1 = ((double*)(M->x))[irow1 + icol*M->nrow];
+                            double x0x1 = x0*x1;
+                            int i_intrinsics1 = irow1 - irow_chunk_start;
+                            invJtJ[Nstate_chunk*i_intrinsics0 + i_intrinsics1] += x0x1;
+                            invJtJ[Nstate_chunk*i_intrinsics1 + i_intrinsics0] += x0x1;
+                        }
+                    }
                 }
-            }
-        }
 
-        cholmod_free_dense (&M, &solverCtx->common);
+
+                // Intrinsics. Each camera into a separate inv(JtJ) block
+                if(invJtJ_intrinsics_observations_only)
+                    for(int icam=0; icam<Ncameras; icam++)
+                    {
+                        double* invJtJ_thiscam =
+                            &invJtJ_intrinsics_observations_only[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+                        accumulate_invJtJ(invJtJ_thiscam,
+                                          istate_intrinsics0 + icam * Nintrinsics_per_camera_state,
+                                          Nintrinsics_per_camera_state);
+                    }
+
+                // Extrinsics. Everything into one big inv(JtJ) block
+                if(invJtJ_extrinsics)
+                    accumulate_invJtJ(invJtJ_extrinsics,
+                                      istate_extrinsics0,
+                                      6 * (Ncameras-1));
+
+            }
+
+            cholmod_free_dense (&M, &solverCtx->common);
+        }
     }
 
     Jt_slice->ncol = chunk_size; // I manually reset this earlier; put it back
@@ -3563,6 +3615,8 @@ mrcal_optimize( // out
                 double* x_final,
                 double* invJtJ_intrinsics_full,
                 double* invJtJ_intrinsics_observations_only,
+                double* invJtJ_extrinsics,
+
                 // Buffer should be at least Npoints long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,
@@ -3856,7 +3910,9 @@ mrcal_optimize( // out
     if(x_final)
         memcpy(x_final, solver_context->beforeStep->x, ctx.Nmeasurements*sizeof(double));
 
-    if( invJtJ_intrinsics_observations_only )
+    if( invJtJ_intrinsics_full ||
+        invJtJ_intrinsics_observations_only ||
+        invJtJ_extrinsics )
     {
         int Nintrinsics_per_camera = mrcal_getNintrinsicParams(distortion_model);
         bool result =
@@ -3864,6 +3920,8 @@ mrcal_optimize( // out
                                        // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
                                        invJtJ_intrinsics_full,
                                        invJtJ_intrinsics_observations_only,
+                                       // dimensions ((Ncameras-1)*6,(Ncameras-1)*6)
+                                       invJtJ_extrinsics,
 
                                        // in
                                        distortion_model,
@@ -3877,13 +3935,17 @@ mrcal_optimize( // out
                                        solver_context);
         if(!result)
         {
-            MSG("Failed to compute MMt.");
+            MSG("Failed to compute invJtJ_...");
             double nan = strtod("NAN", NULL);
-            for(int i=0; i<Ncameras*Nintrinsics_per_camera*Nintrinsics_per_camera; i++)
-            {
-                invJtJ_intrinsics_full             [i] = nan;
-                invJtJ_intrinsics_observations_only[i] = nan;
-            }
+            if(invJtJ_intrinsics_full)
+                for(int i=0; i<Ncameras*Nintrinsics_per_camera*Nintrinsics_per_camera; i++)
+                {
+                    invJtJ_intrinsics_full             [i] = nan;
+                    invJtJ_intrinsics_observations_only[i] = nan;
+                }
+            if(invJtJ_extrinsics)
+                for(int i=0; i<Ncameras*6 * Ncameras*6; i++)
+                    invJtJ_extrinsics[i] = nan;
         }
     }
     if(outlier_indices_final)

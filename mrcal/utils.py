@@ -908,6 +908,33 @@ def compute_intrinsics_uncertainty( model, v,
 
       So E() = s^2 tr( I - B*B )
 
+    *** extrinsics uncertainty
+
+      How do I compute the uncertainty in my extrinsics? This is similar to the
+      intrinsics procedures above, but it's simpler: the uncertainty in the
+      parameters themselves is meaningful, I don't need to propagate that to
+      projection. From before, I perturb my input observation vector qref by
+      dqref, and the resulting effect on the parameters is dp = M dqref
+
+        where M = inv(JtJ) Jobservationst W
+
+      As an example of what I might want to do: let's say I have 4 cameras (3
+      sets of extrinsics). How do I compute Var(yaw between cameras 2,3)? For
+      simplicity let's assume the cameras have relative transformation ~
+      identity, so yaw ~ rodrigues[1]. I have relative extrinsics for my
+      cameras: rt20, rt30 -> rt23[1] = compose(rt20, invert(rt30))[1]. I
+      linearize this, so that locally rt23[1] ~ rt23[1](0) + drt23[1]/rt20 drt20
+      + drt23[1]/rt30 drt30 = rt23[1](0) + A drt20 + B drt30 ~ AB drt2030
+
+      -> Var(rt23[1]) = AB Var(drt2030) ABt =
+                      = AB Mrt2030 Var(qref) Mrt2030t ABt =
+                      = AB Mrt2030 W^-2 s^2 Mrt2030t ABt =
+                      = AB inv(JtJ)_2030 Jobservationst W W^-2 s^2 W^-1 Jobservationst inv(JtJ)_2030t ABt =
+                      = AB inv(JtJ)_2030 Jobservationst s^2 Jobservationst inv(JtJ)_2030t ABt =
+
+      So the full covariance of all the extrinsics must be available to do this
+      sort of analysis: I need inv(JtJ)_allextrinsics Jobservationst
+
     '''
 
     distortion_model, intrinsics_data = model.intrinsics()

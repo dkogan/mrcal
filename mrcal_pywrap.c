@@ -1065,6 +1065,7 @@ static PyObject* unproject(PyObject* NPY_UNUSED(self),
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
     _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(get_invJtJ_extrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
@@ -1385,6 +1386,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     PyArrayObject* x_final                             = NULL;
     PyArrayObject* invJtJ_intrinsics_full              = NULL;
     PyArrayObject* invJtJ_intrinsics_observations_only = NULL;
+    PyArrayObject* invJtJ_extrinsics                   = NULL;
     PyArrayObject* outlier_indices_final               = NULL;
     PyArrayObject* outside_ROI_indices_final           = NULL;
     PyObject*      pystats                             = NULL;
@@ -1683,6 +1685,16 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             c_invJtJ_intrinsics_observations_only = PyArray_DATA(invJtJ_intrinsics_observations_only);
         }
 
+        double* c_invJtJ_extrinsics = NULL;
+        if(Ncameras > 1 &&
+           get_invJtJ_extrinsics && PyObject_IsTrue(get_invJtJ_extrinsics))
+        {
+            invJtJ_extrinsics =
+                (PyArrayObject*)PyArray_SimpleNew(2,
+                                                  ((npy_intp[]){(Ncameras-1)*6,(Ncameras-1)*6}), NPY_DOUBLE);
+            c_invJtJ_extrinsics = PyArray_DATA(invJtJ_extrinsics);
+        }
+
         // input
         int* c_outlier_indices;
         int Noutlier_indices;
@@ -1739,6 +1751,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 mrcal_optimize( c_x_final,
                                 c_invJtJ_intrinsics_full,
                                 c_invJtJ_intrinsics_observations_only,
+                                c_invJtJ_extrinsics,
                                 c_outlier_indices_final,
                                 c_outside_ROI_indices_final,
                                 (void**)solver_context_optimizer,
@@ -1818,6 +1831,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                           (PyObject*)invJtJ_intrinsics_observations_only) )
             {
                 PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_observations_only'");
+                goto done;
+            }
+            if( invJtJ_extrinsics &&
+                0 != PyDict_SetItemString(pystats, "invJtJ_extrinsics",
+                                          (PyObject*)invJtJ_extrinsics) )
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_extrinsics'");
                 goto done;
             }
             // The outlier_indices_final numpy array has Nfeatures elements,
@@ -1941,6 +1961,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         Py_DECREF(invJtJ_intrinsics_full);
     if(invJtJ_intrinsics_observations_only)
         Py_DECREF(invJtJ_intrinsics_observations_only);
+    if(invJtJ_extrinsics)
+        Py_DECREF(invJtJ_extrinsics);
     if(outlier_indices_final) Py_DECREF(outlier_indices_final);
     if(pystats)               Py_DECREF(pystats);
 

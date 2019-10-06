@@ -1478,6 +1478,7 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        outlier_indices                   = stats['outlier_indices'],
                        roi                               = roi,
                        get_invJtJ_intrinsics             = True,
+                       get_invJtJ_extrinsics             = True,
                        verbose                           = args.verbose_solver,
                        solver_context                    = solver_context)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
@@ -1489,6 +1490,10 @@ if args.skip_intrinsics_solve:
 else:
     invJtJ_intrinsics_full              = stats.get('invJtJ_intrinsics_full')
     invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
+if args.skip_extrinsics_solve:
+    invJtJ_extrinsics = None
+else:
+    invJtJ_extrinsics = stats.get('invJtJ_extrinsics')
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -1893,22 +1898,32 @@ def check_confidence_computations(solver_context):
     Nmeasurements_board = Nobservations_board * args.object_width_n * args.object_width_n * 2
 
     invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J0), J0))
+    J0obs = J0[:Nmeasurements_board,:]
 
     for icam in range(Ncameras):
-        err_inv_jtj_full = \
+        invJtJ_slice = invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),
+                              Nintrinsics*icam:Nintrinsics*(icam+1)]
+        err_inv_jtj_intrinsics_full = \
             np.linalg.norm(invJtJ_intrinsics_full[icam, ...] -
-                           invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),
-                                  Nintrinsics*icam:Nintrinsics*(icam+1)])
-        J0obs = J0[:Nmeasurements_board,:]
-        err_inv_jtj_observations_only = \
+                           invJtJ_slice)
+        err_inv_jtj_intrinsics_observations_only = \
             np.linalg.norm(invJtJ_intrinsics_observations_only[icam, ...] -
                            nps.matmult( invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),:],
                                         nps.transpose(J0obs),
                                         J0obs,
                                         invJtJ[:,Nintrinsics*icam:Nintrinsics*(icam+1)]))
 
-        print("invjtj error full (should be 0): {}".format(err_inv_jtj_full))
-        print("invjtj error observations-only (should be 0): {}".format(err_inv_jtj_observations_only))
+        print("invJtJ_intrinsics_fullerror full (should be 0): {}".format(err_inv_jtj_intrinsics_full))
+        print("invJtJ_intrinsics_observations_only error (should be 0): {}".format(err_inv_jtj_intrinsics_observations_only))
+
+    err_inv_jtj_extrinsics = \
+        np.linalg.norm(invJtJ_extrinsics -
+                       nps.matmult( invJtJ[   Nintrinsics*Ncameras:Nintrinsics*Ncameras + 6*(Ncameras-1), :],
+                                    nps.transpose(J0obs),
+                                    J0obs,
+                                    invJtJ[:, Nintrinsics*Ncameras:Nintrinsics*Ncameras + 6*(Ncameras-1)   ]))
+
+    print("invJtJ_extrinsics error (should be 0): {}".format(err_inv_jtj_extrinsics))
 
     ###########################################################################
     # I confirmed that I'm computing what I thought I'm computing
