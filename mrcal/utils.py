@@ -1945,14 +1945,11 @@ except:
     shellquote = shlex.quote
 
 
-def get_mapping_file_framecamera(files_per_camera):
+def get_mapping_file_framecamera(*files_per_camera):
     r'''Parse image filenames to get the frame numbers
 
-    I take in a list of image paths per camera. I return a list:
-
-    - a dict that maps each image filename to (framenumber,cameraindex)
-    - a string for the common prefix of the image filenames
-    - a string for the common suffix of the image filenames
+    I take in a list of image paths per camera. I return a dict that maps each
+    image filename to (framenumber,cameraindex)
 
     '''
 
@@ -2040,33 +2037,27 @@ def get_mapping_file_framecamera(files_per_camera):
         m = re.match("^(.*?)([0-9]*)$", leading)
         if m:
             pre_numeric = m.group(2)
-            leading     = m.group(1)
         else:
             pre_numeric = ''
 
         m = re.match("^([0-9]*)(.*?)$", trailing)
         if m:
             post_numeric = m.group(1)
-            trailing     = m.group(2)
         else:
             post_numeric = ''
 
-        return [int(pre_numeric + f[Nleading:Itrailing] + post_numeric) for f in files], leading, trailing
+        return [int(pre_numeric + f[Nleading:Itrailing] + post_numeric) for f in files]
 
 
 
 
     Ncameras = len(files_per_camera)
     mapping = {}
-    prefix0 = None
-    suffix0 = None
     for icamera in range(Ncameras):
-        framenumbers, leading, trailing = pull_framenumbers(files_per_camera[icamera])
+        framenumbers = pull_framenumbers(files_per_camera[icamera])
         if framenumbers is not None:
-            if prefix0 is None: prefix0 = leading
-            if suffix0 is None: suffix0 = trailing
             mapping.update(zip(files_per_camera[icamera], [(iframe,icamera) for iframe in framenumbers]))
-    return mapping, prefix0, suffix0
+    return mapping
 
 
 def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, exclude=set(), weighted=True):
@@ -2283,7 +2274,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
     # inputs[camera][image] = (image_filename, frame_number)
     mapping_file_corners,files_per_camera = get_dot_observations(Nw, Nh, globs, corners_cache_vnl, exclude)
-    mapping_file_framecamera,_,_          = get_mapping_file_framecamera(files_per_camera)
+    mapping_file_framecamera              = get_mapping_file_framecamera(*files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
     # {for(cameras) {}} loop will just end up looking at these files in order
