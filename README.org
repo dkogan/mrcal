@@ -453,11 +453,14 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --focal FOCAL         Initial estimate of the focal length, in pixels
+      --focal FOCAL         Initial estimate of the focal length, in pixels.
+                            Required unless --seed is given
       --imagersize IMAGERSIZE IMAGERSIZE
                             Size of the imager. This is only required if we pass
                             --corners-cache AND if none of the image files on disk
-                            actually exist
+                            actually exist and if we don't have a --seed. If we do
+                            have a --seed, the --imagersize values must match the
+                            --seed exactly
       --outdir OUTDIR       Directory for the output camera models
       --object-spacing OBJECT_SPACING
                             Width of each square in the calibration board, in
@@ -465,8 +468,8 @@ OPTIONS
       --object-width-n OBJECT_WIDTH_N
                             How many points the calibration board has per side
       --distortion-model DISTORTION_MODEL
-                            Which distortion model we're using. By default I use
-                            DISTORTION_OPENCV4
+                            Which distortion model we're using. This is required
+                            unless we have a --seed
       --roi ROI ROI ROI ROI
                             Region of interest of the calibration. This is the
                             area in the imager we're interested in. Errors in
@@ -477,11 +480,23 @@ OPTIONS
                             region is an axis-aligned ellipsoid. If passing in ANY
                             roi, you MUST pass in the ROI for EACH camera; a
                             separate '--roi' for each one.
-      --incremental         If passed, we incrementally increase ROI and
+      --incremental         THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet.
+                            If passed, we incrementally increase ROI and
                             distortion model complexity across multiple solves. In
                             this mode the requested ROI is a target, and the
                             requested distortion model is the upper bound. If we
                             can get away with a simpler one, we use that.
+      --seed SEED           A comma-separated whitespace-less list of camera model
+                            globs to use as a seed for the intrinsics and
+                            extrinsics. The number of models must match the number
+                            of cameras exactly. Expanded globs are sorted
+                            alphanumerically. This is useful to bootstrap the
+                            solve or to validate an existing set of models, or to
+                            recompute just the extrinsics or just the intrinsics
+                            of a solve. If omitted, we estimate a seed. Exclusive
+                            with --focal. If given, --imagersize is omitted or it
+                            must match EXACTLY with whatever is in the --seed
+                            models
       --num-cross-validation-splits NUM_CROSS_VALIDATION_SPLITS
                             If passed, we cross-validate the results with this
                             many splits. This only makes sense as an integer >1.
@@ -498,6 +513,12 @@ OPTIONS
       --skip-outlier-rejection
                             By default we throw out outliers. This option turns
                             that off
+      --skip-extrinsics-solve
+                            Keep the seeded extrinsics, if given. Allowed only if
+                            --seed
+      --skip-intrinsics-solve
+                            Keep the seeded intrinsics, if given. Allowed only if
+                            --seed
       --unweighted-corners  By default we weight each corner error contribution
                             using information from mrgingham. If we want to ignore
                             this information, and weigh them all the same, pass
@@ -598,7 +619,7 @@ OPTIONS
       to                   The target distortion model
       model                Input camera model. Assumed to be mrcal native, Unless
                            the name is xxx.cahvor, in which case the cahvor format
-                           is assumed
+                           is assumed. If "-' is given, we read standard input
 
   OPTIONAL ARGUMENTS
       -h, --help           show this help message and exit
@@ -643,9 +664,10 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model                 Input camera model. Assumed to be mrcal native, unless
+      model                 Input camera model. Assumed to be mrcal native, Unless
                             the name is xxx.cahvor, in which case the cahvor
-                            format is assumed
+                            format is assumed. If "-' is given, we read standard
+                            input
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
@@ -698,7 +720,10 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model                 Input camera model. Assumed to be mrcal native
+      model                 Input camera model. Assumed to be mrcal native, Unless
+                            the name is xxx.cahvor, in which case the cahvor
+                            format is assumed. If "-' is given, we read standard
+                            input
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
@@ -849,12 +874,27 @@ OPTIONS
       -h, --help            show this help message and exit
       --fit FIT             If given, we'll scale the focal length of the pinhole
                             model to fit some of the original image into the
-                            output. This is one of "corners", "centers-
-                            horizontal", "centers-vertical". If omitted, we keep
-                            the focal lengths the same
-      --scale SCALE         If given, we scale the size of the pinhole image by
-                            this factor. By default the scale is 1.0, i.e. the
-                            undistorted and distorted images have the same size
+                            output. This is a "zoom" operation. We compute the
+                            focal-length scaling based on this argument. If we
+                            KNOW the scaling we want, that can be passed-in
+                            directly with --scale-focal instead. The argument
+                            could be one of ("corners", "centers-horizontal",
+                            "centers-vertical"). Or the argument could be given as
+                            a list of points x0,y0,x1,y1,x2,y2,.... The focal
+                            length scale will be chosen to zoom in as far as
+                            possible, while fitting all of these points. If
+                            omitted, we keep the focal lengths the same
+      --scale-focal SCALE_FOCAL
+                            If given, we'll scale the focal length of the pinhole
+                            model by this factor. This is a "zoom" operation. If
+                            we don't know the scaling, but wish to compute it
+                            based on fitting some points, use --fit instead
+      --scale-image SCALE_IMAGE
+                            If given, we scale the dimensions of the pinhole image
+                            by this factor. By default the scale is 1.0, i.e. the
+                            undistorted and distorted images have the same size.
+                            This parameter changes the RESOLUTION of the output,
+                            unlike --scale-focal, which ZOOMS the output
       --force, -f           By default I don't overwrite existing files. Pass
                             --force to overwrite them without complaint
       --jobs JOBS, -j JOBS  parallelize the processing JOBS-ways. This is like GNU
@@ -1037,7 +1077,9 @@ DESCRIPTION
     DESCRIPTION
 
     This tool converts a given model to the cahvor file format. No changes
-    to the content are made; this is purely a format converter
+    to the content are made; this is purely a format converter. If the model
+    is given as "-", the input is read from standard input, and the output
+    is written to standard output
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -1061,7 +1103,9 @@ DESCRIPTION
     DESCRIPTION
 
     This tool converts a given model to the cameramodel file format. No
-    changes to the content are made; this is purely a format converter
+    changes to the content are made; this is purely a format converter. If
+    the model is given as "-", the input is read from standard input, and
+    the output is written to standard output
 
 OPTIONS
   POSITIONAL ARGUMENTS
