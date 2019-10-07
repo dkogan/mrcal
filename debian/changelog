@@ -1,8 +1,14 @@
+mrcal (0.29) unstable; urgency=medium
+
+  * bug fix
+
+ -- Dima Kogan <dkogan@debian.org>  Mon, 07 Oct 2019 16:47:38 -0700
+
 mrcal (0.28) unstable; urgency=medium
 
   * Updates
 
- -- Dima Kogan <dkogan@debian.org>  Mon, 07 Oct 2019 14:43:09 -0700
+ -- Dima Kogan <dkogan@debian.org>  Mon, 07 Oct 2019 16:47:34 -0700
 
 mrcal (0.27) unstable; urgency=medium
 
