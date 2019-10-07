@@ -760,6 +760,9 @@ def compute_intrinsics_uncertainty( model, v,
       This almost simplifies a lot. If Jobservations was J then I'd be looking
       at a sliced inverse:
 
+        inv(JtJ)[intrinsics] is a row-subset of inv(JtJ).
+        Let X = JtJ, B = inv(JtJ)[intrinsics]:
+
             [ A ]         [ AX ]
         I = [ B ] [ X ] = [ BX ] -> B X = [0 I 0] = inv(JtJ)[intrinsics] JtJ
             [ C ]         [ CX ]
@@ -767,6 +770,8 @@ def compute_intrinsics_uncertainty( model, v,
       But I don't have this. So I leave it as is:
 
       Q = inv(JtJ)[intrinsics] Jobservationst Jobservations inv(JtJ)[intrinsics]t
+
+      This "Q" is "invJtJ_intrinsics_observations_only" in the cameramodel
 
       -> Var(dq) = (dproj/dintrinsics Q dproj/dintrinsicst) s^2
 

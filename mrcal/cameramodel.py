@@ -231,7 +231,12 @@ class cameramodel(object):
             distortion_model = self._intrinsics[0]
             Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
             Nintrinsics = Ndistortions_want+4
-            f.write( '    # An inv(JtJ) used for the outlierness-based uncertainty computations\n')
+            f.write( r'''    # The intrinsics are represented as a probabilistic quantity: the parameters
+    # are all gaussian, with mean at the given values, and with some inv(JtJ).
+    # This inv(JtJ) is used for the outlierness-based uncertainty computations.
+    # In the optimization this is the block of inv(JtJ) corresponding to the
+    # intrinsics of this camera
+''')
             f.write("    'invJtJ_intrinsics_full': [\n")
             for row in self._invJtJ_intrinsics_full:
                 f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))
@@ -243,7 +248,11 @@ class cameramodel(object):
             f.write( r'''    # The intrinsics are represented as a probabilistic quantity: the parameters
     # are all gaussian, with mean at the given values, and with some inv(JtJ).
     # This inv(JtJ) comes from the uncertainty of the pixel observations in
-    # the calibration process
+    # the calibration process. In the optimization this is the block of
+    #     inv(JtJ) * transpose(Jobservations) Jobservations inv(JtJ)
+    # corresponding to the intrinsics of this camera. Jobservations is the rows
+    # of J corresponding only to the pixel measurements being perturbed by
+    # noise: regularization terms are NOT a part of Jobservations
 ''')
             f.write("    'invJtJ_intrinsics_observations_only': [\n")
             for row in self._invJtJ_intrinsics_observations_only:
@@ -782,11 +791,16 @@ class cameramodel(object):
         r'''Get an intrinsics invJtJ in this model
 
         This function looks at the FULL invJtJ. This is used for the
-        outlierness-based uncertainty computations
+        outlierness-based uncertainty computations.
+
+        The intrinsics are represented as a probabilistic quantity: the
+        parameters are all gaussian, with mean at the given values, and with
+        some inv(JtJ). The flavor of inv(JtJ) returned by this function comes
+        from JtJ in the optimization: this is the block of inv(JtJ)
+        corresponding to the intrinsics of this camera
 
         This function is NOT a setter. Use intrinsics() to set all the
         intrinsics together
-
         '''
 
         if len(args) or len(kwargs):
@@ -799,6 +813,17 @@ class cameramodel(object):
         This function looks at the observations-only invJtJ. This is used
         for the uncertainty based on the noise of input observations to the
         calibration routine
+
+        The intrinsics are represented as a probabilistic quantity: the
+        parameters are all gaussian, with mean at the given values, and with
+        some inv(JtJ). The flavor of inv(JtJ) returned by this function comes
+        from JtJ in the optimization: this is the block of
+
+            inv(JtJ) * transpose(Jobservations) Jobservations inv(JtJ)
+
+        corresponding to the intrinsics of this camera. Jobservations is the
+        rows of J corresponding only to the pixel measurements being perturbed
+        by noise: regularization terms are NOT a part of Jobservations
 
         This function is NOT a setter. Use intrinsics() to set all the
         intrinsics together
