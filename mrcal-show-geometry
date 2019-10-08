@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+
+r'''Renders a vector field to visualize the effect of a model
+
+SYNOPSIS
+
+  $ mrcal-show-geometry *.cameramodel
+  ... a plot pops up showing the camera arrangement
+
+This allows us to visualize the relative geometry between several cameras
+
+'''
+
+from __future__ import print_function
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--scale-axes',
+                        type=float,
+                        default = 1.0,
+                        help='''Scale for the camera axes. By default these are 1.0m long''')
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the plot''')
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('models',
+                        type = str,
+                        nargs= '+',
+                        help='''Camera models to visualize. Any N cameras can be given''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+import numpy as np
+import numpysane as nps
+
+import mrcal
+
+
+
+
+models = [mrcal.cameramodel(m) for m in args.models]
+
+plotkwargs = {}
+if args.title    is not None: plotkwargs['title'   ] = args.title
+if args.hardcopy is not None: plotkwargs['hardcopy'] = args.hardcopy
+
+plot = mrcal.show_solution_geometry(models,
+                                    **plotkwargs)
+
+if args.hardcopy is None:
+    plot.wait()

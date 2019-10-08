@@ -51,6 +51,8 @@ partially supported. The toolkit includes:
     format to the =.cameramodel= format. This exists for compatibility only, and
     does not touch the data: the lens distortion may or may not use the CAHVOR
     distortion model
+  - =mrcal-show-geometry=: Shows a visual representation of the extrinsics of N
+    cameras
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -183,6 +185,11 @@ xxx-manpage-mrcal-to-cahvor-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-to-cameramodel-xxx
 #+END_EXAMPLE
+** mrcal-show-geometry
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-show-geometry-xxx
+#+END_EXAMPLE
+
 
 * REPOSITORY
 

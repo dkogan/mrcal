@@ -151,17 +151,20 @@ def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
     return full_object
 
 
-def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
-                           observations_board, indices_frame_camera_board,
-                           observations_point,  indices_frame_camera_points,
-                           distortion_model,
+def show_solution_geometry(models,
+
+                           frames                      = None,
+                           points                      = None,
+                           observations_board          = None,
+                           indices_frame_camera_board  = None,
+                           observations_point          = None,
+                           indices_frame_camera_points = None,
 
                            axis_scale = 1.0,
-                           object_spacing = 0, object_width_n = 10, i_camera=None,
+                           object_spacing = 0, object_width_n = 10,
+                           i_camera_highlight=None,
 
-                           title       = None,
-                           hardcopy    = None,
-                           kwargs      = None):
+                           **kwargs):
 
     r'''Plot what a hypothetical 3d calibrated world looks like
 
@@ -175,12 +178,7 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
     If we don't have any observed points, observations_point and
     indices_frame_camera_points should be None
 
-    We should always have at least one camera observing the world, so
-    intrinsics_data should never be None.
-
-    If we have only one camera, extrinsics will not be referenced.
-
-    The inputs are the same as to mrcal.optimize(). If i_camera is not None, the
+    The inputs are the same as to mrcal.optimize(). If i_camera_highlight is not None, the
     visualization is colored by the reprojection-error-quality of the fit
 
     object_spacing may be omitted ONLY if we are not observing any calibration
@@ -188,11 +186,14 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
     '''
 
-    if kwargs is None: kwargs = {}
+    # Is this really taking the same arguments as mrcal.optimize() still?
+    # I should be able to use this to visualize any set of camera models
+    # Need to fiinish the color-coding by camera
+
 
     import gnuplotlib as gp
 
-    if i_camera is not None:
+    if i_camera_highlight is not None:
         raise Exception("This isn't done yet. Sorry")
 
     def extend_axes_for_plotting(axes):
@@ -253,12 +254,14 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
     # - Observed points
     def gen_curves_cameras():
 
-        cam0_axes_labels = gen_plot_axes((mrcal.identity_Rt(),), 'cam0', scale=axis_scale)
-        cam_axes_labels  = [gen_plot_axes((mrcal.invert_Rt(mrcal.Rt_from_rt(extrinsics[i])),),
-                                           'cam{}'.format(i+1),
-                                          scale=axis_scale) for i in range(0,extrinsics.shape[-2])]
+        cam_axes_labels  = [gen_plot_axes( ( models[i].extrinsics_Rt_toref(), ),
+                                           'cam{}'.format(i),
+                                           scale=axis_scale) for i in range(0,len(models))]
 
-        return list(cam0_axes_labels) + [ca for x in cam_axes_labels for ca in x]
+        # flatten the list. I have [ [axes0,labels0], [axes1,labels1],
+        # [axes2,labels2], ...], and I return [ axes0,labels0, axes1,labels1,
+        # axes2,labels2, ...]
+        return [ca for x in cam_axes_labels for ca in x]
 
 
     def gen_curves_calobjects():
@@ -274,10 +277,10 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
         Nobservations = len(indices_frame_camera_board)
 
-        # if i_camera is not None:
+        # if i_camera_highlight is not None:
         #     i_observations_frames = [(i_observation,indices_frame_camera_board[i_observation,0]) \
         #                              for i_observation in range(Nobservations) \
-        #                              if indices_frame_camera_board[i_observation,1] == i_camera]
+        #                              if indices_frame_camera_board[i_observation,1] == i_camera_highlight]
 
         #     i_observations, i_frames = nps.transpose(np.array(i_observations_frames))
         #     frames = frames[i_frames, ...]
@@ -293,18 +296,12 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
         # object in the cam0 coord system. shape=(Nframes, object_width_n, object_width_n, 3)
         calobject_cam0 = nps.matmult( calobject_ref, nps.transpose(Rf)) + tf
 
-        # if i_camera is not None:
+        # if i_camera_highlight is not None:
         #     # shape=(Nobservations, object_width_n, object_width_n, 2)
-        #     if i_camera == 0:
-        #         calobject_cam = calobject_cam0
-        #     else:
-        #         Rc = mrcal.utils.Rodrigues_toR_broadcasted(extrinsics[i_camera-1,:3])
-        #         tc = extrinsics[i_camera-1,3:]
-
-        #         calobject_cam = nps.matmult( calobject_cam0, nps.transpose(Rc)) + tc
+        #     calobject_cam = nps.transform_point_Rt( models[i_camera_highlight].extrinsics_Rt_fromref(), calobject_cam0 )
 
         #     print("double-check this. I don't broadcast over the intrinsics anymore")
-        #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, distortion_model, intrinsics_data[i_camera, ...])
+        #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, *models[i_camera_highlight].intrinsics())
         #     err = nps.clump(err, n=-3)
         #     rms = np.sqrt(nps.inner(err,err) / (object_width_n*object_width_n))
         #     # igood = rms <  0.4
@@ -320,7 +317,7 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
         # This will broadcast nicely
         calobject_cam0 = nps.clump( nps.mv(calobject_cam0, -1, -4), n=-2)
 
-        # if i_camera is not None:
+        # if i_camera_highlight is not None:
         #     calobject_curveopts = {'with':'lines palette', 'tuplesize': 4}
         # else:
         calobject_curveopts = {'with':'lines', 'tuplesize': 3}
@@ -338,17 +335,6 @@ def show_solution_geometry(intrinsics_data, extrinsics, frames, points,
 
         curveopts = {'with':'points pt 7 ps 2'}
         return [tuple(list(nps.transpose(points)) + [curveopts,])]
-
-
-
-    if title is not None:
-        if 'title' in kwargs:
-            kwargs['title'] = kwargs['title'] + title
-        else:
-            kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
 
     curves_cameras    = gen_curves_cameras()
     curves_calobjects = gen_curves_calobjects()
