@@ -1511,7 +1511,25 @@ if not args.skip_outlier_rejection:
                args.object_width_n*args.object_width_n*len(observations),
                100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
 if calobject_warp is not None:
-    report += "calobject_warp = {}".format(calobject_warp)
+    report += "calobject_warp = {}\n".format(calobject_warp)
+
+# Most of this derivation is described in compute_intrinsics_uncertainty():
+#
+# I have dp = M dqref
+# yaw = rt[1] -> dyaw = M[1,:] dqref
+# Var(yaw) = M[1,:] Var(dqref) M[1,:]t = MMt[1,1] s^2
+#
+# In ordinary least squares I have M = inv(JtJ) Jt -> MMt = inv(JtJ). My life is
+# slightly more complicated, so I actually have M = inv(JtJ) Jobservationst W.
+# Blocks of the MMt defined this way are stored in stats['invJtJ_extrinsics'],
+# stats['invJtJ_intrinsics_observations_only']
+try:
+    var_yaw   = stats['invJtJ_extrinsics'][1,1] * args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
+    stdev_yaw = np.sqrt(var_yaw)
+    report += "1-stdev uncertainty in pair-0 yaw: {:.3f} degrees\n".format(stdev_yaw*180./np.pi)
+except:
+    pass
+
 print(report)
 
 # shape (Nframes,Ncameras,Nwant,Nwant,2)
