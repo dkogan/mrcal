@@ -103,7 +103,8 @@ if args.writeimage:
         return "{}-valid-intrinsics-region.{}".format(m.group(1),m.group(2))
 
     imagefile_out = target_image_filename(args.image)
-    image_out = mrcal.annotate_image__valid_intrinsics_region(model, args.image)
+    image_out = cv2.imread(args.image)
+    mrcal.annotate_image__valid_intrinsics_region(model, image_out)
     cv2.imwrite(imagefile_out, image_out)
     sys.stderr.write("Wrote {}\n".format(imagefile_out))
 
