@@ -157,8 +157,8 @@ else:
 
     scale_f_pinhole = \
         mrcal.compute_scale_f_pinhole_for_fit(model, fit,
-                                              scale_imagersize_pinhole = args.scale)
-    sys.stderr.write(f"scale_f_pinhole = {scale_f_pinhole}")
+                                              scale_imagersize_pinhole = args.scale_image)
+    sys.stderr.write(f"scale_f_pinhole = {scale_f_pinhole}\n")
 
 if args.scale_image <= 1e-6:
     sys.stderr.write("--scale-image should be given a reasonable value > 0.\n")
