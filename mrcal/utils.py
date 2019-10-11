@@ -1980,7 +1980,7 @@ def get_mapping_file_framecamera(*files_per_camera):
         d = {}
         for i in range(len(files_per_camera[0])):
             d[files_per_camera[0][i]] = (i,0)
-        return d,'',''
+        return d
 
 
     def get_longest_leading_trailing_substrings(strings):
