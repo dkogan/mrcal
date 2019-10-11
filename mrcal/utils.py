@@ -163,7 +163,7 @@ def show_solution_geometry(models,
 
     # Is this really taking the same arguments as mrcal.optimize() still?
     # I should be able to use this to visualize any set of camera models
-    # Need to fiinish the color-coding by camera
+    # Need to finish the color-coding by camera
 
 
     import gnuplotlib as gp
@@ -589,7 +589,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
 
 
 def colormap_using(imagersize, gridn_x, gridn_y):
-    '''Utility function returns a 'using' expressionwhen plotting a colormap'''
+    '''Utility function returns a 'using' expression when plotting a colormap'''
     W,H = imagersize
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
