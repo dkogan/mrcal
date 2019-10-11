@@ -858,6 +858,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
                                get_invJtJ_intrinsics             = False,
+                               get_invJtJ_extrinsics             = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
@@ -877,6 +878,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
                                get_invJtJ_intrinsics             = False,
+                               get_invJtJ_extrinsics             = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
@@ -1049,6 +1051,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
                                get_invJtJ_intrinsics             = False,
+                               get_invJtJ_extrinsics             = False,
                                verbose                           = args.verbose_solver)
         return "fixed solve", (distortion_model, intrinsics_data), extrinsics, frames, args.roi, stats
 
@@ -1106,6 +1109,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                outlier_indices                   = outlier_indices,
                                roi                               = roi,
                                get_invJtJ_intrinsics             = False,
+                               get_invJtJ_extrinsics             = False,
                                verbose                           = args.verbose_solver)
 
         solution_acceptable,solution_description = eval_solution(stats, outside_ROI_indices__prevROI)
@@ -1431,6 +1435,7 @@ if args.num_cross_validation_splits > 1:
                                outlier_indices                   = split_outlier_indices,
                                roi                               = roi,
                                get_invJtJ_intrinsics             = True,
+                               get_invJtJ_extrinsics             = True,
                                verbose                           = False,
                                solver_context                    = solver_context)
 
