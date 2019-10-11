@@ -2134,6 +2134,9 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
         '''
 
+        # Expand any ./ and // etc
+        globs = [os.path.normpath(g) for g in globs]
+
         Ncameras = len(globs)
         files_per_camera = []
         for i in range(Ncameras):
