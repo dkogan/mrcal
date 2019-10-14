@@ -61,6 +61,20 @@ def parse_args():
                         scaling, but wish to compute it based on fitting some
                         points, use --fit instead''')
 
+    parser.add_argument('--rotate',
+                        type=float,
+                        nargs=3,
+                        help='''If given, the pinhole camera is rotated in respect to the input camera. This
+                        is specified as a Rodrigues rotation vector, in degrees:
+                        3 numbers. This is a unit vector for the rotation axis
+                        scaled by the rotation magnitude. This specifies as the
+                        rotation of the CAMERA AROUND ITS OWN AXES. So this is
+                        independent of any extrinsics already present in the
+                        given cameramodel. Example: to yaw the camera 15
+                        degrees, we're rotating around the camera's y axis, so
+                        pass "--rotate 0 15 0". If omitted, no rotation is
+                        applied''')
+
     parser.add_argument('--scale-image',
                         type=float,
                         default=1.0,
@@ -166,8 +180,10 @@ if args.scale_image <= 1e-6:
 
 mapxy, model_pinhole = \
     mrcal.undistort_image__compute_map(model,
-                                       scale_f_pinhole          = scale_f_pinhole,
-                                       scale_imagersize_pinhole = args.scale_image)
+                                       scale_f_pinhole           = scale_f_pinhole,
+                                       scale_imagersize_pinhole  = args.scale_image,
+                                       R_pinhole_input           = mrcal.R_from_r(-np.array(args.rotate) * np.pi/180.) \
+                                         if args.rotate is not None else None)
 
 print("# Corresponding pinhole model:")
 model_pinhole.write(sys.stdout)

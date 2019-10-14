@@ -99,7 +99,8 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
 
 def undistort_image__compute_map(model,
                                  scale_f_pinhole          = 1.0,
-                                 scale_imagersize_pinhole = 1.0):
+                                 scale_imagersize_pinhole = 1.0,
+                                 R_pinhole_input          = None):
     r'''Computes a distortion map useful in undistort_image()
 
     Synopsis:
@@ -120,6 +121,13 @@ def undistort_image__compute_map(model,
     argument. This routine uses opencv-specific functions if possible, for
     performance
 
+    If given, R_pinhole_input is a rotation matrix specifying a camera rotation
+    FROM the input camera coordinate system TO the pinhole camera coordinate
+    system. Since this is defined in terms of the camera's coordinate system,
+    this is independent of any extrinsics already present in the given
+    cameramodel. The extrinsics in the returned pinhole camera model take into
+    account the input extrinsics and R_pinhole_input
+
     '''
 
     distortion_model,intrinsics_data = model.intrinsics()
@@ -133,6 +141,10 @@ def undistort_image__compute_map(model,
 
     fxy1 = fxy * scale_imagersize_pinhole * scale_f_pinhole
     cxy1 = cxy * scale_imagersize_pinhole
+
+    if R_pinhole_input is not None and \
+       np.trace(R_pinhole_input) > 3. - 1e-12:
+        R_pinhole_input = None
 
     if re.match("DISTORTION_OPENCV",distortion_model):
         # OpenCV models have a special-case path here. This works
@@ -154,7 +166,9 @@ def undistort_image__compute_map(model,
         # cache the map, and I can unify the remap code for all the model
         # types
 
-        mapxy = nps.cat( *cv2.initUndistortRectifyMap(cameraMatrix, distortion_coeffs, None,
+        mapxy = nps.cat( *cv2.initUndistortRectifyMap(cameraMatrix, distortion_coeffs,
+                                                      None if R_pinhole_input is None \
+                                                        else R_pinhole_input,
                                                       cameraMatrix_new, output_shape,
                                                       cv2.CV_32FC1) )
     else:
@@ -165,15 +179,27 @@ def undistort_image__compute_map(model,
                                                  -1, -2, -3),
                                      dtype = float)
 
-        mapxy = mrcal.project( nps.glue( (grid-cxy1)/fxy1,
-                                         np.ones(grid.shape[:-1] + (1,), dtype=float),
-                                         axis = -1 ),
-                               distortion_model, intrinsics_data )
+        v = nps.glue( (grid-cxy1)/fxy1,
+                      np.ones(grid.shape[:-1] + (1,), dtype=float),
+                      axis = -1 )
+
+        if R_pinhole_input is not None:
+            v = nps.matmult(v, R_pinhole_input)
+
+        mapxy = mrcal.project( v, distortion_model, intrinsics_data )
 
         mapxy = nps.reorder(mapxy, -1, -2, -3).astype(np.float32)
 
 
     model_pinhole = mrcal.cameramodel( model )
+    if R_pinhole_input is not None:
+        Rt_pinhole_input = nps.glue(R_pinhole_input,
+                                    np.zeros((3,)),
+                                    axis=-2)
+        Rt_pinhole_ref = mrcal.compose_Rt( Rt_pinhole_input,
+                                           model.extrinsics_Rt_fromref() )
+        model_pinhole.extrinsics_Rt_fromref(Rt_pinhole_ref)
+
     model_pinhole.intrinsics(np.array((W1,H1)),
                              ('DISTORTION_NONE', nps.glue(fxy1, cxy1, axis=-1)))
     return mapxy, model_pinhole
