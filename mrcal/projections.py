@@ -124,16 +124,15 @@ def undistort_image__compute_map(model,
 
     distortion_model,intrinsics_data = model.intrinsics()
     W,H                              = model.imagersize()
-    fx,fy,cx,cy                      = intrinsics_data[ :4]
+    fxy                              = intrinsics_data[ :2]
+    cxy                              = intrinsics_data[2:4]
 
     W1 = int(W*scale_imagersize_pinhole + 0.5)
     H1 = int(H*scale_imagersize_pinhole + 0.5)
     output_shape = (W1, H1)
 
-    cx1 = cx * scale_imagersize_pinhole
-    cy1 = cy * scale_imagersize_pinhole
-    fx1 = fx * scale_imagersize_pinhole * scale_f_pinhole
-    fy1 = fy * scale_imagersize_pinhole * scale_f_pinhole
+    fxy1 = fxy * scale_imagersize_pinhole * scale_f_pinhole
+    cxy1 = cxy * scale_imagersize_pinhole
 
     if re.match("DISTORTION_OPENCV",distortion_model):
         # OpenCV models have a special-case path here. This works
@@ -141,12 +140,12 @@ def undistort_image__compute_map(model,
         # always be used instead), but the opencv-specific code is 100%
         # written in C (not Python) so it runs much faster
         distortion_coeffs = intrinsics_data[4: ]
-        cameraMatrix     = np.array(((fx,  0, cx),
-                                     ( 0, fy, cy),
-                                     ( 0,  0,  1)))
-        cameraMatrix_new = np.array(((fx1,   0, cx1),
-                                     ( 0,  fy1, cy1),
-                                     ( 0,    0,   1)))
+        cameraMatrix     = np.array(((fxy[0],      0, cxy[0]),
+                                     ( 0,     fxy[1], cxy[1]),
+                                     ( 0,          0,      1)))
+        cameraMatrix_new = np.array(((fxy1[0],       0, cxy1[0]),
+                                     ( 0,      fxy1[1], cxy1[1]),
+                                     ( 0,            0,      1)))
 
         # opencv has cv2.undistort(), but this apparently only works if the
         # input and output dimensions match 100%. If they don't I see a
@@ -165,15 +164,18 @@ def undistort_image__compute_map(model,
                                                                       np.arange(H1))),
                                                  -1, -2, -3),
                                      dtype = float)
-        mapxy = mrcal.distort(grid, distortion_model, intrinsics_data,
-                              fx1,fy1,cx1,cy1)
+
+        mapxy = mrcal.project( nps.glue( (grid-cxy1)/fxy1,
+                                         np.ones(grid.shape[:-1] + (1,), dtype=float),
+                                         axis = -1 ),
+                               distortion_model, intrinsics_data )
 
         mapxy = nps.reorder(mapxy, -1, -2, -3).astype(np.float32)
 
 
     model_pinhole = mrcal.cameramodel( model )
     model_pinhole.intrinsics(np.array((W1,H1)),
-                             ('DISTORTION_NONE', np.array((fx1,fy1,cx1,cy1))))
+                             ('DISTORTION_NONE', nps.glue(fxy1, cxy1, axis=-1)))
     return mapxy, model_pinhole
 
 
@@ -253,38 +255,6 @@ def undistort_image(model, image,
 
     return cv2.remap(image, mapxy[0], mapxy[1],
                      cv2.INTER_LINEAR)
-
-
-def distort(q, distortion_model, intrinsics_data,
-            fx_pinhole = -1,
-            fy_pinhole = -1,
-            cx_pinhole = -1,
-            cy_pinhole = -1):
-    r'''Converts points observed by a distorted lens to pinhole observations
-
-    This function takes in
-
-    - A set of pixel observations q
-    - (distortion_model, intrinsics_data) describing the lens used to capture q
-    - Optionally, pinhole parameters of a distortion-free lens. If omitted, we
-      use the pinhole parameters from the original camera model
-
-    This function then computes the pixel observations that would result if the
-    scene that was observed to produce q was observed by the pinhole camera
-
-    '''
-
-    if fx_pinhole <= 0: fx_pinhole = intrinsics_data[0]
-    if fy_pinhole <= 0: fy_pinhole = intrinsics_data[1]
-    if cx_pinhole <= 0: cx_pinhole = intrinsics_data[2]
-    if cy_pinhole <= 0: cy_pinhole = intrinsics_data[3]
-
-    fxy = np.array((fx_pinhole, fy_pinhole))
-    cxy = np.array((cx_pinhole, cy_pinhole))
-    return mrcal.project( nps.glue( (q-cxy)/fxy,
-                                    np.ones(q.shape[:-1] + (1,), dtype=float),
-                                    axis = -1 ),
-                          distortion_model, intrinsics_data )
 
 
 def redistort_image(model0, model1, image0,

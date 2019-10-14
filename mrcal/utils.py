@@ -1295,8 +1295,13 @@ def show_distortion(model,
                                                                   np.linspace(0,H-1,gridn_y))),
                                              -1, -2, -3),
                                  dtype = float)
-    dgrid = mrcal.distort(grid, distortion_model, intrinsics_data)
 
+    fxy = intrinsics_data[ :2]
+    cxy = intrinsics_data[2:4]
+    dgrid =  mrcal.project( nps.glue( (grid-cxy)/fxy,
+                                    np.ones(grid.shape[:-1] + (1,), dtype=float),
+                                    axis = -1 ),
+                          distortion_model, intrinsics_data )
 
     if mode == 'heatmap':
 
