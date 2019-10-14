@@ -10,6 +10,29 @@ import cv2
 from functools import reduce
 
 
+@nps.broadcast_define( ((3,3),),
+                       (3,), )
+def r_from_R(R):
+    r'''Broadcasting-aware wrapper cvRodrigues
+
+    This handles the R->r direction, and does not report the gradient
+
+    '''
+
+    return cv2.Rodrigues(R)[0].ravel()
+
+
+@nps.broadcast_define( ((3,),),
+                       (3,3), )
+def R_from_r(r):
+    r'''Broadcasting-aware wrapper cvRodrigues
+
+    This handles the r->R direction, and does not report the gradient
+
+    '''
+
+    return cv2.Rodrigues(r)[0]
+
 @nps.broadcast_define( ((6,),),
                        (4,3,), )
 def Rt_from_rt(rt):

@@ -91,31 +91,6 @@ def align3d_procrustes(A, B, vectors=False):
     return nps.glue( R, t.ravel(), axis=-2)
 
 
-
-@nps.broadcast_define( ((3,3),),
-                       (3,), )
-def Rodrigues_tor_broadcasted(R):
-    r'''Broadcasting-aware wrapper cvRodrigues
-
-    This handles the R->r direction, and does not report the gradient
-
-    '''
-
-    return cv2.Rodrigues(R)[0].ravel()
-
-
-@nps.broadcast_define( ((3,),),
-                       (3,3), )
-def Rodrigues_toR_broadcasted(r):
-    r'''Broadcasting-aware wrapper cvRodrigues
-
-    This handles the r->R direction, and does not report the gradient
-
-    '''
-
-    return cv2.Rodrigues(r)[0]
-
-
 def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
     r'''Returns the geometry of the calibration object in its own coordinate frame
 
@@ -289,7 +264,7 @@ def show_solution_geometry(models,
         # I don't bother with calobject_warp here. It'll look close-enough
         calobject_ref = get_ref_calibration_object(object_width_n, object_width_n, object_spacing)
 
-        Rf = mrcal.utils.Rodrigues_toR_broadcasted(frames[..., :3])
+        Rf = mrcal.R_from_r(frames[..., :3])
         Rf = nps.mv(Rf,              0, -4)
         tf = nps.mv(frames[..., 3:], 0, -4)
 
