@@ -2554,7 +2554,7 @@ def estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                 # #   xyz coord of dot in the calibration object coord system
                 # d = nps.glue( d0, d1, full_object, axis=-1 )
 
-                # # squash dims so that d is (100,7)
+                # # squash dims so that d is (Nwant*Nwant,7)
                 # d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
 
                 # # I pick out those points that have observations in both frames
