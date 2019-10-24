@@ -44,7 +44,6 @@ args = parse_args()
 # stuff, so that I can generate the manpages and README
 
 
-import os
 import mrcal
 
 if args.model == '-':
