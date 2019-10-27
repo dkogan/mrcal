@@ -81,13 +81,31 @@ def parse_args():
     parser.add_argument('--fit',
                         type=str,
                         required=False,
-                        help='''If IMAGE-TO is given, we undistort both images. This can be done with any
-                        set of pinhole intrinsics. This argument allows us to
-                        select how this is done. If given, we'll scale the focal
-                        length of the pinhole model to fit some of the original
-                        image into the output. This is one of "corners",
+                        help='''If IMAGE-TO is given, we undistort both images. This can be done with any set
+                        of pinhole intrinsics. This argument allows us to select
+                        how this is done. If given, we'll scale the focal length
+                        of the pinhole model to fit some of the original image
+                        into the output. This is one of "corners",
                         "centers-horizontal", "centers-vertical". If omitted, we
-                        keep the focal lengths the same''')
+                        keep the focal lengths the same. If we KNOW the scaling
+                        we want, that can be passed-in directly with
+                        --scale-focal instead. ''')
+
+    parser.add_argument('--scale-focal',
+                        type=float,
+                        help='''Used if IMAGE-TO is given: we'll scale the focal length of the pinhole models
+                        by this factor. This is a "zoom" operation. If we don't
+                        know the scaling, but wish to compute it based on
+                        fitting some points, use --fit instead''')
+
+    parser.add_argument('--scale-image',
+                        type=float,
+                        default=1.0,
+                        help='''Used if IMAGE-TO is given: we'll scale the dimensions of the pinhole images
+                        by this factor. By default the scale is 1.0, i.e. the
+                        undistorted and distorted images have the same size.
+                        This parameter changes the RESOLUTION of the output,
+                        unlike --scale-focal, which ZOOMS the output''')
 
     parser.add_argument('--mode',
                         default='infinity',
@@ -147,9 +165,19 @@ def parse_args():
 
 args = parse_args()
 
-if args.fit is not None and getattr(args, 'image-to') is None:
-    sys.stderr.write("--fit makes sense ONLY when both images are given.\n")
-    sys.exit(1)
+if getattr(args, 'image-to') is None:
+    if args.fit         is not None or \
+       args.scale_focal is not None or \
+       args.scale_image is not None:
+        sys.stderr.write("--fit, --scale-focal, --scale-image makes sense ONLY when both images are given.\n")
+        sys.exit(1)
+else:
+    if args.fit         is not None and \
+       args.scale_focal is not None:
+        sys.stderr.write("--fit and --scale-focal are mutually exclusive\n")
+        sys.exit(1)
+
+
 if args.mode == 'plane':
     if (args.plane_n is None or args.plane_d is None):
         sys.stderr.write("'--mode plane' requires both --plane-n and --plane-d\n")
@@ -206,6 +234,10 @@ if getattr(args, 'image-to') is None:
 
 else:
 
+    if args.scale_image <= 1e-6:
+        sys.stderr.write("--scale-image should be given a reasonable value > 0.\n")
+        sys.exit(1)
+
     image0_output_filename = target_image_filename(getattr(args, 'image-from'), 'undistorted-remapped')
     image1_output_filename = target_image_filename(getattr(args, 'image-to'  ), 'undistorted')
 
@@ -213,16 +245,21 @@ else:
               mrcal.cameramodel(getattr(args, 'model-to')) )
 
     if args.fit is None:
-        scale_f_pinhole = (1.0, 1.0)
+        if args.scale_focal is None:
+            scale_f_pinhole = (1.0, 1.0)
+        else:
+            scale_f_pinhole = (float(args.scale_focal),float(args.scale_focal))
     elif re.match("^(corners|centers-horizontal|centers-vertical)$", args.fit):
-        scale_f_pinhole = [mrcal.compute_scale_f_pinhole_for_fit(m, args.fit) for m in models]
+        scale_f_pinhole = [mrcal.compute_scale_f_pinhole_for_fit(m, args.fit,
+                                                                 scale_imagersize_pinhole = args.scale_image) for m in models]
     else:
         sys.stderr.write("--fit must be one of ('corners','centers-horizontal','centers-vertical')\n")
         sys.exit(1)
 
     mapxy1,model_pinhole1 = \
         mrcal.undistort_image__compute_map(models[1],
-                                           scale_f_pinhole = scale_f_pinhole[1])
+                                           scale_f_pinhole           = scale_f_pinhole[1],
+                                           scale_imagersize_pinhole  = args.scale_image)
     image1_undistorted = mrcal.undistort_image(models[1], getattr(args,'image-to'),
                                                mapxy = mapxy1)
 
