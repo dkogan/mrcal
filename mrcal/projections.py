@@ -284,24 +284,53 @@ def undistort_image(model, image,
 
 
 def redistort_image(model0, model1, image0,
-                    ignore_rotation=False,
+                    mode = 'infinity',
+                    plane_n = None,
+                    plane_d = None,
                     show_valid_intrinsics_region = False):
-    r'''Remaps a given image into another model, assuming no translation
+    r'''Remaps an image observed with one model into another
 
     Takes in
 
     - two camera models (filenames or objects)
     - image(s) captured with model0 (filename or array)
+    - (optionally) geometry of an observed plane
 
     Produces image(s) of the same scene that would have been observed by
-    camera1. If the intrinsics and the rotation were correct, this remapped
-    camera0 image woudl match the camera1 image for objects infinitely-far away.
-    This is thus a good validation function.
+    camera1. There are 3 modes:
 
-    This function always ignores the translation between the two cameras. The
-    rotation is ignored as well if ignore_rotation
+    - 'distortion' projects the same scene, only changing the distortion
+      parameters from one camera to another. This ignores all extrinsics, from
+      both cameras
+
+    - 'infinity' projects the same scene, applying the different distortion
+      parameters and relative rotation between the two cameras. This ignores the
+      translation components of the extrinsics. If the intrinsics and the rotation
+      were correct, infinitely-far-away objects in the remapped camera0 image
+      appear in the same exact location as the same objects in the camera1 image.
+      This is thus a good validation function. This is the default mode.
+
+    - 'plane' maps observations of a given plane in camera0 coordinates to where
+      this plane would be observed in camera1 coordinates. This uses ALL the
+      intrinsics, extrinsics and the plane representation. If all of these are
+      correct, the observations of this plane would line up exactly in the
+      remapped-camera0 image and the camera1 image. The plane is represented in
+      camera0 coordinates by a normal vector plane_n, and the distance to the
+      normal plane_d. The plane is all points p such that inner(p,plane_n) =
+      plane_d. plane_n does not need to be normalized; any scaling is compensated
+      in plane_d
 
     '''
+
+    if not (mode == 'distortion' or \
+            mode == 'infinity'   or \
+            mode == 'plane' ):
+        raise Exception("I only know of modes ('distortion','infinity','plane')")
+    if mode == 'plane':
+        if (plane_n is None or plane_d is None):
+            raise Exception("mode=='plane' requires both plane_n and plane_d to be defined")
+    elif (plane_n is not None or plane_d is not None):
+        raise Exception("mode!='plane' requires both plane_d and plane_d to be None")
 
     m = [mrcal.cameramodel(model0),
          mrcal.cameramodel(model1)]
@@ -312,10 +341,29 @@ def redistort_image(model0, model1, image0,
     v,_ = mrcal.utils.sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
     v = nps.reorder(v, 1,0,2)
 
-    if not ignore_rotation:
+    # I have observation vectors in the coordinate system of camera 1. I remap
+    # these to camera0 in a mode-specific way
+    if mode == 'infinity':
         R01 = nps.matmult( m[0].extrinsics_Rt_fromref()[:3,:],
                            m[1].extrinsics_Rt_toref  ()[:3,:] )
         v = nps.matmult(R01, nps.dummy(v, -1))[..., 0]
+    elif mode == 'plane':
+        Rt10 = mrcal.compose_Rt( m[1].extrinsics_Rt_fromref(),
+                                 m[0].extrinsics_Rt_toref  () )
+        R10 = Rt10[:3,:]
+        t10 = Rt10[ 3,:]
+
+        # The homography definition. Derived in many places. For instance in
+        # "Motion and structure from motion in a piecewise planar environment"
+        # by Olivier Faugeras, F. Lustman. 
+        A10 = plane_d * R10 + nps.outer(t10, plane_n)
+        A01 = np.linalg.inv(A10)
+        v = nps.matmult(A01, nps.dummy(v, -1))[..., 0]
+    else:
+        # I'm just remapping the distortions. The vectors I have are already
+        # right
+        pass
+
 
     # I don't strictly need "contiguous" here because the non-contiguity is in
     # the broadcasting dimensions, so the C layer shouldn't really care. The

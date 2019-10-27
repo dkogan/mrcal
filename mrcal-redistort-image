@@ -11,16 +11,36 @@ SYNOPSIS
   Wrote image1-undistorted.png
 
 This tool takes an image of a scene captured by one camera model, and generates
-an image of the same scene, as it would appear if captured by a different model.
-This is similar to mrcal-redistort-points, but acts on a full image, rather than
-a discrete set of points. The two sets of intrinsics are always used. The
-translation component of the extrinsics is always ignored; the rotation is
-ignored as well if --ignore-rotation.
+an image of the same scene, as it would appear if captured by a different
+model, taking into account both the different lens parameters and geometries.
+This is similar to mrcal-redistort-points, but acts on a full image, rather
+than a discrete set of points.
 
-One way in which this is useful is for validation of the rotation and the
-intrinsics: if these are correct, then observations of infinitely-far-away
-objects in the remapped image would match the observations made by the second
-camera.
+We have 3 modes of operation, selected with --mode:
+
+- 'distortion' projects the same scene, only changing the distortion parameters
+  from one camera to another. This ignores all extrinsics, from both cameras
+
+- 'infinity' projects the same scene, applying the different distortion
+  parameters and relative rotation between the two cameras. This ignores the
+  translation components of the extrinsics. If the intrinsics and the rotation
+  were correct, infinitely-far-away objects in the remapped camera0 image appear
+  in the same exact location as the same objects in the camera1 image. This is
+  thus a good validation function. This is the default mode.
+
+- 'plane' maps observations of a given plane in camera0 coordinates to where
+  this plane would be observed in camera1 coordinates. This uses ALL the
+  intrinsics, extrinsics and the plane representation. If all of these are
+  correct, the observations of this plane would line up exactly in the
+  remapped-camera0 image and the camera1 image. The plane is represented in
+  camera0 coordinates by a normal vector given by --plane-n, and the distance to
+  the normal given by plane-d. The plane is all points p such that
+  inner(p,planen) = planed. planen does not need to be normalized.
+
+One way in which this is useful is using the 'infinity' mode for validation of
+the rotation and the intrinsics: if these are correct, then observations of
+infinitely-far-away objects in the remapped image would match the observations
+made by the second camera.
 
 The tool takes in the two camera models, the image from the first camera, and
 optionally, the image from the second camera as well. If the second image is
@@ -52,11 +72,6 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--ignore-rotation',
-                        action='store_true',
-                        help='''By default the relative camera rotation is used in the transformation. If we
-                        want to use the intrinsics ONLY, pass --ignore-rotation''')
-
     parser.add_argument('--force', '-f',
                         action='store_true',
                         default=False,
@@ -73,6 +88,33 @@ def parse_args():
                         image into the output. This is one of "corners",
                         "centers-horizontal", "centers-vertical". If omitted, we
                         keep the focal lengths the same''')
+
+    parser.add_argument('--mode',
+                        default='infinity',
+                        choices=['distortion', 'infinity', 'plane'],
+                        help='''Specifies the mode of operation. The 'distortion' mode only switches to a
+                        different distortion model, ignoring extrinsics. The
+                        'infinity' mode switches to a different distortion
+                        model, and applies the relative rotation: infinitely-far
+                        away objects end up remapping to the same place, we
+                        ignore translations. The 'plane' mode maps a plane
+                        (specified by --plane-n and --plane-d) to the same
+                        place; we use all intrinsics and extrinsics''')
+
+    parser.add_argument('--plane-n',
+                        type=float,
+                        nargs=3,
+                        help='''If "--mode plane" this specifies the normal vector to the plane, in
+                        from-camera coordinates. The normal does not need to be
+                        normalized; any scaling is compensated in planed. The
+                        plane is all points p such that inner(p,planen) =
+                        planed. Unused in any other mode''')
+    parser.add_argument('--plane-d',
+                        type=float,
+                        help='''If "--mode plane" this specifies the distance-along-the-normal to the plane,
+                        in from-camera coordinates. The plane is all points p
+                        such that inner(p,planen) = planed. Unused in any other
+                        mode''')
 
     parser.add_argument('model-from',
                         type=lambda f: f if os.path.isfile(f) else \
@@ -91,8 +133,7 @@ def parse_args():
     parser.add_argument('image-from',
                         type=lambda f: f if os.path.isfile(f) else \
                                 parser.error("The image-from must be a readable file, but got '{}'".format(f)),
-                        help='''Image to undistort, remap (unless --ignore-rotation), and redistort (unless
-                        IMAGE-TO is omitted)''')
+                        help='''Image to undistort, remap, and redistort (unless IMAGE-TO is omitted)''')
 
     parser.add_argument('image-to',
                         nargs='?', # this argument is optional
@@ -109,10 +150,16 @@ args = parse_args()
 if args.fit is not None and getattr(args, 'image-to') is None:
     sys.stderr.write("--fit makes sense ONLY when both images are given.\n")
     sys.exit(1)
+if args.mode == 'plane':
+    if (args.plane_n is None or args.plane_d is None):
+        sys.stderr.write("'--mode plane' requires both --plane-n and --plane-d\n")
+        sys.exit(1)
+elif (args.plane_n is not None or args.plane_d is not None):
+    sys.stderr.write("'--mode NOT plane' requires neither --plane-d nor --plane-d\n")
+    sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
-
 
 
 
@@ -135,6 +182,14 @@ def target_image_filename(f,suffix):
         sys.exit(1)
     return f
 
+
+plane_n = None
+plane_d = None
+if args.plane_n is not None:
+    plane_n = np.array(args.plane_n, dtype=float)
+if args.plane_d is not None:
+    plane_d = args.plane_d
+
 if getattr(args, 'image-to') is None:
     image0_output_filename = target_image_filename(getattr(args, 'image-from'), 'remapped')
 
@@ -142,7 +197,9 @@ if getattr(args, 'image-to') is None:
                                     getattr(args, 'model-from'),
                                     getattr(args, 'model-to'),
                                     getattr(args, 'image-from'),
-                                    ignore_rotation = args.ignore_rotation)
+                                    plane_n = plane_n,
+                                    plane_d = plane_d,
+                                    mode = args.mode)
 
     cv2.imwrite(image0_output_filename, image0_remapped)
     sys.stderr.write("Wrote {}\n".format(image0_output_filename))
@@ -171,7 +228,10 @@ else:
 
     image0_remapped = mrcal.redistort_image( models[0], model_pinhole1,
                                              getattr(args, 'image-from'),
-                                             ignore_rotation = args.ignore_rotation )
+                                             plane_n = plane_n,
+                                             plane_d = plane_d,
+                                             mode    = args.mode)
+
 
     cv2.imwrite(image0_output_filename, image0_remapped)
     sys.stderr.write("Wrote {}\n".format(image0_output_filename))
