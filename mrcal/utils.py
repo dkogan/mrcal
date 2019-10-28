@@ -161,11 +161,6 @@ def show_solution_geometry(models,
 
     '''
 
-    # Is this really taking the same arguments as mrcal.optimize() still?
-    # I should be able to use this to visualize any set of camera models
-    # Need to finish the color-coding by camera
-
-
     import gnuplotlib as gp
 
     if i_camera_highlight is not None:
