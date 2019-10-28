@@ -127,7 +127,7 @@ def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
 
 
 def show_solution_geometry(models,
-
+                           cameranames                 = None,
                            frames                      = None,
                            points                      = None,
                            observations_board          = None,
@@ -229,8 +229,14 @@ def show_solution_geometry(models,
     # - Observed points
     def gen_curves_cameras():
 
+        def cameraname(i):
+            try:
+                return cameranames[i]
+            except:
+                return 'cam{}'.format(i)
+
         cam_axes_labels  = [gen_plot_axes( ( models[i].extrinsics_Rt_toref(), ),
-                                           'cam{}'.format(i),
+                                           cameraname(i),
                                            scale=axis_scale) for i in range(0,len(models))]
 
         # flatten the list. I have [ [axes0,labels0], [axes1,labels1],
