@@ -355,7 +355,7 @@ def redistort_image(model0, model1, image0,
 
         # The homography definition. Derived in many places. For instance in
         # "Motion and structure from motion in a piecewise planar environment"
-        # by Olivier Faugeras, F. Lustman. 
+        # by Olivier Faugeras, F. Lustman.
         A10 = plane_d * R10 + nps.outer(t10, plane_n)
         A01 = np.linalg.inv(A10)
         v = nps.matmult(A01, nps.dummy(v, -1))[..., 0]
