@@ -35,6 +35,13 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
+
+    parser.add_argument('--transforms',
+                        type=str,
+                        help='''Optional transforms.txt. This is a legacy file representing an extra
+                        transformation for each camera. Most usages will omit
+                        this''')
+
     parser.add_argument('models',
                         type = str,
                         nargs= '+',
@@ -60,11 +67,31 @@ import mrcal
 
 models = [mrcal.cameramodel(m) for m in args.models]
 
+cameras_Rt_plot_ref = None
+if args.transforms is not None:
+    import mrcal.cahvor
+    transforms = mrcal.cahvor.read_transforms(args.transforms)
+
+    def get_pair(icam):
+        f = args.models[icam]
+        m = re.search("camera([0-9]+)", f)
+        return int(m.group(1))
+    def Rt_plot_ref(icam):
+        try:
+            pair = get_pair(icam)
+            Rt_ins_ref = transforms['ins_from_camera'][pair]
+            return Rt_ins_ref
+        except:
+            return None
+    cameras_Rt_plot_ref = [ Rt_plot_ref(icam) for icam in range(len(models))]
+
 plotkwargs = {}
 if args.title    is not None: plotkwargs['title'   ] = args.title
 if args.hardcopy is not None: plotkwargs['hardcopy'] = args.hardcopy
 
 plot = mrcal.show_solution_geometry(models,
+                                    args.models,
+                                    cameras_Rt_plot_ref,
                                     **plotkwargs)
 
 if args.hardcopy is None:

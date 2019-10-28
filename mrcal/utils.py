@@ -128,6 +128,7 @@ def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
 
 def show_solution_geometry(models,
                            cameranames                 = None,
+                           cameras_Rt_plot_ref         = None,
                            frames                      = None,
                            points                      = None,
                            observations_board          = None,
@@ -224,14 +225,23 @@ def show_solution_geometry(models,
     # - Observed points
     def gen_curves_cameras():
 
-        def cameraname(i):
+        def camera_Rt_toplotcoords(i):
+            Rt_ref_cam = models[i].extrinsics_Rt_toref()
+            try:
+                Rt_plot_ref = cameras_Rt_plot_ref[i]
+                return mrcal.compose_Rt(Rt_plot_ref,
+                                        Rt_ref_cam)
+            except:
+                return Rt_ref_cam
+
+        def camera_name(i):
             try:
                 return cameranames[i]
             except:
                 return 'cam{}'.format(i)
 
-        cam_axes_labels  = [gen_plot_axes( ( models[i].extrinsics_Rt_toref(), ),
-                                           cameraname(i),
+        cam_axes_labels  = [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
+                                           camera_name(i),
                                            scale=axis_scale) for i in range(0,len(models))]
 
         # flatten the list. I have [ [axes0,labels0], [axes1,labels1],
