@@ -272,6 +272,8 @@ mrcal_optimize( // out
                 int NobservationsPoint,
 
                 bool check_gradient,
+                // input outliers. These are respected regardless of
+                // skip_outlier_rejection.
                 int Noutlier_indices_input,
                 int* outlier_indices_input,
 
@@ -283,6 +285,8 @@ mrcal_optimize( // out
                 const double* roi,
 
                 bool verbose,
+                // Whether to try to find NEW outliers. These would be added to
+                // the outlier_indices_input, which are respected regardless
                 const bool skip_outlier_rejection,
 
                 distortion_model_t distortion_model,
