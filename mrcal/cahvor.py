@@ -300,12 +300,16 @@ def Rt_from_pq(pq):
     Rt is a (4,3) array: a (3,3) rotation matrix with a 3-long translation in
     the last row
 
+    Broadcasting is supported
+
     '''
 
-    p = pq[:3]
-    q = pq[3:]
+    p = pq[..., :3]
+    q = pq[..., 3:]
     R = mrcal.poseutils.R_from_quat(q)
-    return nps.glue(R,p, axis=-2)
+    return nps.glue(R,
+                    nps.dummy(p,-2),
+                    axis=-2)
 
 def pq_from_Rt(Rt):
     r'''Converts an Rt transformation to an pq transformation

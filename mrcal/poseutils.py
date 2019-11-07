@@ -205,6 +205,8 @@ def transform_point_rt(rt, x, get_gradients=False):
     d_drt  = result[..., 4: ]
     return x,d_drt,d_dx
 
+@nps.broadcast_define( ((4,),),
+                       (3,3) )
 def R_from_quat(q):
     r'''Rotation matrix from a unit quaternion
 
