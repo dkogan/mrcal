@@ -244,7 +244,7 @@ def quat_from_R(R):
 
     Commit: 1169d27ad47a29abafa8a3d2cb5b67ff0df80a8f
 
-    Licesnse:
+    License:
 
     Copyright (c) 2001-2002 Enthought, Inc.  2003-2019, SciPy Developers.
     All rights reserved.
