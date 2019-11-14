@@ -2,9 +2,13 @@ Removes distortion from pixel observations
 
 SYNOPSIS
 
-    v = mrcal.unproject( # (N,2) array of pixel observations
-                         q,
-                         distortion_model, intrinsics_data )
+    v = mrcal._unproject( # (N,2) array of pixel observations
+                          q,
+                          distortion_model, intrinsics_data )
+
+This is the internal written-in-C unproject(). mrcal.unproject() is a python
+wrapper that has a slow path to handle CAHVORE. Otherwise, the wrapper just
+calls this function, which does NOT support CAHVORE
 
 Maps a set of 2D imager points q to a 3d vector in camera coordinates that
 produced these pixel observations. The 3d vector is unique only up-to-length, so
