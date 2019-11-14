@@ -8,9 +8,6 @@ SYNOPSIS
   $ mrcal-to-cameramodel model.cahvor
   Wrote model.cameramodel
 
-
-DESCRIPTION
-
 This tool converts a given model to the cameramodel file format. No changes to
 the content are made; this is purely a format converter. If the model is given
 as "-", the input is read from standard input, and the output is written to
