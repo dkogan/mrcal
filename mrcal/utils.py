@@ -2255,18 +2255,27 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
         else:
             pipe_corners_read.close()
 
-        # I can't deal with cameras that have only one frame: the filenames
-        # aren't enough to establish a pattern, so I ignore those. Which is
-        # fine, since a single observation in a camera isn't enough to be useful
+        # If I have multiple cameras, I use the filenames to figure out what
+        # indexes the frame and what indexes the camera, so I need at least
+        # two images for each camera to figure that out. Example:
+        #
+        #   I have two cameras, with one image each:
+        #   - frame2-cam0.jpg
+        #   - frame3-cam1.jpg
+        #
+        # If this is all I had, it'd be impossible for me to tell whether
+        # the images correspond to the same frame or not. But if cam0 also
+        # had "frame4-cam0.jpg" then I could look at the same-camera cam0
+        # filenames, find the common prefixes,suffixes, and conclude that
+        # the frame indices are 2 and 4.
+        #
+        # If I only have one camera, however, then the details of the
+        # filenames don't matter, and I just make sure I have at least one
+        # image to look at
+        min_num_images = 2 if len(files_per_camera) > 1 else 1
         for i_camera in range(len(files_per_camera)):
             N = len(files_per_camera[i_camera])
 
-            # If I have multiple cameras, I use the filenames to figure out what
-            # indexes the frame and what indexes the camera, so I need at least
-            # two images for each camera to figure that out. If I only have one
-            # camera, however, then the details of the filenames don't matter,
-            # and I just make sure I have at least one image to look at
-            min_num_images = 2 if len(files_per_camera) > 1 else 1
             if N < min_num_images:
                 raise Exception("Found too few ({}; need at least {}) images containing a calibration pattern in camera {}; glob '{}'". \
                                 format(N, min_num_images, i_camera, globs[i_camera]))
