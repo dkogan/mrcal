@@ -72,7 +72,7 @@ note = \
     "Generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                          ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-sys.stderr.write("Combined intrinsics from '{}'\nExtrinsics from '{}'\n". \
+sys.stderr.write("Combined\nIntrinsics from '{}'\nExtrinsics from '{}'\n". \
     format(args.intrinsics,
            args.extrinsics))
 
