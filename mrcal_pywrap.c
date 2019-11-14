@@ -983,12 +983,13 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 #define UNPROJECT_ARGUMENTS_OPTIONAL(_) \
     _(z1,               PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
 
-static PyObject* unproject(PyObject* NPY_UNUSED(self),
-                           PyObject* args,
-                           PyObject* kwargs)
+static PyObject* _unproject(PyObject* NPY_UNUSED(self),
+                            PyObject* args,
+                            PyObject* kwargs)
 {
-    // unproject() has the same arguments as project(), except no gradient reporting. The first arg is called "points"
-    // in both cases, but is 2d in one case, and 3d in the other
+    // unproject() has the same arguments as project(), except no gradient
+    // reporting. The first arg is called "points" in both cases, but is 2d in
+    // one case, and 3d in the other
     PyObject* get_gradients = NULL;
 
     _UN_PROJECT_PREAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
@@ -2004,8 +2005,8 @@ static const char getNextDistortionModel_docstring[] =
 static const char project_docstring[] =
 #include "project.docstring.h"
     ;
-static const char unproject_docstring[] =
-#include "unproject.docstring.h"
+static const char _unproject_docstring[] =
+#include "_unproject.docstring.h"
     ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
@@ -2014,7 +2015,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
       PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
       PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,unproject,                    METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,_unproject,                   METH_VARARGS | METH_KEYWORDS),
       {}
     };
 

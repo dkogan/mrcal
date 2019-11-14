@@ -12,6 +12,124 @@ import scipy.optimize
 import mrcal
 
 
+def unproject(q, distortion_model, intrinsics_data, z1=False):
+    r'''Removes distortion from pixel observations
+
+SYNOPSIS
+
+    v = mrcal.unproject( # (N,2) array of pixel observations
+                         q,
+                         distortion_model, intrinsics_data )
+
+This is the python wrapper to the internal written-in-C _mrcal.unproject(). This
+wrapper that has a slow path to handle CAHVORE. Otherwise, the it just calls
+_mrcal.unproject(), which does NOT support CAHVORE
+
+Maps a set of 2D imager points q to a 3d vector in camera coordinates that
+produced these pixel observations. The 3d vector is unique only up-to-length, so
+the result vectors either
+
+- if not z1: are reported as (3,) arrays with z = 1
+- if z1:     are reported as (2,) arrays, implying that z = 1
+
+This is the "reverse" direction, so an iterative nonlinear optimization is
+performed internally to compute this result. This is much slower than
+mrcal_project. For OpenCV distortions specifically, OpenCV has
+cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
+https://github.com/opencv/opencv/issues/8811
+
+This function does NOT support CAHVORE.
+
+ARGUMENTS
+
+- q: array of dims (...,2); the pixel coordinates we're unprojecting. This
+  supports broadcasting fully, and any leading dimensions are allowed, including
+  none
+
+- distortion_model: a string such as
+
+  DISTORTION_NONE
+  DISTORTION_OPENCV4
+  DISTORTION_OPENCV5
+  DISTORTION_OPENCV8
+  DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
+  DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
+  DISTORTION_CAHVOR
+
+- intrinsics_data: array of dims (Nintrinsics):
+
+    (focal_x, focal_y, center_pixel_x, center_pixel_y, distorion0, distortion1,
+    ...)
+
+  The focal lengths are given in pixels.
+
+- z1: optional boolean that defaults to False
+
+  if False: we return an (...,3) array of points in camera coordinates, where
+  the last column (z) contains 1
+
+  if True: we return an (...,2) array. This represents points in camera
+  coordinates, where the x,y components are present in this array, and the z is
+  omitted, and assumed to be 1
+
+    '''
+
+    if distortion_model != 'DISTORTION_CAHVORE':
+        return mrcal._mrcal._unproject(q, distortion_model, intrinsics_data, z1)
+
+    # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
+    # and here for legacy compatibility only
+
+    if q is None: return q
+    if q.size == 0:
+        s = q.shape
+        return np.zeros(s[:-1] + (3,))
+
+    fxy = intrinsics_data[ :2]
+    cxy = intrinsics_data[2:4]
+
+    # undistort the q, by running an optimizer
+
+    # I optimize each point separately because the internal optimization
+    # algorithm doesn't know that each point is independent, so if I optimized
+    # it all together, it would solve a dense linear system whose size is linear
+    # in Npoints. The computation time thus would be much slower than
+    # linear(Npoints)
+    @nps.broadcast_define( ((2,),), )
+    def undistort_this(q0):
+
+        def cost_no_gradients(vxy, *args, **kwargs):
+            '''Optimization functions'''
+            return \
+                mrcal.project(np.array((vxy[0],vxy[1],1.)), distortion_model, intrinsics_data) - \
+                q0
+
+        # seed assuming distortions aren't there
+        vxy_seed = (q0 - cxy) / fxy
+
+        # no gradients available
+        result = scipy.optimize.least_squares(cost_no_gradients, vxy_seed,
+                                              '3-point')
+
+        vxy = result.x
+
+        # This needs to be precise; if it isn't, I barf. Shouldn't happen
+        # very often
+        if np.sqrt(result.cost/2.) > 1e-3:
+            if not unproject.__dict__.get('already_complained'):
+                sys.stderr.write("WARNING: unproject() wasn't able to precisely compute some points. Returning nan for those. Will complain just once\n")
+                unproject.already_complained = True
+            return np.array((np.nan,np.nan))
+        return vxy
+
+    vxy = undistort_this(q)
+
+    if z1: return vxy
+
+    # I append a 1. shape = (..., 3)
+    return  nps.glue(vxy, np.ones( vxy.shape[:-1] + (1,) ), axis=-1)
+
+
 def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     r'''Compute best value of scale_f_pinhole for undistort_image()
 

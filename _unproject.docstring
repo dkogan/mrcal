@@ -6,7 +6,7 @@ SYNOPSIS
                           q,
                           distortion_model, intrinsics_data )
 
-This is the internal written-in-C unproject(). mrcal.unproject() is a python
+This is the internal written-in-C _unproject(). mrcal.unproject() is a python
 wrapper that has a slow path to handle CAHVORE. Otherwise, the wrapper just
 calls this function, which does NOT support CAHVORE
 
@@ -24,7 +24,7 @@ cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
 https://github.com/opencv/opencv/issues/8811
 
 This function does NOT support CAHVORE.
- 
+
 ARGUMENTS
 
 - q: array of dims (...,2); the pixel coordinates we're unprojecting. This
