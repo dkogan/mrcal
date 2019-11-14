@@ -8,10 +8,10 @@ SYNOPSIS
   $ mrcal-to-cahvor model.cameramodel
   Wrote model.cahvor
 
-This tool converts a given model to the cahvor file format. No changes to
-the content are made; this is purely a format converter. If the model is given
-as "-", the input is read from standard input, and the output is written to
-standard output
+This tool converts a given model to the cahvor file format. No changes to the
+content are made; this is purely a format converter. If the model is omitted or
+given as "-", the input is read from standard input, and the output is written
+to standard output
 
 '''
 
@@ -30,6 +30,8 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('model',
+                        default='-',
+                        nargs='?',
                         type=str,
                         help='''Input camera model''')
 
