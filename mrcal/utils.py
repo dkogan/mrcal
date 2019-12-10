@@ -183,7 +183,7 @@ def show_solution_geometry(models,
         return out
 
 
-    def gen_plot_axes(transforms, label, color = 0, scale = 1.0, label_offset = None):
+    def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
         r'''Given a list of transforms (applied to the reference set of axes in reverse
         order) and a label, return a list of plotting directives gnuplotlib
         understands. Each transform is an Rt (4,3) matrix
@@ -206,13 +206,16 @@ def show_solution_geometry(models,
         axes_forplotting = extend_axes_for_plotting(axes)
 
         l_axes = tuple(nps.transpose(axes_forplotting)) + \
-            ({'with': 'vectors linecolor {}'.format(color), 'tuplesize': 6},)
+            (dict(_with     = 'vectors',
+                  tuplesize = 6,
+                  legend    = label), )
 
-        l_labels = tuple(nps.transpose(axes*1.01 + \
+        l_labels = tuple(nps.transpose(axes[1:,:]*1.01 + \
                                        (label_offset if label_offset is not None else 0))) + \
-            (np.array((label,
-                       'x', 'y', 'z')),
-             {'with': 'labels', 'tuplesize': 4},)
+            (np.array(('x', 'y', 'z')),
+             dict(_with     = 'labels',
+                  tuplesize = 4,
+                  legend    = label),)
         return l_axes, l_labels
 
 
@@ -323,6 +326,7 @@ def show_solution_geometry(models,
         return [tuple(list(nps.transpose(points)) + [curveopts,])]
 
     curves_cameras    = gen_curves_cameras()
+
     curves_calobjects = gen_curves_calobjects()
     curves_points     = gen_curves_points()
 
