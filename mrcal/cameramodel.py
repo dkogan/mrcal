@@ -393,18 +393,7 @@ class cameramodel(object):
 
             elif type(file_or_model) is str:
 
-                if file_or_model == '-':
-                    modelstring = sys.stdin.read()
-                    try:
-                        self._read_into_self(modelstring)
-                    except:
-                        from . import cahvor
-                        model = cahvor.read_from_string(modelstring)
-                        modelfile = io.StringIO()
-                        model.write(modelfile)
-                        self._read_into_self(modelfile.getvalue())
-
-                elif re.match(".*\.cahvor$", file_or_model):
+                if re.match(".*\.cahvor$", file_or_model):
                     # Read a .cahvor. This is more complicated than it looks. I
                     # want to read the .cahvor file into self, but the current
                     # cahvor interface wants to generate a new model object. So
@@ -416,10 +405,24 @@ class cameramodel(object):
                     modelfile = io.StringIO()
                     model.write(modelfile)
                     self._read_into_self(modelfile.getvalue())
+                    return
+
+                # Some readable file. Read it!
+                def tryread(f):
+                    modelstring = f.read()
+                    try:
+                        self._read_into_self(modelstring)
+                    except:
+                        from . import cahvor
+                        model = cahvor.read_from_string(modelstring)
+                        modelfile = io.StringIO()
+                        model.write(modelfile)
+                        self._read_into_self(modelfile.getvalue())
+                if file_or_model == '-':
+                    tryread(sys.stdin)
                 else:
                     with open(file_or_model, 'r') as openedfile:
-                        self._read_into_self(openedfile)
-
+                        tryread(openedfile)
             else:
                 self._read_into_self(file_or_model)
 
