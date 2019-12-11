@@ -32,13 +32,11 @@ def parse_args():
                         action='store_true',
                         help='''If given, we write the output using the cahvor file format''')
     parser.add_argument('intrinsics',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The camera model must be an existing readable file, but got '{}'".format(f)),
+                        type=str,
                         help='''Input camera model for the intrinsics. Assumed to be mrcal native, Unless the
                         name is xxx.cahvor, in which case the cahvor format is assumed''')
     parser.add_argument('extrinsics',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The camera model must be an existing readable file, but got '{}'".format(f)),
+                        type=str,
                         help='''Input camera model for the extrinsics. Assumed to be mrcal native, Unless the
                         name is xxx.cahvor, in which case the cahvor format is assumed''')
 

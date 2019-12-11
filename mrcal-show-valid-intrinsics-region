@@ -51,13 +51,11 @@ def parse_args():
                         action='append',
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
     parser.add_argument('model',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        type=str,
                         help='''Input camera model.''')
     parser.add_argument('image',
                         nargs='?',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The images must be readable files, but got '{}'".format(f)),
+                        type=str,
                         help='''Image to annotate''')
 
     return parser.parse_args()

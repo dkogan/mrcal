@@ -110,8 +110,7 @@ def parse_args():
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
 
     parser.add_argument('models',
-                        type=lambda f: f if os.path.isfile(f) else \
-                                parser.error("The cameramodel must be an existing readable file, but got '{}'".format(f)),
+                        type=str,
                         nargs='+',
                         help='''Camera models to diff''')
 
