@@ -1065,8 +1065,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
-    _(get_invJtJ_intrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(get_invJtJ_extrinsics,              PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
+    _(get_covariances,                    PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
@@ -1384,13 +1383,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 {
     PyObject* result = NULL;
 
-    PyArrayObject* x_final                             = NULL;
-    PyArrayObject* invJtJ_intrinsics_full              = NULL;
-    PyArrayObject* invJtJ_intrinsics_observations_only = NULL;
-    PyArrayObject* invJtJ_extrinsics                   = NULL;
-    PyArrayObject* outlier_indices_final               = NULL;
-    PyArrayObject* outside_ROI_indices_final           = NULL;
-    PyObject*      pystats                             = NULL;
+    PyArrayObject* x_final                    = NULL;
+    PyArrayObject* covariance_intrinsics_full = NULL;
+    PyArrayObject* covariance_intrinsics      = NULL;
+    PyArrayObject* covariance_extrinsics      = NULL;
+    PyArrayObject* outlier_indices_final      = NULL;
+    PyArrayObject* outside_ROI_indices_final  = NULL;
+    PyObject*      pystats                    = NULL;
 
     SET_SIGINT();
 
@@ -1671,29 +1670,29 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model_type);
 
-        double* c_invJtJ_intrinsics_full              = NULL;
-        double* c_invJtJ_intrinsics_observations_only = NULL;
+        double* c_covariance_intrinsics_full  = NULL;
+        double* c_covariance_intrinsics       = NULL;
         if(Nintrinsics_all != 0 &&
-           get_invJtJ_intrinsics && PyObject_IsTrue(get_invJtJ_intrinsics))
+           get_covariances && PyObject_IsTrue(get_covariances))
         {
-            invJtJ_intrinsics_full =
+            covariance_intrinsics_full =
                 (PyArrayObject*)PyArray_SimpleNew(3,
                                                   ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
-            c_invJtJ_intrinsics_full = PyArray_DATA(invJtJ_intrinsics_full);
-            invJtJ_intrinsics_observations_only =
+            c_covariance_intrinsics_full = PyArray_DATA(covariance_intrinsics_full);
+            covariance_intrinsics =
                 (PyArrayObject*)PyArray_SimpleNew(3,
                                                   ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
-            c_invJtJ_intrinsics_observations_only = PyArray_DATA(invJtJ_intrinsics_observations_only);
+            c_covariance_intrinsics = PyArray_DATA(covariance_intrinsics);
         }
 
-        double* c_invJtJ_extrinsics = NULL;
+        double* c_covariance_extrinsics = NULL;
         if(Ncameras > 1 &&
-           get_invJtJ_extrinsics && PyObject_IsTrue(get_invJtJ_extrinsics))
+           get_covariances && PyObject_IsTrue(get_covariances))
         {
-            invJtJ_extrinsics =
+            covariance_extrinsics =
                 (PyArrayObject*)PyArray_SimpleNew(2,
                                                   ((npy_intp[]){(Ncameras-1)*6,(Ncameras-1)*6}), NPY_DOUBLE);
-            c_invJtJ_extrinsics = PyArray_DATA(invJtJ_extrinsics);
+            c_covariance_extrinsics = PyArray_DATA(covariance_extrinsics);
         }
 
         // input
@@ -1750,9 +1749,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
             mrcal_stats_t stats =
                 mrcal_optimize( c_x_final,
-                                c_invJtJ_intrinsics_full,
-                                c_invJtJ_intrinsics_observations_only,
-                                c_invJtJ_extrinsics,
+                                c_covariance_intrinsics_full,
+                                c_covariance_intrinsics,
+                                c_covariance_extrinsics,
                                 c_outlier_indices_final,
                                 c_outside_ROI_indices_final,
                                 (void**)solver_context_optimizer,
@@ -1820,25 +1819,25 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'x'");
                 goto done;
             }
-            if( invJtJ_intrinsics_full &&
-                0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_full",
-                                          (PyObject*)invJtJ_intrinsics_full) )
+            if( covariance_intrinsics_full &&
+                0 != PyDict_SetItemString(pystats, "covariance_intrinsics_full",
+                                          (PyObject*)covariance_intrinsics_full) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_full'");
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'covariance_intrinsics_full'");
                 goto done;
             }
-            if( invJtJ_intrinsics_observations_only &&
-                0 != PyDict_SetItemString(pystats, "invJtJ_intrinsics_observations_only",
-                                          (PyObject*)invJtJ_intrinsics_observations_only) )
+            if( covariance_intrinsics &&
+                0 != PyDict_SetItemString(pystats, "covariance_intrinsics",
+                                          (PyObject*)covariance_intrinsics) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_intrinsics_observations_only'");
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'covariance_intrinsics'");
                 goto done;
             }
-            if( invJtJ_extrinsics &&
-                0 != PyDict_SetItemString(pystats, "invJtJ_extrinsics",
-                                          (PyObject*)invJtJ_extrinsics) )
+            if( covariance_extrinsics &&
+                0 != PyDict_SetItemString(pystats, "covariance_extrinsics",
+                                          (PyObject*)covariance_extrinsics) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'invJtJ_extrinsics'");
+                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'covariance_extrinsics'");
                 goto done;
             }
             // The outlier_indices_final numpy array has Nfeatures elements,
@@ -1958,12 +1957,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 #pragma GCC diagnostic pop
 
     if(x_final)               Py_DECREF(x_final);
-    if(invJtJ_intrinsics_full)
-        Py_DECREF(invJtJ_intrinsics_full);
-    if(invJtJ_intrinsics_observations_only)
-        Py_DECREF(invJtJ_intrinsics_observations_only);
-    if(invJtJ_extrinsics)
-        Py_DECREF(invJtJ_extrinsics);
+    if(covariance_intrinsics_full)
+        Py_DECREF(covariance_intrinsics_full);
+    if(covariance_intrinsics)
+        Py_DECREF(covariance_intrinsics);
+    if(covariance_extrinsics)
+        Py_DECREF(covariance_extrinsics);
     if(outlier_indices_final) Py_DECREF(outlier_indices_final);
     if(pystats)               Py_DECREF(pystats);
 

@@ -173,14 +173,9 @@ OPTIONAL ARGUMENTS
   numpy array of shape (Ncameras,4) where each camera's slice is (x_center,
   y_center, x_radius, y_radius). The region is an axis-aligned ellipsoid
 
-- get_invJtJ_intrinsics: defaults to False. If True, I compute the inv(JtJ)
-  matrices for intrinsics and include them in the dict I return. These are
-  needed only for the intrinsics uncertainty computations. If we're performing
-  an incremental solve, only the final optimize() call needs to compute these.
-
-- get_invJtJ_extrinsics: defaults to False. If True, I compute the inv(JtJ)
-  matrix for extrinsics and include it in the dict I return. These are needed
-  only for the extrinsics uncertainty computations. If we're performing an
+- get_covariances: defaults to False. If True, I compute the covariance matrices
+  for intrinsics and extrinsics, and include them in the dict I return. These
+  are needed only for the uncertainty computations. If we're performing an
   incremental solve, only the final optimize() call needs to compute these.
 
 - verbose: if True, write out all sorts of diagnostic data to STDERR. Defaults

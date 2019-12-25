@@ -669,9 +669,10 @@ def compute_intrinsics_uncertainty( model, v,
       I minimize a cost function E = norm2(x) where x is the measurements. In
       the full optimization some elements of x depend on inputs, and some don't
       (regularization for instance). For most measurements we have a weighted
-      reprojection error: xi = wi (qi - qrefi). The noise on qrefi (on x and on y
-      separately) is assumed to be mean-0 gaussian with stdev
-      observed_pixel_uncertainty/wi, so the noise on xi has stdev
+      reprojection error: xi = wi (qi - qrefi). Uncertain measurements (high
+      Var(qrefi)) are weighted less (lower wi), so the noise on qrefi (on x and
+      on y separately) is assumed to be mean-0 gaussian with stdev
+      observed_pixel_uncertainty/wi. So the noise on xi has stdev
       observed_pixel_uncertainty. I perturb the inputs, reoptimize (assuming
       everything is linear) and look what happens to the state p. I'm at an
       optimum p*:
@@ -698,69 +699,73 @@ def compute_intrinsics_uncertainty( model, v,
         Jobservationst W dqref = JtJ dp
 
       So if I perturb my input observation vector qref by dqref, the resulting
-      effect on the parameters is dp = M dqref
+      effect on the parameters is dp = M dqref. Where
 
-        where M = inv(JtJ) Jobservationst W
+        M = inv(JtJ) Jobservationst W
 
-      In order to be useful I need to do something with M. I want to quantify
-      how precise our optimal intrinsics are. Ultimately these are always used
-      in a projection operation. So given a 3d observation vector v, I project
-      it onto our image plane:
+      So
 
-        q = project(v, intrinsics)
+        Var(p) = M Var(dqref) Mt
 
-        dq = dproj/dintrinsics dintrinsics
-           = dproj/dintrinsics Mi dqref
+      In particular, if we want the variance of the intrinsics for a camera in
+      isolation (assuming these aren't correlated with the extrinsics and the
+      parameters of the other cameras), I get Mi: the row-subset of M that
+      corresponds to the intrinsics I care about, and I have
 
-      dprojection/dintrinsics comes from mrcal_project(). I'm assuming
-      everything is locally linear, so this is a constant matrix for each v.
-      dintrinsics is the shift in the intrinsics of this camera. Mi
-      is the subset of M that corresponds to the intrinsics (Mi contains a
-      subset of rows of M)
-
-      If dqref represents noise of the zero-mean, independent, gaussian variety,
-      then dp and dq are also zero-mean gaussian, but no longer independent
-
-        Var(dq) = (dproj/dintrinsics Mi) Var(dqref) (dproj/dintrinsics Mi)t
-                = (dproj/dintrinsics Mi) W^-2 s^2 (dproj/dintrinsics Mi)t
+        Var(intrinsics) = Mi Var(dqref) Mit
+                        = Mi W^-2 s^2 Mit
 
       where s is observed_pixel_uncertainty
 
       Mi W^-1 = inv(JtJ)[intrinsics] Jobservationst W W^-1 =
               = inv(JtJ)[intrinsics] Jobservationst
 
-      -> Var(dq) = (dproj/dintrinsics inv(JtJ)[intrinsics] Jobservationst)
-                   (dproj/dintrinsics inv(JtJ)[intrinsics] Jobservationst)t
-                   s^2
+      -> Var(intrinsics) = (inv(JtJ)[intrinsics] Jobservationst)
+                           (inv(JtJ)[intrinsics] Jobservationst)t
+                           s^2
 
-      This almost simplifies a lot. If Jobservations was J then I'd be looking
-      at a sliced inverse:
+      If Jobservations was J (no regularization terms) then this would simplify
+      even more. inv(JtJ)[intrinsics] is a row-subset of inv(JtJ). Let X = JtJ,
+      B = inv(JtJ)[intrinsics]. I would then have
 
-        inv(JtJ)[intrinsics] is a row-subset of inv(JtJ).
-        Let X = JtJ, B = inv(JtJ)[intrinsics]:
+        Var(intrinsics)/s^2 = B X Bt
 
-            [ A ]         [ AX ]
-        I = [ B ] [ X ] = [ BX ] -> B X = [0 I 0] = inv(JtJ)[intrinsics] JtJ
-            [ C ]         [ CX ]
+                          [ A ]         [ AX ]
+        I = inv(JtJ)JtJ = [ B ] [ X ] = [ BX ] -> B X = [0 I 0]
+                          [ C ]         [ CX ]
+      -> B X Bt = row,col slice of inv(JtJ)
 
-      But I don't have this. So I leave it as is:
+      But I DO have regularization terms, so J != Jobservations. I thus leave it
+      as is:
 
-      Q = inv(JtJ)[intrinsics] Jobservationst Jobservations inv(JtJ)[intrinsics]t
+      Var(intrinsics)/s^2 =
+         inv(JtJ)[intrinsics] Jobservationst
+         Jobservations inv(JtJ)[intrinsics]t
 
-      This "Q" is "invJtJ_intrinsics_observations_only" in the cameramodel
 
-      -> Var(dq) = (dproj/dintrinsics Q dproj/dintrinsicst) s^2
+      Ultimately the intrinsics are always used in a projection operation. So
+      given a 3d observation vector v, I project it onto our image plane:
 
-      I want to convert Var(dq) into a single number that describes my
-      projection uncertainty at q. The two components of dq will be roughly
-      independent, with roughly the same stdev, so I estimate this stdev:
+        q = project(v, intrinsics)
 
-      stdev(dq) ~ sqrt( trace(Var(dq))/2 )
+        dq = dproj/dintrinsics dintrinsics
+
+        Var(q) = dproj/dintrinsics Var(intrinsics) dproj/dintrinsicst
+
+      dproj/dintrinsics comes from mrcal_project(). I'm assuming everything is
+      locally linear, so this is a constant matrix for each v. dintrinsics is
+      the shift in the intrinsics of this camera.
+
+      I want to convert Var(q) into a single number that describes my projection
+      uncertainty at q. The x,y components of q will be roughly independent,
+      with roughly the same stdev, so I estimate this stdev:
+
+      stdev(q) ~ sqrt( trace(Var(q))/2 )
 
       tr(AB) = tr(BA) ->
-      trace(Var(dq)) = s^2 tr( Q dproj/dintrinsicst dproj/dintrinsics )
-                     = sum(elementwise_product(Q,
-                                               dqdpt_dqdp))
+      trace(Var(q)) = tr( Var(intrinsics) dproj/dintrinsicst dproj/dintrinsics )
+                    = sum(elementwise_product(Var(intrinsics),
+                                              dqdpt_dqdp))
 
     *** outlierness-based
 
@@ -899,8 +904,8 @@ def compute_intrinsics_uncertainty( model, v,
       simplicity let's assume the cameras have relative transformation ~
       identity, so yaw ~ rodrigues[1]. I have relative extrinsics for my
       cameras: rt20, rt30 -> rt23[1] = compose(rt20, invert(rt30))[1]. I
-      linearize this, so that locally rt23[1] ~ rt23[1](0) + drt23[1]/rt20 drt20
-      + drt23[1]/rt30 drt30 = rt23[1](0) + A drt20 + B drt30 ~ AB drt2030
+      linearize this, so that locally rt23[1] ~ rt23[1](0) + drt23[1]/drt20 drt20
+      + drt23[1]/drt30 drt30 = rt23[1](0) + A drt20 + B drt30 ~ AB drt2030
 
       -> Var(rt23[1]) = AB Var(drt2030) ABt =
                       = AB Mrt2030 Var(qref) Mrt2030t ABt =
@@ -917,13 +922,13 @@ def compute_intrinsics_uncertainty( model, v,
     imagersize                        = model.imagersize()
 
     if outlierness:
-        invJtJ_intrinsics = model.invJtJ_intrinsics_full()
-        if invJtJ_intrinsics is None:
-            raise Exception("The given camera model doesn't have full intrinsics inv(JtJ). Can't compute uncertainty.")
+        intrinsics_covariance = model.covariance_intrinsics_full()
+        if intrinsics_covariance is None:
+            raise Exception("The given camera model doesn't have the FULL intrinsics covariance. Can't compute outlier-based uncertainty.")
     else:
-        invJtJ_intrinsics = model.invJtJ_intrinsics_observations_only()
-        if invJtJ_intrinsics is None:
-            raise Exception("The given camera model doesn't have observations-only intrinsics inv(JtJ). Can't compute uncertainty.")
+        intrinsics_covariance = model.covariance_intrinsics()
+        if intrinsics_covariance is None:
+            raise Exception("The given camera model doesn't have the intrinsics covariance. Can't compute uncertainty.")
 
     W,H = imagersize
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
@@ -937,9 +942,10 @@ def compute_intrinsics_uncertainty( model, v,
                                           imagersize,
                                           focus_center, focus_radius)
 
+    s = model.observed_pixel_uncertainty()
     if outlierness:
 
-        A  = nps.matmult( dq_dp_corrected, invJtJ_intrinsics, nps.transpose(dq_dp_corrected))
+        A  = nps.matmult( dq_dp_corrected, intrinsics_covariance, nps.transpose(dq_dp_corrected)) / (s*s)
         B  = np.linalg.inv(A + np.eye(2))
 
         # tr(B*B) = sum_all_elements( product_elementwise(B,B) ), so
@@ -953,15 +959,15 @@ def compute_intrinsics_uncertainty( model, v,
 
         # I'm going to pretend that sqrt(E0) - sqrt(E1) = sqrt(E0 - E1). This is
         # true if E0 ~ E1, which maybe is OK here
-        return model.observed_pixel_uncertainty() * np.sqrt(tr)
+        return s * np.sqrt(tr)
 
     else:
 
         dqdpt_dqdp = \
             nps.matmult(nps.transpose(dq_dp_corrected),
                         dq_dp_corrected)
-        return model.observed_pixel_uncertainty() * \
-            np.sqrt(np.sum(nps.clump(invJtJ_intrinsics * dqdpt_dqdp,
+        return \
+            np.sqrt(np.sum(nps.clump(intrinsics_covariance * dqdpt_dqdp,
                                      n = -2),
                            axis = -1) \
                     / 2.)

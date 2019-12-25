@@ -51,6 +51,8 @@ partially supported. The toolkit includes:
     format to the =.cameramodel= format. This exists for compatibility only, and
     does not touch the data: the lens distortion may or may not use the CAHVOR
     distortion model
+  - =mrcal-show-geometry=: Shows a visual representation of the extrinsics of N
+    cameras
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -151,6 +153,7 @@ SYNOPSIS
           --outdir /tmp
           --distortion-model DISTORTION_OPENCV8
           --observed-pixel-uncertainty 0.5
+          --pairs
           'left*.png' 'right*.png'
 
         ... lots of output as the solve runs ...
@@ -507,6 +510,14 @@ OPTIONS
       --corners-cache CORNERS_CACHE
                             Path to read corner-finder data from or (if path does
                             not exist) to write data to
+      --pairs               By default, we are calibrating a set of N independent
+                            cameras. If we actually have a number of stereo pairs,
+                            pass this argument. It changes the filename format of
+                            the models written to disk (cameraPAIR-
+                            INDEXINPAIR.cameramodel), and will report some
+                            uncertainties about geometry inside each pair.
+                            Consecutive cameras in the given list are paired up,
+                            and an even number of cameras is required
       --skip-regularization
                             By default we apply regularization to the solver. This
                             option turns that off
@@ -573,8 +584,6 @@ SYNOPSIS
       ... a plot pops up showing the vector field of the difference ...
 
 DESCRIPTION
-    DESCRIPTION
-
     This is a tool to convert a given camera model from one distortion model
     to another. The input and output models have identical extrinsics and an
     identical intrinsic core (focal lengths, center pixel coords). The ONLY
@@ -889,6 +898,17 @@ OPTIONS
                             model by this factor. This is a "zoom" operation. If
                             we don't know the scaling, but wish to compute it
                             based on fitting some points, use --fit instead
+      --rotate ROTATE ROTATE ROTATE
+                            If given, the pinhole camera is rotated in respect to
+                            the input camera. This is specified as a Rodrigues
+                            rotation vector, in degrees: 3 numbers. This is a unit
+                            vector for the rotation axis scaled by the rotation
+                            magnitude. This specifies as the rotation of the
+                            CAMERA AROUND ITS OWN AXES. So this is independent of
+                            any extrinsics already present in the given
+                            cameramodel. Example: to yaw the camera 15 degrees,
+                            we're rotating around the camera's y axis, so pass "--
+                            rotate 0 15 0". If omitted, no rotation is applied
       --scale-image SCALE_IMAGE
                             If given, we scale the dimensions of the pinhole image
                             by this factor. By default the scale is 1.0, i.e. the
@@ -972,15 +992,37 @@ SYNOPSIS
 DESCRIPTION
     This tool takes an image of a scene captured by one camera model, and
     generates an image of the same scene, as it would appear if captured by
-    a different model. This is similar to mrcal-redistort-points, but acts
-    on a full image, rather than a discrete set of points. The two sets of
-    intrinsics are always used. The translation component of the extrinsics
-    is always ignored; the rotation is ignored as well if --ignore-rotation.
+    a different model, taking into account both the different lens
+    parameters and geometries. This is similar to mrcal-redistort-points,
+    but acts on a full image, rather than a discrete set of points.
 
-    One way in which this is useful is for validation of the rotation and
-    the intrinsics: if these are correct, then observations of
-    infinitely-far-away objects in the remapped image would match the
-    observations made by the second camera.
+    We have 3 modes of operation, selected with --mode:
+
+    - 'distortion' projects the same scene, only changing the distortion
+    parameters from one camera to another. This ignores all extrinsics, from
+    both cameras
+
+    - 'infinity' projects the same scene, applying the different distortion
+    parameters and relative rotation between the two cameras. This ignores
+    the translation components of the extrinsics. If the intrinsics and the
+    rotation were correct, infinitely-far-away objects in the remapped
+    camera0 image appear in the same exact location as the same objects in
+    the camera1 image. This is thus a good validation function. This is the
+    default mode.
+
+    - 'plane' maps observations of a given plane in camera0 coordinates to
+    where this plane would be observed in camera1 coordinates. This uses ALL
+    the intrinsics, extrinsics and the plane representation. If all of these
+    are correct, the observations of this plane would line up exactly in the
+    remapped-camera0 image and the camera1 image. The plane is represented
+    in camera0 coordinates by a normal vector given by --plane-n, and the
+    distance to the normal given by plane-d. The plane is all points p such
+    that inner(p,planen) = planed. planen does not need to be normalized.
+
+    One way in which this is useful is using the 'infinity' mode for
+    validation of the rotation and the intrinsics: if these are correct,
+    then observations of infinitely-far-away objects in the remapped image
+    would match the observations made by the second camera.
 
     The tool takes in the two camera models, the image from the first
     camera, and optionally, the image from the second camera as well. If the
@@ -1000,33 +1042,66 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model-from         Camera model for the FROM image. Assumed to be mrcal
-                         native, Unless the name is xxx.cahvor, in which case the
-                         cahvor format is used.
-      model-to           Camera model for the TO image. Assumed to be mrcal
-                         native, Unless the name is xxx.cahvor, in which case the
-                         cahvor format is assumed
-      image-from         Image to undistort, remap (unless --ignore-rotation), and
-                         redistort (unless IMAGE-TO is omitted)
-      image-to           By default I remap image0 into the distorted coordinates
-                         of image1. This is very slow, so a much faster option is
-                         to undistort both images. Pass the second image here to
-                         do that
+      model-from            Camera model for the FROM image. Assumed to be mrcal
+                            native, Unless the name is xxx.cahvor, in which case
+                            the cahvor format is used.
+      model-to              Camera model for the TO image. Assumed to be mrcal
+                            native, Unless the name is xxx.cahvor, in which case
+                            the cahvor format is assumed
+      image-from            Image to undistort, remap, and redistort (unless
+                            IMAGE-TO is omitted)
+      image-to              By default I remap image0 into the distorted
+                            coordinates of image1. This is very slow, so a much
+                            faster option is to undistort both images. Pass the
+                            second image here to do that
 
   OPTIONAL ARGUMENTS
-      -h, --help         show this help message and exit
-      --ignore-rotation  By default the relative camera rotation is used in the
-                         transformation. If we want to use the intrinsics ONLY,
-                         pass --ignore-rotation
-      --force, -f        By default I don't overwrite existing files. Pass --force
-                         to overwrite them without complaint
-      --fit FIT          If IMAGE-TO is given, we undistort both images. This can
-                         be done with any set of pinhole intrinsics. This argument
-                         allows us to select how this is done. If given, we'll
-                         scale the focal length of the pinhole model to fit some
-                         of the original image into the output. This is one of
-                         "corners", "centers-horizontal", "centers-vertical". If
-                         omitted, we keep the focal lengths the same
+      -h, --help            show this help message and exit
+      --force, -f           By default I don't overwrite existing files. Pass
+                            --force to overwrite them without complaint
+      --fit FIT             If IMAGE-TO is given, we undistort both images. This
+                            can be done with any set of pinhole intrinsics. This
+                            argument allows us to select how this is done. If
+                            given, we'll scale the focal length of the pinhole
+                            model to fit some of the original image into the
+                            output. This is one of "corners", "centers-
+                            horizontal", "centers-vertical". If omitted, we keep
+                            the focal lengths the same. If we KNOW the scaling we
+                            want, that can be passed-in directly with --scale-
+                            focal instead.
+      --scale-focal SCALE_FOCAL
+                            Used if IMAGE-TO is given: we'll scale the focal
+                            length of the pinhole models by this factor. This is a
+                            "zoom" operation. If we don't know the scaling, but
+                            wish to compute it based on fitting some points, use
+                            --fit instead
+      --scale-image SCALE_IMAGE
+                            Used if IMAGE-TO is given: we'll scale the dimensions
+                            of the pinhole images by this factor. By default the
+                            scale is 1.0, i.e. the undistorted and distorted
+                            images have the same size. This parameter changes the
+                            RESOLUTION of the output, unlike --scale-focal, which
+                            ZOOMS the output
+      --mode {distortion,infinity,plane}
+                            Specifies the mode of operation. The 'distortion' mode
+                            only switches to a different distortion model,
+                            ignoring extrinsics. The 'infinity' mode switches to a
+                            different distortion model, and applies the relative
+                            rotation: infinitely-far away objects end up remapping
+                            to the same place, we ignore translations. The 'plane'
+                            mode maps a plane (specified by --plane-n and
+                            --plane-d) to the same place; we use all intrinsics
+                            and extrinsics
+      --plane-n PLANE_N PLANE_N PLANE_N
+                            If "--mode plane" this specifies the normal vector to
+                            the plane, in from-camera coordinates. The normal does
+                            not need to be normalized; any scaling is compensated
+                            in planed. The plane is all points p such that
+                            inner(p,planen) = planed. Unused in any other mode
+      --plane-d PLANE_D     If "--mode plane" this specifies the distance-along-
+                            the-normal to the plane, in from-camera coordinates.
+                            The plane is all points p such that inner(p,planen) =
+                            planed. Unused in any other mode
 
 
 #+END_EXAMPLE
@@ -1074,12 +1149,10 @@ SYNOPSIS
       Wrote model.cahvor
 
 DESCRIPTION
-    DESCRIPTION
-
     This tool converts a given model to the cahvor file format. No changes
     to the content are made; this is purely a format converter. If the model
-    is given as "-", the input is read from standard input, and the output
-    is written to standard output
+    is omitted or given as "-", the input is read from standard input, and
+    the output is written to standard output
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -1100,12 +1173,10 @@ SYNOPSIS
       Wrote model.cameramodel
 
 DESCRIPTION
-    DESCRIPTION
-
     This tool converts a given model to the cameramodel file format. No
     changes to the content are made; this is purely a format converter. If
-    the model is given as "-", the input is read from standard input, and
-    the output is written to standard output
+    the model is omitted or given as "-", the input is read from standard
+    input, and the output is written to standard output
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -1116,6 +1187,40 @@ OPTIONS
 
 
 #+END_EXAMPLE
+** mrcal-show-geometry
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-show-geometry - Shows the geometry defined by the camera
+    extrinsics
+
+SYNOPSIS
+      $ mrcal-show-geometry *.cameramodel
+      ... a plot pops up showing the camera arrangement
+
+DESCRIPTION
+    This allows us to visualize the relative geometry between several
+    cameras
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      models                Camera models to visualize. Any N cameras can be given
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --scale-axes SCALE_AXES
+                            Scale for the camera axes. By default these are 1.0m
+                            long
+      --title TITLE         Title string for the plot
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --transforms TRANSFORMS
+                            Optional transforms.txt. This is a legacy file
+                            representing an extra transformation for each camera.
+                            Most usages will omit this
+
+
+#+END_EXAMPLE
+
 
 * REPOSITORY
 

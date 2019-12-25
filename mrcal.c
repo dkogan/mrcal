@@ -2124,13 +2124,13 @@ int mrcal_state_index_calobject_warp(int Npoints,
 // The returned matrices are symmetric, but I return both halves for now
 static bool computeUncertaintyMatrices(// out
                                        // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                       double* invJtJ_intrinsics_full,
-                                       double* invJtJ_intrinsics_observations_only,
+                                       double* covariance_intrinsics_full,
+                                       double* covariance_intrinsics,
                                        // dimensions ((Ncameras-1)*6,(Ncameras-1)*6)
-                                       double* invJtJ_extrinsics,
+                                       double* covariance_extrinsics,
 
                                        // in
-                                       distortion_model_t distortion_model,
+                                       double observed_pixel_uncertainty,                                       distortion_model_t distortion_model,
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras,
                                        int NobservationsBoard,
@@ -2158,16 +2158,16 @@ static bool computeUncertaintyMatrices(// out
                                                                NobservationsPoint,
                                                                calibration_object_width_n);
 
-    if(invJtJ_intrinsics_observations_only)
-        memset(invJtJ_intrinsics_observations_only, 0,
+    if(covariance_intrinsics)
+        memset(covariance_intrinsics, 0,
                Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
     // this one isn't strictly necessary (the computation isn't incremental), but
     // it keeps the logic simple
-    if(invJtJ_intrinsics_full)
-        memset(invJtJ_intrinsics_full, 0,
+    if(covariance_intrinsics_full)
+        memset(covariance_intrinsics_full, 0,
                Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
-    if(invJtJ_extrinsics)
-        memset(invJtJ_extrinsics, 0,
+    if(covariance_extrinsics)
+        memset(covariance_extrinsics, 0,
                6*(Ncameras-1) * 6*(Ncameras-1) * sizeof(double));
 
     if( !(problem_details.do_optimize_intrinsic_core        ||
@@ -2178,33 +2178,33 @@ static bool computeUncertaintyMatrices(// out
         return true;
     }
 
-    if( !(invJtJ_intrinsics_full ||
-          invJtJ_intrinsics_observations_only ||
-          invJtJ_extrinsics))
+    if( !(covariance_intrinsics_full ||
+          covariance_intrinsics ||
+          covariance_extrinsics))
     {
         // no buffers to fill in
         return true;
     }
 
     if( !problem_details.do_optimize_extrinsics &&
-        invJtJ_extrinsics)
+        covariance_extrinsics)
     {
-        invJtJ_extrinsics = NULL;
+        covariance_extrinsics = NULL;
     }
 
-    if( invJtJ_intrinsics_full || invJtJ_intrinsics_observations_only)
+    if( covariance_intrinsics_full || covariance_intrinsics)
     {
         if( !problem_details.do_optimize_intrinsic_core        &&
             !problem_details.do_optimize_intrinsic_distortions )
         {
-            invJtJ_intrinsics_full = invJtJ_intrinsics_observations_only = NULL;
+            covariance_intrinsics_full = covariance_intrinsics = NULL;
         }
         else if( (!problem_details.do_optimize_intrinsic_core        &&
                    problem_details.do_optimize_intrinsic_distortions ) ||
                  ( problem_details.do_optimize_intrinsic_core        &&
                   !problem_details.do_optimize_intrinsic_distortions ) )
         {
-            MSG("Can't compute any invJtJ_intrinsics_... if we aren't optimizing the WHOLE intrinsics: core and distortions");
+            MSG("Can't compute any covariance_intrinsics_... if we aren't optimizing the WHOLE intrinsics: core and distortions");
             return false;
         }
 
@@ -2252,14 +2252,14 @@ static bool computeUncertaintyMatrices(// out
     // mrcal, this is the leading ones, before the range errors and the
     // regularization
 
-    // Compute invJtJ_intrinsics_full. This is the intrinsics-per-camera
+    // Compute covariance_intrinsics_full. This is the intrinsics-per-camera
     // diagonal block inv(JtJ) for each camera separately
-    if(invJtJ_intrinsics_full)
+    if(covariance_intrinsics_full)
         for(int icam = 0; icam < Ncameras; icam++)
         {
             // Here I want the diagonal blocks of inv(JtJ) for each camera's
             // intrinsics. I get them by doing solve(JtJ, [0; I; 0])
-            void compute_invJtJ_block(double* JtJ, const int istate0, int N)
+            void compute_invJtJ_block(double* invJtJ, const int istate0, int N)
             {
                 // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
                 // dense. cholmod doesn't have functions for this exact case. so I use
@@ -2290,9 +2290,9 @@ static bool computeUncertaintyMatrices(// out
                     // scaling (because my J are unitless, and I want full-unit
                     // data)
                     for(int icol=0; icol<Ncols; icol++)
-                        unpack_solver_state_intrinsics_onecamera( (intrinsics_core_t*)&JtJ[icol*Nintrinsics_per_camera_state],
+                        unpack_solver_state_intrinsics_onecamera( (intrinsics_core_t*)&invJtJ[icol*Nintrinsics_per_camera_state],
                                                                   distortion_model,
-                                                                  &JtJ[icol*Nintrinsics_per_camera_state + N_INTRINSICS_CORE],
+                                                                  &invJtJ[icol*Nintrinsics_per_camera_state + N_INTRINSICS_CORE],
 
                                                                   &((double*)(M->x))[icol*M->nrow + istate0],
                                                                   Nintrinsics_per_camera_state - N_INTRINSICS_CORE,
@@ -2302,7 +2302,7 @@ static bool computeUncertaintyMatrices(// out
                     N -= Ncols;
                     if(N <= 0) break;
                     istate += Ncols;
-                    JtJ = &JtJ[Ncols*Nintrinsics_per_camera_state];
+                    invJtJ = &invJtJ[Ncols*Nintrinsics_per_camera_state];
                 }
             }
 
@@ -2310,19 +2310,19 @@ static bool computeUncertaintyMatrices(// out
 
 
             const int istate0 = Nintrinsics_per_camera_state * icam;
-            double* JtJ_thiscam = &invJtJ_intrinsics_full[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
-            compute_invJtJ_block( JtJ_thiscam, istate0, Nintrinsics_per_camera_state );
+            double* invJtJ_thiscam = &covariance_intrinsics_full[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+            compute_invJtJ_block( invJtJ_thiscam, istate0, Nintrinsics_per_camera_state );
         }
 
-    // Compute invJtJ_intrinsics_observations_only. This is the
+    // Compute covariance_intrinsics. This is the
     // intrinsics-per-camera diagonal block
     //   inv(JtJ)[intrinsics] Jobservationst Jobservations inv(JtJ)[intrinsics]t
     // for each camera separately
     //
-    // And also compute invJtJ_extrinsics. This is similar, except all the
+    // And also compute covariance_extrinsics. This is similar, except all the
     // extrinsics together are reported as a single diagonal block
-    if(invJtJ_intrinsics_observations_only ||
-       invJtJ_extrinsics)
+    if(covariance_intrinsics ||
+       covariance_extrinsics)
     {
         int istate_intrinsics0 = mrcal_state_index_intrinsic_core(0,
                                                                   problem_details,
@@ -2412,19 +2412,19 @@ static bool computeUncertaintyMatrices(// out
 
 
                 // Intrinsics. Each camera into a separate inv(JtJ) block
-                if(invJtJ_intrinsics_observations_only)
+                if(covariance_intrinsics)
                     for(int icam=0; icam<Ncameras; icam++)
                     {
                         double* invJtJ_thiscam =
-                            &invJtJ_intrinsics_observations_only[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+                            &covariance_intrinsics[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
                         accumulate_invJtJ(invJtJ_thiscam,
                                           istate_intrinsics0 + icam * Nintrinsics_per_camera_state,
                                           Nintrinsics_per_camera_state);
                     }
 
                 // Extrinsics. Everything into one big inv(JtJ) block
-                if(invJtJ_extrinsics)
-                    accumulate_invJtJ(invJtJ_extrinsics,
+                if(covariance_extrinsics)
+                    accumulate_invJtJ(covariance_extrinsics,
                                       istate_extrinsics0,
                                       6 * (Ncameras-1));
 
@@ -2436,6 +2436,25 @@ static bool computeUncertaintyMatrices(// out
 
     Jt_slice->ncol = chunk_size; // I manually reset this earlier; put it back
     cholmod_free_dense(&Jt_slice, &solverCtx->common);
+
+
+    // I computed inv(JtJ). I now scale it to form a covariance
+    double s = observed_pixel_uncertainty*observed_pixel_uncertainty;
+    if(covariance_intrinsics)
+        for(int i=0;
+            i<Ncameras*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all;
+            i++)
+            covariance_intrinsics[i] *= s;
+    if(covariance_intrinsics_full)
+        for(int i=0;
+            i<Ncameras*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all;
+            i++)
+            covariance_intrinsics_full[i] *= s;
+    if(covariance_extrinsics)
+        for(int i=0;
+            i<6*(Ncameras-1) * 6*(Ncameras-1);
+            i++)
+            covariance_extrinsics[i] *= s;
 
     return true;
 
@@ -3613,9 +3632,9 @@ mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
                 // caller
                 double* x_final,
-                double* invJtJ_intrinsics_full,
-                double* invJtJ_intrinsics_observations_only,
-                double* invJtJ_extrinsics,
+                double* covariance_intrinsics_full,
+                double* covariance_intrinsics,
+                double* covariance_extrinsics,
 
                 // Buffer should be at least Npoints long. stats->Noutliers
                 // elements will be filled in
@@ -3678,10 +3697,14 @@ mrcal_optimize( // out
                 double calibration_object_spacing,
                 int calibration_object_width_n)
 {
-    if( ( invJtJ_intrinsics_full && !invJtJ_intrinsics_observations_only) ||
-        (!invJtJ_intrinsics_full &&  invJtJ_intrinsics_observations_only) )
+    int Ncovariances_NULL = 0;
+    if(covariance_intrinsics_full == NULL) Ncovariances_NULL++;
+    if(covariance_intrinsics      == NULL) Ncovariances_NULL++;
+    if(covariance_extrinsics      == NULL) Ncovariances_NULL++;
+
+    if( Ncovariances_NULL != 0 && Ncovariances_NULL != 3 )
     {
-        MSG("ERROR: either both or none of (invJtJ_intrinsics_full.invJtJ_intrinsics_observations_only) can be NULL");
+        MSG("ERROR: either all or none of (covariance_intrinsics_full,covariance_intrinsics,covariance_extrinsics) can be NULL");
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
     if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
@@ -3914,18 +3937,19 @@ mrcal_optimize( // out
     if(x_final)
         memcpy(x_final, solver_context->beforeStep->x, ctx.Nmeasurements*sizeof(double));
 
-    if( invJtJ_intrinsics_full ||
-        invJtJ_intrinsics_observations_only ||
-        invJtJ_extrinsics )
+    if( covariance_intrinsics_full ||
+        covariance_intrinsics ||
+        covariance_extrinsics )
     {
         int Nintrinsics_per_camera = mrcal_getNintrinsicParams(distortion_model);
         bool result =
             computeUncertaintyMatrices(// out
                                        // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                       invJtJ_intrinsics_full,
-                                       invJtJ_intrinsics_observations_only,
+                                       covariance_intrinsics_full,
+                                       covariance_intrinsics,
                                        // dimensions ((Ncameras-1)*6,(Ncameras-1)*6)
-                                       invJtJ_extrinsics,
+                                       covariance_extrinsics,
+                                       observed_pixel_uncertainty,
 
                                        // in
                                        distortion_model,
@@ -3939,17 +3963,17 @@ mrcal_optimize( // out
                                        solver_context);
         if(!result)
         {
-            MSG("Failed to compute invJtJ_...");
+            MSG("Failed to compute covariance_...");
             double nan = strtod("NAN", NULL);
-            if(invJtJ_intrinsics_full)
+            if(covariance_intrinsics_full)
                 for(int i=0; i<Ncameras*Nintrinsics_per_camera*Nintrinsics_per_camera; i++)
                 {
-                    invJtJ_intrinsics_full             [i] = nan;
-                    invJtJ_intrinsics_observations_only[i] = nan;
+                    covariance_intrinsics_full[i] = nan;
+                    covariance_intrinsics[i]      = nan;
                 }
-            if(invJtJ_extrinsics)
+            if(covariance_extrinsics)
                 for(int i=0; i<Ncameras*6 * Ncameras*6; i++)
-                    invJtJ_extrinsics[i] = nan;
+                    covariance_extrinsics[i] = nan;
         }
     }
     if(outlier_indices_final)

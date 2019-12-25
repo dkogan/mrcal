@@ -61,8 +61,8 @@ extrinsics = mrcal.cameramodel(args.extrinsics)
 joint = mrcal.cameramodel( intrinsics                          = intrinsics.intrinsics(),
                            extrinsics_rt_fromref               = extrinsics.extrinsics_rt_fromref(),
                            imagersize                          = intrinsics.imagersize(),
-                           invJtJ_intrinsics_full              = intrinsics.invJtJ_intrinsics_full(),
-                           invJtJ_intrinsics_observations_only = intrinsics.invJtJ_intrinsics_observations_only(),
+                           covariance_intrinsics_full          = intrinsics.covariance_intrinsics_full(),
+                           covariance_intrinsics               = intrinsics.covariance_intrinsics(),
                            observed_pixel_uncertainty          = intrinsics.observed_pixel_uncertainty(),
                            valid_intrinsics_region             = intrinsics.valid_intrinsics_region())
 

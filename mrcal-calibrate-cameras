@@ -561,8 +561,8 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
 
 def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
                      observed_pixel_uncertainty,
-                     invJtJ_intrinsics_full,
-                     invJtJ_intrinsics_observations_only,
+                     covariance_intrinsics_full,
+                     covariance_intrinsics,
                      valid_intrinsics_region = None):
     r'''Assemble one cameramodel from a completed calibration
 
@@ -578,25 +578,25 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
         rt_x0 = np.zeros(6)
     Rt_rx = mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0))
 
-    if invJtJ_intrinsics_full is not None:
-        invJtJ_intrinsics_full = invJtJ_intrinsics_full[i_camera, ...]
-    if invJtJ_intrinsics_observations_only is not None:
-        invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only[i_camera, ...]
+    if covariance_intrinsics_full is not None:
+        covariance_intrinsics_full = covariance_intrinsics_full[i_camera, ...]
+    if covariance_intrinsics is not None:
+        covariance_intrinsics = covariance_intrinsics[i_camera, ...]
     if valid_intrinsics_region is not None:
         valid_intrinsics_region = valid_intrinsics_region[i_camera]
 
-    return mrcal.cameramodel( intrinsics                          = (intrinsics[0], intrinsics[1][i_camera,:]),
-                              extrinsics_Rt_toref                 = Rt_rx,
-                              imagersize                          = imagersizes[i_camera],
-                              observed_pixel_uncertainty          = observed_pixel_uncertainty,
-                              invJtJ_intrinsics_full              = invJtJ_intrinsics_full,
-                              invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only,
-                              valid_intrinsics_region             = valid_intrinsics_region)
+    return mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
+                              extrinsics_Rt_toref        = Rt_rx,
+                              imagersize                 = imagersizes[i_camera],
+                              observed_pixel_uncertainty = observed_pixel_uncertainty,
+                              covariance_intrinsics_full = covariance_intrinsics_full,
+                              covariance_intrinsics      = covariance_intrinsics,
+                              valid_intrinsics_region    = valid_intrinsics_region)
 
 def make_cameramodels(intrinsics, extrinsics, imagersizes,
                       observed_pixel_uncertainty,
-                      invJtJ_intrinsics_full,
-                      invJtJ_intrinsics_observations_only,
+                      covariance_intrinsics_full,
+                      covariance_intrinsics,
                       valid_intrinsics_region = None):
     r'''Assemble cameramodels from a completed calibration
 
@@ -608,8 +608,8 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
     return [ make_cameramodel(i_camera,
                               intrinsics, extrinsics, imagersizes,
                               observed_pixel_uncertainty,
-                              invJtJ_intrinsics_full,
-                              invJtJ_intrinsics_observations_only,
+                              covariance_intrinsics_full,
+                              covariance_intrinsics,
                               valid_intrinsics_region) for i_camera in range(len(intrinsics[1])) ]
 
 
@@ -857,8 +857,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                skip_regularization               = True,
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
-                               get_invJtJ_intrinsics             = False,
-                               get_invJtJ_extrinsics             = False,
+                               get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
@@ -877,8 +876,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                skip_regularization               = True,
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
-                               get_invJtJ_intrinsics             = False,
-                               get_invJtJ_extrinsics             = False,
+                               get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
@@ -1050,8 +1048,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                skip_regularization               = args.skip_regularization,
                                outlier_indices                   = outlier_indices,
                                roi                               = args.roi,
-                               get_invJtJ_intrinsics             = False,
-                               get_invJtJ_extrinsics             = False,
+                               get_covariances                   = False,
                                verbose                           = args.verbose_solver)
         return "fixed solve", (distortion_model, intrinsics_data), extrinsics, frames, args.roi, stats
 
@@ -1108,8 +1105,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                skip_regularization               = args.skip_regularization,
                                outlier_indices                   = outlier_indices,
                                roi                               = roi,
-                               get_invJtJ_intrinsics             = False,
-                               get_invJtJ_extrinsics             = False,
+                               get_covariances                   = False,
                                verbose                           = args.verbose_solver)
 
         solution_acceptable,solution_description = eval_solution(stats, outside_ROI_indices__prevROI)
@@ -1434,17 +1430,17 @@ if args.num_cross_validation_splits > 1:
                                skip_regularization               = args.skip_regularization,
                                outlier_indices                   = split_outlier_indices,
                                roi                               = roi,
-                               get_invJtJ_intrinsics             = True,
-                               get_invJtJ_extrinsics             = True,
+                               get_covariances                   = True,
                                verbose                           = False,
                                solver_context                    = solver_context)
 
-        invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
+        covariance_intrinsics = stats.get('covariance_intrinsics')
 
         report = "RMS reprojection error: {} pixels\n".format(stats['rms_reproj_error__pixels'])
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ \n" + report)
 
-        cross_validation_models.append( make_cameramodels(split_intrinsics, split_extrinsics, MMt=None) )
+        raise Exception("This make_cameramodels() call has bit-rotted. Fix if you need it")
+        cross_validation_models.append( make_cameramodels(split_intrinsics, split_extrinsics) )
     # for i_camera in range(len(intrinsics[1]):
     i_camera = 0
     if roi is None:
@@ -1479,7 +1475,7 @@ if args.optimize_calobject_warp:
 else:
     calobject_warp = None
 
-sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, invJtJ_intrinsics_observations_only and solver_context\n")
+sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, covariance_intrinsics and solver_context\n")
 stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        observations, indices_frame_camera,
                        None, None,
@@ -1497,23 +1493,22 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = stats['outlier_indices'],
                        roi                               = roi,
-                       get_invJtJ_intrinsics             = True,
-                       get_invJtJ_extrinsics             = True,
+                       get_covariances                   = True,
                        verbose                           = args.verbose_solver,
                        solver_context                    = solver_context)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 
 if args.skip_intrinsics_solve:
-    invJtJ_intrinsics_full              = None
-    invJtJ_intrinsics_observations_only = None
+    covariance_intrinsics_full = None
+    covariance_intrinsics      = None
 else:
-    invJtJ_intrinsics_full              = stats.get('invJtJ_intrinsics_full')
-    invJtJ_intrinsics_observations_only = stats.get('invJtJ_intrinsics_observations_only')
+    covariance_intrinsics_full = stats.get('covariance_intrinsics_full')
+    covariance_intrinsics      = stats.get('covariance_intrinsics')
 if args.skip_extrinsics_solve:
-    invJtJ_extrinsics = None
+    covariance_extrinsics      = None
 else:
-    invJtJ_extrinsics = stats.get('invJtJ_extrinsics')
+    covariance_extrinsics      = stats.get('covariance_extrinsics')
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -1539,21 +1534,14 @@ if args.pairs:
     # I have dp = M dqref
     #
     # yaw_pair0 = rt1[1] -> dyaw_pair0 = M[1,:] dqref
-    # Var(yaw_pair0) = M[1,:] Var(dqref) M[1,:]t = MMt[1,1] s^2
+    # Var(yaw_pair0) = M[1,:] Var(dqref) M[1,:]t = covariance(yaw,yaw)
     #
     # yaw_pair1 = compose_rt( rt3, invert_rt(rt2))[1]. I linearize: yaw_pair1 ~
     # ... + inner(u, drt23) = ... + inner(u, M[irt23, :] dqref) ->
-    # Var(yaw_pair1) = ut M[irt23,:] M[irt23,:]t u s^2 = ut MMt[irt23,irt23] u
-    # s^2
-    #
-    # In ordinary least squares I have M = inv(JtJ) Jt -> MMt = inv(JtJ). My life is
-    # slightly more complicated, so I actually have M = inv(JtJ) Jobservationst W.
-    # Blocks of the MMt defined this way are stored in stats['invJtJ_extrinsics'],
-    # stats['invJtJ_intrinsics_observations_only']
-    MMt = stats['invJtJ_extrinsics']
+    # Var(yaw_pair1) = ut M[irt23,:] M[irt23,:]t u s^2 = ut covariance(irt23,irt23) u
     for i_pair in range(Ncameras//2):
         if i_pair == 0:
-            stdev_yaw   = np.sqrt(MMt[1,1]) * args.observed_pixel_uncertainty
+            stdev_yaw   = np.sqrt(stats['covariance_extrinsics'][1,1])
             rt_1r = extrinsics[i_pair*2]
             Rt_1r = mrcal.Rt_from_rt(rt_1r)
             Rt_10 = Rt_1r
@@ -1628,16 +1616,16 @@ if args.pairs:
             # print(f"Gradient testing: saw dyaw: {yaw1-yaw0}, expected dyaw {nps.inner(u,delta)} err: {yaw1-yaw0 - nps.inner(u,delta)}")
 
 
-            # Get the slice of MMt for the rotations-only: r_01 and r_1r
-            A = MMt[ir0:ir0+3,ir0:ir0+3]
-            B = MMt[ir0:ir0+3,ir1:ir1+3]
-            C = MMt[ir1:ir1+3,ir0:ir0+3]
-            D = MMt[ir1:ir1+3,ir1:ir1+3]
-            MMtslice = nps.glue( nps.glue(A,B, axis=-1),
-                                 nps.glue(C,D, axis=-1),
-                                 axis=-2 )
+            # Get the slice of covariance for the rotations-only: r_01 and r_1r
+            A = stats['covariance_extrinsics'][ir0:ir0+3,ir0:ir0+3]
+            B = stats['covariance_extrinsics'][ir0:ir0+3,ir1:ir1+3]
+            C = stats['covariance_extrinsics'][ir1:ir1+3,ir0:ir0+3]
+            D = stats['covariance_extrinsics'][ir1:ir1+3,ir1:ir1+3]
+            covariance_slice = nps.glue( nps.glue(A,B, axis=-1),
+                                         nps.glue(C,D, axis=-1),
+                                        axis=-2 )
 
-            stdev_yaw   = np.sqrt(nps.inner( u, nps.inner(u, MMtslice) )) * args.observed_pixel_uncertainty
+            stdev_yaw   = np.sqrt(nps.inner( u, nps.inner(u, covariance_slice) ))
 
         report += "Pair{} baseline: {:.2f}m\n".format(i_pair, baseline)
         report += "Pair{} 1-stdev yaw uncertainty: {:.3f} degrees. Expected resulting range error at 1000m: {:.1f}m\n". \
@@ -1693,22 +1681,22 @@ def get_valid_intrinsics_region(i_camera,
                                          gridn_x = gridn_x,
                                          gridn_y = gridn_y)
 
-    if invJtJ_intrinsics_observations_only is None:
-        raise Exception("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work")
+    if covariance_intrinsics is None:
+        raise Exception("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_covariance_intrinsics = True) for this to work")
 
-    invJtJ_intrinsics_full_here              = None
-    invJtJ_intrinsics_observations_only_here = None
-    if invJtJ_intrinsics_full is not None:
-        invJtJ_intrinsics_full_here = invJtJ_intrinsics_full[i_camera, ...]
-    if invJtJ_intrinsics_observations_only is not None:
-        invJtJ_intrinsics_observations_only_here = invJtJ_intrinsics_observations_only[i_camera, ...]
+    covariance_intrinsics_full_here = None
+    covariance_intrinsics_here      = None
+    if covariance_intrinsics_full is not None:
+        covariance_intrinsics_full_here = covariance_intrinsics_full[i_camera, ...]
+    if covariance_intrinsics is not None:
+        covariance_intrinsics_here = covariance_intrinsics[i_camera, ...]
     model = \
-        mrcal.cameramodel( intrinsics                          = (intrinsics[0], intrinsics[1][i_camera,:]),
-                           extrinsics_rt_toref                 = np.zeros(6,dtype=float),
-                           imagersize                          = imagersizes[i_camera],
-                           observed_pixel_uncertainty          = args.observed_pixel_uncertainty,
-                           invJtJ_intrinsics_full              = invJtJ_intrinsics_full_here,
-                           invJtJ_intrinsics_observations_only = invJtJ_intrinsics_observations_only_here)
+        mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
+                           extrinsics_rt_toref        = np.zeros(6,dtype=float),
+                           imagersize                 = imagersizes[i_camera],
+                           observed_pixel_uncertainty = args.observed_pixel_uncertainty,
+                           covariance_intrinsics_full = covariance_intrinsics_full_here,
+                           covariance_intrinsics      = covariance_intrinsics_here)
     v,_ = mrcal.sample_imager_unproject(gridn_x, gridn_y,
                                         intrinsics[0], intrinsics[1][i_camera,:],
                                         *imagersizes[i_camera])
@@ -1754,8 +1742,8 @@ valid_intrinsics_region = [get_valid_intrinsics_region(i) for i in range(Ncamera
 # Write the output models
 models = make_cameramodels(intrinsics, extrinsics, imagersizes,
                            args.observed_pixel_uncertainty,
-                           invJtJ_intrinsics_full,
-                           invJtJ_intrinsics_observations_only,
+                           covariance_intrinsics_full,
+                           covariance_intrinsics,
                            valid_intrinsics_region)
 # The note says how we ran this, and contains the commented-out report
 note = \
@@ -1914,7 +1902,7 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
 def show_residuals_observation_worst(i, **kwargs):
     show_residuals_observation( i_observations_worst[i], **kwargs )
 
-def check_confidence_computations(solver_context):
+def check_confidence_computations(solver_context, observed_pixel_uncertainty):
     r'''Test computeUncertaintyMatrices() and compute_intrinsics_uncertainty()
 
     The uncertainty computation is documented in the docstring for
@@ -2043,20 +2031,20 @@ def check_confidence_computations(solver_context):
         invJtJ_slice = invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),
                               Nintrinsics*icam:Nintrinsics*(icam+1)]
         err_inv_jtj_intrinsics_full = \
-            np.linalg.norm(invJtJ_intrinsics_full[icam, ...] -
+            np.linalg.norm(covariance_intrinsics_full[icam, ...]/(observed_pixel_uncertainty*observed_pixel_uncertainty) -
                            invJtJ_slice)
-        err_inv_jtj_intrinsics_observations_only = \
-            np.linalg.norm(invJtJ_intrinsics_observations_only[icam, ...] -
+        err_inv_jtj_intrinsics = \
+            np.linalg.norm(covariance_intrinsics[icam, ...]/(observed_pixel_uncertainty*observed_pixel_uncertainty) -
                            nps.matmult( invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),:],
                                         nps.transpose(J0obs),
                                         J0obs,
                                         invJtJ[:,Nintrinsics*icam:Nintrinsics*(icam+1)]))
 
-        print("invJtJ_intrinsics_fullerror full (should be 0): {}".format(err_inv_jtj_intrinsics_full))
-        print("invJtJ_intrinsics_observations_only error (should be 0): {}".format(err_inv_jtj_intrinsics_observations_only))
+        print("invjtj_intrinsics_full error (should be 0): {}".format(err_inv_jtj_intrinsics_full))
+        print("invjtj_intrinsics error (should be 0): {}".format(err_inv_jtj_intrinsics))
 
     err_inv_jtj_extrinsics = \
-        np.linalg.norm(invJtJ_extrinsics -
+        np.linalg.norm(covariance_extrinsics/(observed_pixel_uncertainty*observed_pixel_uncertainty) -
                        nps.matmult( invJtJ[   Nintrinsics*Ncameras:Nintrinsics*Ncameras + 6*(Ncameras-1), :],
                                     nps.transpose(J0obs),
                                     J0obs,
@@ -2104,7 +2092,7 @@ def check_confidence_computations(solver_context):
                                 skip_regularization               = args.skip_regularization,
                                 outlier_indices                   = stats['outlier_indices'],
                                 roi                               = roi,
-                                get_invJtJ_intrinsics             = False,
+                                get_covariances                   = False,
                                 verbose                           = False,
                                 solver_context                    = solver_context)
         return solver_context.p().copy()
@@ -2452,8 +2440,8 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0, binwidth=0.
 plots_intrinsics_uncertainty = [None] * Ncameras
 def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_x = 60, gridn_y = 40, **kwargs):
 
-    if invJtJ_intrinsics_observations_only is None:
-        print("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_invJtJ_intrinsics = True) for this to work")
+    if covariance_intrinsics is None:
+        print("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_covariances = True) for this to work")
         return False
 
 

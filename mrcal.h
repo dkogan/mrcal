@@ -223,9 +223,9 @@ mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
                 // caller
                 double* x_final,
-                double* invJtJ_intrinsics_full,
-                double* invJtJ_intrinsics_observations_only,
-                double* invJtJ_extrinsics,
+                double* covariance_intrinsics_full,
+                double* covariance_intrinsics,
+                double* covariance_extrinsics,
 
                 // Buffer should be at least Nfeatures long. stats->Noutliers
                 // elements will be filled in
