@@ -474,6 +474,7 @@ OPTIONS
                             Which distortion model we're using. This is required
                             unless we have a --seed
       --roi ROI ROI ROI ROI
+                            THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet.
                             Region of interest of the calibration. This is the
                             area in the imager we're interested in. Errors in
                             observations outside this area will be attenuated
