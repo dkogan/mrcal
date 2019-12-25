@@ -2130,7 +2130,8 @@ static bool computeUncertaintyMatrices(// out
                                        double* covariance_extrinsics,
 
                                        // in
-                                       double observed_pixel_uncertainty,                                       distortion_model_t distortion_model,
+                                       double observed_pixel_uncertainty,
+                                       distortion_model_t distortion_model,
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras,
                                        int NobservationsBoard,
