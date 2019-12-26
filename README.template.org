@@ -78,7 +78,7 @@ When describing a transformation (or its rotation/translation components) that
 maps a point represented in coordinate system A to its representation in
 coordinate system B, =T_AB= is the notation used. These chain together nicely,
 so if we know the transformation between =A= and =B= and between =B= and =C=, we
-can transform a point represented in =C= to =A=: =x_A = T_AB T_BC x_C=
+can transform a point represented in =C= to =A=: =x_A = T_AB T_BC x_C=.
 
 *** Pose representations
 
@@ -91,7 +91,12 @@ has functions to convert between them. Available representations are:
 - =rt=: a (6,) numpy array with a (3,) vector representing a Rodrigues rotation
   concatenated with another (3,) vector, representing a rotation.
 
-Each of these represents a transformation =rotate(x) + t=
+Each of these represents a transformation =rotate(x) + t=.
+
+Since a pose represents a transformation between two coordinate systems, the
+toolkit generally refers to a pose as something like =Rt_AB=, which is an
+=Rt=-represented transformation to convert a point from a representation in the
+coordinate system =B= to a representation in coordinate system =A=. =B=
 
 A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
 around an axis in the direction =r=. Converting between =R= and =r= is done via
@@ -114,6 +119,11 @@ class. This class supports two different file formats:
 
 - =.cahvor=: the legacy format. This exists for compatibility with existing JPL
   tools. There's no other reason to use this format
+
+The file format is just a way to store data: any distortion model can be stored
+in any file format. Currently some things aren't representable in a =.cahvor=
+file (covariance stuff), but only mrcal tools know what to do with that data,
+and mrcal supports =.cameramodel= files.
 
 ** Distortion models
 
