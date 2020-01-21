@@ -18,7 +18,8 @@ LDLIBS    += $(LDLIBS_CV)
 
 LDLIBS    += -ldogleg
 
-CCXXFLAGS += --std=gnu99 -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
+CFLAGS    += --std=gnu99
+CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 CCXXFLAGS += -ffast-math -mtune=native
 
 DIST_INCLUDE += basic_points.h mrcal.h
