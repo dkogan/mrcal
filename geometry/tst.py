@@ -9,12 +9,24 @@ import poseutils
 
 from testutils import *
 
-def grad(f, x, step=1e-6):
+def normalizeR(R):
+    r'''Make a slightly-invalid rotation matrix into a valid one
+
+'''
+    u,s,vt = np.linalg.svd(R)
+    return nps.matmult(u,vt)
+
+
+def grad(f, x, step=1e-6, normalize = lambda x:x):
     r'''Computes df/dx at x
 
     f is a function of one argument. If the input has shape Si and the output
     has shape So, the returned gradient has shape So+Si. This applies central
     differences
+
+    If the input is constrained, and we want to respect that constraint after
+    the perturbations, set normalize to a function that maps the perturbed input
+    back to the constrained manifold
 
     '''
 
@@ -24,8 +36,8 @@ def grad(f, x, step=1e-6):
     def df_dxi(i, d,dflat):
 
         dflat[i] = step
-        fplus  = f(x + d)
-        fminus = f(x - d)
+        fplus  = f(normalize(x+d))
+        fminus = f(normalize(x-d))
         j = (fplus-fminus)/(2.*step)
         dflat[i] = 0
         return j
