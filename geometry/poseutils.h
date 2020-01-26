@@ -19,8 +19,8 @@ void mrcal_identity_rt(double* rt /* (6)   array */);
 // Applying rotations. The R version is simply a matrix-vector multiplication
 void mrcal_rotate_point_R( // output
                           double* x_out, // (3) array
-                          double* J_R,   // (3,9) array. May be NULL
-                          double* J_x,   // (3,3) array. May be NULL
+                          double* J_R,   // (3,3,3) array. May be NULL
+                          double* J_x,   // (3,3)   array. May be NULL
 
                           // input
                           const double* R,
@@ -39,7 +39,7 @@ void mrcal_rotate_point_r( // output
 // Apply a transformation to a point
 void mrcal_transform_point_Rt(// output
                               double* x_out, // (3) array
-                              double* J_R,   // (3,9) array. Gradient.
+                              double* J_R,   // (3,3,3) array. Gradient.
                                              // Flattened R. May be NULL
                               double* J_t,   // (3,3) array. Gradient.
                                              // Flattened Rt. May be NULL
@@ -65,7 +65,7 @@ void mrcal_transform_point_rt(// output
 // Convert a rotation representation from a matrix to a Rodrigues vector
 void mrcal_r_from_R( // output
                     double* r, // (3) vector
-                    double* J, // (3,9) array. Gradient. May be NULL
+                    double* J, // (3,3,3) array. Gradient. May be NULL
 
                     // input
                     const double* R // (3,3) array
@@ -74,7 +74,7 @@ void mrcal_r_from_R( // output
 // Convert a rotation representation from a Rodrigues vector to a matrix
 void mrcal_R_from_r( // outputs
                      double* R, // (3,3) array
-                     double* J, // (9,3) array. Gradient. May be NULL
+                     double* J, // (3,,3) array. Gradient. May be NULL
 
                      // input
                      const double* r // (3) vector

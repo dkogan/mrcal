@@ -57,6 +57,46 @@ rotate_point_r_core(// output
     }
 }
 
+template<int N>
+static void
+r_from_R_core(// output
+              val_withgrad_t<N>* rg,
+
+              // inputs
+              const val_withgrad_t<N>* Rg)
+{
+    val_withgrad_t<N> tr    = Rg[0] + Rg[4] + Rg[8];
+    val_withgrad_t<N> costh = (tr - 1.) / 2.;
+
+    val_withgrad_t<N> th = costh.acos();
+    val_withgrad_t<N> axis[3] =
+        {
+            Rg[2*3 + 1] - Rg[1*3 + 2],
+            Rg[0*3 + 2] - Rg[2*3 + 0],
+            Rg[1*3 + 0] - Rg[0*3 + 1]
+        };
+
+    if(th.x > 1e-10)
+    {
+        // normal path
+        val_withgrad_t<N> mag_axis_recip =
+            val_withgrad_t<N>(1.) /
+            ((axis[0]*axis[0] +
+              axis[1]*axis[1] +
+              axis[2]*axis[2]).sqrt());
+        for(int i=0; i<3; i++)
+            rg[i] = axis[i] * mag_axis_recip * th;
+    }
+    else
+    {
+        // small th. Can't divide by it. But I can look at the limit.
+        //
+        // axis / (2 sinth)*th = axis/2 *th/sinth ~ axis/2
+        for(int i=0; i<3; i++)
+            rg[i] = axis[i] / 2.;
+    }
+}
+
 extern "C"
 void mrcal_rotate_point_r( // output
                           double* x_out, // (3) array
@@ -109,3 +149,30 @@ void mrcal_rotate_point_r( // output
         x_outg.extract_grad (J_x, 3, 3);
     }
 }
+
+extern "C"
+void mrcal_r_from_R( // output
+                    double* r, // (3) vector
+                    double* J, // (3,3,3) array. Gradient. May be NULL
+
+                    // input
+                    const double* R // (3,3) array
+                   )
+{
+    if(J == NULL)
+    {
+        vec_withgrad_t<0, 3> rg;
+        vec_withgrad_t<0, 9> Rg(R);
+        r_from_R_core<0>(rg.v, Rg.v);
+        rg.extract_value(r);
+    }
+    else
+    {
+        vec_withgrad_t<9, 3> rg;
+        vec_withgrad_t<9, 9> Rg(R, 0);
+        r_from_R_core<9>(rg.v, Rg.v);
+        rg.extract_value(r);
+        rg.extract_grad(J, 0, 9);
+    }
+}
+
