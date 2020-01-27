@@ -1,3 +1,20 @@
+mrcal (0.33) unstable; urgency=medium
+
+  * Added mrcal-show-geometry tool
+  * Added mrcal-calibrate-cameras --pairs
+  * Removed mrcal.distort()
+  * mrcal-undistort-image, undistort_image__compute_map() can take a rotation
+  * redistort-image (tool and api call) can redistort to/from planes
+  * mrcal-redistort-image supports --scale-focal and --scale-image
+  * show-solution-geometry (tool,api) can read and use transforms.txt
+  * I support broadcasting in Rt_from_pq() and R_from_quat()
+  * unproject() works with cahvore again
+  * mrcal-to-{cahvor,cameramodel} read stdin by default
+  * I can now read cameramodel from a pipe
+  * API BREAK: uncertainties represented as a "covariance"
+
+ -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 27 Jan 2020 14:52:26 -0800
+
 mrcal (0.29) unstable; urgency=medium
 
   * bug fix
