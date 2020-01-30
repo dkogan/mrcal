@@ -15,6 +15,7 @@ import ast
 import re
 import warnings
 import io
+import copy
 
 import mrcal
 
@@ -578,7 +579,7 @@ class cameramodel(object):
            covariance_intrinsics_full is None and \
            covariance_intrinsics      is None and \
            valid_intrinsics_region    is None:
-            return self._intrinsics
+            return copy.deepcopy(self._intrinsics)
 
         try:
             _validateIntrinsics(imagersize,
@@ -595,12 +596,12 @@ class cameramodel(object):
         except BadValidIntrinsicsRegion_Exception as e:
             warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
 
-        self._imagersize                 = imagersize
-        self._intrinsics                 = intrinsics
-        self._observed_pixel_uncertainty = observed_pixel_uncertainty
-        self._covariance_intrinsics_full = covariance_intrinsics_full
-        self._covariance_intrinsics      = covariance_intrinsics
-        self._valid_intrinsics_region    = mrcal.close_contour(valid_intrinsics_region)
+        self._imagersize                 = copy.deepcopy(imagersize)
+        self._intrinsics                 = copy.deepcopy(intrinsics)
+        self._observed_pixel_uncertainty = copy.deepcopy(observed_pixel_uncertainty)
+        self._covariance_intrinsics_full = copy.deepcopy(covariance_intrinsics_full)
+        self._covariance_intrinsics      = copy.deepcopy(covariance_intrinsics)
+        self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(valid_intrinsics_region))
 
 
     def _extrinsics_rt(self, toref, rt=None):
@@ -632,13 +633,13 @@ class cameramodel(object):
         if rt is None:
             # getter
             if not toref:
-                return self._extrinsics
+                return copy.deepcopy(self._extrinsics)
             return mrcal.invert_rt(self._extrinsics)
 
 
         # setter
         if not toref:
-            self._extrinsics = rt
+            self._extrinsics = copy.deepcopy(rt)
             return True
 
         self._extrinsics = mrcal.invert_rt(rt)
@@ -795,7 +796,7 @@ class cameramodel(object):
         if len(args) or len(kwargs):
             raise Exception("imagersize() is NOT a setter. Please use intrinsics() to set them all together")
 
-        return self._imagersize
+        return copy.deepcopy(self._imagersize)
 
     def observed_pixel_uncertainty(self, *args, **kwargs):
         r'''Get the observed pixel uncertainty in this model
@@ -807,7 +808,7 @@ class cameramodel(object):
 
         if len(args) or len(kwargs):
             raise Exception("observed_pixel_uncertainty() is NOT a setter. Please use intrinsics() to set them all together")
-        return self._observed_pixel_uncertainty
+        return copy.deepcopy(self._observed_pixel_uncertainty)
 
     def covariance_intrinsics_full(self, *args, **kwargs):
         r'''Get the FULL intrinsics covariance for this model
@@ -830,7 +831,7 @@ class cameramodel(object):
 
         if len(args) or len(kwargs):
             raise Exception("covariance_intrinsics_full() is NOT a setter. Please use intrinsics() to set them all together")
-        return self._covariance_intrinsics_full
+        return copy.deepcopy(self._covariance_intrinsics_full)
 
     def covariance_intrinsics(self, *args, **kwargs):
         r'''Get the intrinsics covariance for this model
@@ -858,7 +859,7 @@ class cameramodel(object):
 
         if len(args) or len(kwargs):
             raise Exception("covariance_intrinsics() is NOT a setter. Please use intrinsics() to set them all together")
-        return self._covariance_intrinsics
+        return copy.deepcopy(self._covariance_intrinsics)
 
     def valid_intrinsics_region(self, *args, **kwargs):
         r'''Get the valid-intrinsics region
@@ -874,7 +875,7 @@ class cameramodel(object):
 
         if len(args) or len(kwargs):
             raise Exception("valid_intrinsics_region() is NOT a setter. Please use intrinsics() to set them all together")
-        return self._valid_intrinsics_region
+        return copy.deepcopy(self._valid_intrinsics_region)
 
     def set_cookie(self, cookie):
         r'''Store some arbitrary cookie for somebody to use later
