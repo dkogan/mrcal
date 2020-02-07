@@ -215,7 +215,8 @@ def _write(f, m, note=None):
     r'''Writes a cameramodel as a .cahvor to a writeable file object'''
 
     if note is not None:
-        f.write('# ' + note + '\n')
+        for l in note.splitlines():
+            f.write('# ' + l + '\n')
     d = m.imagersize()
     f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 

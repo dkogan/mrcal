@@ -199,7 +199,8 @@ class cameramodel(object):
         r'''Writes out this camera model to an open file'''
 
         if note is not None:
-            f.write('# ' + note + '\n')
+            for l in note.splitlines():
+                f.write('# ' + l + '\n')
 
         _validateIntrinsics(self._imagersize,
                             self._intrinsics,
