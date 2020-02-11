@@ -3698,16 +3698,6 @@ mrcal_optimize( // out
                 double calibration_object_spacing,
                 int calibration_object_width_n)
 {
-    int Ncovariances_NULL = 0;
-    if(covariance_intrinsics_full == NULL) Ncovariances_NULL++;
-    if(covariance_intrinsics      == NULL) Ncovariances_NULL++;
-    if(covariance_extrinsics      == NULL) Ncovariances_NULL++;
-
-    if( Ncovariances_NULL != 0 && Ncovariances_NULL != 3 )
-    {
-        MSG("ERROR: either all or none of (covariance_intrinsics_full,covariance_intrinsics,covariance_extrinsics) can be NULL");
-        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
-    }
     if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
     {
         MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
