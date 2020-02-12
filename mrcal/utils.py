@@ -1970,18 +1970,17 @@ def get_mapping_file_framecamera(*files_per_camera):
     I take in a list of image paths per camera. I return a dict that maps each
     image filename to (framenumber,cameraindex)
 
+    If I have just one image, I can't tell where in the filenames I have the
+    frame, camera numbers, so I return frame=0,camera=0
+
+    If I have a set of images that differ in only one area of the filename, I
+    assume I have ONE camera and MANY frames
+
     '''
 
     i_empty = [i for i in range(len(files_per_camera)) if len(files_per_camera[i]) == 0]
     if len(i_empty) > 0:
         raise Exception("These camera globs matched no files: {}".format(i_empty))
-
-    # If I have just one camera, then I short-circuit all of this
-    if len(files_per_camera) == 1:
-        d = {}
-        for i in range(len(files_per_camera[0])):
-            d[files_per_camera[0][i]] = (i,0)
-        return d
 
 
     def get_longest_leading_trailing_substrings(strings):
