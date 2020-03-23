@@ -1785,6 +1785,7 @@ Potential things to look at:
     show_valid_intrinsics_region(i_camera)
     show_residuals('vectorfield', i_camera, show_all_reproj_errors=True)
     show_residuals('heatmap',     i_camera)
+    show_residuals('directions',  i_camera)
     show_residuals_histogram(     i_camera)
     show_residuals_radial(        i_camera)
     show_residuals_regional(      i_camera)
@@ -2185,7 +2186,6 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 
 
 
-
 def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors):
     r'''Return the data used by the various show_residuals() functions'''
 
@@ -2262,9 +2262,14 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0,
       if how == 'vectorfield': we plot a vectorfield, showing each observed
                                point, and its reprojection discrepancy
 
-      elif how == 'heatmap':   we plot each observed point, but instead of showing
+      if how == 'heatmap':     we plot each observed point, but instead of showing
                                an error vector, we render a point that's
                                color-coded with its error
+      elif how == 'directions':we plot each observed point, but instead of showing
+                               an error vector, we show the color-coded
+                               direction of the error. The error magnitude is
+                               ignored. This is useful to see systematic
+                               patterns in the error surface
 
     i_camera is the camera in question. <0 means "all cameras"
 
@@ -2308,7 +2313,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0,
         if valid_intrinsics_region_plotarg_2d is not None:
             plot_data_args.append(valid_intrinsics_region_plotarg_2d)
         plots_how[i_camera+1].plot(*plot_data_args)
-    elif how == 'heatmap':
+    if how == 'heatmap':
         plots_how[i_camera+1] = \
             gp.gnuplotlib( square=1,
                            _xrange=[0,W], yrange=[H,0],
@@ -2318,6 +2323,27 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0,
                            ylabel = 'Imager y',
                            **kwargs)
         plot_data_args = [( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
+                            dict(_with='points pt 7 palette',
+                                 tuplesize=3))]
+        if valid_intrinsics_region_plotarg_2d is not None:
+            plot_data_args.append(valid_intrinsics_region_plotarg_2d)
+        plots_how[i_camera+1].plot(*plot_data_args)
+    elif how == 'directions':
+        plots_how[i_camera+1] = \
+            gp.gnuplotlib( square=1,
+                           _xrange=[0,W], yrange=[H,0],
+                           title = 'Fitted reprojection errors {}. Directions shown as colors. Magnitudes ignored'. \
+                           format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
+                           xlabel = 'Imager x',
+                           ylabel = 'Imager y',
+
+                           # Use an maximum-saturation, maximum-value HSV
+                           # palette where the hue encodes the error direction.
+                           # The direction is periodic, as is the hue
+                           _set='palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV',
+                           cbrange = [-180., 180.],
+                           **kwargs)
+        plot_data_args = [( obs[:,0], obs[:,1], 180./np.pi * np.arctan2(err[...,1], err[...,0]),
                             dict(_with='points pt 7 palette',
                                  tuplesize=3))]
         if valid_intrinsics_region_plotarg_2d is not None:
