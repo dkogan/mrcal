@@ -28,7 +28,7 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--writecahvor',
+    parser.add_argument('--cahvor',
                         action='store_true',
                         help='''If given, we write the output using the cahvor file format''')
     parser.add_argument('intrinsics',
@@ -75,7 +75,7 @@ sys.stderr.write("Combined\nIntrinsics from '{}'\nExtrinsics from '{}'\n". \
            args.extrinsics))
 
 
-if args.writecahvor:
+if args.cahvor:
     import mrcal.cahvor
     mrcal.cahvor.write(sys.stdout, joint, note)
 else:
