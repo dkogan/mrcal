@@ -11,8 +11,60 @@ import warnings
 
 import mrcal
 
-@nps.broadcast_define( (('N',3), ('N',3),),
+@nps.broadcast_define( (('N',3,), ('N',3,),),
                        (4,3), )
+def _align3d_procrustes_points(A, B):
+    A = nps.transpose(A)
+    B = nps.transpose(B)
+
+    M = nps.matmult(               B - np.mean(B, axis=-1)[..., np.newaxis],
+                     nps.transpose(A - np.mean(A, axis=-1)[..., np.newaxis]) )
+    U,S,Vt = np.linalg.svd(M)
+
+    R = nps.matmult(U, Vt)
+
+    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
+    # is not a physical rotation. I compensate by negating the least-important
+    # pair of singular vectors
+    if np.linalg.det(R) < 0:
+        U[:,2] *= -1
+        R = nps.matmult(U, Vt)
+
+    # I wanted V Ut, not U Vt
+    R = nps.transpose(R)
+
+    # Now that I have my optimal R, I compute the optimal t. From before:
+    #
+    #   t = mean(a) - R mean(b)
+    t = np.mean(A, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(B, axis=-1)[..., np.newaxis] )
+
+    return nps.glue( R, t.ravel(), axis=-2)
+
+
+@nps.broadcast_define( (('N',3,), ('N',3,),),
+                       (3,3), )
+def _align3d_procrustes_vectors(A, B):
+    A = nps.transpose(A)
+    B = nps.transpose(B)
+
+    M = nps.matmult( B, nps.transpose(A) )
+    U,S,Vt = np.linalg.svd(M)
+
+    R = nps.matmult(U, Vt)
+
+    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
+    # is not a physical rotation. I compensate by negating the least-important
+    # pair of singular vectors
+    if np.linalg.det(R) < 0:
+        U[:,2] *= -1
+        R = nps.matmult(U, Vt)
+
+    # I wanted V Ut, not U Vt
+    return nps.transpose(R)
+
+
+# I use _align3d_procrustes_...() to do the work. Those are separate functions
+# with separate broadcasting prototypes
 def align3d_procrustes(A, B, vectors=False):
     r"""Computes an optimal (R,t) to match points in B to points in A
 
@@ -55,40 +107,8 @@ def align3d_procrustes(A, B, vectors=False):
     do this, pass vectors=True as a kwarg
 
     """
-
-    # I don't check dimensionality. The broadcasting-aware wrapper will do that
-
-    A = nps.transpose(A)
-    B = nps.transpose(B)
-
-    if vectors:
-        M = nps.matmult( B, nps.transpose(A) )
-    else:
-        M = nps.matmult(               B - np.mean(B, axis=-1)[..., np.newaxis],
-                         nps.transpose(A - np.mean(A, axis=-1)[..., np.newaxis]) )
-    U,S,Vt = np.linalg.svd(M)
-
-    R = nps.matmult(U, Vt)
-
-    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
-    # is not a physical rotation. I compensate by negating the least-important
-    # pair of singular vectors
-    if np.linalg.det(R) < 0:
-        U[:,2] *= -1
-        R = nps.matmult(U, Vt)
-
-    # I wanted V Ut, not U Vt
-    R = nps.transpose(R)
-
-    if vectors:
-        return R
-
-    # Now that I have my optimal R, I compute the optimal t. From before:
-    #
-    #   t = mean(a) - R mean(b)
-    t = np.mean(A, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(B, axis=-1)[..., np.newaxis] )
-
-    return nps.glue( R, t.ravel(), axis=-2)
+    if vectors: return _align3d_procrustes_vectors(A,B)
+    else:       return _align3d_procrustes_points (A,B)
 
 
 def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
