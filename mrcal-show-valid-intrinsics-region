@@ -4,7 +4,7 @@ r'''Visualize the valid-intrinsics region
 
 SYNOPSIS
 
-  $ mrcal-show-valid-intrinsics-region --writeimage left.cameramodel image.png
+  $ mrcal-show-valid-intrinsics-region --writeimage --image image.png left.cameramodel
   Wrote image-valid-intrinsics-region.png
 
 Given a camera model, this tool renders the valid-intrinsics region. If an image
@@ -50,13 +50,14 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+    parser.add_argument('--image',
+                        type=str,
+                        required = False,
+                        help='''Image to annotate''')
     parser.add_argument('model',
                         type=str,
-                        help='''Input camera model.''')
-    parser.add_argument('image',
-                        nargs='?',
-                        type=str,
-                        help='''Image to annotate''')
+                        nargs='+',
+                        help='''Input camera model(s)''')
 
     return parser.parse_args()
 
@@ -84,10 +85,10 @@ if args.writeimage:
 import mrcal
 import numpy as np
 
-model = mrcal.cameramodel(args.model)
+models = [mrcal.cameramodel(m) for m in args.model]
 
-if model.valid_intrinsics_region() is None:
-    raise Exception("The given model has no valid-intrinsics contour, so there's nothing to visualize")
+if any( m.valid_intrinsics_region() is None for m in models ):
+    raise Exception("Not all given models have a valid-intrinsics contour! Giving up")
 
 if args.writeimage:
 
@@ -102,7 +103,8 @@ if args.writeimage:
 
     imagefile_out = target_image_filename(args.image)
     image_out = cv2.imread(args.image)
-    mrcal.annotate_image__valid_intrinsics_region(model, image_out)
+    for m in models:
+        mrcal.annotate_image__valid_intrinsics_region(m, image_out)
     cv2.imwrite(imagefile_out, image_out)
     sys.stderr.write("Wrote {}\n".format(imagefile_out))
 
@@ -117,7 +119,7 @@ else:
         plotkwargs_extra['set'] = args.extraset
 
     plot = mrcal.show_valid_intrinsics_region( \
-               model, args.image,
+               models, args.image,
                points = points,
                hardcopy = args.hardcopy,
                title    = args.title,

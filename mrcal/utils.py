@@ -1856,7 +1856,7 @@ def show_intrinsics_diff(models,
     return plot
 
 
-def show_valid_intrinsics_region(model,
+def show_valid_intrinsics_region(models,
                                  image    = None,
                                  points   = None,
                                  title    = None,
@@ -1864,10 +1864,10 @@ def show_valid_intrinsics_region(model,
                                  kwargs   = None):
     r'''Annotates a given image with a valid-intrinsics region
 
-    This function takes in a camera model and an image, and makes a plot with
-    the valid-intrinsics region drawn on top of the image. The image can be a
-    filename or a numpy array. The camera model should contain the
-    valid-intrinsics region.
+    This function takes in a camera model (or a list of models) and an image. It
+    then makes a plot with the valid-intrinsics region(s) drawn on top of the
+    image. The image can be a filename or a numpy array. The camera model(s)
+    MUST contain the valid-intrinsics region(s).
 
     If given, points is a (2,N) numpy array of points to draw onto the image
     also
@@ -1877,15 +1877,34 @@ def show_valid_intrinsics_region(model,
 
     '''
 
-    valid_region = model.valid_intrinsics_region()
-    if valid_region is None:
-        raise Exception("No valid-intrinsics region is defined")
+    if isinstance(models, mrcal.cameramodel):
+        models = (models,)
+
+    W,H = models[0].imagersize()
+    for m in models[1:]:
+        WH1 = m.imagersize()
+        if W != WH1[0] or H != WH1[1]:
+            raise Exception("All given models MUST have the same imagersize. Got {} and {}".format((W,H), WH1))
+
+    try:
+        valid_regions = [m.valid_intrinsics_region() for m in models]
+        if any(r is None for r in valid_regions): raise
+    except:
+        raise Exception("Some given models have no valid-intrinsics region defined")
 
     if kwargs is None: kwargs = {}
+    else:              kwargs = dict(kwargs)
+
+    if kwargs.get('set') is not None:
+        if isinstance(kwargs['set'], str):
+            kwargs['set'] = [kwargs['set']]
+        else:
+            kwargs['set'] = list(kwargs['set'])
+    else:
+        kwargs['set'] = []
+    kwargs['set'].append('key opaque')
 
     import gnuplotlib as gp
-
-    W,H = model.imagersize()
 
     if 'title' not in kwargs and title is not None:
         kwargs['title'] = title
@@ -1902,8 +1921,10 @@ def show_valid_intrinsics_region(model,
         else:
             kwargs['rgbimage'] = image
 
-    plot_data_args.append( (valid_region[:,0], valid_region[:,1],
-                            dict(_with = 'lines lw 3')) )
+    plot_data_args.extend( (r[:,0], r[:,1],
+                            dict(_with = 'lines lw 3',
+                                 legend = 'Model {}'.format(i))) \
+                           for i,r in enumerate(valid_regions) )
 
     if points is not None:
         plot_data_args.append( (points, dict(tuplesize = -2,
