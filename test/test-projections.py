@@ -42,7 +42,7 @@ def fit_check(scale_f_pinhole, intrinsics, v,
     intrinsics[:2] *= scale_f_pinhole
     intrinsics     *= scale_imagersize_pinhole
 
-    q = mrcal.project(v, 'DISTORTION_NONE', intrinsics)
+    q = mrcal.project(v, 'LENSMODEL_PINHOLE', intrinsics)
 
     if any( q[:,0] < -eps )    or \
        any( q[:,0] > W-1+eps ) or \

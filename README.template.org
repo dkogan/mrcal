@@ -14,8 +14,8 @@ Wrote /tmp/camera0-1.cameramodel
 
 Mrcal is a generic toolkit to solve calibration and SFM-like problems.
 Functionality related to these problems is exposed as a set of python libraries.
-Both CAHVOR and OpenCV distortion models are fully supported; CAHVORE is
-partially supported. The toolkit includes:
+Both CAHVOR and OpenCV lens models are fully supported; CAHVORE is partially
+supported. The toolkit includes:
 
 - Some libraries:
   - =libmrcal=: A flexible solver core written in C and providing a C API that
@@ -28,29 +28,29 @@ partially supported. The toolkit includes:
 
 - Some tools:
   - =mrcal-calibrate-cameras=: calibrates N cameras
-  - =mrcal-convert-distortion=: fits one distortion model to another
+  - =mrcal-convert-distortion=: fits one lens model to another
   - =mrcal-show-distortion=: visualize the distortion effects of a specific
     model
   - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
     due to noise in the calibration inputs
   - =mrcal-show-intrinsics-diff=: visualize the difference between the
     intrinsics of a number of models
-  - =mrcal-undistort-image=: Given image(s) and a distortion model, produces a
+  - =mrcal-undistort-image=: Given image(s) and a lens model, produces a
     new set of images that have removed the distortion
-  - =mrcal-redistort-points=: Given two distortion models and a set of points,
-    maps them from one distortion model to the other
-  - =mrcal-redistort-image=: Given two distortion models and two images, maps
-    them from one distortion model to the other
+  - =mrcal-redistort-points=: Given two lens models and a set of points,
+    maps them from one lens model to the other
+  - =mrcal-redistort-image=: Given two lens models and two images, maps
+    them from one lens model to the other
   - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
     the extrinsics of another
   - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
     format to the =.cahvor= format. This exists for compatibility only, and does
     not touch the data: the lens distortion may or may not use the CAHVOR
-    distortion model
+    lens model
   - =mrcal-to-cameramodel=: Converts a model stored in the legacy =.cahvor= file
     format to the =.cameramodel= format. This exists for compatibility only, and
     does not touch the data: the lens distortion may or may not use the CAHVOR
-    distortion model
+    lens model
   - =mrcal-show-geometry=: Shows a visual representation of the extrinsics of N
     cameras
 
@@ -110,7 +110,7 @@ Reading/writing cameramodels is done in Python with the =mrcal.cameramodel=
 class. This class supports two different file formats:
 
 - =.cameramodel=: the preferred format. This is a simple text representation
-  that has clear sections for the distortion model, pinhole intrinsics,
+  that has clear sections for the lens model, pinhole intrinsics,
   distortion coefficients, and an extrinsic pose. The pose is represented as
   =rt_fromref=: an =rt= transformation /from/ the reference coordinate system
   /to/ the coordinate system of this camera. The class provides methods to get
@@ -120,27 +120,27 @@ class. This class supports two different file formats:
 - =.cahvor=: the legacy format. This exists for compatibility with existing JPL
   tools. There's no other reason to use this format
 
-The file format is just a way to store data: any distortion model can be stored
+The file format is just a way to store data: any lens model can be stored
 in any file format. Currently some things aren't representable in a =.cahvor=
 file (covariance stuff), but only mrcal tools know what to do with that data,
 and mrcal supports =.cameramodel= files.
 
-** Distortion models
+** Lens models
 
-Distortion models are specified as elements of =enum distortion_model_t= (in C)
+Lens models are specified as elements of =enum lens_model_t= (in C)
 or, as strings that match the entries of that enum (in Python). Currently I
 support all CAHVOR flavors and all models implemented in OpenCV. A limitation is
 that the solver core does not support CAHVORE, so use the OpenCV models if a
 high-distoriton model is required. Currently the supported models are:
 
-- =DISTORTION_NONE=
-- =DISTORTION_OPENCV4=
-- =DISTORTION_OPENCV5=
-- =DISTORTION_OPENCV8=
-- =DISTORTION_OPENCV12= (if we have OpenCV >= 3.0.0)
-- =DISTORTION_OPENCV14= (if we have OpenCV >= 3.1.0)
-- =DISTORTION_CAHVOR=
-- =DISTORTION_CAHVORE=
+- =LENSMODEL_PINHOLE=
+- =LENSMODEL_OPENCV4=
+- =LENSMODEL_OPENCV5=
+- =LENSMODEL_OPENCV8=
+- =LENSMODEL_OPENCV12= (if we have OpenCV >= 3.0.0)
+- =LENSMODEL_OPENCV14= (if we have OpenCV >= 3.1.0)
+- =LENSMODEL_CAHVOR=
+- =LENSMODEL_CAHVORE=
 
 ** Calibration object
 

@@ -42,7 +42,7 @@ atexit.register(cleanup)
 m = mrcal.cameramodel(f"{testdir}/data/opencv8.cameramodel")
 
 testutils.confirm_equal( m.extrinsics_rt_fromref(), [ 2e-2, -3e-1, -1e-2,  1., 2, -3., ] )
-testutils.confirm_equal( m.intrinsics()[0], 'DISTORTION_OPENCV8' )
+testutils.confirm_equal( m.intrinsics()[0], 'LENSMODEL_OPENCV8' )
 testutils.confirm_equal( m.intrinsics()[1], [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,] )
 
 m.write(f'{workdir}/out.cameramodel')
@@ -50,12 +50,12 @@ m.write(f'{workdir}/out.cahvor')
 
 m1 = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 testutils.confirm_equal( m1.extrinsics_rt_fromref(), [ 2e-2, -3e-1, -1e-2,  1., 2, -3., ] )
-testutils.confirm_equal( m1.intrinsics()[0], 'DISTORTION_OPENCV8' )
+testutils.confirm_equal( m1.intrinsics()[0], 'LENSMODEL_OPENCV8' )
 testutils.confirm_equal( m1.intrinsics()[1], [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,] )
 
 m2 = mrcal.cameramodel(f'{workdir}/out.cahvor')
 testutils.confirm_equal( m2.extrinsics_rt_fromref(), [ 2e-2, -3e-1, -1e-2,  1., 2, -3., ] )
-testutils.confirm_equal( m2.intrinsics()[0], 'DISTORTION_OPENCV8' )
+testutils.confirm_equal( m2.intrinsics()[0], 'LENSMODEL_OPENCV8' )
 testutils.confirm_equal( m2.intrinsics()[1], [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,] )
 
 

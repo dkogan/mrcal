@@ -1,4 +1,4 @@
 Returns the index in the optimization vector of the distortions of camera i
 
-The number of distortions vary depending on the distortion model we're using. i
-is given in the single argument.
+The number of distortions vary depending on the lens model we're using. i is
+given in the single argument.

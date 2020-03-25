@@ -7,7 +7,7 @@ SYNOPSIS
   $ mrcal-show-distortion --vectorfield left.cameramodel
   ... a plot pops up showing the distortion vector field
 
-This allows us to visually see what a distortion model does. Depending on the
+This allows us to visually see what a lens model does. Depending on the
 model, the vectors could be very large or very small, and we can scale them by
 passing '--scale s'. By default we sample in a 60x40 grid, but this spacing can
 be controlled by passing '--gridn w h'.

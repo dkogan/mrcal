@@ -14,8 +14,8 @@ Wrote /tmp/camera0-1.cameramodel
 
 Mrcal is a generic toolkit to solve calibration and SFM-like problems.
 Functionality related to these problems is exposed as a set of python libraries.
-Both CAHVOR and OpenCV distortion models are fully supported; CAHVORE is
-partially supported. The toolkit includes:
+Both CAHVOR and OpenCV lens models are fully supported; CAHVORE is partially
+supported. The toolkit includes:
 
 - Some libraries:
   - =libmrcal=: A flexible solver core written in C and providing a C API that
@@ -28,29 +28,29 @@ partially supported. The toolkit includes:
 
 - Some tools:
   - =mrcal-calibrate-cameras=: calibrates N cameras
-  - =mrcal-convert-distortion=: fits one distortion model to another
+  - =mrcal-convert-distortion=: fits one lens model to another
   - =mrcal-show-distortion=: visualize the distortion effects of a specific
     model
   - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
     due to noise in the calibration inputs
   - =mrcal-show-intrinsics-diff=: visualize the difference between the
     intrinsics of a number of models
-  - =mrcal-undistort-image=: Given image(s) and a distortion model, produces a
+  - =mrcal-undistort-image=: Given image(s) and a lens model, produces a
     new set of images that have removed the distortion
-  - =mrcal-redistort-points=: Given two distortion models and a set of points,
-    maps them from one distortion model to the other
-  - =mrcal-redistort-image=: Given two distortion models and two images, maps
-    them from one distortion model to the other
+  - =mrcal-redistort-points=: Given two lens models and a set of points,
+    maps them from one lens model to the other
+  - =mrcal-redistort-image=: Given two lens models and two images, maps
+    them from one lens model to the other
   - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
     the extrinsics of another
   - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
     format to the =.cahvor= format. This exists for compatibility only, and does
     not touch the data: the lens distortion may or may not use the CAHVOR
-    distortion model
+    lens model
   - =mrcal-to-cameramodel=: Converts a model stored in the legacy =.cahvor= file
     format to the =.cameramodel= format. This exists for compatibility only, and
     does not touch the data: the lens distortion may or may not use the CAHVOR
-    distortion model
+    lens model
   - =mrcal-show-geometry=: Shows a visual representation of the extrinsics of N
     cameras
 
@@ -78,7 +78,7 @@ When describing a transformation (or its rotation/translation components) that
 maps a point represented in coordinate system A to its representation in
 coordinate system B, =T_AB= is the notation used. These chain together nicely,
 so if we know the transformation between =A= and =B= and between =B= and =C=, we
-can transform a point represented in =C= to =A=: =x_A = T_AB T_BC x_C=
+can transform a point represented in =C= to =A=: =x_A = T_AB T_BC x_C=.
 
 *** Pose representations
 
@@ -91,7 +91,12 @@ has functions to convert between them. Available representations are:
 - =rt=: a (6,) numpy array with a (3,) vector representing a Rodrigues rotation
   concatenated with another (3,) vector, representing a rotation.
 
-Each of these represents a transformation =rotate(x) + t=
+Each of these represents a transformation =rotate(x) + t=.
+
+Since a pose represents a transformation between two coordinate systems, the
+toolkit generally refers to a pose as something like =Rt_AB=, which is an
+=Rt=-represented transformation to convert a point from a representation in the
+coordinate system =B= to a representation in coordinate system =A=. =B=
 
 A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
 around an axis in the direction =r=. Converting between =R= and =r= is done via
@@ -105,7 +110,7 @@ Reading/writing cameramodels is done in Python with the =mrcal.cameramodel=
 class. This class supports two different file formats:
 
 - =.cameramodel=: the preferred format. This is a simple text representation
-  that has clear sections for the distortion model, pinhole intrinsics,
+  that has clear sections for the lens model, pinhole intrinsics,
   distortion coefficients, and an extrinsic pose. The pose is represented as
   =rt_fromref=: an =rt= transformation /from/ the reference coordinate system
   /to/ the coordinate system of this camera. The class provides methods to get
@@ -115,22 +120,27 @@ class. This class supports two different file formats:
 - =.cahvor=: the legacy format. This exists for compatibility with existing JPL
   tools. There's no other reason to use this format
 
-** Distortion models
+The file format is just a way to store data: any lens model can be stored
+in any file format. Currently some things aren't representable in a =.cahvor=
+file (covariance stuff), but only mrcal tools know what to do with that data,
+and mrcal supports =.cameramodel= files.
 
-Distortion models are specified as elements of =enum distortion_model_t= (in C)
+** Lens models
+
+Lens models are specified as elements of =enum lens_model_t= (in C)
 or, as strings that match the entries of that enum (in Python). Currently I
 support all CAHVOR flavors and all models implemented in OpenCV. A limitation is
 that the solver core does not support CAHVORE, so use the OpenCV models if a
 high-distoriton model is required. Currently the supported models are:
 
-- =DISTORTION_NONE=
-- =DISTORTION_OPENCV4=
-- =DISTORTION_OPENCV5=
-- =DISTORTION_OPENCV8=
-- =DISTORTION_OPENCV12= (if we have OpenCV >= 3.0.0)
-- =DISTORTION_OPENCV14= (if we have OpenCV >= 3.1.0)
-- =DISTORTION_CAHVOR=
-- =DISTORTION_CAHVORE=
+- =LENSMODEL_PINHOLE=
+- =LENSMODEL_OPENCV4=
+- =LENSMODEL_OPENCV5=
+- =LENSMODEL_OPENCV8=
+- =LENSMODEL_OPENCV12= (if we have OpenCV >= 3.0.0)
+- =LENSMODEL_OPENCV14= (if we have OpenCV >= 3.1.0)
+- =LENSMODEL_CAHVOR=
+- =LENSMODEL_CAHVORE=
 
 ** Calibration object
 
@@ -151,7 +161,7 @@ SYNOPSIS
           --corners-cache corners.vnl
           --focal 1700 --object-spacing 0.01 --object-width-n 10
           --outdir /tmp
-          --distortion-model DISTORTION_OPENCV8
+          --lens-model LENSMODEL_OPENCV8
           --observed-pixel-uncertainty 0.5
           --pairs
           'left*.png' 'right*.png'
@@ -258,7 +268,7 @@ DESCRIPTION
         --object-spacing 0.1
         --object-width-n 10
         --outdir /tmp
-        --distortion-model DISTORTION_OPENCV8
+        --lens-model LENSMODEL_OPENCV8
         --observed-pixel-uncertainty 1.0
         --explore
         'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
@@ -290,18 +300,17 @@ DESCRIPTION
 
     --outdir specifies the directory where the output models will be written
 
-    --distortion-model specifies which distortion model we're using for the
-    cameras. At this time all OpenCV distortion models are supported, in
-    addition to DISTORTION_CAHVOR. The CAHVOR model is there for legacy
-    compatibility only. If you're not going to be using these models in a
-    system that only supports CAHVOR, there's little reason to use it. If
-    you use a model that is too lean (DISTORTION_NONE or DISTORTION_OPENCV4
-    maybe), the model will not fit the data, especially at the edges; the
-    tool will tell you this. If you use a model that is too rich (something
-    crazy like DISTORTION_OPENCV14), then you will need much more data than
-    you normally would. Most lenses I've seen work well with
-    DISTORTION_OPENCV4 or DISTORTION_OPENCV5 or DISTORTION_OPENCV8; wider
-    lenses need richer models.
+    --lens-model specifies which lens model we're using for the cameras. At
+    this time all OpenCV lens models are supported, in addition to
+    LENSMODEL_CAHVOR. The CAHVOR model is there for legacy compatibility
+    only. If you're not going to be using these models in a system that only
+    supports CAHVOR, there's little reason to use it. If you use a model
+    that is too lean (LENSMODEL_PINHOLE or LENSMODEL_OPENCV4 maybe), the
+    model will not fit the data, especially at the edges; the tool will tell
+    you this. If you use a model that is too rich (something crazy like
+    LENSMODEL_OPENCV14), then you will need much more data than you normally
+    would. Most lenses I've seen work well with LENSMODEL_OPENCV4 or
+    LENSMODEL_OPENCV5 or LENSMODEL_OPENCV8; wider lenses need richer models.
 
     '--observed-pixel-uncertainty 1.0' says that the x,y corner coordinates
     reported by mrgingham are distributed normally, independently, and with
@@ -339,7 +348,7 @@ DESCRIPTION
     same information, but .cameramodel is far more sensible. The .cahvor
     file format exists for legacy compatibility only. Use this one one only
     if you'll be using these models in some cahvor-only tool; in this case
-    you'll probably want to choose the DISTORTION_CAHVOR model as well. The
+    you'll probably want to choose the LENSMODEL_CAHVOR model as well. The
     resulting filenames are "camera-N.cameramodel" where N is the index of
     the camera, starting at 0. The models contain the intrinsics and
     extrinsics, with camera-0 sitting at the reference coordinate system.
@@ -359,11 +368,11 @@ DESCRIPTION
     - Errors in the input data, such as incorrectly-detected chessboard
     corners, or unsynchronized cameras
 
-    - Badly-fitting distortion model
+    - Badly-fitting lens model
 
-    A distortion model that doesn't fit isn't a problem in itself. The
-    results will simply not be reliable everywhere in the imager, as
-    indicated by the uncertainty and residual metrics (see below)
+    A lens model that doesn't fit isn't a problem in itself. The results
+    will simply not be reliable everywhere in the imager, as indicated by
+    the uncertainty and residual metrics (see below)
 
     With --explore you get a REPL, and a message that points out some useful
     functions. Generally you want to start with
@@ -385,7 +394,7 @@ DESCRIPTION
     Next do this for each camera in your calibration set (i_camera is an
     index counting up from 0):
 
-        show_residuals('regional', i_camera)
+        show_residuals_regional(i_camera)
 
     Each of these will pop up 3 plots describing your distribution of
     errors. You get
@@ -406,7 +415,7 @@ DESCRIPTION
     be too low. With enough input data you'll be explaining the signal only:
     the noise is random and with enough samples our model can't explain it.
     Another factor that controls this is the model we're fitting. If we fit
-    a richer model (DISTORTION_OPENCV8 vs DISTORTION_OPENCV4 for instance),
+    a richer model (LENSMODEL_OPENCV8 vs LENSMODEL_OPENCV4 for instance),
     the extra parameters will allow us to fit the data better, and to
     produce lower errors in more areas of the imager.
 
@@ -432,12 +441,12 @@ DESCRIPTION
     These uncertainty metrics are complementary to the residual metrics
     described above. If you have too little data, the residuals will be low,
     but the uncertainties will be very high. The more data you gather, the
-    lower the uncertainties. A richer distortion model lowers the residuals,
-    but raises the uncertainties. So with a richer model you need to get
-    more data to get to the same acceptable uncertainty level. The
-    uncertainties are all determined relative to some focus point. If you
-    care about the calibration accuracy in a particular area of the imager,
-    do something like this instead:
+    lower the uncertainties. A richer lens model lowers the residuals, but
+    raises the uncertainties. So with a richer model you need to get more
+    data to get to the same acceptable uncertainty level. The uncertainties
+    are all determined relative to some focus point. If you care about the
+    calibration accuracy in a particular area of the imager, do something
+    like this instead:
 
         show_intrinsics_uncertainty( focus_center = np.array((1000,2000))) )
 
@@ -470,11 +479,10 @@ OPTIONS
                             meters
       --object-width-n OBJECT_WIDTH_N
                             How many points the calibration board has per side
-      --distortion-model DISTORTION_MODEL
-                            Which distortion model we're using. This is required
-                            unless we have a --seed
+      --lens-model LENS_MODEL
+                            Which lens model we're using. This is required unless
+                            we have a --seed
       --roi ROI ROI ROI ROI
-                            THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet.
                             Region of interest of the calibration. This is the
                             area in the imager we're interested in. Errors in
                             observations outside this area will be attenuated
@@ -485,11 +493,11 @@ OPTIONS
                             roi, you MUST pass in the ROI for EACH camera; a
                             separate '--roi' for each one.
       --incremental         THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet.
-                            If passed, we incrementally increase ROI and
-                            distortion model complexity across multiple solves. In
-                            this mode the requested ROI is a target, and the
-                            requested distortion model is the upper bound. If we
-                            can get away with a simpler one, we use that.
+                            If passed, we incrementally increase ROI and lens
+                            model complexity across multiple solves. In this mode
+                            the requested ROI is a target, and the requested
+                            distortion model is the upper bound. If we can get
+                            away with a simpler one, we use that.
       --seed SEED           A comma-separated whitespace-less list of camera model
                             globs to use as a seed for the intrinsics and
                             extrinsics. The number of models must match the number
@@ -570,12 +578,12 @@ OPTIONS
 ** mrcal-convert-distortion
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-convert-distortion - Converts a camera model from one distortion
-    model to another
+    mrcal-convert-distortion - Converts a camera model from one lens model
+    to another
 
 SYNOPSIS
       $ mrcal-convert-distortion
-          --viz DISTORTION_OPENCV4 left.cameramodel
+          --viz LENSMODEL_OPENCV4 left.cameramodel
           > left.opencv4.cameramodel
 
       ... lots of output as the solve runs ...
@@ -585,21 +593,21 @@ SYNOPSIS
       ... a plot pops up showing the vector field of the difference ...
 
 DESCRIPTION
-    This is a tool to convert a given camera model from one distortion model
-    to another. The input and output models have identical extrinsics and an
+    This is a tool to convert a given camera model from one lens model to
+    another. The input and output models have identical extrinsics and an
     identical intrinsic core (focal lengths, center pixel coords). The ONLY
     differing part is the distortion coefficients.
 
-    While the distortion models all exist to solve the same problem, the
-    different representations don't map to one another perfectly, so this
-    tool seeks to find the best fit only. It does this by sampling a number
-    of points in the imager, converting them to observation vectors in the
-    camera coordinate system (using the given camera model), and then
-    fitting a new camera model (with a different distortions) that matches
-    the observation vectors to the source imager coordinates.
+    While the lens models all exist to solve the same problem, the different
+    representations don't map to one another perfectly, so this tool seeks
+    to find the best fit only. It does this by sampling a number of points
+    in the imager, converting them to observation vectors in the camera
+    coordinate system (using the given camera model), and then fitting a new
+    camera model (with a different distortions) that matches the observation
+    vectors to the source imager coordinates.
 
-    Note that the distortion model implementations are usually optimized in
-    the 'undistort' direction, not the 'distort' direction, so the step of
+    Note that the lens model implementations are usually optimized in the
+    'undistort' direction, not the 'distort' direction, so the step of
     converting the target imager coordinates to observation vectors can be
     slow. This is highly dependent on the camera model specifically. CAHVORE
     especially is glacial. This can be mitigated somewhat by a better
@@ -626,7 +634,7 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      to                   The target distortion model
+      to                   The target lens model
       model                Input camera model. Assumed to be mrcal native, Unless
                            the name is xxx.cahvor, in which case the cahvor format
                            is assumed. If "-' is given, we read standard input
@@ -663,10 +671,10 @@ SYNOPSIS
       ... a plot pops up showing the distortion vector field
 
 DESCRIPTION
-    This allows us to visually see what a distortion model does. Depending
-    on the model, the vectors could be very large or very small, and we can
-    scale them by passing '--scale s'. By default we sample in a 60x40 grid,
-    but this spacing can be controlled by passing '--gridn w h'.
+    This allows us to visually see what a lens model does. Depending on the
+    model, the vectors could be very large or very small, and we can scale
+    them by passing '--scale s'. By default we sample in a 60x40 grid, but
+    this spacing can be controlled by passing '--gridn w h'.
 
     By default we render a heat map of the distortion. We can also see the
     vectorfield by passing in --vectorfield. Or we can see the radial
@@ -1085,8 +1093,8 @@ OPTIONS
                             ZOOMS the output
       --mode {distortion,infinity,plane}
                             Specifies the mode of operation. The 'distortion' mode
-                            only switches to a different distortion model,
-                            ignoring extrinsics. The 'infinity' mode switches to a
+                            only switches to a different lens model, ignoring
+                            extrinsics. The 'infinity' mode switches to a
                             different distortion model, and applies the relative
                             rotation: infinitely-far away objects end up remapping
                             to the same place, we ignore translations. The 'plane'
@@ -1127,16 +1135,16 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      intrinsics     Input camera model for the intrinsics. Assumed to be mrcal
-                     native, Unless the name is xxx.cahvor, in which case the
-                     cahvor format is assumed
-      extrinsics     Input camera model for the extrinsics. Assumed to be mrcal
-                     native, Unless the name is xxx.cahvor, in which case the
-                     cahvor format is assumed
+      intrinsics  Input camera model for the intrinsics. Assumed to be mrcal
+                  native, Unless the name is xxx.cahvor, in which case the cahvor
+                  format is assumed
+      extrinsics  Input camera model for the extrinsics. Assumed to be mrcal
+                  native, Unless the name is xxx.cahvor, in which case the cahvor
+                  format is assumed
 
   OPTIONAL ARGUMENTS
-      -h, --help     show this help message and exit
-      --writecahvor  If given, we write the output using the cahvor file format
+      -h, --help  show this help message and exit
+      --cahvor    If given, we write the output using the cahvor file format
 
 
 #+END_EXAMPLE

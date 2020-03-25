@@ -12,14 +12,14 @@ import scipy.optimize
 import mrcal
 
 
-def unproject(q, distortion_model, intrinsics_data, z1=False):
+def unproject(q, lens_model, intrinsics_data, z1=False):
     r'''Removes distortion from pixel observations
 
 SYNOPSIS
 
     v = mrcal.unproject( # (N,2) array of pixel observations
                          q,
-                         distortion_model, intrinsics_data )
+                         lens_model, intrinsics_data )
 
 This is the python wrapper to the internal written-in-C _mrcal.unproject(). This
 wrapper that has a slow path to handle CAHVORE. Otherwise, the it just calls
@@ -46,15 +46,15 @@ ARGUMENTS
   supports broadcasting fully, and any leading dimensions are allowed, including
   none
 
-- distortion_model: a string such as
+- lens_model: a string such as
 
-  DISTORTION_NONE
-  DISTORTION_OPENCV4
-  DISTORTION_OPENCV5
-  DISTORTION_OPENCV8
-  DISTORTION_OPENCV12 (if we have OpenCV >= 3.0.0)
-  DISTORTION_OPENCV14 (if we have OpenCV >= 3.1.0)
-  DISTORTION_CAHVOR
+  LENSMODEL_PINHOLE
+  LENSMODEL_OPENCV4
+  LENSMODEL_OPENCV5
+  LENSMODEL_OPENCV8
+  LENSMODEL_OPENCV12 (if we have OpenCV >= 3.0.0)
+  LENSMODEL_OPENCV14 (if we have OpenCV >= 3.1.0)
+  LENSMODEL_CAHVOR
 
 - intrinsics_data: array of dims (Nintrinsics):
 
@@ -74,8 +74,8 @@ ARGUMENTS
 
     '''
 
-    if distortion_model != 'DISTORTION_CAHVORE':
-        return mrcal._mrcal._unproject(q, distortion_model, intrinsics_data, z1)
+    if lens_model != 'LENSMODEL_CAHVORE':
+        return mrcal._mrcal._unproject(q, lens_model, intrinsics_data, z1)
 
     # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
     # and here for legacy compatibility only
@@ -101,7 +101,7 @@ ARGUMENTS
         def cost_no_gradients(vxy, *args, **kwargs):
             '''Optimization functions'''
             return \
-                mrcal.project(np.array((vxy[0],vxy[1],1.)), distortion_model, intrinsics_data) - \
+                mrcal.project(np.array((vxy[0],vxy[1],1.)), lens_model, intrinsics_data) - \
                 q0
 
         # seed assuming distortions aren't there
@@ -179,9 +179,9 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
     else:
         raise Exception("fit must be either None or a numpy array of one of ('corners','centers-horizontal','centers-vertical')")
 
-    distortion_model,intrinsics_data = model.intrinsics()
+    lens_model,intrinsics_data = model.intrinsics()
 
-    v_edges = mrcal.unproject(q_edges, distortion_model, intrinsics_data)
+    v_edges = mrcal.unproject(q_edges, lens_model, intrinsics_data)
 
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
@@ -248,7 +248,7 @@ def undistort_image__compute_map(model,
 
     '''
 
-    distortion_model,intrinsics_data = model.intrinsics()
+    lens_model,intrinsics_data = model.intrinsics()
     W,H                              = model.imagersize()
     fxy                              = intrinsics_data[ :2]
     cxy                              = intrinsics_data[2:4]
@@ -264,7 +264,7 @@ def undistort_image__compute_map(model,
        np.trace(R_pinhole_input) > 3. - 1e-12:
         R_pinhole_input = None
 
-    if re.match("DISTORTION_OPENCV",distortion_model):
+    if re.match("LENSMODEL_OPENCV",lens_model):
         # OpenCV models have a special-case path here. This works
         # identically to the other path (the other side of this "if" can
         # always be used instead), but the opencv-specific code is 100%
@@ -304,7 +304,7 @@ def undistort_image__compute_map(model,
         if R_pinhole_input is not None:
             v = nps.matmult(v, R_pinhole_input)
 
-        mapxy = mrcal.project( v, distortion_model, intrinsics_data )
+        mapxy = mrcal.project( v, lens_model, intrinsics_data )
 
         mapxy = nps.reorder(mapxy, -1, -2, -3).astype(np.float32)
 
@@ -319,7 +319,7 @@ def undistort_image__compute_map(model,
         model_pinhole.extrinsics_Rt_fromref(Rt_pinhole_ref)
 
     model_pinhole.intrinsics(np.array((W1,H1)),
-                             ('DISTORTION_NONE', nps.glue(fxy1, cxy1, axis=-1)))
+                             ('LENSMODEL_PINHOLE', nps.glue(fxy1, cxy1, axis=-1)))
     return mapxy, model_pinhole
 
 
@@ -347,7 +347,7 @@ def undistort_image(model, image,
                     show_valid_intrinsics_region = False):
     r'''Removes the distortion from a given image
 
-    Given an image and a distortion model (and optionally, a scaling), generates
+    Given an image and a lens model (and optionally, a scaling), generates
     a new image that would be produced by the same scene, but with a perfect
     pinhole camera. This undistorted model is a pinhole camera with
 
@@ -366,7 +366,7 @@ def undistort_image(model, image,
     # Testing code that does opencv stuff more directly. Don't need it, but
     # could be handy for future debugging
     #
-    # if re.match("DISTORTION_OPENCV",distortion_model):
+    # if re.match("LENSMODEL_OPENCV",lens_model):
     #     if not isinstance(image, np.ndarray):
     #         image = cv2.imread(image)
     #     fx,fy,cx,cy       = intrinsics_data[ :4]
@@ -454,9 +454,9 @@ def redistort_image(model0, model1, image0,
          mrcal.cameramodel(model1)]
 
     W,H = m[1].imagersize()
-    distortion_model, intrinsics_data = m[1].intrinsics()
+    lens_model, intrinsics_data = m[1].intrinsics()
 
-    v,_ = mrcal.utils.sample_imager_unproject(W, H, distortion_model, intrinsics_data, W, H)
+    v,_ = mrcal.utils.sample_imager_unproject(W, H, lens_model, intrinsics_data, W, H)
     v = nps.reorder(v, 1,0,2)
 
     # I have observation vectors in the coordinate system of camera 1. I remap
@@ -513,7 +513,7 @@ def redistort_image(model0, model1, image0,
     return [do_one(im) for im in image0]
 
 
-def calobservations_project(distortion_model, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
+def calobservations_project(lens_model, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
     the projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)
 
@@ -543,7 +543,7 @@ def calobservations_project(distortion_model, intrinsics, extrinsics, frames, do
     intrinsics = nps.atleast_dims(intrinsics, -2)
     Ncameras = intrinsics.shape[-2]
     return nps.mv( nps.cat(*[mrcal.project( np.ascontiguousarray(object_cam[...,i_camera,:,:,:]),
-                                            distortion_model,
+                                            lens_model,
                                             intrinsics[i_camera,:] ) for \
                              i_camera in range(Ncameras)]),
                    0,-4)

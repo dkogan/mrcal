@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 
 
-r'''Converts a camera model from one distortion model to another
+r'''Converts a camera model from one lens model to another
 
 SYNOPSIS
 
   $ mrcal-convert-distortion
-      --viz DISTORTION_OPENCV4 left.cameramodel
+      --viz LENSMODEL_OPENCV4 left.cameramodel
       > left.opencv4.cameramodel
 
   ... lots of output as the solve runs ...
@@ -15,12 +15,12 @@ SYNOPSIS
 
   ... a plot pops up showing the vector field of the difference ...
 
-This is a tool to convert a given camera model from one distortion model to
+This is a tool to convert a given camera model from one lens model to
 another. The input and output models have identical extrinsics and an identical
 intrinsic core (focal lengths, center pixel coords). The ONLY differing part is
 the distortion coefficients.
 
-While the distortion models all exist to solve the same problem, the different
+While the lens models all exist to solve the same problem, the different
 representations don't map to one another perfectly, so this tool seeks to find
 the best fit only. It does this by sampling a number of points in the imager,
 converting them to observation vectors in the camera coordinate system (using
@@ -28,7 +28,7 @@ the given camera model), and then fitting a new camera model (with a different
 distortions) that matches the observation vectors to the source imager
 coordinates.
 
-Note that the distortion model implementations are usually optimized in the
+Note that the lens model implementations are usually optimized in the
 'undistort' direction, not the 'distort' direction, so the step of converting
 the target imager coordinates to observation vectors can be slow. This is highly
 dependent on the camera model specifically. CAHVORE especially is glacial. This
@@ -100,7 +100,7 @@ def parse_args():
 
     parser.add_argument('to',
                         type=str,
-                        help='The target distortion model')
+                        help='The target lens model')
 
     parser.add_argument('model',
                         type=str,
@@ -125,9 +125,9 @@ import mrcal
 
 distortionmodel_to = args.to
 try:
-    Ndistortions = mrcal.getNdistortionParams(distortionmodel_to)
+    Ndistortions = mrcal.getNlensParams(distortionmodel_to) - 4
 except:
-    raise Exception("Unknown distortion model: '{}'".format(distortionmodel_to))
+    raise Exception("Unknown lens model: '{}'".format(distortionmodel_to))
 
 
 m = mrcal.cameramodel(args.model)
@@ -136,14 +136,14 @@ intrinsics_from = m.intrinsics()
 distortionmodel_from = intrinsics_from[0]
 
 if distortionmodel_from == distortionmodel_to:
-    sys.stderr.write("Input and output have the same distortion model: {}. Returning the input\n".format(distortionmodel_to))
+    sys.stderr.write("Input and output have the same lens model: {}. Returning the input\n".format(distortionmodel_to))
     sys.stderr.write("RMS error of the solution: 0 pixels.\n")
     m.write(sys.stdout)
     sys.exit(0)
 
 
-if distortionmodel_to == 'DISTORTION_CAHVORE':
-    raise Exception("DISTORTION_CAHVORE models aren't supported at this time: gradients aren't implemented")
+if lensmodel_to == 'LENSMODEL_CAHVORE':
+    raise Exception("LENSMODEL_CAHVORE models aren't supported at this time: gradients aren't implemented")
 
 dims = m.imagersize()
 if dims is None:
@@ -213,7 +213,7 @@ v = mrcal.unproject( q, *m.intrinsics() )
 
 ### I solve the optimization a number of times with different random seed
 ### values, taking the best-fitting results. This is required for the richer
-### models such as DISTORTION_OPENCV8
+### models such as LENSMODEL_OPENCV8
 err_rms_best = 1e10
 intrinsics_values_best = np.array(())
 for i in range(10): # this many trials

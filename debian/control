@@ -25,7 +25,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
- OpenCV distortion models are supported
+ OpenCV lens models are supported
  .
  This package provides the runtime C libraries
 
@@ -40,7 +40,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
- OpenCV distortion models are supported
+ OpenCV lens models are supported
  .
  This package provides the user-facing tools
 
@@ -52,7 +52,7 @@ Depends: ${misc:Depends}, libmrcal0 (= ${binary:Version})
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
- OpenCV distortion models are supported.
+ OpenCV lens models are supported.
  .
  This package provides the development C libraries
 
@@ -68,6 +68,6 @@ Provides: ${python3:Provides}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
- OpenCV distortion models are supported.
+ OpenCV lens models are supported.
  .
  This package provides the Python interfaces

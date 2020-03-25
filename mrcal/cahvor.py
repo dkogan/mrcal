@@ -74,7 +74,13 @@ def _read(s, name):
             if key in x:
                 raise Exception("Reading '{}': key '{}' seen more than once".format(name,
                                                                                     m.group(1)))
-            x[key] = m.group(2)
+            value = m.group(2)
+
+            # for compatibility
+            if re.match('^DISTORTION', key):
+                key = key.replace('DISTORTION', 'LENSMODEL')
+
+            x[key] = value
 
 
     # Done reading. Any values that look like numbers, I convert to numbers.
@@ -84,11 +90,11 @@ def _read(s, name):
 
     # I parse the fields I know I care about into numpy arrays
     for i in ('Dimensions','C','A','H','V','O','R','E',
-              'DISTORTION_OPENCV4',
-              'DISTORTION_OPENCV5',
-              'DISTORTION_OPENCV8',
-              'DISTORTION_OPENCV12',
-              'DISTORTION_OPENCV14',
+              'LENSMODEL_OPENCV4',
+              'LENSMODEL_OPENCV5',
+              'LENSMODEL_OPENCV8',
+              'LENSMODEL_OPENCV12',
+              'LENSMODEL_OPENCV14',
               'VALID_INTRINSICS_REGION'):
         if i in x:
             # Any data that's composed only of digits and whitespaces (no "."),
@@ -105,24 +111,24 @@ def _read(s, name):
 
 
     is_cahvor_or_cahvore = False
-    if   'DISTORTION_OPENCV14' in x:
-        distortions = x["DISTORTION_OPENCV14"]
-        distortion_model = 'DISTORTION_OPENCV14'
-    elif 'DISTORTION_OPENCV12' in x:
-        distortions = x["DISTORTION_OPENCV12"]
-        distortion_model = 'DISTORTION_OPENCV12'
-    elif 'DISTORTION_OPENCV8' in x:
-        distortions = x["DISTORTION_OPENCV8"]
-        distortion_model = 'DISTORTION_OPENCV8'
-    elif 'DISTORTION_OPENCV5' in x:
-        distortions = x["DISTORTION_OPENCV5"]
-        distortion_model = 'DISTORTION_OPENCV5'
-    elif 'DISTORTION_OPENCV4' in x:
-        distortions = x["DISTORTION_OPENCV4"]
-        distortion_model = 'DISTORTION_OPENCV4'
+    if   'LENSMODEL_OPENCV14' in x:
+        distortions = x["LENSMODEL_OPENCV14"]
+        lens_model = 'LENSMODEL_OPENCV14'
+    elif 'LENSMODEL_OPENCV12' in x:
+        distortions = x["LENSMODEL_OPENCV12"]
+        lens_model = 'LENSMODEL_OPENCV12'
+    elif 'LENSMODEL_OPENCV8' in x:
+        distortions = x["LENSMODEL_OPENCV8"]
+        lens_model = 'LENSMODEL_OPENCV8'
+    elif 'LENSMODEL_OPENCV5' in x:
+        distortions = x["LENSMODEL_OPENCV5"]
+        lens_model = 'LENSMODEL_OPENCV5'
+    elif 'LENSMODEL_OPENCV4' in x:
+        distortions = x["LENSMODEL_OPENCV4"]
+        lens_model = 'LENSMODEL_OPENCV4'
     elif 'R' not              in x:
         distortions = np.array(())
-        distortion_model = 'DISTORTION_NONE'
+        lens_model = 'LENSMODEL_PINHOLE'
     else:
         is_cahvor_or_cahvore = True
 
@@ -164,7 +170,7 @@ def _read(s, name):
             E0,E1,E2 = x['E'].ravel()
 
             distortions      = np.array((alpha,beta,R0,R1,R2,E0,E1,E2,cahvore_linearity), dtype=float)
-            distortion_model = 'DISTORTION_CAHVORE'
+            lens_model = 'LENSMODEL_CAHVORE'
 
         else:
             # CAHVOR
@@ -181,13 +187,13 @@ def _read(s, name):
 
             if alpha == 0 and beta == 0:
                 distortions = np.array(())
-                distortion_model = 'DISTORTION_NONE'
+                lens_model = 'LENSMODEL_PINHOLE'
             else:
                 distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
-                distortion_model = 'DISTORTION_CAHVOR'
+                lens_model = 'LENSMODEL_CAHVOR'
 
     m = mrcal.cameramodel(imagersize = x['Dimensions'].astype(np.int32),
-                          intrinsics = (distortion_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
+                          intrinsics = (lens_model, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                                     distortions,
                                                                     axis = -1)),
                           valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION'),
@@ -220,15 +226,15 @@ def _write(f, m, note=None):
     d = m.imagersize()
     f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 
-    distortion_model,intrinsics = m.intrinsics()
-    if distortion_model == 'DISTORTION_CAHVOR':
+    lens_model,intrinsics = m.intrinsics()
+    if lens_model == 'LENSMODEL_CAHVOR':
         f.write("Model = CAHVOR = perspective, distortion\n")
-    elif distortion_model == 'DISTORTION_CAHVORE':
+    elif lens_model == 'LENSMODEL_CAHVORE':
         f.write("Model = CAHVORE3,{} = general\n".format(intrinsics[4+5+3]))
-    elif re.match('DISTORTION_(OPENCV.*|NONE)', distortion_model):
+    elif re.match('LENSMODEL_(OPENCV.*|NONE)', lens_model):
         f.write("Model = CAHV = perspective, linear\n")
     else:
-        raise Exception("Don't know how to handle distortion model '{}'".format(distortion_model))
+        raise Exception("Don't know how to handle lens model '{}'".format(lens_model))
 
 
     fx,fy,cx,cy = intrinsics[:4]
@@ -248,7 +254,7 @@ def _write(f, m, note=None):
     f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('H', *H))
     f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('V', *V))
 
-    if re.match('DISTORTION_CAHVOR', distortion_model):
+    if re.match('LENSMODEL_CAHVOR', lens_model):
         # CAHVOR(E)
         alpha,beta,R0,R1,R2 = intrinsics[4:9]
 
@@ -258,15 +264,15 @@ def _write(f, m, note=None):
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *O))
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))
 
-        if 'DISTORTION_CAHVORE' == distortion_model:
+        if 'LENSMODEL_CAHVORE' == lens_model:
             E = intrinsics[9:]
             f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *E))
 
-    elif re.match('DISTORTION_OPENCV*', distortion_model):
-        Ndistortions = mrcal.getNdistortionParams(distortion_model)
-        f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(distortion_model, *intrinsics[4:]))
+    elif re.match('LENSMODEL_OPENCV*', lens_model):
+        Ndistortions = mrcal.getNlensParams(lens_model) - 4
+        f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(lens_model, *intrinsics[4:]))
     elif len(intrinsics) != 4:
-        raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, distortion_model={}".format(len(intrinsics), distortion_model))
+        raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, lens_model={}".format(len(intrinsics), lens_model))
 
     c = m.valid_intrinsics_region()
     if c is not None:

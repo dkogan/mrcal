@@ -8,7 +8,7 @@ SYNOPSIS
                                     observations_board, indices_frame_camera,
                                     observations_point, indices_point_camera_points,
 
-                                    distortion_model,
+                                    lens_model,
                                     imagersizes                       = imagersizes,
                                     do_optimize_intrinsic_core        = True,
                                     do_optimize_intrinsic_distortions = True,

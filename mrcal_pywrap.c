@@ -113,7 +113,7 @@ typedef struct {
     PyObject_HEAD
     dogleg_solverContext_t* ctx;
 
-    distortion_model_t distortion_model;
+    lens_model_t lens_model;
     mrcal_problem_details_t problem_details;
 
     int Ncameras, Nframes, Npoints;
@@ -139,7 +139,7 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "do_optimize_intrinsic_core:        %d\n"
                                "do_optimize_intrinsic_distortions: %d\n"
                                "do_optimize_cahvor_optical_axis:   %d\n",
-                               mrcal_distortion_model_name(self->distortion_model),
+                               mrcal_lens_model_name(self->lens_model),
                                self->Ncameras, self->Nframes, self->Npoints,
                                self->NobservationsBoard,
                                self->calibration_object_width_n,
@@ -293,7 +293,7 @@ static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
     result = Py_BuildValue("i",
                            mrcal_state_index_intrinsic_core(i_camera,
                                                             self->problem_details,
-                                                            self->distortion_model));
+                                                            self->lens_model));
  done:
     return result;
 }
@@ -318,7 +318,7 @@ static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* 
     result = Py_BuildValue("i",
                            mrcal_state_index_intrinsic_distortions(i_camera,
                                                                    self->problem_details,
-                                                                   self->distortion_model));
+                                                                   self->lens_model));
  done:
     return result;
 }
@@ -344,7 +344,7 @@ static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
                            mrcal_state_index_camera_rt(i_camera,
                                                        self->Ncameras,
                                                        self->problem_details,
-                                                       self->distortion_model));
+                                                       self->lens_model));
  done:
     return result;
 }
@@ -370,7 +370,7 @@ static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
                            mrcal_state_index_frame_rt(i_frame,
                                                       self->Ncameras,
                                                       self->problem_details,
-                                                      self->distortion_model));
+                                                      self->lens_model));
  done:
     return result;
 }
@@ -396,7 +396,7 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
                            mrcal_state_index_point(i_point,
                                                    self->Nframes, self->Ncameras,
                                                    self->problem_details,
-                                                   self->distortion_model));
+                                                   self->lens_model));
  done:
     return result;
 }
@@ -413,7 +413,7 @@ static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
                          mrcal_state_index_calobject_warp(self->Npoints,
                                                           self->Nframes, self->Ncameras,
                                                           self->problem_details,
-                                                          self->distortion_model));
+                                                          self->lens_model));
 }
 
 static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
@@ -428,7 +428,7 @@ static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
     int Nmeasurements_regularization =
         mrcal_getNmeasurements_regularization(self->Ncameras,
                                               self->problem_details,
-                                              self->distortion_model);
+                                              self->lens_model);
     int Nmeasurements_boards =
         mrcal_getNmeasurements_boards( self->NobservationsBoard,
                                        self->calibration_object_width_n);
@@ -504,7 +504,7 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
         for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
         {
             mrcal_pack_solver_state_vector( x,
-                                            self->distortion_model, self->problem_details,
+                                            self->lens_model, self->problem_details,
                                             self->Ncameras, self->Nframes, self->Npoints );
             x = &x[Nstate];
         }
@@ -512,7 +512,7 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
         for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
         {
             mrcal_unpack_solver_state_vector( x,
-                                              self->distortion_model, self->problem_details,
+                                              self->lens_model, self->problem_details,
                                               self->Ncameras, self->Nframes, self->Npoints );
             x = &x[Nstate];
         }
@@ -605,51 +605,51 @@ static PyTypeObject SolverContextType =
 };
 
 
-static PyObject* getNdistortionParams(PyObject* NPY_UNUSED(self),
-                                      PyObject* args)
+static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
+                                     PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
 
-    PyObject* distortion_model_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &distortion_model_string ))
+    PyObject* lens_model_string = NULL;
+    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lens_model_string ))
         goto done;
 
-    const char* distortion_model_cstring =
-        PyString_AsString(distortion_model_string);
-    if( distortion_model_cstring == NULL)
+    const char* lens_model_cstring =
+        PyString_AsString(lens_model_string);
+    if( lens_model_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_SetString(PyExc_RuntimeError, "Camera model was not passed in. Must be a string, one of ("
+                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
         goto done;
     }
 
-    distortion_model_t distortion_model = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( distortion_model == DISTORTION_INVALID )
+    lens_model_t lens_model = mrcal_lens_model_from_name(lens_model_cstring);
+    if( lens_model == LENSMODEL_INVALID )
     {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
+                     LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     distortion_model_cstring);
+                     lens_model_cstring);
         goto done;
     }
 
-    int Ndistortions = mrcal_getNdistortionParams(distortion_model);
+    int Nparams = mrcal_getNlensParams(lens_model);
 
-    result = Py_BuildValue("i", Ndistortions);
+    result = Py_BuildValue("i", Nparams);
 
  done:
     RESET_SIGINT();
     return result;
 }
 
-static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
-                                              PyObject* NPY_UNUSED(args))
+static PyObject* getSupportedLensModels(PyObject* NPY_UNUSED(self),
+                                          PyObject* NPY_UNUSED(args))
 {
     PyObject* result = NULL;
     SET_SIGINT();
-    const char* const* names = mrcal_getSupportedDistortionModels();
+    const char* const* names = mrcal_getSupportedLensModels();
 
     // I now have a NULL-terminated list of NULL-terminated strings. Get N
     int N=0;
@@ -681,65 +681,65 @@ static PyObject* getSupportedDistortionModels(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-static PyObject* getNextDistortionModel(PyObject* NPY_UNUSED(self),
+static PyObject* getNextLensModel(PyObject* NPY_UNUSED(self),
                                         PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
 
-    PyObject* distortion_model_now_string   = NULL;
-    PyObject* distortion_model_final_string = NULL;
+    PyObject* lens_model_now_string   = NULL;
+    PyObject* lens_model_final_string = NULL;
     if(!PyArg_ParseTuple( args, STRING_OBJECT STRING_OBJECT,
-                          &distortion_model_now_string,
-                          &distortion_model_final_string))
+                          &lens_model_now_string,
+                          &lens_model_final_string))
         goto done;
 
-    const char* distortion_model_now_cstring = PyString_AsString(distortion_model_now_string);
-    if( distortion_model_now_cstring == NULL)
+    const char* lens_model_now_cstring = PyString_AsString(lens_model_now_string);
+    if( lens_model_now_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "distortion_model_now was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_SetString(PyExc_RuntimeError, "lens_model_now was not passed in. Must be a string, one of ("
+                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
         goto done;
     }
-    const char* distortion_model_final_cstring = PyString_AsString(distortion_model_final_string);
-    if( distortion_model_final_cstring == NULL)
+    const char* lens_model_final_cstring = PyString_AsString(lens_model_final_string);
+    if( lens_model_final_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "distortion_model_final was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_SetString(PyExc_RuntimeError, "lens_model_final was not passed in. Must be a string, one of ("
+                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
         goto done;
     }
 
-    distortion_model_t distortion_model_now = mrcal_distortion_model_from_name(distortion_model_now_cstring);
-    if( distortion_model_now == DISTORTION_INVALID )
+    lens_model_t lens_model_now = mrcal_lens_model_from_name(lens_model_now_cstring);
+    if( lens_model_now == LENSMODEL_INVALID )
     {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion_model_now was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_Format(PyExc_RuntimeError, "Invalid lens_model_now was passed in: '%s'. Must be a string, one of ("
+                     LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     distortion_model_now_cstring);
+                     lens_model_now_cstring);
         goto done;
     }
-    distortion_model_t distortion_model_final = mrcal_distortion_model_from_name(distortion_model_final_cstring);
-    if( distortion_model_final == DISTORTION_INVALID )
+    lens_model_t lens_model_final = mrcal_lens_model_from_name(lens_model_final_cstring);
+    if( lens_model_final == LENSMODEL_INVALID )
     {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion_model_final was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_Format(PyExc_RuntimeError, "Invalid lens_model_final was passed in: '%s'. Must be a string, one of ("
+                     LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     distortion_model_final_cstring);
+                     lens_model_final_cstring);
         goto done;
     }
 
-    distortion_model_t distortion_model =
-        mrcal_getNextDistortionModel(distortion_model_now, distortion_model_final);
-    if(distortion_model == DISTORTION_INVALID)
+    lens_model_t lens_model =
+        mrcal_getNextLensModel(lens_model_now, lens_model_final);
+    if(lens_model == LENSMODEL_INVALID)
     {
-        PyErr_Format(PyExc_RuntimeError, "Couldn't figure out the 'next' distortion model from '%s' to '%s'",
-                     distortion_model_now_cstring, distortion_model_final_cstring);
+        PyErr_Format(PyExc_RuntimeError, "Couldn't figure out the 'next' lens model from '%s' to '%s'",
+                     lens_model_now_cstring, lens_model_final_cstring);
         goto done;
     }
 
-    result = Py_BuildValue("s", mrcal_distortion_model_name(distortion_model));
+    result = Py_BuildValue("s", mrcal_lens_model_name(lens_model));
 
  done:
     RESET_SIGINT();
@@ -766,7 +766,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 
 #define PROJECT_ARGUMENTS_REQUIRED(_)                                   \
     _(points,           PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
-    _(distortion_model, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
+    _(lens_model, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
     _(intrinsics,       PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define PROJECT_ARGUMENTS_OPTIONAL(_) \
@@ -774,7 +774,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(z1,               PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
 
 static bool _un_project_validate_args( // out
-                                      distortion_model_t* distortion_model_type,
+                                      lens_model_t* lens_model_type,
 
                                       // in
                                       int dim_points_in, // 3 for project(), 2 for unproject()
@@ -807,30 +807,30 @@ static bool _un_project_validate_args( // out
     PROJECT_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
 
-    const char* distortion_model_cstring = PyString_AsString(distortion_model);
-    if( distortion_model_cstring == NULL)
+    const char* lens_model_cstring = PyString_AsString(lens_model);
+    if( lens_model_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_SetString(PyExc_RuntimeError, "Camera model was not passed in. Must be a string, one of ("
+                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
         return false;
     }
 
-    *distortion_model_type = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( *distortion_model_type == DISTORTION_INVALID )
+    *lens_model_type = mrcal_lens_model_from_name(lens_model_cstring);
+    if( *lens_model_type == LENSMODEL_INVALID )
     {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
+                     LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     distortion_model_cstring);
+                     lens_model_cstring);
         return false;
     }
 
-    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
-    if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[0] )
+    int NlensParams = mrcal_getNlensParams(*lens_model_type);
+    if( NlensParams != PyArray_DIMS(intrinsics)[0] )
     {
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[0] MUST be %d. Instead got %ld",
-                     N_INTRINSICS_CORE + NdistortionParams,
+                     NlensParams,
                      PyArray_DIMS(intrinsics)[0] );
         return false;
     }
@@ -870,8 +870,8 @@ static bool _un_project_validate_args( // out
         goto done;                                                      \
     }                                                                   \
                                                                         \
-    distortion_model_t distortion_model_type;                           \
-    if(!_un_project_validate_args( &distortion_model_type,              \
+    lens_model_t lens_model_type;                           \
+    if(!_un_project_validate_args( &lens_model_type,              \
                                    IS_TRUE(z1) ? dim_points_in_z1 : dim_points_in_notz1, \
                                    ARGUMENTS_REQUIRED(ARG_LIST_CALL)    \
                                    ARGUMENTS_OPTIONAL_VALIDATE(ARG_LIST_CALL) \
@@ -942,7 +942,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
                              (const point2_t*)PyArray_DATA(points),
                              Npoints,
-                             distortion_model_type,
+                             lens_model_type,
                              // core, distortions concatenated
                              (const double*)PyArray_DATA(intrinsics));
     else
@@ -953,7 +953,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
                           (const point3_t*)PyArray_DATA(points),
                           Npoints,
-                          distortion_model_type,
+                          lens_model_type,
                           // core, distortions concatenated
                           (const double*)PyArray_DATA(intrinsics));
 
@@ -1004,7 +1004,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
                                (const point2_t*)PyArray_DATA(points),
                                Npoints,
-                               distortion_model_type,
+                               lens_model_type,
                                /* core, distortions concatenated */
                                (const double*)PyArray_DATA(intrinsics));
     else
@@ -1013,7 +1013,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
                             (const point2_t*)PyArray_DATA(points),
                             Npoints,
-                            distortion_model_type,
+                            lens_model_type,
                             /* core, distortions concatenated */
                             (const double*)PyArray_DATA(intrinsics));
     if(!mrcal_result)
@@ -1039,7 +1039,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
     _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camera_board,  NPY_INT,    {-1 COMMA  2       } ) \
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  4       } ) \
     _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camera_points, NPY_INT,    {-1 COMMA  2       } ) \
-    _(distortion_model,                   PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
+    _(lens_model,                   PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
@@ -1076,7 +1076,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
 // Using this for both optimize() and optimizerCallback()
 static bool optimize_validate_args( // out
-                                    distortion_model_t* distortion_model_type,
+                                    lens_model_t* lens_model_type,
 
                                     // in
                                     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
@@ -1169,32 +1169,32 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    const char* distortion_model_cstring =
-        PyString_AsString(distortion_model);
-    if( distortion_model_cstring == NULL)
+    const char* lens_model_cstring =
+        PyString_AsString(lens_model);
+    if( lens_model_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "Distortion model was not passed in. Must be a string, one of ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_SetString(PyExc_RuntimeError, "Lens model was not passed in. Must be a string, one of ("
+                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
         return false;
     }
 
-    *distortion_model_type = mrcal_distortion_model_from_name(distortion_model_cstring);
-    if( *distortion_model_type == DISTORTION_INVALID )
+    *lens_model_type = mrcal_lens_model_from_name(lens_model_cstring);
+    if( *lens_model_type == LENSMODEL_INVALID )
     {
-        PyErr_Format(PyExc_RuntimeError, "Invalid distortion model was passed in: '%s'. Must be a string, one of ("
-                     DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
+                     LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     distortion_model_cstring);
+                     lens_model_cstring);
         return false;
     }
 
 
-    int NdistortionParams = mrcal_getNdistortionParams(*distortion_model_type);
-    if( N_INTRINSICS_CORE + NdistortionParams != PyArray_DIMS(intrinsics)[1] )
+    int NlensParams = mrcal_getNlensParams(*lens_model_type);
+    if( NlensParams != PyArray_DIMS(intrinsics)[1] )
     {
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
-                     N_INTRINSICS_CORE + NdistortionParams,
+                     NlensParams,
                      PyArray_DIMS(intrinsics)[1] );
         return false;
     }
@@ -1465,10 +1465,10 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
 
 
-    distortion_model_t distortion_model_type;
+    lens_model_t lens_model_type;
     // Check the arguments for optimize(). If optimizerCallback, then the other
     // stuff is defined, but it all has valid, default values
-    if( !optimize_validate_args(&distortion_model_type,
+    if( !optimize_validate_args(&lens_model_type,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
                                 NULL))
@@ -1666,9 +1666,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                        c_observations_point, NobservationsPoint,
                                                        calibration_object_width_n,
                                                        problem_details,
-                                                       distortion_model_type);
+                                                       lens_model_type);
 
-        int Nintrinsics_all = mrcal_getNintrinsicParams(distortion_model_type);
+        int Nintrinsics_all = mrcal_getNlensParams(lens_model_type);
 
         double* c_covariance_intrinsics_full  = NULL;
         double* c_covariance_intrinsics       = NULL;
@@ -1721,7 +1721,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         if(!IS_NULL(solver_context))
         {
             solver_context_optimizer                   = &solver_context->ctx;
-            solver_context->distortion_model           = distortion_model_type;
+            solver_context->lens_model               = lens_model_type;
             solver_context->problem_details            = problem_details;
             solver_context->Ncameras                   = Ncameras;
             solver_context->Nframes                    = Nframes;
@@ -1774,7 +1774,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_roi,
                                 verbose &&                PyObject_IsTrue(verbose),
                                 skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
-                                distortion_model_type,
+                                lens_model_type,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,
                                 problem_details,
@@ -1886,12 +1886,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                    c_observations_board, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
                                                    problem_details,
-                                                   distortion_model_type,
+                                                   lens_model_type,
                                                    calibration_object_width_n);
-            int Ndistortions = mrcal_getNdistortionParams(distortion_model_type);
+            int Nintrinsics = mrcal_getNlensParams(lens_model_type);
 
             int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
-                                         problem_details, distortion_model_type);
+                                         problem_details, lens_model_type);
 
             PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
             PyArrayObject* I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
@@ -1931,13 +1931,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                      c_outlier_indices,
                                      c_roi,
                                      verbose && PyObject_IsTrue(verbose),
-                                     distortion_model_type,
+                                     lens_model_type,
                                      c_imagersizes,
                                      problem_details,
 
                                      calibration_object_spacing,
                                      calibration_object_width_n,
-                                     Ndistortions, Nmeasurements, N_j_nonzero);
+                                     Nintrinsics, Nmeasurements, N_j_nonzero);
 
             result = PyTuple_Pack(2, x_final, csr_from_cholmod_sparse(&Jt,
                                                                       (PyObject*)P,
@@ -1992,14 +1992,14 @@ static const char optimize_docstring[] =
 static const char optimizerCallback_docstring[] =
 #include "optimizerCallback.docstring.h"
     ;
-static const char getNdistortionParams_docstring[] =
-#include "getNdistortionParams.docstring.h"
+static const char getNlensParams_docstring[] =
+#include "getNlensParams.docstring.h"
     ;
-static const char getSupportedDistortionModels_docstring[] =
-#include "getSupportedDistortionModels.docstring.h"
+static const char getSupportedLensModels_docstring[] =
+#include "getSupportedLensModels.docstring.h"
     ;
-static const char getNextDistortionModel_docstring[] =
-#include "getNextDistortionModel.docstring.h"
+static const char getNextLensModel_docstring[] =
+#include "getNextLensModel.docstring.h"
     ;
 static const char project_docstring[] =
 #include "project.docstring.h"
@@ -2008,13 +2008,13 @@ static const char _unproject_docstring[] =
 #include "_unproject.docstring.h"
     ;
 static PyMethodDef methods[] =
-    { PYMETHODDEF_ENTRY(,optimize,                     METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,optimizerCallback,            METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,getNdistortionParams,         METH_VARARGS),
-      PYMETHODDEF_ENTRY(,getSupportedDistortionModels, METH_NOARGS),
-      PYMETHODDEF_ENTRY(,getNextDistortionModel,       METH_VARARGS),
-      PYMETHODDEF_ENTRY(,project,                      METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,_unproject,                   METH_VARARGS | METH_KEYWORDS),
+    { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,optimizerCallback,        METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
+      PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
+      PYMETHODDEF_ENTRY(,getNextLensModel,         METH_VARARGS),
+      PYMETHODDEF_ENTRY(,project,                  METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,_unproject,               METH_VARARGS | METH_KEYWORDS),
       {}
     };
 

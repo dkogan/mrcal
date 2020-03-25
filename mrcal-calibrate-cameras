@@ -8,7 +8,7 @@ SYNOPSIS
       --corners-cache corners.vnl
       --focal 1700 --object-spacing 0.01 --object-width-n 10
       --outdir /tmp
-      --distortion-model DISTORTION_OPENCV8
+      --lens-model LENSMODEL_OPENCV8
       --observed-pixel-uncertainty 0.5
       --pairs
       'left*.png' 'right*.png'
@@ -109,7 +109,7 @@ Once we have gathered input images, we can run the calibration procedure:
     --object-spacing 0.1
     --object-width-n 10
     --outdir /tmp
-    --distortion-model DISTORTION_OPENCV8
+    --lens-model LENSMODEL_OPENCV8
     --observed-pixel-uncertainty 1.0
     --explore
     'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
@@ -140,16 +140,16 @@ this is 10.
 
 --outdir specifies the directory where the output models will be written
 
---distortion-model specifies which distortion model we're using for the cameras.
-At this time all OpenCV distortion models are supported, in addition to
-DISTORTION_CAHVOR. The CAHVOR model is there for legacy compatibility only. If
+--lens-model specifies which lens model we're using for the cameras.
+At this time all OpenCV lens models are supported, in addition to
+LENSMODEL_CAHVOR. The CAHVOR model is there for legacy compatibility only. If
 you're not going to be using these models in a system that only supports CAHVOR,
 there's little reason to use it. If you use a model that is too lean
-(DISTORTION_NONE or DISTORTION_OPENCV4 maybe), the model will not fit the data,
+(LENSMODEL_PINHOLE or LENSMODEL_OPENCV4 maybe), the model will not fit the data,
 especially at the edges; the tool will tell you this. If you use a model that is
-too rich (something crazy like DISTORTION_OPENCV14), then you will need much
+too rich (something crazy like LENSMODEL_OPENCV14), then you will need much
 more data than you normally would. Most lenses I've seen work well with
-DISTORTION_OPENCV4 or DISTORTION_OPENCV5 or DISTORTION_OPENCV8; wider lenses
+LENSMODEL_OPENCV4 or LENSMODEL_OPENCV5 or LENSMODEL_OPENCV8; wider lenses
 need richer models.
 
 '--observed-pixel-uncertainty 1.0' says that the x,y corner coordinates reported
@@ -185,7 +185,7 @@ finished, it will write the resulting models to disk, and open a REPL (if
 formats. Both contain the same information, but .cameramodel is far more
 sensible. The .cahvor file format exists for legacy compatibility only. Use this
 one one only if you'll be using these models in some cahvor-only tool; in this
-case you'll probably want to choose the DISTORTION_CAHVOR model as well. The
+case you'll probably want to choose the LENSMODEL_CAHVOR model as well. The
 resulting filenames are "camera-N.cameramodel" where N is the index of the
 camera, starting at 0. The models contain the intrinsics and extrinsics, with
 camera-0 sitting at the reference coordinate system.
@@ -205,9 +205,9 @@ Higher outlier counts are indicative of some/all of these:
 - Errors in the input data, such as incorrectly-detected chessboard corners, or
   unsynchronized cameras
 
-- Badly-fitting distortion model
+- Badly-fitting lens model
 
-A distortion model that doesn't fit isn't a problem in itself. The results will
+A lens model that doesn't fit isn't a problem in itself. The results will
 simply not be reliable everywhere in the imager, as indicated by the uncertainty
 and residual metrics (see below)
 
@@ -249,8 +249,8 @@ If you have too little data, you will be overfitting, so you'd be expalining the
 signal AND the noise, and your reprojection errors will be too low. With enough
 input data you'll be explaining the signal only: the noise is random and with
 enough samples our model can't explain it. Another factor that controls this is
-the model we're fitting. If we fit a richer model (DISTORTION_OPENCV8 vs
-DISTORTION_OPENCV4 for instance), the extra parameters will allow us to fit the
+the model we're fitting. If we fit a richer model (LENSMODEL_OPENCV8 vs
+LENSMODEL_OPENCV4 for instance), the extra parameters will allow us to fit the
 data better, and to produce lower errors in more areas of the imager.
 
 These are very rough guidelines; I haven't written the logic to automatically
@@ -273,7 +273,7 @@ much error is acceptable, and determine the usable area of the imager based on
 this. These uncertainty metrics are complementary to the residual metrics
 described above. If you have too little data, the residuals will be low, but the
 uncertainties will be very high. The more data you gather, the lower the
-uncertainties. A richer distortion model lowers the residuals, but raises the
+uncertainties. A richer lens model lowers the residuals, but raises the
 uncertainties. So with a richer model you need to get more data to get to the
 same acceptable uncertainty level. The uncertainties are all determined relative
 to some focus point. If you care about the calibration accuracy in a particular
@@ -337,9 +337,9 @@ def parse_args():
                         type=int,
                         default=10,
                         help='How many points the calibration board has per side')
-    parser.add_argument('--distortion-model',
+    parser.add_argument('--lens-model',
                         required=False,
-                        help='''Which distortion model we're using. This is required unless we have a
+                        help='''Which lens model we're using. This is required unless we have a
                         --seed''')
     parser.add_argument('--roi',
                         nargs=4,
@@ -360,7 +360,7 @@ def parse_args():
                         default=False,
                         action='store_true',
                         help='''THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet. If passed, we
-                        incrementally increase ROI and distortion model
+                        incrementally increase ROI and lens model
                         complexity across multiple solves. In this mode the
                         requested ROI is a target, and the requested distortion
                         model is the upper bound. If we can get away with a
@@ -812,13 +812,13 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                     m++
                 else:
                     # I'm already at the most complex model
-                    print("Given distortion model doesn't fit in the required ROI!")
+                    print("Given lens model doesn't fit in the required ROI!")
                     break
             else:
                 roi++
 
     I.e. I start with a smaller region-of-interest than what I actually care
-    about, and with a simpler distortion model than what I was asked to use. I
+    about, and with a simpler lens model than what I was asked to use. I
     solve again and again, increasing the region-of-interest and distortion
     model complexity as I go, using the outlier counts to guide the process.
 
@@ -832,7 +832,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         # I have no seed. I compute a rough seed, and run a few preliminary,
         # incremental optimizations to get it reasonably-close to the right
         # answer
-        distortion_model = 'DISTORTION_NONE'
+        lens_model = 'LENSMODEL_PINHOLE'
         intrinsics_data,extrinsics,frames = \
             mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
                                           focal_estimate       = args.focal,
@@ -846,7 +846,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
-                               distortion_model,
+                               lens_model,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = False,
@@ -865,7 +865,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
-                               distortion_model,
+                               lens_model,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = True,
@@ -882,8 +882,8 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
 
     else:
 
-        # The caller made sure that all the models use the same distortion model
-        distortion_model = seedmodels[0].intrinsics()[0]
+        # The caller made sure that all the models use the same lens model
+        lens_model = seedmodels[0].intrinsics()[0]
         intrinsics_data  = nps.cat( *[m.intrinsics()[1] for m in seedmodels])
 
         # I keep the relative camera poses constant, but place camera0 at the
@@ -933,13 +933,13 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                         roi_final[:,2:] * scale,
                         axis = -1)
 
-    def expand_intrinsics(distortion_model, intrinsics_data):
+    def expand_intrinsics(lens_model, intrinsics_data):
         NnewDistortions = \
-            mrcal.getNdistortionParams(distortion_model) - \
-            (intrinsics_data.shape[1] - 4)
+            mrcal.getNlensParams(lens_model) - \
+            intrinsics_data.shape[1]
         newDistortions = \
             (np.random.random((Ncameras, NnewDistortions)) - 0.5)*2. *1e-6
-        m = re.search("OPENCV([0-9]+)", distortion_model)
+        m = re.search("OPENCV([0-9]+)", lens_model)
         if m:
             Nd = int(m.group(1))
             if Nd >= 8:
@@ -951,8 +951,8 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                 #
                 # Note that k2,k3 are tangential (NOT radial) distortion components.
                 # Note that the r6 factor in the numerator is only present for
-                # >=DISTORTION_OPENCV5. Note that the denominator is only present for >=
-                # DISTORTION_OPENCV8. The danger with a rational model is that it's
+                # >=LENSMODEL_OPENCV5. Note that the denominator is only present for >=
+                # LENSMODEL_OPENCV8. The danger with a rational model is that it's
                 # possible to get into a situation where scale ~ 0/0 ~ 1. This would
                 # have very poorly behaved derivatives. If all the rational coefficients
                 # are ~0, then the denominator is always ~1, and this problematic case
@@ -1027,8 +1027,8 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
     # seed now. And thus I now run the main optimization loop
     if not incremental:
         # We're not doing the incremental loop. Just solve it once and call it good
-        distortion_model = args.distortion_model
-        intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
+        lens_model = args.lens_model
+        intrinsics_data  = expand_intrinsics(lens_model, intrinsics_data)
 
         print("=================== optimizing everything{}from seeded intrinsics". \
               format(" except board warp " if args.optimize_calobject_warp else " "))
@@ -1036,7 +1036,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
-                               distortion_model,
+                               lens_model,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
@@ -1050,14 +1050,14 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                roi                               = args.roi,
                                get_covariances                   = False,
                                verbose                           = args.verbose_solver)
-        return "fixed solve", (distortion_model, intrinsics_data), extrinsics, frames, args.roi, stats
+        return "fixed solve", (lens_model, intrinsics_data), extrinsics, frames, args.roi, stats
 
 
 
 
     if seedmodels is not None:
         # What do I do here? Probably I want to start out at the seeded
-        # distortion model? This maybe just works, actually, but somebody needs
+        # lens model? This maybe just works, actually, but somebody needs
         # to think about it. This currently doesn't touch
         # --skip-extrinsics-solve,--skip-intrinsics-solve
         raise Exception("--seed and --incremental are currently not supported together")
@@ -1087,14 +1087,14 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
 
         print("")
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv next distortion/ROI:\n")
-        print("Distortion model: {}"         .format(distortion_model))
-        print("ROI:              {}/{}  ({})".format(iroi+1, Nroi, roi))
+        print("lens model: {}"         .format(lens_model))
+        print("ROI:        {}/{}  ({})".format(iroi+1, Nroi, roi))
 
         state = copy.deepcopy( (intrinsics_data, extrinsics, frames), )
         stats = mrcal.optimize(state[0], state[1], state[2], None,
                                observations, indices_frame_camera,
                                None, None,
-                               distortion_model,
+                               lens_model,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = True,
@@ -1111,7 +1111,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         solution_acceptable,solution_description = eval_solution(stats, outside_ROI_indices__prevROI)
 
         if solution_acceptable:
-            # We found a good solution for this distortion model and ROI. Let's
+            # We found a good solution for this lens model and ROI. Let's
             # expand the region of interest and go again
 
             # save the initial state. The last one of these chunks of data is
@@ -1122,7 +1122,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
             frames                = state[2].copy()
             stats_best            = copy.deepcopy(stats)
             roi_best              = copy.deepcopy(roi)
-            distortion_model_best = copy.deepcopy(distortion_model)
+            lens_model_best = copy.deepcopy(lens_model)
             result                = 'Usable solve found at the full ROI'
 
             outside_ROI_indices__prevROI = stats['outside_ROI_indices']
@@ -1132,14 +1132,14 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
             # This solution wasn't very good. Let's try a richer distortion
             # model
 
-            distortion_model1 = mrcal.getNextDistortionModel(distortion_model, args.distortion_model)
+            lens_model1 = mrcal.getNextLensModel(lens_model, args.lens_model)
 
-            if distortion_model1 == distortion_model:
+            if lens_model1 == lens_model:
 
                 # we're already at the last model in the family, or at the
                 # maximum model the user asked for. There's nowhere more to go,
                 # so I guess I'm done
-                sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, but no more distortion-models remaining. I'm done\n".format(solution_description))
+                sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, but no more lens-models remaining. I'm done\n".format(solution_description))
 
                 # # For testing. The distribution can be plotted thusly:
                 # import gnuplotlib as gp
@@ -1167,7 +1167,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                     frames                = state[2]
                     stats_best            = stats
                     roi_best              = roi
-                    distortion_model_best = distortion_model
+                    lens_model_best = lens_model
                     result                = 'No usable solves found'
                 else:
                     result                = 'Usable solves found, but not for the full ROI'
@@ -1176,14 +1176,14 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
             else:
                 # I try the next model in the family, keeping the roi and
                 # outlier list the same
-                distortion_model = distortion_model1
-                intrinsics_data  = expand_intrinsics(distortion_model, intrinsics_data)
+                lens_model = lens_model1
+                intrinsics_data  = expand_intrinsics(lens_model, intrinsics_data)
                 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, distortion++\n".format(solution_description))
 
     return                                                                            \
         result,                                                                       \
-        ( distortion_model_best,                                                      \
-          intrinsics_data[:,:(4+mrcal.getNdistortionParams(distortion_model_best))]), \
+        ( lens_model_best,                                                      \
+          intrinsics_data[:,:mrcal.getNlensParams(lens_model_best)]), \
          extrinsics,                                                                  \
          frames,                                                                      \
          roi_best,                                                                    \
@@ -1230,23 +1230,23 @@ if args.seed:
             if args.imagersize != m.imagersize():
                 raise Exception("Both --seed and --imagersize were given, so they must match exactly. But I had --imagersize {} and one model has imagersize() = {}". \
                                 format(args.imagersize, m.imagersize()))
-    distortion_model = seedmodels[0].intrinsics()[0]
+    lens_model = seedmodels[0].intrinsics()[0]
     for m in seedmodels[1:]:
-        if distortion_model != m.intrinsics()[0]:
-            raise Exception("I expect all cameras to use the same distortion model, but --seed saw {} and {}". \
-                            format(distortion_model,
+        if lens_model != m.intrinsics()[0]:
+            raise Exception("I expect all cameras to use the same lens model, but --seed saw {} and {}". \
+                            format(lens_model,
                                    m.intrinsics()[0]))
 
-    if args.distortion_model is None:
-        args.distortion_model = distortion_model
+    if args.lens_model is None:
+        args.lens_model = lens_model
 
 
 else:
     if not args.focal:
         raise Exception("Exactly one of --focal and --seed MUST be given")
 
-    if not args.distortion_model:
-        raise Exception("--distortion-model is required if no --seed")
+    if not args.lens_model:
+        raise Exception("--lens-model is required if no --seed")
 
     if args.skip_extrinsics_solve:
         raise Exception("--skip-extrinsics-solve requires --seed")
@@ -1322,8 +1322,8 @@ result,intrinsics,extrinsics,frames,roi,stats = \
     incremental_optimization_loop(args, seedmodels, imagersizes, observations, indices_frame_camera, outlier_indices, args.incremental)
 if args.incremental:
     print(">>>>>>>>>>>>>>>>> " + result)
-    print("Final Distortion model: {}".format(intrinsics[0]))
-    print("Final ROI:              {}".format(roi))
+    print("Final lens model: {}".format(intrinsics[0]))
+    print("Final ROI:        {}".format(roi))
 
 
 if args.skip_outlier_rejection: print("We are NOT rejecting outliers")
@@ -1919,7 +1919,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 
     '''
 
-    distortion_model = intrinsics[0]
+    lens_model = intrinsics[0]
 
 
     def callback(intrinsics_data):
@@ -1927,7 +1927,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
             mrcal.optimizerCallback(intrinsics_data,extrinsics,frames, None,
                                     observations, indices_frame_camera,
                                     None, None,
-                                    distortion_model,
+                                    lens_model,
                                     do_optimize_calobject_warp        = args.optimize_calobject_warp,
                                     calobject_warp                    = calobject_warp,
                                     imagersizes                       = imagersizes,
@@ -2020,8 +2020,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
     ###########################################################################
     # Fine. Let's make sure the noise propagation works as it should. First off,
     # is the implementation correct?
-    Ndistortion         = mrcal.getNdistortionParams(distortion_model)
-    Nintrinsics         = Ndistortion + 4
+    Nintrinsics         = mrcal.getNlensParams(lens_model)
     Nobservations_board = indices_frame_camera.shape[0]
     Nmeasurements_board = Nobservations_board * args.object_width_n * args.object_width_n * 2
 
@@ -2080,7 +2079,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
                                 None,
                                 observations_perturbed, indices_frame_camera,
                                 None, None,
-                                distortion_model,
+                                lens_model,
                                 do_optimize_calobject_warp        = args.optimize_calobject_warp,
                                 calobject_warp                    = calobject_warp_resolved,
                                 imagersizes                       = imagersizes,
@@ -2123,7 +2122,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
     # where I'm evaluating the projection. I look at 1/3 (w,h). I'd like to be
     # in the center-ish, but not AT the center
     v0 = mrcal.unproject(imagersizes[0] / 3,
-                         distortion_model, intrinsics[1][0])
+                         lens_model, intrinsics[1][0])
 
     stdev = 1e-4
     q_sampled = np.zeros((100,Ncameras,2), dtype=float)
@@ -2134,12 +2133,12 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 
         for icam in range(Ncameras):
             q_sampled[i,icam] = \
-                mrcal.project(v0, distortion_model,
+                mrcal.project(v0, lens_model,
                               p[Nintrinsics*icam:Nintrinsics*(icam+1)])
 
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
-        dq = q_sampled[:, icam, ...] - mrcal.project(v0, distortion_model, intrinsics[1][icam])
+        dq = q_sampled[:, icam, ...] - mrcal.project(v0, lens_model, intrinsics[1][icam])
 
         dq_mean0 = dq - np.mean(dq,axis=-2)
         C = nps.matmult(nps.transpose(dq_mean0), dq_mean0)

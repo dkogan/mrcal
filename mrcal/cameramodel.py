@@ -71,19 +71,19 @@ def _validateIntrinsics(imagersize,
     if N != 2:
         raise Exception("Valid intrinsics are an iterable of len 2")
 
-    distortion_model = i[0]
-    intrinsics       = i[1]
+    lens_model = i[0]
+    intrinsics   = i[1]
 
     # If this fails, I keep the exception and let it fall through
-    Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
+    Nintrinsics_want = mrcal.getNlensParams(lens_model)
 
     try:
-        Ndistortions_have = len(intrinsics) - 4
+        Nintrinsics_have = len(intrinsics)
     except:
-        raise Exception("Valid intrinsics are (distortion_model, intrinsics) where 'intrinsics' is an iterable with a length")
+        raise Exception("Valid intrinsics are (lens_model, intrinsics) where 'intrinsics' is an iterable with a length")
 
-    if Ndistortions_want != Ndistortions_have:
-        raise Exception("Mismatched Ndistortions. Got {}, but model {} must have {}".format(Ndistortions_have,distortion_model,Ndistortions_want))
+    if Nintrinsics_want != Nintrinsics_have:
+        raise Exception("Mismatched Nintrinsics. Got {}, but model {} must have {}".format(Nintrinsics_have,lens_model,Nintrinsics_want))
 
     for x in intrinsics:
         if not isinstance(x, numbers.Number):
@@ -151,8 +151,8 @@ class cameramodel(object):
       - The 4 pinhole-camera parameters: focal lengths, coordinates of the
         center pixel
 
-      - Some representation of the camera distortion. Multiple distortion models
-        are supported. mrcal.getSupportedDistortionModels() returns a
+      - Some representation of the camera distortion. Multiple lens models
+        are supported. mrcal.getSupportedLensModels() returns a
         list of supported models.
 
     - The extrinsics: the pose of this camera in respect to SOME reference
@@ -172,7 +172,7 @@ class cameramodel(object):
     sample valid .cameramodel:
 
         # generated with ...
-        { 'distortion_model': 'DISTORTION_OPENCV8',
+        { 'lens_model': 'LENSMODEL_OPENCV8',
 
           # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
           'intrinsics': [1766.0712405930,
@@ -214,7 +214,7 @@ class cameramodel(object):
         # I write this out manually instead of using repr for the whole thing
         # because I want to preserve key ordering
         f.write("{\n")
-        f.write("    'distortion_model':  '{}',\n".format(self._intrinsics[0]))
+        f.write("    'lens_model':  '{}',\n".format(self._intrinsics[0]))
         f.write("\n")
 
         N = len(self._intrinsics[1])
@@ -225,9 +225,8 @@ class cameramodel(object):
         if self._observed_pixel_uncertainty is not None:
             f.write("    'observed_pixel_uncertainty': {},\n\n".format(self._observed_pixel_uncertainty))
         if self._covariance_intrinsics_full is not None:
-            distortion_model = self._intrinsics[0]
-            Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
-            Nintrinsics = Ndistortions_want+4
+            lens_model = self._intrinsics[0]
+            Nintrinsics = mrcal.getNlensParams(lens_model)
             f.write( r'''    # The FULL intrinsics covariance of this model
     #
     # You probably want covariance_intrinsics. These are used primarily for the
@@ -246,9 +245,8 @@ class cameramodel(object):
                 f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))
             f.write("],\n\n")
         if self._covariance_intrinsics is not None:
-            distortion_model = self._intrinsics[0]
-            Ndistortions_want = mrcal.getNdistortionParams(distortion_model)
-            Nintrinsics = Ndistortions_want+4
+            lens_model = self._intrinsics[0]
+            Nintrinsics = mrcal.getNlensParams(lens_model)
             f.write( r'''    # The intrinsics covariance of this model
     #
     # This is the covariance of the intrinsics vector that comes from the measurement
@@ -312,7 +310,13 @@ class cameramodel(object):
             else:
                 raise Exception("Failed to parse cameramodel '{}'\n".format(name))
 
-        keys_required = set(('distortion_model',
+        # for compatibility
+        if 'distortion_model' in model and \
+           not 'lens_model' in model:
+            model['lens_model'] = model['distortion_model'].replace('DISTORTION', 'LENSMODEL')
+            del model['distortion_model']
+
+        keys_required = set(('lens_model',
                              'intrinsics',
                              'extrinsics',
                              'imagersize'))
@@ -342,7 +346,7 @@ class cameramodel(object):
         if 'valid_intrinsics_region' in model:
             valid_intrinsics_region = np.array(model['valid_intrinsics_region'])
 
-        intrinsics = (model['distortion_model'], np.array(model['intrinsics'], dtype=float))
+        intrinsics = (model['lens_model'], np.array(model['intrinsics'], dtype=float))
 
         try:
             _validateIntrinsics(model['imagersize'],
@@ -382,7 +386,7 @@ class cameramodel(object):
         if file_or_model is None, then the input comes from kwargs, and they
         must NOT be None. The following keys are expected
 
-        - 'intrinsics': REQUIRED tuple (distortion_model, parameters)
+        - 'intrinsics': REQUIRED tuple (lens_model, parameters)
         - Exactly ONE or ZERO of the following for the extrinsics (if omitted we
           use an identity transformation):
           - 'extrinsics_Rt_toref'
@@ -560,16 +564,16 @@ class cameramodel(object):
         lens is set together (dimensions, distortion parameters, uncertainty,
         etc)
 
-        intrinsics is a tuple (distortion_model, parameters):
+        intrinsics is a tuple (lens_model, parameters):
 
-        - distortion_model is a string for the specific distortion model we're
-          using. mrcal.getSupportedDistortionModels() returns a list
+        - lens_model is a string for the specific lens model we're
+          using. mrcal.getSupportedLensModels() returns a list
           of supported models.
 
         - parameters is a numpy array of distortion parameters. The first 4
           values are the pinhole-camera parameters: (fx,fy,cx,cy). The following
           values represent the lens distortion. The number and meaning of these
-          parameters depends on the distortion model we're using
+          parameters depends on the lens model we're using
 
         '''
 

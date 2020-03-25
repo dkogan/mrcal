@@ -8,32 +8,32 @@ use FindBin '$Bin';
 use Carp qw(cluck confess);
 use autodie;
 
-my @tests = ( "DISTORTION_NONE    extrinsics frames intrinsic-core intrinsic-distortions",
-              "DISTORTION_NONE    extrinsics frames                intrinsic-distortions",
-              "DISTORTION_NONE    extrinsics frames intrinsic-core",
-              "DISTORTION_NONE    extrinsics frames",
-              "DISTORTION_CAHVOR  extrinsics frames intrinsic-core intrinsic-distortions",
-              "DISTORTION_CAHVOR  extrinsics frames                intrinsic-distortions",
-              "DISTORTION_CAHVOR  extrinsics frames intrinsic-core",
-              "DISTORTION_CAHVOR  extrinsics frames",
-              "DISTORTION_OPENCV4 extrinsics frames intrinsic-core intrinsic-distortions",
-              "DISTORTION_OPENCV4 extrinsics frames                intrinsic-distortions",
-              "DISTORTION_OPENCV4 extrinsics frames intrinsic-core",
-              "DISTORTION_OPENCV4 extrinsics frames",
+my @tests = ( "LENSMODEL_PINHOLE extrinsics frames intrinsic-core intrinsic-distortions",
+              "LENSMODEL_PINHOLE extrinsics frames                intrinsic-distortions",
+              "LENSMODEL_PINHOLE extrinsics frames intrinsic-core",
+              "LENSMODEL_PINHOLE extrinsics frames",
+              "LENSMODEL_CAHVOR  extrinsics frames intrinsic-core intrinsic-distortions",
+              "LENSMODEL_CAHVOR  extrinsics frames                intrinsic-distortions",
+              "LENSMODEL_CAHVOR  extrinsics frames intrinsic-core",
+              "LENSMODEL_CAHVOR  extrinsics frames",
+              "LENSMODEL_OPENCV4 extrinsics frames intrinsic-core intrinsic-distortions",
+              "LENSMODEL_OPENCV4 extrinsics frames                intrinsic-distortions",
+              "LENSMODEL_OPENCV4 extrinsics frames intrinsic-core",
+              "LENSMODEL_OPENCV4 extrinsics frames",
 
-              "DISTORTION_CAHVOR  frames intrinsic-core intrinsic-distortions",
-              "DISTORTION_CAHVOR  frames                intrinsic-distortions",
-              "DISTORTION_CAHVOR  frames intrinsic-core",
-              "DISTORTION_CAHVOR  frames",
+              "LENSMODEL_CAHVOR  frames intrinsic-core intrinsic-distortions",
+              "LENSMODEL_CAHVOR  frames                intrinsic-distortions",
+              "LENSMODEL_CAHVOR  frames intrinsic-core",
+              "LENSMODEL_CAHVOR  frames",
 
-              "DISTORTION_CAHVOR  extrinsics intrinsic-core intrinsic-distortions",
-              "DISTORTION_CAHVOR  extrinsics                intrinsic-distortions",
-              "DISTORTION_CAHVOR  extrinsics intrinsic-core",
-              "DISTORTION_CAHVOR  extrinsics",
+              "LENSMODEL_CAHVOR  extrinsics intrinsic-core intrinsic-distortions",
+              "LENSMODEL_CAHVOR  extrinsics                intrinsic-distortions",
+              "LENSMODEL_CAHVOR  extrinsics intrinsic-core",
+              "LENSMODEL_CAHVOR  extrinsics",
 
-              "DISTORTION_CAHVOR  intrinsic-core intrinsic-distortions",
-              "DISTORTION_CAHVOR                 intrinsic-distortions",
-              "DISTORTION_CAHVOR  intrinsic-core"
+              "LENSMODEL_CAHVOR  intrinsic-core intrinsic-distortions",
+              "LENSMODEL_CAHVOR                 intrinsic-distortions",
+              "LENSMODEL_CAHVOR  intrinsic-core"
             );
 
 for my $test (@tests)

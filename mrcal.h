@@ -62,34 +62,37 @@ typedef struct
     double focal_xy [2];
     double center_xy[2];
 } intrinsics_core_t;
-#define N_INTRINSICS_CORE ((int)(sizeof(intrinsics_core_t)/sizeof(double)))
 
-
-// names of distortion models, number of distortion parameters
-#define DISTORTION_LIST(_)                      \
-    _(DISTORTION_NONE,    0)                    \
-    _(DISTORTION_OPENCV4, 4)                    \
-    _(DISTORTION_OPENCV5, 5)                    \
-    _(DISTORTION_OPENCV8, 8)                    \
-    _(DISTORTION_OPENCV12,12) /* available in OpenCV >= 3.0.0) */ \
-    _(DISTORTION_OPENCV14,14) /* available in OpenCV >= 3.1.0) */ \
-    _(DISTORTION_CAHVOR,  5)                    \
-    _(DISTORTION_CAHVORE, 9) /* CAHVORE is CAHVOR + E + linearity */
-#define DISTORTION_OPENCV_FIRST DISTORTION_OPENCV4
-#define DISTORTION_OPENCV_LAST  DISTORTION_OPENCV14
-#define DISTORTION_CAHVOR_FIRST DISTORTION_CAHVOR
-#define DISTORTION_CAHVOR_LAST  DISTORTION_CAHVORE
-#define DISTORTION_IS_OPENCV(d) (DISTORTION_OPENCV_FIRST <= (d) && (d) <= DISTORTION_OPENCV_LAST)
-#define DISTORTION_IS_CAHVOR(d) (DISTORTION_CAHVOR_FIRST <= (d) && (d) <= DISTORTION_CAHVOR_LAST)
+// names of the lens models, intrinsic parameter counts
+#define LENSMODEL_LIST(_)                                             \
+    _(LENSMODEL_PINHOLE, 4)                                           \
+    _(LENSMODEL_OPENCV4, 8)                                           \
+    _(LENSMODEL_OPENCV5, 9)                                           \
+    _(LENSMODEL_OPENCV8, 12)                                          \
+    _(LENSMODEL_OPENCV12,16)   /* available in OpenCV >= 3.0.0) */    \
+    _(LENSMODEL_OPENCV14,18)   /* available in OpenCV >= 3.1.0) */    \
+    _(LENSMODEL_CAHVOR,  9)                                           \
+    _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */
+#define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
+#define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV14
+#define LENSMODEL_CAHVOR_FIRST LENSMODEL_CAHVOR
+#define LENSMODEL_CAHVOR_LAST  LENSMODEL_CAHVORE
+#define LENSMODEL_IS_OPENCV(d) (LENSMODEL_OPENCV_FIRST <= (d) && (d) <= LENSMODEL_OPENCV_LAST)
+#define LENSMODEL_IS_CAHVOR(d) (LENSMODEL_CAHVOR_FIRST <= (d) && (d) <= LENSMODEL_CAHVOR_LAST)
 
 #define LIST_WITH_COMMA(s,n) ,s
 typedef enum
-    { DISTORTION_INVALID DISTORTION_LIST( LIST_WITH_COMMA ) } distortion_model_t;
+    { LENSMODEL_INVALID LENSMODEL_LIST( LIST_WITH_COMMA ) } lens_model_t;
 
 
 typedef struct
 {
+    // Applies only to those models that HAVE a core (fx,fy,cx,cy). For those
+    // mrcal_modelHasCore_fxfycxcy(model) returns true
     bool do_optimize_intrinsic_core        : 1;
+
+    // For models that have a core, these are all the non-core parameters. For
+    // models that do not, these are ALL the parameters
     bool do_optimize_intrinsic_distortions : 1;
     bool do_optimize_extrinsics            : 1;
     bool do_optimize_frames                : 1;
@@ -105,17 +108,17 @@ typedef struct
                                                      .do_optimize_calobject_warp        = true, \
                                                      .do_skip_regularization            = false})
 
-const char*             mrcal_distortion_model_name       ( distortion_model_t model );
-distortion_model_t      mrcal_distortion_model_from_name  ( const char* name );
-int                     mrcal_getNdistortionParams        ( const distortion_model_t m );
-int                     mrcal_getNintrinsicParams         ( const distortion_model_t m );
+const char*             mrcal_lens_model_name           ( lens_model_t model );
+lens_model_t            mrcal_lens_model_from_name      ( const char* name );
+bool                    mrcal_modelHasCore_fxfycxcy       ( const lens_model_t m );
+int                     mrcal_getNlensParams         ( const lens_model_t m );
 int                     mrcal_getNintrinsicOptimizationParams( mrcal_problem_details_t problem_details,
-                                                               distortion_model_t m );
-const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-terminated array of char* strings
+                                                               lens_model_t m );
+const char* const*      mrcal_getSupportedLensModels( void ); // NULL-terminated array of char* strings
 
-// Returns the 'next' distortion model in a family
+// Returns the 'next' lens model in a family
 //
-// In a family of distortion models we have a sequence of models with increasing
+// In a family of lens models we have a sequence of models with increasing
 // complexity. Subsequent models add distortion parameters to the end of the
 // vector. Ealier models are identical, but with the extra paramaters set to 0.
 // This function returns the next model in a sequence.
@@ -123,10 +126,10 @@ const char* const*      mrcal_getSupportedDistortionModels( void ); // NULL-term
 // If this is the last model in the sequence, returns the current model. This
 // function takes in both the current model, and the last model we're aiming
 // for. The second part is required because all familie begin at
-// DISTORTION_NONE, so the next model from DISTORTION_NONE is not well-defined
+// LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not well-defined
 // without more information
-distortion_model_t mrcal_getNextDistortionModel( distortion_model_t distortion_model_now,
-                                                 distortion_model_t distortion_model_final);
+lens_model_t mrcal_getNextLensModel( lens_model_t lens_model_now,
+                                         lens_model_t lens_model_final);
 
 // Wrapper around the internal project() function: the function used in the
 // inner optimization loop. These map world points to their observed pixel
@@ -147,7 +150,7 @@ bool mrcal_project( // out
                    // in
                    const point3_t* p,
                    int N,
-                   distortion_model_t distortion_model,
+                   lens_model_t lens_model,
                    // core, distortions concatenated
                    const double* intrinsics);
 
@@ -168,7 +171,7 @@ bool mrcal_project_z1( // out
                        // in
                        const point2_t* Vxy,
                        int N,
-                       distortion_model_t distortion_model,
+                       lens_model_t lens_model,
                        // core, distortions concatenated
                        const double* intrinsics);
 
@@ -178,8 +181,8 @@ bool mrcal_project_z1( // out
 //
 // This is the "reverse" direction, so an iterative nonlinear optimization is
 // performed internally to compute this result. This is much slower than
-// mrcal_project. For OpenCV distortions specifically, OpenCV has
-// cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
+// mrcal_project. For OpenCV models specifically, OpenCV has cvUndistortPoints()
+// (and cv2.undistortPoints()), but these are inaccurate:
 // https://github.com/opencv/opencv/issues/8811
 //
 // This function does NOT support CAHVORE
@@ -189,7 +192,7 @@ bool mrcal_unproject( // out
                      // in
                      const point2_t* q,
                      int N,
-                     distortion_model_t distortion_model,
+                     lens_model_t lens_model,
                      // core, distortions concatenated
                      const double* intrinsics);
 // Exactly the same as mrcal_unproject(), but reports 2d points, omitting the
@@ -200,7 +203,7 @@ bool mrcal_unproject_z1( // out
                         // in
                         const point2_t* q,
                         int N,
-                        distortion_model_t distortion_model,
+                        lens_model_t lens_model,
                         // core, distortions concatenated
                         const double* intrinsics);
 
@@ -254,9 +257,9 @@ mrcal_optimize( // out
                 //
                 // camera_intrinsics is a concatenation of the intrinsics
                 // core and the distortion params. The specific distortion
-                // parameters may vary, depending on distortion_model, so
+                // parameters may vary, depending on lens_model, so
                 // this is a variable-length structure
-                double*       camera_intrinsics,  // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
+                double*       camera_intrinsics,  // Ncameras * NlensParams
                 pose_t*       camera_extrinsics,  // Ncameras-1 of these. Transform FROM camera0 frame
                 pose_t*       frames,             // Nframes of these.    Transform TO   camera0 frame
                 point3_t*     points,             // Npoints of these.    In the camera0 frame
@@ -289,7 +292,7 @@ mrcal_optimize( // out
                 // the outlier_indices_input, which are respected regardless
                 const bool skip_outlier_rejection,
 
-                distortion_model_t distortion_model,
+                lens_model_t lens_model,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras*2 of these
                 mrcal_problem_details_t problem_details,
@@ -308,9 +311,9 @@ void mrcal_optimizerCallback(// output measurements
                              // in
                              // intrinsics is a concatenation of the intrinsics core
                              // and the distortion params. The specific distortion
-                             // parameters may vary, depending on distortion_model, so
+                             // parameters may vary, depending on lens_model, so
                              // this is a variable-length structure
-                             const double*       intrinsics, // Ncameras * (N_INTRINSICS_CORE + Ndistortions)
+                             const double*       intrinsics, // Ncameras * NlensParams
                              const pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
                              const pose_t*       frames,     // Nframes of these.    Transform TO   camera0 frame
                              const point3_t*     points,     // Npoints of these.    In the camera0 frame
@@ -329,14 +332,14 @@ void mrcal_optimizerCallback(// output measurements
                              const double* roi,
                              bool verbose,
 
-                             distortion_model_t distortion_model,
+                             lens_model_t lens_model,
                              const int* imagersizes, // Ncameras*2 of these
 
                              mrcal_problem_details_t problem_details,
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,
-                             int Ndistortions, int Nmeasurements, int N_j_nonzero);
+                             int Nintrinsics, int Nmeasurements, int N_j_nonzero);
 
 
 int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
@@ -344,24 +347,24 @@ int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
                                int NobservationsPoint,
                                int calibration_object_width_n,
                                mrcal_problem_details_t problem_details,
-                               distortion_model_t distortion_model);
+                               lens_model_t lens_model);
 int mrcal_getNmeasurements_boards(int NobservationsBoard,
                                   int calibration_object_width_n);
 int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
                                   int NobservationsPoint);
 int mrcal_getNmeasurements_regularization(int Ncameras,
                                           mrcal_problem_details_t problem_details,
-                                          distortion_model_t distortion_model);
+                                          lens_model_t lens_model);
 int mrcal_getNstate(int Ncameras, int Nframes, int Npoints,
                     mrcal_problem_details_t problem_details,
-                    distortion_model_t distortion_model);
+                    lens_model_t lens_model);
 int mrcal_getN_j_nonzero( int Ncameras,
                           const observation_board_t* observations_board,
                           int NobservationsBoard,
                           const observation_point_t* observations_point,
                           int NobservationsPoint,
                           mrcal_problem_details_t problem_details,
-                          distortion_model_t distortion_model,
+                          lens_model_t lens_model,
                           int calibration_object_width_n);
 
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
@@ -371,23 +374,23 @@ void mrcal_free_context(void** ctx);
 
 int mrcal_state_index_intrinsic_core(int i_camera,
                                      mrcal_problem_details_t problem_details,
-                                     distortion_model_t distortion_model);
+                                     lens_model_t lens_model);
 int mrcal_state_index_intrinsic_distortions(int i_camera,
                                             mrcal_problem_details_t problem_details,
-                                            distortion_model_t distortion_model);
+                                            lens_model_t lens_model);
 int mrcal_state_index_camera_rt(int i_camera, int Ncameras,
                                 mrcal_problem_details_t problem_details,
-                                distortion_model_t distortion_model);
+                                lens_model_t lens_model);
 int mrcal_state_index_frame_rt(int i_frame, int Ncameras,
                                mrcal_problem_details_t problem_details,
-                               distortion_model_t distortion_model);
+                               lens_model_t lens_model);
 int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
                             mrcal_problem_details_t problem_details,
-                            distortion_model_t distortion_model);
+                            lens_model_t lens_model);
 int mrcal_state_index_calobject_warp(int Npoints,
                                      int Nframes, int Ncameras,
                                      mrcal_problem_details_t problem_details,
-                                     distortion_model_t distortion_model);
+                                     lens_model_t lens_model);
 
 // packs/unpacks a vector
 void mrcal_pack_solver_state_vector( // out, in
@@ -397,7 +400,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                                 // meaningful state on output
 
                                      // in
-                                     const distortion_model_t distortion_model,
+                                     const lens_model_t lens_model,
                                      mrcal_problem_details_t problem_details,
                                      int Ncameras, int Nframes, int Npoints);
 
@@ -407,6 +410,6 @@ void mrcal_unpack_solver_state_vector( // out, in
                                                   // output
 
                                        // in
-                                       const distortion_model_t distortion_model,
+                                       const lens_model_t lens_model,
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras, int Nframes, int Npoints);

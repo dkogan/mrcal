@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[] )
 {
-    const char* usage = "Usage: %s DISTORTION_XXX [problem-details problem-details ...]\n"
+    const char* usage = "Usage: %s LENSMODEL_XXX [problem-details problem-details ...]\n"
         "\n"
         "problem-details are a list of parameters we're optimizing. This is some set of\n"
         "  intrinsic-core\n"
@@ -36,12 +36,12 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    distortion_model_t distortion_model = mrcal_distortion_model_from_name(argv[iarg]);
-    if( distortion_model == DISTORTION_INVALID )
+    lens_model_t lens_model = mrcal_lens_model_from_name(argv[iarg]);
+    if( lens_model == LENSMODEL_INVALID )
     {
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
-        fprintf(stderr, "Distortion name '%s' unknown. I only know about ("
-                        DISTORTION_LIST( QUOTED_LIST_WITH_COMMA )
+        fprintf(stderr, "Lens model name '%s' unknown. I only know about ("
+                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                 ")\n", argv[iarg]);
         return 1;
     }
@@ -151,8 +151,10 @@ int main(int argc, char* argv[] )
 
     int Ncameras = sizeof(extrinsics)/sizeof(extrinsics[0]) + 1;
 
-    int Ndistortion = mrcal_getNdistortionParams(distortion_model);
-    int Nintrinsics = Ndistortion + N_INTRINSICS_CORE;
+    int Nintrinsics = mrcal_getNlensParams(lens_model);
+    int Ndistortion = Nintrinsics;
+    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+        Ndistortion -= 4;
     double intrinsics[Ncameras * Nintrinsics];
 
     int imagersizes[Ncameras*2];
@@ -173,7 +175,7 @@ int main(int argc, char* argv[] )
 
     for(int i=0; i<Ncameras; i++)
         for(int j=0; j<Ndistortion; j++)
-            intrinsics[Nintrinsics * i + N_INTRINSICS_CORE + j] = 0.1 + 0.05 * (double)(i + Ncameras*j);
+            intrinsics[Nintrinsics * i + 4 + j] = 0.1 + 0.05 * (double)(i + Ncameras*j);
 
 
     if(problem_details.do_optimize_intrinsic_core || problem_details.do_optimize_intrinsic_core)
@@ -185,21 +187,21 @@ int main(int argc, char* argv[] )
             printf("## The intrinsics core occupies 4 variables per camera; the first is at variable 0\n");
         if(problem_details.do_optimize_intrinsic_distortions)
             printf("## The intrinsics distortions occupy %d variables per camera; the first is at variable %d\n",
-                   Ndistortion, mrcal_state_index_intrinsic_distortions(0, problem_details, distortion_model));
+                   Ndistortion, mrcal_state_index_intrinsic_distortions(0, problem_details, lens_model));
     }
     if(problem_details.do_optimize_extrinsics)
         printf("## The extrinsics occupy 6 variables per camera for all cameras except camera 0; the first is at variable %d\n",
-               mrcal_state_index_camera_rt(1, Ncameras, problem_details, distortion_model));
+               mrcal_state_index_camera_rt(1, Ncameras, problem_details, lens_model));
     if(problem_details.do_optimize_frames)
     {
         printf("## The frames occupy 6 variables per frame; the first is at variable %d\n",
-               mrcal_state_index_frame_rt(0, Ncameras, problem_details, distortion_model));
+               mrcal_state_index_frame_rt(0, Ncameras, problem_details, lens_model));
         printf("## The discrete points occupy 3 variables per point; the first is at variable %d\n",
-               mrcal_state_index_point(0, Nframes, Ncameras, problem_details, distortion_model));
+               mrcal_state_index_point(0, Nframes, Ncameras, problem_details, lens_model));
     }
     if(problem_details.do_optimize_calobject_warp)
         printf("## The calibration object warp occupies 2 variables; the first is at variable %d\n",
-               mrcal_state_index_calobject_warp(Npoints, Nframes, Ncameras, problem_details, distortion_model));
+               mrcal_state_index_calobject_warp(Npoints, Nframes, Ncameras, problem_details, lens_model));
 
 
     const double roi[] = { 1000., 1000., 400., 400.,
@@ -223,7 +225,7 @@ int main(int argc, char* argv[] )
                     roi,
                     false,
                     true,
-                    distortion_model,
+                    lens_model,
                     1.0,
                     imagersizes,
                     problem_details,

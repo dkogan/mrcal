@@ -1,0 +1,18 @@
+Returns a tuple of strings for the various lens models we support
+
+SYNOPSIS
+
+    print mrcal.getSupportedLensModels()
+
+    ('LENSMODEL_PINHOLE',
+     'LENSMODEL_OPENCV4',
+     'LENSMODEL_OPENCV5',
+     'LENSMODEL_OPENCV8',
+     'LENSMODEL_OPENCV12',
+     'LENSMODEL_OPENCV14',
+     'LENSMODEL_CAHVOR',
+     'LENSMODEL_CAHVORE')
+
+The above list is correct as of this writing, but more models could be added
+with time. Note that at this time CAHVORE is supported only partially: gradients
+aren't implemented, so we can't compute an optimal CAHVORE model

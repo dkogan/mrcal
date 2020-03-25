@@ -371,11 +371,11 @@ def _sample_imager(gridn_x, gridn_y, W, H):
     return nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
 
 
-def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data, W, H):
+def sample_imager_unproject(gridn_x, gridn_y, lens_model, intrinsics_data, W, H):
     r'''Reports 3d observation vectors that regularly sample the imager
 
     This is a utility function for the various visualization routines.
-    Broadcasts on the distortion_model and intrinsics_data (if they're lists,
+    Broadcasts on the lens_model and intrinsics_data (if they're lists,
     not numpy arrays. Couldn't do it with numpy arrays because the intrinsics
     have varying sizes)
 
@@ -394,18 +394,18 @@ def sample_imager_unproject(gridn_x, gridn_y, distortion_model, intrinsics_data,
     # shape: Nwidth,Nheight,2
     grid = _sample_imager(gridn_x, gridn_y, W, H)
 
-    if type(distortion_model) is list or type(intrinsics_data) is list:
+    if type(lens_model) is list or type(intrinsics_data) is list:
         # shape: Ncameras,Nwidth,Nheight,3
         return np.array([normalize(mrcal.unproject(np.ascontiguousarray(grid),
-                                                   distortion_model[i],
+                                                   lens_model[i],
                                                    intrinsics_data[i])) \
-                         for i in range(len(distortion_model))]), \
+                         for i in range(len(lens_model))]), \
                grid
     else:
         # shape: Nwidth,Nheight,3
         return \
             normalize(mrcal.unproject(np.ascontiguousarray(grid),
-                                      distortion_model, intrinsics_data)), \
+                                      lens_model, intrinsics_data)), \
             grid
 
 def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
@@ -938,7 +938,7 @@ def compute_intrinsics_uncertainty( model, v,
 
     '''
 
-    distortion_model, intrinsics_data = model.intrinsics()
+    lens_model, intrinsics_data = model.intrinsics()
     imagersize                        = model.imagersize()
 
     if outlierness:
@@ -955,7 +955,7 @@ def compute_intrinsics_uncertainty( model, v,
     if focus_radius < 0:     focus_radius = min(W,H)/6.
 
     q,dq_dv,dq_dp = \
-        mrcal.project(v, distortion_model, intrinsics_data, get_gradients=True)
+        mrcal.project(v, lens_model, intrinsics_data, get_gradients=True)
 
     dq_dp_corrected = \
         compute_Rcorrected_dq_dintrinsics(q, v, dq_dp,dq_dv,
@@ -1023,10 +1023,10 @@ def show_intrinsics_uncertainty(model,
     import gnuplotlib as gp
     W,H=model.imagersize()
 
-    distortion_model, intrinsics_data = model.intrinsics()
+    lens_model, intrinsics_data = model.intrinsics()
     imagersize                        = model.imagersize()
     v,_ =sample_imager_unproject(gridn_x, gridn_y,
-                                 distortion_model, intrinsics_data,
+                                 lens_model, intrinsics_data,
                                  *imagersize)
     err = compute_intrinsics_uncertainty(model, v,
                                          outlierness,
@@ -1189,13 +1189,13 @@ def show_distortion(model,
 
     import gnuplotlib as gp
 
-    distortion_model, intrinsics_data = model.intrinsics()
+    lens_model, intrinsics_data = model.intrinsics()
     imagersize                        = model.imagersize()
 
     if kwargs is None: kwargs = {}
     if 'title' not in kwargs:
 
-        title = "Distortion of {}".format(distortion_model)
+        title = "Distortion of {}".format(lens_model)
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
@@ -1217,7 +1217,7 @@ def show_distortion(model,
     if mode == 'radial':
 
         # plot the radial distortion. For now I only deal with opencv here
-        m = re.search("OPENCV([0-9]+)", distortion_model)
+        m = re.search("OPENCV([0-9]+)", lens_model)
         if not m:
             raise Exception("Radial distortion visualization implemented only for OpenCV distortions; for now")
         N = int(m.group(1))
@@ -1317,7 +1317,7 @@ def show_distortion(model,
     dgrid =  mrcal.project( nps.glue( (grid-cxy)/fxy,
                                     np.ones(grid.shape[:-1] + (1,), dtype=float),
                                     axis = -1 ),
-                          distortion_model, intrinsics_data )
+                          lens_model, intrinsics_data )
 
     if mode == 'heatmap':
 
@@ -1408,7 +1408,7 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
                                 nps.clump(v1,n=2), vectors=True)
 
     This works, but it minimizes a norm2() metric, and is sensitive to outliers.
-    If my distortion model doesn't fit perfectly, I can fit well only in some
+    If my lens model doesn't fit perfectly, I can fit well only in some
     areas. So I try to handle the outliers in two ways:
 
     - I compute a reasonable seed using a procrustes fit using data in the area
@@ -1571,7 +1571,7 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
 def _intrinsics_diff_get_reprojections(q0, v0, v1,
                                        focus_center,
                                        focus_radius,
-                                       distortion_models, intrinsics_data,
+                                       lens_models, intrinsics_data,
 
                                        imagersizes):
 
@@ -1587,7 +1587,7 @@ def _intrinsics_diff_get_reprojections(q0, v0, v1,
                                   imagersizes)
 
     return mrcal.project(nps.matmult(v0,R),
-                         distortion_models, intrinsics_data)
+                         lens_models, intrinsics_data)
 
 
 def _densify_polyline(p, spacing):
@@ -1684,12 +1684,12 @@ def show_intrinsics_diff(models,
                         format(imagersizes))
     W,H=imagersizes[0]
 
-    distortion_models = [model.intrinsics()[0] for model in models]
+    lens_models = [model.intrinsics()[0] for model in models]
     intrinsics_data   = [model.intrinsics()[1] for model in models]
 
 
     v,q0 = sample_imager_unproject(gridn_x, gridn_y,
-                                   distortion_models, intrinsics_data,
+                                   lens_models, intrinsics_data,
                                    W, H)
 
     if len(models) == 2:
@@ -1701,7 +1701,7 @@ def show_intrinsics_diff(models,
                                       focus_center, focus_radius,
                                       imagersizes)
         q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating),
-                           distortion_models[1], intrinsics_data[1])
+                           lens_models[1], intrinsics_data[1])
 
         diff    = q1 - q0
         difflen = np.sqrt(nps.inner(diff, diff))
@@ -1711,7 +1711,7 @@ def show_intrinsics_diff(models,
         grids = nps.cat(*[_intrinsics_diff_get_reprojections(q0,
                                                              v[0,...], v[i,...],
                                                              focus_center, focus_radius,
-                                                             distortion_models[i], intrinsics_data[i],
+                                                             lens_models[i], intrinsics_data[i],
                                                              imagersizes) for i in range(1,len(v))])
 
         # I look at synthetic data with calibrations fit off ONLY the right half
@@ -1723,7 +1723,7 @@ def show_intrinsics_diff(models,
         # is), but that the cross-validation says is fine.
         #
         # Command:
-        #   dima@fatty:~/src_boats/mrcal/studies/syntheticdata/scans.DISTORTION_OPENCV4.cull_leftof2000$ ../../../mrcal-show-intrinsics-diff  --cbmax 2 *.cameramodel ../../../analyses/synthetic_data/reference.cameramodel  --where 800 1080
+        #   dima@fatty:~/src_boats/mrcal/studies/syntheticdata/scans.LENSMODEL_OPENCV4.cull_leftof2000$ ../../../mrcal-show-intrinsics-diff  --cbmax 2 *.cameramodel ../../../analyses/synthetic_data/reference.cameramodel  --where 800 1080
         #
         # I plot the projection points for the reference and for each of my
         # models. I can see that the models cluster: things look consistent so
@@ -1837,9 +1837,9 @@ def show_intrinsics_diff(models,
         # straight lines will not remain straight. I thus resample the polyline
         # more densely.
         v1 = mrcal.unproject(_densify_polyline(valid_region1, spacing = 50),
-                             distortion_models[1], intrinsics_data[1])
+                             lens_models[1], intrinsics_data[1])
         valid_region1 = mrcal.project( nps.matmult( v1, nps.transpose(Rcompensating) ),
-                                       distortion_models[0], intrinsics_data[0] )
+                                       lens_models[0], intrinsics_data[0] )
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
@@ -2406,7 +2406,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
     of either:
 
     - cameramodel object
-    - (distortion_model,intrinsics_data) tuple
+    - (lens_model,intrinsics_data) tuple
 
     """
 
@@ -2415,9 +2415,9 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
-    distortion_models_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
-    distortion_models = [di[0] for di in distortion_models_intrinsics_data]
-    intrinsics_data   = [di[1] for di in distortion_models_intrinsics_data]
+    lens_models_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
+    lens_models = [di[0] for di in lens_models_intrinsics_data]
+    intrinsics_data   = [di[1] for di in lens_models_intrinsics_data]
 
     fx = [ i[0] for i in intrinsics_data ]
     fy = [ i[1] for i in intrinsics_data ]
@@ -2429,8 +2429,8 @@ def estimate_local_calobject_poses( indices_frame_camera,
         i_camera = indices_frame_camera[i_observation,1]
 
         v = mrcal.unproject(observations[i_observation,...],
-                            distortion_models[i_camera], intrinsics_data[i_camera])
-        observations[i_observation,...] = mrcal.project(v, 'DISTORTION_NONE',
+                            lens_models[i_camera], intrinsics_data[i_camera])
+        observations[i_observation,...] = mrcal.project(v, 'LENSMODEL_PINHOLE',
                                                    intrinsics_data[i_camera][:4])
 
 
@@ -2896,7 +2896,7 @@ def make_seed_no_distortion( imagersizes,
     # I get rotation, translation in a (4,3) array, such that R*calobject + t
     # produces the calibration object points in the coord system of the camera.
     # The result has dimensions (N,4,3)
-    intrinsics = [('DISTORTION_NONE', np.array((focal_estimate,focal_estimate, (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
+    intrinsics = [('LENSMODEL_PINHOLE', np.array((focal_estimate,focal_estimate, (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
                   for imagersize in imagersizes]
     calobject_poses_local_Rt_cf = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
