@@ -108,13 +108,13 @@ typedef struct
                                                      .do_optimize_calobject_warp        = true, \
                                                      .do_skip_regularization            = false})
 
-const char*             mrcal_lens_model_name           ( lens_model_t model );
-lens_model_t            mrcal_lens_model_from_name      ( const char* name );
-bool                    mrcal_modelHasCore_fxfycxcy       ( const lens_model_t m );
-int                     mrcal_getNlensParams         ( const lens_model_t m );
-int                     mrcal_getNintrinsicOptimizationParams( mrcal_problem_details_t problem_details,
-                                                               lens_model_t m );
-const char* const*      mrcal_getSupportedLensModels( void ); // NULL-terminated array of char* strings
+const char*        mrcal_lens_model_name                 ( lens_model_t model );
+lens_model_t       mrcal_lens_model_from_name            ( const char* name );
+bool               mrcal_modelHasCore_fxfycxcy           ( const lens_model_t m );
+int                mrcal_getNlensParams                  ( const lens_model_t m );
+int                mrcal_getNintrinsicOptimizationParams ( mrcal_problem_details_t problem_details,
+                                                           lens_model_t m );
+const char* const* mrcal_getSupportedLensModels          ( void ); // NULL-terminated array of char* strings
 
 // Returns the 'next' lens model in a family
 //
@@ -129,7 +129,7 @@ const char* const*      mrcal_getSupportedLensModels( void ); // NULL-terminated
 // LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not well-defined
 // without more information
 lens_model_t mrcal_getNextLensModel( lens_model_t lens_model_now,
-                                         lens_model_t lens_model_final);
+                                     lens_model_t lens_model_final);
 
 // Wrapper around the internal project() function: the function used in the
 // inner optimization loop. These map world points to their observed pixel
