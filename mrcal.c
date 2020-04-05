@@ -97,6 +97,14 @@ calibration and sfm formulations are a little different
 
 
 
+#define CHECK_CONFIG_NPARAM_NOCONFIG(s,n) \
+    static_assert(n > 0, "no-config implies known-at-compile-time param count");
+#define CHECK_CONFIG_NPARAM_WITHCONFIG(s,n) \
+    static_assert(n <= 0, "with-config implies unknown-at-compile-time param count");
+LENSMODEL_NOCONFIG_LIST(  CHECK_CONFIG_NPARAM_NOCONFIG)
+LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
+
+
 // Returns a static string, using "..." as a placeholder for any configuration
 // values
 const char* mrcal_lensmodel_name( lensmodel_t model )
@@ -104,10 +112,8 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
     switch(model.type)
     {
 #define CASE_STRING_NOCONFIG(s,n) case s: ;                             \
-        static_assert(n > 0, "no-config implies known-at-compile-time param count"); \
         return #s;
 #define CASE_STRING_WITHCONFIG(s,n) case s: ;                           \
-        static_assert(n <= 0, "with-config implies unknown-at-compile-time param count"); \
         return #s "_...";
 
         LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
@@ -126,7 +132,7 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
 
 // Write the model name WITH the full config into the given buffer. Identical to
 // mrcal_lensmodel_name() for configuration-free models
-static int LENSMODEL_UV__snprintf_model(char* out, int size, LENSMODEL_UV__config_t* config)
+static int LENSMODEL_UV__snprintf_model(char* out, int size, const LENSMODEL_UV__config_t* config)
 {
     return
         snprintf( out, size, "LENSMODEL_UV_%"PRIu16"_%"PRIu16,
@@ -137,11 +143,9 @@ bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
     switch(model.type)
     {
 #define CASE_STRING_NOCONFIG(s,n) case s: ;                                          \
-        static_assert(n > 0, "no-config implies known-at-compile-time param count"); \
         return size > snprintf(out,size, #s);
 
 #define CASE_STRING_WITHCONFIG(s,n) case s: ;                           \
-        static_assert(n <= 0, "with-config implies unknown-at-compile-time param count"); \
         return size > s##__snprintf_model(out, size, &model.s##__config);
 
         LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
@@ -158,7 +162,7 @@ bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 }
 
 
-static bool LENSMODEL_UV__scan_model_config(       LENSMODEL_UV__config_t*        config, const char* config_str)
+static bool LENSMODEL_UV__scan_model_config( LENSMODEL_UV__config_t* config, const char* config_str)
 {
     int pos;
     return
@@ -171,12 +175,10 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
 {
 
 #define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
-    static_assert(n > 0, "no-config implies known-at-compile-time param count"); \
     if( 0 == strcmp( name, #s) )                                        \
         return (lensmodel_t){.type = s};
 
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
-    static_assert(n <= 0, "with-config implies unknown-at-compile-time param count"); \
     /* Configured model. I need to extract the config from the string. */ \
     /* The string format is NAME_cfg1_cfg2 ... */                       \
     const int name_len = strlen(#s);                                    \
@@ -205,27 +207,50 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
 
 bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )
 {
-#warning "need to support LENSMODEL_UV here"
-    return true;
+    if(LENSMODEL_IS_OPENCV(m.type)) return true;
+    if(LENSMODEL_IS_CAHVOR(m.type)) return true;
+    if(m.type == LENSMODEL_PINHOLE) return true;
+
+    if(m.type == LENSMODEL_UV)      return false;
+
+    MSG("I don't know if %s has a core or not. Add this information to this function",
+        mrcal_lensmodel_name(m));
+    exit(1);
 }
 
+static int LENSMODEL_UV__getNlensParams(const LENSMODEL_UV__config_t* config)
+{
+    return config->a + config->b;
+}
 int mrcal_getNlensParams(const lensmodel_t m)
 {
-#warning "need to support LENSMODEL_UV here"
     switch(m.type)
     {
-#define CASE_NUM(s,n) case s: { assert(n>0); return n; }
-        LENSMODEL_LIST( CASE_NUM )
+#define CASE_NUM_NOCONFIG(s,n)                                          \
+        case s: return n;
+
+#define CASE_NUM_WITHCONFIG(s,n)                                        \
+        case s: return s##__getNlensParams(&m.s##__config);
+
+        LENSMODEL_NOCONFIG_LIST(   CASE_NUM_NOCONFIG )
+        LENSMODEL_WITHCONFIG_LIST( CASE_NUM_WITHCONFIG )
+
     default: ;
     }
     return -1;
+
+#undef CASE_NUM_NOCONFIG
+#undef CASE_NUM_WITHCONFIG
 }
 
 const char* const* mrcal_getSupportedLensModels( void )
 {
-#warning "need to support LENSMODEL_UV here. Its string should be 'LENSMODEL_UV_...'"
-#define NAMESTRING(s,n) #s,
-    static const char* names[] = { LENSMODEL_LIST(NAMESTRING) NULL };
+#define NAMESTRING_NOCONFIG(s,n)   #s,
+#define NAMESTRING_WITHCONFIG(s,n) #s"_...",
+    static const char* names[] = {
+        LENSMODEL_NOCONFIG_LIST(  NAMESTRING_NOCONFIG)
+        LENSMODEL_WITHCONFIG_LIST(NAMESTRING_WITHCONFIG)
+        NULL };
     return names;
 }
 

@@ -27,6 +27,20 @@ static bool eq_lensmodel(const lensmodel_t* a, const lensmodel_t* b)
         }                                                               \
 } while(0)
 
+#define confirm_eq_int(x,xref) do {                                     \
+    Ntests++;                                                           \
+                                                                        \
+    int _x    = x;                                                      \
+    int _xref = xref;                                                   \
+    if(_x == xref)                                                      \
+        printf(GREEN "OK: "#x" == %d, as it should" COLOR_RESET"\n", _xref); \
+    else                                                                \
+    {                                                                   \
+        printf(RED "FAIL on line %d: "#x" != %d. Instead it is %d" COLOR_RESET"\n", __LINE__, _xref, _x); \
+        NtestsFailed++;                                                 \
+    }                                                                   \
+} while(0)
+
 #define confirm_lensmodel(x, xref) do {                                 \
     Ntests++;                                                           \
                                                                         \
@@ -107,6 +121,18 @@ int main(int argc, char* argv[])
     confirm(mrcal_lensmodel_name_full(buf, sizeof(buf), ref));
     confirm_lensmodel_name( buf, "LENSMODEL_UV_1_2" );
 
+
+    confirm( mrcal_modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_CAHVOR}));
+    confirm( mrcal_modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_OPENCV8}));
+    confirm(!mrcal_modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_UV}));
+
+
+    confirm_eq_int(mrcal_getNlensParams((lensmodel_t){.type = LENSMODEL_CAHVOR}),  9);
+    confirm_eq_int(mrcal_getNlensParams((lensmodel_t){.type = LENSMODEL_OPENCV8}), 12);
+    ref =
+        (lensmodel_t){.type = LENSMODEL_UV,
+        .LENSMODEL_UV__config = {.a = 1, .b = 2}};
+    confirm_eq_int(mrcal_getNlensParams(ref), 3);
 
 
     if(NtestsFailed == 0)
