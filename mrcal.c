@@ -103,41 +103,30 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
 {
     switch(model.type)
     {
-#define CASE_STRING(s,n) case s: ;              \
-        if( n > 0 ) return #s;                  \
-        else        return #s "_...";
+#define CASE_STRING_NOCONFIG(s,n) case s: ;                             \
+        static_assert(n > 0, "no-config implies known-at-compile-time param count"); \
+        return #s;
+#define CASE_STRING_WITHCONFIG(s,n) case s: ;                           \
+        static_assert(n <= 0, "with-config implies unknown-at-compile-time param count"); \
+        return #s "_...";
 
-
-        LENSMODEL_LIST( CASE_STRING )
+        LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
+        LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
 
     case LENSMODEL_INVALID:
         assert(0);
 
 
-#undef CASE_STRING
+#undef CASE_STRING_NOCONFIG
+#undef CASE_STRING_WITHCONFIG
 
     }
     return NULL;
 }
+
 // Write the model name WITH the full config into the given buffer. Identical to
-// mrcal_lensmodel_name() for                                                                      configuration-free models
-static int LENSMODEL_PINHOLE__snprintf_model(  char* out, int size, LENSMODEL_PINHOLE__config_t*   config)
-{ return snprintf(out,size, "LENSMODEL_PINHOLE"); }
-static int LENSMODEL_OPENCV4__snprintf_model(  char* out, int size, LENSMODEL_OPENCV4__config_t*   config)
-{ return snprintf(out,size, "LENSMODEL_OPENCV4"); }
-static int LENSMODEL_OPENCV5__snprintf_model(  char* out, int size, LENSMODEL_OPENCV5__config_t*   config)
-{ return snprintf(out,size, "LENSMODEL_OPENCV5"); }
-static int LENSMODEL_OPENCV8__snprintf_model(  char* out, int size, LENSMODEL_OPENCV8__config_t*   config)
-{ return snprintf(out,size, "LENSMODEL_OPENCV8"); }
-static int LENSMODEL_OPENCV12__snprintf_model( char* out, int size, LENSMODEL_OPENCV12__config_t*  config)
-{ return snprintf(out,size, "LENSMODEL_OPENCV12"); }
-static int LENSMODEL_OPENCV14__snprintf_model( char* out, int size, LENSMODEL_OPENCV14__config_t*  config)
-{ return snprintf(out,size, "LENSMODEL_OPENCV14"); }
-static int LENSMODEL_CAHVOR__snprintf_model(   char* out, int size, LENSMODEL_CAHVOR__config_t*    config)
-{ return snprintf(out,size, "LENSMODEL_CAHVOR"); }
-static int LENSMODEL_CAHVORE__snprintf_model(  char* out, int size, LENSMODEL_CAHVORE__config_t*   config)
-{ return snprintf(out,size, "LENSMODEL_CAHVORE"); }
-static int LENSMODEL_UV__snprintf_model(       char* out, int size, LENSMODEL_UV__config_t*        config)
+// mrcal_lensmodel_name() for configuration-free models
+static int LENSMODEL_UV__snprintf_model(char* out, int size, LENSMODEL_UV__config_t* config)
 {
     return
         snprintf( out, size, "LENSMODEL_UV_%"PRIu16"_%"PRIu16,
@@ -147,37 +136,28 @@ bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 {
     switch(model.type)
     {
-#define CASE_STRING(s,n) case s: return size > s##__snprintf_model(out, size, &model.s##__config);
+#define CASE_STRING_NOCONFIG(s,n) case s: ;                                          \
+        static_assert(n > 0, "no-config implies known-at-compile-time param count"); \
+        return size > snprintf(out,size, #s);
 
-        LENSMODEL_LIST( CASE_STRING )
+#define CASE_STRING_WITHCONFIG(s,n) case s: ;                           \
+        static_assert(n <= 0, "with-config implies unknown-at-compile-time param count"); \
+        return size > s##__snprintf_model(out, size, &model.s##__config);
+
+        LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
+        LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
 
     case LENSMODEL_INVALID:
         assert(0);
 
-
-#undef CASE_STRING
+#undef CASE_STRING_NOCONFIG
+#undef CASE_STRING_WITHCONFIG
 
     }
     return NULL;
 }
 
 
-static bool LENSMODEL_PINHOLE__scan_model_config(  LENSMODEL_PINHOLE__config_t*   config, const char* config_str)
-{ return true; }
-static bool LENSMODEL_OPENCV4__scan_model_config(  LENSMODEL_OPENCV4__config_t*   config, const char* config_str)
-{ return true; }
-static bool LENSMODEL_OPENCV5__scan_model_config(  LENSMODEL_OPENCV5__config_t*   config, const char* config_str)
-{ return true; }
-static bool LENSMODEL_OPENCV8__scan_model_config(  LENSMODEL_OPENCV8__config_t*   config, const char* config_str)
-{ return true; }
-static bool LENSMODEL_OPENCV12__scan_model_config( LENSMODEL_OPENCV12__config_t*  config, const char* config_str)
-{ return true; }
-static bool LENSMODEL_OPENCV14__scan_model_config( LENSMODEL_OPENCV14__config_t*  config, const char* config_str)
-{ return true; }
-static bool LENSMODEL_CAHVOR__scan_model_config(   LENSMODEL_CAHVOR__config_t*    config, const char* config_str)
-{ return true; }
-static bool LENSMODEL_CAHVORE__scan_model_config(  LENSMODEL_CAHVORE__config_t*   config, const char* config_str)
-{ return true; }
 static bool LENSMODEL_UV__scan_model_config(       LENSMODEL_UV__config_t*        config, const char* config_str)
 {
     int pos;
@@ -189,36 +169,38 @@ static bool LENSMODEL_UV__scan_model_config(       LENSMODEL_UV__config_t*      
 
 lensmodel_t mrcal_lensmodel_from_name( const char* name )
 {
-#define CHECK_AND_RETURN(s,n)                                           \
-    if( n > 0 )                                                         \
+
+#define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
+    static_assert(n > 0, "no-config implies known-at-compile-time param count"); \
+    if( 0 == strcmp( name, #s) )                                        \
+        return (lensmodel_t){.type = s};
+
+#define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
+    static_assert(n <= 0, "with-config implies unknown-at-compile-time param count"); \
+    /* Configured model. I need to extract the config from the string. */ \
+    /* The string format is NAME_cfg1_cfg2 ... */                       \
+    const int name_len = strlen(#s);                                    \
+    if( 0 == strncmp( name, #s"_", name_len+1) )                        \
     {                                                                   \
-        if( 0 == strcmp( name, #s) )                                    \
-            return (lensmodel_t){.type = s};                            \
-    }                                                                   \
-    else                                                                \
-    {                                                                   \
-        /* Configured model. I need to extract the config from the string. */  \
-        /* The string format is NAME_cfg1_cfg2 ... */                   \
-        const int name_len = strlen(#s);                                \
-        if( 0 == strncmp( name, #s"_", name_len+1) )                    \
-        {                                                               \
-            /* found name. Now extract the config */                    \
-            lensmodel_t model = {.type = s};                            \
-            s##__config_t* config = &model.s##__config;                 \
+        /* found name. Now extract the config */                        \
+        lensmodel_t model = {.type = s};                                \
+        s##__config_t* config = &model.s##__config;                     \
                                                                         \
-            const char* config_str = &name[name_len+1];                 \
+        const char* config_str = &name[name_len+1];                     \
                                                                         \
-            if(s##__scan_model_config(config, config_str))              \
-                return model;                                           \
-            else                                                        \
-                return (lensmodel_t){.type = LENSMODEL_INVALID};        \
-        }                                                               \
+        if(s##__scan_model_config(config, config_str))                  \
+            return model;                                               \
+        else                                                            \
+            return (lensmodel_t){.type = LENSMODEL_INVALID};            \
     }
-    LENSMODEL_LIST( CHECK_AND_RETURN );
+
+    LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
+    LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
     return (lensmodel_t){.type = LENSMODEL_INVALID};
 
-#undef CHECK_AND_RETURN
+#undef CHECK_AND_RETURN_NOCONFIG
+#undef CHECK_AND_RETURN_WITHCONFIG
 }
 
 bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )

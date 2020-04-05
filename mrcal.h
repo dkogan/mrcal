@@ -68,7 +68,7 @@ typedef struct
 // <=0 means the parameter count is dynamic and will be computed by
 // mrcal_getNlensParams(). This also implies that this model has some
 // configuration that affects the parameter count
-#define LENSMODEL_LIST(_)                                             \
+#define LENSMODEL_NOCONFIG_LIST(_)                                    \
     _(LENSMODEL_PINHOLE, 4)                                           \
     _(LENSMODEL_OPENCV4, 8)                                           \
     _(LENSMODEL_OPENCV5, 9)                                           \
@@ -76,8 +76,13 @@ typedef struct
     _(LENSMODEL_OPENCV12,16)   /* available in OpenCV >= 3.0.0) */    \
     _(LENSMODEL_OPENCV14,18)   /* available in OpenCV >= 3.1.0) */    \
     _(LENSMODEL_CAHVOR,  9)                                           \
-    _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */\
+    _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */
+#define LENSMODEL_WITHCONFIG_LIST(_)                                  \
     _(LENSMODEL_UV,      0)
+
+#define LENSMODEL_LIST(_)                       \
+    LENSMODEL_NOCONFIG_LIST(_)                  \
+    LENSMODEL_WITHCONFIG_LIST(_)
 
 
 // parametric models have no extra configuration
