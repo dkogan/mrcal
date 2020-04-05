@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "basic_points.h"
 
@@ -75,6 +76,22 @@ typedef struct
     _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */\
     _(LENSMODEL_UV,      0)
 
+
+// parametric models have no extra configuration
+typedef struct {} LENSMODEL_PINHOLE__config_t;
+typedef struct {} LENSMODEL_OPENCV4__config_t;
+typedef struct {} LENSMODEL_OPENCV5__config_t;
+typedef struct {} LENSMODEL_OPENCV8__config_t;
+typedef struct {} LENSMODEL_OPENCV12__config_t;
+typedef struct {} LENSMODEL_OPENCV14__config_t;
+typedef struct {} LENSMODEL_CAHVOR__config_t;
+typedef struct {} LENSMODEL_CAHVORE__config_t;
+
+typedef struct
+{
+    uint16_t a,b;
+} LENSMODEL_UV__config_t;
+
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
 #define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV14
 #define LENSMODEL_CAHVOR_FIRST LENSMODEL_CAHVOR
@@ -88,7 +105,12 @@ typedef enum
 typedef struct
 {
     lensmodel_type_t type;
-    int a,b;
+    union
+    {
+#define CONFIG_STRUCT(s,n) s##__config_t s##__config;
+        LENSMODEL_LIST(CONFIG_STRUCT);
+#undef CONFIG_STRUCT
+    };
 } lensmodel_t;
 
 

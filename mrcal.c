@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include <dogleg.h>
 #include <minimath.h>
@@ -98,6 +99,8 @@ calibration and sfm formulations are a little different
 
 const char* mrcal_lensmodel_name( lensmodel_t model )
 {
+    #warning "need to suport LENSMODEL_UV here. how?"
+
     switch(model.type)
     {
 #define CASE_STRING(s,n) case s: return #s;
@@ -108,12 +111,60 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
     }
     return NULL;
 }
+
+static bool LENSMODEL_PINHOLE__scan_model_config(  LENSMODEL_PINHOLE__config_t* config,  const char* config_str)
+{ return true; }
+static bool LENSMODEL_OPENCV4__scan_model_config(  LENSMODEL_OPENCV4__config_t* config,  const char* config_str)
+{ return true; }
+static bool LENSMODEL_OPENCV5__scan_model_config(  LENSMODEL_OPENCV5__config_t* config,  const char* config_str)
+{ return true; }
+static bool LENSMODEL_OPENCV8__scan_model_config(  LENSMODEL_OPENCV8__config_t* config,  const char* config_str)
+{ return true; }
+static bool LENSMODEL_OPENCV12__scan_model_config( LENSMODEL_OPENCV12__config_t* config, const char* config_str)
+{ return true; }
+static bool LENSMODEL_OPENCV14__scan_model_config( LENSMODEL_OPENCV14__config_t* config, const char* config_str)
+{ return true; }
+static bool LENSMODEL_CAHVOR__scan_model_config(   LENSMODEL_CAHVOR__config_t* config,   const char* config_str)
+{ return true; }
+static bool LENSMODEL_CAHVORE__scan_model_config(  LENSMODEL_CAHVORE__config_t* config,  const char* config_str)
+{ return true; }
+static bool LENSMODEL_UV__scan_model_config(       LENSMODEL_UV__config_t* config,       const char* config_str)
+{
+    int pos;
+    return
+        2 == sscanf( config_str, "%"SCNu16"_%"SCNu16"%n",
+                     &config->a, &config->b, &pos) &&
+        config_str[pos] == '\0';
+}
+
 lensmodel_t mrcal_lensmodel_from_name( const char* name )
 {
 
-#warning "need to support LENSMODEL_UV here"
-
-#define CHECK_AND_RETURN(s,n) assert(n>0); if( 0 == strcmp( name, #s) ) return (lensmodel_t){.type = s};
+#define CHECK_AND_RETURN(s,n)                                           \
+    if( n > 0 )                                                         \
+    {                                                                   \
+        if( 0 == strcmp( name, #s) )                                    \
+            return (lensmodel_t){.type = s};                            \
+    }                                                                   \
+    else                                                                \
+    {                                                                   \
+        /* Configured model. I need to extract the config from the string. */  \
+        /* The string format is NAME_cfg1_cfg2 ... */                   \
+        const int name_len = strlen(#s);                                \
+        if( 0 == strncmp( name, #s"_", name_len+1) )                    \
+        {                                                               \
+            /* found name. Now extract the config */                    \
+            lensmodel_t model = {.type = s};                            \
+            s##__config_t* config = &model.s##__config;                 \
+                                                                        \
+            const char* config_str = &name[name_len+1];                 \
+                                                                        \
+            if(s##__scan_model_config(config, config_str))              \
+                return model;                                           \
+            else                                                        \
+                return (lensmodel_t){.type = LENSMODEL_INVALID};        \
+        }                                                               \
+    }
     LENSMODEL_LIST( CHECK_AND_RETURN );
 
     return (lensmodel_t){.type = LENSMODEL_INVALID};

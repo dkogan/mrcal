@@ -7,7 +7,7 @@ ABI_VERSION  := 0
 TAIL_VERSION := 0
 
 LIB_SOURCES += mrcal.c
-BIN_SOURCES += test-gradients.c test/test-cahvor.c
+BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
 
 
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)
@@ -104,7 +104,8 @@ EXTRA_CLEAN += mrcal/*.so
 TESTS :=					\
   test/test-projections.py			\
   test/test-poseutils.py			\
-  test/test-cameramodel.py
+  test/test-cameramodel.py                      \
+  test/test-lensmodel-string-manipulation
 TESTS_RUN := $(addsuffix .RUN,$(TESTS))
 test check: $(TESTS_RUN)
 	@echo "All tests in the test suite passed!"
