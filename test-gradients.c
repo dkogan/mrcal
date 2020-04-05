@@ -37,7 +37,7 @@ int main(int argc, char* argv[] )
     }
 
     lens_model_t lens_model = mrcal_lens_model_from_name(argv[iarg]);
-    if( lens_model == LENSMODEL_INVALID )
+    if( lens_model.type == LENSMODEL_INVALID )
     {
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
         fprintf(stderr, "Lens model name '%s' unknown. I only know about ("

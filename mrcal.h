@@ -72,7 +72,9 @@ typedef struct
     _(LENSMODEL_OPENCV12,16)   /* available in OpenCV >= 3.0.0) */    \
     _(LENSMODEL_OPENCV14,18)   /* available in OpenCV >= 3.1.0) */    \
     _(LENSMODEL_CAHVOR,  9)                                           \
-    _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */
+    _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */\
+    _(LENSMODEL_UV,      0)
+
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
 #define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV14
 #define LENSMODEL_CAHVOR_FIRST LENSMODEL_CAHVOR
@@ -82,7 +84,12 @@ typedef struct
 
 #define LIST_WITH_COMMA(s,n) ,s
 typedef enum
-    { LENSMODEL_INVALID LENSMODEL_LIST( LIST_WITH_COMMA ) } lens_model_t;
+    { LENSMODEL_INVALID LENSMODEL_LIST( LIST_WITH_COMMA ) } lens_model_type_t;
+typedef struct
+{
+    lens_model_type_t type;
+    int a,b;
+} lens_model_t;
 
 
 typedef struct
