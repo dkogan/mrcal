@@ -64,7 +64,10 @@ typedef struct
     double center_xy[2];
 } intrinsics_core_t;
 
-// names of the lens models, intrinsic parameter counts
+// names of the lens models, intrinsic parameter counts. A parameter count of
+// <=0 means the parameter count is dynamic and will be computed by
+// mrcal_getNlensParams(). This also implies that this model has some
+// configuration that affects the parameter count
 #define LENSMODEL_LIST(_)                                             \
     _(LENSMODEL_PINHOLE, 4)                                           \
     _(LENSMODEL_OPENCV4, 8)                                           \
@@ -137,8 +140,8 @@ typedef struct
                                                      .do_optimize_calobject_warp        = true, \
                                                      .do_skip_regularization            = false})
 
-const char*        mrcal_lensmodel_name                 ( lensmodel_t model );
-lensmodel_t       mrcal_lensmodel_from_name            ( const char* name );
+const char*        mrcal_lensmodel_name                  ( lensmodel_t model );
+lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
 bool               mrcal_modelHasCore_fxfycxcy           ( const lensmodel_t m );
 int                mrcal_getNlensParams                  ( const lensmodel_t m );
 int                mrcal_getNintrinsicOptimizationParams ( mrcal_problem_details_t problem_details,
