@@ -96,7 +96,7 @@ calibration and sfm formulations are a little different
 
 
 
-const char* mrcal_lens_model_name( lens_model_t model )
+const char* mrcal_lensmodel_name( lensmodel_t model )
 {
     switch(model.type)
     {
@@ -108,24 +108,24 @@ const char* mrcal_lens_model_name( lens_model_t model )
     }
     return NULL;
 }
-lens_model_t mrcal_lens_model_from_name( const char* name )
+lensmodel_t mrcal_lensmodel_from_name( const char* name )
 {
 
 #warning "need to support LENSMODEL_UV here"
 
-#define CHECK_AND_RETURN(s,n) assert(n>0); if( 0 == strcmp( name, #s) ) return (lens_model_t){.type = s};
+#define CHECK_AND_RETURN(s,n) assert(n>0); if( 0 == strcmp( name, #s) ) return (lensmodel_t){.type = s};
     LENSMODEL_LIST( CHECK_AND_RETURN );
 
-    return (lens_model_t){.type = LENSMODEL_INVALID};
+    return (lensmodel_t){.type = LENSMODEL_INVALID};
 }
 
-bool mrcal_modelHasCore_fxfycxcy( const lens_model_t m )
+bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )
 {
 #warning "need to support LENSMODEL_UV here"
     return true;
 }
 
-int mrcal_getNlensParams(const lens_model_t m)
+int mrcal_getNlensParams(const lensmodel_t m)
 {
 #warning "need to support LENSMODEL_UV here"
     switch(m.type)
@@ -157,42 +157,42 @@ const char* const* mrcal_getSupportedLensModels( void )
 // for. The second part is required because all familie begin at
 // LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not well-defined
 // without more information
-lens_model_t mrcal_getNextLensModel( lens_model_t lens_model_now,
-                                     lens_model_t lens_model_final )
+lensmodel_t mrcal_getNextLensModel( lensmodel_t lensmodel_now,
+                                     lensmodel_t lensmodel_final )
 {
     // if we're at the start of a sequence...
-    if(lens_model_now.type == LENSMODEL_PINHOLE)
+    if(lensmodel_now.type == LENSMODEL_PINHOLE)
     {
-        if(LENSMODEL_IS_OPENCV(lens_model_final.type)) return (lens_model_t){.type=LENSMODEL_OPENCV4};
-        if(LENSMODEL_IS_CAHVOR(lens_model_final.type)) return (lens_model_t){.type=LENSMODEL_CAHVOR};
-        return (lens_model_t){.type=LENSMODEL_INVALID};
+        if(LENSMODEL_IS_OPENCV(lensmodel_final.type)) return (lensmodel_t){.type=LENSMODEL_OPENCV4};
+        if(LENSMODEL_IS_CAHVOR(lensmodel_final.type)) return (lensmodel_t){.type=LENSMODEL_CAHVOR};
+        return (lensmodel_t){.type=LENSMODEL_INVALID};
     }
 
     // if we're at the end of a sequence...
-    if(lens_model_now.type == lens_model_final.type)
-        return lens_model_now;
+    if(lensmodel_now.type == lensmodel_final.type)
+        return lensmodel_now;
 
     // If there is no possible sequence, barf
-    if(!LENSMODEL_IS_OPENCV(lens_model_final.type) &&
-       !LENSMODEL_IS_CAHVOR(lens_model_final.type) )
-        return (lens_model_t){.type=LENSMODEL_INVALID};
+    if(!LENSMODEL_IS_OPENCV(lensmodel_final.type) &&
+       !LENSMODEL_IS_CAHVOR(lensmodel_final.type) )
+        return (lensmodel_t){.type=LENSMODEL_INVALID};
 
     // I guess we're in the middle of a sequence
-    return (lens_model_t){.type=lens_model_now.type+1};
+    return (lensmodel_t){.type=lensmodel_now.type+1};
 }
 
 static
 int getNdistortionOptimizationParams(mrcal_problem_details_t problem_details,
-                                     lens_model_t lens_model)
+                                     lensmodel_t lensmodel)
 {
     if( !problem_details.do_optimize_intrinsic_distortions )
         return 0;
 
-    int N = mrcal_getNlensParams(lens_model);
-    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+    int N = mrcal_getNlensParams(lensmodel);
+    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
         N -= 4; // ignoring fx,fy,cx,cy
     if( !problem_details.do_optimize_cahvor_optical_axis &&
-        LENSMODEL_IS_CAHVOR(lens_model.type) )
+        LENSMODEL_IS_CAHVOR(lensmodel.type) )
     {
         // no optical axis parameters
         N -= 2;
@@ -201,19 +201,19 @@ int getNdistortionOptimizationParams(mrcal_problem_details_t problem_details,
 }
 
 int mrcal_getNintrinsicOptimizationParams(mrcal_problem_details_t problem_details,
-                                          lens_model_t lens_model)
+                                          lensmodel_t lensmodel)
 {
-    int N = getNdistortionOptimizationParams(problem_details, lens_model);
+    int N = getNdistortionOptimizationParams(problem_details, lensmodel);
 
     if( problem_details.do_optimize_intrinsic_core &&
-        mrcal_modelHasCore_fxfycxcy(lens_model) )
+        mrcal_modelHasCore_fxfycxcy(lensmodel) )
         N += 4; // fx,fy,cx,cy
     return N;
 }
 
 int mrcal_getNstate(int Ncameras, int Nframes, int Npoints,
                     mrcal_problem_details_t problem_details,
-                    lens_model_t lens_model)
+                    lensmodel_t lensmodel)
 {
     return
         // camera extrinsics
@@ -223,7 +223,7 @@ int mrcal_getNstate(int Ncameras, int Nframes, int Npoints,
         (problem_details.do_optimize_frames ? (Nframes * 6 + Npoints * 3) : 0) +
 
         // camera intrinsics
-        (Ncameras * mrcal_getNintrinsicOptimizationParams(problem_details, lens_model)) +
+        (Ncameras * mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel)) +
 
         // warp
         (problem_details.do_optimize_calobject_warp ? 2 : 0);
@@ -245,16 +245,16 @@ static int getNmeasurements_observationsonly(int NobservationsBoard,
 }
 
 static int getNregularizationTerms_percamera(mrcal_problem_details_t problem_details,
-                                             lens_model_t lens_model)
+                                             lensmodel_t lensmodel)
 {
     if(problem_details.do_skip_regularization)
         return 0;
 
 #warning "need to support LENSMODEL_UV here. Probably should just return 0"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     // distortions
-    int N = getNdistortionOptimizationParams(problem_details, lens_model);
+    int N = getNdistortionOptimizationParams(problem_details, lensmodel);
     // optical center
     if(problem_details.do_optimize_intrinsic_core)
         N += 2;
@@ -285,11 +285,11 @@ int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
 
 int mrcal_getNmeasurements_regularization(int Ncameras,
                                           mrcal_problem_details_t problem_details,
-                                          lens_model_t lens_model)
+                                          lensmodel_t lensmodel)
 {
     return
         Ncameras *
-        getNregularizationTerms_percamera(problem_details, lens_model);
+        getNregularizationTerms_percamera(problem_details, lensmodel);
 }
 
 int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
@@ -297,12 +297,12 @@ int mrcal_getNmeasurements_all(int Ncameras, int NobservationsBoard,
                                int NobservationsPoint,
                                int calibration_object_width_n,
                                mrcal_problem_details_t problem_details,
-                               lens_model_t lens_model)
+                               lensmodel_t lensmodel)
 {
     return
         mrcal_getNmeasurements_boards( NobservationsBoard, calibration_object_width_n) +
         mrcal_getNmeasurements_points( observations_point, NobservationsPoint) +
-        mrcal_getNmeasurements_regularization( Ncameras, problem_details, lens_model);
+        mrcal_getNmeasurements_regularization( Ncameras, problem_details, lensmodel);
 }
 
 int mrcal_getN_j_nonzero( int Ncameras,
@@ -311,12 +311,12 @@ int mrcal_getN_j_nonzero( int Ncameras,
                           const observation_point_t* observations_point,
                           int NobservationsPoint,
                           mrcal_problem_details_t problem_details,
-                          lens_model_t lens_model,
+                          lensmodel_t lensmodel,
                           int calibration_object_width_n)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
 
     // each observation depends on all the parameters for THAT frame and for
@@ -325,7 +325,7 @@ int mrcal_getN_j_nonzero( int Ncameras,
 
     // initial estimate counts extrinsics for camera0, which need to be
     // subtracted off
-    int Nintrinsics = mrcal_getNintrinsicOptimizationParams(problem_details, lens_model);
+    int Nintrinsics = mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
     int N = NobservationsBoard * ( (problem_details.do_optimize_frames         ? 6 : 0) +
                                    (problem_details.do_optimize_extrinsics     ? 6 : 0) +
                                    (problem_details.do_optimize_calobject_warp ? 2 : 0) +
@@ -360,7 +360,7 @@ int mrcal_getN_j_nonzero( int Ncameras,
     N +=
         Ncameras *
         getNregularizationTerms_percamera(problem_details,
-                                          lens_model);
+                                          lensmodel);
 
     return N;
 }
@@ -399,7 +399,7 @@ void project( // out
              const point2_t* restrict calobject_warp,
 
              bool camera_at_identity, // if true, camera_rt is unused
-             lens_model_t lens_model,
+             lensmodel_t lensmodel,
 
              // point index. If <0, a point at frame_rt->t is
              // assumed; frame_rt->r isn't referenced, and
@@ -411,13 +411,13 @@ void project( // out
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
 
-    int NlensParams = mrcal_getNlensParams(lens_model);
+    int NlensParams = mrcal_getNlensParams(lensmodel);
     int NdistortionParams = NlensParams;
 
-    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
         NdistortionParams -= 4; // fx,fy,cx,cy
 
     // I need to compose two transformations
@@ -498,7 +498,7 @@ void project( // out
     }
 
 
-    if( LENSMODEL_IS_OPENCV(lens_model.type) )
+    if( LENSMODEL_IS_OPENCV(lensmodel.type) )
     {
         const int Npoints =
             calibration_object_width_n ?
@@ -756,7 +756,7 @@ void project( // out
         double  _d_distortion_xyz[3*3] = {};
 
         // pt_cam is now in the camera coordinates. I can project
-        if( lens_model.type == LENSMODEL_CAHVOR )
+        if( lensmodel.type == LENSMODEL_CAHVOR )
         {
             // I perturb pt_cam, and then apply the focal length, center pixel stuff
             // normally
@@ -841,14 +841,14 @@ void project( // out
                 pt_cam.xyz[i] += mu * (pt_cam.xyz[i] - omega*o[i]);
             }
         }
-        else if( lens_model.type == LENSMODEL_PINHOLE )
+        else if( lensmodel.type == LENSMODEL_PINHOLE )
         {
         }
         else
         {
             MSG("Unhandled lens model: %d (%s)",
-                lens_model.type,
-                mrcal_lens_model_name(lens_model));
+                lensmodel.type,
+                mrcal_lensmodel_name(lensmodel));
             assert(0);
         }
 
@@ -1317,16 +1317,16 @@ bool mrcal_project( // out
                    // in
                    const point3_t* p,
                    int N,
-                   lens_model_t lens_model,
+                   lensmodel_t lensmodel,
                    // core, distortions concatenated
                    const double* intrinsics)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     // project() doesn't handle cahvore, so I special-case it here
-    if( lens_model.type == LENSMODEL_CAHVORE )
+    if( lensmodel.type == LENSMODEL_CAHVORE )
     {
         if(dq_dintrinsics != NULL || dq_dp != NULL)
         {
@@ -1336,9 +1336,9 @@ bool mrcal_project( // out
         return _project_cahvore(q, p, N, intrinsics);
     }
 
-    int Nintrinsics  = mrcal_getNlensParams(lens_model);
+    int Nintrinsics  = mrcal_getNlensParams(lensmodel);
     int Ndistortions = Nintrinsics;
-    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
         Ndistortions -= 4; // ignoring fx,fy,cx,cy
 
     // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
@@ -1346,8 +1346,8 @@ bool mrcal_project( // out
     // is very slow. I can call it once, and use its fast internal loop,
     // however. This special case does the same thing, but much faster.
     if(dq_dintrinsics == NULL && dq_dp == NULL &&
-       (LENSMODEL_IS_OPENCV(lens_model.type) ||
-        lens_model.type == LENSMODEL_PINHOLE))
+       (LENSMODEL_IS_OPENCV(lensmodel.type) ||
+        lensmodel.type == LENSMODEL_PINHOLE))
     {
         const intrinsics_core_t* intrinsics_core = (const intrinsics_core_t*)intrinsics;
         double fx = intrinsics_core->focal_xy [0];
@@ -1405,7 +1405,7 @@ bool mrcal_project( // out
                  &frame,
                  NULL,
                  true,
-                 lens_model,
+                 lensmodel,
                  0.0, 0);
         if(dq_dintrinsics != NULL)
         {
@@ -1442,13 +1442,13 @@ bool mrcal_project_z1( // out
                        // in
                        const point2_t* Vxy,
                        int N,
-                       lens_model_t lens_model,
+                       lensmodel_t lensmodel,
                        // core, distortions concatenated
                        const double* intrinsics)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     // I allocate/deallocate some temporary arrays, and use the normal
     // mrcal_project(). Would be nice to not allocate or deallocate anything
@@ -1479,7 +1479,7 @@ bool mrcal_project_z1( // out
                                  dq_dp,
                                  p,
                                  N,
-                                 lens_model,
+                                 lensmodel,
                                  intrinsics);
     if(!result)           goto done;
     if( dq_dVxy == NULL ) goto done;
@@ -1509,15 +1509,15 @@ bool _unproject( // out
                 // in
                 const point2_t* q,
                 int N,
-                lens_model_t lens_model,
+                lensmodel_t lensmodel,
                 // core, distortions concatenated
                 const double* intrinsics)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
-    if( lens_model.type == LENSMODEL_CAHVORE )
+    if( lensmodel.type == LENSMODEL_CAHVORE )
     {
         fprintf(stderr, "mrcal_unproject(LENSMODEL_CAHVORE) not yet implemented. No gradients available\n");
         return false;
@@ -1532,7 +1532,7 @@ bool _unproject( // out
     const double fy_recip_distort = 1.0 / core->focal_xy[1];
 
     // easy special-case
-    if( lens_model.type == LENSMODEL_PINHOLE )
+    if( lensmodel.type == LENSMODEL_PINHOLE )
     {
         for(int i=0; i<N; i++)
         {
@@ -1577,7 +1577,7 @@ bool _unproject( // out
                      &frame,
                      NULL,
                      true,
-                     lens_model,
+                     lensmodel,
                      0.0, 0);
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
@@ -1643,16 +1643,16 @@ bool mrcal_unproject( // out
                      // in
                      const point2_t* q,
                      int N,
-                     lens_model_t lens_model,
+                     lensmodel_t lensmodel,
                      // core, distortions concatenated
                      const double* intrinsics)
 {
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
-    return _unproject(out->xyz, false, q,N,lens_model,intrinsics);
+    return _unproject(out->xyz, false, q,N,lensmodel,intrinsics);
 }
 // Exactly the same as mrcal_unproject(), but reports 2d points, omitting the
 // redundant z=1
@@ -1662,16 +1662,16 @@ bool mrcal_unproject_z1( // out
                         // in
                         const point2_t* q,
                         int N,
-                        lens_model_t lens_model,
+                        lensmodel_t lensmodel,
                         // core, distortions concatenated
                         const double* intrinsics)
 {
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
-    return _unproject(out->xy, true, q,N,lens_model,intrinsics);
+    return _unproject(out->xy, true, q,N,lensmodel,intrinsics);
 }
 
 // The following functions define/use the layout of the state vector. In general
@@ -1698,20 +1698,20 @@ static int pack_solver_state_intrinsics( // out
 
                                          // in
                                          const double* intrinsics,
-                                         const lens_model_t lens_model,
+                                         const lensmodel_t lensmodel,
                                          mrcal_problem_details_t problem_details,
                                          int Ncameras )
 {
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     int i_state = 0;
 
-    int Nintrinsics  = mrcal_getNlensParams(lens_model);
+    int Nintrinsics  = mrcal_getNlensParams(lensmodel);
     int Ndistortions = Nintrinsics;
-    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
         Ndistortions -= 4; // ignoring fx,fy,cx,cy
 
     for(int i_camera=0; i_camera < Ncameras; i_camera++)
@@ -1728,8 +1728,8 @@ static int pack_solver_state_intrinsics( // out
         if( problem_details.do_optimize_intrinsic_distortions )
 
             for(int i = ( !problem_details.do_optimize_cahvor_optical_axis &&
-                          ( lens_model.type == LENSMODEL_CAHVOR ||
-                            lens_model.type == LENSMODEL_CAHVORE )) ? 2 : 0;
+                          ( lensmodel.type == LENSMODEL_CAHVOR ||
+                            lensmodel.type == LENSMODEL_CAHVORE )) ? 2 : 0;
                 i<Ndistortions;
                 i++)
             {
@@ -1745,7 +1745,7 @@ static void pack_solver_state( // out
 
                               // in
                               const double* intrinsics, // Ncameras of these
-                              const lens_model_t lens_model,
+                              const lensmodel_t lensmodel,
                               const pose_t*            extrinsics, // Ncameras-1 of these
                               const pose_t*            frames,     // Nframes of these
                               const point3_t*          points,     // Npoints of these
@@ -1758,12 +1758,12 @@ static void pack_solver_state( // out
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     int i_state = 0;
 
     i_state += pack_solver_state_intrinsics( p, intrinsics,
-                                             lens_model, problem_details,
+                                             lensmodel, problem_details,
                                              Ncameras );
 
     if( problem_details.do_optimize_extrinsics )
@@ -1816,19 +1816,19 @@ void mrcal_pack_solver_state_vector( // out, in
                                                 // meaningful state on output
 
                                      // in
-                                     const lens_model_t lens_model,
+                                     const lensmodel_t lensmodel,
                                      mrcal_problem_details_t problem_details,
                                      int Ncameras, int Nframes, int Npoints)
 {
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     int i_state = 0;
 
     i_state += pack_solver_state_intrinsics( p, p,
-                                             lens_model, problem_details,
+                                             lensmodel, problem_details,
                                              Ncameras );
 
     static_assert( offsetof(pose_t, r) == 0,
@@ -1882,7 +1882,7 @@ void mrcal_pack_solver_state_vector( // out, in
 
 static int unpack_solver_state_intrinsics_onecamera( // out
                                                     intrinsics_core_t* intrinsics_core,
-                                                    const lens_model_t lens_model,
+                                                    const lensmodel_t lensmodel,
                                                     double* distortions,
 
                                                     // in
@@ -1893,7 +1893,7 @@ static int unpack_solver_state_intrinsics_onecamera( // out
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     int i_state = 0;
     if( problem_details.do_optimize_intrinsic_core )
@@ -1907,8 +1907,8 @@ static int unpack_solver_state_intrinsics_onecamera( // out
     if( problem_details.do_optimize_intrinsic_distortions )
 
         for(int i = ( !problem_details.do_optimize_cahvor_optical_axis &&
-                      ( lens_model.type == LENSMODEL_CAHVOR ||
-                        lens_model.type == LENSMODEL_CAHVORE )) ? 2 : 0;
+                      ( lensmodel.type == LENSMODEL_CAHVOR ||
+                        lensmodel.type == LENSMODEL_CAHVORE )) ? 2 : 0;
             i<Nintrinsics-4;
             i++)
         {
@@ -1947,28 +1947,28 @@ static int unpack_solver_state_intrinsics( // out
 
                                            // in
                                            const double* p,
-                                           const lens_model_t lens_model,
+                                           const lensmodel_t lensmodel,
                                            mrcal_problem_details_t problem_details,
                                            int Ncameras )
 {
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     if( !problem_details.do_optimize_intrinsic_core &&
         !problem_details.do_optimize_intrinsic_distortions )
         return 0;
 
 
-    int Nintrinsics = mrcal_getNlensParams(lens_model);
+    int Nintrinsics = mrcal_getNlensParams(lensmodel);
     int i_state = 0;
-    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
         for(int i_camera=0; i_camera < Ncameras; i_camera++)
         {
             i_state +=
                 unpack_solver_state_intrinsics_onecamera( (intrinsics_core_t*)intrinsics,
-                                                          lens_model,
+                                                          lensmodel,
                                                           &intrinsics[4],
                                                           &p[i_state], Nintrinsics, problem_details );
             intrinsics = &intrinsics[Nintrinsics];
@@ -1978,7 +1978,7 @@ static int unpack_solver_state_intrinsics( // out
         {
             i_state +=
                 unpack_solver_state_intrinsics_onecamera( NULL,
-                                                          lens_model,
+                                                          lensmodel,
                                                           intrinsics,
                                                           &p[i_state], Nintrinsics, problem_details );
             intrinsics = &intrinsics[Nintrinsics];
@@ -2057,7 +2057,7 @@ static void unpack_solver_state( // out
 
                                  // in
                                  const double* p,
-                                 const lens_model_t lens_model,
+                                 const lensmodel_t lensmodel,
                                  mrcal_problem_details_t problem_details,
                                  int Ncameras, int Nframes, int Npoints,
 
@@ -2065,10 +2065,10 @@ static void unpack_solver_state( // out
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     int i_state = unpack_solver_state_intrinsics(intrinsics,
-                                                 p, lens_model, problem_details, Ncameras);
+                                                 p, lensmodel, problem_details, Ncameras);
 
     if( problem_details.do_optimize_extrinsics )
         for(int i_camera=1; i_camera < Ncameras; i_camera++)
@@ -2094,17 +2094,17 @@ void mrcal_unpack_solver_state_vector( // out, in
                                                   // output
 
                                        // in
-                                       const lens_model_t lens_model,
+                                       const lensmodel_t lensmodel,
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras, int Nframes, int Npoints)
 {
 
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     int i_state = unpack_solver_state_intrinsics(p,
-                                                 p, lens_model, problem_details, Ncameras);
+                                                 p, lensmodel, problem_details, Ncameras);
 
     if( problem_details.do_optimize_extrinsics )
     {
@@ -2136,65 +2136,65 @@ void mrcal_unpack_solver_state_vector( // out, in
 
 int mrcal_state_index_intrinsic_core(int i_camera,
                                      mrcal_problem_details_t problem_details,
-                                     lens_model_t lens_model)
+                                     lensmodel_t lensmodel)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
-    return i_camera * mrcal_getNintrinsicOptimizationParams(problem_details, lens_model);
+    return i_camera * mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
 }
 int mrcal_state_index_intrinsic_distortions(int i_camera,
                                             mrcal_problem_details_t problem_details,
-                                            lens_model_t lens_model)
+                                            lensmodel_t lensmodel)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     int i =
-        i_camera * mrcal_getNintrinsicOptimizationParams(problem_details, lens_model);
+        i_camera * mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
     if( problem_details.do_optimize_intrinsic_core )
         i += 4;
     return i;
 }
 int mrcal_state_index_camera_rt(int i_camera, int Ncameras,
                                 mrcal_problem_details_t problem_details,
-                                lens_model_t lens_model)
+                                lensmodel_t lensmodel)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     // returns a bogus value if i_camera==0. This camera has no state, and is
     // assumed to be at identity. The caller must know to not use the return
     // value in that case
-    int i = mrcal_getNintrinsicOptimizationParams(problem_details, lens_model)*Ncameras;
+    int i = mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel)*Ncameras;
     return i + (i_camera-1)*6;
 }
 int mrcal_state_index_frame_rt(int i_frame, int Ncameras,
                                mrcal_problem_details_t problem_details,
-                               lens_model_t lens_model)
+                               lensmodel_t lensmodel)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     return
-        Ncameras * mrcal_getNintrinsicOptimizationParams(problem_details, lens_model) +
+        Ncameras * mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel) +
         (problem_details.do_optimize_extrinsics ? ((Ncameras-1) * 6) : 0) +
         i_frame * 6;
 }
 int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
                             mrcal_problem_details_t problem_details,
-                            lens_model_t lens_model)
+                            lensmodel_t lensmodel)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     return
-        Ncameras * mrcal_getNintrinsicOptimizationParams(problem_details, lens_model) +
+        Ncameras * mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel) +
         (problem_details.do_optimize_extrinsics ? ((Ncameras-1) * 6) : 0) +
         (Nframes * 6) +
         i_point*3;
@@ -2202,15 +2202,15 @@ int mrcal_state_index_point(int i_point, int Nframes, int Ncameras,
 int mrcal_state_index_calobject_warp(int Npoints,
                                      int Nframes, int Ncameras,
                                      mrcal_problem_details_t problem_details,
-                                     lens_model_t lens_model)
+                                     lensmodel_t lensmodel)
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     return mrcal_state_index_point(Npoints, Nframes,  Ncameras,
                                    problem_details,
-                                   lens_model);
+                                   lensmodel);
 }
 
 // This function is part of sensitivity analysis to quantify how much errors in
@@ -2244,7 +2244,7 @@ static bool computeUncertaintyMatrices(// out
 
                                        // in
                                        double observed_pixel_uncertainty,
-                                       lens_model_t lens_model,
+                                       lensmodel_t lensmodel,
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras,
                                        int NobservationsBoard,
@@ -2256,7 +2256,7 @@ static bool computeUncertaintyMatrices(// out
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     // for reading cholmod_sparse
 #define P(A, index) ((unsigned int*)((A)->p))[index]
@@ -2268,9 +2268,9 @@ static bool computeUncertaintyMatrices(// out
 
     //Nintrinsics_per_camera_state can be < Nintrinsics_per_camera_all, if we're
     //locking down some variables with problem_details
-    int Nintrinsics_per_camera_all = mrcal_getNlensParams(lens_model);
+    int Nintrinsics_per_camera_all = mrcal_getNlensParams(lensmodel);
     int Nintrinsics_per_camera_state =
-        mrcal_getNintrinsicOptimizationParams(problem_details, lens_model);
+        mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
     int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
                                                                NobservationsPoint,
                                                                calibration_object_width_n);
@@ -2408,7 +2408,7 @@ static bool computeUncertaintyMatrices(// out
                     // data)
                     for(int icol=0; icol<Ncols; icol++)
                         unpack_solver_state_intrinsics_onecamera( (intrinsics_core_t*)&invJtJ[icol*Nintrinsics_per_camera_state],
-                                                                  lens_model,
+                                                                  lensmodel,
                                                                   &invJtJ[icol*Nintrinsics_per_camera_state + 4],
 
                                                                   &((double*)(M->x))[icol*M->nrow + istate0],
@@ -2443,10 +2443,10 @@ static bool computeUncertaintyMatrices(// out
     {
         int istate_intrinsics0 = mrcal_state_index_intrinsic_core(0,
                                                                   problem_details,
-                                                                  lens_model);
+                                                                  lensmodel);
         int istate_extrinsics0 = mrcal_state_index_camera_rt(1, Ncameras,
                                                              problem_details,
-                                                             lens_model);
+                                                             lensmodel);
 
         for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
         {
@@ -2495,7 +2495,7 @@ static bool computeUncertaintyMatrices(// out
                 // The M I have here is a unitless, scaled M*. I need to scale it to get
                 // M. See comment above.
                 mrcal_unpack_solver_state_vector( &((double*)(M->x))[icol*M->nrow],
-                                                  lens_model,
+                                                  lensmodel,
                                                   problem_details,
                                                   Ncameras, Nframes, Npoints);
 
@@ -2735,7 +2735,7 @@ typedef struct
 
     bool verbose;
 
-    lens_model_t lens_model;
+    lensmodel_t lensmodel;
     const int* imagersizes; // Ncameras*2 of these
 
     mrcal_problem_details_t problem_details;
@@ -2808,8 +2808,8 @@ void optimizerCallback(// input state
 
     int NlockedLeadingDistortions =
         ( !ctx->problem_details.do_optimize_cahvor_optical_axis &&
-          ( ctx->lens_model.type == LENSMODEL_CAHVOR ||
-            ctx->lens_model.type == LENSMODEL_CAHVORE )) ? 2 : 0;
+          ( ctx->lensmodel.type == LENSMODEL_CAHVOR ||
+            ctx->lensmodel.type == LENSMODEL_CAHVORE )) ? 2 : 0;
 
     // If I'm locking down some parameters, then the state vector contains a
     // subset of my data. I reconstitute the intrinsics and extrinsics here.
@@ -2820,7 +2820,7 @@ void optimizerCallback(// input state
     pose_t camera_rt[ctx->Ncameras];
 
     point2_t calobject_warp_local = {};
-    const int i_var_calobject_warp = mrcal_state_index_calobject_warp(ctx->Npoints, ctx->Nframes, ctx->Ncameras, ctx->problem_details, ctx->lens_model);
+    const int i_var_calobject_warp = mrcal_state_index_calobject_warp(ctx->Npoints, ctx->Nframes, ctx->Ncameras, ctx->problem_details, ctx->lensmodel);
     if(ctx->problem_details.do_optimize_calobject_warp)
         unpack_solver_state_calobject_warp(&calobject_warp_local, &packed_state[i_var_calobject_warp]);
     else if(ctx->calobject_warp != NULL)
@@ -2829,11 +2829,11 @@ void optimizerCallback(// input state
     for(int i_camera=0; i_camera<ctx->Ncameras; i_camera++)
     {
         // First I pull in the chunks from the optimization vector
-        const int i_var_intrinsic_core         = mrcal_state_index_intrinsic_core        (i_camera,           ctx->problem_details, ctx->lens_model);
-        const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           ctx->problem_details, ctx->lens_model);
-        const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, ctx->Ncameras, ctx->problem_details, ctx->lens_model);
+        const int i_var_intrinsic_core         = mrcal_state_index_intrinsic_core        (i_camera,           ctx->problem_details, ctx->lensmodel);
+        const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           ctx->problem_details, ctx->lensmodel);
+        const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, ctx->Ncameras, ctx->problem_details, ctx->lensmodel);
         unpack_solver_state_intrinsics_onecamera(&intrinsic_core_all[i_camera],
-                                                 ctx->lens_model,
+                                                 ctx->lensmodel,
                                                  distortions_all[i_camera],
                                                  &packed_state[ i_var_intrinsic_core ],
                                                  ctx->Nintrinsics,
@@ -2849,8 +2849,8 @@ void optimizerCallback(// input state
                     &ctx->intrinsics[ctx->Nintrinsics*i_camera + 4],
                     (ctx->Nintrinsics-4)*sizeof(double) );
         else if( !ctx->problem_details.do_optimize_cahvor_optical_axis &&
-                 ( ctx->lens_model.type == LENSMODEL_CAHVOR ||
-                   ctx->lens_model.type == LENSMODEL_CAHVORE ) )
+                 ( ctx->lensmodel.type == LENSMODEL_CAHVOR ||
+                   ctx->lensmodel.type == LENSMODEL_CAHVORE ) )
         {
             // We're optimizing distortions, just not those particular
             // cahvor components
@@ -2879,7 +2879,7 @@ void optimizerCallback(// input state
 
 
         // Some of these are bogus if problem_details says they're inactive
-        const int i_var_frame_rt = mrcal_state_index_frame_rt  (i_frame,  ctx->Ncameras, ctx->problem_details, ctx->lens_model);
+        const int i_var_frame_rt = mrcal_state_index_frame_rt  (i_frame,  ctx->Ncameras, ctx->problem_details, ctx->lensmodel);
 
         pose_t frame_rt;
         if(ctx->problem_details.do_optimize_frames)
@@ -2887,9 +2887,9 @@ void optimizerCallback(// input state
         else
             memcpy(&frame_rt, &ctx->frames[i_frame], sizeof(pose_t));
 
-        const int i_var_intrinsic_core         = mrcal_state_index_intrinsic_core        (i_camera,           ctx->problem_details, ctx->lens_model);
-        const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           ctx->problem_details, ctx->lens_model);
-        const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, ctx->Ncameras, ctx->problem_details, ctx->lens_model);
+        const int i_var_intrinsic_core         = mrcal_state_index_intrinsic_core        (i_camera,           ctx->problem_details, ctx->lensmodel);
+        const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           ctx->problem_details, ctx->lensmodel);
+        const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, ctx->Ncameras, ctx->problem_details, ctx->lensmodel);
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
@@ -2920,7 +2920,7 @@ void optimizerCallback(// input state
                 &camera_rt[i_camera-1], &frame_rt,
                 ctx->calobject_warp == NULL ? NULL : &calobject_warp_local,
                 i_camera == 0,
-                ctx->lens_model,
+                ctx->lensmodel,
                 ctx->calibration_object_spacing,
                 ctx->calibration_object_width_n);
 
@@ -3105,11 +3105,11 @@ void optimizerCallback(// input state
         double weight = region_of_interest_weight(pt_observed, ctx->roi, i_camera);
         weight *= pt_observed->z;
 
-        const int i_var_intrinsic_core         = mrcal_state_index_intrinsic_core        (i_camera,           ctx->problem_details, ctx->lens_model);
-        const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           ctx->problem_details, ctx->lens_model);
-        const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, ctx->Ncameras, ctx->problem_details, ctx->lens_model);
+        const int i_var_intrinsic_core         = mrcal_state_index_intrinsic_core        (i_camera,           ctx->problem_details, ctx->lensmodel);
+        const int i_var_intrinsic_distortions  = mrcal_state_index_intrinsic_distortions (i_camera,           ctx->problem_details, ctx->lensmodel);
+        const int i_var_camera_rt              = mrcal_state_index_camera_rt             (i_camera, ctx->Ncameras, ctx->problem_details, ctx->lensmodel);
 
-        const int i_var_point                  = mrcal_state_index_point                 (i_point,  ctx->Nframes, ctx->Ncameras, ctx->problem_details, ctx->lens_model);
+        const int i_var_point                  = mrcal_state_index_point                 (i_point,  ctx->Nframes, ctx->Ncameras, ctx->problem_details, ctx->lensmodel);
         point3_t point;
 
         if(ctx->problem_details.do_optimize_frames)
@@ -3168,7 +3168,7 @@ void optimizerCallback(// input state
                 NULL,
 
                 i_camera == 0,
-                ctx->lens_model,
+                ctx->lensmodel,
                 0,0);
 #pragma GCC diagnostic pop
 
@@ -3524,7 +3524,7 @@ void optimizerCallback(// input state
             if( ctx->problem_details.do_optimize_intrinsic_distortions)
             {
                 const int i_var_intrinsic_distortions =
-                    mrcal_state_index_intrinsic_distortions(i_camera, ctx->problem_details, ctx->lens_model);
+                    mrcal_state_index_intrinsic_distortions(i_camera, ctx->problem_details, ctx->lensmodel);
 
                 for(int j=NlockedLeadingDistortions; j<ctx->Nintrinsics-4; j++)
                 {
@@ -3536,8 +3536,8 @@ void optimizerCallback(// input state
                     // different ways. Specific logic follows
                     double scale = scale_regularization_distortion;
 
-                    if( LENSMODEL_IS_OPENCV(ctx->lens_model.type) &&
-                        ctx->lens_model.type >= LENSMODEL_OPENCV8 &&
+                    if( LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
+                        ctx->lensmodel.type >= LENSMODEL_OPENCV8 &&
                         5 <= j && j <= 7 )
                     {
                         // The radial distortion in opencv is x_distorted =
@@ -3587,7 +3587,7 @@ void optimizerCallback(// input state
                 const int i_var_intrinsic_core =
                     mrcal_state_index_intrinsic_core(i_camera,
                                                      ctx->problem_details,
-                                                     ctx->lens_model);
+                                                     ctx->lensmodel);
 
                 double cx_target = 0.5 * (double)(ctx->imagersizes[i_camera*2 + 0] - 1);
                 double cy_target = 0.5 * (double)(ctx->imagersizes[i_camera*2 + 1] - 1);
@@ -3637,7 +3637,7 @@ void mrcal_optimizerCallback(// output measurements
                              // in
                              // intrinsics is a concatenation of the intrinsics core
                              // and the distortion params. The specific distortion
-                             // parameters may vary, depending on lens_model, so
+                             // parameters may vary, depending on lensmodel, so
                              // this is a variable-length structure
                              const double*       intrinsics, // Ncameras * NlensParams
                              const pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
@@ -3658,7 +3658,7 @@ void mrcal_optimizerCallback(// output measurements
                              const double* roi,
                              bool verbose,
 
-                             lens_model_t lens_model,
+                             lensmodel_t lensmodel,
                              const int* imagersizes, // Ncameras*2 of these
 
                              mrcal_problem_details_t problem_details,
@@ -3670,7 +3670,7 @@ void mrcal_optimizerCallback(// output measurements
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
     {
@@ -3715,7 +3715,7 @@ void mrcal_optimizerCallback(// output measurements
         .observations_point         = observations_point,
         .NobservationsPoint         = NobservationsPoint,
         .verbose                    = verbose,
-        .lens_model                 = lens_model,
+        .lensmodel                 = lensmodel,
         .imagersizes                = imagersizes,
         .problem_details            = problem_details,
         .calibration_object_spacing = calibration_object_spacing,
@@ -3728,11 +3728,11 @@ void mrcal_optimizerCallback(// output measurements
 
     const int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
                                        problem_details,
-                                       lens_model);
+                                       lensmodel);
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       intrinsics,
-                      lens_model,
+                      lensmodel,
                       extrinsics,
                       frames,
                       points,
@@ -3781,7 +3781,7 @@ mrcal_optimize( // out
                 //
                 // intrinsics is a concatenation of the intrinsics core
                 // and the distortion params. The specific distortion
-                // parameters may vary, depending on lens_model, so
+                // parameters may vary, depending on lensmodel, so
                 // this is a variable-length structure
                 double*       intrinsics, // Ncameras * NlensParams of these
                 pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
@@ -3809,7 +3809,7 @@ mrcal_optimize( // out
                 // the outlier_indices_input, which are respected regardless
                 const bool skip_outlier_rejection,
 
-                lens_model_t lens_model,
+                lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras*2 of these
 
@@ -3820,7 +3820,7 @@ mrcal_optimize( // out
 {
 
 #warning "need to support LENSMODEL_UV here"
-    assert(lens_model.type != LENSMODEL_UV);
+    assert(lensmodel.type != LENSMODEL_UV);
 
     if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
     {
@@ -3881,7 +3881,7 @@ mrcal_optimize( // out
         .observations_point         = observations_point,
         .NobservationsPoint         = NobservationsPoint,
         .verbose                    = verbose,
-        .lens_model                 = lens_model,
+        .lensmodel                 = lensmodel,
         .imagersizes                = imagersizes,
         .problem_details            = problem_details,
         .calibration_object_spacing = calibration_object_spacing,
@@ -3891,14 +3891,14 @@ mrcal_optimize( // out
                                                                  observations_point, NobservationsPoint,
                                                                  calibration_object_width_n,
                                                                  problem_details,
-                                                                 lens_model),
+                                                                 lensmodel),
         .N_j_nonzero                = mrcal_getN_j_nonzero(Ncameras,
                                                            observations_board, NobservationsBoard,
                                                            observations_point, NobservationsPoint,
                                                            problem_details,
-                                                           lens_model,
+                                                           lensmodel,
                                                            calibration_object_width_n),
-        .Nintrinsics                = mrcal_getNlensParams(lens_model),
+        .Nintrinsics                = mrcal_getNlensParams(lensmodel),
 
         .markedOutliers = markedOutliers};
 
@@ -3912,11 +3912,11 @@ mrcal_optimize( // out
 
     const int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
                                        problem_details,
-                                       lens_model);
+                                       lensmodel);
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       intrinsics,
-                      lens_model,
+                      lensmodel,
                       extrinsics,
                       frames,
                       points,
@@ -3990,7 +3990,7 @@ mrcal_optimize( // out
                              points,     // Npoints of these
                              calobject_warp,
                              packed_state,
-                             lens_model,
+                             lensmodel,
                              problem_details,
                              Ncameras, Nframes, Npoints, Nstate);
         if(verbose)
@@ -4015,7 +4015,7 @@ mrcal_optimize( // out
             double norm2_err_regularization = 0;
             int    Nmeasurements_regularization =
                 Ncameras*getNregularizationTerms_percamera(problem_details,
-                                                           lens_model);
+                                                           lensmodel);
 
             for(int i=0; i<Nmeasurements_regularization; i++)
             {
@@ -4056,7 +4056,7 @@ mrcal_optimize( // out
         covariance_intrinsics ||
         covariance_extrinsics )
     {
-        int Nintrinsics_per_camera = mrcal_getNlensParams(lens_model);
+        int Nintrinsics_per_camera = mrcal_getNlensParams(lensmodel);
         bool result =
             computeUncertaintyMatrices(// out
                                        // dimensions (Ncameras,Nintrinsics_per_camera,Nintrinsics_per_camera)
@@ -4067,7 +4067,7 @@ mrcal_optimize( // out
                                        observed_pixel_uncertainty,
 
                                        // in
-                                       lens_model,
+                                       lensmodel,
                                        problem_details,
                                        Ncameras,
                                        NobservationsBoard,

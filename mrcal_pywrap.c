@@ -113,7 +113,7 @@ typedef struct {
     PyObject_HEAD
     dogleg_solverContext_t* ctx;
 
-    lens_model_t lens_model;
+    lensmodel_t lensmodel;
     mrcal_problem_details_t problem_details;
 
     int Ncameras, Nframes, Npoints;
@@ -139,7 +139,7 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "do_optimize_intrinsic_core:        %d\n"
                                "do_optimize_intrinsic_distortions: %d\n"
                                "do_optimize_cahvor_optical_axis:   %d\n",
-                               mrcal_lens_model_name(self->lens_model),
+                               mrcal_lensmodel_name(self->lensmodel),
                                self->Ncameras, self->Nframes, self->Npoints,
                                self->NobservationsBoard,
                                self->calibration_object_width_n,
@@ -293,7 +293,7 @@ static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
     result = Py_BuildValue("i",
                            mrcal_state_index_intrinsic_core(i_camera,
                                                             self->problem_details,
-                                                            self->lens_model));
+                                                            self->lensmodel));
  done:
     return result;
 }
@@ -318,7 +318,7 @@ static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* 
     result = Py_BuildValue("i",
                            mrcal_state_index_intrinsic_distortions(i_camera,
                                                                    self->problem_details,
-                                                                   self->lens_model));
+                                                                   self->lensmodel));
  done:
     return result;
 }
@@ -344,7 +344,7 @@ static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
                            mrcal_state_index_camera_rt(i_camera,
                                                        self->Ncameras,
                                                        self->problem_details,
-                                                       self->lens_model));
+                                                       self->lensmodel));
  done:
     return result;
 }
@@ -370,7 +370,7 @@ static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
                            mrcal_state_index_frame_rt(i_frame,
                                                       self->Ncameras,
                                                       self->problem_details,
-                                                      self->lens_model));
+                                                      self->lensmodel));
  done:
     return result;
 }
@@ -396,7 +396,7 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
                            mrcal_state_index_point(i_point,
                                                    self->Nframes, self->Ncameras,
                                                    self->problem_details,
-                                                   self->lens_model));
+                                                   self->lensmodel));
  done:
     return result;
 }
@@ -413,7 +413,7 @@ static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
                          mrcal_state_index_calobject_warp(self->Npoints,
                                                           self->Nframes, self->Ncameras,
                                                           self->problem_details,
-                                                          self->lens_model));
+                                                          self->lensmodel));
 }
 
 static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
@@ -428,7 +428,7 @@ static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
     int Nmeasurements_regularization =
         mrcal_getNmeasurements_regularization(self->Ncameras,
                                               self->problem_details,
-                                              self->lens_model);
+                                              self->lensmodel);
     int Nmeasurements_boards =
         mrcal_getNmeasurements_boards( self->NobservationsBoard,
                                        self->calibration_object_width_n);
@@ -504,7 +504,7 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
         for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
         {
             mrcal_pack_solver_state_vector( x,
-                                            self->lens_model, self->problem_details,
+                                            self->lensmodel, self->problem_details,
                                             self->Ncameras, self->Nframes, self->Npoints );
             x = &x[Nstate];
         }
@@ -512,7 +512,7 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
         for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
         {
             mrcal_unpack_solver_state_vector( x,
-                                              self->lens_model, self->problem_details,
+                                              self->lensmodel, self->problem_details,
                                               self->Ncameras, self->Nframes, self->Npoints );
             x = &x[Nstate];
         }
@@ -611,13 +611,13 @@ static PyObject* modelHasCore_fxfycxcy(PyObject* NPY_UNUSED(self),
     PyObject* result = NULL;
     SET_SIGINT();
 
-    PyObject* lens_model_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lens_model_string ))
+    PyObject* lensmodel_string = NULL;
+    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
         goto done;
 
-    const char* lens_model_cstring =
-        PyString_AsString(lens_model_string);
-    if( lens_model_cstring == NULL)
+    const char* lensmodel_cstring =
+        PyString_AsString(lensmodel_string);
+    if( lensmodel_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "Camera model was not passed in. Must be a string, one of ("
                         LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
@@ -625,17 +625,17 @@ static PyObject* modelHasCore_fxfycxcy(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    lens_model_t lens_model = mrcal_lens_model_from_name(lens_model_cstring);
-    if( lens_model.type == LENSMODEL_INVALID )
+    lensmodel_t lensmodel = mrcal_lensmodel_from_name(lensmodel_cstring);
+    if( lensmodel.type == LENSMODEL_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
                      LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     lens_model_cstring);
+                     lensmodel_cstring);
         goto done;
     }
 
-    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
         result = Py_True;
     else
         result = Py_False;
@@ -652,13 +652,13 @@ static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
     PyObject* result = NULL;
     SET_SIGINT();
 
-    PyObject* lens_model_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lens_model_string ))
+    PyObject* lensmodel_string = NULL;
+    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
         goto done;
 
-    const char* lens_model_cstring =
-        PyString_AsString(lens_model_string);
-    if( lens_model_cstring == NULL)
+    const char* lensmodel_cstring =
+        PyString_AsString(lensmodel_string);
+    if( lensmodel_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "Camera model was not passed in. Must be a string, one of ("
                         LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
@@ -666,17 +666,17 @@ static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    lens_model_t lens_model = mrcal_lens_model_from_name(lens_model_cstring);
-    if( lens_model.type == LENSMODEL_INVALID )
+    lensmodel_t lensmodel = mrcal_lensmodel_from_name(lensmodel_cstring);
+    if( lensmodel.type == LENSMODEL_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
                      LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     lens_model_cstring);
+                     lensmodel_cstring);
         goto done;
     }
 
-    int Nparams = mrcal_getNlensParams(lens_model);
+    int Nparams = mrcal_getNlensParams(lensmodel);
 
     result = Py_BuildValue("i", Nparams);
 
@@ -728,59 +728,59 @@ static PyObject* getNextLensModel(PyObject* NPY_UNUSED(self),
     PyObject* result = NULL;
     SET_SIGINT();
 
-    PyObject* lens_model_now_string   = NULL;
-    PyObject* lens_model_final_string = NULL;
+    PyObject* lensmodel_now_string   = NULL;
+    PyObject* lensmodel_final_string = NULL;
     if(!PyArg_ParseTuple( args, STRING_OBJECT STRING_OBJECT,
-                          &lens_model_now_string,
-                          &lens_model_final_string))
+                          &lensmodel_now_string,
+                          &lensmodel_final_string))
         goto done;
 
-    const char* lens_model_now_cstring = PyString_AsString(lens_model_now_string);
-    if( lens_model_now_cstring == NULL)
+    const char* lensmodel_now_cstring = PyString_AsString(lensmodel_now_string);
+    if( lensmodel_now_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "lens_model_now was not passed in. Must be a string, one of ("
+        PyErr_SetString(PyExc_RuntimeError, "lensmodel_now was not passed in. Must be a string, one of ("
                         LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
         goto done;
     }
-    const char* lens_model_final_cstring = PyString_AsString(lens_model_final_string);
-    if( lens_model_final_cstring == NULL)
+    const char* lensmodel_final_cstring = PyString_AsString(lensmodel_final_string);
+    if( lensmodel_final_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "lens_model_final was not passed in. Must be a string, one of ("
+        PyErr_SetString(PyExc_RuntimeError, "lensmodel_final was not passed in. Must be a string, one of ("
                         LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                         ")");
         goto done;
     }
 
-    lens_model_t lens_model_now = mrcal_lens_model_from_name(lens_model_now_cstring);
-    if( lens_model_now.type == LENSMODEL_INVALID )
+    lensmodel_t lensmodel_now = mrcal_lensmodel_from_name(lensmodel_now_cstring);
+    if( lensmodel_now.type == LENSMODEL_INVALID )
     {
-        PyErr_Format(PyExc_RuntimeError, "Invalid lens_model_now was passed in: '%s'. Must be a string, one of ("
+        PyErr_Format(PyExc_RuntimeError, "Invalid lensmodel_now was passed in: '%s'. Must be a string, one of ("
                      LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     lens_model_now_cstring);
+                     lensmodel_now_cstring);
         goto done;
     }
-    lens_model_t lens_model_final = mrcal_lens_model_from_name(lens_model_final_cstring);
-    if( lens_model_final.type == LENSMODEL_INVALID )
+    lensmodel_t lensmodel_final = mrcal_lensmodel_from_name(lensmodel_final_cstring);
+    if( lensmodel_final.type == LENSMODEL_INVALID )
     {
-        PyErr_Format(PyExc_RuntimeError, "Invalid lens_model_final was passed in: '%s'. Must be a string, one of ("
+        PyErr_Format(PyExc_RuntimeError, "Invalid lensmodel_final was passed in: '%s'. Must be a string, one of ("
                      LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     lens_model_final_cstring);
+                     lensmodel_final_cstring);
         goto done;
     }
 
-    lens_model_t lens_model =
-        mrcal_getNextLensModel(lens_model_now, lens_model_final);
-    if(lens_model.type == LENSMODEL_INVALID)
+    lensmodel_t lensmodel =
+        mrcal_getNextLensModel(lensmodel_now, lensmodel_final);
+    if(lensmodel.type == LENSMODEL_INVALID)
     {
         PyErr_Format(PyExc_RuntimeError, "Couldn't figure out the 'next' lens model from '%s' to '%s'",
-                     lens_model_now_cstring, lens_model_final_cstring);
+                     lensmodel_now_cstring, lensmodel_final_cstring);
         goto done;
     }
 
-    result = Py_BuildValue("s", mrcal_lens_model_name(lens_model));
+    result = Py_BuildValue("s", mrcal_lensmodel_name(lensmodel));
 
  done:
     RESET_SIGINT();
@@ -807,7 +807,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 
 #define PROJECT_ARGUMENTS_REQUIRED(_)                                   \
     _(points,     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
-    _(lens_model, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
+    _(lensmodel, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
     _(intrinsics, PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define PROJECT_ARGUMENTS_OPTIONAL(_) \
@@ -815,7 +815,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(z1,               PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
 
 static bool _un_project_validate_args( // out
-                                      lens_model_t* lens_model_type,
+                                      lensmodel_t* lensmodel_type,
 
                                       // in
                                       int dim_points_in, // 3 for project(), 2 for unproject()
@@ -848,8 +848,8 @@ static bool _un_project_validate_args( // out
     PROJECT_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
 
-    const char* lens_model_cstring = PyString_AsString(lens_model);
-    if( lens_model_cstring == NULL)
+    const char* lensmodel_cstring = PyString_AsString(lensmodel);
+    if( lensmodel_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "Camera model was not passed in. Must be a string, one of ("
                         LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
@@ -857,17 +857,17 @@ static bool _un_project_validate_args( // out
         return false;
     }
 
-    *lens_model_type = mrcal_lens_model_from_name(lens_model_cstring);
-    if( lens_model_type->type == LENSMODEL_INVALID )
+    *lensmodel_type = mrcal_lensmodel_from_name(lensmodel_cstring);
+    if( lensmodel_type->type == LENSMODEL_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
                      LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     lens_model_cstring);
+                     lensmodel_cstring);
         return false;
     }
 
-    int NlensParams = mrcal_getNlensParams(*lens_model_type);
+    int NlensParams = mrcal_getNlensParams(*lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[0] )
     {
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[0] MUST be %d. Instead got %ld",
@@ -911,8 +911,8 @@ static bool _un_project_validate_args( // out
         goto done;                                                      \
     }                                                                   \
                                                                         \
-    lens_model_t lens_model_type;                           \
-    if(!_un_project_validate_args( &lens_model_type,              \
+    lensmodel_t lensmodel_type;                           \
+    if(!_un_project_validate_args( &lensmodel_type,              \
                                    IS_TRUE(z1) ? dim_points_in_z1 : dim_points_in_notz1, \
                                    ARGUMENTS_REQUIRED(ARG_LIST_CALL)    \
                                    ARGUMENTS_OPTIONAL_VALIDATE(ARG_LIST_CALL) \
@@ -983,7 +983,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
                              (const point2_t*)PyArray_DATA(points),
                              Npoints,
-                             lens_model_type,
+                             lensmodel_type,
                              // core, distortions concatenated
                              (const double*)PyArray_DATA(intrinsics));
     else
@@ -994,7 +994,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
                           (const point3_t*)PyArray_DATA(points),
                           Npoints,
-                          lens_model_type,
+                          lensmodel_type,
                           // core, distortions concatenated
                           (const double*)PyArray_DATA(intrinsics));
 
@@ -1045,7 +1045,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
                                (const point2_t*)PyArray_DATA(points),
                                Npoints,
-                               lens_model_type,
+                               lensmodel_type,
                                /* core, distortions concatenated */
                                (const double*)PyArray_DATA(intrinsics));
     else
@@ -1054,7 +1054,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
                             (const point2_t*)PyArray_DATA(points),
                             Npoints,
-                            lens_model_type,
+                            lensmodel_type,
                             /* core, distortions concatenated */
                             (const double*)PyArray_DATA(intrinsics));
     if(!mrcal_result)
@@ -1080,7 +1080,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
     _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camera_board,  NPY_INT,    {-1 COMMA  2       } ) \
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  4       } ) \
     _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camera_points, NPY_INT,    {-1 COMMA  2       } ) \
-    _(lens_model,                         PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
+    _(lensmodel,                         PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
@@ -1117,7 +1117,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
 // Using this for both optimize() and optimizerCallback()
 static bool optimize_validate_args( // out
-                                    lens_model_t* lens_model_type,
+                                    lensmodel_t* lensmodel_type,
 
                                     // in
                                     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
@@ -1210,9 +1210,9 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    const char* lens_model_cstring =
-        PyString_AsString(lens_model);
-    if( lens_model_cstring == NULL)
+    const char* lensmodel_cstring =
+        PyString_AsString(lensmodel);
+    if( lensmodel_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "Lens model was not passed in. Must be a string, one of ("
                         LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
@@ -1220,18 +1220,18 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    *lens_model_type = mrcal_lens_model_from_name(lens_model_cstring);
-    if( lens_model_type->type == LENSMODEL_INVALID )
+    *lensmodel_type = mrcal_lensmodel_from_name(lensmodel_cstring);
+    if( lensmodel_type->type == LENSMODEL_INVALID )
     {
         PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
                      LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                      ")",
-                     lens_model_cstring);
+                     lensmodel_cstring);
         return false;
     }
 
 
-    int NlensParams = mrcal_getNlensParams(*lens_model_type);
+    int NlensParams = mrcal_getNlensParams(*lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[1] )
     {
         PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
@@ -1506,10 +1506,10 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
 
 
-    lens_model_t lens_model_type;
+    lensmodel_t lensmodel_type;
     // Check the arguments for optimize(). If optimizerCallback, then the other
     // stuff is defined, but it all has valid, default values
-    if( !optimize_validate_args(&lens_model_type,
+    if( !optimize_validate_args(&lensmodel_type,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
                                 NULL))
@@ -1707,9 +1707,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                        c_observations_point, NobservationsPoint,
                                                        calibration_object_width_n,
                                                        problem_details,
-                                                       lens_model_type);
+                                                       lensmodel_type);
 
-        int Nintrinsics_all = mrcal_getNlensParams(lens_model_type);
+        int Nintrinsics_all = mrcal_getNlensParams(lensmodel_type);
 
         double* c_covariance_intrinsics_full  = NULL;
         double* c_covariance_intrinsics       = NULL;
@@ -1762,7 +1762,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         if(!IS_NULL(solver_context))
         {
             solver_context_optimizer                   = &solver_context->ctx;
-            solver_context->lens_model                 = lens_model_type;
+            solver_context->lensmodel                 = lensmodel_type;
             solver_context->problem_details            = problem_details;
             solver_context->Ncameras                   = Ncameras;
             solver_context->Nframes                    = Nframes;
@@ -1815,7 +1815,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_roi,
                                 verbose &&                PyObject_IsTrue(verbose),
                                 skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
-                                lens_model_type,
+                                lensmodel_type,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,
                                 problem_details,
@@ -1927,12 +1927,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                    c_observations_board, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
                                                    problem_details,
-                                                   lens_model_type,
+                                                   lensmodel_type,
                                                    calibration_object_width_n);
-            int Nintrinsics = mrcal_getNlensParams(lens_model_type);
+            int Nintrinsics = mrcal_getNlensParams(lensmodel_type);
 
             int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
-                                         problem_details, lens_model_type);
+                                         problem_details, lensmodel_type);
 
             PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
             PyArrayObject* I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
@@ -1972,7 +1972,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                      c_outlier_indices,
                                      c_roi,
                                      verbose && PyObject_IsTrue(verbose),
-                                     lens_model_type,
+                                     lensmodel_type,
                                      c_imagersizes,
                                      problem_details,
 
