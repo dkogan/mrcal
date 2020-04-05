@@ -130,6 +130,17 @@ static PyObject* SolverContext_str(SolverContext* self)
 {
     if(self->ctx == NULL)
         return PyString_FromString("Empty context");
+    char lensmodel_name[1024];
+    const char* p_lensmodel_name = lensmodel_name;
+    if(!mrcal_lensmodel_name_full( lensmodel_name, sizeof(lensmodel_name), self->lensmodel ))
+    {
+        // Couldn't get the model string for some reason. This really should
+        // never happen. But instead of barfing I can return a static string
+        // that will be right much of the time (configuration-free models) and
+        // good-enough most of the time
+        p_lensmodel_name = mrcal_lensmodel_name( self->lensmodel );
+    }
+
     return PyString_FromFormat("Non-empty context made with        %s\n"
                                "Ncameras:                          %d\n"
                                "Nframes:                           %d\n"
@@ -139,7 +150,7 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "do_optimize_intrinsic_core:        %d\n"
                                "do_optimize_intrinsic_distortions: %d\n"
                                "do_optimize_cahvor_optical_axis:   %d\n",
-                               mrcal_lensmodel_name(self->lensmodel),
+                               p_lensmodel_name,
                                self->Ncameras, self->Nframes, self->Npoints,
                                self->NobservationsBoard,
                                self->calibration_object_width_n,
@@ -723,7 +734,7 @@ static PyObject* getSupportedLensModels(PyObject* NPY_UNUSED(self),
 }
 
 static PyObject* getNextLensModel(PyObject* NPY_UNUSED(self),
-                                        PyObject* args)
+                                  PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();

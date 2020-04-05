@@ -97,38 +97,88 @@ calibration and sfm formulations are a little different
 
 
 
+// Returns a static string, using "..." as a placeholder for any configuration
+// values
 const char* mrcal_lensmodel_name( lensmodel_t model )
 {
-    #warning "need to suport LENSMODEL_UV here. how?"
-
     switch(model.type)
     {
-#define CASE_STRING(s,n) case s: return #s;
+#define CASE_STRING(s,n) case s: ;              \
+        if( n > 0 ) return #s;                  \
+        else        return #s "_...";
+
+
         LENSMODEL_LIST( CASE_STRING )
 
     case LENSMODEL_INVALID:
         assert(0);
+
+
+#undef CASE_STRING
+
+    }
+    return NULL;
+}
+// Write the model name WITH the full config into the given buffer. Identical to
+// mrcal_lensmodel_name() for                                                                      configuration-free models
+static int LENSMODEL_PINHOLE__snprintf_model(  char* out, int size, LENSMODEL_PINHOLE__config_t*   config)
+{ return snprintf(out,size, "LENSMODEL_PINHOLE"); }
+static int LENSMODEL_OPENCV4__snprintf_model(  char* out, int size, LENSMODEL_OPENCV4__config_t*   config)
+{ return snprintf(out,size, "LENSMODEL_OPENCV4"); }
+static int LENSMODEL_OPENCV5__snprintf_model(  char* out, int size, LENSMODEL_OPENCV5__config_t*   config)
+{ return snprintf(out,size, "LENSMODEL_OPENCV5"); }
+static int LENSMODEL_OPENCV8__snprintf_model(  char* out, int size, LENSMODEL_OPENCV8__config_t*   config)
+{ return snprintf(out,size, "LENSMODEL_OPENCV8"); }
+static int LENSMODEL_OPENCV12__snprintf_model( char* out, int size, LENSMODEL_OPENCV12__config_t*  config)
+{ return snprintf(out,size, "LENSMODEL_OPENCV12"); }
+static int LENSMODEL_OPENCV14__snprintf_model( char* out, int size, LENSMODEL_OPENCV14__config_t*  config)
+{ return snprintf(out,size, "LENSMODEL_OPENCV14"); }
+static int LENSMODEL_CAHVOR__snprintf_model(   char* out, int size, LENSMODEL_CAHVOR__config_t*    config)
+{ return snprintf(out,size, "LENSMODEL_CAHVOR"); }
+static int LENSMODEL_CAHVORE__snprintf_model(  char* out, int size, LENSMODEL_CAHVORE__config_t*   config)
+{ return snprintf(out,size, "LENSMODEL_CAHVORE"); }
+static int LENSMODEL_UV__snprintf_model(       char* out, int size, LENSMODEL_UV__config_t*        config)
+{
+    return
+        snprintf( out, size, "LENSMODEL_UV_%"PRIu16"_%"PRIu16,
+                  config->a, config->b );
+}
+bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
+{
+    switch(model.type)
+    {
+#define CASE_STRING(s,n) case s: return size > s##__snprintf_model(out, size, &model.s##__config);
+
+        LENSMODEL_LIST( CASE_STRING )
+
+    case LENSMODEL_INVALID:
+        assert(0);
+
+
+#undef CASE_STRING
+
     }
     return NULL;
 }
 
-static bool LENSMODEL_PINHOLE__scan_model_config(  LENSMODEL_PINHOLE__config_t* config,  const char* config_str)
+
+static bool LENSMODEL_PINHOLE__scan_model_config(  LENSMODEL_PINHOLE__config_t*   config, const char* config_str)
 { return true; }
-static bool LENSMODEL_OPENCV4__scan_model_config(  LENSMODEL_OPENCV4__config_t* config,  const char* config_str)
+static bool LENSMODEL_OPENCV4__scan_model_config(  LENSMODEL_OPENCV4__config_t*   config, const char* config_str)
 { return true; }
-static bool LENSMODEL_OPENCV5__scan_model_config(  LENSMODEL_OPENCV5__config_t* config,  const char* config_str)
+static bool LENSMODEL_OPENCV5__scan_model_config(  LENSMODEL_OPENCV5__config_t*   config, const char* config_str)
 { return true; }
-static bool LENSMODEL_OPENCV8__scan_model_config(  LENSMODEL_OPENCV8__config_t* config,  const char* config_str)
+static bool LENSMODEL_OPENCV8__scan_model_config(  LENSMODEL_OPENCV8__config_t*   config, const char* config_str)
 { return true; }
-static bool LENSMODEL_OPENCV12__scan_model_config( LENSMODEL_OPENCV12__config_t* config, const char* config_str)
+static bool LENSMODEL_OPENCV12__scan_model_config( LENSMODEL_OPENCV12__config_t*  config, const char* config_str)
 { return true; }
-static bool LENSMODEL_OPENCV14__scan_model_config( LENSMODEL_OPENCV14__config_t* config, const char* config_str)
+static bool LENSMODEL_OPENCV14__scan_model_config( LENSMODEL_OPENCV14__config_t*  config, const char* config_str)
 { return true; }
-static bool LENSMODEL_CAHVOR__scan_model_config(   LENSMODEL_CAHVOR__config_t* config,   const char* config_str)
+static bool LENSMODEL_CAHVOR__scan_model_config(   LENSMODEL_CAHVOR__config_t*    config, const char* config_str)
 { return true; }
-static bool LENSMODEL_CAHVORE__scan_model_config(  LENSMODEL_CAHVORE__config_t* config,  const char* config_str)
+static bool LENSMODEL_CAHVORE__scan_model_config(  LENSMODEL_CAHVORE__config_t*   config, const char* config_str)
 { return true; }
-static bool LENSMODEL_UV__scan_model_config(       LENSMODEL_UV__config_t* config,       const char* config_str)
+static bool LENSMODEL_UV__scan_model_config(       LENSMODEL_UV__config_t*        config, const char* config_str)
 {
     int pos;
     return
@@ -139,7 +189,6 @@ static bool LENSMODEL_UV__scan_model_config(       LENSMODEL_UV__config_t* confi
 
 lensmodel_t mrcal_lensmodel_from_name( const char* name )
 {
-
 #define CHECK_AND_RETURN(s,n)                                           \
     if( n > 0 )                                                         \
     {                                                                   \
@@ -168,6 +217,8 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
     LENSMODEL_LIST( CHECK_AND_RETURN );
 
     return (lensmodel_t){.type = LENSMODEL_INVALID};
+
+#undef CHECK_AND_RETURN
 }
 
 bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )

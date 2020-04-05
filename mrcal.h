@@ -140,7 +140,23 @@ typedef struct
                                                      .do_optimize_calobject_warp        = true, \
                                                      .do_skip_regularization            = false})
 
+// These return a string describing the lens model. mrcal_lensmodel_name()
+// returns a static string. For models with no configuration, this is the FULL
+// string. For models that have a configuration, however, a static string cannot
+// contain the configuration values, so mrcal_lensmodel_name() returns
+// LENSMODEL_XXX_... Note the ... that stands in for the configuration
+// parameters. So for models with a configuration mrcal_lensmodel_from_name(
+// mrcal_lensmodel_name(...) ) would fail
+//
+// mrcal_lensmodel_name_full() does the same thing, except it writes the string
+// into a buffer, and it expands the configuration parameters. The arguments are
+// the same as with snprintf(): the output buffer, and the maximum size. We
+// return true if we succeeded successfully. So even for models with a
+// configuration mrcal_lensmodel_from_name( mrcal_lensmodel_name_full(...) )
+// would succeed
 const char*        mrcal_lensmodel_name                  ( lensmodel_t model );
+bool               mrcal_lensmodel_name_full             ( char* out, int size, lensmodel_t model );
+
 lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
 bool               mrcal_modelHasCore_fxfycxcy           ( const lensmodel_t m );
 int                mrcal_getNlensParams                  ( const lensmodel_t m );
