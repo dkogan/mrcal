@@ -1,0 +1,13 @@
+Returns whether a model has a fx,fy,cx,cy core
+
+SYNOPSIS
+
+    print mrcal.modelHasCore_fxfycxcy('LENSMODEL_OPENCV4')
+
+    True
+
+I support a number of lens models. The traditional, parametric ones have a
+4-value core at the start of the parameter list: focal lengths in x and y, and
+the optical axis pixel also in x and y. This function returns True for these
+models. The richer, interpolated models are structured differently, have no
+core, and this function returns False for them

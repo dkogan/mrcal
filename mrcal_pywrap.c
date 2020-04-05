@@ -605,6 +605,47 @@ static PyTypeObject SolverContextType =
 };
 
 
+static PyObject* modelHasCore_fxfycxcy(PyObject* NPY_UNUSED(self),
+                                       PyObject* args)
+{
+    PyObject* result = NULL;
+    SET_SIGINT();
+
+    PyObject* lens_model_string = NULL;
+    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lens_model_string ))
+        goto done;
+
+    const char* lens_model_cstring =
+        PyString_AsString(lens_model_string);
+    if( lens_model_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Camera model was not passed in. Must be a string, one of ("
+                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
+                        ")");
+        goto done;
+    }
+
+    lens_model_t lens_model = mrcal_lens_model_from_name(lens_model_cstring);
+    if( lens_model.type == LENSMODEL_INVALID )
+    {
+        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be a string, one of ("
+                     LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
+                     ")",
+                     lens_model_cstring);
+        goto done;
+    }
+
+    if(mrcal_modelHasCore_fxfycxcy(lens_model))
+        result = Py_True;
+    else
+        result = Py_False;
+    Py_INCREF(result);
+
+ done:
+    RESET_SIGINT();
+    return result;
+}
+
 static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
                                      PyObject* args)
 {
@@ -1992,6 +2033,9 @@ static const char optimize_docstring[] =
 static const char optimizerCallback_docstring[] =
 #include "optimizerCallback.docstring.h"
     ;
+static const char modelHasCore_fxfycxcy_docstring[] =
+#include "modelHasCore_fxfycxcy.docstring.h"
+    ;
 static const char getNlensParams_docstring[] =
 #include "getNlensParams.docstring.h"
     ;
@@ -2010,6 +2054,7 @@ static const char _unproject_docstring[] =
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizerCallback,        METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,modelHasCore_fxfycxcy,    METH_VARARGS),
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
       PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
       PYMETHODDEF_ENTRY(,getNextLensModel,         METH_VARARGS),
