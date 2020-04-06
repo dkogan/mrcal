@@ -1947,7 +1947,7 @@ def show_residuals(how, i_camera = 0, focus_center=None, focus_radius=0,
         plots_how[i_camera+1].plot(*plot_data_args)
 
     else:
-        raise Exception("Unknown visualization method '{}'. I know of 'vectorfield','heatmap','histogram','radial','regional'". \
+        raise Exception("Unknown visualization method '{}'. I know of 'vectorfield','heatmap','directions'". \
                         format(how))
 
 plots_residuals_radial = None
