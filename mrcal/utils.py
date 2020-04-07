@@ -1278,10 +1278,9 @@ def show_distortion(model,
         corners_len = np.sqrt(nps.norm2(corners))
 
         # Now the equations. The 'x' value here is "pinhole pixels off center",
-        # which is f*tan(th). Other projections (formulas mostly from
-        # https://en.wikipedia.org/wiki/Fisheye_lens):
-        #
-        # Stereographic: r = 2 f tan(th/2) = 2 f tan(th) / ()
+        # which is f*tan(th). I plot this model's radial relationship, and that
+        # from other common fisheye projections (formulas mostly from
+        # https://en.wikipedia.org/wiki/Fisheye_lens)
         equations = [f'x * ({scale}) with lines lw 2 title "THIS model"',
                      'x title "pinhole"',
                      f'2. * {f} * tan( atan(x/{f}) / 2.) title "stereographic"',
