@@ -1224,10 +1224,14 @@ def show_distortion(model,
 
         # OpenCV does this:
         #
-        # This is the opencv distortion code in cvProjectPoints2 in calibration.cpp
-        # Here x,y are x/z and y/z. OpenCV applies distortion to x/z, y/z and THEN
-        # does the ...*f + c thing.
+        # This is the opencv distortion code in cvProjectPoints2 in
+        # calibration.cpp Here x,y are x/z and y/z. OpenCV applies distortion to
+        # x/z, y/z and THEN does the ...*f + c thing. The distortion factor is
+        # based on r, which is ~ x/z ~ tan(th) where th is the deviation off
+        # center
         #
+        #         z = z ? 1./z : 1;
+        #         x *= z; y *= z;
         #         r2 = x*x + y*y;
         #         r4 = r2*r2;
         #         r6 = r4*r2;
@@ -1236,8 +1240,11 @@ def show_distortion(model,
         #         a3 = r2 + 2*y*y;
         #         cdist = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
         #         icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
-        #         xd0 = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
-        #         yd0 = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
+        #         xd = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
+        #         yd = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
+        #         ...
+        #         m[i].x = xd*fx + cx;
+        #         m[i].y = yd*fy + cy;
 
         # mean focal length
         if not mrcal.modelHasCore_fxfycxcy(lens_model):
@@ -1252,12 +1259,12 @@ def show_distortion(model,
         k6 = 0
         if N >= 5:
             k6 = distortions[4]
-        numerator = '1. + xs*xs * ({} + xs*xs * ({} + xs*xs * {}))'.format(k2,k4,k6)
-        numerator = numerator.replace('xs', 'x/{}'.format(f))
+        numerator = '1. + tanth*tanth * ({} + tanth*tanth * ({} + tanth*tanth * {}))'.format(k2,k4,k6)
+        numerator = numerator.replace('tanth', 'x/{}'.format(f))
 
         if N >= 8:
-            denominator = '1. + xs*xs * ({} + xs*xs * ({} + xs*xs * {}))'.format(*distortions[5:8])
-            denominator = denominator.replace('xs', 'x/{}'.format(f))
+            denominator = '1. + tanth*tanth * ({} + tanth*tanth * ({} + tanth*tanth * {}))'.format(*distortions[5:8])
+            denominator = denominator.replace('tanth', 'x/{}'.format(f))
             scale = '({})/({})'.format(numerator,denominator)
         else:
             scale = numerator
@@ -1270,8 +1277,17 @@ def show_distortion(model,
                                            axis=-1))
         corners_len = np.sqrt(nps.norm2(corners))
 
-        equations = ['x * ({}) with lines title "distorted"'.format(scale),
-                     'x title "undistorted"']
+        # Now the equations. The 'x' value here is "pinhole pixels off center",
+        # which is f*tan(th). Other projections (formulas mostly from
+        # https://en.wikipedia.org/wiki/Fisheye_lens):
+        #
+        # Stereographic: r = 2 f tan(th/2) = 2 f tan(th) / ()
+        equations = [f'x * ({scale}) with lines lw 2 title "distorted"',
+                     'x title "pinhole"',
+                     f'2. * {f} * tan( atan(x/{f}) / 2.) title "stereographic"',
+                     f'{f} * atan(x/{f}) title "equidistant"',
+                     f'2. * {f} * sin( atan(x/{f}) / 2.) title "equisolid angle"',
+                     f'{f} * sin( atan(x/{f}) ) title "orthogonal"']
         sets=['arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[0]),
               'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[1]),
               'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[0]),
@@ -1297,7 +1313,7 @@ def show_distortion(model,
         plot = gp.gnuplotlib(equation = equations,
                              _set=sets,
                              _xrange = [0,np.max(corners_len) * 1.05],
-                             xlabel = 'Pixels from the projection center',
+                             xlabel = 'Pinhole pixels from the projection center',
                              ylabel = 'Pixels',
                              **kwargs)
         plot.plot()
