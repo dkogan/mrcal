@@ -1282,7 +1282,7 @@ def show_distortion(model,
         # https://en.wikipedia.org/wiki/Fisheye_lens):
         #
         # Stereographic: r = 2 f tan(th/2) = 2 f tan(th) / ()
-        equations = [f'x * ({scale}) with lines lw 2 title "distorted"',
+        equations = [f'x * ({scale}) with lines lw 2 title "THIS model"',
                      'x title "pinhole"',
                      f'2. * {f} * tan( atan(x/{f}) / 2.) title "stereographic"',
                      f'{f} * atan(x/{f}) title "equidistant"',
