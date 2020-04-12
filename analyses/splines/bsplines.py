@@ -343,27 +343,36 @@ print("these 3 plots should look the same: we're using different implementation 
 # #   x**2/2 + x/2 + 1/8
 
 
+####################################################################
+# Great. Final set of questions: how do you we make a 2D spline surface? The
+# generic calibration research library
+# (https://github.com/puzzlepaint/camera_calibration) Does a set of 1d
+# interpolations in one dimension, and then interpolates the 4 interpolated
+# values along the other dimension. Questions: does order matter? I can do x and
+# then y or y then x. And is there a better way? scipy has 2d b-spline
+# interpolation routines. Do they do something better?
+#
+# ############### x-y or y-x?
+import sympy
+from sympy.abc import x,y
+cp = sympy.symbols('cp:4(:4)')
 
-def confim_xy_is_the_same_as_yx():
-    import sympy
-    from sympy.abc import x,y
-    cp = sympy.symbols('cp:4(:4)')
+# x then y
+xs = [sample_segment_cubic( x,
+                            cp[i*4 + 0],
+                            cp[i*4 + 1],
+                            cp[i*4 + 2],
+                            cp[i*4 + 3] ) for i in range(4)]
+yxs = sample_segment_cubic(y, *xs)
 
-    # x then y
-    xs = [sample_segment__EvalUniformCubicBSpline( x,
-                          cp[i*4 + 0],
-                          cp[i*4 + 1],
-                          cp[i*4 + 2],
-                          cp[i*4 + 3] ) for i in range(4)]
-    yxs = sample_segment__EvalUniformCubicBSpline(y, *xs)
+# y then x
+ys = [sample_segment_cubic( y,
+                            cp[0*4 + i],
+                            cp[1*4 + i],
+                            cp[2*4 + i],
+                            cp[3*4 + i] ) for i in range(4)]
+xys = sample_segment_cubic(x, *ys)
 
-    # y then x
-    ys = [sample_segment__EvalUniformCubicBSpline( y,
-                          cp[0*4 + i],
-                          cp[1*4 + i],
-                          cp[2*4 + i],
-                          cp[3*4 + i] ) for i in range(4)]
-    xys = sample_segment__EvalUniformCubicBSpline(x, *ys)
+print(f"Bicubic interpolation. x-then-y and y-then-x difference: {(xys - yxs).expand()}")
 
-    print((xys - yxs).expand())
-    sys.exit()
+# Alright. Apparently either order is ok.
