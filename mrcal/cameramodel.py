@@ -492,8 +492,8 @@ class cameramodel(object):
             if keys_remaining:
                 raise Exception("We were given some unknown parameters: {}".format(keys_remaining))
 
-            self.intrinsics(kwargs['imagersize'],
-                            kwargs['intrinsics'],
+            self.intrinsics(kwargs['intrinsics'],
+                            kwargs['imagersize'],
                             kwargs.get('observed_pixel_uncertainty'),
                             kwargs.get('covariance_intrinsics_full'),
                             kwargs.get('covariance_intrinsics'),
@@ -555,8 +555,8 @@ class cameramodel(object):
 
 
     def intrinsics(self,
-                   imagersize                 = None,
                    intrinsics                 = None,
+                   imagersize                 = None,
                    observed_pixel_uncertainty = None,
                    covariance_intrinsics_full = None,
                    covariance_intrinsics      = None,
@@ -566,9 +566,9 @@ class cameramodel(object):
         if no arguments are given: this is a getter of the INTRINSICS parameters
         only; otherwise this is a setter. As a setter, everything related to the
         lens is set together (dimensions, distortion parameters, uncertainty,
-        etc)
+        etc).
 
-        intrinsics is a tuple (lens_model, parameters):
+        "intrinsics" is a tuple (lens_model, parameters):
 
         - lens_model is a string for the specific lens model we're
           using. mrcal.getSupportedLensModels() returns a list
@@ -579,6 +579,10 @@ class cameramodel(object):
           models that have a core the first 4 values are the pinhole-camera
           parameters: (fx,fy,cx,cy), with the following values representing the
           lens distortion.
+
+        This "intrinsics" tuple is required. The other arguments are optional.
+        If the imagersize is omitted, the current model's imagersize will be
+        used. If anything else is omitted, it will be unset in the model.
 
         '''
 
@@ -591,6 +595,7 @@ class cameramodel(object):
            valid_intrinsics_region    is None:
             return copy.deepcopy(self._intrinsics)
 
+        if imagersize is None: imagersize = self._imagersize
         try:
             _validateIntrinsics(imagersize,
                                 intrinsics,
