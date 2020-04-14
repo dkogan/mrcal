@@ -1246,10 +1246,8 @@ def show_distortion(model,
         #         m[i].x = xd*fx + cx;
         #         m[i].y = yd*fy + cy;
 
-        # mean focal length
         if not mrcal.modelHasCore_fxfycxcy(lens_model):
             raise Exception("--radial currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
-        f = (intrinsics_data[0] + intrinsics_data[1]) / 2.
         xc = intrinsics_data[2]
         yc = intrinsics_data[3]
 
@@ -1259,42 +1257,52 @@ def show_distortion(model,
         k6 = 0
         if N >= 5:
             k6 = distortions[4]
-        numerator = '1. + tanth*tanth * ({} + tanth*tanth * ({} + tanth*tanth * {}))'.format(k2,k4,k6)
-        numerator = numerator.replace('tanth', 'x/{}'.format(f))
+        numerator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(k2,k4,k6)
+        numerator = numerator.replace('r', 'tan(x*pi/180.)')
 
         if N >= 8:
-            denominator = '1. + tanth*tanth * ({} + tanth*tanth * ({} + tanth*tanth * {}))'.format(*distortions[5:8])
-            denominator = denominator.replace('tanth', 'x/{}'.format(f))
+            denominator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(*distortions[5:8])
+            denominator = denominator.replace('r', 'tan(x*pi/180.)')
             scale = '({})/({})'.format(numerator,denominator)
         else:
             scale = numerator
 
 
-        x01     = np.array((xc, W-xc), dtype=float)
-        y01     = np.array((yc, H-yc), dtype=float)
-        corners = nps.transpose( nps.glue( nps.cat(x01, y01),
-                                           nps.cat(x01, y01[::-1]),
-                                           axis=-1))
-        corners_len = np.sqrt(nps.norm2(corners))
+        x0,x1 = 0, W-1
+        y0,y1 = 0, H-1
+        q_corners = np.array(((x0,y0),
+                              (x0,y1),
+                              (x1,y0),
+                              (x1,y1)), dtype=float)
+        q_centersx  = np.array(((xc,y0),
+                                (xc,y1)), dtype=float)
+        q_centersy  = np.array(((x0,yc),
+                                (x1,yc)), dtype=float)
+
+        Vxy_corners  = mrcal.unproject( q_corners,  lens_model, intrinsics_data, z1=True)
+        Vxy_centersx = mrcal.unproject( q_centersx, lens_model, intrinsics_data, z1=True)
+        Vxy_centersy = mrcal.unproject( q_centersy, lens_model, intrinsics_data, z1=True)
+        r_corners    = nps.mag(Vxy_corners)
+        r_centersx   = nps.mag(Vxy_centersx)
+        r_centersy   = nps.mag(Vxy_centersy)
 
         # Now the equations. The 'x' value here is "pinhole pixels off center",
         # which is f*tan(th). I plot this model's radial relationship, and that
         # from other common fisheye projections (formulas mostly from
         # https://en.wikipedia.org/wiki/Fisheye_lens)
-        equations = [f'x * ({scale}) with lines lw 2 title "THIS model"',
+        equations = [f'180./pi*atan(tan(x*pi/180.) * ({scale})) with lines lw 2 title "THIS model"',
                      'x title "pinhole"',
-                     f'2. * {f} * tan( atan(x/{f}) / 2.) title "stereographic"',
-                     f'{f} * atan(x/{f}) title "equidistant"',
-                     f'2. * {f} * sin( atan(x/{f}) / 2.) title "equisolid angle"',
-                     f'{f} * sin( atan(x/{f}) ) title "orthogonal"']
-        sets=['arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[0]),
-              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "red"'  .format(xy = x01[1]),
-              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[0]),
-              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "green"'.format(xy = y01[1]),
-              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[0]),
-              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[1]),
-              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[2]),
-              'arrow from {xy}, graph 0 to {xy}, graph 1 nohead lc "blue"' .format(xy = corners_len[3])]
+                     f'180./pi*atan(2. * tan( x*pi/180. / 2.)) title "stereographic"',
+                     f'180./pi*atan(x*pi/180.) title "equidistant"',
+                     f'180./pi*atan(2. * sin( x*pi/180. / 2.)) title "equisolid angle"',
+                     f'180./pi*atan( sin( x*pi/180. )) title "orthogonal"']
+        sets = \
+            ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "red"'  . \
+             format(th=np.arctan(r)*180./np.pi) for r in r_centersy] + \
+            ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "green"'. \
+             format(th=np.arctan(r)*180./np.pi) for r in r_centersx] + \
+            ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
+             format(th=np.arctan(r)*180./np.pi) for r in r_corners ]
         if 'set' in kwargs:
             if type(kwargs['set']) is list: sets.extend(kwargs['set'])
             else:                           sets.append(kwargs['set'])
@@ -1305,15 +1313,17 @@ def show_distortion(model,
             del kwargs['_set']
 
         if N >= 8:
-            equations.append(numerator   + ' axis x1y2 title "numerator (y2)"')
-            equations.append(denominator + ' axis x1y2 title "denominator (y2)"')
+            equations.extend( [numerator   + ' axis x1y2 title "numerator (y2)"',
+                               denominator + ' axis x1y2 title "denominator (y2)"',
+                               '0 axis x1y2 with lines lw 2' ] )
             sets.append('y2tics')
+            kwargs['y2label'] = 'Rational correction numerator, denominator'
         kwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
         plot = gp.gnuplotlib(equation = equations,
                              _set=sets,
-                             _xrange = [0,np.max(corners_len) * 1.05],
-                             xlabel = 'Pinhole pixels from the projection center',
-                             ylabel = 'Pixels',
+                             _xrange = [0,np.arctan(np.max(r_corners)) * 180./np.pi * 1.01],
+                             xlabel = 'Angle off the projection center (deg)',
+                             ylabel = 'Distorted angle off the projection center',
                              **kwargs)
         plot.plot()
         return plot
