@@ -348,9 +348,12 @@ print("these 3 plots should look the same: we're using different implementation 
 # generic calibration research library
 # (https://github.com/puzzlepaint/camera_calibration) Does a set of 1d
 # interpolations in one dimension, and then interpolates the 4 interpolated
-# values along the other dimension. Questions: does order matter? I can do x and
-# then y or y then x. And is there a better way? scipy has 2d b-spline
-# interpolation routines. Do they do something better?
+# values along the other dimension. Questions:
+#
+# Does order matter? I can do x and then y or y then x
+#
+# And is there a better way? scipy has 2d b-spline interpolation routines. Do
+# they do something better?
 #
 # ############### x-y or y-x?
 import sympy
@@ -375,4 +378,24 @@ xys = sample_segment_cubic(x, *ys)
 
 print(f"Bicubic interpolation. x-then-y and y-then-x difference: {(xys - yxs).expand()}")
 
-# Alright. Apparently either order is ok.
+########### Alright. Apparently either order is ok. Does scipy do something
+########### different for 2d interpolation? I compare the 1d-then-1d
+########### interpolation above to fitpack results:
+
+from fpbisp import fpbisp_
+
+N = 30
+t = np.arange( N, dtype=int)
+k = 3
+
+cp = np.array(sympy.symbols('cp:40(:40)'), dtype=np.object).reshape(40,40)
+
+lx = 3
+ly = 5
+
+z   = fpbisp_(t, t, k, cp, x+lx, lx, y+ly, ly)
+err = z - yxs
+
+print(f"Bicubic interpolation. difference(1d-then-1d, FITPACK): {err.expand()}")
+
+# Apparently chaining 1D interpolations produces identical results to what FITPACK is doing
