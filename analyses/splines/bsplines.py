@@ -1,48 +1,62 @@
 #!/usr/bin/python3
 
+r'''Studies the 2d surface b-spline interpolation
+
+The expressions for the interpolated surface I need aren't entirely clear, so I
+want to study this somewhat. This script does that.
+
+I want to use b-splines to drive the generic camera models. These provide
+local support in the control points at the expense of not interpolating the
+control points. I don't NEED an interpolating spline, so this is just fine.
+Let's assume the knots lie at integer coordinates.
+
+I want a function that takes in
+
+- the control points in a neighborhood of the spline segment
+- the query point x, scaled to [0,1] in the spline segment
+
+This is all nontrivial for some reason, and there're several implementations
+floating around with slightly different inputs. I have
+
+- sample_segment_cubic()
+  From a generic calibration research library:
+  https://github.com/puzzlepaint/camera_calibration/blob/master/applications/camera_calibration/scripts/derive_jacobians.py
+  in the EvalUniformCubicBSpline() function. This does what I want (query
+  point in [0,1], control points around it, one segment at a time), but the
+  source of the expression isn't given. I'd like to re-derive it, and then
+  possibly extend it
+
+- splev_local()
+  wraps scipy.interpolate.splev()
+
+- splev_translated()
+  Followed sources of scipy.interpolate.splev() to the core fortran functions
+  in fpbspl.f and splev.f. I then ran these through f2c, pythonified it, and
+  simplified it. The result is sympy-able
+
+- splev_wikipedia()
+  Sample implementation of De Boor's algorithm from wikipedia:
+  https://en.wikipedia.org/wiki/De_Boor%27s_algorithm
+from EvalUniformCubicBSpline() in
+camera_calibration/applications/camera_calibration/scripts/derive_jacobians.py.
+translated to [0,1] from [3,4]
+
+'''
+
 import sys
 import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
 
+
+
+skip_plots = True
+
+
+
 import scipy.interpolate
 from scipy.interpolate import _fitpack
 
-# I want to use b-splines to drive the generica camera models. These provide
-# local support in the control points at the expense of not interpolating the
-# control points. I don't NEED an interpolating spline, so this is just fine.
-# Let's assume the knots lie at integer coordinates.
-#
-# I want a function that takes in
-#
-# - the control points in a neighborhood of the spline segment
-# - the query point x, scaled to [0,1] in the spline segment
-#
-# This is all nontrivial for some reason, and there're several implementations
-# floating around with slightly different inputs. I have
-#
-# - sample_segment_cubic()
-#   From a generic calibration research library:
-#   https://github.com/puzzlepaint/camera_calibration/blob/master/applications/camera_calibration/scripts/derive_jacobians.py
-#   in the EvalUniformCubicBSpline() function. This does what I want (query
-#   point in [0,1], control points around it, one segment at a time), but the
-#   source of the expression isn't given. I'd like to re-derive it, and then
-#   possibly extend it
-#
-# - splev_local()
-#   wraps scipy.interpolate.splev()
-#
-# - splev_translated()
-#   Followed sources of scipy.interpolate.splev() to the core fortran functions
-#   in fpbspl.f and splev.f. I then ran these through f2c, pythonified it, and
-#   simplified it. The result is sympy-able
-#
-# - splev_wikipedia()
-#   Sample implementation of De Boor's algorithm from wikipedia:
-#   https://en.wikipedia.org/wiki/De_Boor%27s_algorithm
-# from EvalUniformCubicBSpline() in
-# camera_calibration/applications/camera_calibration/scripts/derive_jacobians.py.
-# translated to [0,1] from [3,4]
 def sample_segment_cubic(x, a,b,c,d):
     A =  (-x**3 + 3*x**2 - 3*x + 1)/6
     B = (3 * x**3/2 - 3*x**2 + 2)/3
@@ -165,15 +179,16 @@ c2 = c.copy()
 c2[int(N//2)] *= 1.1
 y2 = sample_cubic(x, c2)
 
-plot1 = gp.gnuplotlib(title = 'sample_segment_cubic')
-plot1.plot( (x, nps.cat(y,y2),
-             dict(_with='lines',
-                  legend=np.array(('Spline: baseline',
-                                   'Spline: tweaked one control point')))),
-            (t[:len(c)], nps.cat(c,c2),
-             dict(_with='linespoints pt 7 ps 2',
-                  legend=np.array(('Control points: baseline',
-                                   'Control points: tweaked one control point')))))
+if not skip_plots:
+    plot1 = gp.gnuplotlib(title = 'sample_segment_cubic')
+    plot1.plot( (x, nps.cat(y,y2),
+                 dict(_with='lines',
+                      legend=np.array(('Spline: baseline',
+                                       'Spline: tweaked one control point')))),
+                (t[:len(c)], nps.cat(c,c2),
+                 dict(_with='linespoints pt 7 ps 2',
+                      legend=np.array(('Control points: baseline',
+                                       'Control points: tweaked one control point')))))
 
 ########### sample_wikipedia()
 @nps.broadcast_define(((),), ())
@@ -193,12 +208,13 @@ else:
     offset = int((k+1)//2)
     y = sample_wikipedia(x,t, c[offset:], k)
 
-plot2 = gp.gnuplotlib(title = 'sample_wikipedia')
-plot2.plot( (x, y, dict(_with='lines')),
-            (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2')) )
-print("these two plots should look the same: we're using two implementation of the same algorithm to interpolate the same data")
-plot2.wait()
-plot1.wait()
+if not skip_plots:
+    plot2 = gp.gnuplotlib(title = 'sample_wikipedia')
+    plot2.plot( (x, y, dict(_with='lines')),
+                (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2')) )
+    print("these two plots should look the same: we're using two implementation of the same algorithm to interpolate the same data")
+    plot2.wait()
+    plot1.wait()
 
 
 # Now I use sympy to get the polynomial coefficients from sample_wikipedia.
@@ -262,62 +278,63 @@ print(f"  err2 = {y2-y0}")
 # OK, good. I want to make sure that the spline roughly follows the curve
 # defined by the control points. There should be no x offset or anything of that
 # sort
-N = 30
-t = np.arange( N, dtype=int)
-k = 2
-c = np.random.rand(len(t))
-Npad = 10
-x = np.linspace(Npad, N-Npad, 1000)
-offset = int((k+1)//2)
+if not skip_plots:
+    N = 30
+    t = np.arange( N, dtype=int)
+    k = 2
+    c = np.random.rand(len(t))
+    Npad = 10
+    x = np.linspace(Npad, N-Npad, 1000)
+    offset = int((k+1)//2)
 
-y = sample_wikipedia(x,t-0.5, c[offset:], k)
+    y = sample_wikipedia(x,t-0.5, c[offset:], k)
 
-xm = (x[1:] + x[:-1]) / 2.
-d = np.diff(y) / np.diff(x)
-plot1 = gp.gnuplotlib(title = 'k==2; sample_wikipedia')
-plot1.plot( (x, y, dict(_with='lines', legend='spline')),
-            (xm, d, dict(_with='lines', y2=1, legend='diff')),
-            (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2', legend='control points')))
+    xm = (x[1:] + x[:-1]) / 2.
+    d = np.diff(y) / np.diff(x)
+    plot1 = gp.gnuplotlib(title = 'k==2; sample_wikipedia')
+    plot1.plot( (x, y, dict(_with='lines', legend='spline')),
+                (xm, d, dict(_with='lines', y2=1, legend='diff')),
+                (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2', legend='control points')))
 
-@nps.broadcast_define(((),), ())
-def sample_splev_translated(x, t, c, k):
-    l = np.searchsorted(np.array(t), x)-1
-    return splev_translated(x,t,c,k,l)
-y = sample_splev_translated(x,t-0.5, c[offset:], k)
-xm = (x[1:] + x[:-1]) / 2.
-d = np.diff(y) / np.diff(x)
-plot2 = gp.gnuplotlib(title = 'k==2; splev_translated')
-plot2.plot( (x, y, dict(_with='lines', legend='spline')),
-            (xm, d, dict(_with='lines', y2=1, legend='diff')),
-            (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2', legend='control points')))
+    @nps.broadcast_define(((),), ())
+    def sample_splev_translated(x, t, c, k):
+        l = np.searchsorted(np.array(t), x)-1
+        return splev_translated(x,t,c,k,l)
+    y = sample_splev_translated(x,t-0.5, c[offset:], k)
+    xm = (x[1:] + x[:-1]) / 2.
+    d = np.diff(y) / np.diff(x)
+    plot2 = gp.gnuplotlib(title = 'k==2; splev_translated')
+    plot2.plot( (x, y, dict(_with='lines', legend='spline')),
+                (xm, d, dict(_with='lines', y2=1, legend='diff')),
+                (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2', legend='control points')))
 
 
-# These are the functions I'm going to use. Derived by the sympy steps
-# immediately after this
-def sample_segment_quadratic(x, a,b,c):
-    A = x**2/2 - x/2 + 1/8
-    B = 3/4 - x**2
-    C = x**2/2 + x/2 + 1/8
-    return A*a + B*b + C*c
-@nps.broadcast_define(((),), ())
-def sample_quadratic(x, cp):
-    i = int((x+0.5)//1)
-    q = x-i
-    try:    return sample_segment_quadratic(q, *cp[i-1:i+2])
-    except: return 0
-y = sample_quadratic(x, c)
-xm = (x[1:] + x[:-1]) / 2.
-d = np.diff(y) / np.diff(x)
-plot3 = gp.gnuplotlib(title = 'k==2; sample_quadratic')
-plot3.plot( (x, y, dict(_with='lines', legend='spline')),
-            (xm, d, dict(_with='lines', y2=1, legend='diff')),
-            (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2', legend='control points')))
+    # These are the functions I'm going to use. Derived by the sympy steps
+    # immediately after this
+    def sample_segment_quadratic(x, a,b,c):
+        A = (4*x**2 - 4*x + 1)/8
+        B = (3 - 4*x**2)/4
+        C = (4*x**2 + 4*x + 1)/8
+        return A*a + B*b + C*c
+    @nps.broadcast_define(((),), ())
+    def sample_quadratic(x, cp):
+        i = int((x+0.5)//1)
+        q = x-i
+        try:    return sample_segment_quadratic(q, *cp[i-1:i+2])
+        except: return 0
+    y = sample_quadratic(x, c)
+    xm = (x[1:] + x[:-1]) / 2.
+    d = np.diff(y) / np.diff(x)
+    plot3 = gp.gnuplotlib(title = 'k==2; sample_quadratic')
+    plot3.plot( (x, y, dict(_with='lines', legend='spline')),
+                (xm, d, dict(_with='lines', y2=1, legend='diff')),
+                (t[:len(c)], c,  dict(_with='linespoints pt 7 ps 2', legend='control points')))
 
-plot3.wait()
-plot2.wait()
-plot1.wait()
+    plot3.wait()
+    plot2.wait()
+    plot1.wait()
 
-print("these 3 plots should look the same: we're using different implementation of the same algorithm to interpolate the same data")
+    print("these 3 plots should look the same: we're using different implementation of the same algorithm to interpolate the same data")
 
 
 # ##################################
@@ -342,6 +359,32 @@ print("these 3 plots should look the same: we're using different implementation 
 # #   3/4 - x**2
 # #   x**2/2 + x/2 + 1/8
 
+
+############## compare cubic, quadratic
+# I now have nice expressions for quadratic and cubic interpolations. Both are
+# C1 continuous, but the cubic interpolation is C2 continuous too. How much do I
+# care? Let's at least compare them visually
+N = 30
+t = np.arange( N, dtype=int)
+c = np.random.rand(len(t))
+Npad = 10
+x = np.linspace(Npad, N-Npad, 1000)
+
+y2 = sample_quadratic(x,c)
+y3 = sample_cubic(    x,c)
+
+if not skip_plots:
+    gp.plot( (x, nps.cat(y2,y3), dict(_with='lines',
+                                      legend=np.array(('quadratic',
+                                                       'cubic')))),
+             (t[:len(c)], c, dict(_with='linespoints pt 7 ps 2',
+                                  legend='control points')),
+             title = "Comparing quadratic and cubic b-spline interpolation",
+             wait = True)
+    # Visually, neither looks better than the other. The quadratic spline follows
+    # the control points closer. Looks like it's trying to match the slope at the
+    # halfway point. Maybe that's bad, and the quadratic curve is too wiggly? We'll
+    # see
 
 ####################################################################
 # Great. Final set of questions: how do you we make a 2D spline surface? The
