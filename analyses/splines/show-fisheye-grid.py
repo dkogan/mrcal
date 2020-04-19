@@ -18,6 +18,9 @@ fisheye projections described at
 
   https://en.wikipedia.org/wiki/Fisheye_lens
 
+mrcal-show-distortions --radial also compares a given model with fisheye
+projections
+
 '''
 
 
