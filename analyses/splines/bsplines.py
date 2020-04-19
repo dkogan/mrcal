@@ -50,7 +50,7 @@ import gnuplotlib as gp
 
 
 
-skip_plots = True
+skip_plots = False
 
 
 
