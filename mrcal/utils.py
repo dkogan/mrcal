@@ -1190,7 +1190,7 @@ def show_distortion(model,
     import gnuplotlib as gp
 
     lens_model, intrinsics_data = model.intrinsics()
-    imagersize                        = model.imagersize()
+    imagersize                  = model.imagersize()
 
     if kwargs is None: kwargs = {}
     if 'title' not in kwargs:

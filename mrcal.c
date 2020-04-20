@@ -142,10 +142,10 @@ bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 {
     switch(model.type)
     {
-#define CASE_STRING_NOCONFIG(s,n) case s: ;                                          \
+#define CASE_STRING_NOCONFIG(s,n) case s: \
         return size > snprintf(out,size, #s);
 
-#define CASE_STRING_WITHCONFIG(s,n) case s: ;                           \
+#define CASE_STRING_WITHCONFIG(s,n) case s: \
         return size > s##__snprintf_model(out, size, &model.s##__config);
 
         LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
@@ -215,7 +215,7 @@ bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )
 
     if(m.type == LENSMODEL_UV)      return false;
 
-    MSG("I don't know if %s has a core or not. Add this information to this function",
+    MSG("I don't know if %s has a core or not. Add that information to this function",
         mrcal_lensmodel_name(m));
     exit(1);
 }

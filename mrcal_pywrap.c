@@ -629,8 +629,7 @@ static PyObject* modelHasCore_fxfycxcy(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
         goto done;
 
-    const char* lensmodel_cstring =
-        PyString_AsString(lensmodel_string);
+    const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
     if( lensmodel_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
@@ -664,7 +663,7 @@ static PyObject* modelHasCore_fxfycxcy(PyObject* NPY_UNUSED(self),
 }
 
 static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
-                                     PyObject* args)
+                                PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
@@ -673,8 +672,7 @@ static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
         goto done;
 
-    const char* lensmodel_cstring =
-        PyString_AsString(lensmodel_string);
+    const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
     if( lensmodel_cstring == NULL)
     {
         PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
@@ -706,7 +704,7 @@ static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
 }
 
 static PyObject* getSupportedLensModels(PyObject* NPY_UNUSED(self),
-                                          PyObject* NPY_UNUSED(args))
+                                        PyObject* NPY_UNUSED(args))
 {
     PyObject* result = NULL;
     SET_SIGINT();
@@ -1260,7 +1258,6 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-
     int NlensParams = mrcal_getNlensParams(*lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[1] )
     {
@@ -1792,7 +1789,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         if(!IS_NULL(solver_context))
         {
             solver_context_optimizer                   = &solver_context->ctx;
-            solver_context->lensmodel                 = lensmodel_type;
+            solver_context->lensmodel                  = lensmodel_type;
             solver_context->problem_details            = problem_details;
             solver_context->Ncameras                   = Ncameras;
             solver_context->Nframes                    = Nframes;
@@ -2138,4 +2135,3 @@ PyMODINIT_FUNC PyInit__mrcal(void)
 }
 
 #endif
-
