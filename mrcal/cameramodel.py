@@ -221,7 +221,8 @@ class cameramodel(object):
         f.write("\n")
 
         N = len(self._intrinsics[1])
-        f.write("    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
+        if(mrcal.modelHasCore_fxfycxcy(self._intrinsics[0])):
+            f.write("    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
         f.write(("    'intrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._intrinsics[1]))
         f.write("\n")
 
