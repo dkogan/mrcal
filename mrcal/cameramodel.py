@@ -140,6 +140,9 @@ def _validateIntrinsics(imagersize,
             raise BadValidIntrinsicsRegion_Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
                             format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
 
+class CameramodelParseException(Exception):
+    pass
+
 class cameramodel(object):
     r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
 
@@ -306,9 +309,9 @@ class cameramodel(object):
             model = ast.literal_eval(s)
         except:
             if name is None:
-                raise Exception("Failed to parse cameramodel!\n")
+                raise CameramodelParseException("Failed to parse cameramodel!\n")
             else:
-                raise Exception("Failed to parse cameramodel '{}'\n".format(name))
+                raise CameramodelParseException("Failed to parse cameramodel '{}'\n".format(name))
 
         # for compatibility
         if 'distortion_model' in model and \
@@ -437,7 +440,7 @@ class cameramodel(object):
                     modelstring = f.read()
                     try:
                         self._read_into_self(modelstring)
-                    except:
+                    except CameramodelParseException:
                         from . import cahvor
                         model = cahvor.read_from_string(modelstring)
                         modelfile = io.StringIO()
