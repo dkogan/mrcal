@@ -1240,6 +1240,8 @@ def show_distortion(model,
         #         yd0 = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
 
         # mean focal length
+        if not mrcal.modelHasCore_fxfycxcy(lens_model):
+            raise Exception("--radial currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
         f = (intrinsics_data[0] + intrinsics_data[1]) / 2.
         xc = intrinsics_data[2]
         yc = intrinsics_data[3]
@@ -1312,6 +1314,8 @@ def show_distortion(model,
                                              -1, -2, -3),
                                  dtype = float)
 
+    if not mrcal.modelHasCore_fxfycxcy(lens_model):
+        raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
     dgrid =  mrcal.project( nps.glue( (grid-cxy)/fxy,
@@ -2415,9 +2419,16 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
-    lens_models_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
-    lens_models = [di[0] for di in lens_models_intrinsics_data]
-    intrinsics_data   = [di[1] for di in lens_models_intrinsics_data]
+    if isinstance(m, mrcal.cameramodel):
+        lens_models_intrinsics_data = [ m.intrinsics() for m in models_or_intrinsics ]
+    else:
+        lens_models_intrinsics_data = models_or_intrinsics
+
+    lens_models     = [di[0] for di in lens_models_intrinsics_data]
+    intrinsics_data = [di[1] for di in lens_models_intrinsics_data]
+
+    if not all([mrcal.modelHasCore_fxfycxcy(m) for m in lens_models]):
+        raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
     fx = [ i[0] for i in intrinsics_data ]
     fy = [ i[1] for i in intrinsics_data ]

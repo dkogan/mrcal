@@ -183,6 +183,8 @@ def compute_scale_f_pinhole_for_fit(model, fit, scale_imagersize_pinhole = 1.0):
 
     v_edges = mrcal.unproject(q_edges, lens_model, intrinsics_data)
 
+    if not mrcal.modelHasCore_fxfycxcy(lens_model):
+        raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
 
@@ -250,6 +252,8 @@ def undistort_image__compute_map(model,
 
     lens_model,intrinsics_data = model.intrinsics()
     W,H                        = model.imagersize()
+    if not mrcal.modelHasCore_fxfycxcy(lens_model):
+        raise Exception("--radial currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy                        = intrinsics_data[ :2]
     cxy                        = intrinsics_data[2:4]
 

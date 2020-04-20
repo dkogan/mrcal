@@ -574,10 +574,11 @@ class cameramodel(object):
           using. mrcal.getSupportedLensModels() returns a list
           of supported models.
 
-        - parameters is a numpy array of distortion parameters. The first 4
-          values are the pinhole-camera parameters: (fx,fy,cx,cy). The following
-          values represent the lens distortion. The number and meaning of these
-          parameters depends on the lens model we're using
+        - intrinsics is a numpy array of lens parameters. The number and meaning
+          of these parameters depends on the lens model we're using. For those
+          models that have a core the first 4 values are the pinhole-camera
+          parameters: (fx,fy,cx,cy), with the following values representing the
+          lens distortion.
 
         '''
 
