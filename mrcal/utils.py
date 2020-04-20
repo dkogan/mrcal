@@ -939,7 +939,7 @@ def compute_intrinsics_uncertainty( model, v,
     '''
 
     lens_model, intrinsics_data = model.intrinsics()
-    imagersize                        = model.imagersize()
+    imagersize                  = model.imagersize()
 
     if outlierness:
         intrinsics_covariance = model.covariance_intrinsics_full()
@@ -1024,7 +1024,7 @@ def show_intrinsics_uncertainty(model,
     W,H=model.imagersize()
 
     lens_model, intrinsics_data = model.intrinsics()
-    imagersize                        = model.imagersize()
+    imagersize                  = model.imagersize()
     v,_ =sample_imager_unproject(gridn_x, gridn_y,
                                  lens_model, intrinsics_data,
                                  *imagersize)
@@ -1684,8 +1684,8 @@ def show_intrinsics_diff(models,
                         format(imagersizes))
     W,H=imagersizes[0]
 
-    lens_models = [model.intrinsics()[0] for model in models]
-    intrinsics_data   = [model.intrinsics()[1] for model in models]
+    lens_models     = [model.intrinsics()[0] for model in models]
+    intrinsics_data = [model.intrinsics()[1] for model in models]
 
 
     v,q0 = sample_imager_unproject(gridn_x, gridn_y,
@@ -2431,7 +2431,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
         v = mrcal.unproject(observations[i_observation,...],
                             lens_models[i_camera], intrinsics_data[i_camera])
         observations[i_observation,...] = mrcal.project(v, 'LENSMODEL_PINHOLE',
-                                                   intrinsics_data[i_camera][:4])
+                                                        intrinsics_data[i_camera][:4])
 
 
     Nobservations = indices_frame_camera.shape[0]

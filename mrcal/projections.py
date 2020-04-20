@@ -249,9 +249,9 @@ def undistort_image__compute_map(model,
     '''
 
     lens_model,intrinsics_data = model.intrinsics()
-    W,H                              = model.imagersize()
-    fxy                              = intrinsics_data[ :2]
-    cxy                              = intrinsics_data[2:4]
+    W,H                        = model.imagersize()
+    fxy                        = intrinsics_data[ :2]
+    cxy                        = intrinsics_data[2:4]
 
     W1 = int(W*scale_imagersize_pinhole + 0.5)
     H1 = int(H*scale_imagersize_pinhole + 0.5)
