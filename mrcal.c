@@ -119,7 +119,7 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
         LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
         LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
 
-    case LENSMODEL_INVALID:
+    default:
         assert(0);
 
 
@@ -151,7 +151,7 @@ bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
         LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
         LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
 
-    case LENSMODEL_INVALID:
+    default:
         assert(0);
 
 #undef CASE_STRING_NOCONFIG
@@ -182,6 +182,8 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
     /* Configured model. I need to extract the config from the string. */ \
     /* The string format is NAME_cfg1_cfg2 ... */                       \
     const int name_len = strlen(#s);                                    \
+    if( 0 == strcmp( name, #s) )                                        \
+        return (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG};      \
     if( 0 == strncmp( name, #s"_", name_len+1) )                        \
     {                                                                   \
         /* found name. Now extract the config */                        \
@@ -193,7 +195,7 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
         if(s##__scan_model_config(config, config_str))                  \
             return model;                                               \
         else                                                            \
-            return (lensmodel_t){.type = LENSMODEL_INVALID};            \
+            return (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG};  \
     }
 
     LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );

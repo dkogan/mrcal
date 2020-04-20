@@ -107,9 +107,14 @@ typedef struct
 #define LENSMODEL_IS_OPENCV(d) (LENSMODEL_OPENCV_FIRST <= (d) && (d) <= LENSMODEL_OPENCV_LAST)
 #define LENSMODEL_IS_CAHVOR(d) (LENSMODEL_CAHVOR_FIRST <= (d) && (d) <= LENSMODEL_CAHVOR_LAST)
 
-#define LIST_WITH_COMMA(s,n) ,s
+// types <0 are invalid. The different invalid types are just for error
+// reporting
 typedef enum
-    { LENSMODEL_INVALID LENSMODEL_LIST( LIST_WITH_COMMA ) } lensmodel_type_t;
+    { LENSMODEL_INVALID           = -2,
+      LENSMODEL_INVALID_BADCONFIG = -1
+      // The rest, starting with 0
+#define LIST_WITH_COMMA(s,n) ,s
+      LENSMODEL_LIST( LIST_WITH_COMMA ) } lensmodel_type_t;
 typedef struct
 {
     lensmodel_type_t type;
@@ -120,6 +125,10 @@ typedef struct
 #undef CONFIG_STRUCT
     };
 } lensmodel_t;
+bool mrcal_lensmodel_type_is_valid(lensmodel_type_t t)
+{
+    return t >= 0;
+}
 
 
 typedef struct

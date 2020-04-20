@@ -82,13 +82,13 @@ int main(int argc, char* argv[])
     confirm_lensmodel( mrcal_lensmodel_from_name("LENSMODEL_UV"),
                        (lensmodel_t){.type = LENSMODEL_INVALID} );
     confirm_lensmodel( mrcal_lensmodel_from_name("LENSMODEL_UV_1_2_"),
-                       (lensmodel_t){.type = LENSMODEL_INVALID} );
+                       (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG} );
     confirm_lensmodel( mrcal_lensmodel_from_name("LENSMODEL_UV_1_2 "),
-                       (lensmodel_t){.type = LENSMODEL_INVALID} );
+                       (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG} );
     confirm_lensmodel( mrcal_lensmodel_from_name("LENSMODEL_UV__1_2"),
-                       (lensmodel_t){.type = LENSMODEL_INVALID} );
+                       (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG} );
     confirm_lensmodel( mrcal_lensmodel_from_name("LENSMODEL_UV1_2"),
-                       (lensmodel_t){.type = LENSMODEL_INVALID} );
+                       (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG} );
     ref =
         (lensmodel_t){.type = LENSMODEL_UV,
         .LENSMODEL_UV__config = {.a = 1, .b = 2}};

@@ -37,12 +37,16 @@ int main(int argc, char* argv[] )
     }
 
     lensmodel_t lensmodel = mrcal_lensmodel_from_name(argv[iarg]);
-    if( lensmodel.type == LENSMODEL_INVALID )
+    if( !mrcal_lensmodel_type_is_valid(lensmodel.type) )
     {
-#define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
-        fprintf(stderr, "Lens model name '%s' unknown. I only know about ("
-                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
-                ")\n", argv[iarg]);
+
+#define PERCENT_S_COMMA(s,n) "'%s',"
+#define COMMA_LENSMODEL_NAME(s,n) , mrcal_lensmodel_name( (lensmodel_t){.type = s} )
+#define VALID_LENSMODELS_FORMAT  "(" LENSMODEL_LIST(PERCENT_S_COMMA) ")"
+#define VALID_LENSMODELS_ARGLIST LENSMODEL_LIST(COMMA_LENSMODEL_NAME)
+
+        fprintf(stderr, "Lens model name '%s' unknown. I only know about " VALID_LENSMODELS_FORMAT "\n",
+                argv[iarg] VALID_LENSMODELS_ARGLIST);
         return 1;
     }
     iarg++;
