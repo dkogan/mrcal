@@ -116,7 +116,8 @@ $(TESTS_RUN): all
 .PHONY: test check
 
 %.RUN: %
-	$<
+	@echo "Running test 'make $@'"
+	@$<
 
 
 include /usr/include/mrbuild/Makefile.common.footer
