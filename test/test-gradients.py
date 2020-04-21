@@ -17,7 +17,8 @@ import subprocess
 from io import StringIO
 
 
-tests = ( "LENSMODEL_PINHOLE extrinsics frames intrinsic-core intrinsic-distortions",
+tests = ( # mostly all
+          "LENSMODEL_PINHOLE extrinsics frames intrinsic-core intrinsic-distortions",
           "LENSMODEL_PINHOLE extrinsics frames                intrinsic-distortions",
           "LENSMODEL_PINHOLE extrinsics frames intrinsic-core",
           "LENSMODEL_PINHOLE extrinsics frames",
@@ -30,6 +31,7 @@ tests = ( "LENSMODEL_PINHOLE extrinsics frames intrinsic-core intrinsic-distorti
           "LENSMODEL_OPENCV4 extrinsics frames intrinsic-core",
           "LENSMODEL_OPENCV4 extrinsics frames",
 
+          # partials; cahvor
           "LENSMODEL_CAHVOR  frames intrinsic-core intrinsic-distortions",
           "LENSMODEL_CAHVOR  frames                intrinsic-distortions",
           "LENSMODEL_CAHVOR  frames intrinsic-core",
@@ -42,7 +44,22 @@ tests = ( "LENSMODEL_PINHOLE extrinsics frames intrinsic-core intrinsic-distorti
 
           "LENSMODEL_CAHVOR  intrinsic-core intrinsic-distortions",
           "LENSMODEL_CAHVOR                 intrinsic-distortions",
-          "LENSMODEL_CAHVOR  intrinsic-core"
+          "LENSMODEL_CAHVOR  intrinsic-core",
+
+          # partials; opencv4
+          "LENSMODEL_OPENCV4 frames intrinsic-core intrinsic-distortions",
+          "LENSMODEL_OPENCV4 frames                intrinsic-distortions",
+          "LENSMODEL_OPENCV4 frames intrinsic-core",
+          "LENSMODEL_OPENCV4 frames",
+
+          "LENSMODEL_OPENCV4 extrinsics intrinsic-core intrinsic-distortions",
+          "LENSMODEL_OPENCV4 extrinsics                intrinsic-distortions",
+          "LENSMODEL_OPENCV4 extrinsics intrinsic-core",
+          "LENSMODEL_OPENCV4 extrinsics",
+
+          "LENSMODEL_OPENCV4 intrinsic-core intrinsic-distortions",
+          "LENSMODEL_OPENCV4                intrinsic-distortions",
+          "LENSMODEL_OPENCV4 intrinsic-core"
          )
 
 for test in tests:
@@ -50,24 +67,17 @@ for test in tests:
     try:
         out = \
             subprocess.check_output(f"{testdir}/../test-gradients {test} 2>/dev/null | " + \
-                                    "vnl-filter --eval '{print ivar,imeasurement,error,error_relative}'",
+                                    "vnl-filter -p error_relative",
                                     shell = True,
                                     encoding = 'ascii')
     except Exception as e:
-        testutils.confirm(False, msg="failed to check gradients for '{test}")
+        testutils.confirm(False, msg=f"failed to check gradients for '{test}")
         continue
 
-    err_relative_max           = -1.0
-    err_absolute_corresponding = -1.0
+    with StringIO(out) as f:
+        err_relative = nps.transpose(np.loadtxt(f))
 
-    with StringIO(out) as lines:
-        for line in lines:
-            (ivar,imeas,err_absolute,err_relative) = [float(x) for x in line.split()]
+    err_relative_99percentile = np.percentile(err_relative, 99, interpolation='lower')
+    testutils.confirm(err_relative_99percentile < 1e-4, f"99%-percentile relative error={err_relative_99percentile} for {test}")
 
-            if abs(err_absolute) > 1e-8 and err_relative > err_relative_max:
-                err_relative_max           = err_relative
-                err_absolute_corresponding = err_absolute
-                ivar_corresponding         = ivar
-                imeas_corresponding        = imeas
-
-    print(f"var/meas: {ivar_corresponding}/{imeas_corresponding} err_relative_max: {err_relative_max}: err_absolute: {err_absolute_corresponding}")
+testutils.finish()
