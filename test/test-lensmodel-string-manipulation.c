@@ -4,42 +4,13 @@
 
 #include "../mrcal.h"
 
-#define GREEN       "\x1b[32m"
-#define RED         "\x1b[31m"
-#define COLOR_RESET "\x1b[0m"
-
+#include "test-harness.h"
 
 static bool eq_lensmodel(const lensmodel_t* a, const lensmodel_t* b)
 {
     // for now this is a binary comparison
     return 0 == memcmp(a, b, sizeof(*a));
 }
-
-#define confirm(x) do {                                                 \
-    Ntests++;                                                           \
-                                                                        \
-    if(x)                                                               \
-        printf(GREEN "OK: "#x" is true" COLOR_RESET"\n");       \
-    else                                                                \
-        {                                                               \
-            printf(RED "FAIL on line %d: "#x" is false" COLOR_RESET"\n", __LINE__); \
-            NtestsFailed++;                                             \
-        }                                                               \
-} while(0)
-
-#define confirm_eq_int(x,xref) do {                                     \
-    Ntests++;                                                           \
-                                                                        \
-    int _x    = x;                                                      \
-    int _xref = xref;                                                   \
-    if(_x == xref)                                                      \
-        printf(GREEN "OK: "#x" == %d, as it should" COLOR_RESET"\n", _xref); \
-    else                                                                \
-    {                                                                   \
-        printf(RED "FAIL on line %d: "#x" != %d. Instead it is %d" COLOR_RESET"\n", __LINE__, _xref, _x); \
-        NtestsFailed++;                                                 \
-    }                                                                   \
-} while(0)
 
 #define confirm_lensmodel(x, xref) do {                                 \
     Ntests++;                                                           \
@@ -69,8 +40,7 @@ static bool eq_lensmodel(const lensmodel_t* a, const lensmodel_t* b)
 
 int main(int argc, char* argv[])
 {
-    int Ntests       = 0;
-    int NtestsFailed = 0;
+    TEST_HEADER();
 
     lensmodel_t ref;
 
@@ -135,14 +105,5 @@ int main(int argc, char* argv[])
     confirm_eq_int(mrcal_getNlensParams(ref), 3);
 
 
-    if(NtestsFailed == 0)
-    {
-        printf(GREEN "All %d tests passed\n", Ntests);
-        return 0;
-    }
-    else
-    {
-        printf(RED "%d/%d tests failed\n", NtestsFailed, Ntests);
-        return 1;
-    }
+    TEST_FOOTER();
 }
