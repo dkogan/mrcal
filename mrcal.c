@@ -1260,8 +1260,6 @@ void project( // out
                            const double* _d_rj_dparam,
                            const double* _d_tj_dparam)
             {
-                if( dxy_dparam == NULL ) return;
-
                 // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
                 // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
                 //
@@ -1296,10 +1294,10 @@ void project( // out
                 }
             }
 
-            propagate( &dxy_drcamera[2*i_pt], _d_rj_rc, _d_tj_rc );
-            propagate( &dxy_dtcamera[2*i_pt], _d_rj_tc, _d_tj_tc );
-            propagate( &dxy_dtframe [2*i_pt],  _d_rj_tf, _d_tj_tf );
-            propagate( &dxy_drframe [2*i_pt],  _d_rj_rf, _d_tj_rf );
+            if( dxy_drcamera != NULL ) propagate( &dxy_drcamera[2*i_pt], _d_rj_rc, _d_tj_rc );
+            if( dxy_dtcamera != NULL ) propagate( &dxy_dtcamera[2*i_pt], _d_rj_tc, _d_tj_tc );
+            if( dxy_dtframe  != NULL ) propagate( &dxy_dtframe [2*i_pt],  _d_rj_tf, _d_tj_tf );
+            if( dxy_drframe  != NULL ) propagate( &dxy_drframe [2*i_pt],  _d_rj_rf, _d_tj_rf );
 
             point3_t* p_dxy_dt = &dxy_dtcamera[2*i_pt];
             if( dxy_dcalobject_warp != NULL && calibration_object_width_n)
@@ -1340,8 +1338,6 @@ void project( // out
         {
             void propagate_r(point3_t* dxy_dparam)
             {
-                if( dxy_dparam == NULL ) return;
-
                 // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
                 // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
                 //
@@ -1373,8 +1369,6 @@ void project( // out
             }
             void propagate_t(point3_t* dxy_dparam)
             {
-                if( dxy_dparam == NULL ) return;
-
                 // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
                 // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
                 //
@@ -1405,8 +1399,8 @@ void project( // out
                 }
             }
 
-            propagate_r( &dxy_drframe[2*i_pt] );
-            propagate_t( &dxy_dtframe[2*i_pt] );
+            if( dxy_drframe != NULL ) propagate_r( &dxy_drframe[2*i_pt] );
+            if( dxy_dtframe != NULL ) propagate_t( &dxy_dtframe[2*i_pt] );
 
             point3_t* p_dxy_dt = &dxy_dtframe[2*i_pt];
             if( dxy_dcalobject_warp != NULL && calibration_object_width_n)
