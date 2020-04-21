@@ -115,9 +115,9 @@ def confirm_equal(x, xref, msg='', eps=1e-6):
                 NchecksFailed = NchecksFailed + 1
                 return False
             if rms > eps:
-                print_red("FAILED{}: rms error = {}.\nx,xref,err =\n{}".format(
+                print_red("FAILED{}: rms error = {}.\nx = {}\nxref = {}\nerr = {}".format(
                     (': ' + msg) if msg else '', rms,
-                    np.vstack((x, xref, diff)).transpose()))
+                    x,xref,diff))
                 NchecksFailed = NchecksFailed + 1
                 return False
         except:  # Can't subtract. Do == instead
