@@ -102,10 +102,10 @@ EXTRA_CLEAN += mrcal/*.so
 
 # Set up the test suite to be runnable in parallel
 TESTS :=					\
-  test/test-projections.py			\
+  test/test-pylib-projections.py		\
   test/test-poseutils.py			\
-  test/test-cameramodel.py                      \
-  test/test-gradients.py                        \
+  test/test-cameramodel.py			\
+  test/test-gradients.py			\
   test/test-cahvor				\
   test/test-lensmodel-string-manipulation
 TESTS_RUN := $(addsuffix .RUN,$(TESTS))
