@@ -1508,7 +1508,7 @@ bool _project_cahvore( // out
                       point2_t* out,
 
                       // in
-                      const point3_t* q,
+                      const point3_t* v,
                       int N,
 
                       // core, distortions concatenated
@@ -1552,11 +1552,28 @@ bool _project_cahvore( // out
 
     for(int i_pt=0; i_pt<N; i_pt++)
     {
-        const double* v = q[i_pt].xyz;
+        ///////////////// THIS IS MADE UP, AND PROBABLY WRONG I'm using jplv as
+        // the reference implementation for this, but that implementation can't
+        // work. In jplv project(v) and project(k*v) don't project to the sample
+        // point. Look at the definition of upsilon below. omega and l have
+        // units of m, while the other terms are unitless. I'm hypothesizing
+        // that they meant to normalize v, but never did it. So I'm going that
+        // here. mrcal supports cahvore only for compatibility, so nobody's
+        // using this code. IF YOU ARE GOING TO USE THIS CODE, PLEASE CONFIRM
+        // THAT THIS CAHVORE PROJECTION IS CORRECT
+        double vhere[3] = {
+            v[i_pt].x,
+            v[i_pt].y,
+            v[i_pt].z
+        };
+        double vnorm = sqrt(vhere[0]*vhere[0] +
+                            vhere[1]*vhere[1] +
+                            vhere[2]*vhere[2]);
+        for(int i=0; i<3; i++) vhere[i] /= vnorm;
 
         // cos( angle between v and o ) = inner(v,o) / (norm(o) * norm(v)) =
         // omega/norm(v)
-        double omega = v[0]*o[0] + v[1]*o[1] + o[2];
+        double omega = vhere[0]*o[0] + vhere[1]*o[1] + vhere[2]*o[2];
 
 
         // Basic Computations
@@ -1566,7 +1583,7 @@ bool _project_cahvore( // out
         for(int i=0; i<3; i++) u[i] = omega*o[i];
 
         double ll[3];
-        for(int i=0; i<3; i++) ll[i] = v[i]-u[i];
+        for(int i=0; i<3; i++) ll[i] = vhere[i]-u[i];
         double l = sqrt(ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2]);
 
         // Calculate theta using Newton's Method
@@ -1643,12 +1660,16 @@ bool _project_cahvore( // out
 
             for(int i=0; i<3; i++)
                 u[i] = uu[i] + vv[i];
-            v = u;
+            // now I apply a normal projection to the warped 3d point v
+            out[i_pt].x = core->focal_xy[0] * u[0]/u[2] + core->center_xy[0];
+            out[i_pt].y = core->focal_xy[1] * u[1]/u[2] + core->center_xy[1];
         }
-
-        // now I apply a normal projection to the warped 3d point v
-        out[i_pt].x = core->focal_xy[0] * v[0]/v[2] + core->center_xy[0];
-        out[i_pt].y = core->focal_xy[1] * v[1]/v[2] + core->center_xy[1];
+        else
+        {
+            // now I apply a normal projection to the warped 3d point v
+            out[i_pt].x = core->focal_xy[0] * vhere[0]/vhere[2] + core->center_xy[0];
+            out[i_pt].y = core->focal_xy[1] * vhere[1]/vhere[2] + core->center_xy[1];
+        }
     }
     return true;
 }
