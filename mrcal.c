@@ -1543,16 +1543,16 @@ bool _project_cahvore( // out
     const double e2        = intrinsics[4 + 7];
     const double linearity = intrinsics[4 + 8];
 
-    for(int i=0; i<N; i++)
+    double sa,ca;
+    sincos(alpha, &sa, &ca);
+    double sb,cb;
+    sincos(beta, &sb, &cb);
+
+    const double o[] ={ cb * sa, sb, cb * ca };
+
+    for(int i_pt=0; i_pt<N; i_pt++)
     {
-        const double* v = q[i].xyz;
-
-        double sa,ca;
-        sincos(alpha, &sa, &ca);
-        double sb,cb;
-        sincos(beta, &sb, &cb);
-
-        double o[] ={ cb * sa, sb, cb * ca };
+        const double* v = q[i_pt].xyz;
 
         // cos( angle between v and o ) = inner(v,o) / (norm(o) * norm(v)) =
         // omega/norm(v)
@@ -1567,7 +1567,7 @@ bool _project_cahvore( // out
 
         double ll[3];
         for(int i=0; i<3; i++) ll[i] = v[i]-u[i];
-        double l  = sqrt(ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2]);
+        double l = sqrt(ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2]);
 
         // Calculate theta using Newton's Method
         double theta = atan2(l, omega);
@@ -1647,8 +1647,8 @@ bool _project_cahvore( // out
         }
 
         // now I apply a normal projection to the warped 3d point v
-        out[i].x = core->focal_xy[0] * v[0]/v[2] + core->center_xy[0];
-        out[i].y = core->focal_xy[1] * v[1]/v[2] + core->center_xy[1];
+        out[i_pt].x = core->focal_xy[0] * v[0]/v[2] + core->center_xy[0];
+        out[i_pt].y = core->focal_xy[1] * v[1]/v[2] + core->center_xy[1];
     }
     return true;
 }
