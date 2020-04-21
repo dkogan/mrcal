@@ -105,6 +105,7 @@ TESTS :=					\
   test/test-pylib-projections.py		\
   test/test-poseutils.py			\
   test/test-cameramodel.py			\
+  test/test-projections.py			\
   test/test-gradients.py			\
   test/test-cahvor				\
   test/test-lensmodel-string-manipulation
