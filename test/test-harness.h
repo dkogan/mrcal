@@ -1,56 +1,67 @@
 #pragma once
 
+#include <stdio.h>
+#include <stdbool.h>
 
 #define GREEN       "\x1b[32m"
 #define RED         "\x1b[31m"
 #define COLOR_RESET "\x1b[0m"
 
-#define confirm(x) do {                                                 \
-    Ntests++;                                                           \
-                                                                        \
-    if(x)                                                               \
-        printf(GREEN "OK: "#x" is true" COLOR_RESET"\n");       \
-    else                                                                \
-        {                                                               \
-            printf(RED "FAIL on line %d: "#x" is false" COLOR_RESET"\n", __LINE__); \
-            NtestsFailed++;                                             \
-        }                                                               \
-} while(0)
 
-#define confirm_eq_int(x,xref) do {                                     \
-    Ntests++;                                                           \
-                                                                        \
-    int _x    = x;                                                      \
-    int _xref = xref;                                                   \
-    if(_x == _xref)                                                      \
-        printf(GREEN "OK: "#x" == %d, as it should" COLOR_RESET"\n", _xref); \
-    else                                                                \
-    {                                                                   \
-        printf(RED "FAIL on line %d: "#x" != %d. Instead it is %d" COLOR_RESET"\n", __LINE__, _xref, _x); \
-        NtestsFailed++;                                                 \
-    }                                                                   \
-} while(0)
+// global variable for the results tracking
+int Ntests       = 0;
+int NtestsFailed = 0;
 
-#define confirm_eq_double(x,xref) do {                                  \
-    Ntests++;                                                           \
-                                                                        \
-    double _x    = x;                                                   \
-    double _xref = xref;                                                \
-    if( fabs(_x - _xref) < 1e-6)                                        \
-        printf(GREEN "OK: "#x" ~ %f, as it should" COLOR_RESET"\n", _xref); \
-    else                                                                \
-    {                                                                   \
-        printf(RED "FAIL on line %d: "#x" !~ %f. Instead it is %f" COLOR_RESET"\n", __LINE__, _xref, _x); \
-        NtestsFailed++;                                                 \
-    }                                                                   \
-} while(0)
+__attribute__((unused))
+static void _confirm(bool x, const char* what_x, int where)
+{
+    Ntests++;
+
+    if(x)
+        printf(GREEN "OK: %s is true" COLOR_RESET"\n",
+               what_x);
+    else
+    {
+        printf(RED "FAIL on line %d: %s is false" COLOR_RESET"\n", where, what_x);
+        NtestsFailed++;
+    }
+}
+#define confirm(x) _confirm(x, #x, __LINE__)
+
+__attribute__((unused))
+static void _confirm_eq_int(int x, int xref, const char* what_x, const char* what_xref, int where)
+{
+    Ntests++;
+    if(x == xref)
+        printf(GREEN "OK: %s == %s, as it should" COLOR_RESET"\n", what_x, what_xref);
+    else
+    {
+        printf(RED "FAIL on line %d: %s != %s: %d != %d" COLOR_RESET"\n",
+               where, what_x, what_xref, x, xref);
+        NtestsFailed++;
+    }
+}
+#define confirm_eq_int(x,xref) _confirm_eq_int(x, xref, #x, #xref, __LINE__)
+
+__attribute__((unused))
+static void _confirm_eq_double(double x, double xref, const char* what_x, const char* what_xref, double eps, int where)
+{
+    Ntests++;
+    if(fabs(x - xref) < eps)
+        printf(GREEN "OK: %s ~ %s, as it should" COLOR_RESET"\n", what_x, what_xref);
+    else
+    {
+        printf(RED "FAIL on line %d: %s !~ %s: %f !~ %f" COLOR_RESET"\n",
+               where, what_x, what_xref, x, xref);
+        NtestsFailed++;
+    }
+}
+#define confirm_eq_double(x,xref, eps) _confirm_eq_double(x, xref, #x, #xref, eps, __LINE__)
 
 
-#define TEST_HEADER()                           \
-    int Ntests       = 0;                       \
-    int NtestsFailed = 0;
 
-#define TEST_FOOTER()                                                     \
+
+#define TEST_FOOTER()                                                   \
     if(NtestsFailed == 0)                                               \
     {                                                                   \
         printf(GREEN "%s: all %d tests passed\n", argv[0], Ntests);     \

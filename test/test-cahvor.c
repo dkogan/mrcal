@@ -197,8 +197,6 @@ void project_cahvor(
 
 int main(int argc, char* argv[])
 {
-    TEST_HEADER();
-
     double c[] = {  0,  0,  0 };
     double a[] = {  0,  0,  1 };
     double h[] = { 11,  0, 23 };
@@ -232,11 +230,11 @@ int main(int argc, char* argv[])
                     c,a,h,v,o,r,
                     projection_new_scaled3d );
 
-    confirm_eq_double(projection_new[0], projection_orig[0]);
-    confirm_eq_double(projection_new[1], projection_orig[1]);
+    confirm_eq_double(projection_new[0], projection_orig[0], 1e-6);
+    confirm_eq_double(projection_new[1], projection_orig[1], 1e-6);
 
-    confirm_eq_double(projection_new_scaled3d[0], projection_orig[0]);
-    confirm_eq_double(projection_new_scaled3d[1], projection_orig[1]);
+    confirm_eq_double(projection_new_scaled3d[0], projection_orig[0], 1e-6);
+    confirm_eq_double(projection_new_scaled3d[1], projection_orig[1], 1e-6);
 
     TEST_FOOTER();
 }
