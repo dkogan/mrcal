@@ -1163,7 +1163,16 @@ def show_distortion(model,
                     extratitle       = None,
                     hardcopy         = None,
                     kwargs           = None):
-    r'''Visualizes the distortion of a camera
+    r'''Visualizes the distortion of a lens
+
+    "Distortion" means "deviation from some norm". This function takes the
+    "norm" to be a pinhole lens. So wide lenses will have a lot of reported
+    distortion.
+
+    For lens models based on corrections to a pinhole projection (those that
+    have an intrinsic core), the baseline pinhole model is used as the
+    reference. For models not based on an intrinsic we either estimate the
+    pinhole model at the center, or we simply do not support this function.
 
     This function has 3 modes of operation, specified as a string in the 'mode'
     argument:
@@ -1213,6 +1222,10 @@ def show_distortion(model,
 
 
     W,H = imagersize
+    if not mrcal.modelHasCore_fxfycxcy(lens_model):
+        raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
+    fxy = intrinsics_data[ :2]
+    cxy = intrinsics_data[2:4]
 
     if mode == 'radial':
 
@@ -1245,12 +1258,6 @@ def show_distortion(model,
         #         ...
         #         m[i].x = xd*fx + cx;
         #         m[i].y = yd*fy + cy;
-
-        if not mrcal.modelHasCore_fxfycxcy(lens_model):
-            raise Exception("--radial currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
-        xc = intrinsics_data[2]
-        yc = intrinsics_data[3]
-
         distortions = intrinsics_data[4:]
         k2 = distortions[0]
         k4 = distortions[1]
@@ -1274,10 +1281,10 @@ def show_distortion(model,
                               (x0,y1),
                               (x1,y0),
                               (x1,y1)), dtype=float)
-        q_centersx  = np.array(((xc,y0),
-                                (xc,y1)), dtype=float)
-        q_centersy  = np.array(((x0,yc),
-                                (x1,yc)), dtype=float)
+        q_centersx  = np.array(((cxy[0],y0),
+                                (cxy[0],y1)), dtype=float)
+        q_centersy  = np.array(((x0,cxy[1]),
+                                (x1,cxy[1])), dtype=float)
 
         Vxy_corners  = mrcal.unproject( q_corners,  lens_model, intrinsics_data, z1=True)
         Vxy_centersx = mrcal.unproject( q_centersx, lens_model, intrinsics_data, z1=True)
@@ -1339,10 +1346,6 @@ def show_distortion(model,
                                              -1, -2, -3),
                                  dtype = float)
 
-    if not mrcal.modelHasCore_fxfycxcy(lens_model):
-        raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
-    fxy = intrinsics_data[ :2]
-    cxy = intrinsics_data[2:4]
     dgrid =  mrcal.project( nps.glue( (grid-cxy)/fxy,
                                     np.ones(grid.shape[:-1] + (1,), dtype=float),
                                     axis = -1 ),
