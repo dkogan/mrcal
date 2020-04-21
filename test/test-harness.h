@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <math.h>
 
 #define GREEN       "\x1b[32m"
 #define RED         "\x1b[31m"
@@ -64,11 +65,11 @@ static void _confirm_eq_double(double x, double xref, const char* what_x, const 
 #define TEST_FOOTER()                                                   \
     if(NtestsFailed == 0)                                               \
     {                                                                   \
-        printf(GREEN "%s: all %d tests passed\n", argv[0], Ntests);     \
+        printf(GREEN "%s: all %d tests passed" COLOR_RESET "\n", argv[0], Ntests);     \
         return 0;                                                       \
     }                                                                   \
     else                                                                \
     {                                                                   \
-        printf(RED "%s: %d/%d tests failed\n", argv[0], NtestsFailed, Ntests); \
+        printf(RED "%s: %d/%d tests failed" COLOR_RESET "\n", argv[0], NtestsFailed, Ntests); \
         return 1;                                                       \
     }
