@@ -1718,9 +1718,7 @@ bool mrcal_project( // out
        (LENSMODEL_IS_OPENCV(lensmodel.type) ||
         lensmodel.type == LENSMODEL_PINHOLE))
     {
-        int Ndistortions = Nintrinsics;
-        if(mrcal_modelHasCore_fxfycxcy(lensmodel))
-            Ndistortions -= 4; // ignoring fx,fy,cx,cy
+        int Ndistortions = Nintrinsics - 4; // ignoring fx,fy,cx,cy
 
         const intrinsics_core_t* intrinsics_core = (const intrinsics_core_t*)intrinsics;
         double fx = intrinsics_core->focal_xy [0];
@@ -1729,27 +1727,36 @@ bool mrcal_project( // out
         double cy = intrinsics_core->center_xy[1];
         double _camera_matrix[] =
             { fx,  0, cx,
-              0, fy, cy,
-              0,  0,  1 };
+              0,  fy, cy,
+              0,   0,  1 };
         CvMat camera_matrix = cvMat(3,3, CV_64FC1, _camera_matrix);
-
-        CvMat _distortions;
-        if(Ndistortions > 0)
-            _distortions = cvMat( Ndistortions, 1, CV_64FC1,
-                                  // removing const, but that's just because
-                                  // OpenCV's API is incomplete. It IS const
-                                  (double*)&intrinsics[4]);
 
         CvMat object_points  = cvMat(3,N, CV_64FC1, (double*)p->xyz);
         CvMat image_points   = cvMat(2,N, CV_64FC1, (double*)q->xy);
         double _zero3[3] = {};
         CvMat zero3 = cvMat(3,1,CV_64FC1, _zero3);
-        cvProjectPoints2(&object_points,
-                         &zero3, &zero3,
-                         &camera_matrix,
-                         Ndistortions > 0 ? &_distortions : NULL,
-                         &image_points,
-                         NULL, NULL, NULL, NULL, NULL, 0 );
+
+        if(Ndistortions > 0)
+        {
+            CvMat _distortions =
+                cvMat( Ndistortions, 1, CV_64FC1,
+                       // removing const, but that's just because
+                       // OpenCV's API is incomplete. It IS const
+                       (double*)&intrinsics[4]);
+            cvProjectPoints2(&object_points,
+                             &zero3, &zero3,
+                             &camera_matrix,
+                             &_distortions,
+                             &image_points,
+                             NULL, NULL, NULL, NULL, NULL, 0 );
+        }
+        else
+            cvProjectPoints2(&object_points,
+                             &zero3, &zero3,
+                             &camera_matrix,
+                             NULL,
+                             &image_points,
+                             NULL, NULL, NULL, NULL, NULL, 0 );
         return true;
     }
 
@@ -1759,7 +1766,7 @@ bool mrcal_project( // out
         pose_t frame = {.r = {},
                         .t = p[i]};
 
-        project( &q[i],
+        project( q,
                  dq_dintrinsics,
                  NULL, NULL, NULL,
                  dq_dp, NULL,
@@ -1772,10 +1779,11 @@ bool mrcal_project( // out
                  true,
                  lensmodel,
                  0.0, 0);
-        if(dq_dintrinsics != NULL)
-            dq_dintrinsics = &dq_dintrinsics[2*Nintrinsics];
-        if(dq_dp != NULL)
-            dq_dp = &dq_dp[2];
+
+        // advance to the next point
+        q = &q[1];
+        if(dq_dintrinsics != NULL) dq_dintrinsics = &dq_dintrinsics[2*Nintrinsics];
+        if(dq_dp          != NULL) dq_dp          = &dq_dp[2];
     }
     return true;
 }
