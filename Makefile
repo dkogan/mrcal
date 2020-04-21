@@ -7,7 +7,7 @@ ABI_VERSION  := 0
 TAIL_VERSION := 0
 
 LIB_SOURCES += mrcal.c
-BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
+BIN_SOURCES += test-gradients.c test/test-cahvor.c #test/test-lensmodel-string-manipulation.c
 
 
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)

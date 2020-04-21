@@ -132,11 +132,16 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
 
 // Write the model name WITH the full config into the given buffer. Identical to
 // mrcal_lensmodel_name() for configuration-free models
-static int LENSMODEL_UV__snprintf_model(char* out, int size, const LENSMODEL_UV__config_t* config)
+static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
+  (char* out, int size,
+   const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
-        snprintf( out, size, "LENSMODEL_UV_%"PRIu16"_%"PRIu16,
-                  config->a, config->b );
+        snprintf( out, size, "LENSMODEL_SPLINED_STEREOGRAPHIC_%"PRIu16"_%"PRIu16"_%"PRIu16"_%"PRIu16"_%f_%f",
+                  config->spline_order,
+                  config->Nx, config->Ny,
+                  config->fov_x_deg,
+                  config->cx, config->cy);
 }
 bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 {
@@ -162,12 +167,16 @@ bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 }
 
 
-static bool LENSMODEL_UV__scan_model_config( LENSMODEL_UV__config_t* config, const char* config_str)
+static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config, const char* config_str)
 {
     int pos;
     return
-        2 == sscanf( config_str, "%"SCNu16"_%"SCNu16"%n",
-                     &config->a, &config->b, &pos) &&
+        6 == sscanf( config_str, "%"SCNu16"_%"SCNu16"_%"SCNu16"_%"SCNu16"_%f_%f%n",
+                     &config->spline_order,
+                     &config->Nx, &config->Ny,
+                     &config->fov_x_deg,
+                     &config->cx, &config->cy,
+                     &pos) &&
         config_str[pos] == '\0';
 }
 
@@ -213,16 +222,18 @@ bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )
     if(LENSMODEL_IS_CAHVOR(m.type)) return true;
     if(m.type == LENSMODEL_PINHOLE) return true;
 
-    if(m.type == LENSMODEL_UV)      return false;
+    if(m.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+        return false;
 
     MSG("I don't know if %s has a core or not. Add that information to this function",
         mrcal_lensmodel_name(m));
     exit(1);
 }
 
-static int LENSMODEL_UV__getNlensParams(const LENSMODEL_UV__config_t* config)
+static int LENSMODEL_SPLINED_STEREOGRAPHIC__getNlensParams(const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
-    return config->a + config->b;
+    // I have two surfaces: one for x and another for y
+    return (int)config->Nx * (int)config->Ny * 2;
 }
 int mrcal_getNlensParams(const lensmodel_t m)
 {
@@ -356,7 +367,7 @@ static int getNmeasurements_observationsonly(int NobservationsBoard,
 }
 
 
-static int LENSMODEL_UV__getNregularizationTerms_percamera(const LENSMODEL_UV__config_t* config)
+static int LENSMODEL_SPLINED_STEREOGRAPHIC__getNregularizationTerms_percamera(const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return 0;
 }
@@ -366,8 +377,8 @@ static int getNregularizationTerms_percamera(mrcal_problem_details_t problem_det
     if(problem_details.do_skip_regularization)
         return 0;
 
-    if(lensmodel.type == LENSMODEL_UV)
-        return LENSMODEL_UV__getNregularizationTerms_percamera(&lensmodel.LENSMODEL_UV__config);
+    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+        return LENSMODEL_SPLINED_STEREOGRAPHIC__getNregularizationTerms_percamera(&lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config);
 
     // distortions
     int N = getNdistortionOptimizationParams(problem_details, lensmodel);
@@ -431,7 +442,7 @@ int mrcal_getN_j_nonzero( int Ncameras,
                           int calibration_object_width_n)
 {
 
-    if(lensmodel.type == LENSMODEL_UV)
+    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         #warning do thing
     }
@@ -481,6 +492,74 @@ int mrcal_getN_j_nonzero( int Ncameras,
                                           lensmodel);
 
     return N;
+}
+
+// Used in the spline-based projection function.
+//
+// See bsplines.py for the derivation of the spline expressions and for
+// justification of the 2D scheme
+//
+// Here we sample two interpolated surfaces at once: one each for the x and y
+// focal-length scales
+static
+void sample_bspline_surface_cubic(double* out,
+
+                                  double x, double y,
+                                  // control points
+                                  const double* c,
+                                  int stridey
+
+                                  // stridex is 2: the control points from the
+                                  // two surfaces are next to each other. Better
+                                  // cache locality maybe
+                                  )
+{
+    // The sampling function assumes evenly spaced knots.
+    // a,b,c,d are sequential control points
+    // x is in [0,1] between b and c. Function looks like this:
+    //   double x2 = x*x;
+    //   double x3 = x2*x;
+    //   double A =  (-x3 + 3*x2 - 3*x + 1)/6;
+    //   double B = (3 * x3/2 - 3*x2 + 2)/3;
+    //   double C = (-3 * x3 + 3*x2 + 3*x + 1)/6;
+    //   double D = (x * x * x) / 6;
+    //   return A*a0 + B*b0 + C*c0 + D*d0;
+    // I need to sample many such 1D segments, so I compute A,B,C,D separately,
+    // and apply them together
+    void get_sample_coeffs(double* ABCD, double x)
+    {
+        double x2 = x*x;
+        double x3 = x2*x;
+        ABCD[0] =  (-x3 + 3*x2 - 3*x + 1)/6;
+        ABCD[1] = (3 * x3/2 - 3*x2 + 2)/3;
+        ABCD[2] = (-3 * x3 + 3*x2 + 3*x + 1)/6;
+        ABCD[3] = (x * x * x) / 6;
+    }
+
+    // 4 samples along one dimension, and then one sample along the other
+    // dimension, using the 4 samples as the control points. Order doesn't
+    // matter. See bsplines.py
+    //
+    // I do this twice: one for each focal length surface
+    double ABCDx[4];
+    double ABCDy[4];
+    get_sample_coeffs(ABCDx, x);
+    get_sample_coeffs(ABCDy, y);
+    double cinterp[4][2];
+    const int stridex = 2;
+    for(int iy=0; iy<4; iy++)
+        for(int k=0;k<2;k++)
+            cinterp[iy][k] =
+                ABCDx[0] * c[iy*stridey + 0*stridex + k] +
+                ABCDx[1] * c[iy*stridey + 1*stridex + k] +
+                ABCDx[2] * c[iy*stridey + 2*stridex + k] +
+                ABCDx[3] * c[iy*stridey + 3*stridex + k];
+    for(int k=0;k<2;k++)
+        out[k] =
+            ABCDy[0] * cinterp[0][k] +
+            ABCDy[1] * cinterp[1][k] +
+            ABCDy[2] * cinterp[2][k] +
+            ABCDy[3] * cinterp[3][k];
 }
 
 static void project_opencv( // out
@@ -921,6 +1000,122 @@ void project( // out
         point3_t pt_cam;
         mul_vec3_gen33t_vout(pt_ref->xyz, _Rj, pt_cam.xyz);
         add_vec(3, pt_cam.xyz,  p_tj->data.db);
+
+        // pt_cam is now in the camera coordinates. I can project
+        if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+        {
+            if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+            {
+#warning need to support gradients
+
+                if(NULL != dxy_dintrinsics ||
+                   NULL != dxy_drcamera ||
+                   NULL != dxy_dtcamera ||
+                   NULL != dxy_drframe ||
+                   NULL != dxy_dtframe ||
+                   NULL != dxy_dcalobject_warp)
+                {
+                    MSG("Gradients not yet implemented");
+                    exit(1);
+                }
+
+                const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+                    &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
+
+                // mrcal-show-distortions --radial
+                // show-fisheye-grid.py
+
+                // stereographic projection:
+                //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
+                //   q = xy_unit * tan(th/2) * 2
+                //
+                // I compute the normalized (focal-length = 1) projection, and
+                // use that to look-up the x and y focal length scalings
+
+                // th is the angle between the observation and the projection
+                // center
+                //
+                // sin(th)   = mag_xy/mag_xyz
+                // cos(th)   = z/mag_xyz
+                // tan(th/2) = sin(th) / (1 + cos(th))
+
+                // tan(th/2) = mag_xy/mag_xyz / (1 + z/mag_xyz) =
+                //           = mag_xy / (mag_xyz + z)
+                // q = xy_unit * tan(th/2) * 2 =
+                //   = xy/mag_xy * mag_xy/(mag_xyz + z) * 2 =
+                //   = xy / (mag_xyz + z) * 2
+                double mag_xyz = sqrt( pt_cam.x*pt_cam.x +
+                                       pt_cam.y*pt_cam.y +
+                                       pt_cam.z*pt_cam.z );
+                double scale = 2.0 / (mag_xyz + pt_cam.z);
+
+                point2_t q = {.x = pt_cam.x * scale,
+                              .y = pt_cam.y * scale};
+                //MSG("normalized projection: %f %f", q.x, q.y);
+
+                // Great. I have the normalized projection. I use this to look
+                // up the focal length. And I apply that focal length to this
+                // normalized projection
+                //
+                // I have N control points describing a given field-of-view. I
+                // want to space out the control points evenly. I'm using
+                // B-splines, so I need extra control points out past my edge.
+                // With cubic splines I need a whole extra interval past the
+                // edge. With quadratic splines I need half an interval (see
+                // show-fisheye-grid.py).
+                //
+                // (width + k*interval_size)/(N-1) = interval_size
+                // ---> width/(N-1) = interval_size * (1 - k/(N-1))
+                // ---> interval_size = width / (N - 1 - k)
+                int NextraIntervals;
+                switch(config->spline_order)
+                {
+#warning need to support quadratic splines
+                // case 2: NextraIntervals = 1; break;
+                case 3: NextraIntervals = 2; break;
+                default:
+                    MSG("I only support spline_order 2 and 3");
+                    assert(0);
+                }
+                if(config->Nx < 4 || config->Ny < 4)
+                {
+                    MSG("I only support Nx and Ny must be >= 4");
+                    assert(0);
+                }
+#warning this fov stuff can be done once per model, not for each projection
+                double th_fov_x_edge = (double)config->fov_x_deg/2. * M_PI / 180.;
+                double q_edge_x      = tan(th_fov_x_edge / 2.) * 2;
+                double interval_size = (q_edge_x*2.) / (config->Nx - 1 - NextraIntervals);
+                //MSG("segment size: %f q/N; q=%f, N=%d", interval_size, 2.*q_edge_x, (config->Nx - 1 - NextraIntervals));
+                double ix = q.x/interval_size + (double)(config->Nx-1)/2.;
+                double iy = q.y/interval_size + (double)(config->Ny-1)/2.;
+#warning need to bounds-check
+                int ix0 = (int)ix;
+                int iy0 = (int)iy;
+
+                //MSG("spline grid coords:: %f %f", ix,iy);
+
+                point2_t fxy;
+                sample_bspline_surface_cubic(fxy.xy,
+                                             ix - ix0, iy - iy0,
+
+                                             // control points
+                                             &intrinsics[2*(iy0-1)*config->Nx +
+                                                         2*(ix0-1)],
+                                             2*config->Nx);
+
+                pt_out[i_pt].x = q.x * fxy.x + config->cx;
+                pt_out[i_pt].y = q.y * fxy.y + config->cy;
+            }
+            else
+            {
+                MSG("Unhandled lens model: %d (%s)",
+                    lensmodel.type,
+                    mrcal_lensmodel_name(lensmodel));
+                assert(0);
+            }
+            return;
+        }
 
         double dxyz_ddistortion[3*NdistortionParams];
         double* d_distortion_xyz = NULL;

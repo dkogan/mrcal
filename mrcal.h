@@ -78,12 +78,10 @@ typedef struct
     _(LENSMODEL_CAHVOR,  9)                                           \
     _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */
 #define LENSMODEL_WITHCONFIG_LIST(_)                                  \
-    _(LENSMODEL_UV,      0)
-
+    _(LENSMODEL_SPLINED_STEREOGRAPHIC,      0)
 #define LENSMODEL_LIST(_)                       \
     LENSMODEL_NOCONFIG_LIST(_)                  \
     LENSMODEL_WITHCONFIG_LIST(_)
-
 
 // parametric models have no extra configuration
 typedef struct {} LENSMODEL_PINHOLE__config_t;
@@ -97,8 +95,20 @@ typedef struct {} LENSMODEL_CAHVORE__config_t;
 
 typedef struct
 {
-    uint16_t a,b;
-} LENSMODEL_UV__config_t;
+    // Maximum degree of each 1D polynomial. This is almost certainly 2
+    // (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous)
+    uint16_t spline_order;
+
+    // We have a Nx by Ny grid of control points
+    uint16_t Nx, Ny;
+
+    // The horizontal field of view. Not including fov_y. It's proportional with
+    // Ny and Nx
+    uint16_t fov_x_deg;
+
+    // projection center
+    float cx, cy;
+} LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
 
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
 #define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV14
