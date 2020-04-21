@@ -12,31 +12,40 @@ static bool eq_lensmodel(const lensmodel_t* a, const lensmodel_t* b)
     return 0 == memcmp(a, b, sizeof(*a));
 }
 
-#define confirm_lensmodel(x, xref) do {                                 \
-    Ntests++;                                                           \
-                                                                        \
-    lensmodel_t a = x;                                                  \
-    lensmodel_t b = xref;                                               \
-    if(eq_lensmodel(&a, &b))                                            \
-        printf(GREEN "OK: equal "#x" and "#xref COLOR_RESET"\n");       \
-    else                                                                \
-        {                                                               \
-            printf(RED "FAIL on line %d: NOT equal "#x" and "#xref COLOR_RESET"\n", __LINE__); \
-            NtestsFailed++;                                             \
-        }                                                               \
-} while(0)
+static void _confirm_lensmodel(lensmodel_t x, lensmodel_t xref,
+                               const char* what_x, const char* what_xref, int where)
+{
+    Ntests++;
 
-#define confirm_lensmodel_name(x, xref) do {                            \
-    Ntests++;                                                           \
-                                                                        \
-    if(0 == strcmp(x,xref))                                             \
-        printf(GREEN "OK: equal "#x" and "#xref COLOR_RESET"\n");       \
-    else                                                                \
-        {                                                               \
-            printf(RED "FAIL on line %d: NOT equal "#x" and "#xref COLOR_RESET"\n", __LINE__); \
-            NtestsFailed++;                                             \
-        }                                                               \
-} while(0)
+    if(eq_lensmodel(&x, &xref))
+        printf(GREEN "OK: equal %s and %s" COLOR_RESET"\n",
+               what_x, what_xref);
+    else
+    {
+        printf(RED "FAIL on line %d: NOT equal %s and %s" COLOR_RESET"\n",
+               where, what_x, what_xref);
+        NtestsFailed++;
+    }
+}
+#define confirm_lensmodel(x,xref) _confirm_lensmodel(x, xref, #x, #xref, __LINE__)
+
+static void _confirm_lensmodel_name(const char* x, const char* xref, int where)
+{
+    Ntests++;
+
+    if(0 == strcmp(x,xref))
+        printf(GREEN "OK: equal %s and %s" COLOR_RESET"\n",
+               x, xref);
+    else
+    {
+        printf(RED "FAIL on line %d: NOT equal %s and %s" COLOR_RESET"\n",
+               where, x, xref);
+        NtestsFailed++;
+    }
+}
+#define confirm_lensmodel_name(x,xref) _confirm_lensmodel_name(x, xref, __LINE__)
+
+
 
 int main(int argc, char* argv[])
 {
