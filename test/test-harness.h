@@ -31,6 +31,20 @@
     }                                                                   \
 } while(0)
 
+#define confirm_eq_double(x,xref) do {                                  \
+    Ntests++;                                                           \
+                                                                        \
+    double _x    = x;                                                   \
+    double _xref = xref;                                                \
+    if( fabs(_x - _xref) < 1e-6)                                        \
+        printf(GREEN "OK: "#x" ~ %f, as it should" COLOR_RESET"\n", _xref); \
+    else                                                                \
+    {                                                                   \
+        printf(RED "FAIL on line %d: "#x" !~ %f. Instead it is %f" COLOR_RESET"\n", __LINE__, _xref, _x); \
+        NtestsFailed++;                                                 \
+    }                                                                   \
+} while(0)
+
 
 #define TEST_HEADER()                           \
     int Ntests       = 0;                       \

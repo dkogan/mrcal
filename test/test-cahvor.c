@@ -6,6 +6,7 @@
 
 #include <minimath.h>
 
+#include "test-harness.h"
 
 /* For everything that is a part of my cost function I need to compute gradients
    in respect to the parameters. Thus I need to re-implement the CAHVOR
@@ -194,8 +195,9 @@ void project_cahvor(
 }
 
 
-int main(void)
+int main(int argc, char* argv[])
 {
+    TEST_HEADER();
 
     double c[] = {  0,  0,  0 };
     double a[] = {  0,  0,  1 };
@@ -211,36 +213,30 @@ int main(void)
     double p[] = {12, 13, 99};
 
 
-    // out0: old implementation
     double range;
-    double out0[2];
+    double projection_orig[2];
     cmod_cahvor_3d_to_2d( p,
                           c,a,h,v,o,r, false,
-                          &range, out0, NULL );
+                          &range, projection_orig, NULL );
 
-    // out1: new implementation
-    double out1[2];
+    double projection_new[2];
     project_cahvor( p,
                     c,a,h,v,o,r,
-                    out1 );
+                    projection_new );
 
     // out2: new implementation, with scaled up 3d vector. The scaling should
     // have NO effect
-    double out2[2];
+    double projection_new_scaled3d[2];
     for(int i=0;i<3;i++) p[i] *= 10.0;
     project_cahvor( p,
                     c,a,h,v,o,r,
-                    out2 );
+                    projection_new_scaled3d );
 
-    printf("out0: %f %f\n", out0[0], out0[1]);
-    printf("out1: %f %f\n", out1[0], out1[1]);
-    printf("out2: %f %f\n", out1[0], out1[1]);
+    confirm_eq_double(projection_new[0], projection_orig[0]);
+    confirm_eq_double(projection_new[1], projection_orig[1]);
 
-    double err[2];
-    sub_vec_vout(2, out1, out0, err);
-    printf("err10:  %f %f\n",  err[0], err[1]);
-    sub_vec_vout(2, out2, out0, err);
-    printf("err20:  %f %f\n",  err[0], err[1]);
+    confirm_eq_double(projection_new_scaled3d[0], projection_orig[0]);
+    confirm_eq_double(projection_new_scaled3d[1], projection_orig[1]);
 
-    return 0;
+    TEST_FOOTER();
 }

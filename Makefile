@@ -104,8 +104,9 @@ EXTRA_CLEAN += mrcal/*.so
 TESTS :=					\
   test/test-projections.py			\
   test/test-poseutils.py			\
-  test/test-cameramodel.py                      \
-  test/test-lensmodel-string-manipulation
+  test/test-cameramodel.py			\
+  test/test-lensmodel-string-manipulation	\
+  test/test-cahvor
 TESTS_RUN := $(addsuffix .RUN,$(TESTS))
 test check: $(TESTS_RUN)
 	@echo "All tests in the test suite passed!"
