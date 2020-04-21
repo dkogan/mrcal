@@ -1,0 +1,36 @@
+The test and validation tools used in the development of the b-spline
+interpolated models live here.
+
+First I wanted to come up with a surface parametrization scheme. I wanted to
+project the full almost-360deg view into some sort of 2D domain that is
+cartesian-ish. Then I would grid this cartesian 2D domain with a regular grid of
+control points, and I'd spline that. But does such a mapping exist? What is it?
+
+The
+
+  show-fisheye-grid.py
+
+script exists for this purpose. It takes in an existing model, grids the imager,
+unprojects the points, and projects the vectors back to a number of common
+fisheye projections. I applied this to some wide models I had (their inaccurate
+OPENCV8 fits), and observed that the stereographic model works well here: a
+cartensian grid in the imager produces a cartesian-ish grid in the stereographic
+projection.
+
+Then I needed to find a surface representation, and the expressions. I'm using
+b-splines: they have nice continuity properties, and they have nice local
+support: so my jacobian will remain sparse. The
+
+  bsplines.py
+
+script derives and validates the spline equations. fpbisp.py is a part of that.
+
+Then I implemented the spline equations in mrcal.c, and wanted to make sure the
+behavior was correct. This is done by the
+
+  verify-interpolated-surface.py
+
+script. It produces a random splined model, projects it with mrcal, and
+visualizes the sparse control point surface with the dense sampled surface. The
+sampled surface should appear smooth, and should be guided by the control
+points.
