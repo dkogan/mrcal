@@ -106,8 +106,10 @@ TESTS :=					\
   test/test-cameramodel.py			\
   test/test-projections.py			\
   test/test-gradients.py			\
-  test/test-cahvor				\
+  test/test-cahvor                              \
+  test/test-optimizer-callback.py		\
   test/test-lensmodel-string-manipulation
+
 TESTS_RUN := $(addsuffix .RUN,$(TESTS))
 test check: $(TESTS_RUN)
 	@echo "All tests in the test suite passed!"
