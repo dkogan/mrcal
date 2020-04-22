@@ -39,7 +39,7 @@ atexit.register(cleanup)
 #   modify with setter
 #   call getter and compare
 
-m = mrcal.cameramodel(f"{testdir}/data/opencv8.cameramodel")
+m = mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel")
 
 testutils.confirm_equal( m.extrinsics_rt_fromref(), [ 2e-2, -3e-1, -1e-2,  1., 2, -3., ] )
 testutils.confirm_equal( m.intrinsics()[0], 'LENSMODEL_OPENCV8' )

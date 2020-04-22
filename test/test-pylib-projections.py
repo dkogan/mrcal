@@ -15,7 +15,7 @@ import mrcal
 import testutils
 
 
-m               = mrcal.cameramodel(f"{testdir}/data/opencv8.cameramodel")
+m               = mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel")
 W,H             = m.imagersize()
 intrinsics_core = m.intrinsics()[1][:4]
 
