@@ -1,0 +1,28 @@
+{
+    'distortion_model':  'DISTORTION_OPENCV8',
+
+    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+    'intrinsics': [ 1761, 1761, 1965, 1087, -0.02, 0.03, 0.0002, 0.0005, 0.0196, 0.01, -0.05, 0.04,],
+
+    # The intrinsics are represented as a probabilistic quantity: the parameters
+    # are all gaussian, with mean at the given values, and with some covariance.
+    'covariance_intrinsics': [
+    [ 0.25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0.25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0.25, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0.25, 0, 0, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0, 0.25, 0, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0.25, 0, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.25, 0, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.25, 0,],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.25,],
+],
+
+    # extrinsics are rt_fromref
+    'extrinsics': [ 2e-1, 1e-1, -1e-2,  2., 2, -2.5, ],
+
+    'imagersize': [ 4000, 2200 ]
+}
