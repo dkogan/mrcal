@@ -12,7 +12,6 @@ int main(int argc, char* argv[] )
         "problem-details are a list of parameters we're optimizing. This is some set of\n"
         "  intrinsic-core\n"
         "  intrinsic-distortions\n"
-        "  cahvor-optical-axis\n"
         "  extrinsics\n"
         "  frames\n"
         "  calobject-warp\n"
@@ -76,11 +75,6 @@ int main(int argc, char* argv[] )
             if( 0 == strcmp(argv[iarg], "frames") )
             {
                 problem_details.do_optimize_frames = true;
-                continue;
-            }
-            if( 0 == strcmp(argv[iarg], "cahvor-optical-axis" ) )
-            {
-                problem_details.do_optimize_cahvor_optical_axis = true;
                 continue;
             }
             if( 0 == strcmp(argv[iarg], "calobject-warp" ) )

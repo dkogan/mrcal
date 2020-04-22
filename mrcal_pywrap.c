@@ -151,15 +151,13 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "NobservationsBoard:                %d\n"
                                "calibration_object_width_n:        %d\n"
                                "do_optimize_intrinsic_core:        %d\n"
-                               "do_optimize_intrinsic_distortions: %d\n"
-                               "do_optimize_cahvor_optical_axis:   %d\n",
+                               "do_optimize_intrinsic_distortions: %d\n",
                                p_lensmodel_name,
                                self->Ncameras, self->Nframes, self->Npoints,
                                self->NobservationsBoard,
                                self->calibration_object_width_n,
                                self->problem_details.do_optimize_intrinsic_core,
-                               self->problem_details.do_optimize_intrinsic_distortions,
-                               self->problem_details.do_optimize_cahvor_optical_axis);
+                               self->problem_details.do_optimize_intrinsic_distortions);
 }
 
 static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
@@ -1115,7 +1113,6 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
     _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
-    _(do_optimize_cahvor_optical_axis,    PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_calobject_warp,         PyObject*,      Py_False,"O",  ,                                  NULL,           -1,         {})  \
     _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
@@ -1725,7 +1722,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
               .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
               .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
               .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
-              .do_optimize_cahvor_optical_axis   = PyObject_IsTrue(do_optimize_cahvor_optical_axis),
               .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),
               .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
             };

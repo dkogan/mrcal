@@ -153,14 +153,12 @@ typedef struct
     bool do_optimize_extrinsics            : 1;
     bool do_optimize_frames                : 1;
     bool do_skip_regularization            : 1;
-    bool do_optimize_cahvor_optical_axis   : 1;
     bool do_optimize_calobject_warp        : 1;
 } mrcal_problem_details_t;
 #define DO_OPTIMIZE_ALL ((mrcal_problem_details_t) { .do_optimize_intrinsic_core        = true, \
                                                      .do_optimize_intrinsic_distortions = true, \
                                                      .do_optimize_extrinsics            = true, \
                                                      .do_optimize_frames                = true, \
-                                                     .do_optimize_cahvor_optical_axis   = true, \
                                                      .do_optimize_calobject_warp        = true, \
                                                      .do_skip_regularization            = false})
 

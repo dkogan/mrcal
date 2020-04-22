@@ -12,7 +12,6 @@ SYNOPSIS
                                     imagersizes                       = imagersizes,
                                     do_optimize_intrinsic_core        = True,
                                     do_optimize_intrinsic_distortions = True,
-                                    do_optimize_cahvor_optical_axis   = True,
                                     calibration_object_spacing        = object_spacing,
                                     calibration_object_width_n        = 10,
                                     skip_regularization               = False,

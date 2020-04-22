@@ -313,12 +313,6 @@ int getNdistortionOptimizationParams(mrcal_problem_details_t problem_details,
     int N = mrcal_getNlensParams(lensmodel);
     if(mrcal_modelHasCore_fxfycxcy(lensmodel))
         N -= 4; // ignoring fx,fy,cx,cy
-    if( !problem_details.do_optimize_cahvor_optical_axis &&
-        LENSMODEL_IS_CAHVOR(lensmodel.type) )
-    {
-        // no optical axis parameters
-        N -= 2;
-    }
     return N;
 }
 
@@ -2068,14 +2062,8 @@ static int pack_solver_state_intrinsics( // out
 
         if( problem_details.do_optimize_intrinsic_distortions )
 
-            for(int i = ( !problem_details.do_optimize_cahvor_optical_axis &&
-                          ( lensmodel.type == LENSMODEL_CAHVOR ||
-                            lensmodel.type == LENSMODEL_CAHVORE )) ? 2 : 0;
-                i<Ndistortions;
-                i++)
-            {
+            for(int i = 0; i<Ndistortions; i++)
                 p[i_state++] = intrinsics[4 + i] / SCALE_DISTORTION;
-            }
 
         intrinsics = &intrinsics[Nintrinsics];
     }
@@ -2231,15 +2219,8 @@ static int unpack_solver_state_intrinsics_onecamera( // out
     }
 
     if( problem_details.do_optimize_intrinsic_distortions )
-
-        for(int i = ( !problem_details.do_optimize_cahvor_optical_axis &&
-                      ( lensmodel.type == LENSMODEL_CAHVOR ||
-                        lensmodel.type == LENSMODEL_CAHVORE )) ? 2 : 0;
-            i<Nintrinsics-4;
-            i++)
-        {
+        for(int i = 0; i<Nintrinsics-4; i++)
             distortions[i] = p[i_state++] * SCALE_DISTORTION;
-        }
 
     return i_state;
 }
@@ -3089,13 +3070,6 @@ void optimizerCallback(// input state
         } while(0)
 
 
-
-
-    int NlockedLeadingDistortions =
-        ( !ctx->problem_details.do_optimize_cahvor_optical_axis &&
-          ( ctx->lensmodel.type == LENSMODEL_CAHVOR ||
-            ctx->lensmodel.type == LENSMODEL_CAHVORE )) ? 2 : 0;
-
     int Ncore = mrcal_modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
 
     // If I'm locking down some parameters, then the state vector contains a
@@ -3138,15 +3112,6 @@ void optimizerCallback(// input state
             memcpy( intrinsics_here,
                     &ctx->intrinsics[ctx->Nintrinsics*i_camera + Ncore],
                     (ctx->Nintrinsics-Ncore)*sizeof(double) );
-        else if( !ctx->problem_details.do_optimize_cahvor_optical_axis &&
-                 ( ctx->lensmodel.type == LENSMODEL_CAHVOR ||
-                   ctx->lensmodel.type == LENSMODEL_CAHVORE ) )
-        {
-            // We're optimizing distortions, just not those particular
-            // cahvor components
-            intrinsics_here[0] = ctx->intrinsics[ctx->Nintrinsics*i_camera + 4 + 0];
-            intrinsics_here[1] = ctx->intrinsics[ctx->Nintrinsics*i_camera + 4 + 1];
-        }
 
         // extrinsics
         if( i_camera != 0 )
@@ -3265,8 +3230,8 @@ void optimizerCallback(// input state
                     }
 
                     if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                        for(int i = NlockedLeadingDistortions; i<ctx->Nintrinsics-Ncore; i++)
-                            STORE_JACOBIAN( i_var_intrinsic_distortions + i - NlockedLeadingDistortions,
+                        for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
+                            STORE_JACOBIAN( i_var_intrinsic_distortions + i,
                                             dxy_dintrinsics[i_pt][i_xy*ctx->Nintrinsics + i+Ncore] *
                                             weight * SCALE_DISTORTION );
 
@@ -3346,7 +3311,7 @@ void optimizerCallback(// input state
                             STORE_JACOBIAN( i_var_intrinsic_core + i, 0.0 );
 
                     if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                        for(int i=0; i<ctx->Nintrinsics-4-NlockedLeadingDistortions; i++)
+                        for(int i=0; i<ctx->Nintrinsics-4; i++)
                             STORE_JACOBIAN( i_var_intrinsic_distortions + i, 0.0 );
 
                     if( ctx->problem_details.do_optimize_extrinsics )
@@ -3501,8 +3466,8 @@ void optimizerCallback(// input state
                 }
 
                 if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                    for(int i = NlockedLeadingDistortions; i<ctx->Nintrinsics-Ncore; i++)
-                        STORE_JACOBIAN( i_var_intrinsic_distortions + i - NlockedLeadingDistortions,
+                    for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
+                        STORE_JACOBIAN( i_var_intrinsic_distortions + i,
                                         dxy_dintrinsics[i_xy*ctx->Nintrinsics + i+Ncore] *
                                         invalid_point_scale *
                                         weight * SCALE_DISTORTION );
@@ -3683,7 +3648,7 @@ void optimizerCallback(// input state
                                         0.0 );
 
                 if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                    for(int i=0; i<ctx->Nintrinsics-4-NlockedLeadingDistortions; i++)
+                    for(int i=0; i<ctx->Nintrinsics-4; i++)
                         STORE_JACOBIAN( i_var_intrinsic_distortions + i,
                                         0.0 );
 
@@ -3750,7 +3715,7 @@ void optimizerCallback(// input state
         const bool dump_regularizaton_details = false;
 
 
-        int    Nmeasurements_regularization_distortion  = ctx->Ncameras*(ctx->Nintrinsics-4 - NlockedLeadingDistortions);
+        int    Nmeasurements_regularization_distortion  = ctx->Ncameras*(ctx->Nintrinsics-4);
         int    Nmeasurements_regularization_centerpixel = ctx->Ncameras*2;
 
         int    Nmeasurements_nonregularization =
@@ -3808,7 +3773,7 @@ void optimizerCallback(// input state
                 const int i_var_intrinsic_distortions =
                     mrcal_state_index_intrinsic_distortions(i_camera, ctx->problem_details, ctx->lensmodel);
 
-                for(int j=NlockedLeadingDistortions; j<ctx->Nintrinsics-Ncore; j++)
+                for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
                 {
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
 
@@ -3852,7 +3817,7 @@ void optimizerCallback(// input state
 
                     x[iMeasurement]  = err;
                     norm2_error     += err*err;
-                    STORE_JACOBIAN( i_var_intrinsic_distortions + j - NlockedLeadingDistortions,
+                    STORE_JACOBIAN( i_var_intrinsic_distortions + j,
                                     scale * sign * SCALE_DISTORTION / (2. * err_no_scale) );
                     iMeasurement++;
                     if(dump_regularizaton_details)
