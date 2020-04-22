@@ -33,4 +33,4 @@ Note that the optimizer uses some weights on the measurements, and some scaling
 on the parameters. The values returned here are the optimizer-internal values.
 To bring the jacobian into real units, call solver_context.pack(J)
 
-See mrcal.opimize() for a description of the arguments
+See mrcal.optimize() for a description of the arguments
