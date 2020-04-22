@@ -1,6 +1,14 @@
 #!/usr/bin/python3
 
-r'''Tests gradients reported by the C code'''
+r'''Tests gradients reported by the C code
+
+Here I make sure that the gradients reported by the projection function do
+describe the gradient of the values reported by that function. This test does
+NOT make sure that the values are RIGHT, just that the values are consistent
+with the gradients. test-projections.py looks at the values only, so together
+these two tests validate the projection functionality
+
+'''
 
 import sys
 import numpy as np
