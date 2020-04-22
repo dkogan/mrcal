@@ -106,6 +106,17 @@ def parse_args():
                         x,y,z,roll,pitch,yaw, with the roll, pitch, yaw are
                         given in degrees. This argument is the half-width of the
                         random distribution''')
+    parser.add_argument('--reported-level',
+                        type=int,
+                        help='''The decimation level to report for each point. Level 0 means "this point was
+                        detected in the full-size image". Level 1 means "this
+                        point was detected in the image downsampled by a factor
+                        of 2 in each dimension". And so on. This argument is
+                        optional; if omitted we don't report a decimation level
+                        at all. If >=0 we report that level for each point. If <
+                        0, we report a uniformly random level for each point,
+                        from 0 to -reported-level. For instance
+                        "--reported-level -1" will produce levels 0 or 1''')
 
     parser.add_argument('models',
                         nargs='+',
@@ -265,8 +276,23 @@ note = \
     "generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                          ' '.join(mrcal.shellquote(s) for s in sys.argv))
 sys.stdout.write("## " + note + "\n")
-sys.stdout.write("# filename x y\n")
+
+if args.reported_level is None: sys.stdout.write("# filename x y\n")
+else:                           sys.stdout.write("# filename x y level\n")
+
 for iframe in range(Nframes):
     for icam in range(Ncameras):
-        np.savetxt(sys.stdout, p[iframe,icam,...],
-                   fmt='frame{:06d}-cam{:01d}.xxx %.3f %.3f'.format(iframe, icam))
+        if args.reported_level is None:
+            arr = p[iframe,icam,...]
+            fmt = 'frame{:06d}-cam{:01d}.xxx %.3f %.3f'.format(iframe, icam)
+        else:
+            if args.reported_level >= 0:
+                level = args.reported_level * np.ones((p.shape[-2],),)
+            else:
+                level = np.random.randint(low=0, high=1-args.reported_level, size=(p.shape[-2],))
+
+            arr = nps.glue( p[iframe,icam,...], nps.transpose(level),
+                            axis=-1)
+            fmt = 'frame{:06d}-cam{:01d}.xxx %.3f %.3f %d'.format(iframe, icam)
+
+        np.savetxt(sys.stdout, arr, fmt=fmt)
