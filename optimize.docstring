@@ -3,7 +3,7 @@ Invoke the calibration routine
 SYNOPSIS
 
     stats = mrcal.optimize( intrinsics_data,
-                            extrinsics,
+                            extrinsics_rt10,
                             frames, points
                             observations_board, indices_frame_camera,
                             observations_point, indices_point_camera_points,
@@ -47,7 +47,7 @@ REQUIRED ARGUMENTS
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- extrinsics: array of dims (Ncameras-1, 6). The extrinsics of each camera.
+- extrinsics_rt10: array of dims (Ncameras-1, 6). The extrinsics of each camera.
   Camera 0 is the reference coord system, so we omit this from the extrinsics
   array. Each pose is given as 6 values: a rodrigues rotation vector followed by
   a translation. This represents a transformation FROM the reference coord

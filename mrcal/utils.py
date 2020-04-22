@@ -2312,7 +2312,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
             # a weight of 1.0 is assumed. The array is pre-filled with 1.0
             row = np.fromstring(m.group(2), sep=' ', dtype=np.float)
             if len(row) < 2:
-                raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead gogt line '{}'".format(line))
+                raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead got line '{}'".format(line))
             else:
                 context['grid'][context['igrid'],:2] = row[:2]
                 if len(row) == 3 and weighted:
