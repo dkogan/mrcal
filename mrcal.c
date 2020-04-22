@@ -3956,6 +3956,9 @@ void mrcal_optimizerCallback(// output measurements
         return;
     }
 
+    if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+        problem_details.do_optimize_intrinsic_core = false;
+
     if(!problem_details.do_optimize_intrinsic_core        &&
        !problem_details.do_optimize_intrinsic_distortions &&
        !problem_details.do_optimize_extrinsics            &&
@@ -4101,6 +4104,9 @@ mrcal_optimize( // out
         MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
+
+    if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+        problem_details.do_optimize_intrinsic_core = false;
 
     if(!problem_details.do_optimize_intrinsic_core        &&
        !problem_details.do_optimize_intrinsic_distortions &&
