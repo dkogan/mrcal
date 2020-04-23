@@ -1,5 +1,0 @@
-Returns the index in the optimization vector of the core intrinsics of camera i
-
-Each camera has 4 core intrinsics. In order: (fx,fy,cx,cy). This is the focal
-lengths, followed by the coordinates of the center pixel. i is given in the
-single argument.

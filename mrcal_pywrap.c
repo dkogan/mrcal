@@ -284,8 +284,8 @@ static PyObject* SolverContext_x(SolverContext* self)
     return PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->ncol}), NPY_DOUBLE, self->ctx->beforeStep->x);
 }
 
-static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
-                                                          PyObject* args)
+static PyObject* SolverContext_state_index_intrinsics(SolverContext* self,
+                                                      PyObject* args)
 {
     if( self->ctx == NULL )
     {
@@ -303,37 +303,13 @@ static PyObject* SolverContext_state_index_intrinsic_core(SolverContext* self,
         goto done;
     }
     result = Py_BuildValue("i",
-                           mrcal_state_index_intrinsic_core(i_camera,
-                                                            self->problem_details,
-                                                            self->lensmodel));
+                           mrcal_state_index_intrinsics(i_camera,
+                                                        self->problem_details,
+                                                        self->lensmodel));
  done:
     return result;
 }
-static PyObject* SolverContext_state_index_intrinsic_distortions(SolverContext* self,
-                                                                 PyObject* args)
-{
-    if( self->ctx == NULL )
-    {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
-        return NULL;
-    }
-    PyObject* result = NULL;
-    int i_camera = -1;
-    if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
-    if( i_camera < 0 || i_camera >= self->Ncameras )
-    {
-        PyErr_Format(PyExc_RuntimeError,
-                     "i_camera must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Ncameras-1,i_camera);
-        goto done;
-    }
-    result = Py_BuildValue("i",
-                           mrcal_state_index_intrinsic_distortions(i_camera,
-                                                                   self->problem_details,
-                                                                   self->lensmodel));
- done:
-    return result;
-}
+
 static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
                                                      PyObject* args)
 {
@@ -558,11 +534,8 @@ static const char SolverContext_p_docstring[] =
 static const char SolverContext_x_docstring[] =
 #include "SolverContext_x.docstring.h"
     ;
-static const char SolverContext_state_index_intrinsic_core_docstring[] =
-#include "SolverContext_state_index_intrinsic_core.docstring.h"
-    ;
-static const char SolverContext_state_index_intrinsic_distortions_docstring[] =
-#include "SolverContext_state_index_intrinsic_distortions.docstring.h"
+static const char SolverContext_state_index_intrinsics_docstring[] =
+#include "SolverContext_state_index_intrinsics.docstring.h"
     ;
 static const char SolverContext_state_index_camera_rt_docstring[] =
 #include "SolverContext_state_index_camera_rt.docstring.h"
@@ -587,18 +560,17 @@ static const char SolverContext_unpack_docstring[] =
     ;
 
 static PyMethodDef SolverContext_methods[] =
-    { PYMETHODDEF_ENTRY(SolverContext_, J,                                 METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, p,                                 METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, x,                                 METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsic_core,        METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsic_distortions, METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_camera_rt,             METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,              METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_point,                 METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_calobject_warp,        METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, num_measurements_dict,             METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, pack,                              METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, unpack,                            METH_VARARGS),
+    { PYMETHODDEF_ENTRY(SolverContext_, J,                          METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, p,                          METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, x,                          METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsics,     METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_camera_rt,      METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,       METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_point,          METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, state_index_calobject_warp, METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, num_measurements_dict,      METH_NOARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, pack,                       METH_VARARGS),
+      PYMETHODDEF_ENTRY(SolverContext_, unpack,                     METH_VARARGS),
       {}
     };
 

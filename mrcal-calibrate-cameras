@@ -1950,13 +1950,9 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
         intrinsics_data[0, i_var] += delta
         return callback(intrinsics_data)[0]
 
-    def callback_perturbed_distortion(delta, i_distortion_var):
-        ivar = solver_context.state_index_intrinsic_distortions(0) + i_distortion_var
-        return callback_perturbed(delta, 4 + i_distortion_var), ivar
-
-    def callback_perturbed_core(delta, i_core_var):
-        ivar = solver_context.state_index_intrinsic_core(0) + i_core_var
-        return callback_perturbed(delta, i_core_var), ivar
+    def callback_perturbed_intrinsics(delta, i_var):
+        ivar = solver_context.state_index_intrinsics(0) + i_var
+        return callback_perturbed(delta, i_var), ivar
 
 
 
@@ -1969,18 +1965,13 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
     # First a very basic gradient check. The test-gradients tool does this much
     # more thoroughly
     delta = 1e-3
-    x1,ivar1 = callback_perturbed_distortion(delta,0)
-    x2,ivar2 = callback_perturbed_core      (delta,0)
-
-    dx1          = x1 - x0
-    dx1_estimate = J0[:,ivar1]*delta
+    x2,ivar2 = callback_perturbed_intrinsics(delta,0)
 
     dx2          = x2 - x0
     dx2_estimate = J0[:,ivar2]*delta
 
-    print("Gradient check. These two should be close to 0: {:.2g} {:.2g}". \
-          format(nps.norm2(dx1-dx1_estimate),
-                 nps.norm2(dx2-dx2_estimate)))
+    print("Gradient check. Should be close to 0: {:.2g}". \
+          format(nps.norm2(dx2-dx2_estimate)))
 
     ###########################################################################
     # We're supposed to be at the optimum. E = norm2(x) ~ norm2(x0 + Jdp) =
@@ -1988,21 +1979,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
     # = 0 at the optimum. But if the gradients are large, the 2nd-order dp
     # dependence isn't negligible, and I won't see 0
     delta = 1e-8
-    x1,ivar1 = callback_perturbed_distortion(delta,0)
-    dx1                = x1 - x0
-    dx1_predicted      = J0[:,ivar1] * delta
-    x1_predicted       = x0 + dx1_predicted
-    dE1                = nps.norm2(x1)           - nps.norm2(x0)
-    dE1_predicted      = nps.norm2(x1_predicted) - nps.norm2(x0)
-    dE1_predicted_jtx  = 2 * nps.inner(x0, J0[:,ivar1]) * delta
-    dE1_predicted_jtx2 = dE1_predicted_jtx + nps.norm2(dx1_predicted)
-    print("Sanity check. Should be close to 0: {:.2g} {:.2g}". \
-          format(dE1_predicted      - dE1,
-                 dE1_predicted_jtx2 - dE1))
-    print("Sanity check. It would be nice if it was close to 0, but maybe not: {:.2g}". \
-          format(dE1_predicted_jtx - dE1))
-
-    x2,ivar2 = callback_perturbed_core(delta,0)
+    x2,ivar2 = callback_perturbed_intrinsics(delta,0)
     dx2                = x2 - x0
     dx2_predicted      = J0[:,ivar2] * delta
     x2_predicted       = x0 + dx2_predicted

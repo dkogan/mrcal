@@ -442,12 +442,9 @@ int mrcal_getN_j_nonzero( int Ncameras,
 void mrcal_free_context(void** ctx);
 
 
-int mrcal_state_index_intrinsic_core(int i_camera,
-                                     mrcal_problem_details_t problem_details,
-                                     lensmodel_t lensmodel);
-int mrcal_state_index_intrinsic_distortions(int i_camera,
-                                            mrcal_problem_details_t problem_details,
-                                            lensmodel_t lensmodel);
+int mrcal_state_index_intrinsics(int i_camera,
+                                 mrcal_problem_details_t problem_details,
+                                 lensmodel_t lensmodel);
 int mrcal_state_index_camera_rt(int i_camera, int Ncameras,
                                 mrcal_problem_details_t problem_details,
                                 lensmodel_t lensmodel);

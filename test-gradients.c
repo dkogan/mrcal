@@ -185,7 +185,9 @@ int main(int argc, char* argv[] )
             printf("## The intrinsics core occupies 4 variables per camera; the first is at variable 0\n");
         if(problem_details.do_optimize_intrinsic_distortions)
             printf("## The intrinsics distortions occupy %d variables per camera; the first is at variable %d\n",
-                   Ndistortion, mrcal_state_index_intrinsic_distortions(0, problem_details, lensmodel));
+                   Ndistortion,
+                   mrcal_state_index_intrinsics(0, problem_details, lensmodel) +
+                   (mrcal_modelHasCore_fxfycxcy(lensmodel) && problem_details.do_optimize_intrinsic_core) ? 4 : 0);
     }
     if(problem_details.do_optimize_extrinsics)
         printf("## The extrinsics occupy 6 variables per camera for all cameras except camera 0; the first is at variable %d\n",
