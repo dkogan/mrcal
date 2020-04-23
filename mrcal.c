@@ -449,6 +449,12 @@ int mrcal_getN_j_nonzero( int Ncameras,
     // initial estimate counts extrinsics for camera0, which need to be
     // subtracted off
     int Nintrinsics = mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
+
+    // x depends on fx,cx but NOT on fy, cy. And similarly for y.
+    if( problem_details.do_optimize_intrinsic_core &&
+        mrcal_modelHasCore_fxfycxcy(lensmodel) )
+        Nintrinsics -= 2;
+
     int N = NobservationsBoard * ( (problem_details.do_optimize_frames         ? 6 : 0) +
                                    (problem_details.do_optimize_extrinsics     ? 6 : 0) +
                                    (problem_details.do_optimize_calobject_warp ? 2 : 0) +
@@ -558,7 +564,17 @@ void sample_bspline_surface_cubic(double* out,
 
 static void project_opencv( // out
                            point2_t* restrict pt_out,
-                           double*   restrict dxy_dintrinsics,
+
+                           // dx/dfx and dy/dfy. One entry per point (no cross
+                           // terms). NULL if not needed
+                           double*   restrict dxy_dfxy,
+
+                           // No d/dcx terms. Assumed to be the identity
+
+                           // Array of shape (Npoints,2,Ndistortions). NULL if
+                           // not needed
+                           double*   restrict dxy_dintrinsics_nocore,
+
                            point3_t* restrict dxy_drcamera,
                            point3_t* restrict dxy_dtcamera,
                            point3_t* restrict dxy_drframe,
@@ -652,6 +668,8 @@ static void project_opencv( // out
     CvMat object_points  = cvMat(3,Npoints, CV_64FC1, pt_ref[0].xyz);
     CvMat image_points   = cvMat(2,Npoints, CV_64FC1, pt_out[0].xy);
 
+    // I compute these even if I'm not going to use them. This is a potential
+    // optimization spot
     double _dxy_drj[2*Npoints*3];
     double _dxy_dtj[2*Npoints*3];
     CvMat  dxy_drj = cvMat(2*Npoints,3, CV_64FC1, _dxy_drj);
@@ -672,18 +690,27 @@ static void project_opencv( // out
                                 // OpenCV's API is incomplete. It IS const
                                 (double*)&intrinsics[4]);
 
-    if( dxy_dintrinsics != NULL )
+    if( dxy_dfxy == NULL )
     {
-        // dpdf and dpddistortions should be views into dxy_dintrinsics[], but
-        // it doesn't work. These would be noncontiguous arrays, and I suspect
-        // OpenCV has a bug. Debugging this is taking too much time, so I just
-        // copy stuff instead
+        cvProjectPoints2(&object_points,
+                         p_rj, p_tj,
+                         &camera_matrix,
+                         &_distortions,
+                         &image_points,
+                         &dxy_drj, &dxy_dtj,
+                         NULL, NULL,
+                         dxy_dintrinsics_nocore ?
+                           (CvMat[]){cvMat(2*Npoints, NdistortionParams, CV_64FC1, dxy_dintrinsics_nocore)} :
+                           NULL,
+                         0 );
+    }
+    else
+    {
+        // Opencv returns dpdf as a full dp/df 2x2 matrix per point, while I
+        // assume that the off-diagonal entries are 0 and return the diagonal
+        // only. So I need to make a new memory buffer, and to masage
         double _dpdf[2*Npoints*2];
         CvMat dpdf = cvMat(2*Npoints,2, CV_64FC1, _dpdf);
-
-        double _dpddistortions[2*Npoints*NdistortionParams];
-        CvMat dpddistortions =
-            cvMat(2*Npoints, NdistortionParams, CV_64FC1, _dpddistortions);
 
         cvProjectPoints2(&object_points,
                          p_rj, p_tj,
@@ -693,49 +720,19 @@ static void project_opencv( // out
                          &dxy_drj, &dxy_dtj,
                          &dpdf,
                          NULL, // dp_dc is trivial: it's the identity
-                         &dpddistortions,
+                         dxy_dintrinsics_nocore ?
+                           (CvMat[]){cvMat(2*Npoints, NdistortionParams, CV_64FC1, dxy_dintrinsics_nocore)} :
+                           NULL,
                          0 );
 
-        void set_dxy_dintrinsics(int i_pt)
+        for(int i=0; i<Npoints; i++)
         {
-            intrinsics_core_t* dxy_dintrinsics0 = (intrinsics_core_t*)&dxy_dintrinsics[(i_pt*2 + 0)*Nintrinsics];
-            intrinsics_core_t* dxy_dintrinsics1 = (intrinsics_core_t*)&dxy_dintrinsics[(i_pt*2 + 1)*Nintrinsics];
-
-            dxy_dintrinsics0->focal_xy [0] = _dpdf[i_pt*4 + 0];
-            dxy_dintrinsics0->center_xy[0] = 1.0;
-            dxy_dintrinsics0->focal_xy [1] = 0.0;
-            dxy_dintrinsics0->center_xy[1] = 0.0;
-            dxy_dintrinsics1->focal_xy [0] = 0.0;
-            dxy_dintrinsics1->center_xy[0] = 0.0;
-            dxy_dintrinsics1->focal_xy [1] = _dpdf[i_pt*4 + 3];
-            dxy_dintrinsics1->center_xy[1] = 1.0;
-
-            for(int ixy=0; ixy<2; ixy++)
-                memcpy( &dxy_dintrinsics[(i_pt*2 + ixy)*Nintrinsics + 4],
-                        &_dpddistortions[(i_pt*2 + ixy)*NdistortionParams],
-                        NdistortionParams*sizeof(double));
+            dxy_dfxy[2*i + 0] = _dpdf[4*i + 0]; // dx/dfx
+            dxy_dfxy[2*i + 1] = _dpdf[4*i + 3]; // dy/dfy
+            if(_dpdf[4*i + 1] != 0.0 || _dpdf[4*i + 2] != 0.0)
+                MSG("WARNING: Opencv returned non-zero off-diagonal term in dp/dfxy. This shouldn't happen. Assuming it WAS zero");
         }
-
-        if(calibration_object_width_n)
-            for(int i_pt = 0;
-                i_pt<calibration_object_width_n*calibration_object_width_n;
-                i_pt++)
-                set_dxy_dintrinsics(i_pt);
-        else
-            set_dxy_dintrinsics(0);
     }
-    else
-        cvProjectPoints2(&object_points,
-                         p_rj, p_tj,
-                         &camera_matrix,
-                         &_distortions,
-                         &image_points,
-                         &dxy_drj, &dxy_dtj,
-                         NULL,
-                         NULL,
-                         NULL,
-                         0 );
-
 
     if( dxy_drcamera != NULL || dxy_drframe != NULL ||
         dxy_dtcamera != NULL || dxy_dtframe != NULL )
@@ -830,6 +827,13 @@ static void project_opencv( // out
     }
 }
 
+typedef struct
+{
+    int run_side_length;
+    int ivar_stridey;
+    int* ivar0; // ends with <0
+} gradient_sparse_square_runs_t;
+
 // Projects 3D point(s), and reports the projection, and all the gradients. This
 // is the main internal callback in the optimizer. This operates in one of two modes:
 //
@@ -845,8 +849,19 @@ static
 void project( // out
              point2_t* restrict pt_out,
 
-             // everything; includes the core, if there is one
-             double*   restrict dxy_dintrinsics,
+             // The intrinsics gradients. These are split among several arrays.
+             // High-parameter-count lens models can return their gradients
+             // sparsely. All the actual gradient values live in
+             // dxy_dintrinsics_pool, a buffer supplied by the caller. If
+             // dxy_dintrinsics_pool is not NULL, the rest of the variables are
+             // assumed non-NULL, and we compute all the intrinsics gradients.
+             // Conversely, if dxy_dintrinsics_pool is NULL, no intrinsics
+             // gradients are computed
+             double*  restrict dxy_dintrinsics_pool,
+             double** restrict dxy_dfxy,
+             double** restrict dxy_dintrinsics_nocore,
+             gradient_sparse_square_runs_t* dxy_dintrinsics_gradient_sparse_square_runs,
+
              point3_t* restrict dxy_drcamera,
              point3_t* restrict dxy_dtcamera,
              point3_t* restrict dxy_drframe,
@@ -872,6 +887,10 @@ void project( // out
              double calibration_object_spacing,
              int    calibration_object_width_n)
 {
+    const int Npoints =
+        calibration_object_width_n ?
+        calibration_object_width_n*calibration_object_width_n : 1;
+
     int Nintrinsics = mrcal_getNlensParams(lensmodel);
     int NdistortionParams = Nintrinsics;
     if(mrcal_modelHasCore_fxfycxcy(lensmodel))
@@ -956,8 +975,20 @@ void project( // out
 
     if( LENSMODEL_IS_OPENCV(lensmodel.type) )
     {
+        double* p_dxy_dfxy               = NULL;
+        double* p_dxy_dintrinsics_nocore = NULL;
+        if(dxy_dintrinsics_pool != NULL)
+        {
+            *dxy_dfxy                                    = &dxy_dintrinsics_pool[0];
+            *dxy_dintrinsics_nocore                      = &dxy_dintrinsics_pool[Npoints*2];
+            dxy_dintrinsics_gradient_sparse_square_runs->ivar0 = NULL;
+            p_dxy_dfxy               = *dxy_dfxy;
+            p_dxy_dintrinsics_nocore = *dxy_dintrinsics_nocore;
+        }
+
         project_opencv( pt_out,
-                        dxy_dintrinsics,
+                        p_dxy_dfxy, p_dxy_dintrinsics_nocore,
+
                         dxy_drcamera,
                         dxy_dtcamera,
                         dxy_drframe,
@@ -988,6 +1019,18 @@ void project( // out
 
     cvRodrigues2(p_rj, &Rj, &d_Rj_rj);
 
+
+
+    double* p_dxy_dfxy               = NULL;
+    double* p_dxy_dintrinsics_nocore = NULL;
+    if(dxy_dintrinsics_pool != NULL)
+    {
+        *dxy_dfxy                                    = &dxy_dintrinsics_pool[0];
+        *dxy_dintrinsics_nocore                      = &dxy_dintrinsics_pool[Npoints*2];
+        dxy_dintrinsics_gradient_sparse_square_runs->ivar0 = NULL;
+        p_dxy_dfxy               = *dxy_dfxy;
+        p_dxy_dintrinsics_nocore = *dxy_dintrinsics_nocore;
+    }
     void project_point(const point3_t* pt_ref, const point2_t* dpt_ref2_dwarp, int i_pt)
     {
         // Rj * pt + tj -> pt
@@ -1002,7 +1045,7 @@ void project( // out
             {
 #warning need to support gradients
 
-                if(NULL != dxy_dintrinsics ||
+                if(NULL != dxy_dintrinsics_gradient_sparse_square_runs->ivar0 ||
                    NULL != dxy_drcamera ||
                    NULL != dxy_dtcamera ||
                    NULL != dxy_drframe ||
@@ -1220,30 +1263,22 @@ void project( // out
 
 
         // I have the projection, and I now need to propagate the gradients
-        if( dxy_dintrinsics != NULL )
+        if( p_dxy_dfxy )
         {
-            intrinsics_core_t* dxy_dintrinsics0 = (intrinsics_core_t*)&dxy_dintrinsics[(i_pt*2 + 0)*Nintrinsics];
-            intrinsics_core_t* dxy_dintrinsics1 = (intrinsics_core_t*)&dxy_dintrinsics[(i_pt*2 + 1)*Nintrinsics];
-
             // I have the projection, and I now need to propagate the gradients
-            //
             // xy = fxy * distort(xy)/distort(z) + cxy
-            dxy_dintrinsics0->focal_xy [0] = pt_cam.x*z_recip;
-            dxy_dintrinsics0->center_xy[0] = 1.0;
-            dxy_dintrinsics0->focal_xy [1] = 0.0;
-            dxy_dintrinsics0->center_xy[1] = 0.0;
-            dxy_dintrinsics1->focal_xy [0] = 0.0;
-            dxy_dintrinsics1->center_xy[0] = 0.0;
-            dxy_dintrinsics1->focal_xy [1] = pt_cam.y*z_recip;
-            dxy_dintrinsics1->center_xy[1] = 1.0;
-
+            p_dxy_dfxy[2*i_pt + 0] = pt_cam.x*z_recip; // dx/dfx
+            p_dxy_dfxy[2*i_pt + 1] = pt_cam.y*z_recip; // dy/dfy
+        }
+        if( p_dxy_dintrinsics_nocore != NULL )
+        {
             for(int i=0; i<NdistortionParams; i++)
             {
                 const double dx = dxyz_ddistortion[i + 0*NdistortionParams];
                 const double dy = dxyz_ddistortion[i + 1*NdistortionParams];
                 const double dz = dxyz_ddistortion[i + 2*NdistortionParams];
-                dxy_dintrinsics[(2*i_pt + 0)*Nintrinsics + i+4 ] = fx * z_recip * (dx - pt_cam.x*z_recip*dz);
-                dxy_dintrinsics[(2*i_pt + 1)*Nintrinsics + i+4 ] = fy * z_recip * (dy - pt_cam.y*z_recip*dz);
+                p_dxy_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * z_recip * (dx - pt_cam.x*z_recip*dz);
+                p_dxy_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * z_recip * (dy - pt_cam.y*z_recip*dz);
             }
         }
 
@@ -1678,7 +1713,11 @@ bool mrcal_project( // out
                    point2_t* q,
 
                    // core, distortions concatenated. Stored as a row-first
-                   // array of shape (N,2,Nintrinsics)
+                   // array of shape (N,2,Nintrinsics). This is a DENSE array.
+                   // High-parameter-count lens models have very sparse
+                   // gradients here, and the internal project() function
+                   // returns those sparsely. For now THIS function densifies
+                   // all of these
                    double*   dq_dintrinsics,
                    // Stored as a row-first array of shape (N,2,3). Each
                    // trailing ,3 dimension element is a point3_t
@@ -1760,10 +1799,18 @@ bool mrcal_project( // out
         pose_t frame = {.r = {},
                         .t = p[i]};
 
+        double dxy_dintrinsics_pool[2*(1+Nintrinsics-4)];
+        double* dxy_dfxy               = NULL;
+        double* dxy_dintrinsics_nocore = NULL;
+        gradient_sparse_square_runs_t dxy_dintrinsics_gradient_sparse_square_runs;
+
         project( q,
-                 dq_dintrinsics,
-                 NULL, NULL, NULL,
-                 dq_dp, NULL,
+
+                 dq_dintrinsics ? dxy_dintrinsics_pool : NULL,
+                 &dxy_dfxy, &dxy_dintrinsics_nocore, &dxy_dintrinsics_gradient_sparse_square_runs,
+
+                 NULL, NULL, NULL, dq_dp,
+                 NULL,
 
                  // in
                  intrinsics,
@@ -1773,6 +1820,36 @@ bool mrcal_project( // out
                  true,
                  lensmodel,
                  0.0, 0);
+
+        int Ncore = 0;
+        if(dxy_dfxy != NULL)
+        {
+            Ncore = 4;
+
+            // fxy. off-diagonal elements are 0
+            dq_dintrinsics[0*Nintrinsics + 0] = dxy_dfxy[0];
+            dq_dintrinsics[0*Nintrinsics + 1] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 0] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 1] = dxy_dfxy[1];
+
+            // cxy. Identity
+            dq_dintrinsics[0*Nintrinsics + 2] = 1.0;
+            dq_dintrinsics[0*Nintrinsics + 3] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 2] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 3] = 1.0;
+        }
+        if( dxy_dintrinsics_nocore != NULL )
+        {
+            for(int i_xy=0; i_xy<2; i_xy++)
+                memcpy(&dq_dintrinsics[i_xy*Nintrinsics + Ncore],
+                       &dxy_dintrinsics_nocore[i_xy*(Nintrinsics-Ncore)],
+                       (Nintrinsics-Ncore)*sizeof(double));
+        }
+        if(dxy_dintrinsics_gradient_sparse_square_runs.ivar0 != NULL)
+        {
+            MSG("Sparse gradients not implemented yet");
+            exit(0);
+        }
 
         // advance to the next point
         q = &q[1];
@@ -1917,7 +1994,7 @@ bool _unproject( // out
             point3_t dxy_dtframe[2];
             point2_t q_hypothesis;
             project( &q_hypothesis,
-                     NULL,
+                     NULL,NULL,NULL,NULL,
                      NULL, NULL, NULL, dxy_dtframe,
                      NULL,
 
@@ -2219,8 +2296,11 @@ static int unpack_solver_state_intrinsics_onecamera( // out
     }
 
     if( problem_details.do_optimize_intrinsic_distortions )
-        for(int i = 0; i<Nintrinsics-4; i++)
+    {
+        int Ncore = mrcal_modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+        for(int i = 0; i<Nintrinsics-Ncore; i++)
             distortions[i] = p[i_state++] * SCALE_DISTORTION;
+    }
 
     return i_state;
 }
@@ -3060,6 +3140,8 @@ void optimizerCallback(// input state
 
 
     int Ncore = mrcal_modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
+    int Ncore_state = (mrcal_modelHasCore_fxfycxcy(ctx->lensmodel) &&
+                       ctx->problem_details.do_optimize_intrinsic_core) ? 4 : 0;
 
     // If I'm locking down some parameters, then the state vector contains a
     // subset of my data. I reconstitute the intrinsics and extrinsics here.
@@ -3081,7 +3163,7 @@ void optimizerCallback(// input state
         const int i_var_intrinsics = mrcal_state_index_intrinsics(i_camera,                ctx->problem_details, ctx->lensmodel);
         const int i_var_camera_rt  = mrcal_state_index_camera_rt (i_camera, ctx->Ncameras, ctx->problem_details, ctx->lensmodel);
 
-        double* intrinsics_here  = Ncore ? intrinsics_all[i_camera] : NULL;
+        double* intrinsics_here  = &intrinsics_all[i_camera][0];
         double* distortions_here = &intrinsics_all[i_camera][Ncore];
 
         unpack_solver_state_intrinsics_onecamera((intrinsics_core_t*)intrinsics_here,
@@ -3135,16 +3217,36 @@ void optimizerCallback(// input state
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
-        double   dxy_dintrinsics         [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2 * ctx->Nintrinsics];
-        point3_t dxy_drcamera            [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dxy_dtcamera            [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dxy_drframe             [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dxy_dtframe             [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point2_t dxy_dcalobject_warp     [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point2_t pt_hypothesis           [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
+        point3_t dxy_drcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dxy_dtcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dxy_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dxy_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point2_t dxy_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point2_t pt_hypothesis      [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
+
+        // I get the intrinsics gradients in separate arrays, possibly sparsely.
+        // All the data lives in dxy_dintrinsics_pool[], with the other data
+        // indicating the meaning of the values in the pool.
+        //
+        // dxy_dfxy serves a special-case for a perspective core. Such models
+        // are very common, and they have x = fx vx/vz + cx and y = fy vy/vz +
+        // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
+        // for cx,cy, except we know the gradient value beforehand. I support
+        // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
+        double dxy_dintrinsics_pool[ctx->calibration_object_width_n*ctx->calibration_object_width_n*2*(1+ctx->Nintrinsics-4)];
+        double* dxy_dfxy = NULL;
+        double* dxy_dintrinsics_nocore = NULL;
+        gradient_sparse_square_runs_t dxy_dintrinsics_gradient_sparse_square_runs;
+
+        int dxy_dintrinsics_gradient_sparse_square_runs__irun  = 0;
+        int dxy_dintrinsics_gradient_sparse_square_runs__igrad = 0;
+
         project(pt_hypothesis,
-                (ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions) ?
-                (double*)dxy_dintrinsics : NULL,
+
+                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                  dxy_dintrinsics_pool : NULL,
+                &dxy_dfxy, &dxy_dintrinsics_nocore, &dxy_dintrinsics_gradient_sparse_square_runs,
+
                 ctx->problem_details.do_optimize_extrinsics ?
                 (point3_t*)dxy_drcamera : NULL,
                 ctx->problem_details.do_optimize_extrinsics ?
@@ -3195,32 +3297,49 @@ void optimizerCallback(// input state
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
-                    // I want these gradient values to be computed in
-                    // monotonically-increasing order of variable index. I
-                    // don't CHECK, so it's the developer's responsibility
-                    // to make sure. This ordering is set in
-                    // pack_solver_state(), unpack_solver_state()
                     if( ctx->problem_details.do_optimize_intrinsic_core )
                     {
-                        STORE_JACOBIAN( i_var_intrinsics + 0,
-                                        dxy_dintrinsics[i_pt][i_xy*ctx->Nintrinsics + 0] *
+                        // fx,fy. x depends on fx only. y depends on fy only
+                        STORE_JACOBIAN( i_var_intrinsics + i_xy,
+                                        dxy_dfxy[i_pt*2 + i_xy] *
                                         weight * SCALE_INTRINSICS_FOCAL_LENGTH );
-                        STORE_JACOBIAN( i_var_intrinsics + 1,
-                                        dxy_dintrinsics[i_pt][i_xy*ctx->Nintrinsics + 1] *
-                                        weight * SCALE_INTRINSICS_FOCAL_LENGTH );
-                        STORE_JACOBIAN( i_var_intrinsics + 2,
-                                        dxy_dintrinsics[i_pt][i_xy*ctx->Nintrinsics + 2] *
-                                        weight * SCALE_INTRINSICS_CENTER_PIXEL );
-                        STORE_JACOBIAN( i_var_intrinsics + 3,
-                                        dxy_dintrinsics[i_pt][i_xy*ctx->Nintrinsics + 3] *
+
+                        // cx,cy. The gradients here are known to be 1. And x depends on cx only. And y depends on cy only
+                        STORE_JACOBIAN( i_var_intrinsics + i_xy+2,
                                         weight * SCALE_INTRINSICS_CENTER_PIXEL );
                     }
 
                     if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                        for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
-                            STORE_JACOBIAN( i_var_intrinsics+Ncore + i,
-                                            dxy_dintrinsics[i_pt][i_xy*ctx->Nintrinsics + i+Ncore] *
-                                            weight * SCALE_DISTORTION );
+                    {
+                        if(dxy_dintrinsics_gradient_sparse_square_runs.ivar0 != NULL)
+                        {
+                            const int     len          =
+                                dxy_dintrinsics_gradient_sparse_square_runs.run_side_length;
+                            const int     ivar_stridey =
+                                dxy_dintrinsics_gradient_sparse_square_runs.ivar_stridey;
+                            const int     irun         =
+                                dxy_dintrinsics_gradient_sparse_square_runs__irun;
+                            const int     ivar0        =
+                                dxy_dintrinsics_gradient_sparse_square_runs.ivar0[irun];
+                            const double* grad         =
+                                dxy_dintrinsics_pool;
+
+                            for(int j = 0; j<len; j++)
+                                for(int i = 0; i<len; i++)
+                                    STORE_JACOBIAN( i_var_intrinsics + ivar0 + j*ivar_stridey + i*2 + i_xy,
+                                                    grad[dxy_dintrinsics_gradient_sparse_square_runs__igrad++] *
+                                                    weight * SCALE_DISTORTION );
+                        }
+                        else
+                        {
+                            for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
+                                STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
+                                                dxy_dintrinsics_nocore[i_pt*2*(ctx->Nintrinsics-Ncore) +
+                                                                       i_xy*(ctx->Nintrinsics-Ncore) +
+                                                                       i] *
+                                                weight * SCALE_DISTORTION );
+                        }
+                    }
 
                     if( ctx->problem_details.do_optimize_extrinsics )
                         if( i_camera != 0 )
@@ -3268,6 +3387,7 @@ void optimizerCallback(// input state
 
                     iMeasurement++;
                 }
+                dxy_dintrinsics_gradient_sparse_square_runs__irun++;
             }
             else
             {
@@ -3299,7 +3419,7 @@ void optimizerCallback(// input state
 
                     if( ctx->problem_details.do_optimize_intrinsic_distortions )
                         for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
-                            STORE_JACOBIAN( i_var_intrinsics+Ncore + i, 0.0 );
+                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0.0 );
 
                     if( ctx->problem_details.do_optimize_extrinsics )
                         if( i_camera != 0 )
@@ -3367,9 +3487,11 @@ void optimizerCallback(// input state
                      i_observation_point, i_point, i_camera);
         }
 
-        // these are computed in respect to the unit-scale parameters
-        // used by the optimizer
-        double dxy_dintrinsics[2 * ctx->Nintrinsics];
+        double dxy_dintrinsics_pool[2*(1+ctx->Nintrinsics-4)];
+        double* dxy_dfxy;
+        double* dxy_dintrinsics_nocore;
+        gradient_sparse_square_runs_t dxy_dintrinsics_gradient_sparse_square_runs;
+
         point3_t dxy_drcamera[2];
         point3_t dxy_dtcamera[2];
         point3_t dxy_dpoint  [2];
@@ -3380,8 +3502,11 @@ void optimizerCallback(// input state
 #pragma GCC diagnostic ignored "-Warray-bounds"
         point2_t pt_hypothesis;
         project(&pt_hypothesis,
-                (ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions) ?
-                dxy_dintrinsics : NULL,
+
+                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                  dxy_dintrinsics_pool : NULL,
+                &dxy_dfxy, &dxy_dintrinsics_nocore, &dxy_dintrinsics_gradient_sparse_square_runs,
+
                 ctx->problem_details.do_optimize_extrinsics ?
                 dxy_drcamera : NULL,
                 ctx->problem_details.do_optimize_extrinsics ?
@@ -3425,37 +3550,50 @@ void optimizerCallback(// input state
                 x[iMeasurement] = err;
                 norm2_error += err*err;
 
-                // I want these gradient values to be computed in
-                // monotonically-increasing order of variable index. I don't
-                // CHECK, so it's the developer's responsibility to make
-                // sure. This ordering is set in pack_solver_state(),
-                // unpack_solver_state()
                 if( ctx->problem_details.do_optimize_intrinsic_core )
                 {
-                    STORE_JACOBIAN( i_var_intrinsics + 0,
-                                    dxy_dintrinsics[i_xy*ctx->Nintrinsics + 0] *
+                    // fx,fy. x depends on fx only. y depends on fy only
+                    STORE_JACOBIAN( i_var_intrinsics + i_xy,
+                                    dxy_dfxy[i_xy] *
                                     invalid_point_scale *
                                     weight * SCALE_INTRINSICS_FOCAL_LENGTH );
-                    STORE_JACOBIAN( i_var_intrinsics + 1,
-                                    dxy_dintrinsics[i_xy*ctx->Nintrinsics + 1] *
-                                    invalid_point_scale *
-                                    weight * SCALE_INTRINSICS_FOCAL_LENGTH );
-                    STORE_JACOBIAN( i_var_intrinsics + 2,
-                                    dxy_dintrinsics[i_xy*ctx->Nintrinsics + 2] *
-                                    invalid_point_scale *
-                                    weight * SCALE_INTRINSICS_CENTER_PIXEL );
-                    STORE_JACOBIAN( i_var_intrinsics + 3,
-                                    dxy_dintrinsics[i_xy*ctx->Nintrinsics + 3] *
+
+                    // cx,cy. The gradients here are known to be 1. And x depends on cx only. And y depends on cy only
+                    STORE_JACOBIAN( i_var_intrinsics + i_xy+2,
                                     invalid_point_scale *
                                     weight * SCALE_INTRINSICS_CENTER_PIXEL );
                 }
 
                 if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                    for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
-                        STORE_JACOBIAN( i_var_intrinsics+Ncore + i,
-                                        dxy_dintrinsics[i_xy*ctx->Nintrinsics + i+Ncore] *
-                                        invalid_point_scale *
-                                        weight * SCALE_DISTORTION );
+                {
+                    if(dxy_dintrinsics_gradient_sparse_square_runs.ivar0 != NULL)
+                    {
+                        const int     len          =
+                            dxy_dintrinsics_gradient_sparse_square_runs.run_side_length;
+                        const int     ivar_stridey =
+                            dxy_dintrinsics_gradient_sparse_square_runs.ivar_stridey;
+                        const int     ivar0        =
+                            dxy_dintrinsics_gradient_sparse_square_runs.ivar0[0];
+                        const double* grad         =
+                            dxy_dintrinsics_pool;
+
+                        for(int j = 0; j<len; j++)
+                            for(int i = 0; i<len; i++)
+                                STORE_JACOBIAN( i_var_intrinsics + ivar0 + j*ivar_stridey + i*2 + i_xy,
+                                                *(grad++) *
+                                                invalid_point_scale *
+                                                weight * SCALE_DISTORTION );
+                    }
+                    else
+                    {
+                        for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
+                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
+                                            dxy_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
+                                                                   i] *
+                                            invalid_point_scale *
+                                            weight * SCALE_DISTORTION );
+                    }
+                }
 
                 if( ctx->problem_details.do_optimize_extrinsics )
                     if( i_camera != 0 )
@@ -3802,7 +3940,8 @@ void optimizerCallback(// input state
 
                     x[iMeasurement]  = err;
                     norm2_error     += err*err;
-                    STORE_JACOBIAN( i_var_intrinsics + Ncore + j,
+
+                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
                                     scale * sign * SCALE_DISTORTION / (2. * err_no_scale) );
                     iMeasurement++;
                     if(dump_regularizaton_details)
