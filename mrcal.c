@@ -891,9 +891,11 @@ void project( // out
         calibration_object_width_n ?
         calibration_object_width_n*calibration_object_width_n : 1;
 
-    int Nintrinsics = mrcal_getNlensParams(lensmodel);
-    int NdistortionParams = Nintrinsics;
-    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
+    bool hascore = mrcal_modelHasCore_fxfycxcy(lensmodel);
+
+    int Nintrinsics        = mrcal_getNlensParams(lensmodel);
+    int NdistortionParams  = Nintrinsics;
+    if(hascore)
         NdistortionParams -= 4; // fx,fy,cx,cy
 
     // I need to compose two transformations
@@ -1031,7 +1033,8 @@ void project( // out
         p_dxy_dfxy               = *dxy_dfxy;
         p_dxy_dintrinsics_nocore = *dxy_dintrinsics_nocore;
     }
-    void project_point(const point3_t* pt_ref, const point2_t* dpt_ref2_dwarp, int i_pt)
+    void project_point(const point3_t* pt_ref,
+                       const point2_t* dpt_ref2_dwarp, int i_pt)
     {
         // Rj * pt + tj -> pt
         point3_t pt_cam;
@@ -1039,7 +1042,7 @@ void project( // out
         add_vec(3, pt_cam.xyz,  p_tj->data.db);
 
         // pt_cam is now in the camera coordinates. I can project
-        if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+        if(!hascore)
         {
             if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
             {
@@ -1244,12 +1247,12 @@ void project( // out
         }
         else if( lensmodel.type == LENSMODEL_PINHOLE )
         {
+            // pt_cam is already done
         }
         else
         {
             MSG("Unhandled lens model: %d (%s)",
-                lensmodel.type,
-                mrcal_lensmodel_name(lensmodel));
+                lensmodel.type, mrcal_lensmodel_name(lensmodel));
             assert(0);
         }
 
@@ -1467,6 +1470,7 @@ void project( // out
             }
         }
     }
+
 
 
     if( !calibration_object_width_n )
