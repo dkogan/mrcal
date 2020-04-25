@@ -22,9 +22,12 @@ def test_location():
 
     frame = currentframe().f_back.f_back
 
+    # I keep popping the stack until I leave the testutils file and I'm not in a
+    # function called "check"
     while frame:
         if frame.f_back is None or \
-           not frame.f_code.co_filename.endswith(filename_this):
+           (not frame.f_code.co_filename.endswith(filename_this) and
+            frame.f_code.co_name != "check" ):
             break
         frame = frame.f_back
 
