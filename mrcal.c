@@ -851,7 +851,7 @@ void _project_point_parametric( // outputs
                                point2_t* restrict dxy_dcalobject_warp,
 
                                // inputs
-                               point3_t* pt_cam, // NOT CONST. MODIFIED BY THIS FUNCTION
+                               const point3_t* pt_cam,
                                const double* restrict intrinsics,
                                bool camera_at_identity,
                                lensmodel_t lensmodel,
@@ -865,6 +865,8 @@ void _project_point_parametric( // outputs
     double dxyz_ddistortion[3*NdistortionParams];
     double* d_distortion_xyz = NULL;
     double  _d_distortion_xyz[3*3] = {};
+    point3_t _pt_cam_distorted;
+    const point3_t* pt_cam_distorted;
     if( lensmodel.type == LENSMODEL_CAHVOR )
     {
         // I perturb pt_cam, and then apply the focal length, center pixel stuff
@@ -947,13 +949,12 @@ void _project_point_parametric( // outputs
                 _d_distortion_xyz[3*i + j] -= mu*o[i]*o[j];
             }
 
-            pt_cam->xyz[i] += mu * (pt_cam->xyz[i] - omega*o[i]);
+            _pt_cam_distorted.xyz[i] = pt_cam->xyz[i] + mu * (pt_cam->xyz[i] - omega*o[i]);
         }
+        pt_cam_distorted = &_pt_cam_distorted;
     }
     else if( lensmodel.type == LENSMODEL_PINHOLE )
-    {
-        // pt_cam is already done
-    }
+        pt_cam_distorted = pt_cam;
     else
     {
         MSG("Unhandled lens model: %d (%s)",
@@ -965,9 +966,9 @@ void _project_point_parametric( // outputs
     const double fy = intrinsics[1];
     const double cx = intrinsics[2];
     const double cy = intrinsics[3];
-    double z_recip = 1.0 / pt_cam->z;
-    pt_out[i_pt].x = pt_cam->x*z_recip * fx + cx;
-    pt_out[i_pt].y = pt_cam->y*z_recip * fy + cy;
+    double z_recip = 1.0 / pt_cam_distorted->z;
+    pt_out[i_pt].x = pt_cam_distorted->x*z_recip * fx + cx;
+    pt_out[i_pt].y = pt_cam_distorted->y*z_recip * fy + cy;
 
 
     // I have the projection, and I now need to propagate the gradients
@@ -975,8 +976,8 @@ void _project_point_parametric( // outputs
     {
         // I have the projection, and I now need to propagate the gradients
         // xy = fxy * distort(xy)/distort(z) + cxy
-        p_dxy_dfxy[2*i_pt + 0] = pt_cam->x*z_recip; // dx/dfx
-        p_dxy_dfxy[2*i_pt + 1] = pt_cam->y*z_recip; // dy/dfy
+        p_dxy_dfxy[2*i_pt + 0] = pt_cam_distorted->x*z_recip; // dx/dfx
+        p_dxy_dfxy[2*i_pt + 1] = pt_cam_distorted->y*z_recip; // dy/dfy
     }
     if( p_dxy_dintrinsics_nocore != NULL )
     {
@@ -985,8 +986,8 @@ void _project_point_parametric( // outputs
             const double dx = dxyz_ddistortion[i + 0*NdistortionParams];
             const double dy = dxyz_ddistortion[i + 1*NdistortionParams];
             const double dz = dxyz_ddistortion[i + 2*NdistortionParams];
-            p_dxy_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * z_recip * (dx - pt_cam->x*z_recip*dz);
-            p_dxy_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * z_recip * (dy - pt_cam->y*z_recip*dz);
+            p_dxy_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * z_recip * (dx - pt_cam_distorted->x*z_recip*dz);
+            p_dxy_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * z_recip * (dy - pt_cam_distorted->y*z_recip*dz);
         }
     }
 
@@ -1000,8 +1001,8 @@ void _project_point_parametric( // outputs
             // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
             // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
-            // pt_cam->x    = Rj[row0]*pt_ref + tj.x
-            // d(pt_cam->x) = d(Rj[row0])*pt_ref + d(tj.x);
+            // pt_cam_distorted->x    = Rj[row0]*pt_ref + tj.x
+            // d(pt_cam_distorted->x) = d(Rj[row0])*pt_ref + d(tj.x);
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
 
@@ -1025,9 +1026,9 @@ void _project_point_parametric( // outputs
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] =
-                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam->x * z_recip * d_distorted_ptcam[3*2 + i]);
+                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam_distorted->x * z_recip * d_distorted_ptcam[3*2 + i]);
                 dxy_dparam[1].xyz[i] =
-                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam->y * z_recip * d_distorted_ptcam[3*2 + i]);
+                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam_distorted->y * z_recip * d_distorted_ptcam[3*2 + i]);
             }
         }
 
@@ -1078,8 +1079,8 @@ void _project_point_parametric( // outputs
             // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
             // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
-            // pt_cam->x       = Rj[row0]*pt_ref + ...
-            // d(pt_cam->x)/dr = d(Rj[row0])*pt_ref
+            // pt_cam_distorted->x       = Rj[row0]*pt_ref + ...
+            // d(pt_cam_distorted->x)/dr = d(Rj[row0])*pt_ref
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
 
             double d_undistorted_ptcam[3*3];
@@ -1099,9 +1100,9 @@ void _project_point_parametric( // outputs
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] =
-                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam->x * z_recip * d_distorted_ptcam[3*2 + i]);
+                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam_distorted->x * z_recip * d_distorted_ptcam[3*2 + i]);
                 dxy_dparam[1].xyz[i] =
-                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam->y * z_recip * d_distorted_ptcam[3*2 + i]);
+                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam_distorted->y * z_recip * d_distorted_ptcam[3*2 + i]);
             }
         }
         void propagate_t(point3_t* dxy_dparam)
@@ -1109,8 +1110,8 @@ void _project_point_parametric( // outputs
             // d(proj_x) = d( fx x/z + cx ) = fx/z * (d(x) - x/z * d(z));
             // d(proj_y) = d( fy y/z + cy ) = fy/z * (d(y) - y/z * d(z));
             //
-            // pt_cam->x    = ... + tj.x
-            // d(pt_cam->x)/dt = identity
+            // pt_cam_distorted->x    = ... + tj.x
+            // d(pt_cam_distorted->x)/dt = identity
             if( d_distortion_xyz == NULL)
             {
                 dxy_dparam[0].xyz[0] = fx * z_recip;
@@ -1119,8 +1120,8 @@ void _project_point_parametric( // outputs
                 dxy_dparam[0].xyz[1] = 0.0;
                 dxy_dparam[1].xyz[1] = fy * z_recip;
 
-                dxy_dparam[0].xyz[2] = -fx * z_recip * pt_cam->x * z_recip;
-                dxy_dparam[1].xyz[2] = -fy * z_recip * pt_cam->y * z_recip;
+                dxy_dparam[0].xyz[2] = -fx * z_recip * pt_cam_distorted->x * z_recip;
+                dxy_dparam[1].xyz[2] = -fy * z_recip * pt_cam_distorted->y * z_recip;
             }
             else
             {
@@ -1129,9 +1130,9 @@ void _project_point_parametric( // outputs
                 for(int i=0; i<3; i++)
                 {
                     dxy_dparam[0].xyz[i] =
-                        fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam->x * z_recip * d_distorted_ptcam[3*2 + i]);
+                        fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam_distorted->x * z_recip * d_distorted_ptcam[3*2 + i]);
                     dxy_dparam[1].xyz[i] =
-                        fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam->y * z_recip * d_distorted_ptcam[3*2 + i]);
+                        fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam_distorted->y * z_recip * d_distorted_ptcam[3*2 + i]);
                 }
             }
         }
