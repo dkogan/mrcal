@@ -111,6 +111,22 @@ int main(int argc, char* argv[] )
     point3_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
     point3_t observations_point_px[4] = {};
 
+    // The observations of chessboards and of discrete points
+    observation_board_t observations_board[] =
+        { {.i_camera = 0, .i_frame = 0, .px = observations_px[0]},
+          {.i_camera = 1, .i_frame = 0, .px = observations_px[1]},
+          {.i_camera = 1, .i_frame = 1, .px = observations_px[2]},
+          {.i_camera = 0, .i_frame = 2, .px = observations_px[3]},
+          {.i_camera = 0, .i_frame = 3, .px = observations_px[4]},
+          {.i_camera = 1, .i_frame = 3, .px = observations_px[5]} };
+    observation_point_t observations_point[] =
+        { {.i_camera = 0, .i_point = 0, .px = observations_point_px[0]},
+          {.i_camera = 1, .i_point = 0, .px = observations_point_px[1]},
+          {.i_camera = 0, .i_point = 1, .px = observations_point_px[2], .dist = 18.0},
+          {.i_camera = 1, .i_point = 1, .px = observations_point_px[3], .dist = 180.0} };
+
+    // How many of the observations we want to actually use. Can be fewer than
+    // defined in the above arrays if we're testing something
 #define NobservationsBoard 6
 #define NobservationsPoint 4
 
@@ -132,21 +148,6 @@ int main(int argc, char* argv[] )
         observations_point_px[i].y = 800.0  - (double)i*12.0;
         observations_point_px[i].z = 1. / (double)(1 << (i % 3));
     }
-
-    observation_board_t observations_board[NobservationsBoard] =
-        { {.i_camera = 0, .i_frame = 0, .px = observations_px[0]},
-          {.i_camera = 1, .i_frame = 0, .px = observations_px[1]},
-          {.i_camera = 1, .i_frame = 1, .px = observations_px[2]},
-          {.i_camera = 0, .i_frame = 2, .px = observations_px[3]},
-          {.i_camera = 0, .i_frame = 3, .px = observations_px[4]},
-          {.i_camera = 1, .i_frame = 3, .px = observations_px[5]} };
-
-    observation_point_t observations_point[NobservationsPoint] =
-        { {.i_camera = 0, .i_point = 0, .px = observations_point_px[0]},
-          {.i_camera = 1, .i_point = 0, .px = observations_point_px[1]},
-          {.i_camera = 0, .i_point = 1, .px = observations_point_px[2], .dist = 18.0},
-          {.i_camera = 1, .i_point = 1, .px = observations_point_px[3], .dist = 180.0} };
-
     int Ncameras = sizeof(extrinsics)/sizeof(extrinsics[0]) + 1;
 
     int Nintrinsics = mrcal_getNlensParams(lensmodel);
