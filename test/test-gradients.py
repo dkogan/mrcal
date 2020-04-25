@@ -26,15 +26,15 @@ from io import StringIO
 
 
 tests = ( # mostly all
-          "LENSMODEL_PINHOLE extrinsics frames intrinsic-core intrinsic-distortions",
+          "LENSMODEL_PINHOLE extrinsics frames intrinsic-core intrinsic-distortions calobject-warp",
           "LENSMODEL_PINHOLE extrinsics frames                intrinsic-distortions",
           "LENSMODEL_PINHOLE extrinsics frames intrinsic-core",
           "LENSMODEL_PINHOLE extrinsics frames",
-          "LENSMODEL_CAHVOR  extrinsics frames intrinsic-core intrinsic-distortions",
+          "LENSMODEL_CAHVOR  extrinsics frames intrinsic-core intrinsic-distortions calobject-warp",
           "LENSMODEL_CAHVOR  extrinsics frames                intrinsic-distortions",
           "LENSMODEL_CAHVOR  extrinsics frames intrinsic-core",
           "LENSMODEL_CAHVOR  extrinsics frames",
-          "LENSMODEL_OPENCV4 extrinsics frames intrinsic-core intrinsic-distortions",
+          "LENSMODEL_OPENCV4 extrinsics frames intrinsic-core intrinsic-distortions calobject-warp",
           "LENSMODEL_OPENCV4 extrinsics frames                intrinsic-distortions",
           "LENSMODEL_OPENCV4 extrinsics frames intrinsic-core",
           "LENSMODEL_OPENCV4 extrinsics frames",
