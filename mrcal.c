@@ -862,16 +862,16 @@ void _project_point_parametric( // outputs
                                const double* _tj)
 {
     int NdistortionParams = mrcal_getNlensParams(lensmodel) - 4;
-    double dxyz_ddistortion[3*NdistortionParams];
-    double* d_distortion_xyz = NULL;
-    double  _d_distortion_xyz[3*3] = {};
+    double dptcamdistorted_ddistortion[3*NdistortionParams];
+    double* dptcamdistorted_dpcam = NULL;
+    double  _dptcamdistorted_dpcam[3*3] = {};
     point3_t _pt_cam_distorted;
     const point3_t* pt_cam_distorted;
     if( lensmodel.type == LENSMODEL_CAHVOR )
     {
         // I perturb pt_cam, and then apply the focal length, center pixel stuff
         // normally
-        d_distortion_xyz = _d_distortion_xyz;
+        dptcamdistorted_dpcam = _dptcamdistorted_dpcam;
 
         // distortion parameter layout:
         //   alpha
@@ -923,30 +923,30 @@ void _project_point_parametric( // outputs
                 tau,
                 tau * tau };
 
-            dxyz_ddistortion[i*NdistortionParams + 0] = pt_cam->xyz[i] * dmu_ddist[0];
-            dxyz_ddistortion[i*NdistortionParams + 1] = pt_cam->xyz[i] * dmu_ddist[1];
-            dxyz_ddistortion[i*NdistortionParams + 2] = pt_cam->xyz[i] * dmu_ddist[2];
-            dxyz_ddistortion[i*NdistortionParams + 3] = pt_cam->xyz[i] * dmu_ddist[3];
-            dxyz_ddistortion[i*NdistortionParams + 4] = pt_cam->xyz[i] * dmu_ddist[4];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 0] = pt_cam->xyz[i] * dmu_ddist[0];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 1] = pt_cam->xyz[i] * dmu_ddist[1];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 2] = pt_cam->xyz[i] * dmu_ddist[2];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 3] = pt_cam->xyz[i] * dmu_ddist[3];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 4] = pt_cam->xyz[i] * dmu_ddist[4];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
 
-            dxyz_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
-            dxyz_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
+            dptcamdistorted_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
 
 
-            _d_distortion_xyz[3*i + i] = mu+1.0;
+            _dptcamdistorted_dpcam[3*i + i] = mu+1.0;
             for(int j=0; j<3; j++)
             {
-                _d_distortion_xyz[3*i + j] += (pt_cam->xyz[i] - omega*o[i]) * dmu_dxyz[j];
-                _d_distortion_xyz[3*i + j] -= mu*o[i]*o[j];
+                _dptcamdistorted_dpcam[3*i + j] += (pt_cam->xyz[i] - omega*o[i]) * dmu_dxyz[j];
+                _dptcamdistorted_dpcam[3*i + j] -= mu*o[i]*o[j];
             }
 
             _pt_cam_distorted.xyz[i] = pt_cam->xyz[i] + mu * (pt_cam->xyz[i] - omega*o[i]);
@@ -983,9 +983,9 @@ void _project_point_parametric( // outputs
     {
         for(int i=0; i<NdistortionParams; i++)
         {
-            const double dx = dxyz_ddistortion[i + 0*NdistortionParams];
-            const double dy = dxyz_ddistortion[i + 1*NdistortionParams];
-            const double dz = dxyz_ddistortion[i + 2*NdistortionParams];
+            const double dx = dptcamdistorted_ddistortion[i + 0*NdistortionParams];
+            const double dy = dptcamdistorted_ddistortion[i + 1*NdistortionParams];
+            const double dz = dptcamdistorted_ddistortion[i + 2*NdistortionParams];
             p_dxy_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * z_recip * (dx - pt_cam_distorted->x*z_recip*dz);
             p_dxy_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * z_recip * (dy - pt_cam_distorted->y*z_recip*dz);
         }
@@ -1006,29 +1006,29 @@ void _project_point_parametric( // outputs
             // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
 
-            double d_undistorted_ptcam[3*3];
-            double d_distorted_ptcam[3*3];
-            double* d_ptcam;
-            if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
-            else                 d_ptcam = d_distorted_ptcam;
+            double dptcam_dparam[3*3];
 
             for(int i=0; i<3; i++)
             {
-                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*i], &d_ptcam[3*i] );
-                mul_vec3_gen33     ( &d_ptcam[3*i],   _d_rj_dparam);
-                add_vec(3, &d_ptcam[3*i], &_d_tj_dparam[3*i] );
+                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*i], &dptcam_dparam[3*i] );
+                mul_vec3_gen33     ( &dptcam_dparam[3*i],   _d_rj_dparam);
+                add_vec(3, &dptcam_dparam[3*i], &_d_tj_dparam[3*i] );
             }
 
-            if(d_distortion_xyz)
-                // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
-                mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
+            double* dptcamdistorted_dparam = dptcam_dparam;
+            double scratch[3*3];
+            if(dptcamdistorted_dpcam)
+            {
+                dptcamdistorted_dparam = scratch;
+                mul_genN3_gen33_vout(3, dptcamdistorted_dpcam, dptcam_dparam, dptcamdistorted_dparam);
+            }
 
             for(int i=0; i<3; i++)
             {
                 dxy_dparam[0].xyz[i] =
-                    fx * z_recip * (d_distorted_ptcam[3*0 + i] - pt_cam_distorted->x * z_recip * d_distorted_ptcam[3*2 + i]);
+                    fx * z_recip * (dptcamdistorted_dparam[3*0 + i] - pt_cam_distorted->x * z_recip * dptcamdistorted_dparam[3*2 + i]);
                 dxy_dparam[1].xyz[i] =
-                    fy * z_recip * (d_distorted_ptcam[3*1 + i] - pt_cam_distorted->y * z_recip * d_distorted_ptcam[3*2 + i]);
+                    fy * z_recip * (dptcamdistorted_dparam[3*1 + i] - pt_cam_distorted->y * z_recip * dptcamdistorted_dparam[3*2 + i]);
             }
         }
 
@@ -1086,16 +1086,16 @@ void _project_point_parametric( // outputs
             double d_undistorted_ptcam[3*3];
             double d_distorted_ptcam[3*3];
             double* d_ptcam;
-            if(d_distortion_xyz) d_ptcam = d_undistorted_ptcam;
+            if(dptcamdistorted_dpcam) d_ptcam = d_undistorted_ptcam;
             else                 d_ptcam = d_distorted_ptcam;
 
             mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*0], &d_ptcam[3*0]);
             mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*1], &d_ptcam[3*1]);
             mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*2], &d_ptcam[3*2]);
 
-            if(d_distortion_xyz)
+            if(dptcamdistorted_dpcam)
                 // d_distorted_xyz__... = d_distorted_xyz__undistorted_xyz d_undistorted_xyz__...
-                mul_genN3_gen33_vout(3, d_distortion_xyz, d_undistorted_ptcam, d_distorted_ptcam);
+                mul_genN3_gen33_vout(3, dptcamdistorted_dpcam, d_undistorted_ptcam, d_distorted_ptcam);
 
             for(int i=0; i<3; i++)
             {
@@ -1112,7 +1112,7 @@ void _project_point_parametric( // outputs
             //
             // pt_cam_distorted->x    = ... + tj.x
             // d(pt_cam_distorted->x)/dt = identity
-            if( d_distortion_xyz == NULL)
+            if( dptcamdistorted_dpcam == NULL)
             {
                 dxy_dparam[0].xyz[0] = fx * z_recip;
                 dxy_dparam[1].xyz[0] = 0.0;
@@ -1125,7 +1125,7 @@ void _project_point_parametric( // outputs
             }
             else
             {
-                double* d_distorted_ptcam = d_distortion_xyz;
+                double* d_distorted_ptcam = dptcamdistorted_dpcam;
 
                 for(int i=0; i<3; i++)
                 {
