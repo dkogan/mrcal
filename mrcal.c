@@ -877,7 +877,6 @@ void _project_point_parametric( // outputs
                                const double* restrict intrinsics,
                                bool camera_at_identity,
                                lensmodel_t lensmodel,
-                               const point3_t* pt_ref,
                                const point2_t* dpt_ref2_dwarp, int i_pt,
                                const double* _Rj)
 {
@@ -1132,7 +1131,6 @@ void _project_point_splined( // outputs
                             const double* restrict intrinsics,
                             bool camera_at_identity,
                             lensmodel_t lensmodel,
-                            const point3_t* pt_ref,
                             const point2_t* dpt_ref2_dwarp, int i_pt,
                             const double* _Rj)
 {
@@ -1452,7 +1450,6 @@ void _project_point( // outputs
                                intrinsics,
                                gg == NULL,
                                lensmodel,
-                               pt_ref,
                                dpt_ref2_dwarp, i_pt,
                                _Rj);
         return;
@@ -1473,7 +1470,6 @@ void _project_point( // outputs
                               intrinsics,
                               gg == NULL,
                               lensmodel,
-                              pt_ref,
                               dpt_ref2_dwarp, i_pt,
                               _Rj);
 }
