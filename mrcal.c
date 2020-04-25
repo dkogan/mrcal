@@ -503,6 +503,8 @@ int mrcal_getN_j_nonzero( int Ncameras,
 // focal-length scales
 static
 void sample_bspline_surface_cubic(double* out,
+                                  double* dout_dx,
+                                  double* dout_dy,
 
                                   double x, double y,
                                   // control points
@@ -526,14 +528,19 @@ void sample_bspline_surface_cubic(double* out,
     //   return A*a0 + B*b0 + C*c0 + D*d0;
     // I need to sample many such 1D segments, so I compute A,B,C,D separately,
     // and apply them together
-    void get_sample_coeffs(double* ABCD, double x)
+    void get_sample_coeffs(double* ABCD, double* ABCDgrad, double x)
     {
         double x2 = x*x;
         double x3 = x2*x;
         ABCD[0] =  (-x3 + 3*x2 - 3*x + 1)/6;
         ABCD[1] = (3 * x3/2 - 3*x2 + 2)/3;
         ABCD[2] = (-3 * x3 + 3*x2 + 3*x + 1)/6;
-        ABCD[3] = (x * x * x) / 6;
+        ABCD[3] = x3 / 6;
+
+        ABCDgrad[0] =  -x2/2 + x - 1./2.;
+        ABCDgrad[1] = 3*x2/2 - 2*x;
+        ABCDgrad[2] = -3*x2/2 + x + 1./2.;
+        ABCDgrad[3] = x2 / 2;
     }
 
     // 4 samples along one dimension, and then one sample along the other
@@ -543,23 +550,33 @@ void sample_bspline_surface_cubic(double* out,
     // I do this twice: one for each focal length surface
     double ABCDx[4];
     double ABCDy[4];
-    get_sample_coeffs(ABCDx, x);
-    get_sample_coeffs(ABCDy, y);
+    double ABCDgradx[4];
+    double ABCDgrady[4];
+    get_sample_coeffs(ABCDx, ABCDgradx, x);
+    get_sample_coeffs(ABCDy, ABCDgrady, y);
     double cinterp[4][2];
     const int stridex = 2;
-    for(int iy=0; iy<4; iy++)
+
+    void interp(double* out, const double* ABCDx, const double* ABCDy)
+    {
+        for(int iy=0; iy<4; iy++)
+            for(int k=0;k<2;k++)
+                cinterp[iy][k] =
+                    ABCDx[0] * c[iy*stridey + 0*stridex + k] +
+                    ABCDx[1] * c[iy*stridey + 1*stridex + k] +
+                    ABCDx[2] * c[iy*stridey + 2*stridex + k] +
+                    ABCDx[3] * c[iy*stridey + 3*stridex + k];
         for(int k=0;k<2;k++)
-            cinterp[iy][k] =
-                ABCDx[0] * c[iy*stridey + 0*stridex + k] +
-                ABCDx[1] * c[iy*stridey + 1*stridex + k] +
-                ABCDx[2] * c[iy*stridey + 2*stridex + k] +
-                ABCDx[3] * c[iy*stridey + 3*stridex + k];
-    for(int k=0;k<2;k++)
-        out[k] =
-            ABCDy[0] * cinterp[0][k] +
-            ABCDy[1] * cinterp[1][k] +
-            ABCDy[2] * cinterp[2][k] +
-            ABCDy[3] * cinterp[3][k];
+            out[k] =
+                ABCDy[0] * cinterp[0][k] +
+                ABCDy[1] * cinterp[1][k] +
+                ABCDy[2] * cinterp[2][k] +
+                ABCDy[3] * cinterp[3][k];
+    }
+
+    interp(out,     ABCDx,     ABCDy);
+    interp(dout_dx, ABCDgradx, ABCDy);
+    interp(dout_dy, ABCDx,     ABCDgrady);
 }
 
 typedef struct
@@ -1098,15 +1115,20 @@ void _project_point_parametric( // outputs
 static
 void _project_point_splined( // outputs
                             point2_t* pt_out,
-                            double* p_dxy_dfxy, double* p_dxy_dintrinsics_nocore,
-                            // point3_t* restrict dxy_drcamera,
-                            // point3_t* restrict dxy_dtcamera,
-                            // point3_t* restrict dxy_drframe,
-                            // point3_t* restrict dxy_dtframe,
-                            // point2_t* restrict dxy_dcalobject_warp,
+                            double* p_dxy_dintrinsics_nocore,
+                            point3_t* restrict dxy_drcamera,
+                            point3_t* restrict dxy_dtcamera,
+                            point3_t* restrict dxy_drframe,
+                            point3_t* restrict dxy_dtframe,
+                            point2_t* restrict dxy_dcalobject_warp,
 
                             // inputs
                             const point3_t* pt_cam,
+                            const double* dptcam_drc,
+                            const double* dptcam_dtc,
+                            const double* dptcam_drf,
+                            const double* dptcam_dtf,
+
                             const double* restrict intrinsics,
                             bool camera_at_identity,
                             lensmodel_t lensmodel,
@@ -1227,8 +1249,9 @@ void _project_point_splined( // outputs
     //MSG("spline grid coords:: %f %f", ix,iy);
 
     point2_t fxy;
-    double dfxy_duxy[2][2];
-    sample_bspline_surface_cubic(fxy.xy, (double*)dfxy_duxy,
+    double dfxy_dux[2];
+    double dfxy_duy[2];
+    sample_bspline_surface_cubic(fxy.xy, dfxy_dux, dfxy_duy,
                                  ix - ix0, iy - iy0,
 
                                  // control points
@@ -1248,21 +1271,51 @@ void _project_point_splined( // outputs
     //   dqx/deee = ux dfx/duxy duxy/deee + fx dux/deee
     //            = ux (dfx/dux dux/deee + dfx/duy duy/deee) + fx dux/deee
     //            = (ux dfx/dux + fx) dux/deee + ux dfx/duy duy/deee
-    //            = ux dfx/du dux/deee
     //   dqy/deee = (uy dfy/duy + fy) duy/deee + uy dfy/dux dux/deee
-    //
-    //   dqx/deee = diag( (ux dfx/dux + fx),   ux dfx/duy ) du/deee
-    //            = ux dfx/dux du/deee
     //
     // Intrinsics:
     //   dqx/diii = ux dfx/diii
-
-
-
-    // dx/deee = (ux dfx/dux + fx I) dux/deee + ux dfx/duy duy/deee
-
-
-
+    void propagate_extrinsics( point3_t* dxy_deee,
+                               const double* dptcam_deee)
+    {
+        double du_deee[2][3];
+        double s0,s1;
+        mul_genN3_gen33_vout(2, (double*)du_dp, dptcam_deee, (double*)du_deee);
+        s0 = u.x*dfxy_dux[0] + fxy.x;
+        s1 = u.x*dfxy_duy[0];
+        for(int i=0; i<3; i++)
+            dxy_deee[i_pt*2+0].xyz[i] = s0*du_deee[0][i] + s1*du_deee[1][i];
+        s0 = u.y*dfxy_duy[1] + fxy.y;
+        s1 = u.y*dfxy_dux[1];
+        for(int i=0; i<3; i++)
+            dxy_deee[i_pt*2+1].xyz[i] = s0*du_deee[1][i] + s1*du_deee[0][i];
+    }
+    void propagate_extrinsics_cam0( point3_t* dxy_deee)
+    {
+        double s0,s1;
+        s0 = u.x*dfxy_dux[0] + fxy.x;
+        s1 = u.x*dfxy_duy[0];
+        for(int i=0; i<3; i++)
+            dxy_deee[i_pt*2+0].xyz[i] = s0*du_dp[0][i] + s1*du_dp[1][i];
+        s0 = u.y*dfxy_duy[1] + fxy.y;
+        s1 = u.y*dfxy_dux[1];
+        for(int i=0; i<3; i++)
+            dxy_deee[i_pt*2+1].xyz[i] = s0*du_dp[1][i] + s1*du_dp[0][i];
+    }
+    if(camera_at_identity)
+    {
+        if( dxy_drcamera != NULL ) memset(dxy_drcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+        if( dxy_dtcamera != NULL ) memset(dxy_dtcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+        if( dxy_drframe  != NULL ) propagate_extrinsics( dxy_drframe,  dptcam_drf );
+        if( dxy_dtframe  != NULL ) propagate_extrinsics_cam0( dxy_dtframe );
+    }
+    else
+    {
+        if( dxy_drcamera != NULL ) propagate_extrinsics( dxy_drcamera, dptcam_drc );
+        if( dxy_dtcamera != NULL ) propagate_extrinsics( dxy_dtcamera, dptcam_dtc );
+        if( dxy_drframe  != NULL ) propagate_extrinsics( dxy_drframe,  dptcam_drf );
+        if( dxy_dtframe  != NULL ) propagate_extrinsics( dxy_dtframe,  dptcam_dtf );
+    }
 }
 void _project_point( // outputs
                     point2_t* pt_out,
@@ -1386,15 +1439,16 @@ void _project_point( // outputs
     {
         _project_point_splined( // outputs
                                pt_out,
-                               p_dxy_dfxy, p_dxy_dintrinsics_nocore,
-                               // dxy_drcamera,
-                               // dxy_dtcamera,
-                               // dxy_drframe,
-                               // dxy_dtframe,
-                               // dxy_dcalobject_warp,
+                               p_dxy_dintrinsics_nocore,
+                               dxy_drcamera,
+                               dxy_dtcamera,
+                               dxy_drframe,
+                               dxy_dtframe,
+                               dxy_dcalobject_warp,
 
                                // inputs
                                &pt_cam,
+                               dptcam_drc, dptcam_dtc, dptcam_drf, dptcam_dtf,
                                intrinsics,
                                gg == NULL,
                                lensmodel,
