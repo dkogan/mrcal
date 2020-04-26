@@ -179,7 +179,16 @@ typedef struct
 const char*        mrcal_lensmodel_name                  ( lensmodel_t model );
 bool               mrcal_lensmodel_name_full             ( char* out, int size, lensmodel_t model );
 
+// parses the model name AND the configuration into a lensmodel_t structure.
+// Strings with valid model names but missing or unparseable configuration
+// return {.type = LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
+// {.type = LENSMODEL_INVALID}
 lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
+
+// parses the model name only. The configuration is ignored. Even if it's
+// missing or unparseable. Unknown model names return LENSMODEL_INVALID
+lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
+
 bool               mrcal_modelHasCore_fxfycxcy           ( const lensmodel_t m );
 int                mrcal_getNlensParams                  ( const lensmodel_t m );
 int                mrcal_getNintrinsicOptimizationParams ( mrcal_problem_details_t problem_details,

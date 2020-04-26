@@ -180,9 +180,12 @@ static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( LENSMODEL_SPLINE
         config_str[pos] == '\0';
 }
 
+// parses the model name AND the configuration into a lensmodel_t structure.
+// Strings with valid model names but missing or unparseable configuration
+// return {.type = LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
+// {.type = LENSMODEL_INVALID}
 lensmodel_t mrcal_lensmodel_from_name( const char* name )
 {
-
 #define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
     if( 0 == strcmp( name, #s) )                                        \
         return (lensmodel_t){.type = s};
@@ -190,16 +193,15 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. I need to extract the config from the string. */ \
     /* The string format is NAME_cfg1_cfg2 ... */                       \
-    const int name_len = strlen(#s);                                    \
     if( 0 == strcmp( name, #s) )                                        \
         return (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG};      \
-    if( 0 == strncmp( name, #s"_", name_len+1) )                        \
+    if( 0 == strncmp( name, #s"_", strlen(#s)+1) )                      \
     {                                                                   \
         /* found name. Now extract the config */                        \
         lensmodel_t model = {.type = s};                                \
         s##__config_t* config = &model.s##__config;                     \
                                                                         \
-        const char* config_str = &name[name_len+1];                     \
+        const char* config_str = &name[strlen(#s)+1];                   \
                                                                         \
         if(s##__scan_model_config(config, config_str))                  \
             return model;                                               \
@@ -211,6 +213,28 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
     LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
     return (lensmodel_t){.type = LENSMODEL_INVALID};
+
+#undef CHECK_AND_RETURN_NOCONFIG
+#undef CHECK_AND_RETURN_WITHCONFIG
+}
+
+// parses the model name only. The configuration is ignored. Even if it's
+// missing or unparseable. Unknown model names return LENSMODEL_INVALID
+lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
+{
+#define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
+    if( 0 == strcmp( name, #s) ) return s;
+
+#define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
+    /* Configured model. If the name is followed by _ or nothing, I */  \
+    /* accept this model */                                             \
+    if( 0 == strcmp( name, #s) ) return s;                              \
+    if( 0 == strncmp( name, #s"_", strlen(#s)+1) ) return s;
+
+    LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
+    LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
+
+    return LENSMODEL_INVALID;
 
 #undef CHECK_AND_RETURN_NOCONFIG
 #undef CHECK_AND_RETURN_WITHCONFIG
