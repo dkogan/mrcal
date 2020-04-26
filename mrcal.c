@@ -1375,6 +1375,35 @@ void project( // out
              double calibration_object_spacing,
              int    calibration_object_width_n)
 {
+    // Parametric and non-parametric models do different things:
+    //
+    // parametric models:
+    //   u = distort(p, distortions)
+    //   q = uxy/uz * fxy + cxy
+    //
+    //   extrinsic gradients:
+    //       dqx/deee = d( ux/uz * fx + cx)/deee =
+    //                = fx d(ux/uz)/deee =
+    //                = fx/uz^2 ( uz dux/deee - duz/deee ux )
+    //
+    // nonparametric (splined) models
+    //   uxy = stereographic(p)
+    //   q   = [ ux * fx(uxy, intrinsics) + cx ]
+    //       = [ uy * fy(uxy, intrinsics) + cy ]
+    //
+    //   Extrinsics:
+    //     dqx/deee = ux dfx/duxy duxy/deee + fx dux/deee
+    //              = ux (dfx/dux dux/deee + dfx/duy duy/deee) + fx dux/deee
+    //              = (ux dfx/dux + fx I) dux/deee + ux dfx/duy duy/deee
+    //     dqy/deee = (uy dfy/duy + fy I) duy/deee + uy dfy/dux dux/deee
+    //
+    //   Intrinsics:
+    //     dqx/diii = ux dfx/diii
+    //
+    // So the two kinds of models have completely different expressions for
+    // their gradients, and I implement them separately
+
+
     const int Npoints =
         calibration_object_width_n ?
         calibration_object_width_n*calibration_object_width_n : 1;
@@ -1548,37 +1577,6 @@ void project( // out
                                    const double* _Rj, const double* _d_Rj_rj,
                                    const double* _tj )
     {
-        // I have
-        //   p = Rj pref + tj
-        //
-        // Then parametric and non-parametric models do different things:
-        //
-        // parametric models:
-        //   u = distort(p, distortions)
-        //   q = uxy/uz * fxy + cxy
-        //
-        //   extrinsic gradients:
-        //       dqx/deee = d( ux/uz * fx + cx)/deee =
-        //                = fx d(ux/uz)/deee =
-        //                = fx/uz^2 ( uz dux/deee - duz/deee ux )
-        //
-        // nonparametric (splined) models
-        //   uxy = stereographic(p)
-        //   q   = [ ux * fx(uxy, intrinsics) + cx ]
-        //       = [ uy * fy(uxy, intrinsics) + cy ]
-        //
-        //   Extrinsics:
-        //     dqx/deee = ux dfx/duxy duxy/deee + fx dux/deee
-        //              = ux (dfx/dux dux/deee + dfx/duy duy/deee) + fx dux/deee
-        //              = (ux dfx/dux + fx I) dux/deee + ux dfx/duy duy/deee
-        //     dqy/deee = (uy dfy/duy + fy I) duy/deee + uy dfy/dux dux/deee
-        //
-        //   Intrinsics:
-        //     dqx/diii = ux dfx/diii
-        //
-        // So the two kinds of models have completely different expressions for
-        // their gradients, and I implement them separately
-
         // Rj * pt + tj -> pt
         point3_t pt_cam;
         mul_vec3_gen33t_vout(pt_ref->xyz, _Rj, pt_cam.xyz);
@@ -2147,10 +2145,8 @@ bool mrcal_project( // out
                     for(int iy=0; iy<len; iy++)
                         for(int ix=0; ix<len; ix++)
                         {
-                            dq_dintrinsics[ivar0 +
-                                           ivar_stridey*iy +
-                                           ix*2 +
-                                           i_xy] =
+                            int ivar = ivar0 + ivar_stridey*iy + ix*2 + i_xy;
+                            dq_dintrinsics[ivar + i_xy*Nintrinsics] =
                                 ctx->ABCDx[ix]*ctx->ABCDy[iy]*ctx->u.xy[i_xy];
                         }
             }
