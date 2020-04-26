@@ -1180,21 +1180,21 @@ void _project_point_splined( // outputs
     ctx->u = (point2_t){.x = pt_cam->x * scale,
                         .y = pt_cam->y * scale};
     // du/dp = d/dp ( xy * scale )
-    //       = pxy dscale/dp + [I; 0]
+    //       = pxy dscale/dp + [I; 0] scale
     // dscale/dp = d (2.0 / (mag_xyz + pt_cam->z))/dp =
     //           = -2/()^2 ( [0,0,1] + dmag/dp)
     //           = -2/()^2 ( [0,0,1] + 2pt/2mag)
     //           = -2 scale^2/4 ( [0,0,1] + pt/mag)
     //           = -scale^2/2 * ( [0,0,1] + pt/mag )
-    //           = A * ([0,0,1] + pt B)
+    //           = A*[0,0,1] + B*pt
     double A = -scale*scale / 2.;
-    double B = 1.0 / mag_xyz;
-    double du_dp[2][3] = { { pt_cam->x *  A * B * pt_cam->x + 1,
-                             pt_cam->x *  A * B * pt_cam->y,
-                             pt_cam->x * (A * B * pt_cam->z + A) },
-                           { pt_cam->y *  A * B * pt_cam->x,
-                             pt_cam->y *  A * B * pt_cam->y + 1,
-                             pt_cam->y * (A * B * pt_cam->z + A) } };
+    double B = A / mag_xyz;
+    double du_dptcam[2][3] = { { pt_cam->x * (B * pt_cam->x)      + scale,
+                                 pt_cam->x * (B * pt_cam->y),
+                                 pt_cam->x * (B * pt_cam->z + A) },
+                               { pt_cam->y * (B * pt_cam->x),
+                                 pt_cam->y * (B * pt_cam->y)      + scale,
+                                 pt_cam->y * (B * pt_cam->z + A) } };
 
     //MSG("normalized projection: %f %f", ctx->u.x, ctx->u.y);
 
@@ -1251,6 +1251,13 @@ void _project_point_splined( // outputs
                                  // control points
                                  &intrinsics[*ivar0],
                                  2*config->Nx);
+    // convert dfxy_dixy to dfxy_duxy
+    for(int i=0; i<2; i++)
+    {
+        dfxy_dux[i] /= interval_size;
+        dfxy_duy[i] /= interval_size;
+    }
+
 
     pt_out[i_pt].x = ctx->u.x * fxy.x + config->cx;
     pt_out[i_pt].y = ctx->u.y * fxy.y + config->cy;
@@ -1270,7 +1277,7 @@ void _project_point_splined( // outputs
     {
         double du_deee[2][3];
         double s0,s1;
-        mul_genN3_gen33_vout(2, (double*)du_dp, dptcam_deee, (double*)du_deee);
+        mul_genN3_gen33_vout(2, (double*)du_dptcam, dptcam_deee, (double*)du_deee);
         s0 = ctx->u.x*dfxy_dux[0] + fxy.x;
         s1 = ctx->u.x*dfxy_duy[0];
         for(int i=0; i<3; i++)
@@ -1286,11 +1293,11 @@ void _project_point_splined( // outputs
         s0 = ctx->u.x*dfxy_dux[0] + fxy.x;
         s1 = ctx->u.x*dfxy_duy[0];
         for(int i=0; i<3; i++)
-            dxy_deee[i_pt*2+0].xyz[i] = s0*du_dp[0][i] + s1*du_dp[1][i];
+            dxy_deee[i_pt*2+0].xyz[i] = s0*du_dptcam[0][i] + s1*du_dptcam[1][i];
         s0 = ctx->u.y*dfxy_duy[1] + fxy.y;
         s1 = ctx->u.y*dfxy_dux[1];
         for(int i=0; i<3; i++)
-            dxy_deee[i_pt*2+1].xyz[i] = s0*du_dp[1][i] + s1*du_dp[0][i];
+            dxy_deee[i_pt*2+1].xyz[i] = s0*du_dptcam[1][i] + s1*du_dptcam[0][i];
     }
     if(camera_at_identity)
     {
