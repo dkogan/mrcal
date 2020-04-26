@@ -106,6 +106,7 @@ TESTS :=					\
   test/test-cameramodel.py			\
   test/test-projections.py			\
   test/test-gradients.py			\
+  test/test-pylib-gradients.py			\
   test/test-cahvor                              \
   test/test-optimizer-callback.py		\
   test/test-lensmodel-string-manipulation
