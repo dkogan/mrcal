@@ -83,7 +83,7 @@ for test in tests:
         continue
 
     with StringIO(out) as f:
-        err_relative = nps.transpose(np.loadtxt(f))
+        err_relative = np.loadtxt(f).ravel()
 
     err_relative_99percentile = np.percentile(err_relative, 99, interpolation='lower')
     testutils.confirm(err_relative_99percentile < 1e-4, f"99%-percentile relative error={err_relative_99percentile} for {test}")
