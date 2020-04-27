@@ -262,32 +262,25 @@ int main(int argc, char* argv[] )
     }
 
 
-    if(problem_details.do_optimize_intrinsic_core || problem_details.do_optimize_intrinsic_core)
-    {
-        printf("## The intrinsics occupy %d variables per camera, starting at variable 0\n",
-               (problem_details.do_optimize_intrinsic_core        ? 4           : 0) +
-               (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0));
-        if(problem_details.do_optimize_intrinsic_core)
-            printf("## The intrinsics core occupies 4 variables per camera; the first is at variable 0\n");
-        if(problem_details.do_optimize_intrinsic_distortions)
-            printf("## The intrinsics distortions occupy %d variables per camera; the first is at variable %d\n",
-                   Ndistortion,
-                   mrcal_state_index_intrinsics(0, problem_details, lensmodel) +
-                   (mrcal_modelHasCore_fxfycxcy(lensmodel) && problem_details.do_optimize_intrinsic_core) ? 4 : 0);
-    }
-    if(problem_details.do_optimize_extrinsics)
-        printf("## The extrinsics occupy 6 variables per camera for all cameras except camera 0; the first is at variable %d\n",
-               mrcal_state_index_camera_rt(1, Ncameras, problem_details, lensmodel));
-    if(problem_details.do_optimize_frames)
-    {
-        printf("## The frames occupy 6 variables per frame; the first is at variable %d\n",
-               mrcal_state_index_frame_rt(0, Ncameras, problem_details, lensmodel));
-        printf("## The discrete points occupy 3 variables per point; the first is at variable %d\n",
-               mrcal_state_index_point(0, Nframes, Ncameras, problem_details, lensmodel));
-    }
-    if(problem_details.do_optimize_calobject_warp)
-        printf("## The calibration object warp occupies 2 variables; the first is at variable %d\n",
-               mrcal_state_index_calobject_warp(Npoints, Nframes, Ncameras, problem_details, lensmodel));
+    printf("## Ncameras = %d\n", Ncameras);
+    printf("## Intrinsics: %d variables per camera (%d for the core, %d for the rest). Starts at variable %d\n",
+           (problem_details.do_optimize_intrinsic_core        ? 4           : 0) +
+           (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0),
+           (problem_details.do_optimize_intrinsic_core        ? 4           : 0),
+           (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0),
+           mrcal_state_index_intrinsics(0, problem_details, lensmodel));
+    printf("## Extrinsics: %d variables per camera for all cameras except camera 0. Starts at variable %d\n",
+           (problem_details.do_optimize_extrinsics ? 6 : 0),
+           mrcal_state_index_camera_rt(1, Ncameras, problem_details, lensmodel));
+    printf("## Frames: %d variables per frame. Starts at variable %d\n",
+           (problem_details.do_optimize_frames ? 6 : 0),
+           mrcal_state_index_frame_rt(0, Ncameras, problem_details, lensmodel));
+    printf("## Discrete points: %d variables per point. Starts at variable %d\n",
+           (problem_details.do_optimize_frames ? 3 : 0),
+           mrcal_state_index_point(0, Nframes, Ncameras, problem_details, lensmodel));
+    printf("## calobject_warp: %d variables. Starts at variable %d\n",
+           (problem_details.do_optimize_calobject_warp ? 2 : 0),
+           mrcal_state_index_calobject_warp(Npoints, Nframes, Ncameras, problem_details, lensmodel));
 
 
     const double roi[] = { 1000., 1000., 400., 400.,
