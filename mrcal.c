@@ -459,30 +459,32 @@ int mrcal_getN_j_nonzero( int Ncameras,
                           lensmodel_t lensmodel,
                           int calibration_object_width_n)
 {
-
-    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
-    {
-        #warning do thing
-    }
-
-
     // each observation depends on all the parameters for THAT frame and for
     // THAT camera. Camera0 doesn't have extrinsics, so I need to loop through
     // all my observations
 
-    // initial estimate counts extrinsics for camera0, which need to be
-    // subtracted off
-    int Nintrinsics = mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
+#warning "hard-coding cubic splines"
+    // Each projected point has an x and y measurement, and each one depends on
+    // some number of the intrinsic parameters. Parametric models are simple:
+    // each one depends on ALL of the intrinsics. Splined models are sparse,
+    // however, and there's only a partial dependence
+    int Nintrinsics_per_measurement =
+        (lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (problem_details.do_optimize_intrinsic_distortions ? 4*4 : 0) :
+        mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
 
     // x depends on fx,cx but NOT on fy, cy. And similarly for y.
     if( problem_details.do_optimize_intrinsic_core &&
         mrcal_modelHasCore_fxfycxcy(lensmodel) )
-        Nintrinsics -= 2;
+        Nintrinsics_per_measurement -= 2;
 
     int N = NobservationsBoard * ( (problem_details.do_optimize_frames         ? 6 : 0) +
                                    (problem_details.do_optimize_extrinsics     ? 6 : 0) +
                                    (problem_details.do_optimize_calobject_warp ? 2 : 0) +
-                                   + Nintrinsics );
+                                   + Nintrinsics_per_measurement );
+
+    // initial estimate counts extrinsics for camera0, which need to be
+    // subtracted off
     if(problem_details.do_optimize_extrinsics)
         for(int i=0; i<NobservationsBoard; i++)
             if(observations_board[i].i_camera == 0)
@@ -492,7 +494,7 @@ int mrcal_getN_j_nonzero( int Ncameras,
     // Now the point observations
     for(int i=0; i<NobservationsPoint; i++)
     {
-        N += 2*Nintrinsics;
+        N += 2*Nintrinsics_per_measurement;
         if(problem_details.do_optimize_frames)
             N += 2*3;
         if( problem_details.do_optimize_extrinsics &&
