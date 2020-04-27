@@ -156,10 +156,11 @@ int main(int argc, char* argv[] )
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.fov_x_deg    = 200;
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.cx           = 1499.5;
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.cy           = 999.5;
+    }
 
+    if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
         // There is no core
         problem_details.do_optimize_intrinsic_core = false;
-    }
 
     int Nintrinsics = mrcal_getNlensParams(lensmodel);
     int Ndistortion = Nintrinsics;
