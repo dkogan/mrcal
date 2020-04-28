@@ -263,25 +263,38 @@ int main(int argc, char* argv[] )
 
 
     printf("## Ncameras = %d\n", Ncameras);
-    printf("## Intrinsics: %d variables per camera (%d for the core, %d for the rest). Starts at variable %d\n",
+    printf("## Intrinsics: %d variables per camera (%d for the core, %d for the rest; %d total). Starts at variable %d\n",
            (problem_details.do_optimize_intrinsic_core        ? 4           : 0) +
            (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0),
            (problem_details.do_optimize_intrinsic_core        ? 4           : 0),
            (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0),
+           Ncameras*((problem_details.do_optimize_intrinsic_core        ? 4           : 0) +
+                     (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0)),
            mrcal_state_index_intrinsics(0, problem_details, lensmodel));
-    printf("## Extrinsics: %d variables per camera for all cameras except camera 0. Starts at variable %d\n",
-           (problem_details.do_optimize_extrinsics ? 6 : 0),
+    printf("## Extrinsics: %d variables per camera for all cameras except camera 0 (%d total). Starts at variable %d\n",
+           (problem_details.do_optimize_extrinsics ? 6              : 0),
+           (problem_details.do_optimize_extrinsics ? 6*(Ncameras-1) : 0),
            mrcal_state_index_camera_rt(1, Ncameras, problem_details, lensmodel));
-    printf("## Frames: %d variables per frame. Starts at variable %d\n",
-           (problem_details.do_optimize_frames ? 6 : 0),
+    printf("## Frames: %d variables per frame (%d total). Starts at variable %d\n",
+           (problem_details.do_optimize_frames ? 6         : 0),
+           (problem_details.do_optimize_frames ? 6*Nframes : 0),
            mrcal_state_index_frame_rt(0, Ncameras, problem_details, lensmodel));
-    printf("## Discrete points: %d variables per point. Starts at variable %d\n",
-           (problem_details.do_optimize_frames ? 3 : 0),
+    printf("## Discrete points: %d variables per point (%d total). Starts at variable %d\n",
+           (problem_details.do_optimize_frames ? 3         : 0),
+           (problem_details.do_optimize_frames ? 3*Npoints : 0),
            mrcal_state_index_point(0, Nframes, Ncameras, problem_details, lensmodel));
     printf("## calobject_warp: %d variables. Starts at variable %d\n",
            (problem_details.do_optimize_calobject_warp ? 2 : 0),
            mrcal_state_index_calobject_warp(Npoints, Nframes, Ncameras, problem_details, lensmodel));
-
+    int Nmeasurements_boards         = mrcal_getNmeasurements_boards(NobservationsBoard, calibration_object_width_n);
+    int Nmeasurements_points         = mrcal_getNmeasurements_points(observations_point, NobservationsPoint);
+    int Nmeasurements_regularization = mrcal_getNmeasurements_regularization(Ncameras, problem_details, lensmodel);
+    printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
+           Nmeasurements_boards, 0);
+    printf("## Measurement points: %d measurements. Starts at measurement %d\n",
+           Nmeasurements_points, Nmeasurements_boards);
+    printf("## Measurement regularization: %d measurements. Starts at measurement %d\n",
+           Nmeasurements_regularization, Nmeasurements_boards+Nmeasurements_points);
 
     const double roi[] = { 1000., 1000., 400., 400.,
                             900., 1200., 300., 800. };
