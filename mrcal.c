@@ -898,8 +898,7 @@ void _project_point_parametric( // outputs
                                const double* restrict intrinsics,
                                bool camera_at_identity,
                                lensmodel_t lensmodel,
-                               const point2_t* dpt_ref2_dwarp, int i_pt,
-                               const double* _Rj)
+                               int i_pt)
 {
     // u = distort(pt_cam, distortions)
     // q = uxy/uz * fxy + cxy
@@ -1096,47 +1095,13 @@ void _project_point_parametric( // outputs
             lensmodel.type, mrcal_lensmodel_name(lensmodel));
         assert(0);
     }
-
-    if( dxy_dcalobject_warp != NULL && dpt_ref2_dwarp != NULL )
-    {
-        // p = proj(Rc Rf warp(x) + Rc tf + tc);
-        // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
-        //       = dp/dtc RcRf dwarp/dw
-        // dp/dtc is dxy_dtcamera
-        // R is rodrigues(rj)
-        // dwarp/dw = [0 0]
-        //            [0 0]
-        //            [a b]
-        // Let R = [r0 r1 r2]
-        // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
-        point3_t* p_dxy_dt;
-        if(!camera_at_identity) p_dxy_dt = &dxy_dtcamera[2*i_pt];
-        else                    p_dxy_dt = &dxy_dtframe[2*i_pt];
-        point3_t dxy_dt_forwarp[2];
-        if(!p_dxy_dt)
-        {
-            MSG("we were asked for the calobject gradient, but not the tframe gradient. this isn't supported");
-            assert(0);
-        }
-        double d[] =
-            { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
-              p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
-              p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
-              p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
-              p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
-              p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
-
-        dxy_dcalobject_warp[2*i_pt + 0].x = d[0]*dpt_ref2_dwarp->x;
-        dxy_dcalobject_warp[2*i_pt + 0].y = d[0]*dpt_ref2_dwarp->y;
-        dxy_dcalobject_warp[2*i_pt + 1].x = d[1]*dpt_ref2_dwarp->x;
-        dxy_dcalobject_warp[2*i_pt + 1].y = d[1]*dpt_ref2_dwarp->y;
-    }
 }
 
 
 typedef struct
 {
     point2_t u;
+#warning assuming CUBIC splines here
     double ABCDx[4];
     double ABCDy[4];
 } splined_intrinsics_grad_context_t;
@@ -1165,8 +1130,7 @@ void _project_point_splined( // outputs
                             const double* restrict intrinsics,
                             bool camera_at_identity,
                             lensmodel_t lensmodel,
-                            const point2_t* dpt_ref2_dwarp, int i_pt,
-                            const double* _Rj)
+                            int i_pt)
 {
     if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
@@ -1700,8 +1664,7 @@ void project( // out
                                    intrinsics,
                                    camera_at_identity,
                                    lensmodel,
-                                   dpt_ref2_dwarp, i_pt,
-                                   _Rj);
+                                   i_pt);
             if(dxy_dintrinsics_pool_int != NULL)
             {
                 *(dxy_dintrinsics_pool_int++) = ivar0;
@@ -1727,8 +1690,42 @@ void project( // out
                                       intrinsics,
                                       camera_at_identity,
                                       lensmodel,
-                                      dpt_ref2_dwarp, i_pt,
-                                      _Rj);
+                                      i_pt);
+        }
+
+        if( dxy_dcalobject_warp != NULL && dpt_ref2_dwarp != NULL )
+        {
+            // p = proj(Rc Rf warp(x) + Rc tf + tc);
+            // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+            //       = dp/dtc RcRf dwarp/dw
+            // dp/dtc is dxy_dtcamera
+            // R is rodrigues(rj)
+            // dwarp/dw = [0 0]
+            //            [0 0]
+            //            [a b]
+            // Let R = [r0 r1 r2]
+            // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
+            point3_t* p_dxy_dt;
+            if(!camera_at_identity) p_dxy_dt = &dxy_dtcamera[2*i_pt];
+            else                    p_dxy_dt = &dxy_dtframe[2*i_pt];
+            point3_t dxy_dt_forwarp[2];
+            if(!p_dxy_dt)
+            {
+                MSG("we were asked for the calobject gradient, but not the tframe gradient. this isn't supported");
+                assert(0);
+            }
+            double d[] =
+                { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
+                  p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
+                  p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
+                  p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
+                  p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
+                  p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
+
+            dxy_dcalobject_warp[2*i_pt + 0].x = d[0]*dpt_ref2_dwarp->x;
+            dxy_dcalobject_warp[2*i_pt + 0].y = d[0]*dpt_ref2_dwarp->y;
+            dxy_dcalobject_warp[2*i_pt + 1].x = d[1]*dpt_ref2_dwarp->x;
+            dxy_dcalobject_warp[2*i_pt + 1].y = d[1]*dpt_ref2_dwarp->y;
         }
     }
 
