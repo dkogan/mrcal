@@ -205,6 +205,6 @@ for test in tests:
             if len(err) <= 0: continue
 
             err_relative_99percentile = np.percentile(err, 99, interpolation='higher')
-            testutils.confirm(err_relative_99percentile < 1e-4, f"99%-percentile relative error={err_relative_99percentile} for vars {vartype_name(vartype)}, meas {meastype_name(meastype)} in {test}")
+            testutils.confirm(err_relative_99percentile < 1e-3, f"99%-percentile relative error={err_relative_99percentile} for vars {vartype_name(vartype)}, meas {meastype_name(meastype)} in {test}")
 
 testutils.finish()
