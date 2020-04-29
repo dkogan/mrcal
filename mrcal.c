@@ -1256,6 +1256,8 @@ static void stereographic_mean_f(// outputs
             *fx += intrinsics[(j*config->Nx + i)*2 + 0];
             *fy += intrinsics[(j*config->Nx + i)*2 + 1];
         }
+    *fx /= (double)((int)config->Nx * (int)config->Ny);
+    *fy /= (double)((int)config->Nx * (int)config->Ny);
 }
 
 static
