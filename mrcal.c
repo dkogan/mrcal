@@ -1106,6 +1106,159 @@ typedef struct
     double ABCDy[4];
 } splined_intrinsics_grad_context_t;
 
+// Compute a stereographic projection using a constant fxy, cxy. This is the
+// same as the pinhole projection for long lenses, but supports views behind the
+// camera
+static
+point2_t project_stereographic( // input
+                                point3_t v,
+                                double fx, double fy,
+                                double cx, double cy)
+{
+    // stereographic projection:
+    //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
+    //   u = xy_unit * tan(th/2) * 2
+    //
+    // I compute the normalized (focal-length = 1) projection, and
+    // use that to look-up the x and y focal length scalings
+
+    // th is the angle between the observation and the projection
+    // center
+    //
+    // sin(th)   = mag_xy/mag_xyz
+    // cos(th)   = z/mag_xyz
+    // tan(th/2) = sin(th) / (1 + cos(th))
+
+    // tan(th/2) = mag_xy/mag_xyz / (1 + z/mag_xyz) =
+    //           = mag_xy / (mag_xyz + z)
+    // u = xy_unit * tan(th/2) * 2 =
+    //   = xy/mag_xy * mag_xy/(mag_xyz + z) * 2 =
+    //   = xy / (mag_xyz + z) * 2
+    double mag_xyz = sqrt( v.x*v.x +
+                           v.y*v.y +
+                           v.z*v.z );
+    double scale = 2.0 / (mag_xyz + v.z);
+
+    return (point2_t){.x = v.x * scale * fx + cx,
+                      .y = v.y * scale * fy + cy};
+}
+
+// Compute a stereographic unprojection using a constant fxy, cxy
+static
+point3_t unproject_stereographic( // output. May be NULL
+                                  point2_t* dv_dqstereographic,
+
+                                  // input
+                                  point2_t q,
+                                  double fx, double fy,
+                                  double cx, double cy)
+{
+    // stereographic projection:
+    //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
+    //   u = xy_unit * tan(th/2) * 2
+    //
+    // I compute the normalized (focal-length = 1) projection, and
+    // use that to look-up the x and y focal length scalings
+    //
+    // th is the angle between the observation and the projection
+    // center
+    //
+    // sin(th)   = mag_xy/mag_xyz
+    // cos(th)   = z/mag_xyz
+    // tan(th/2) = sin(th) / (1 + cos(th))
+    //
+    // tan(th/2) = mag_xy/mag_xyz / (1 + z/mag_xyz) =
+    //           = mag_xy / (mag_xyz + z)
+    // u = xy_unit * tan(th/2) * 2 =
+    //   = xy/mag_xy * mag_xy/(mag_xyz + z) * 2 =
+    //   = xy / (mag_xyz + z) * 2
+    //
+    // How do I compute the inverse?
+    //
+    // So q = u f + c
+    // -> u = (q-c)/f
+    // mag(u) = tan(th/2)*2
+    //
+    // So I can compute th. az comes from the direction of u. This is enough to
+    // compute everything. th is in [0,pi].
+    //
+    //     [ sin(th) cos(az) ]   [ cos(az)   ]
+    // v = [ sin(th) sin(az) ] ~ [ sin(az)   ]
+    //     [ cos(th)         ]   [ 1/tan(th) ]
+    //
+    // mag(u) = tan(th/2)*2 -> mag(u)/2 = tan(th/2) ->
+    // tan(th) = mag(u) / (1 - (mag(u)/2)^2)
+    // 1/tan(th) = (1 - 1/4*mag(u)^2) / mag(u)
+    //
+    // This has a singularity at u=0 (imager center). But I can scale v to avoid
+    // this. So
+    //
+    //     [ cos(az) mag(u)   ]
+    // v = [ sin(az) mag(u)   ]
+    //     [ 1 - 1/4*mag(u)^2 ]
+    //
+    // I can simplify this even more. az = atan2(u.y,u.x). cos(az) = u.x/mag(u) ->
+    //
+    //     [ u.x              ]
+    // v = [ u.y              ]
+    //     [ 1 - 1/4 mag(u)^2 ]
+    //
+    // Test script to confirm that the project/unproject expressions are
+    // correct. unproj(proj(v))/v should be a constant
+    //
+    //     import numpy      as np
+    //     import numpysane  as nps
+    //     f = 2000
+    //     c = 1000
+    //     def proj(v):
+    //         m = nps.mag(v)
+    //         scale = 2.0 / (m + v[..., 2])
+    //         u = v[..., :2] * nps.dummy(scale, -1)
+    //         return u * f + c
+    //     def unproj(q):
+    //         u = (q-c)/f
+    //         muxy = nps.mag(u[..., :2])
+    //         m    = nps.mag(u)
+    //         return nps.mv(nps.cat( u[..., 0],
+    //                                u[..., 1],
+    //                                1 - 1./4.* m*m),
+    //                       0, -1)
+    //     v = np.array(((1., 2., 3.),
+    //                   (3., -2., -4.)))
+    //     print( unproj(proj(v)) / v)
+    point2_t u = {.x = (q.x - cx) / fx,
+                  .y = (q.y - cy) / fy};
+
+    double norm2u = u.x*u.x + u.y*u.y;
+    if(dv_dqstereographic)
+    {
+        dv_dqstereographic[0] = (point2_t){.x = 1.0/fx};
+        dv_dqstereographic[1] = (point2_t){.y = 1.0/fy};
+        dv_dqstereographic[2] = (point2_t){.x = -u.x/2.0/fx,
+                                           .y = -u.y/2.0/fy};
+    }
+    return (point3_t){ .x = u.x,
+                       .y = u.y,
+                       .z = 1. - 1./4. * norm2u };
+}
+
+static void stereographic_mean_f(// outputs
+                                 double* fx, double* fy,
+
+                                 // intputs
+                                 const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config,
+                                 const double* intrinsics)
+{
+    *fx = 0.0;
+    *fy = 0.0;
+    for(int j=0; j<config->Ny; j++)
+        for(int i=0; i<config->Nx; i++)
+        {
+            *fx += intrinsics[(j*config->Nx + i)*2 + 0];
+            *fy += intrinsics[(j*config->Nx + i)*2 + 1];
+        }
+}
+
 static
 void _project_point_splined( // outputs
                             point2_t* pt_out,
@@ -2257,14 +2410,13 @@ bool mrcal_project_z1( // out
 // internal function for mrcal_unproject() and mrcal_unproject_z1()
 static
 bool _unproject( // out
-                double* out,
-                bool output_2d_z1,
+                double* out, // pointer to point2_t or point3_t
+                bool output_2d_stereographic,
 
                 // in
                 const point2_t* q,
                 int N,
                 lensmodel_t lensmodel,
-                // core, distortions concatenated
                 const double* intrinsics)
 {
     if( lensmodel.type == LENSMODEL_CAHVORE )
@@ -2273,56 +2425,86 @@ bool _unproject( // out
         return false;
     }
 
-    if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+    double fx,fy,cx,cy;
+    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
     {
-        MSG("Can't unproject without a core yet. Need to change the 2d domain.");
-        exit(1);
+        fx = intrinsics[0];
+        fy = intrinsics[1];
+        cx = intrinsics[2];
+        cy = intrinsics[3];
     }
-
-    const intrinsics_core_t* core        = (const intrinsics_core_t*)intrinsics;
-    const double*            distortions = &intrinsics[4];
-
-    const double fx_recip_distort = 1.0 / core->focal_xy[0];
-    const double fy_recip_distort = 1.0 / core->focal_xy[1];
+    else if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+    {
+        const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+            &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
+        stereographic_mean_f(&fx, &fy,
+                             config, intrinsics);
+        cx = config->cx;
+        cy = config->cy;
+    }
+    else
+    {
+        MSG("Unhandled lens model: %d (%s)",
+            lensmodel.type,
+            mrcal_lensmodel_name(lensmodel));
+        assert(0);
+    }
 
     // easy special-case
     if( lensmodel.type == LENSMODEL_PINHOLE )
     {
         for(int i=0; i<N; i++)
         {
-            out[0] = (q[i].x - core->center_xy[0]) * fx_recip_distort;
-            out[1] = (q[i].y - core->center_xy[1]) * fy_recip_distort;
-            if(output_2d_z1)
+            if(output_2d_stereographic)
+            {
+                *(point2_t*)out =
+                    project_stereographic( unproject_stereographic(NULL,
+                                                                   q[i],
+                                                                   fx,fy,cx,cy),
+                                           fx,fy,cx,cy);
+
+                // advance
                 out = &out[2];
+            }
             else
             {
+                out[0] = (q[i].x - cx) / fx;
+                out[1] = (q[i].y - cy) / fy;
                 out[2] = 1.0;
+
+                // advance
                 out = &out[3];
             }
         }
         return true;
     }
 
-    pose_t frame = {.r = {},
-                    .t = {.z = 1.0}};
 
+    // I optimize in the space of the stereographic projection. This is a 2D
+    // space with a direct mapping to/from observation vectors with a single
+    // singularity directly behind the camera. The allows me to run an
+    // unconstrained optimization here
     for(int i=0; i<N; i++)
     {
-        void cb(const double*   xy,
+        void cb(const double*   q_stereographic,
                 double*         x,
                 double*         J,
                 void*           cookie __attribute__((unused)))
         {
-            // I want q[i] == project(xy1)
-            frame.t.x = xy[0];
-            frame.t.y = xy[1];
-            // initializing this above: frame.t.z = 1.0;
+            // q_stereographic is the constant-fxy-cxy 2D stereographic
+            // projection of the hypothesis v. I unproject it stereographically,
+            // and project it using the actual model
+            point2_t dv_dqstereographic[3];
+            point3_t v = unproject_stereographic( dv_dqstereographic,
+                                                  *(point2_t*)q_stereographic,
+                                                  fx,fy,cx,cy );
+            pose_t frame = {.t = v};
 
-            point3_t dxy_dtframe[2];
+            point3_t dq_dtframe[2];
             point2_t q_hypothesis;
             project( &q_hypothesis,
                      NULL,NULL,NULL,NULL,NULL,
-                     NULL, NULL, NULL, dxy_dtframe,
+                     NULL, NULL, NULL, dq_dtframe,
                      NULL,
 
                      // in
@@ -2335,16 +2517,32 @@ bool _unproject( // out
                      0.0, 0);
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
-            J[0*2 + 0] = dxy_dtframe[0].x;
-            J[0*2 + 1] = dxy_dtframe[0].y;
-            J[1*2 + 0] = dxy_dtframe[1].x;
-            J[1*2 + 1] = dxy_dtframe[1].y;
+            J[0*2 + 0] =
+                dq_dtframe[0].x*dv_dqstereographic[0].x +
+                dq_dtframe[0].y*dv_dqstereographic[1].x +
+                dq_dtframe[0].z*dv_dqstereographic[2].x;
+            J[0*2 + 1] =
+                dq_dtframe[0].x*dv_dqstereographic[0].y +
+                dq_dtframe[0].y*dv_dqstereographic[1].y +
+                dq_dtframe[0].z*dv_dqstereographic[2].y;
+            J[1*2 + 0] =
+                dq_dtframe[1].x*dv_dqstereographic[0].x +
+                dq_dtframe[1].y*dv_dqstereographic[1].x +
+                dq_dtframe[1].z*dv_dqstereographic[2].x;
+            J[1*2 + 1] =
+                dq_dtframe[1].x*dv_dqstereographic[0].y +
+                dq_dtframe[1].y*dv_dqstereographic[1].y +
+                dq_dtframe[1].z*dv_dqstereographic[2].y;
         }
 
-        // seed from the distorted value
-        out[0] = (q[i].x - core->center_xy[0]) * fx_recip_distort;
-        out[1] = (q[i].y - core->center_xy[1]) * fy_recip_distort;
 
+        // Seed from a perfect stereographic projection, pushed towards the
+        // center a bit. Normally I'd set out[] to q[i], but for some models
+        // (OPENCV8 for instance) this pushes us into a place where stuff
+        // doesn't converge anymore. This produces a more stable solution, and
+        // my tests pass
+        out[0] = (q[i].x-cx)*0.7 + cx;
+        out[1] = (q[i].y-cy)*0.7 + cy;
 
         dogleg_parameters2_t dogleg_parameters;
         dogleg_getDefaultParameters(&dogleg_parameters);
@@ -2369,13 +2567,27 @@ bool _unproject( // out
             out[0] = nan;
             out[1] = nan;
         }
-        if(output_2d_z1)
-            out = &out[2];
-        else
+        else if(!output_2d_stereographic)
         {
-            out[2] = 1.0;
-            out = &out[3];
+            // out[0,1] is the stereographic representation of the observation
+            // vector using idealized fx,fy,cx,cy. This is already the right
+            // thing if we're reporting in 2d. Otherwise I need to unproject
+
+            // This is the normal no-error path
+            *(point3_t*)out = unproject_stereographic(NULL,
+                                                      *(point2_t*)out,
+                                                      fx,fy,cx,cy);
+            if(mrcal_modelHasCore_fxfycxcy(lensmodel) && out[2] < 0.0)
+            {
+                out[0] *= -1.0;
+                out[1] *= -1.0;
+                out[2] *= -1.0;
+            }
         }
+
+        // Advance to the next point. Error or not
+        if(output_2d_stereographic) out = &out[2];
+        else                        out = &out[3];
     }
     return true;
 }
