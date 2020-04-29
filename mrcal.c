@@ -1108,11 +1108,14 @@ typedef struct
 // Compute a stereographic projection using a constant fxy, cxy. This is the
 // same as the pinhole projection for long lenses, but supports views behind the
 // camera
-static
-point2_t project_stereographic( // input
-                                point3_t v,
-                                double fx, double fy,
-                                double cx, double cy)
+void mrcal_project_stereographic( // output
+                                 point2_t* q,
+
+                                  // input
+                                 int N,
+                                 const point3_t* v,
+                                 double fx, double fy,
+                                 double cx, double cy)
 {
     // stereographic projection:
     //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
@@ -1133,24 +1136,30 @@ point2_t project_stereographic( // input
     // u = xy_unit * tan(th/2) * 2 =
     //   = xy/mag_xy * mag_xy/(mag_xyz + z) * 2 =
     //   = xy / (mag_xyz + z) * 2
-    double mag_xyz = sqrt( v.x*v.x +
-                           v.y*v.y +
-                           v.z*v.z );
-    double scale = 2.0 / (mag_xyz + v.z);
+    for(int i=0; i<N; i++)
+    {
+        double mag_xyz = sqrt( v[i].x*v[i].x +
+                               v[i].y*v[i].y +
+                               v[i].z*v[i].z );
+        double scale = 2.0 / (mag_xyz + v[i].z);
 
-    return (point2_t){.x = v.x * scale * fx + cx,
-                      .y = v.y * scale * fy + cy};
+        q[i] = (point2_t){.x = v[i].x * scale * fx + cx,
+                          .y = v[i].y * scale * fy + cy};
+    }
 }
 
 // Compute a stereographic unprojection using a constant fxy, cxy
-static
-point3_t unproject_stereographic( // output. May be NULL
-                                  point2_t* dv_dqstereographic,
+void mrcal_unproject_stereographic( // output
+                                   point3_t* v,
+                                   point2_t* dv_dq, // May be NULL. Each point
+                                                    // gets a block of 3
+                                                    // point2_t objects
 
-                                  // input
-                                  point2_t q,
-                                  double fx, double fy,
-                                  double cx, double cy)
+                                   // input
+                                   int N,
+                                   const point2_t* q,
+                                   double fx, double fy,
+                                   double cx, double cy)
 {
     // stereographic projection:
     //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
@@ -1225,20 +1234,23 @@ point3_t unproject_stereographic( // output. May be NULL
     //     v = np.array(((1., 2., 3.),
     //                   (3., -2., -4.)))
     //     print( unproj(proj(v)) / v)
-    point2_t u = {.x = (q.x - cx) / fx,
-                  .y = (q.y - cy) / fy};
-
-    double norm2u = u.x*u.x + u.y*u.y;
-    if(dv_dqstereographic)
+    for(int i=0; i<N; i++)
     {
-        dv_dqstereographic[0] = (point2_t){.x = 1.0/fx};
-        dv_dqstereographic[1] = (point2_t){.y = 1.0/fy};
-        dv_dqstereographic[2] = (point2_t){.x = -u.x/2.0/fx,
-                                           .y = -u.y/2.0/fy};
+        point2_t u = {.x = (q[i].x - cx) / fx,
+                      .y = (q[i].y - cy) / fy};
+
+        double norm2u = u.x*u.x + u.y*u.y;
+        if(dv_dq)
+        {
+            dv_dq[3*i + 0] = (point2_t){.x = 1.0/fx};
+            dv_dq[3*i + 1] = (point2_t){.y = 1.0/fy};
+            dv_dq[3*i + 2] = (point2_t){.x = -u.x/2.0/fx,
+                                        .y = -u.y/2.0/fy};
+        }
+        v[i] = (point3_t){ .x = u.x,
+                           .y = u.y,
+                           .z = 1. - 1./4. * norm2u };
     }
-    return (point3_t){ .x = u.x,
-                       .y = u.y,
-                       .z = 1. - 1./4. * norm2u };
 }
 
 static void splined_mean_f(// outputs
@@ -2438,8 +2450,7 @@ bool _unproject( // out
     {
         const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
             &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-        splined_mean_f(&fx, &fy,
-                             config, intrinsics);
+        splined_mean_f(&fx, &fy, config, intrinsics);
         cx = config->cx;
         cy = config->cy;
     }
@@ -2458,12 +2469,12 @@ bool _unproject( // out
         {
             if(output_2d_stereographic)
             {
-                *(point2_t*)out =
-                    project_stereographic( unproject_stereographic(NULL,
-                                                                   q[i],
-                                                                   fx,fy,cx,cy),
-                                           fx,fy,cx,cy);
-
+                mrcal_project_stereographic( (point2_t*)out,
+                                             1,
+                                             (point3_t[]){ {.x = (q[i].x - cx) / fx,
+                                                            .y = (q[i].y - cy) / fy,
+                                                            .z = 1.0 } },
+                                             fx,fy,cx,cy);
                 // advance
                 out = &out[2];
             }
@@ -2496,10 +2507,10 @@ bool _unproject( // out
             // projection of the hypothesis v. I unproject it stereographically,
             // and project it using the actual model
             point2_t dv_dqstereographic[3];
-            point3_t v = unproject_stereographic( dv_dqstereographic,
-                                                  *(point2_t*)q_stereographic,
-                                                  fx,fy,cx,cy );
-            pose_t frame = {.t = v};
+            pose_t frame = {};
+            mrcal_unproject_stereographic( &frame.t, dv_dqstereographic,
+                                           1, (point2_t*)q_stereographic,
+                                           fx,fy,cx,cy );
 
             point3_t dq_dtframe[2];
             point2_t q_hypothesis;
@@ -2575,9 +2586,11 @@ bool _unproject( // out
             // thing if we're reporting in 2d. Otherwise I need to unproject
 
             // This is the normal no-error path
-            *(point3_t*)out = unproject_stereographic(NULL,
-                                                      *(point2_t*)out,
-                                                      fx,fy,cx,cy);
+            mrcal_unproject_stereographic((point3_t*)out, NULL,
+                                          1,
+                                          (point2_t*)out,
+                                          fx,fy,cx,cy);
+#warning this really means "forward-only" not "hascore"
             if(mrcal_modelHasCore_fxfycxcy(lensmodel) && out[2] < 0.0)
             {
                 out[0] *= -1.0;

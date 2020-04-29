@@ -286,6 +286,30 @@ bool mrcal_unproject_z1( // out
                         // core, distortions concatenated
                         const double* intrinsics);
 
+// Compute a stereographic projection using a constant fxy, cxy. This is the
+// same as the pinhole projection for long lenses, but supports views behind the
+// camera
+void mrcal_project_stereographic( // output
+                                 point2_t* q,
+
+                                  // input
+                                 int N,
+                                 const point3_t* v,
+                                 double fx, double fy,
+                                 double cx, double cy);
+
+// Compute a stereographic unprojection using a constant fxy, cxy
+void mrcal_unproject_stereographic( // output
+                                   point3_t* v,
+                                   point2_t* dv_dq, // May be NULL. Each point
+                                                    // gets a block of 3
+                                                    // point2_t objects
+
+                                   // input
+                                   int N,
+                                   const point2_t* q,
+                                   double fx, double fy,
+                                   double cx, double cy);
 
 
 #define MRCAL_STATS_ITEM(_)                                           \
