@@ -41,7 +41,7 @@ paths                = [paths[_] for _ in i]
 models = [ mrcal.cameramodel(m) for m in ( f"{testdir}/data/cam0.opencv8.cameramodel",
                                            f"{testdir}/data/cam1.opencv8.cameramodel",) ]
 
-lens_model      = models[0].intrinsics()[0]
+lensmodel       = models[0].intrinsics()[0]
 intrinsics_data = nps.cat(models[0].intrinsics()[1],
                           models[1].intrinsics()[1])
 extrinsics_rt10 = mrcal.compose_rt( models[1].extrinsics_rt_fromref(),
@@ -109,7 +109,7 @@ for kwargs in all_test_kwargs:
                                     observations,       indices_frame_camera,
                                     observations_point, indices_point_camera_points,
 
-                                    lens_model,
+                                    lensmodel,
                                     imagersizes                       = imagersizes,
                                     calibration_object_spacing        = 0.1,
                                     calibration_object_width_n        = 10,
