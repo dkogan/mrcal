@@ -579,11 +579,10 @@ void sample_bspline_surface_cubic(double* out,
     double ABCDgrady[4];
     get_sample_coeffs(ABCDx, ABCDgradx, x);
     get_sample_coeffs(ABCDy, ABCDgrady, y);
-    double cinterp[4][2];
-    const int stridex = 2;
-
     void interp(double* out, const double* ABCDx, const double* ABCDy)
     {
+        double cinterp[4][2];
+        const int stridex = 2;
         for(int iy=0; iy<4; iy++)
             for(int k=0;k<2;k++)
                 cinterp[iy][k] =
