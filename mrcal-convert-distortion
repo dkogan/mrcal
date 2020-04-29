@@ -266,6 +266,9 @@ for i in range(10): # this many trials
         intrinsics_values_best = np.array(intrinsics_to_values)
 
 
+if not len(intrinsics_values_best):
+    print("No valid intrinsics found!", file=sys.stderr)
+    sys.exit(1)
 
 sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
 m_to = mrcal.cameramodel( intrinsics            = (lensmodel_to, intrinsics_values_best.ravel()),
