@@ -21,9 +21,9 @@ SYNOPSIS
                          q,
                          lens_model, intrinsics_data )
 
-This is the python wrapper to the internal written-in-C _mrcal.unproject(). This
+This is the python wrapper to the internal written-in-C _mrcal._unproject(). This
 wrapper that has a slow path to handle CAHVORE. Otherwise, the it just calls
-_mrcal.unproject(), which does NOT support CAHVORE
+_mrcal._unproject(), which does NOT support CAHVORE
 
 Maps a set of 2D imager points q to a 3d vector in camera coordinates that
 produced these pixel observations. The 3d vector is unique only up-to-length, so
