@@ -800,7 +800,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 
 #define PROJECT_ARGUMENTS_REQUIRED(_)                                   \
     _(points,     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
-    _(lensmodel, PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
+    _(lensmodel,  PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
     _(intrinsics, PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define PROJECT_ARGUMENTS_OPTIONAL(_) \
