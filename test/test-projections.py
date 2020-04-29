@@ -36,11 +36,10 @@ def check(intrinsics, p_ref, q_ref, unproject = True):
         return
 
     p_unprojected = mrcal.unproject(q_projected, *intrinsics)
-
     cos = nps.inner(p_unprojected, p_ref) / (nps.mag(p_ref)*nps.mag(p_unprojected))
     cos = np.clip(cos, -1, 1)
     testutils.confirm_equal( np.arccos(cos),
-                             np.zeros((3,), dtype=float),
+                             np.zeros((p_ref.shape[0],), dtype=float),
                              msg = f"Unprojecting {intrinsics[0]}",
                              eps = 1e-6)
 
