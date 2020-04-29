@@ -1110,6 +1110,9 @@ typedef struct
 // camera
 void mrcal_project_stereographic( // output
                                  point2_t* q,
+                                 point3_t* dq_dv, // May be NULL. Each point
+                                                  // gets a block of 2 point3_t
+                                                  // objects
 
                                   // input
                                  int N,
@@ -1143,6 +1146,26 @@ void mrcal_project_stereographic( // output
                                v[i].z*v[i].z );
         double scale = 2.0 / (mag_xyz + v[i].z);
 
+        if(dq_dv)
+        {
+            // this is more or less already derived in _project_point_splined()
+            //
+            // dqx/dv = fx ( scale dx + x dscale ) =
+            //        = fx ( [1 0 0] scale - 2 x / ()^2 * ( [x y z]/(sqrt) + [0 0 1]) )
+            //        = fx ( [scale 0 0] - x scale^2/2 * ( [x y z]/mag_xyz + [0 0 1]) )
+            // Let A = -scale^2/2
+            //     B = A/mag_xyz
+            // dqx_dv = fx ( [scale 0 0] - x scale^2/2 * [x y z]/mag_xyz - x scale^2/2 [0 0 1] )
+            //        = fx ( [scale 0 0] + B x * [x y z] + x A [0 0 1] )
+            double A = -scale*scale / 2.;
+            double B = A / mag_xyz;
+            dq_dv[2*i + 0] = (point3_t){.x = fx * (v[i].x * (B*v[i].x) + scale),
+                                        .y = fx * (v[i].x * (B*v[i].y)),
+                                        .z = fx * (v[i].x * (B*v[i].z + A))};
+            dq_dv[2*i + 1] = (point3_t){.x = fy * (v[i].y * (B*v[i].x)),
+                                        .y = fy * (v[i].y * (B*v[i].y) + scale),
+                                        .z = fy * (v[i].y * (B*v[i].z + A))};
+        }
         q[i] = (point2_t){.x = v[i].x * scale * fx + cx,
                           .y = v[i].y * scale * fy + cy};
     }
@@ -2469,7 +2492,7 @@ bool _unproject( // out
         {
             if(output_2d_stereographic)
             {
-                mrcal_project_stereographic( (point2_t*)out,
+                mrcal_project_stereographic( (point2_t*)out, NULL,
                                              1,
                                              (point3_t[]){ {.x = (q[i].x - cx) / fx,
                                                             .y = (q[i].y - cy) / fy,

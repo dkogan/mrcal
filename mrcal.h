@@ -291,6 +291,9 @@ bool mrcal_unproject_z1( // out
 // camera
 void mrcal_project_stereographic( // output
                                  point2_t* q,
+                                 point3_t* dq_dv, // May be NULL. Each point
+                                                  // gets a block of 2 point3_t
+                                                  // objects
 
                                   // input
                                  int N,
