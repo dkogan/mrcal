@@ -123,20 +123,20 @@ import time
 
 import mrcal
 
-distortionmodel_to = args.to
+lensmodel_to = args.to
 try:
-    Ndistortions = mrcal.getNlensParams(distortionmodel_to) - 4
+    Ndistortions = mrcal.getNlensParams(lensmodel_to) - 4
 except:
-    raise Exception("Unknown lens model: '{}'".format(distortionmodel_to))
+    raise Exception("Unknown lens model: '{}'".format(lensmodel_to))
 
 
 m = mrcal.cameramodel(args.model)
 
 intrinsics_from = m.intrinsics()
-distortionmodel_from = intrinsics_from[0]
+lensmodel_from = intrinsics_from[0]
 
-if distortionmodel_from == distortionmodel_to:
-    sys.stderr.write("Input and output have the same lens model: {}. Returning the input\n".format(distortionmodel_to))
+if lensmodel_from == lensmodel_to:
+    sys.stderr.write("Input and output have the same lens model: {}. Returning the input\n".format(lensmodel_to))
     sys.stderr.write("RMS error of the solution: 0 pixels.\n")
     m.write(sys.stdout)
     sys.exit(0)
@@ -246,7 +246,7 @@ for i in range(10): # this many trials
                    None, # no board observations
                    observations_points,
                    indices_points,
-                   distortionmodel_to,
+                   lensmodel_to,
 
                    imagersizes                       = nps.atleast_dims(dims, -2),
                    do_optimize_intrinsic_core        = True,
@@ -256,7 +256,7 @@ for i in range(10): # this many trials
                    skip_outlier_rejection            = True,
                    verbose                           = args.verbose)
     q_solved = mrcal.project( v,
-                              distortionmodel_to,
+                              lensmodel_to,
                               intrinsics_to_values.ravel())
     diff = q_solved - q
     err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
@@ -268,7 +268,7 @@ for i in range(10): # this many trials
 
 
 sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
-m_to = mrcal.cameramodel( intrinsics            = (distortionmodel_to, intrinsics_values_best.ravel()),
+m_to = mrcal.cameramodel( intrinsics            = (lensmodel_to, intrinsics_values_best.ravel()),
                           extrinsics_rt_fromref = m.extrinsics_rt_fromref(),
                           imagersize            = dims )
 
