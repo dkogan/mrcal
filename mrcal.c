@@ -1115,8 +1115,8 @@ void mrcal_project_stereographic( // output
                                                   // objects
 
                                   // input
-                                 int N,
                                  const point3_t* v,
+                                 int N,
                                  double fx, double fy,
                                  double cx, double cy)
 {
@@ -1179,8 +1179,8 @@ void mrcal_unproject_stereographic( // output
                                                     // point2_t objects
 
                                    // input
-                                   int N,
                                    const point2_t* q,
+                                   int N,
                                    double fx, double fy,
                                    double cx, double cy)
 {
@@ -2493,10 +2493,10 @@ bool _unproject( // out
             if(output_2d_stereographic)
             {
                 mrcal_project_stereographic( (point2_t*)out, NULL,
-                                             1,
                                              (point3_t[]){ {.x = (q[i].x - cx) / fx,
                                                             .y = (q[i].y - cy) / fy,
                                                             .z = 1.0 } },
+                                             1,
                                              fx,fy,cx,cy);
                 // advance
                 out = &out[2];
@@ -2532,7 +2532,7 @@ bool _unproject( // out
             point2_t dv_dqstereographic[3];
             pose_t frame = {};
             mrcal_unproject_stereographic( &frame.t, dv_dqstereographic,
-                                           1, (point2_t*)q_stereographic,
+                                           (point2_t*)q_stereographic, 1,
                                            fx,fy,cx,cy );
 
             point3_t dq_dtframe[2];
@@ -2610,8 +2610,7 @@ bool _unproject( // out
 
             // This is the normal no-error path
             mrcal_unproject_stereographic((point3_t*)out, NULL,
-                                          1,
-                                          (point2_t*)out,
+                                          (point2_t*)out, 1,
                                           fx,fy,cx,cy);
 #warning this really means "forward-only" not "hascore"
             if(mrcal_modelHasCore_fxfycxcy(lensmodel) && out[2] < 0.0)

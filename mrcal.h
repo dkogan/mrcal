@@ -296,8 +296,8 @@ void mrcal_project_stereographic( // output
                                                   // objects
 
                                   // input
-                                 int N,
                                  const point3_t* v,
+                                 int N,
                                  double fx, double fy,
                                  double cx, double cy);
 
@@ -309,8 +309,8 @@ void mrcal_unproject_stereographic( // output
                                                     // point2_t objects
 
                                    // input
-                                   int N,
                                    const point2_t* q,
+                                   int N,
                                    double fx, double fy,
                                    double cx, double cy);
 
