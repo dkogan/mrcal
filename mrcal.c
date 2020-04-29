@@ -1241,12 +1241,12 @@ point3_t unproject_stereographic( // output. May be NULL
                        .z = 1. - 1./4. * norm2u };
 }
 
-static void stereographic_mean_f(// outputs
-                                 double* fx, double* fy,
+static void splined_mean_f(// outputs
+                           double* fx, double* fy,
 
-                                 // intputs
-                                 const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config,
-                                 const double* intrinsics)
+                           // intputs
+                           const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config,
+                           const double* intrinsics)
 {
     *fx = 0.0;
     *fy = 0.0;
@@ -2438,7 +2438,7 @@ bool _unproject( // out
     {
         const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
             &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-        stereographic_mean_f(&fx, &fy,
+        splined_mean_f(&fx, &fy,
                              config, intrinsics);
         cx = config->cx;
         cy = config->cy;
