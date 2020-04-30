@@ -1424,6 +1424,7 @@ def show_stereographic_focal_surface(model,
                                      gridn_x          = 60,
                                      gridn_y          = 40,
 
+                                     heatmap          = False,
                                      extratitle       = None,
                                      hardcopy         = None,
                                      kwargs           = None):
@@ -1496,22 +1497,26 @@ def show_stereographic_focal_surface(model,
     else:
         raise Exception('xy must be either "x" or "y". Instead got "{xy}"')
 
-    plot = gp.gnuplotlib(_3d=1,
-                         _xrange=[0,W],
-                         _yrange=[H,0],
-                         xlabel='x',
-                         ylabel='y',
-                         zlabel=f'{xy}-axis focal length',
-                         squarexy = True,
-                         ascii = True, # required for axis scaling with "using"
-                         using = imagergrid_using(imagersize, gridn_x, gridn_y),
-                         **kwargs)
+    plotoptions = dict(kwargs,
+                       _xrange=[0,W],
+                       _yrange=[H,0],
+                       xlabel='x',
+                       ylabel='y',
+                       ascii = True, # required for axis scaling with "using"
+                       using = imagergrid_using(imagersize, gridn_x, gridn_y))
+    if heatmap:
+        plotoptions['square'] = True,
+    else:
+        plotoptions['_3d']      = True,
+        plotoptions['zlabel']   = f'{xy}-axis focal length',
+        plotoptions['squarexy'] = True,
+
+    plot = gp.gnuplotlib(**plotoptions)
     plot.plot(# shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib)
               # want it that way
               nps.transpose(f),
               tuplesize=3,
-              _with='lines',
-              legend = f"{xy}-axis focal-length for {lensmodel}")
+              _with = 'image' if heatmap else 'lines')
     return plot
 
 

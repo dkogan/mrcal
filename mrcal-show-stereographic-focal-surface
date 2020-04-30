@@ -41,6 +41,10 @@ def parse_args():
                         nargs = 2,
                         help='''How densely we should sample the imager. By default we report a 60x40 grid''')
 
+    parser.add_argument('--heatmap',
+                        action='store_true',
+                        help='''If given, plot a heat map instead of a surface''')
+
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
@@ -93,6 +97,7 @@ plot = mrcal.show_stereographic_focal_surface(model,
 
                                               hardcopy     = args.hardcopy,
                                               extratitle   = args.extratitle,
+                                              heatmap      = args.heatmap,
                                               kwargs       = plotkwargs)
 
 if args.hardcopy is None:
