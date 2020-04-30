@@ -1,0 +1,99 @@
+#!/usr/bin/python3
+
+r'''Visualizes the focal-length surface in a stereographic model
+
+SYNOPSIS
+
+  $ mrcal-show-stereographic-focal-surface x cam.cameramodel
+  ... a plot pops up showing the surface for the x focal-length scaling
+
+
+I can interpret any projection function as stereographic projection that uses a
+focal length that varies across the imager. The shape of this variable
+focal-length surface varies depending on the model. The
+LENSMODEL_SPLINED_STEREOGRAPHIC_... models work by literally encoding this
+surface with splines. This surface can be computed and visualized for any model,
+however.
+
+This tool samples the imager (60x40 grid by default; adjustable with '--gridn w
+h'). For each imager point I unproject to get the observation vector. Then I
+compute the stereographic projection, and report the scaling difference from the
+original imager point.
+
+'''
+
+from __future__ import print_function
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--gridn',
+                        type=int,
+                        default = (60,40),
+                        nargs = 2,
+                        help='''How densely we should sample the imager. By default we report a 60x40 grid''')
+
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the plot''')
+
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--extraset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+
+    parser.add_argument('xy',
+                        type=str,
+                        choices=('x','y'),
+                        help='''Are we looking at fx or fy?''')
+
+    parser.add_argument('model',
+                        type=str,
+                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
+                        in which case the cahvor format is assumed. If "-' is given, we read standard input''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+import numpy as np
+import numpysane as nps
+
+import mrcal
+
+
+
+model = mrcal.cameramodel(args.model)
+
+plotkwargs = {}
+if args.extraset is not None:
+    plotkwargs['set'] = args.extraset
+
+plot = mrcal.show_stereographic_focal_surface(model,
+                                              args.xy,
+                                              args.gridn[0], args.gridn[1],
+
+                                              hardcopy     = args.hardcopy,
+                                              extratitle   = args.extratitle,
+                                              kwargs       = plotkwargs)
+
+if args.hardcopy is None:
+    plot.wait()
