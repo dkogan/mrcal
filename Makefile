@@ -105,6 +105,7 @@ TESTS :=					\
   test/test-poseutils.py			\
   test/test-cameramodel.py			\
   test/test-projections.py			\
+  test/test-projections-stereographic.py	\
   test/test-gradients.py			\
   test/test-py-gradients.py			\
   test/test-cahvor                              \
