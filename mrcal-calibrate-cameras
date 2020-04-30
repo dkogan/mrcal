@@ -1757,10 +1757,6 @@ for i_camera in range(len(models)):
         if args.pairs \
         else '{}/camera-{}'.format(args.outdir, i_camera)
 
-    cahvorfile = filename_base + '.cahvor'
-    models[i_camera].write(cahvorfile, note)
-    print("Wrote {}".format(cahvorfile))
-
     cameramodelfile = filename_base + '.cameramodel'
     models[i_camera].write(cameramodelfile, note)
     print("Wrote {}".format(cameramodelfile))
