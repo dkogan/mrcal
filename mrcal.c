@@ -3122,9 +3122,10 @@ int mrcal_state_index_calobject_warp(int Npoints,
                                      mrcal_problem_details_t problem_details,
                                      lensmodel_t lensmodel)
 {
-    return mrcal_state_index_point(Npoints, Nframes,  Ncameras,
-                                   problem_details,
-                                   lensmodel);
+    return
+        Ncameras * mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel) +
+        (problem_details.do_optimize_extrinsics ? ((Ncameras-1) * 6) : 0) +
+        (problem_details.do_optimize_frames     ? (Nframes*6 + Npoints*3) : 0);
 }
 
 // This function is part of sensitivity analysis to quantify how much errors in
