@@ -620,23 +620,23 @@ typedef struct
 } geometric_gradients_t;
 
 static void project_opencv( // out
-                           point2_t* restrict pt_out,
+                           point2_t* restrict q,
 
                            // dx/dfx and dy/dfy. One entry per point (no cross
                            // terms). NULL if not needed
-                           double*   restrict dxy_dfxy,
+                           double*   restrict dq_dfxy,
 
                            // No d/dcx terms. Assumed to be the identity
 
                            // Array of shape (Npoints,2,Ndistortions). NULL if
                            // not needed
-                           double*   restrict dxy_dintrinsics_nocore,
+                           double*   restrict dq_dintrinsics_nocore,
 
-                           point3_t* restrict dxy_drcamera,
-                           point3_t* restrict dxy_dtcamera,
-                           point3_t* restrict dxy_drframe,
-                           point3_t* restrict dxy_dtframe,
-                           point2_t* restrict dxy_dcalobject_warp,
+                           point3_t* restrict dq_drcamera,
+                           point3_t* restrict dq_dtcamera,
+                           point3_t* restrict dq_drframe,
+                           point3_t* restrict dq_dtframe,
+                           point2_t* restrict dq_dcalobject_warp,
 
                            // in
 
@@ -645,7 +645,7 @@ static void project_opencv( // out
 
                            // point index. If <0, a point at frame_rt->t is
                            // assumed; frame_rt->r isn't referenced, and
-                           // dxy_drframe is expected to be NULL. And the
+                           // dq_drframe is expected to be NULL. And the
                            // calibration_object_... variables aren't used either
 
                            double calibration_object_spacing,
@@ -715,14 +715,14 @@ static void project_opencv( // out
     // OpenCV does the projection AND the gradient propagation for me, so I
     // implement a separate code path for it
     CvMat object_points  = cvMat(3,Npoints, CV_64FC1, pt_ref[0].xyz);
-    CvMat image_points   = cvMat(2,Npoints, CV_64FC1, pt_out[0].xy);
+    CvMat image_points   = cvMat(2,Npoints, CV_64FC1, q[0].xy);
 
     // I compute these even if I'm not going to use them. This is a potential
     // optimization spot
-    double _dxy_drj[2*Npoints*3];
-    double _dxy_dtj[2*Npoints*3];
-    CvMat  dxy_drj = cvMat(2*Npoints,3, CV_64FC1, _dxy_drj);
-    CvMat  dxy_dtj = cvMat(2*Npoints,3, CV_64FC1, _dxy_dtj);
+    double _dq_drj[2*Npoints*3];
+    double _dq_dtj[2*Npoints*3];
+    CvMat  dq_drj = cvMat(2*Npoints,3, CV_64FC1, _dq_drj);
+    CvMat  dq_dtj = cvMat(2*Npoints,3, CV_64FC1, _dq_dtj);
 
     double fx = intrinsics[0];
     double fy = intrinsics[1];
@@ -739,17 +739,17 @@ static void project_opencv( // out
                                 // OpenCV's API is incomplete. It IS const
                                 (double*)&intrinsics[4]);
 
-    if( dxy_dfxy == NULL )
+    if( dq_dfxy == NULL )
     {
         cvProjectPoints2(&object_points,
                          p_rj, p_tj,
                          &camera_matrix,
                          &_distortions,
                          &image_points,
-                         &dxy_drj, &dxy_dtj,
+                         &dq_drj, &dq_dtj,
                          NULL, NULL,
-                         dxy_dintrinsics_nocore ?
-                           (CvMat[]){cvMat(2*Npoints, NdistortionParams, CV_64FC1, dxy_dintrinsics_nocore)} :
+                         dq_dintrinsics_nocore ?
+                           (CvMat[]){cvMat(2*Npoints, NdistortionParams, CV_64FC1, dq_dintrinsics_nocore)} :
                            NULL,
                          0 );
     }
@@ -766,66 +766,66 @@ static void project_opencv( // out
                          &camera_matrix,
                          &_distortions,
                          &image_points,
-                         &dxy_drj, &dxy_dtj,
+                         &dq_drj, &dq_dtj,
                          &dpdf,
                          NULL, // dp_dc is trivial: it's the identity
-                         dxy_dintrinsics_nocore ?
-                           (CvMat[]){cvMat(2*Npoints, NdistortionParams, CV_64FC1, dxy_dintrinsics_nocore)} :
+                         dq_dintrinsics_nocore ?
+                           (CvMat[]){cvMat(2*Npoints, NdistortionParams, CV_64FC1, dq_dintrinsics_nocore)} :
                            NULL,
                          0 );
 
         for(int i=0; i<Npoints; i++)
         {
-            dxy_dfxy[2*i + 0] = _dpdf[4*i + 0]; // dx/dfx
-            dxy_dfxy[2*i + 1] = _dpdf[4*i + 3]; // dy/dfy
+            dq_dfxy[2*i + 0] = _dpdf[4*i + 0]; // dx/dfx
+            dq_dfxy[2*i + 1] = _dpdf[4*i + 3]; // dy/dfy
             if(_dpdf[4*i + 1] != 0.0 || _dpdf[4*i + 2] != 0.0)
                 MSG("WARNING: Opencv returned non-zero off-diagonal term in dp/dfxy. This shouldn't happen. Assuming it WAS zero");
         }
     }
 
-    if( dxy_drcamera != NULL || dxy_drframe != NULL ||
-        dxy_dtcamera != NULL || dxy_dtframe != NULL )
+    if( dq_drcamera != NULL || dq_drframe != NULL ||
+        dq_dtcamera != NULL || dq_dtframe != NULL )
     {
-        void set_dxy_drtframe(int i_pt)
+        void set_dq_drtframe(int i_pt)
         {
             if(gg != NULL)
             {
                 // I do this multiple times, one each for {r,t}{camera,frame}
                 void propagate(// out
-                               point3_t* dxy_dparam,
+                               point3_t* dq_dparam,
 
                                // in
                                const double* _d_rj_dparam,
                                const double* _d_tj_dparam)
                 {
-                    if( dxy_dparam == NULL ) return;
+                    if( dq_dparam == NULL ) return;
 
                     // I have dproj/drj and dproj/dtj
                     // I want dproj/drc, dproj/dtc, dproj/drf, dprof/dtf
                     //
                     // dproj_drc = dproj/drj drj_drc + dproj/dtj dtj_drc
 
-                    mul_genN3_gen33_vout  (2, &_dxy_drj[i_pt*2*3], _d_rj_dparam, dxy_dparam[i_pt*2].xyz);
-                    mul_genN3_gen33_vaccum(2, &_dxy_dtj[i_pt*2*3], _d_tj_dparam, dxy_dparam[i_pt*2].xyz);
+                    mul_genN3_gen33_vout  (2, &_dq_drj[i_pt*2*3], _d_rj_dparam, dq_dparam[i_pt*2].xyz);
+                    mul_genN3_gen33_vaccum(2, &_dq_dtj[i_pt*2*3], _d_tj_dparam, dq_dparam[i_pt*2].xyz);
                 }
 
-                propagate( dxy_drcamera, gg->_d_rj_rc, gg->_d_tj_rc );
-                propagate( dxy_dtcamera, gg->_d_rj_tc, gg->_d_tj_tc );
-                propagate( dxy_dtframe , gg->_d_rj_tf, gg->_d_tj_tf );
-                propagate( dxy_drframe , gg->_d_rj_rf, gg->_d_tj_rf );
+                propagate( dq_drcamera, gg->_d_rj_rc, gg->_d_tj_rc );
+                propagate( dq_dtcamera, gg->_d_rj_tc, gg->_d_tj_tc );
+                propagate( dq_dtframe , gg->_d_rj_tf, gg->_d_tj_tf );
+                propagate( dq_drframe , gg->_d_rj_rf, gg->_d_tj_rf );
             }
             else
             {
                 // My gradient is already computed. Copy it
-                if(dxy_dtframe)
+                if(dq_dtframe)
                 {
-                    memcpy(dxy_dtframe[i_pt*2 + 0].xyz, &_dxy_dtj[i_pt*2*3 + 3*0], 3*sizeof(double));
-                    memcpy(dxy_dtframe[i_pt*2 + 1].xyz, &_dxy_dtj[i_pt*2*3 + 3*1], 3*sizeof(double));
+                    memcpy(dq_dtframe[i_pt*2 + 0].xyz, &_dq_dtj[i_pt*2*3 + 3*0], 3*sizeof(double));
+                    memcpy(dq_dtframe[i_pt*2 + 1].xyz, &_dq_dtj[i_pt*2*3 + 3*1], 3*sizeof(double));
                 }
-                if(dxy_drframe)
+                if(dq_drframe)
                 {
-                    memcpy(dxy_drframe[i_pt*2 + 0].xyz, &_dxy_drj[i_pt*2*3 + 3*0], 3*sizeof(double));
-                    memcpy(dxy_drframe[i_pt*2 + 1].xyz, &_dxy_drj[i_pt*2*3 + 3*1], 3*sizeof(double));
+                    memcpy(dq_drframe[i_pt*2 + 0].xyz, &_dq_drj[i_pt*2*3 + 3*0], 3*sizeof(double));
+                    memcpy(dq_drframe[i_pt*2 + 1].xyz, &_dq_drj[i_pt*2*3 + 3*1], 3*sizeof(double));
                 }
             }
         }
@@ -834,17 +834,17 @@ static void project_opencv( // out
             for(int i_pt = 0;
                 i_pt<calibration_object_width_n*calibration_object_width_n;
                 i_pt++)
-                set_dxy_drtframe(i_pt);
+                set_dq_drtframe(i_pt);
         else
-            set_dxy_drtframe(0);
+            set_dq_drtframe(0);
     }
 
-    if( dxy_dcalobject_warp != NULL && calibration_object_width_n )
+    if( dq_dcalobject_warp != NULL && calibration_object_width_n )
     {
         // p = proj(R( warp(x) ) + t);
         // dp/dw = dp/dR(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
         //       = dp/dt R dwarp/dw
-        // dp/dt is _dxy_dtj
+        // dp/dt is _dq_dtj
         // R is rodrigues(rj)
         // dwarp/dw = [0 0]
         //            [0 0]
@@ -861,17 +861,17 @@ static void project_opencv( // out
             i_pt++)
         {
             double d[] =
-                { _dxy_dtj[i_pt*2*3 + 3*0 + 0] * _Rj[0*3 + 2] +
-                  _dxy_dtj[i_pt*2*3 + 3*0 + 1] * _Rj[1*3 + 2] +
-                  _dxy_dtj[i_pt*2*3 + 3*0 + 2] * _Rj[2*3 + 2],
-                  _dxy_dtj[i_pt*2*3 + 3*1 + 0] * _Rj[0*3 + 2] +
-                  _dxy_dtj[i_pt*2*3 + 3*1 + 1] * _Rj[1*3 + 2] +
-                  _dxy_dtj[i_pt*2*3 + 3*1 + 2] * _Rj[2*3 + 2]};
+                { _dq_dtj[i_pt*2*3 + 3*0 + 0] * _Rj[0*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*0 + 1] * _Rj[1*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*0 + 2] * _Rj[2*3 + 2],
+                  _dq_dtj[i_pt*2*3 + 3*1 + 0] * _Rj[0*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*1 + 1] * _Rj[1*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*1 + 2] * _Rj[2*3 + 2]};
 
-            dxy_dcalobject_warp[i_pt*2 + 0].x = d[0]*dpt_ref2_dwarp[i_pt].x;
-            dxy_dcalobject_warp[i_pt*2 + 0].y = d[0]*dpt_ref2_dwarp[i_pt].y;
-            dxy_dcalobject_warp[i_pt*2 + 1].x = d[1]*dpt_ref2_dwarp[i_pt].x;
-            dxy_dcalobject_warp[i_pt*2 + 1].y = d[1]*dpt_ref2_dwarp[i_pt].y;
+            dq_dcalobject_warp[i_pt*2 + 0].x = d[0]*dpt_ref2_dwarp[i_pt].x;
+            dq_dcalobject_warp[i_pt*2 + 0].y = d[0]*dpt_ref2_dwarp[i_pt].y;
+            dq_dcalobject_warp[i_pt*2 + 1].x = d[1]*dpt_ref2_dwarp[i_pt].x;
+            dq_dcalobject_warp[i_pt*2 + 1].y = d[1]*dpt_ref2_dwarp[i_pt].y;
         }
     }
 }
@@ -879,27 +879,27 @@ static void project_opencv( // out
 // These are all internals for project(). It was getting unwieldy otherwise
 static
 void _project_point_parametric( // outputs
-                               point2_t* pt_out,
-                               double* p_dxy_dfxy, double* p_dxy_dintrinsics_nocore,
-                               point3_t* restrict dxy_drcamera,
-                               point3_t* restrict dxy_dtcamera,
-                               point3_t* restrict dxy_drframe,
-                               point3_t* restrict dxy_dtframe,
-                               point2_t* restrict dxy_dcalobject_warp,
+                               point2_t* q,
+                               double* p_dq_dfxy, double* p_dq_dintrinsics_nocore,
+                               point3_t* restrict dq_drcamera,
+                               point3_t* restrict dq_dtcamera,
+                               point3_t* restrict dq_drframe,
+                               point3_t* restrict dq_dtframe,
+                               point2_t* restrict dq_dcalobject_warp,
 
                                // inputs
-                               const point3_t* pt_cam,
-                               const double* dptcam_drc,
-                               const double* dptcam_dtc,
-                               const double* dptcam_drf,
-                               const double* dptcam_dtf,
+                               const point3_t* p,
+                               const double* dp_drc,
+                               const double* dp_dtc,
+                               const double* dp_drf,
+                               const double* dp_dtf,
 
                                const double* restrict intrinsics,
                                bool camera_at_identity,
                                lensmodel_t lensmodel,
                                int i_pt)
 {
-    // u = distort(pt_cam, distortions)
+    // u = distort(p, distortions)
     // q = uxy/uz * fxy + cxy
     int NdistortionParams = mrcal_getNlensParams(lensmodel) - 4;
 
@@ -912,44 +912,44 @@ void _project_point_parametric( // outputs
         const double fy = intrinsics[1];
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
-        double pz_recip = 1. / pt_cam->z;
-        pt_out[i_pt].x = pt_cam->x*pz_recip * fx + cx;
-        pt_out[i_pt].y = pt_cam->y*pz_recip * fy + cy;
+        double pz_recip = 1. / p->z;
+        q[i_pt].x = p->x*pz_recip * fx + cx;
+        q[i_pt].y = p->y*pz_recip * fy + cy;
 
         double dq_dp[2][3] =
-            { { fx * pz_recip,             0, -fx*pt_cam->x*pz_recip*pz_recip},
-              { 0,             fy * pz_recip, -fy*pt_cam->y*pz_recip*pz_recip} };
+            { { fx * pz_recip,             0, -fx*p->x*pz_recip*pz_recip},
+              { 0,             fy * pz_recip, -fy*p->y*pz_recip*pz_recip} };
 
         // dq/deee = dq/dp dp/deee
         if(camera_at_identity)
         {
-            if( dxy_drcamera != NULL ) memset(dxy_drcamera[2*i_pt].xyz, 0, 6*sizeof(double));
-            if( dxy_dtcamera != NULL ) memset(dxy_dtcamera[2*i_pt].xyz, 0, 6*sizeof(double));
-            if( dxy_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dptcam_drf, dxy_drframe[2*i_pt].xyz);
-            if( dxy_dtframe  != NULL ) memcpy(dxy_dtframe[2*i_pt].xyz, dq_dp, 6*sizeof(double));
+            if( dq_drcamera != NULL ) memset(dq_drcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+            if( dq_dtcamera != NULL ) memset(dq_dtcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dp_drf, dq_drframe[2*i_pt].xyz);
+            if( dq_dtframe  != NULL ) memcpy(dq_dtframe[2*i_pt].xyz, dq_dp, 6*sizeof(double));
         }
         else
         {
-            if( dxy_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dptcam_drc, dxy_drcamera[2*i_pt].xyz);
-            if( dxy_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dptcam_dtc, dxy_dtcamera[2*i_pt].xyz);
-            if( dxy_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dptcam_drf, dxy_drframe [2*i_pt].xyz);
-            if( dxy_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dptcam_dtf, dxy_dtframe [2*i_pt].xyz);
+            if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dp_drc, dq_drcamera[2*i_pt].xyz);
+            if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dp_dtc, dq_dtcamera[2*i_pt].xyz);
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dp_drf, dq_drframe [2*i_pt].xyz);
+            if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, dp_dtf, dq_dtframe [2*i_pt].xyz);
         }
 
         // I have the projection, and I now need to propagate the gradients
-        if( p_dxy_dfxy )
+        if( p_dq_dfxy )
         {
             // I have the projection, and I now need to propagate the gradients
             // xy = fxy * distort(xy)/distort(z) + cxy
-            p_dxy_dfxy[2*i_pt + 0] = pt_cam->x*pz_recip; // dx/dfx
-            p_dxy_dfxy[2*i_pt + 1] = pt_cam->y*pz_recip; // dy/dfy
+            p_dq_dfxy[2*i_pt + 0] = p->x*pz_recip; // dx/dfx
+            p_dq_dfxy[2*i_pt + 1] = p->y*pz_recip; // dy/dfy
         }
     }
     else if( lensmodel.type == LENSMODEL_CAHVOR )
     {
-        // I perturb pt_cam, and then apply the focal length, center pixel stuff
+        // I perturb p, and then apply the focal length, center pixel stuff
         // normally
-        point3_t pt_cam_distorted;
+        point3_t p_distorted;
 
         // distortion parameter layout:
         //   alpha
@@ -977,10 +977,10 @@ void _project_point_parametric( // outputs
         double do_dalpha[]      = {  c_al*c_be,    0, -s_al*c_be };
         double do_dbeta[]       = { -s_al*s_be, c_be, -c_al*s_be };
 
-        double norm2p        = norm2_vec(3, pt_cam->xyz);
-        double omega         = dot_vec(3, pt_cam->xyz, o);
-        double domega_dalpha = dot_vec(3, pt_cam->xyz, do_dalpha);
-        double domega_dbeta  = dot_vec(3, pt_cam->xyz, do_dbeta);
+        double norm2p        = norm2_vec(3, p->xyz);
+        double omega         = dot_vec(3, p->xyz, o);
+        double domega_dalpha = dot_vec(3, p->xyz, do_dalpha);
+        double domega_dbeta  = dot_vec(3, p->xyz, do_dbeta);
 
         double omega_recip = 1.0 / omega;
         double tau         = norm2p * omega_recip*omega_recip - 1.0;
@@ -989,12 +989,12 @@ void _project_point_parametric( // outputs
         double dmu_dxyz[3];
         for(int i=0; i<3; i++)
             dmu_dxyz[i] = dmu_dtau *
-                (2.0 * pt_cam->xyz[i] * omega_recip*omega_recip + s__dtau_dalphabeta__domega_dalphabeta * o[i]);
+                (2.0 * p->xyz[i] * omega_recip*omega_recip + s__dtau_dalphabeta__domega_dalphabeta * o[i]);
         double mu = r0 + tau*r1 + tau*tau*r2;
         double s__dmu_dalphabeta__domega_dalphabeta = dmu_dtau * s__dtau_dalphabeta__domega_dalphabeta;
 
-        double  dptcamdistorted_dpcam[3*3] = {};
-        double  dptcamdistorted_ddistortion[3*NdistortionParams];
+        double  dpdistorted_dpcam[3*3] = {};
+        double  dpdistorted_ddistortion[3*NdistortionParams];
 
         for(int i=0; i<3; i++)
         {
@@ -1004,32 +1004,32 @@ void _project_point_parametric( // outputs
                 tau,
                 tau * tau };
 
-            dptcamdistorted_ddistortion[i*NdistortionParams + 0] = pt_cam->xyz[i] * dmu_ddist[0];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 1] = pt_cam->xyz[i] * dmu_ddist[1];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 2] = pt_cam->xyz[i] * dmu_ddist[2];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 3] = pt_cam->xyz[i] * dmu_ddist[3];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 4] = pt_cam->xyz[i] * dmu_ddist[4];
+            dpdistorted_ddistortion[i*NdistortionParams + 0] = p->xyz[i] * dmu_ddist[0];
+            dpdistorted_ddistortion[i*NdistortionParams + 1] = p->xyz[i] * dmu_ddist[1];
+            dpdistorted_ddistortion[i*NdistortionParams + 2] = p->xyz[i] * dmu_ddist[2];
+            dpdistorted_ddistortion[i*NdistortionParams + 3] = p->xyz[i] * dmu_ddist[3];
+            dpdistorted_ddistortion[i*NdistortionParams + 4] = p->xyz[i] * dmu_ddist[4];
 
-            dptcamdistorted_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
 
-            dptcamdistorted_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
 
-            dptcamdistorted_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
-            dptcamdistorted_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
+            dpdistorted_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
+            dpdistorted_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
 
-            dptcamdistorted_dpcam[3*i + i] = mu+1.0;
+            dpdistorted_dpcam[3*i + i] = mu+1.0;
             for(int j=0; j<3; j++)
             {
-                dptcamdistorted_dpcam[3*i + j] += (pt_cam->xyz[i] - omega*o[i]) * dmu_dxyz[j];
-                dptcamdistorted_dpcam[3*i + j] -= mu*o[i]*o[j];
+                dpdistorted_dpcam[3*i + j] += (p->xyz[i] - omega*o[i]) * dmu_dxyz[j];
+                dpdistorted_dpcam[3*i + j] -= mu*o[i]*o[j];
             }
 
-            pt_cam_distorted.xyz[i] = pt_cam->xyz[i] + mu * (pt_cam->xyz[i] - omega*o[i]);
+            p_distorted.xyz[i] = p->xyz[i] + mu * (p->xyz[i] - omega*o[i]);
         }
 
         // q = fxy pxy/pz + cxy
@@ -1039,53 +1039,53 @@ void _project_point_parametric( // outputs
         const double fy = intrinsics[1];
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
-        double pz_recip = 1. / pt_cam_distorted.z;
-        pt_out[i_pt].x = pt_cam_distorted.x*pz_recip * fx + cx;
-        pt_out[i_pt].y = pt_cam_distorted.y*pz_recip * fy + cy;
+        double pz_recip = 1. / p_distorted.z;
+        q[i_pt].x = p_distorted.x*pz_recip * fx + cx;
+        q[i_pt].y = p_distorted.y*pz_recip * fy + cy;
 
         double dq_dp[2][3] =
-            { { fx * pz_recip,             0, -fx*pt_cam_distorted.x*pz_recip*pz_recip},
-              { 0,             fy * pz_recip, -fy*pt_cam_distorted.y*pz_recip*pz_recip} };
+            { { fx * pz_recip,             0, -fx*p_distorted.x*pz_recip*pz_recip},
+              { 0,             fy * pz_recip, -fy*p_distorted.y*pz_recip*pz_recip} };
         // This is for the DISTORTED p.
         // dq/deee = dq/dpdistorted dpdistorted/dpundistorted dpundistorted/deee
 
         double dq_dpundistorted[6];
-        mul_genN3_gen33_vout(2, (double*)dq_dp, dptcamdistorted_dpcam, dq_dpundistorted);
+        mul_genN3_gen33_vout(2, (double*)dq_dp, dpdistorted_dpcam, dq_dpundistorted);
 
         // dq/deee = dq/dp dp/deee
         if(camera_at_identity)
         {
-            if( dxy_drcamera != NULL ) memset(dxy_drcamera[2*i_pt].xyz, 0, 6*sizeof(double));
-            if( dxy_dtcamera != NULL ) memset(dxy_dtcamera[2*i_pt].xyz, 0, 6*sizeof(double));
-            if( dxy_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dptcam_drf, dxy_drframe[2*i_pt].xyz);
-            if( dxy_dtframe  != NULL ) memcpy(dxy_dtframe[2*i_pt].xyz, dq_dpundistorted, 6*sizeof(double));
+            if( dq_drcamera != NULL ) memset(dq_drcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+            if( dq_dtcamera != NULL ) memset(dq_dtcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dp_drf, dq_drframe[2*i_pt].xyz);
+            if( dq_dtframe  != NULL ) memcpy(dq_dtframe[2*i_pt].xyz, dq_dpundistorted, 6*sizeof(double));
         }
         else
         {
-            if( dxy_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dptcam_drc, dxy_drcamera[2*i_pt].xyz);
-            if( dxy_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dptcam_dtc, dxy_dtcamera[2*i_pt].xyz);
-            if( dxy_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dptcam_drf, dxy_drframe [2*i_pt].xyz);
-            if( dxy_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dptcam_dtf, dxy_dtframe [2*i_pt].xyz);
+            if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dp_drc, dq_drcamera[2*i_pt].xyz);
+            if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dp_dtc, dq_dtcamera[2*i_pt].xyz);
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dp_drf, dq_drframe [2*i_pt].xyz);
+            if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dp_dtf, dq_dtframe [2*i_pt].xyz);
         }
 
-        if( p_dxy_dintrinsics_nocore != NULL )
+        if( p_dq_dintrinsics_nocore != NULL )
         {
             for(int i=0; i<NdistortionParams; i++)
             {
-                const double dx = dptcamdistorted_ddistortion[i + 0*NdistortionParams];
-                const double dy = dptcamdistorted_ddistortion[i + 1*NdistortionParams];
-                const double dz = dptcamdistorted_ddistortion[i + 2*NdistortionParams];
-                p_dxy_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * pz_recip * (dx - pt_cam_distorted.x*pz_recip*dz);
-                p_dxy_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * pz_recip * (dy - pt_cam_distorted.y*pz_recip*dz);
+                const double dx = dpdistorted_ddistortion[i + 0*NdistortionParams];
+                const double dy = dpdistorted_ddistortion[i + 1*NdistortionParams];
+                const double dz = dpdistorted_ddistortion[i + 2*NdistortionParams];
+                p_dq_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * pz_recip * (dx - p_distorted.x*pz_recip*dz);
+                p_dq_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * pz_recip * (dy - p_distorted.y*pz_recip*dz);
             }
         }
 
-        if( p_dxy_dfxy )
+        if( p_dq_dfxy )
         {
             // I have the projection, and I now need to propagate the gradients
             // xy = fxy * distort(xy)/distort(z) + cxy
-            p_dxy_dfxy[2*i_pt + 0] = pt_cam_distorted.x*pz_recip; // dx/dfx
-            p_dxy_dfxy[2*i_pt + 1] = pt_cam_distorted.y*pz_recip; // dy/dfy
+            p_dq_dfxy[2*i_pt + 0] = p_distorted.x*pz_recip; // dx/dfx
+            p_dq_dfxy[2*i_pt + 1] = p_distorted.y*pz_recip; // dy/dfy
         }
     }
     else
@@ -1297,24 +1297,24 @@ static void splined_mean_f(// outputs
 
 static
 void _project_point_splined( // outputs
-                            point2_t* pt_out,
+                            point2_t* q,
 
                             splined_intrinsics_grad_context_t* ctx,
                             int* ivar0,
 
                             // Gradient outputs. May be NULL
-                            point3_t* restrict dxy_drcamera,
-                            point3_t* restrict dxy_dtcamera,
-                            point3_t* restrict dxy_drframe,
-                            point3_t* restrict dxy_dtframe,
-                            point2_t* restrict dxy_dcalobject_warp,
+                            point3_t* restrict dq_drcamera,
+                            point3_t* restrict dq_dtcamera,
+                            point3_t* restrict dq_drframe,
+                            point3_t* restrict dq_dtframe,
+                            point2_t* restrict dq_dcalobject_warp,
 
                             // inputs
-                            const point3_t* pt_cam,
-                            const double* dptcam_drc,
-                            const double* dptcam_dtc,
-                            const double* dptcam_drf,
-                            const double* dptcam_dtf,
+                            const point3_t* p,
+                            const double* dp_drc,
+                            const double* dp_dtc,
+                            const double* dp_drf,
+                            const double* dp_dtf,
 
                             const double* restrict intrinsics,
                             bool camera_at_identity,
@@ -1351,16 +1351,16 @@ void _project_point_splined( // outputs
     // u = xy_unit * tan(th/2) * 2 =
     //   = xy/mag_xy * mag_xy/(mag_xyz + z) * 2 =
     //   = xy / (mag_xyz + z) * 2
-    double mag_xyz = sqrt( pt_cam->x*pt_cam->x +
-                           pt_cam->y*pt_cam->y +
-                           pt_cam->z*pt_cam->z );
-    double scale = 2.0 / (mag_xyz + pt_cam->z);
+    double mag_xyz = sqrt( p->x*p->x +
+                           p->y*p->y +
+                           p->z*p->z );
+    double scale = 2.0 / (mag_xyz + p->z);
 
-    ctx->u = (point2_t){.x = pt_cam->x * scale,
-                        .y = pt_cam->y * scale};
+    ctx->u = (point2_t){.x = p->x * scale,
+                        .y = p->y * scale};
     // du/dp = d/dp ( xy * scale )
     //       = pxy dscale/dp + [I; 0] scale
-    // dscale/dp = d (2.0 / (mag_xyz + pt_cam->z))/dp =
+    // dscale/dp = d (2.0 / (mag_xyz + p->z))/dp =
     //           = -2/()^2 ( [0,0,1] + dmag/dp)
     //           = -2/()^2 ( [0,0,1] + 2pt/2mag)
     //           = -2 scale^2/4 ( [0,0,1] + pt/mag)
@@ -1368,12 +1368,12 @@ void _project_point_splined( // outputs
     //           = A*[0,0,1] + B*pt
     double A = -scale*scale / 2.;
     double B = A / mag_xyz;
-    double du_dptcam[2][3] = { { pt_cam->x * (B * pt_cam->x)      + scale,
-                                 pt_cam->x * (B * pt_cam->y),
-                                 pt_cam->x * (B * pt_cam->z + A) },
-                               { pt_cam->y * (B * pt_cam->x),
-                                 pt_cam->y * (B * pt_cam->y)      + scale,
-                                 pt_cam->y * (B * pt_cam->z + A) } };
+    double du_dp[2][3] = { { p->x * (B * p->x)      + scale,
+                             p->x * (B * p->y),
+                             p->x * (B * p->z + A) },
+                           { p->y * (B * p->x),
+                             p->y * (B * p->y)      + scale,
+                             p->y * (B * p->z + A) } };
 
     //MSG("normalized projection: %f %f", ctx->u.x, ctx->u.y);
 
@@ -1438,8 +1438,8 @@ void _project_point_splined( // outputs
     }
 
 
-    pt_out[i_pt].x = ctx->u.x * fxy.x + config->cx;
-    pt_out[i_pt].y = ctx->u.y * fxy.y + config->cy;
+    q[i_pt].x = ctx->u.x * fxy.x + config->cx;
+    q[i_pt].y = ctx->u.y * fxy.y + config->cy;
 
 
     // u = stereographic(p)
@@ -1451,46 +1451,46 @@ void _project_point_splined( // outputs
     //            = ux (dfx/dux dux/deee + dfx/duy duy/deee) + fx dux/deee
     //            = (ux dfx/dux + fx) dux/deee + ux dfx/duy duy/deee
     //   dqy/deee = (uy dfy/duy + fy) duy/deee + uy dfy/dux dux/deee
-    void propagate_extrinsics( point3_t* dxy_deee,
-                               const double* dptcam_deee)
+    void propagate_extrinsics( point3_t* dq_deee,
+                               const double* dp_deee)
     {
         double du_deee[2][3];
         double s0,s1;
-        mul_genN3_gen33_vout(2, (double*)du_dptcam, dptcam_deee, (double*)du_deee);
+        mul_genN3_gen33_vout(2, (double*)du_dp, dp_deee, (double*)du_deee);
         s0 = ctx->u.x*dfxy_dux[0] + fxy.x;
         s1 = ctx->u.x*dfxy_duy[0];
         for(int i=0; i<3; i++)
-            dxy_deee[i_pt*2+0].xyz[i] = s0*du_deee[0][i] + s1*du_deee[1][i];
+            dq_deee[i_pt*2+0].xyz[i] = s0*du_deee[0][i] + s1*du_deee[1][i];
         s0 = ctx->u.y*dfxy_duy[1] + fxy.y;
         s1 = ctx->u.y*dfxy_dux[1];
         for(int i=0; i<3; i++)
-            dxy_deee[i_pt*2+1].xyz[i] = s0*du_deee[1][i] + s1*du_deee[0][i];
+            dq_deee[i_pt*2+1].xyz[i] = s0*du_deee[1][i] + s1*du_deee[0][i];
     }
-    void propagate_extrinsics_cam0( point3_t* dxy_deee)
+    void propagate_extrinsics_cam0( point3_t* dq_deee)
     {
         double s0,s1;
         s0 = ctx->u.x*dfxy_dux[0] + fxy.x;
         s1 = ctx->u.x*dfxy_duy[0];
         for(int i=0; i<3; i++)
-            dxy_deee[i_pt*2+0].xyz[i] = s0*du_dptcam[0][i] + s1*du_dptcam[1][i];
+            dq_deee[i_pt*2+0].xyz[i] = s0*du_dp[0][i] + s1*du_dp[1][i];
         s0 = ctx->u.y*dfxy_duy[1] + fxy.y;
         s1 = ctx->u.y*dfxy_dux[1];
         for(int i=0; i<3; i++)
-            dxy_deee[i_pt*2+1].xyz[i] = s0*du_dptcam[1][i] + s1*du_dptcam[0][i];
+            dq_deee[i_pt*2+1].xyz[i] = s0*du_dp[1][i] + s1*du_dp[0][i];
     }
     if(camera_at_identity)
     {
-        if( dxy_drcamera != NULL ) memset(dxy_drcamera[2*i_pt].xyz, 0, 6*sizeof(double));
-        if( dxy_dtcamera != NULL ) memset(dxy_dtcamera[2*i_pt].xyz, 0, 6*sizeof(double));
-        if( dxy_drframe  != NULL ) propagate_extrinsics( dxy_drframe,  dptcam_drf );
-        if( dxy_dtframe  != NULL ) propagate_extrinsics_cam0( dxy_dtframe );
+        if( dq_drcamera != NULL ) memset(dq_drcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+        if( dq_dtcamera != NULL ) memset(dq_dtcamera[2*i_pt].xyz, 0, 6*sizeof(double));
+        if( dq_drframe  != NULL ) propagate_extrinsics( dq_drframe,  dp_drf );
+        if( dq_dtframe  != NULL ) propagate_extrinsics_cam0( dq_dtframe );
     }
     else
     {
-        if( dxy_drcamera != NULL ) propagate_extrinsics( dxy_drcamera, dptcam_drc );
-        if( dxy_dtcamera != NULL ) propagate_extrinsics( dxy_dtcamera, dptcam_dtc );
-        if( dxy_drframe  != NULL ) propagate_extrinsics( dxy_drframe,  dptcam_drf );
-        if( dxy_dtframe  != NULL ) propagate_extrinsics( dxy_dtframe,  dptcam_dtf );
+        if( dq_drcamera != NULL ) propagate_extrinsics( dq_drcamera, dp_drc );
+        if( dq_dtcamera != NULL ) propagate_extrinsics( dq_dtcamera, dp_dtc );
+        if( dq_drframe  != NULL ) propagate_extrinsics( dq_drframe,  dp_drf );
+        if( dq_dtframe  != NULL ) propagate_extrinsics( dq_dtframe,  dp_dtf );
     }
 }
 
@@ -1504,36 +1504,36 @@ typedef struct
 // is the main internal callback in the optimizer. This operates in one of two modes:
 //
 // if(calibration_object_width_n == 0) then we're projecting ONE point. In world
-// coords this point is at frame_rt->t. frame_rt->r is not referenced. pt_out and the
+// coords this point is at frame_rt->t. frame_rt->r is not referenced. q and the
 // gradients reference 2 values (x,y in the imager)
 //
 // if(calibration_object_width_n > 0) then we're projecting a whole calibration
 // object. The pose of this object is given in frame_rt. We project ALL
-// calibration_object_width_n*calibration_object_width_n points. pt_out and the
+// calibration_object_width_n*calibration_object_width_n points. q and the
 // gradients reference ALL of these points
 static
 void project( // out
-             point2_t* restrict pt_out,
+             point2_t* restrict q,
 
              // The intrinsics gradients. These are split among several arrays.
              // High-parameter-count lens models can return their gradients
              // sparsely. All the actual gradient values live in
-             // dxy_dintrinsics_pool_double, a buffer supplied by the caller. If
-             // dxy_dintrinsics_pool_double is not NULL, the rest of the
+             // dq_dintrinsics_pool_double, a buffer supplied by the caller. If
+             // dq_dintrinsics_pool_double is not NULL, the rest of the
              // variables are assumed non-NULL, and we compute all the
-             // intrinsics gradients. Conversely, if dxy_dintrinsics_pool_double
+             // intrinsics gradients. Conversely, if dq_dintrinsics_pool_double
              // is NULL, no intrinsics gradients are computed
-             double*  restrict dxy_dintrinsics_pool_double,
-             int*     restrict dxy_dintrinsics_pool_int,
-             double** restrict dxy_dfxy,
-             double** restrict dxy_dintrinsics_nocore,
+             double*  restrict dq_dintrinsics_pool_double,
+             int*     restrict dq_dintrinsics_pool_int,
+             double** restrict dq_dfxy,
+             double** restrict dq_dintrinsics_nocore,
              gradient_sparse_meta_t* gradient_sparse_meta,
 
-             point3_t* restrict dxy_drcamera,
-             point3_t* restrict dxy_dtcamera,
-             point3_t* restrict dxy_drframe,
-             point3_t* restrict dxy_dtframe,
-             point2_t* restrict dxy_dcalobject_warp,
+             point3_t* restrict dq_drcamera,
+             point3_t* restrict dq_dtcamera,
+             point3_t* restrict dq_drframe,
+             point3_t* restrict dq_dtframe,
+             point2_t* restrict dq_dcalobject_warp,
 
              // in
 
@@ -1548,7 +1548,7 @@ void project( // out
 
              // point index. If <0, a point at frame_rt->t is
              // assumed; frame_rt->r isn't referenced, and
-             // dxy_drframe is expected to be NULL. And the
+             // dq_drframe is expected to be NULL. And the
              // calibration_object_... variables aren't used either
 
              double calibration_object_spacing,
@@ -1660,26 +1660,26 @@ void project( // out
         // Special-case path for opencv. This isn't strictly required, but
         // opencv has some optimized functions for this, and they should be a
         // bit faster than what I'm doing
-        double* p_dxy_dfxy               = NULL;
-        double* p_dxy_dintrinsics_nocore = NULL;
-        if(dxy_dintrinsics_pool_double != NULL)
+        double* p_dq_dfxy               = NULL;
+        double* p_dq_dintrinsics_nocore = NULL;
+        if(dq_dintrinsics_pool_double != NULL)
         {
-            *dxy_dfxy                             = &dxy_dintrinsics_pool_double[0];
-            *dxy_dintrinsics_nocore               = &dxy_dintrinsics_pool_double[Npoints*2];
+            *dq_dfxy                             = &dq_dintrinsics_pool_double[0];
+            *dq_dintrinsics_nocore               = &dq_dintrinsics_pool_double[Npoints*2];
             gradient_sparse_meta->run_side_length = 0;
 
-            p_dxy_dfxy               = *dxy_dfxy;
-            p_dxy_dintrinsics_nocore = *dxy_dintrinsics_nocore;
+            p_dq_dfxy               = *dq_dfxy;
+            p_dq_dintrinsics_nocore = *dq_dintrinsics_nocore;
         }
 
-        project_opencv( pt_out,
-                        p_dxy_dfxy, p_dxy_dintrinsics_nocore,
+        project_opencv( q,
+                        p_dq_dfxy, p_dq_dintrinsics_nocore,
 
-                        dxy_drcamera,
-                        dxy_dtcamera,
-                        dxy_drframe,
-                        dxy_dtframe,
-                        dxy_dcalobject_warp,
+                        dq_drcamera,
+                        dq_dtcamera,
+                        dq_drframe,
+                        dq_dtframe,
+                        dq_dcalobject_warp,
 
                         intrinsics, calobject_warp,
 
@@ -1703,24 +1703,24 @@ void project( // out
     cvRodrigues2(p_rj, &Rj, &d_Rj_rj);
 
 
-    double* p_dxy_dfxy               = NULL;
-    double* p_dxy_dintrinsics_nocore = NULL;
+    double* p_dq_dfxy               = NULL;
+    double* p_dq_dintrinsics_nocore = NULL;
     bool hascore = mrcal_modelHasCore_fxfycxcy(lensmodel);
-    if(dxy_dintrinsics_pool_double != NULL)
+    if(dq_dintrinsics_pool_double != NULL)
     {
         if(hascore)
         {
-            *dxy_dfxy                             = &dxy_dintrinsics_pool_double[0];
-            *dxy_dintrinsics_nocore               = &dxy_dintrinsics_pool_double[Npoints*2];
+            *dq_dfxy                             = &dq_dintrinsics_pool_double[0];
+            *dq_dintrinsics_nocore               = &dq_dintrinsics_pool_double[Npoints*2];
             gradient_sparse_meta->run_side_length = 0;
 
-            p_dxy_dfxy               = *dxy_dfxy;
-            p_dxy_dintrinsics_nocore = *dxy_dintrinsics_nocore;
+            p_dq_dfxy               = *dq_dfxy;
+            p_dq_dintrinsics_nocore = *dq_dintrinsics_nocore;
         }
         else
         {
-            *dxy_dfxy               = NULL;
-            *dxy_dintrinsics_nocore = NULL;
+            *dq_dfxy               = NULL;
+            *dq_dintrinsics_nocore = NULL;
 
             if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
             {
@@ -1742,14 +1742,14 @@ void project( // out
 
     // These are produced by propagate_extrinsics() and consumed by
     // project_point()
-    double _dptcam_drc[3*3];
-    double _dptcam_dtc[3*3];
-    double _dptcam_drf[3*3];
-    double _dptcam_dtf[3*3];
-    double* dptcam_drc;
-    double* dptcam_dtc;
-    double* dptcam_drf;
-    double* dptcam_dtf;
+    double _dp_drc[3*3];
+    double _dp_dtc[3*3];
+    double _dp_drf[3*3];
+    double _dp_dtf[3*3];
+    double* dp_drc;
+    double* dp_dtc;
+    double* dp_drf;
+    double* dp_dtf;
 
     point3_t propagate_extrinsics( const point3_t* pt_ref,
                                    const geometric_gradients_t* gg,
@@ -1757,11 +1757,11 @@ void project( // out
                                    const double* _tj )
     {
         // Rj * pt + tj -> pt
-        point3_t pt_cam;
-        mul_vec3_gen33t_vout(pt_ref->xyz, _Rj, pt_cam.xyz);
-        add_vec(3, pt_cam.xyz,  _tj);
+        point3_t p;
+        mul_vec3_gen33t_vout(pt_ref->xyz, _Rj, p.xyz);
+        add_vec(3, p.xyz,  _tj);
 
-        void propagate_extrinsics_one(double* dptcam_dparam,
+        void propagate_extrinsics_one(double* dp_dparam,
                                       const double* drj_dparam,
                                       const double* dtj_dparam,
                                       const double* _d_Rj_rj)
@@ -1770,29 +1770,29 @@ void project( // out
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
             for(int i=0; i<3; i++)
             {
-                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*i], &dptcam_dparam[3*i] );
-                mul_vec3_gen33     ( &dptcam_dparam[3*i],   drj_dparam);
-                add_vec(3, &dptcam_dparam[3*i], &dtj_dparam[3*i] );
+                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*i], &dp_dparam[3*i] );
+                mul_vec3_gen33     ( &dp_dparam[3*i],   drj_dparam);
+                add_vec(3, &dp_dparam[3*i], &dtj_dparam[3*i] );
             }
         }
-        void propagate_extrinsics_one_cam0(double* dptcam_rf,
+        void propagate_extrinsics_one_cam0(double* dp_rf,
                                            const double* _d_Rf_rf)
         {
             // dRj[row0]/drj is 3x3 matrix at &_d_Rf_rf[0]
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
             for(int i=0; i<3; i++)
-                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rf_rf[9*i], &dptcam_rf[3*i] );
+                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rf_rf[9*i], &dp_rf[3*i] );
         }
         if(gg != NULL)
         {
-            propagate_extrinsics_one(_dptcam_drc, gg->_d_rj_rc, gg->_d_tj_rc, _d_Rj_rj);
-            propagate_extrinsics_one(_dptcam_dtc, gg->_d_rj_tc, gg->_d_tj_tc, _d_Rj_rj);
-            propagate_extrinsics_one(_dptcam_drf, gg->_d_rj_rf, gg->_d_tj_rf, _d_Rj_rj);
-            propagate_extrinsics_one(_dptcam_dtf, gg->_d_rj_tf, gg->_d_tj_tf, _d_Rj_rj);
-            dptcam_drc = _dptcam_drc;
-            dptcam_dtc = _dptcam_dtc;
-            dptcam_drf = _dptcam_drf;
-            dptcam_dtf = _dptcam_dtf;
+            propagate_extrinsics_one(_dp_drc, gg->_d_rj_rc, gg->_d_tj_rc, _d_Rj_rj);
+            propagate_extrinsics_one(_dp_dtc, gg->_d_rj_tc, gg->_d_tj_tc, _d_Rj_rj);
+            propagate_extrinsics_one(_dp_drf, gg->_d_rj_rf, gg->_d_tj_rf, _d_Rj_rj);
+            propagate_extrinsics_one(_dp_dtf, gg->_d_rj_tf, gg->_d_tj_tf, _d_Rj_rj);
+            dp_drc = _dp_drc;
+            dp_dtc = _dp_dtc;
+            dp_drf = _dp_drf;
+            dp_dtf = _dp_dtf;
         }
         else
         {
@@ -1805,27 +1805,27 @@ void project( // out
             // dp/dtc = 0
             // dp/drf = reshape(dRf_drf p_ref)
             // dp/dtf = I
-            propagate_extrinsics_one_cam0(_dptcam_drf, _d_Rj_rj);
+            propagate_extrinsics_one_cam0(_dp_drf, _d_Rj_rj);
 
-            dptcam_drc = NULL;
-            dptcam_dtc = NULL;
-            dptcam_drf = _dptcam_drf;
-            dptcam_dtf = NULL; // this is I. The user of this MUST know to interpret
+            dp_drc = NULL;
+            dp_dtc = NULL;
+            dp_drf = _dp_drf;
+            dp_dtf = NULL; // this is I. The user of this MUST know to interpret
             // it that way
         }
-        return pt_cam;
+        return p;
     }
 
     void project_point( // outputs
-                       point2_t* pt_out,
-                       double* p_dxy_dfxy, double* p_dxy_dintrinsics_nocore,
-                       point3_t* restrict dxy_drcamera,
-                       point3_t* restrict dxy_dtcamera,
-                       point3_t* restrict dxy_drframe,
-                       point3_t* restrict dxy_dtframe,
-                       point2_t* restrict dxy_dcalobject_warp,
+                       point2_t* q,
+                       double* p_dq_dfxy, double* p_dq_dintrinsics_nocore,
+                       point3_t* restrict dq_drcamera,
+                       point3_t* restrict dq_dtcamera,
+                       point3_t* restrict dq_drframe,
+                       point3_t* restrict dq_dtframe,
+                       point2_t* restrict dq_dcalobject_warp,
                        // inputs
-                       const point3_t* pt_cam,
+                       const point3_t* p,
                        const double* restrict intrinsics,
                        lensmodel_t lensmodel,
                        const point2_t* dpt_ref2_dwarp, int i_pt,
@@ -1838,83 +1838,83 @@ void project( // out
             splined_intrinsics_grad_context_t ctx;
             int ivar0;
             _project_point_splined( // outputs
-                                   pt_out,
+                                   q,
                                    &ctx, &ivar0,
 
-                                   dxy_drcamera,
-                                   dxy_dtcamera,
-                                   dxy_drframe,
-                                   dxy_dtframe,
-                                   dxy_dcalobject_warp,
+                                   dq_drcamera,
+                                   dq_dtcamera,
+                                   dq_drframe,
+                                   dq_dtframe,
+                                   dq_dcalobject_warp,
 
                                    // inputs
-                                   pt_cam,
-                                   dptcam_drc, dptcam_dtc, dptcam_drf, dptcam_dtf,
+                                   p,
+                                   dp_drc, dp_dtc, dp_drf, dp_dtf,
                                    intrinsics,
                                    camera_at_identity,
                                    lensmodel,
                                    i_pt);
-            if(dxy_dintrinsics_pool_int != NULL)
+            if(dq_dintrinsics_pool_int != NULL)
             {
-                *(dxy_dintrinsics_pool_int++) = ivar0;
-                memcpy(dxy_dintrinsics_pool_double, &ctx,
+                *(dq_dintrinsics_pool_int++) = ivar0;
+                memcpy(dq_dintrinsics_pool_double, &ctx,
                        sizeof(ctx));
-                dxy_dintrinsics_pool_double = &dxy_dintrinsics_pool_double[sizeof(ctx)/sizeof(double)];
+                dq_dintrinsics_pool_double = &dq_dintrinsics_pool_double[sizeof(ctx)/sizeof(double)];
             }
         }
         else
         {
             _project_point_parametric( // outputs
-                                      pt_out,
-                                      p_dxy_dfxy, p_dxy_dintrinsics_nocore,
-                                      dxy_drcamera,
-                                      dxy_dtcamera,
-                                      dxy_drframe,
-                                      dxy_dtframe,
-                                      dxy_dcalobject_warp,
+                                      q,
+                                      p_dq_dfxy, p_dq_dintrinsics_nocore,
+                                      dq_drcamera,
+                                      dq_dtcamera,
+                                      dq_drframe,
+                                      dq_dtframe,
+                                      dq_dcalobject_warp,
 
                                       // inputs
-                                      pt_cam,
-                                      dptcam_drc, dptcam_dtc, dptcam_drf, dptcam_dtf,
+                                      p,
+                                      dp_drc, dp_dtc, dp_drf, dp_dtf,
                                       intrinsics,
                                       camera_at_identity,
                                       lensmodel,
                                       i_pt);
         }
 
-        if( dxy_dcalobject_warp != NULL && dpt_ref2_dwarp != NULL )
+        if( dq_dcalobject_warp != NULL && dpt_ref2_dwarp != NULL )
         {
             // p = proj(Rc Rf warp(x) + Rc tf + tc);
             // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
             //       = dp/dtc RcRf dwarp/dw
-            // dp/dtc is dxy_dtcamera
+            // dp/dtc is dq_dtcamera
             // R is rodrigues(rj)
             // dwarp/dw = [0 0]
             //            [0 0]
             //            [a b]
             // Let R = [r0 r1 r2]
             // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
-            point3_t* p_dxy_dt;
-            if(!camera_at_identity) p_dxy_dt = &dxy_dtcamera[2*i_pt];
-            else                    p_dxy_dt = &dxy_dtframe[2*i_pt];
-            point3_t dxy_dt_forwarp[2];
-            if(!p_dxy_dt)
+            point3_t* p_dq_dt;
+            if(!camera_at_identity) p_dq_dt = &dq_dtcamera[2*i_pt];
+            else                    p_dq_dt = &dq_dtframe[2*i_pt];
+            point3_t dq_dt_forwarp[2];
+            if(!p_dq_dt)
             {
                 MSG("we were asked for the calobject gradient, but not the tframe gradient. this isn't supported");
                 assert(0);
             }
             double d[] =
-                { p_dxy_dt[0].xyz[0] * _Rj[0*3 + 2] +
-                  p_dxy_dt[0].xyz[1] * _Rj[1*3 + 2] +
-                  p_dxy_dt[0].xyz[2] * _Rj[2*3 + 2],
-                  p_dxy_dt[1].xyz[0] * _Rj[0*3 + 2] +
-                  p_dxy_dt[1].xyz[1] * _Rj[1*3 + 2] +
-                  p_dxy_dt[1].xyz[2] * _Rj[2*3 + 2]};
+                { p_dq_dt[0].xyz[0] * _Rj[0*3 + 2] +
+                  p_dq_dt[0].xyz[1] * _Rj[1*3 + 2] +
+                  p_dq_dt[0].xyz[2] * _Rj[2*3 + 2],
+                  p_dq_dt[1].xyz[0] * _Rj[0*3 + 2] +
+                  p_dq_dt[1].xyz[1] * _Rj[1*3 + 2] +
+                  p_dq_dt[1].xyz[2] * _Rj[2*3 + 2]};
 
-            dxy_dcalobject_warp[2*i_pt + 0].x = d[0]*dpt_ref2_dwarp->x;
-            dxy_dcalobject_warp[2*i_pt + 0].y = d[0]*dpt_ref2_dwarp->y;
-            dxy_dcalobject_warp[2*i_pt + 1].x = d[1]*dpt_ref2_dwarp->x;
-            dxy_dcalobject_warp[2*i_pt + 1].y = d[1]*dpt_ref2_dwarp->y;
+            dq_dcalobject_warp[2*i_pt + 0].x = d[0]*dpt_ref2_dwarp->x;
+            dq_dcalobject_warp[2*i_pt + 0].y = d[0]*dpt_ref2_dwarp->y;
+            dq_dcalobject_warp[2*i_pt + 1].x = d[1]*dpt_ref2_dwarp->x;
+            dq_dcalobject_warp[2*i_pt + 1].y = d[1]*dpt_ref2_dwarp->y;
         }
     }
 
@@ -1924,15 +1924,15 @@ void project( // out
 
     if( !calibration_object_width_n )
     {
-        point3_t pt_cam =
+        point3_t p =
             propagate_extrinsics( &(point3_t){},
                                   camera_at_identity ? NULL : &gg,
                                   _Rj, _d_Rj_rj, p_tj->data.db);
-        project_point(  pt_out,
-                        p_dxy_dfxy, p_dxy_dintrinsics_nocore,
-                        dxy_drcamera, dxy_dtcamera, dxy_drframe, dxy_dtframe, dxy_dcalobject_warp,
+        project_point(  q,
+                        p_dq_dfxy, p_dq_dintrinsics_nocore,
+                        dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, dq_dcalobject_warp,
 
-                        &pt_cam,
+                        &p,
                         intrinsics, lensmodel,
                         NULL, 0,
                         camera_at_identity, _Rj);
@@ -1971,15 +1971,15 @@ void project( // out
                     dpt_ref2_dwarp.y = dy;
                 }
 
-                point3_t pt_cam =
+                point3_t p =
                     propagate_extrinsics( &pt_ref,
                                           camera_at_identity ? NULL : &gg,
                                           _Rj, _d_Rj_rj, p_tj->data.db);
-                project_point(pt_out,
-                              p_dxy_dfxy, p_dxy_dintrinsics_nocore,
-                              dxy_drcamera, dxy_dtcamera, dxy_drframe, dxy_dtframe, dxy_dcalobject_warp,
+                project_point(q,
+                              p_dq_dfxy, p_dq_dintrinsics_nocore,
+                              dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, dq_dcalobject_warp,
 
-                              &pt_cam,
+                              &p,
                               intrinsics, lensmodel,
                               &dpt_ref2_dwarp, i_pt,
                               camera_at_identity, _Rj);
@@ -2292,17 +2292,17 @@ bool mrcal_project( // out
                      intrinsics, NULL, &frame, NULL, true, lensmodel, 0.0, 0);
         else
         {
-            double dxy_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
-            int    dxy_dintrinsics_pool_int   [1];
-            double* dxy_dfxy               = NULL;
-            double* dxy_dintrinsics_nocore = NULL;
+            double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
+            int    dq_dintrinsics_pool_int   [1];
+            double* dq_dfxy               = NULL;
+            double* dq_dintrinsics_nocore = NULL;
             gradient_sparse_meta_t gradient_sparse_meta = {}; // init to pacify compiler warning
 
             project( q,
 
-                     dxy_dintrinsics_pool_double,
-                     dxy_dintrinsics_pool_int,
-                     &dxy_dfxy, &dxy_dintrinsics_nocore, &gradient_sparse_meta,
+                     dq_dintrinsics_pool_double,
+                     dq_dintrinsics_pool_int,
+                     &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
                      NULL, NULL, NULL, dq_dp, NULL,
 
@@ -2310,15 +2310,15 @@ bool mrcal_project( // out
                      intrinsics, NULL, &frame, NULL, true, lensmodel, 0.0, 0);
 
             int Ncore = 0;
-            if(dxy_dfxy != NULL)
+            if(dq_dfxy != NULL)
             {
                 Ncore = 4;
 
                 // fxy. off-diagonal elements are 0
-                dq_dintrinsics[0*Nintrinsics + 0] = dxy_dfxy[0];
+                dq_dintrinsics[0*Nintrinsics + 0] = dq_dfxy[0];
                 dq_dintrinsics[0*Nintrinsics + 1] = 0.0;
                 dq_dintrinsics[1*Nintrinsics + 0] = 0.0;
-                dq_dintrinsics[1*Nintrinsics + 1] = dxy_dfxy[1];
+                dq_dintrinsics[1*Nintrinsics + 1] = dq_dfxy[1];
 
                 // cxy. Identity
                 dq_dintrinsics[0*Nintrinsics + 2] = 1.0;
@@ -2326,11 +2326,11 @@ bool mrcal_project( // out
                 dq_dintrinsics[1*Nintrinsics + 2] = 0.0;
                 dq_dintrinsics[1*Nintrinsics + 3] = 1.0;
             }
-            if( dxy_dintrinsics_nocore != NULL )
+            if( dq_dintrinsics_nocore != NULL )
             {
                 for(int i_xy=0; i_xy<2; i_xy++)
                     memcpy(&dq_dintrinsics[i_xy*Nintrinsics + Ncore],
-                           &dxy_dintrinsics_nocore[i_xy*(Nintrinsics-Ncore)],
+                           &dq_dintrinsics_nocore[i_xy*(Nintrinsics-Ncore)],
                            (Nintrinsics-Ncore)*sizeof(double));
             }
             if(gradient_sparse_meta.run_side_length > 0)
@@ -2347,8 +2347,8 @@ bool mrcal_project( // out
                 // pool_double contains ABCDxy and u in a
                 // splined_intrinsics_grad_context_t
                 const splined_intrinsics_grad_context_t* ctx =
-                    (splined_intrinsics_grad_context_t*)dxy_dintrinsics_pool_double;
-                const int ivar0 = dxy_dintrinsics_pool_int[0];
+                    (splined_intrinsics_grad_context_t*)dq_dintrinsics_pool_double;
+                const int ivar0 = dq_dintrinsics_pool_int[0];
 
                 const int len          = gradient_sparse_meta.run_side_length;
                 const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
@@ -3793,50 +3793,50 @@ void optimizerCallback(// input state
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
-        point3_t dxy_drcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dxy_dtcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dxy_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dxy_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point2_t dxy_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dq_drcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dq_dtcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dq_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point3_t dq_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
+        point2_t dq_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
         point2_t pt_hypothesis      [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
 
         // I get the intrinsics gradients in separate arrays, possibly sparsely.
-        // All the data lives in dxy_dintrinsics_pool_double[], with the other data
+        // All the data lives in dq_dintrinsics_pool_double[], with the other data
         // indicating the meaning of the values in the pool.
         //
-        // dxy_dfxy serves a special-case for a perspective core. Such models
+        // dq_dfxy serves a special-case for a perspective core. Such models
         // are very common, and they have x = fx vx/vz + cx and y = fy vy/vz +
         // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
         // for cx,cy, except we know the gradient value beforehand. I support
         // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
-        double dxy_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_width_n*2*(1+ctx->Nintrinsics-4)];
-        int    dxy_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
-        double* dxy_dfxy = NULL;
-        double* dxy_dintrinsics_nocore = NULL;
+        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_width_n*2*(1+ctx->Nintrinsics-4)];
+        int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
+        double* dq_dfxy = NULL;
+        double* dq_dintrinsics_nocore = NULL;
         gradient_sparse_meta_t gradient_sparse_meta = {}; // init to pacify compiler warning
 
         splined_intrinsics_grad_context_t* splined_intrinsics_grad_context =
-            (splined_intrinsics_grad_context_t*)dxy_dintrinsics_pool_double;
+            (splined_intrinsics_grad_context_t*)dq_dintrinsics_pool_double;
         int splined_intrinsics_grad_irun = 0;
 
         project(pt_hypothesis,
 
                 ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                  dxy_dintrinsics_pool_double : NULL,
+                  dq_dintrinsics_pool_double : NULL,
                 ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                  dxy_dintrinsics_pool_int : NULL,
-                &dxy_dfxy, &dxy_dintrinsics_nocore, &gradient_sparse_meta,
+                  dq_dintrinsics_pool_int : NULL,
+                &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
                 ctx->problem_details.do_optimize_extrinsics ?
-                (point3_t*)dxy_drcamera : NULL,
+                (point3_t*)dq_drcamera : NULL,
                 ctx->problem_details.do_optimize_extrinsics ?
-                (point3_t*)dxy_dtcamera : NULL,
+                (point3_t*)dq_dtcamera : NULL,
                 ctx->problem_details.do_optimize_frames ?
-                (point3_t*)dxy_drframe : NULL,
+                (point3_t*)dq_drframe : NULL,
                 ctx->problem_details.do_optimize_frames ?
-                (point3_t*)dxy_dtframe : NULL,
+                (point3_t*)dq_dtframe : NULL,
                 ctx->problem_details.do_optimize_calobject_warp ?
-                (point2_t*)dxy_dcalobject_warp : NULL,
+                (point2_t*)dq_dcalobject_warp : NULL,
                 intrinsics_all[i_camera],
                 &camera_rt[i_camera-1], &frame_rt,
                 ctx->calobject_warp == NULL ? NULL : &calobject_warp_local,
@@ -3881,7 +3881,7 @@ void optimizerCallback(// input state
                     {
                         // fx,fy. x depends on fx only. y depends on fy only
                         STORE_JACOBIAN( i_var_intrinsics + i_xy,
-                                        dxy_dfxy[i_pt*2 + i_xy] *
+                                        dq_dfxy[i_pt*2 + i_xy] *
                                         weight * SCALE_INTRINSICS_FOCAL_LENGTH );
 
                         // cx,cy. The gradients here are known to be 1. And x depends on cx only. And y depends on cy only
@@ -3906,7 +3906,7 @@ void optimizerCallback(// input state
                             // splined_intrinsics_grad_context_t
                             const splined_intrinsics_grad_context_t* ctx =
                                 splined_intrinsics_grad_context;
-                            const int ivar0 = dxy_dintrinsics_pool_int[splined_intrinsics_grad_irun];
+                            const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun];
 
                             const int len          = gradient_sparse_meta.run_side_length;
                             const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
@@ -3921,7 +3921,7 @@ void optimizerCallback(// input state
                         {
                             for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
                                 STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
-                                                dxy_dintrinsics_nocore[i_pt*2*(ctx->Nintrinsics-Ncore) +
+                                                dq_dintrinsics_nocore[i_pt*2*(ctx->Nintrinsics-Ncore) +
                                                                        i_xy*(ctx->Nintrinsics-Ncore) +
                                                                        i] *
                                                 weight * SCALE_DISTORTION );
@@ -3932,44 +3932,44 @@ void optimizerCallback(// input state
                         if( i_camera != 0 )
                         {
                             STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                             dxy_drcamera[i_pt][i_xy].xyz[0] *
+                                             dq_drcamera[i_pt][i_xy].xyz[0] *
                                              weight * SCALE_ROTATION_CAMERA,
-                                             dxy_drcamera[i_pt][i_xy].xyz[1] *
+                                             dq_drcamera[i_pt][i_xy].xyz[1] *
                                              weight * SCALE_ROTATION_CAMERA,
-                                             dxy_drcamera[i_pt][i_xy].xyz[2] *
+                                             dq_drcamera[i_pt][i_xy].xyz[2] *
                                              weight * SCALE_ROTATION_CAMERA);
                             STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                             dxy_dtcamera[i_pt][i_xy].xyz[0] *
+                                             dq_dtcamera[i_pt][i_xy].xyz[0] *
                                              weight * SCALE_TRANSLATION_CAMERA,
-                                             dxy_dtcamera[i_pt][i_xy].xyz[1] *
+                                             dq_dtcamera[i_pt][i_xy].xyz[1] *
                                              weight * SCALE_TRANSLATION_CAMERA,
-                                             dxy_dtcamera[i_pt][i_xy].xyz[2] *
+                                             dq_dtcamera[i_pt][i_xy].xyz[2] *
                                              weight * SCALE_TRANSLATION_CAMERA);
                         }
 
                     if( ctx->problem_details.do_optimize_frames )
                     {
                         STORE_JACOBIAN3( i_var_frame_rt + 0,
-                                         dxy_drframe[i_pt][i_xy].xyz[0] *
+                                         dq_drframe[i_pt][i_xy].xyz[0] *
                                          weight * SCALE_ROTATION_FRAME,
-                                         dxy_drframe[i_pt][i_xy].xyz[1] *
+                                         dq_drframe[i_pt][i_xy].xyz[1] *
                                          weight * SCALE_ROTATION_FRAME,
-                                         dxy_drframe[i_pt][i_xy].xyz[2] *
+                                         dq_drframe[i_pt][i_xy].xyz[2] *
                                          weight * SCALE_ROTATION_FRAME);
                         STORE_JACOBIAN3( i_var_frame_rt + 3,
-                                         dxy_dtframe[i_pt][i_xy].xyz[0] *
+                                         dq_dtframe[i_pt][i_xy].xyz[0] *
                                          weight * SCALE_TRANSLATION_FRAME,
-                                         dxy_dtframe[i_pt][i_xy].xyz[1] *
+                                         dq_dtframe[i_pt][i_xy].xyz[1] *
                                          weight * SCALE_TRANSLATION_FRAME,
-                                         dxy_dtframe[i_pt][i_xy].xyz[2] *
+                                         dq_dtframe[i_pt][i_xy].xyz[2] *
                                          weight * SCALE_TRANSLATION_FRAME);
                     }
 
                     if( ctx->problem_details.do_optimize_calobject_warp )
                     {
                         STORE_JACOBIAN2( i_var_calobject_warp,
-                                         dxy_dcalobject_warp[i_pt][i_xy].x * weight * SCALE_CALOBJECT_WARP,
-                                         dxy_dcalobject_warp[i_pt][i_xy].y * weight * SCALE_CALOBJECT_WARP);
+                                         dq_dcalobject_warp[i_pt][i_xy].x * weight * SCALE_CALOBJECT_WARP,
+                                         dq_dcalobject_warp[i_pt][i_xy].y * weight * SCALE_CALOBJECT_WARP);
                     }
 
                     iMeasurement++;
@@ -4078,15 +4078,15 @@ void optimizerCallback(// input state
                      i_observation_point, i_point, i_camera);
         }
 
-        double dxy_dintrinsics_pool_double[2*(1+ctx->Nintrinsics-4)];
-        int    dxy_dintrinsics_pool_int   [1];
-        double* dxy_dfxy;
-        double* dxy_dintrinsics_nocore;
+        double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics-4)];
+        int    dq_dintrinsics_pool_int   [1];
+        double* dq_dfxy;
+        double* dq_dintrinsics_nocore;
         gradient_sparse_meta_t gradient_sparse_meta;
 
-        point3_t dxy_drcamera[2];
-        point3_t dxy_dtcamera[2];
-        point3_t dxy_dpoint  [2];
+        point3_t dq_drcamera[2];
+        point3_t dq_dtcamera[2];
+        point3_t dq_dpoint  [2];
 
         // The array reference [-3] is intended, but the compiler throws a
         // warning. I silence it here
@@ -4096,18 +4096,18 @@ void optimizerCallback(// input state
         project(&pt_hypothesis,
 
                 ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                  dxy_dintrinsics_pool_double : NULL,
+                  dq_dintrinsics_pool_double : NULL,
                 ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                  dxy_dintrinsics_pool_int : NULL,
-                &dxy_dfxy, &dxy_dintrinsics_nocore, &gradient_sparse_meta,
+                  dq_dintrinsics_pool_int : NULL,
+                &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
                 ctx->problem_details.do_optimize_extrinsics ?
-                dxy_drcamera : NULL,
+                dq_drcamera : NULL,
                 ctx->problem_details.do_optimize_extrinsics ?
-                dxy_dtcamera : NULL,
+                dq_dtcamera : NULL,
                 NULL, // frame rotation. I only have a point position
                 ctx->problem_details.do_optimize_frames ?
-                dxy_dpoint : NULL,
+                dq_dpoint : NULL,
                 NULL,
                 intrinsics_all[i_camera],
                 &camera_rt[i_camera-1],
@@ -4148,7 +4148,7 @@ void optimizerCallback(// input state
                 {
                     // fx,fy. x depends on fx only. y depends on fy only
                     STORE_JACOBIAN( i_var_intrinsics + i_xy,
-                                    dxy_dfxy[i_xy] *
+                                    dq_dfxy[i_xy] *
                                     invalid_point_scale *
                                     weight * SCALE_INTRINSICS_FOCAL_LENGTH );
 
@@ -4174,8 +4174,8 @@ void optimizerCallback(// input state
                         // pool_double contains ABCDxy and u in a
                         // splined_intrinsics_grad_context_t
                         const splined_intrinsics_grad_context_t* ctx =
-                            (splined_intrinsics_grad_context_t*)dxy_dintrinsics_pool_double;
-                        const int ivar0 = dxy_dintrinsics_pool_int[0];
+                            (splined_intrinsics_grad_context_t*)dq_dintrinsics_pool_double;
+                        const int ivar0 = dq_dintrinsics_pool_int[0];
 
                         const int len          = gradient_sparse_meta.run_side_length;
                         const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
@@ -4192,7 +4192,7 @@ void optimizerCallback(// input state
                     {
                         for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
                             STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
-                                            dxy_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
+                                            dq_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
                                                                    i] *
                                             invalid_point_scale *
                                             weight * SCALE_DISTORTION );
@@ -4203,36 +4203,36 @@ void optimizerCallback(// input state
                     if( i_camera != 0 )
                     {
                         STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                         dxy_drcamera[i_xy].xyz[0] *
+                                         dq_drcamera[i_xy].xyz[0] *
                                          invalid_point_scale *
                                          weight * SCALE_ROTATION_CAMERA,
-                                         dxy_drcamera[i_xy].xyz[1] *
+                                         dq_drcamera[i_xy].xyz[1] *
                                          invalid_point_scale *
                                          weight * SCALE_ROTATION_CAMERA,
-                                         dxy_drcamera[i_xy].xyz[2] *
+                                         dq_drcamera[i_xy].xyz[2] *
                                          invalid_point_scale *
                                          weight * SCALE_ROTATION_CAMERA);
                         STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                         dxy_dtcamera[i_xy].xyz[0] *
+                                         dq_dtcamera[i_xy].xyz[0] *
                                          invalid_point_scale *
                                          weight * SCALE_TRANSLATION_CAMERA,
-                                         dxy_dtcamera[i_xy].xyz[1] *
+                                         dq_dtcamera[i_xy].xyz[1] *
                                          invalid_point_scale *
                                          weight * SCALE_TRANSLATION_CAMERA,
-                                         dxy_dtcamera[i_xy].xyz[2] *
+                                         dq_dtcamera[i_xy].xyz[2] *
                                          invalid_point_scale *
                                          weight * SCALE_TRANSLATION_CAMERA);
                     }
 
                 if( ctx->problem_details.do_optimize_frames )
                     STORE_JACOBIAN3( i_var_point,
-                                     dxy_dpoint[i_xy].xyz[0] *
+                                     dq_dpoint[i_xy].xyz[0] *
                                      invalid_point_scale *
                                      weight * SCALE_POSITION_POINT,
-                                     dxy_dpoint[i_xy].xyz[1] *
+                                     dq_dpoint[i_xy].xyz[1] *
                                      invalid_point_scale *
                                      weight * SCALE_POSITION_POINT,
-                                     dxy_dpoint[i_xy].xyz[2] *
+                                     dq_dpoint[i_xy].xyz[2] *
                                      invalid_point_scale *
                                      weight * SCALE_POSITION_POINT);
 
@@ -4283,13 +4283,13 @@ void optimizerCallback(// input state
                     CvMat d_Rc_rc = cvMat(9,3,CV_64F, _d_Rc_rc);
                     cvRodrigues2(&rc, &Rc, &d_Rc_rc);
 
-                    point3_t pt_cam;
-                    mul_vec3_gen33t_vout(point.xyz, _Rc, pt_cam.xyz);
-                    add_vec(3, pt_cam.xyz, camera_rt[i_camera-1].t.xyz);
+                    point3_t p;
+                    mul_vec3_gen33t_vout(point.xyz, _Rc, p.xyz);
+                    add_vec(3, p.xyz, camera_rt[i_camera-1].t.xyz);
 
-                    double dist = sqrt( pt_cam.x*pt_cam.x +
-                                        pt_cam.y*pt_cam.y +
-                                        pt_cam.z*pt_cam.z );
+                    double dist = sqrt( p.x*p.x +
+                                        p.y*p.y +
+                                        p.z*p.z );
                     double dist_recip = 1.0/dist;
                     double err = dist - observation->dist;
                     err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
@@ -4300,8 +4300,8 @@ void optimizerCallback(// input state
 
                     if( ctx->problem_details.do_optimize_extrinsics )
                     {
-                        // pt_cam.x       = Rc[row0]*point*SCALE + tc
-                        // d(pt_cam.x)/dr = d(Rc[row0])/drc*point*SCALE
+                        // p.x       = Rc[row0]*point*SCALE + tc
+                        // d(p.x)/dr = d(Rc[row0])/drc*point*SCALE
                         // d(Rc[row0])/drc is 3x3 matrix at &_d_Rc_rc[0]
                         double d_ptcamx_dr[3];
                         double d_ptcamy_dr[3];
@@ -4313,42 +4313,42 @@ void optimizerCallback(// input state
                         STORE_JACOBIAN3( i_var_camera_rt + 0,
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
                                          SCALE_ROTATION_CAMERA*
-                                         dist_recip*( pt_cam.x*d_ptcamx_dr[0] +
-                                                      pt_cam.y*d_ptcamy_dr[0] +
-                                                      pt_cam.z*d_ptcamz_dr[0] ),
+                                         dist_recip*( p.x*d_ptcamx_dr[0] +
+                                                      p.y*d_ptcamy_dr[0] +
+                                                      p.z*d_ptcamz_dr[0] ),
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
                                          SCALE_ROTATION_CAMERA*
-                                         dist_recip*( pt_cam.x*d_ptcamx_dr[1] +
-                                                      pt_cam.y*d_ptcamy_dr[1] +
-                                                      pt_cam.z*d_ptcamz_dr[1] ),
+                                         dist_recip*( p.x*d_ptcamx_dr[1] +
+                                                      p.y*d_ptcamy_dr[1] +
+                                                      p.z*d_ptcamz_dr[1] ),
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
                                          SCALE_ROTATION_CAMERA*
-                                         dist_recip*( pt_cam.x*d_ptcamx_dr[2] +
-                                                      pt_cam.y*d_ptcamy_dr[2] +
-                                                      pt_cam.z*d_ptcamz_dr[2] ) );
+                                         dist_recip*( p.x*d_ptcamx_dr[2] +
+                                                      p.y*d_ptcamy_dr[2] +
+                                                      p.z*d_ptcamz_dr[2] ) );
                         STORE_JACOBIAN3( i_var_camera_rt + 3,
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*pt_cam.x,
+                                         dist_recip*p.x,
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*pt_cam.y,
+                                         dist_recip*p.y,
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*pt_cam.z );
+                                         dist_recip*p.z );
                     }
 
                     if( ctx->problem_details.do_optimize_frames )
                         STORE_JACOBIAN3( i_var_point,
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_POSITION_POINT*
-                                         dist_recip*(pt_cam.x*_Rc[0] + pt_cam.y*_Rc[3] + pt_cam.z*_Rc[6]),
+                                         dist_recip*(p.x*_Rc[0] + p.y*_Rc[3] + p.z*_Rc[6]),
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_POSITION_POINT*
-                                         dist_recip*(pt_cam.x*_Rc[1] + pt_cam.y*_Rc[4] + pt_cam.z*_Rc[7]),
+                                         dist_recip*(p.x*_Rc[1] + p.y*_Rc[4] + p.z*_Rc[7]),
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_POSITION_POINT*
-                                         dist_recip*(pt_cam.x*_Rc[2] + pt_cam.y*_Rc[5] + pt_cam.z*_Rc[8]) );
+                                         dist_recip*(p.x*_Rc[2] + p.y*_Rc[5] + p.z*_Rc[8]) );
                     iMeasurement++;
                 }
             }
