@@ -1065,6 +1065,168 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
     _UN_PROJECT_POSTAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
                           UNPROJECT_ARGUMENTS_OPTIONAL);
 }
+// projectStereographic(), and unprojectStereographic() have very similar
+// arguments and operation, so the logic is consolidated as much as possible in
+// these functions. The first arg is called "points" in both cases, but is 2d in
+// one case, and 3d in the other
+#define UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(_)                                   \
+    _(points,     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
+    _(fx,         double,         -1.0,    "d",  ,                                  NULL,       -1,         {} ) \
+    _(fy,         double,         -1.0,    "d",  ,                                  NULL,       -1,         {} ) \
+    _(cx,         double,         -1.0,    "d",  ,                                  NULL,       -1,         {} ) \
+    _(cy,         double,         -1.0,    "d",  ,                                  NULL,       -1,         {} )
+#define UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(_)                                   \
+    _(get_gradients,    PyObject*,  Py_False,    "O",                              , NULL,      -1, {})
+
+static bool _un_project_stereographic_validate_args(// in
+                                                    int dim_points_in, // 3 for project(), 2 for unproject()
+                                                    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
+                                                    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
+                                                    void* dummy __attribute__((unused)))
+{
+    if( PyArray_NDIM(points) < 1 )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
+        return false;
+    }
+    if( dim_points_in != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
+    {
+        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be %d. Instead got %ld",
+                     dim_points_in,
+                     PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
+        return false;
+    }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
+#pragma GCC diagnostic pop
+
+    return true;
+}
+
+static PyObject* _un_projectStereographic(PyObject* NPY_UNUSED(self),
+                                          PyObject* args,
+                                          PyObject* kwargs,
+                                          bool projecting)
+{
+    int dim_points_in, dim_points_out;
+    if(projecting)
+    {
+        dim_points_in  = 3;
+        dim_points_out = 2;
+    }
+    else
+    {
+        dim_points_in  = 2;
+        dim_points_out = 3;
+    }
+
+    PyObject* result = NULL;
+
+    SET_SIGINT();
+    PyArrayObject* out  = NULL;
+    PyArrayObject* grad = NULL;
+
+    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(ARG_DEFINE);
+    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(ARG_DEFINE);
+
+    char* keywords[] = { UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(NAMELIST)
+                         UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                     UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                     keywords,
+
+                                     UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(PARSEARG)
+                                     UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+        goto done;
+
+    /* if the input points array is degenerate, return a degenerate thing */
+    if( IS_NULL(points) )
+    {
+        result = Py_None;
+        Py_INCREF(result);
+        goto done;
+    }
+
+    if(!_un_project_stereographic_validate_args( dim_points_in,
+                                                 UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
+                                                 UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                                                 NULL))
+        goto done;
+
+    /* poor man's broadcasting of the inputs. I compute the total number of */
+    /* points by multiplying the extra broadcasted dimensions. And I set up the */
+    /* outputs to have the appropriate broadcasted dimensions        */
+    const npy_intp* leading_dims  = PyArray_DIMS(points);
+    int             Nleading_dims = PyArray_NDIM(points)-1;
+    int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];
+    bool get_gradients_bool = IS_TRUE(get_gradients);
+
+    {
+        npy_intp dims[Nleading_dims+2]; /* one extra for the gradients */
+        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));
+
+        dims[Nleading_dims + 0] = dim_points_out;
+        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,
+                                                dims,
+                                                NPY_DOUBLE);
+        if( get_gradients_bool )
+        {
+            dims[Nleading_dims + 0] = dim_points_out;
+            dims[Nleading_dims + 1] = dim_points_in;
+            grad = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2,
+                                                     dims,
+                                                     NPY_DOUBLE);
+        }
+    }
+
+    if(projecting)
+        mrcal_project_stereographic((point2_t*)PyArray_DATA(out),
+                                    get_gradients_bool ? (point3_t*)PyArray_DATA(grad)  : NULL,
+                                    (const point3_t*)PyArray_DATA(points),
+                                    Npoints,
+                                    fx,fy,cx,cy);
+    else
+        mrcal_unproject_stereographic((point3_t*)PyArray_DATA(out),
+                                      get_gradients_bool ? (point2_t*)PyArray_DATA(grad) : NULL,
+                                      (const point2_t*)PyArray_DATA(points),
+                                      Npoints,
+                                      fx,fy,cx,cy);
+
+    if( get_gradients_bool )
+    {
+        result = PyTuple_Pack(2, out, grad);
+        Py_DECREF(out);
+        Py_DECREF(grad);
+    }
+    else
+        result = (PyObject*)out;
+
+ done:
+    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+    RESET_SIGINT();
+    return result;
+}
+
+static PyObject* projectStereographic(PyObject* self,
+                                      PyObject* args,
+                                      PyObject* kwargs)
+{
+    return _un_projectStereographic(self, args, kwargs, true);
+}
+static PyObject* unprojectStereographic(PyObject* self,
+                                        PyObject* args,
+                                        PyObject* kwargs)
+{
+    return _un_projectStereographic(self, args, kwargs, false);
+}
+
 
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)                                  \
@@ -2046,6 +2208,12 @@ static const char project_docstring[] =
 static const char _unproject_docstring[] =
 #include "_unproject.docstring.h"
     ;
+static const char projectStereographic_docstring[] =
+#include "projectStereographic.docstring.h"
+    ;
+static const char unprojectStereographic_docstring[] =
+#include "unprojectStereographic.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizerCallback,        METH_VARARGS | METH_KEYWORDS),
@@ -2055,6 +2223,8 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getNextLensModel,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,project,                  METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_unproject,               METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,projectStereographic,     METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,unprojectStereographic,   METH_VARARGS | METH_KEYWORDS),
       {}
     };
 

@@ -1,0 +1,42 @@
+Unprojects a set of 2D pixel coordinates using a stereographic map
+
+SYNOPSIS
+
+    v = mrcal.unproject( # (N,2) array of 2d imager points
+                         points,
+                         fx, fy, cx, cy )
+
+    # v is now a (N,3) array of observation directions. v are not normalized
+
+Given a (N,2) array of pixel coordinates and parameters of a perfect
+stereographic camera, this function computes the inverse projection, optionally
+with gradients. No actual lens ever follows this model exactly, but this is
+useful as a baseline for other models.
+
+The stereographic projection is able to represent points behind the camera, and
+has only one singular observation direction: directly behind the camera, along
+the optical axis.
+
+This projection acts radially. If the observation vector v makes an angle theta
+with the optical axis, then the projected point q is 2 tan(theta/2) f from the
+image center.
+
+ARGUMENTS
+
+- points: array of dims (...,2); the pixel coordinates we're projecting. This
+  supports broadcasting fully, and any leading dimensions are allowed, including
+  none
+
+- fx, fy: focal-lengths, in pixels
+
+- cx, cy: the projection center, in pixels
+
+- get_gradients: optional boolean, defaults to False. 
+
+  if not get_gradients: we return an (...,3) array of projected pixel coordinates
+
+  if get_gradients: we return a tuple:
+
+    - (...,3) array of unprojected observation vectors
+    - (...,3,2) array of the gradients of the observation vectors in respect to
+      the input 2D pixel coordinates

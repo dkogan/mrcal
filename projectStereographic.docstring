@@ -1,0 +1,41 @@
+Projects a set of 3D camera-frame points using a stereographic map
+
+SYNOPSIS
+
+    q = mrcal.project( # (N,3) array of 3d points we're projecting
+                       points,
+                       fx, fy, cx, cy )
+
+    # q is now a (N,2) array of stereographic pixel coordinates
+
+Given a (N,3) array of points in the camera frame (x,y aligned with the imager
+coords, z 'forward') and parameters of a perfect stereographic camera, this
+function computes the projection, optionally with gradients. No actual lens ever
+follows this model exactly, but this is useful as a baseline for other models.
+
+The stereographic projection is able to represent points behind the camera, and
+has only one singular observation direction: directly behind the camera, along
+the optical axis.
+
+This projection acts radially. If the observation vector v makes an angle theta
+with the optical axis, then the projected point q is 2 tan(theta/2) f from the
+image center.
+
+ARGUMENTS
+
+- points: array of dims (...,3); the points we're projecting. This supports
+  broadcasting fully, and any leading dimensions are allowed, including none
+
+- fx, fy: focal-lengths, in pixels
+
+- cx, cy: the projection center, in pixels
+
+- get_gradients: optional boolean, defaults to False. 
+
+  if not get_gradients: we return an (...,2) array of projected pixel coordinates
+
+  if get_gradients: we return a tuple:
+
+    - (...,2) array of projected pixel coordinates
+    - (...,2,3) array of the gradients of the pixel coordinates in respect to
+      the input 3D point positions
