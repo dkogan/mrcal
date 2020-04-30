@@ -623,7 +623,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
     return dq_dp - nps.matmult(dq_dv, V, M)
 
 
-def colormap_using(imagersize, gridn_x, gridn_y):
+def imagergrid_using(imagersize, gridn_x, gridn_y):
     '''Utility function returns a 'using' expression when plotting a colormap'''
     W,H = imagersize
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
@@ -1068,7 +1068,7 @@ def show_intrinsics_uncertainty(model,
                        dict( tuplesize=3,
                              _with=np.array(('image','lines nosurface'),),
                              legend = "", # needed to force contour labels
-                             using = colormap_using(model.imagersize(), gridn_x, gridn_y)))]
+                             using = imagergrid_using(model.imagersize(), gridn_x, gridn_y)))]
 
     valid_intrinsics_region = model.valid_intrinsics_region()
     if valid_intrinsics_region is not None:
@@ -1103,8 +1103,8 @@ def report_residual_statistics( obs, err,
     If everything fits well, the residual distributions in each area of the
     imager should be identical. If the model doesn't fit well, the statistics
     will not be consistent. This function returns a tuple
-    (mean,stdev,count,colormap_using). The first 3 area all W,H arrays indexing
-    the imager. colormap_using is a "using" keyword for plotting this data in a
+    (mean,stdev,count,imagergrid_using). The first 3 area all W,H arrays indexing
+    the imager. imagergrid_using is a "using" keyword for plotting this data in a
     heatmap
 
     '''
@@ -1151,7 +1151,7 @@ def report_residual_statistics( obs, err,
 
     mean,stdev,count = nps.mv( residual_stats(obsflat, errflat, c),
                                -1, 0)
-    return mean,stdev,count,colormap_using(imagersize, gridn_x, gridn_y)
+    return mean,stdev,count,imagergrid_using(imagersize, gridn_x, gridn_y)
 
 def show_distortion(model,
                     mode,
@@ -1385,7 +1385,7 @@ def show_distortion(model,
                   tuplesize=3,
                   _with=np.array(('image','lines nosurface'),),
                   legend = "", # needed to force contour labels
-                  using = colormap_using(imagersize, gridn_x, gridn_y))
+                  using = imagergrid_using(imagersize, gridn_x, gridn_y))
         return plot
 
     else:
@@ -1844,7 +1844,7 @@ def show_intrinsics_diff(models,
                             dict( tuplesize=3,
                                   _with=np.array(('image','lines nosurface'),),
                                   legend = "", # needed to force contour labels
-                                  using = colormap_using(imagersizes[0], gridn_x, gridn_y)
+                                  using = imagergrid_using(imagersizes[0], gridn_x, gridn_y)
                             )) ]
 
     valid_region0 = models[0].valid_intrinsics_region()
