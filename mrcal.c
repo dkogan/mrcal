@@ -3982,12 +3982,31 @@ void optimizerCallback(// input state
                     norm2_error += err*err;
 
                     if( ctx->problem_details.do_optimize_intrinsic_core )
-                        for(int i=0; i<4; i++)
-                            STORE_JACOBIAN( i_var_intrinsics + i, 0.0 );
+                    {
+                        STORE_JACOBIAN( i_var_intrinsics + i_xy,   0.0 );
+                        STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0.0 );
+                    }
 
                     if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                        for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
-                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0.0 );
+                    {
+                        if(gradient_sparse_meta.pool != NULL)
+                        {
+#warning hard-coding cubic splines
+                            const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
+                                ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
+                            const int len          = gradient_sparse_meta.run_side_length;
+                            const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
+
+                            for(int iy=0; iy<len; iy++)
+                                for(int ix=0; ix<len; ix++)
+                                    STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy, 0.0 );
+                        }
+                        else
+                        {
+                            for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
+                                STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0.0 );
+                        }
+                    }
 
                     if( ctx->problem_details.do_optimize_extrinsics )
                         if( i_camera != 0 )
@@ -4347,14 +4366,30 @@ void optimizerCallback(// input state
                 norm2_error += err*err;
 
                 if( ctx->problem_details.do_optimize_intrinsic_core )
-                    for(int i=0; i<4; i++)
-                        STORE_JACOBIAN( i_var_intrinsics + i,
-                                        0.0 );
+                {
+                    STORE_JACOBIAN( i_var_intrinsics + i_xy,   0.0 );
+                    STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0.0 );
+                }
 
                 if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                    for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
-                        STORE_JACOBIAN( i_var_intrinsics+Ncore + i,
-                                        0.0 );
+                {
+                    if(gradient_sparse_meta.pool != NULL)
+                    {
+                        const int ivar0 = dq_dintrinsics_pool_int[0] -
+                            ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
+                        const int len          = gradient_sparse_meta.run_side_length;
+                        const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
+                        for(int iy=0; iy<len; iy++)
+                            for(int ix=0; ix<len; ix++)
+                                STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
+                                                0 );
+                    }
+                    else
+                    {
+                        for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
+                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0 );
+                    }
+                }
 
                 if( ctx->problem_details.do_optimize_extrinsics )
                     if( i_camera != 0 )
