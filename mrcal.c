@@ -137,11 +137,10 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
    const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
-        snprintf( out, size, "LENSMODEL_SPLINED_STEREOGRAPHIC_%"PRIu16"_%"PRIu16"_%"PRIu16"_%"PRIu16"_%f_%f",
+        snprintf( out, size, "LENSMODEL_SPLINED_STEREOGRAPHIC_%"PRIu16"_%"PRIu16"_%"PRIu16"_%"PRIu16,
                   config->spline_order,
                   config->Nx, config->Ny,
-                  config->fov_x_deg,
-                  config->cx, config->cy);
+                  config->fov_x_deg);
 }
 bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 {
@@ -171,11 +170,10 @@ static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( LENSMODEL_SPLINE
 {
     int pos;
     return
-        6 == sscanf( config_str, "%"SCNu16"_%"SCNu16"_%"SCNu16"_%"SCNu16"_%f_%f%n",
+        4 == sscanf( config_str, "%"SCNu16"_%"SCNu16"_%"SCNu16"_%"SCNu16"%n",
                      &config->spline_order,
                      &config->Nx, &config->Ny,
                      &config->fov_x_deg,
-                     &config->cx, &config->cy,
                      &pos) &&
         config_str[pos] == '\0';
 }
@@ -242,22 +240,24 @@ lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 
 bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )
 {
-    if(LENSMODEL_IS_OPENCV(m.type)) return true;
-    if(LENSMODEL_IS_CAHVOR(m.type)) return true;
-    if(m.type == LENSMODEL_PINHOLE) return true;
+    // everybody has a core!
+    return true;
+}
 
-    if(m.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
-        return false;
-
-    MSG("I don't know if %s has a core or not. Add that information to this function",
-        mrcal_lensmodel_name(m));
-    exit(1);
+static
+bool mrcal_model_supports_projection_behind_camera( const lensmodel_t m )
+{
+    return m.type == LENSMODEL_SPLINED_STEREOGRAPHIC;
 }
 
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__getNlensParams(const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
-    // I have two surfaces: one for x and another for y
-    return (int)config->Nx * (int)config->Ny * 2;
+    return
+        // I have two surfaces: one for x and another for y
+        (int)config->Nx * (int)config->Ny * 2 +
+
+        // and I have a core
+        4;
 }
 int mrcal_getNlensParams(const lensmodel_t m)
 {
@@ -384,19 +384,11 @@ static int getNmeasurements_observationsonly(int NobservationsBoard,
     return Nmeas;
 }
 
-
-static int LENSMODEL_SPLINED_STEREOGRAPHIC__getNregularizationTerms_percamera(const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
-{
-    return 0;
-}
 static int getNregularizationTerms_percamera(mrcal_problem_details_t problem_details,
                                              lensmodel_t lensmodel)
 {
     if(problem_details.do_skip_regularization)
         return 0;
-
-    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
-        return LENSMODEL_SPLINED_STEREOGRAPHIC__getNregularizationTerms_percamera(&lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config);
 
     // distortions
     int N = getNdistortionOptimizationParams(problem_details, lensmodel);
@@ -470,7 +462,8 @@ int mrcal_getN_j_nonzero( int Ncameras,
     // however, and there's only a partial dependence
     int Nintrinsics_per_measurement =
         (lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-        (problem_details.do_optimize_intrinsic_distortions ? 4*4 : 0) :
+        ( (problem_details.do_optimize_intrinsic_core        ? 4   : 0)  +
+          (problem_details.do_optimize_intrinsic_distortions ? 4*4 : 0) ) :
         mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
 
     // x depends on fx,cx but NOT on fy, cy. And similarly for y.
@@ -880,7 +873,7 @@ static void project_opencv( // out
 static
 void _project_point_parametric( // outputs
                                point2_t* q,
-                               double* p_dq_dfxy, double* p_dq_dintrinsics_nocore,
+                               double* dq_dfxy, double* dq_dintrinsics_nocore,
                                point3_t* restrict dq_drcamera,
                                point3_t* restrict dq_dtcamera,
                                point3_t* restrict dq_drframe,
@@ -937,12 +930,12 @@ void _project_point_parametric( // outputs
         }
 
         // I have the projection, and I now need to propagate the gradients
-        if( p_dq_dfxy )
+        if( dq_dfxy )
         {
             // I have the projection, and I now need to propagate the gradients
             // xy = fxy * distort(xy)/distort(z) + cxy
-            p_dq_dfxy[2*i_pt + 0] = p->x*pz_recip; // dx/dfx
-            p_dq_dfxy[2*i_pt + 1] = p->y*pz_recip; // dy/dfy
+            dq_dfxy[2*i_pt + 0] = p->x*pz_recip; // dx/dfx
+            dq_dfxy[2*i_pt + 1] = p->y*pz_recip; // dy/dfy
         }
     }
     else if( lensmodel.type == LENSMODEL_CAHVOR )
@@ -1068,24 +1061,24 @@ void _project_point_parametric( // outputs
             if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, dp_dtf, dq_dtframe [2*i_pt].xyz);
         }
 
-        if( p_dq_dintrinsics_nocore != NULL )
+        if( dq_dintrinsics_nocore != NULL )
         {
             for(int i=0; i<NdistortionParams; i++)
             {
                 const double dx = dpdistorted_ddistortion[i + 0*NdistortionParams];
                 const double dy = dpdistorted_ddistortion[i + 1*NdistortionParams];
                 const double dz = dpdistorted_ddistortion[i + 2*NdistortionParams];
-                p_dq_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * pz_recip * (dx - p_distorted.x*pz_recip*dz);
-                p_dq_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * pz_recip * (dy - p_distorted.y*pz_recip*dz);
+                dq_dintrinsics_nocore[(2*i_pt + 0)*NdistortionParams + i ] = fx * pz_recip * (dx - p_distorted.x*pz_recip*dz);
+                dq_dintrinsics_nocore[(2*i_pt + 1)*NdistortionParams + i ] = fy * pz_recip * (dy - p_distorted.y*pz_recip*dz);
             }
         }
 
-        if( p_dq_dfxy )
+        if( dq_dfxy )
         {
             // I have the projection, and I now need to propagate the gradients
             // xy = fxy * distort(xy)/distort(z) + cxy
-            p_dq_dfxy[2*i_pt + 0] = p_distorted.x*pz_recip; // dx/dfx
-            p_dq_dfxy[2*i_pt + 1] = p_distorted.y*pz_recip; // dy/dfy
+            dq_dfxy[2*i_pt + 0] = p_distorted.x*pz_recip; // dx/dfx
+            dq_dfxy[2*i_pt + 1] = p_distorted.y*pz_recip; // dy/dfy
         }
     }
     else
@@ -1095,15 +1088,6 @@ void _project_point_parametric( // outputs
         assert(0);
     }
 }
-
-
-typedef struct
-{
-    point2_t u;
-#warning assuming CUBIC splines here
-    double ABCDx[4];
-    double ABCDy[4];
-} splined_intrinsics_grad_context_t;
 
 // Compute a stereographic projection using a constant fxy, cxy. This is the
 // same as the pinhole projection for long lenses, but supports views behind the
@@ -1276,28 +1260,15 @@ void mrcal_unproject_stereographic( // output
     }
 }
 
-static void splined_mean_f(// outputs
-                           double* fx, double* fy,
-
-                           // intputs
-                           const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config,
-                           const double* intrinsics)
+typedef struct
 {
-    *fx = 0.0;
-    *fy = 0.0;
-    for(int j=0; j<config->Ny; j++)
-        for(int i=0; i<config->Nx; i++)
-        {
-            *fx += intrinsics[(j*config->Nx + i)*2 + 0];
-            *fy += intrinsics[(j*config->Nx + i)*2 + 1];
-        }
-    *fx /= (double)((int)config->Nx * (int)config->Ny);
-    *fy /= (double)((int)config->Nx * (int)config->Ny);
-}
-
+    double ABCDx[4];
+    double ABCDy[4];
+} splined_intrinsics_grad_context_t;
 static
 void _project_point_splined( // outputs
                             point2_t* q,
+                            double* dq_dfxy,
 
                             splined_intrinsics_grad_context_t* ctx,
                             int* ivar0,
@@ -1329,7 +1300,7 @@ void _project_point_splined( // outputs
         assert(0);
     }
 
-     const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+    const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
         &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
 
     // stereographic projection:
@@ -1342,32 +1313,40 @@ void _project_point_splined( // outputs
     // th is the angle between the observation and the projection
     // center
     //
-    // sin(th)   = mag_xy/mag_xyz
-    // cos(th)   = z/mag_xyz
+    // sin(th)   = mag_pxy/mag_p
+    // cos(th)   = z/mag_p
     // tan(th/2) = sin(th) / (1 + cos(th))
 
-    // tan(th/2) = mag_xy/mag_xyz / (1 + z/mag_xyz) =
-    //           = mag_xy / (mag_xyz + z)
+    // tan(th/2) = mag_pxy/mag_p / (1 + z/mag_p) =
+    //           = mag_pxy / (mag_p + z)
     // u = xy_unit * tan(th/2) * 2 =
-    //   = xy/mag_xy * mag_xy/(mag_xyz + z) * 2 =
-    //   = xy / (mag_xyz + z) * 2
-    double mag_xyz = sqrt( p->x*p->x +
-                           p->y*p->y +
-                           p->z*p->z );
-    double scale = 2.0 / (mag_xyz + p->z);
+    //   = xy/mag_pxy * mag_pxy/(mag_p + z) * 2 =
+    //   = xy / (mag_p + z) * 2
+    //
+    // The stereographic projection is used to query the spline surface, and it
+    // is also the projection baseline. I do
+    //
+    //   q = (u + deltau(u)) * f + c
+    //
+    // If the spline surface is at 0 (deltau == 0) then this is a pure
+    // stereographic projection
+    double mag_p = sqrt( p->x*p->x +
+                         p->y*p->y +
+                         p->z*p->z );
+    double scale = 2.0 / (mag_p + p->z);
 
-    ctx->u = (point2_t){.x = p->x * scale,
-                        .y = p->y * scale};
+    point2_t u = {.x = p->x * scale,
+                  .y = p->y * scale};
     // du/dp = d/dp ( xy * scale )
     //       = pxy dscale/dp + [I; 0] scale
-    // dscale/dp = d (2.0 / (mag_xyz + p->z))/dp =
+    // dscale/dp = d (2.0 / (mag_p + p->z))/dp =
     //           = -2/()^2 ( [0,0,1] + dmag/dp)
     //           = -2/()^2 ( [0,0,1] + 2pt/2mag)
     //           = -2 scale^2/4 ( [0,0,1] + pt/mag)
     //           = -scale^2/2 * ( [0,0,1] + pt/mag )
     //           = A*[0,0,1] + B*pt
     double A = -scale*scale / 2.;
-    double B = A / mag_xyz;
+    double B = A / mag_p;
     double du_dp[2][3] = { { p->x * (B * p->x)      + scale,
                              p->x * (B * p->y),
                              p->x * (B * p->z + A) },
@@ -1375,12 +1354,6 @@ void _project_point_splined( // outputs
                              p->y * (B * p->y)      + scale,
                              p->y * (B * p->z + A) } };
 
-    //MSG("normalized projection: %f %f", ctx->u.x, ctx->u.y);
-
-    // Great. I have the normalized projection. I use this to look
-    // up the focal length. And I apply that focal length to this
-    // normalized projection
-    //
     // I have N control points describing a given field-of-view. I
     // want to space out the control points evenly. I'm using
     // B-splines, so I need extra control points out past my edge.
@@ -1410,73 +1383,87 @@ void _project_point_splined( // outputs
     double th_fov_x_edge = (double)config->fov_x_deg/2. * M_PI / 180.;
     double q_edge_x      = tan(th_fov_x_edge / 2.) * 2;
     double interval_size = (q_edge_x*2.) / (config->Nx - 1 - NextraIntervals);
-    double ix = ctx->u.x/interval_size + (double)(config->Nx-1)/2.;
-    double iy = ctx->u.y/interval_size + (double)(config->Ny-1)/2.;
+    double ix = u.x/interval_size + (double)(config->Nx-1)/2.;
+    double iy = u.y/interval_size + (double)(config->Ny-1)/2.;
 #warning need to bounds-check
     int ix0 = (int)ix;
     int iy0 = (int)iy;
 
-    //MSG("spline grid coords:: %f %f", ix,iy);
 
-    point2_t fxy;
-    double dfxy_dux[2];
-    double dfxy_duy[2];
-    *ivar0 = 2*( (iy0-1)*config->Nx +
-                 (ix0-1) );
-    sample_bspline_surface_cubic(fxy.xy, dfxy_dux, dfxy_duy,
+    point2_t deltau;
+    double ddeltau_dux[2];
+    double ddeltau_duy[2];
+    *ivar0 =
+        4 + // skip the core
+        2*( (iy0-1)*config->Nx +
+            (ix0-1) );
+    const double fx = intrinsics[0];
+    const double fy = intrinsics[1];
+    const double cx = intrinsics[2];
+    const double cy = intrinsics[3];
+    sample_bspline_surface_cubic(deltau.xy, ddeltau_dux, ddeltau_duy,
                                  ctx->ABCDx, ctx->ABCDy,
                                  ix - ix0, iy - iy0,
 
                                  // control points
                                  &intrinsics[*ivar0],
                                  2*config->Nx);
-    // convert dfxy_dixy to dfxy_duxy
+    // convert ddeltau_dixy to ddeltau_duxy
     for(int i=0; i<2; i++)
     {
-        dfxy_dux[i] /= interval_size;
-        dfxy_duy[i] /= interval_size;
+        ddeltau_dux[i] /= interval_size;
+        ddeltau_duy[i] /= interval_size;
     }
 
-
-    q[i_pt].x = ctx->u.x * fxy.x + config->cx;
-    q[i_pt].y = ctx->u.y * fxy.y + config->cy;
-
-
     // u = stereographic(p)
-    // q = [ ux * fx(u, intrinsics) + cx ]
-    //   = [ uy * fy(u, intrinsics) + cy ]
+    // q = (u + deltau(u)) * f + c
     //
     // Extrinsics:
-    //   dqx/deee = ux dfx/duxy duxy/deee + fx dux/deee
-    //            = ux (dfx/dux dux/deee + dfx/duy duy/deee) + fx dux/deee
-    //            = (ux dfx/dux + fx) dux/deee + ux dfx/duy duy/deee
-    //   dqy/deee = (uy dfy/duy + fy) duy/deee + uy dfy/dux dux/deee
+    //   dqx/deee = fx (dux/deee + ddeltaux/du du/deee)
+    //            = fx ( dux/deee (1 + ddeltaux/dux) + ddeltaux/duy duy/deee)
+    //   dqy/deee = fy ( duy/deee (1 + ddeltauy/duy) + ddeltauy/dux dux/deee)
+    q[i_pt].x = (u.x + deltau.x) * fx + cx;
+    q[i_pt].y = (u.y + deltau.y) * fy + cy;
+
+    if( dq_dfxy )
+    {
+        // I have the projection, and I now need to propagate the gradients
+        // xy = fxy * distort(xy)/distort(z) + cxy
+        dq_dfxy[2*i_pt + 0] = u.x + deltau.x;
+        dq_dfxy[2*i_pt + 1] = u.y + deltau.y;
+    }
+
     void propagate_extrinsics( point3_t* dq_deee,
                                const double* dp_deee)
     {
         double du_deee[2][3];
-        double s0,s1;
         mul_genN3_gen33_vout(2, (double*)du_dp, dp_deee, (double*)du_deee);
-        s0 = ctx->u.x*dfxy_dux[0] + fxy.x;
-        s1 = ctx->u.x*dfxy_duy[0];
+
         for(int i=0; i<3; i++)
-            dq_deee[i_pt*2+0].xyz[i] = s0*du_deee[0][i] + s1*du_deee[1][i];
-        s0 = ctx->u.y*dfxy_duy[1] + fxy.y;
-        s1 = ctx->u.y*dfxy_dux[1];
-        for(int i=0; i<3; i++)
-            dq_deee[i_pt*2+1].xyz[i] = s0*du_deee[1][i] + s1*du_deee[0][i];
+        {
+            dq_deee[i_pt*2+0].xyz[i] =
+                fx *
+                ( du_deee[0][i] * (1. + ddeltau_dux[0]) +
+                  ddeltau_duy[0] * du_deee[1][i]);
+            dq_deee[i_pt*2+1].xyz[i] =
+                fy *
+                ( du_deee[1][i] * (1. + ddeltau_duy[1]) +
+                  ddeltau_dux[1] * du_deee[0][i]);
+        }
     }
     void propagate_extrinsics_cam0( point3_t* dq_deee)
     {
-        double s0,s1;
-        s0 = ctx->u.x*dfxy_dux[0] + fxy.x;
-        s1 = ctx->u.x*dfxy_duy[0];
         for(int i=0; i<3; i++)
-            dq_deee[i_pt*2+0].xyz[i] = s0*du_dp[0][i] + s1*du_dp[1][i];
-        s0 = ctx->u.y*dfxy_duy[1] + fxy.y;
-        s1 = ctx->u.y*dfxy_dux[1];
-        for(int i=0; i<3; i++)
-            dq_deee[i_pt*2+1].xyz[i] = s0*du_dp[1][i] + s1*du_dp[0][i];
+        {
+            dq_deee[i_pt*2+0].xyz[i] =
+                fx *
+                ( du_dp[0][i] * (1. + ddeltau_dux[0]) +
+                  ddeltau_duy[0] * du_dp[1][i]);
+            dq_deee[i_pt*2+1].xyz[i] =
+                fy *
+                ( du_dp[1][i] * (1. + ddeltau_duy[1]) +
+                  ddeltau_dux[1] * du_dp[0][i]);
+        }
     }
     if(camera_at_identity)
     {
@@ -1496,6 +1483,7 @@ void _project_point_splined( // outputs
 
 typedef struct
 {
+    double* pool;
     uint16_t run_side_length;
     uint16_t ivar_stridey;
 } gradient_sparse_meta_t;
@@ -1528,7 +1516,6 @@ void project( // out
              double** restrict dq_dfxy,
              double** restrict dq_dintrinsics_nocore,
              gradient_sparse_meta_t* gradient_sparse_meta,
-
              point3_t* restrict dq_drcamera,
              point3_t* restrict dq_dtcamera,
              point3_t* restrict dq_drframe,
@@ -1566,26 +1553,24 @@ void project( // out
     //                = fx/uz^2 ( uz dux/deee - duz/deee ux )
     //
     // nonparametric (splined) models
-    //   uxy = stereographic(p)
-    //   q   = [ ux * fx(uxy, intrinsics) + cx ]
-    //       = [ uy * fy(uxy, intrinsics) + cy ]
+    //   u = stereographic(p)
+    //   q = (u + deltau(u)) * f + c
     //
     //   Extrinsics:
-    //     dqx/deee = ux dfx/duxy duxy/deee + fx dux/deee
-    //              = ux (dfx/dux dux/deee + dfx/duy duy/deee) + fx dux/deee
-    //              = (ux dfx/dux + fx I) dux/deee + ux dfx/duy duy/deee
-    //     dqy/deee = (uy dfy/duy + fy I) duy/deee + uy dfy/dux dux/deee
+    //     dqx/deee = fx (dux/deee + ddeltaux/du du/deee)
+    //              = fx ( dux/deee (1 + ddeltaux/dux) + ddeltaux/duy duy/deee)
+    //     dqy/deee = fy ( duy/deee (1 + ddeltauy/duy) + ddeltauy/dux dux/deee)
     //
     //   Intrinsics:
-    //     dqx/diii = ux dfx/diii
+    //     dq/diii = f ddeltau/diii
     //
     // So the two kinds of models have completely different expressions for
     // their gradients, and I implement them separately
 
-
     const int Npoints =
         calibration_object_width_n ?
         calibration_object_width_n*calibration_object_width_n : 1;
+    const int Nintrinsics = mrcal_getNlensParams(lensmodel);
 
     // I need to compose two transformations
     //
@@ -1666,7 +1651,7 @@ void project( // out
         {
             *dq_dfxy                             = &dq_dintrinsics_pool_double[0];
             *dq_dintrinsics_nocore               = &dq_dintrinsics_pool_double[Npoints*2];
-            gradient_sparse_meta->run_side_length = 0;
+            gradient_sparse_meta->pool           = NULL;
 
             p_dq_dfxy               = *dq_dfxy;
             p_dq_dintrinsics_nocore = *dq_dintrinsics_nocore;
@@ -1686,7 +1671,7 @@ void project( // out
                         calibration_object_spacing,
                         calibration_object_width_n,
 
-                        mrcal_getNlensParams(lensmodel)-4,
+                        Nintrinsics-4,
                         camera_at_identity ? NULL : &gg,
                         p_rj, p_tj);
         return;
@@ -1703,25 +1688,34 @@ void project( // out
     cvRodrigues2(p_rj, &Rj, &d_Rj_rj);
 
 
-    double* p_dq_dfxy               = NULL;
-    double* p_dq_dintrinsics_nocore = NULL;
-    bool hascore = mrcal_modelHasCore_fxfycxcy(lensmodel);
+    double* p_dq_dfxy                  = NULL;
+    double* p_dq_dintrinsics_nocore    = NULL;
+    bool    has_core                   = mrcal_modelHasCore_fxfycxcy(lensmodel);
+    bool    has_dense_intrinsics_grad  = (lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool    has_sparse_intrinsics_grad = (lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC);
+
     if(dq_dintrinsics_pool_double != NULL)
     {
-        if(hascore)
-        {
-            *dq_dfxy                             = &dq_dintrinsics_pool_double[0];
-            *dq_dintrinsics_nocore               = &dq_dintrinsics_pool_double[Npoints*2];
-            gradient_sparse_meta->run_side_length = 0;
+        // nothing by default
+        *dq_dfxy                   = NULL;
+        *dq_dintrinsics_nocore     = NULL;
+        gradient_sparse_meta->pool = NULL;
+        int ivar_pool = 0;
 
-            p_dq_dfxy               = *dq_dfxy;
-            p_dq_dintrinsics_nocore = *dq_dintrinsics_nocore;
+        if(has_core)
+        {
+            // Each point produces 2 measurements. Each one depends on ONE fxy
+            // element. So Npoints*2 of these
+            *dq_dfxy               = p_dq_dfxy               = &dq_dintrinsics_pool_double[ivar_pool];
+            ivar_pool += Npoints*2;
         }
-        else
+        if(has_dense_intrinsics_grad)
         {
-            *dq_dfxy               = NULL;
-            *dq_dintrinsics_nocore = NULL;
-
+            *dq_dintrinsics_nocore = p_dq_dintrinsics_nocore = &dq_dintrinsics_pool_double[ivar_pool];
+            ivar_pool += Npoints*2 * Nintrinsics;
+        }
+        if(has_sparse_intrinsics_grad)
+        {
             if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
             {
                 MSG("Unhandled lens model: %d (%s)",
@@ -1735,7 +1729,8 @@ void project( // out
                 (gradient_sparse_meta_t)
                 {
                     .run_side_length = 4,
-                    .ivar_stridey    = 2*config->Nx
+                    .ivar_stridey    = 2*config->Nx,
+                    .pool            = &dq_dintrinsics_pool_double[ivar_pool]
                 };
         }
     }
@@ -1833,12 +1828,14 @@ void project( // out
                        bool camera_at_identity,
                        const double* _Rj)
     {
-        if(!hascore)
+        // this should be more generic, and should use has_...
+        if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
         {
             splined_intrinsics_grad_context_t ctx;
             int ivar0;
             _project_point_splined( // outputs
                                    q,
+                                   p_dq_dfxy,
                                    &ctx, &ivar0,
 
                                    dq_drcamera,
@@ -1857,9 +1854,7 @@ void project( // out
             if(dq_dintrinsics_pool_int != NULL)
             {
                 *(dq_dintrinsics_pool_int++) = ivar0;
-                memcpy(dq_dintrinsics_pool_double, &ctx,
-                       sizeof(ctx));
-                dq_dintrinsics_pool_double = &dq_dintrinsics_pool_double[sizeof(ctx)/sizeof(double)];
+                memcpy(&gradient_sparse_meta->pool[i_pt*sizeof(ctx)/sizeof(double)], &ctx, sizeof(ctx));
             }
         }
         else
@@ -2218,7 +2213,7 @@ bool mrcal_project( // out
         return _project_cahvore(q, p, N, intrinsics);
     }
 
-    int Nintrinsics  = mrcal_getNlensParams(lensmodel);
+    int Nintrinsics = mrcal_getNlensParams(lensmodel);
 
     // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
     // project() have a lot of overhead apparently, and calling either in a loop
@@ -2333,33 +2328,31 @@ bool mrcal_project( // out
                            &dq_dintrinsics_nocore[i_xy*(Nintrinsics-Ncore)],
                            (Nintrinsics-Ncore)*sizeof(double));
             }
-            if(gradient_sparse_meta.run_side_length > 0)
+            if(gradient_sparse_meta.pool != NULL)
             {
                 // u = stereographic(p)
-                // q = [ ux * fx(u, intrinsics) + cx ]
-                //   = [ uy * fy(u, intrinsics) + cy ]
+                // q = (u + deltau(u)) * f + c
                 //
                 // Intrinsics:
-                //   dqx/diii = ux dfx/diii
+                //   dq/diii = f ddeltau/diii
                 //
-                // dfx/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
+                // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
 
-                // pool_double contains ABCDxy and u in a
-                // splined_intrinsics_grad_context_t
+                // pool_double contains ABCDxy in a splined_intrinsics_grad_context_t
                 const splined_intrinsics_grad_context_t* ctx =
-                    (splined_intrinsics_grad_context_t*)dq_dintrinsics_pool_double;
+                    (splined_intrinsics_grad_context_t*)gradient_sparse_meta.pool;
                 const int ivar0 = dq_dintrinsics_pool_int[0];
 
                 const int len          = gradient_sparse_meta.run_side_length;
                 const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
-
+                const double* fxy = &intrinsics[0];
                 for(int i_xy=0; i_xy<2; i_xy++)
                     for(int iy=0; iy<len; iy++)
                         for(int ix=0; ix<len; ix++)
                         {
                             int ivar = ivar0 + ivar_stridey*iy + ix*2 + i_xy;
                             dq_dintrinsics[ivar + i_xy*Nintrinsics] =
-                                ctx->ABCDx[ix]*ctx->ABCDy[iy]*ctx->u.xy[i_xy];
+                                ctx->ABCDx[ix]*ctx->ABCDy[iy]*fxy[i_xy];
                         }
             }
 
@@ -2468,14 +2461,6 @@ bool _unproject( // out
         fy = intrinsics[1];
         cx = intrinsics[2];
         cy = intrinsics[3];
-    }
-    else if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
-    {
-        const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
-            &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-        splined_mean_f(&fx, &fy, config, intrinsics);
-        cx = config->cx;
-        cy = config->cy;
     }
     else
     {
@@ -2612,8 +2597,7 @@ bool _unproject( // out
             mrcal_unproject_stereographic((point3_t*)out, NULL,
                                           (point2_t*)out, 1,
                                           fx,fy,cx,cy);
-#warning this really means "forward-only" not "hascore"
-            if(mrcal_modelHasCore_fxfycxcy(lensmodel) && out[2] < 0.0)
+            if(!mrcal_model_supports_projection_behind_camera(lensmodel) && out[2] < 0.0)
             {
                 out[0] *= -1.0;
                 out[1] *= -1.0;
@@ -2697,9 +2681,8 @@ static int pack_solver_state_intrinsics( // out
     int i_state = 0;
 
     int Nintrinsics  = mrcal_getNlensParams(lensmodel);
-    int Ndistortions = Nintrinsics;
-    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
-        Ndistortions -= 4; // ignoring fx,fy,cx,cy
+    int Ncore        = mrcal_modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+    int Ndistortions = Nintrinsics - Ncore;
 
     for(int i_camera=0; i_camera < Ncameras; i_camera++)
     {
@@ -2715,7 +2698,7 @@ static int pack_solver_state_intrinsics( // out
         if( problem_details.do_optimize_intrinsic_distortions )
 
             for(int i = 0; i<Ndistortions; i++)
-                p[i_state++] = intrinsics[4 + i] / SCALE_DISTORTION;
+                p[i_state++] = intrinsics[Ncore + i] / SCALE_DISTORTION;
 
         intrinsics = &intrinsics[Nintrinsics];
     }
@@ -2725,8 +2708,8 @@ static void pack_solver_state( // out
                               double* p,
 
                               // in
-                              const double* intrinsics, // Ncameras of these
                               const lensmodel_t lensmodel,
+                              const double* intrinsics, // Ncameras of these
                               const pose_t*            extrinsics, // Ncameras-1 of these
                               const pose_t*            frames,     // Nframes of these
                               const point3_t*          points,     // Npoints of these
@@ -3799,7 +3782,6 @@ void optimizerCallback(// input state
         point3_t dq_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
         point2_t dq_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
         point2_t pt_hypothesis      [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
-
         // I get the intrinsics gradients in separate arrays, possibly sparsely.
         // All the data lives in dq_dintrinsics_pool_double[], with the other data
         // indicating the meaning of the values in the pool.
@@ -3809,14 +3791,12 @@ void optimizerCallback(// input state
         // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
         // for cx,cy, except we know the gradient value beforehand. I support
         // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
-        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_width_n*2*(1+ctx->Nintrinsics-4)];
+        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_width_n*2*(1+ctx->Nintrinsics)];
         int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
         double* dq_dfxy = NULL;
         double* dq_dintrinsics_nocore = NULL;
-        gradient_sparse_meta_t gradient_sparse_meta = {}; // init to pacify compiler warning
+        gradient_sparse_meta_t gradient_sparse_meta;
 
-        splined_intrinsics_grad_context_t* splined_intrinsics_grad_context =
-            (splined_intrinsics_grad_context_t*)dq_dintrinsics_pool_double;
         int splined_intrinsics_grad_irun = 0;
 
         project(pt_hypothesis,
@@ -3891,30 +3871,30 @@ void optimizerCallback(// input state
 
                     if( ctx->problem_details.do_optimize_intrinsic_distortions )
                     {
-                        if(gradient_sparse_meta.run_side_length > 0)
+                        if(gradient_sparse_meta.pool != NULL)
                         {
                             // u = stereographic(p)
-                            // q = [ ux * fx(u, intrinsics) + cx ]
-                            //   = [ uy * fy(u, intrinsics) + cy ]
+                            // q = (u + deltau(u)) * f + c
                             //
                             // Intrinsics:
-                            //   dqx/diii = ux dfx/diii
+                            //   dq/diii = f ddeltau/diii
                             //
-                            // dfx/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
+                            // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
 
-                            // pool_double contains ABCDxy and u in a
-                            // splined_intrinsics_grad_context_t
+                            // pool_double contains ABCDxy in a splined_intrinsics_grad_context_t
+                            const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
+                                ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
                             const splined_intrinsics_grad_context_t* ctx =
-                                splined_intrinsics_grad_context;
-                            const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun];
+                                &((splined_intrinsics_grad_context_t*)gradient_sparse_meta.pool)[splined_intrinsics_grad_irun];
 
                             const int len          = gradient_sparse_meta.run_side_length;
                             const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
+                            const double* fxy = &intrinsics_all[i_camera][0];
 
                             for(int iy=0; iy<len; iy++)
                                 for(int ix=0; ix<len; ix++)
                                     STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
-                                                    ctx->ABCDx[ix]*ctx->ABCDy[iy]*ctx->u.xy[i_xy] *
+                                                    ctx->ABCDx[ix]*ctx->ABCDy[iy]*fxy[i_xy] *
                                                     weight * SCALE_DISTORTION );
                         }
                         else
@@ -3974,11 +3954,8 @@ void optimizerCallback(// input state
 
                     iMeasurement++;
                 }
-                if(gradient_sparse_meta.run_side_length > 0)
-                {
-                    splined_intrinsics_grad_context++;
+                if(gradient_sparse_meta.pool != NULL)
                     splined_intrinsics_grad_irun++;
-                }
             }
             else
             {
@@ -4078,7 +4055,7 @@ void optimizerCallback(// input state
                      i_observation_point, i_point, i_camera);
         }
 
-        double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics-4)];
+        double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics)];
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy;
         double* dq_dintrinsics_nocore;
@@ -4160,31 +4137,31 @@ void optimizerCallback(// input state
 
                 if( ctx->problem_details.do_optimize_intrinsic_distortions )
                 {
-                    if(gradient_sparse_meta.run_side_length > 0)
+                    if(gradient_sparse_meta.pool != NULL)
                     {
                         // u = stereographic(p)
-                        // q = [ ux * fx(u, intrinsics) + cx ]
-                        //   = [ uy * fy(u, intrinsics) + cy ]
+                        // q = (u + deltau(u)) * f + c
                         //
                         // Intrinsics:
-                        //   dqx/diii = ux dfx/diii
+                        //   dq/diii = f ddeltau/diii
                         //
-                        // dfx/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
+                        // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
 
-                        // pool_double contains ABCDxy and u in a
-                        // splined_intrinsics_grad_context_t
+                        // pool_double contains ABCDxy in a splined_intrinsics_grad_context_t
+                        const int ivar0 = dq_dintrinsics_pool_int[0] -
+                            ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
                         const splined_intrinsics_grad_context_t* ctx =
-                            (splined_intrinsics_grad_context_t*)dq_dintrinsics_pool_double;
-                        const int ivar0 = dq_dintrinsics_pool_int[0];
+                            (splined_intrinsics_grad_context_t*)gradient_sparse_meta.pool;
 
                         const int len          = gradient_sparse_meta.run_side_length;
                         const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
+                        const double* fxy = &intrinsics_all[i_camera][0];
 
                         for(int iy=0; iy<len; iy++)
                             for(int ix=0; ix<len; ix++)
                             {
                                 STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
-                                                ctx->ABCDx[ix]*ctx->ABCDy[iy]*ctx->u.xy[i_xy] *
+                                                ctx->ABCDx[ix]*ctx->ABCDy[iy]*fxy[i_xy] *
                                                 weight * SCALE_DISTORTION );
                             }
                     }
@@ -4421,9 +4398,13 @@ void optimizerCallback(// input state
         }
     }
 
+
+
+
     // regularization terms for the intrinsics. I favor smaller distortion
     // parameters
     if(!ctx->problem_details.do_skip_regularization &&
+       mrcal_modelHasCore_fxfycxcy(ctx->lensmodel) &&
        ( ctx->problem_details.do_optimize_intrinsic_distortions ||
          ctx->problem_details.do_optimize_intrinsic_core
          ))
@@ -4700,8 +4681,7 @@ void mrcal_optimizerCallback(// output measurements
                                        lensmodel);
     double packed_state[Nstate];
     pack_solver_state(packed_state,
-                      intrinsics,
-                      lensmodel,
+                      lensmodel, intrinsics,
                       extrinsics,
                       frames,
                       points,
@@ -4883,8 +4863,7 @@ mrcal_optimize( // out
                                        lensmodel);
     double packed_state[Nstate];
     pack_solver_state(packed_state,
-                      intrinsics,
-                      lensmodel,
+                      lensmodel, intrinsics,
                       extrinsics,
                       frames,
                       points,

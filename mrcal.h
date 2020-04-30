@@ -105,9 +105,6 @@ typedef struct
     // The horizontal field of view. Not including fov_y. It's proportional with
     // Ny and Nx
     uint16_t fov_x_deg;
-
-    // projection center
-    float cx, cy;
 } LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
 
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
