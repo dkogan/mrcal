@@ -63,7 +63,7 @@ Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          ${python3:Depends},
          python3-gnuplotlib, python3-numpysane (>= 0.16-1),
-         python3-scipy,  python3-ipython
+         python3-scipy,  python3-ipython, python3-shapely
 Provides: ${python3:Provides}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
