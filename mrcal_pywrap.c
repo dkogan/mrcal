@@ -655,6 +655,71 @@ static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
+                                          PyObject* args)
+{
+    PyObject*      result = NULL;
+    PyArrayObject* py_ux  = NULL;
+    PyArrayObject* py_uy  = NULL;
+    SET_SIGINT();
+
+    PyObject* lensmodel_string = NULL;
+    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
+        goto done;
+    lensmodel_t lensmodel;
+    if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
+        goto done;
+
+    if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "This function works only with the LENSMODEL_SPLINED_STEREOGRAPHIC model. %S passed in",
+                     lensmodel_string);
+        goto done;
+    }
+
+    {
+        double ux[lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx];
+        double uy[lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny];
+        if(!mrcal_get_knots_for_splined_models(ux,uy, lensmodel))
+        {
+            PyErr_SetString(PyExc_RuntimeError,
+                            "mrcal_get_knots_for_splined_models() failed");
+            goto done;
+        }
+
+
+        npy_intp dims[1];
+
+        dims[0] = lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx;
+        py_ux = (PyArrayObject*)PyArray_SimpleNew(1, dims, NPY_DOUBLE);
+        if(py_ux == NULL)
+        {
+            PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate ux");
+            goto done;
+        }
+
+        dims[0] = lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny;
+        py_uy = (PyArrayObject*)PyArray_SimpleNew(1, dims, NPY_DOUBLE);
+        if(py_uy == NULL)
+        {
+            PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate uy");
+            goto done;
+        }
+
+        memcpy(PyArray_DATA(py_ux), ux, lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx*sizeof(double));
+        memcpy(PyArray_DATA(py_uy), uy, lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny*sizeof(double));
+    }
+
+    result = Py_BuildValue("OO", py_ux, py_uy);
+
+ done:
+    Py_XDECREF(py_ux);
+    Py_XDECREF(py_uy);
+    RESET_SIGINT();
+    return result;
+}
+
 static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
                                 PyObject* args)
 {
@@ -2131,6 +2196,9 @@ static const char getSupportedLensModels_docstring[] =
 static const char getNextLensModel_docstring[] =
 #include "getNextLensModel.docstring.h"
     ;
+static const char getKnotsForSplinedModels_docstring[] =
+#include "getKnotsForSplinedModels.docstring.h"
+    ;
 static const char project_docstring[] =
 #include "project.docstring.h"
     ;
@@ -2150,6 +2218,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
       PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
       PYMETHODDEF_ENTRY(,getNextLensModel,         METH_VARARGS),
+      PYMETHODDEF_ENTRY(,getKnotsForSplinedModels, METH_VARARGS),
       PYMETHODDEF_ENTRY(,project,                  METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_unproject,               METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,projectStereographic,     METH_VARARGS | METH_KEYWORDS),

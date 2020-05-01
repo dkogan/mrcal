@@ -233,11 +233,17 @@ lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
 // missing or unparseable. Unknown model names return LENSMODEL_INVALID
 lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
 
-mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const lensmodel_t m );
+mrcal_lensmodel_meta_t mrcal_lensmodel_meta              ( const lensmodel_t m );
 int                mrcal_getNlensParams                  ( const lensmodel_t m );
 int                mrcal_getNintrinsicOptimizationParams ( mrcal_problem_details_t problem_details,
                                                            lensmodel_t m );
 const char* const* mrcal_getSupportedLensModels          ( void ); // NULL-terminated array of char* strings
+
+bool mrcal_get_knots_for_splined_models( // buffers must hold at least
+                                         // config->Nx and config->Ny values
+                                         // respectively
+                                         double* ux, double* uy,
+                                         lensmodel_t lensmodel);
 
 // Returns the 'next' lens model in a family
 //
@@ -252,7 +258,7 @@ const char* const* mrcal_getSupportedLensModels          ( void ); // NULL-termi
 // LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not well-defined
 // without more information
 lensmodel_t mrcal_getNextLensModel( lensmodel_t lensmodel_now,
-                                     lensmodel_t lensmodel_final);
+                                    lensmodel_t lensmodel_final);
 
 // Wrapper around the internal project() function: the function used in the
 // inner optimization loop. These map world points to their observed pixel

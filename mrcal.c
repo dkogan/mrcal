@@ -1285,12 +1285,6 @@ void mrcal_unproject_stereographic( // output
     }
 }
 
-typedef struct
-{
-    double ABCDx[4];
-    double ABCDy[4];
-} splined_intrinsics_grad_context_t;
-
 static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
   ( // output
     LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed,
@@ -1327,7 +1321,6 @@ static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
     double u_edge_x      = tan(th_fov_x_edge / 2.) * 2;
     precomputed->segments_per_u = (config->Nx - 1 - NextraIntervals) / (u_edge_x*2.);
 }
-
 static void precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
                                       lensmodel_t lensmodel)
 {
@@ -1338,6 +1331,46 @@ static void precompute_lensmodel_data(mrcal_projection_precomputed_t* precompute
               &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config );
     precomputed->ready = true;
 }
+
+bool mrcal_get_knots_for_splined_models( // buffers must hold at least
+                                         // config->Nx and config->Ny values
+                                         // respectively
+                                         double* ux, double* uy,
+                                         lensmodel_t lensmodel)
+{
+    if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
+    {
+        MSG("This function works only with the LENSMODEL_SPLINED_STEREOGRAPHIC model. '%s' passed in",
+            mrcal_lensmodel_name(lensmodel));
+        return false;
+    }
+
+    mrcal_projection_precomputed_t precomputed_all;
+    precompute_lensmodel_data(&precomputed_all, lensmodel);
+
+    LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+        &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
+    LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed =
+        &precomputed_all.LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed;
+
+    // The logic I'm reversing is
+    //     double ix = u.x*segments_per_u + (double)(Nx-1)/2.;
+    for(int i=0; i<config->Nx; i++)
+        ux[i] =
+            ((double)i - (double)(config->Nx-1)/2.) /
+            precomputed->segments_per_u;
+    for(int i=0; i<config->Ny; i++)
+        uy[i] =
+            ((double)i - (double)(config->Ny-1)/2.) /
+            precomputed->segments_per_u;
+    return true;
+}
+
+typedef struct
+{
+    double ABCDx[4];
+    double ABCDy[4];
+} splined_intrinsics_grad_context_t;
 
 static
 void _project_point_splined( // outputs
