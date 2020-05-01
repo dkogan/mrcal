@@ -588,6 +588,34 @@ static PyTypeObject SolverContextType =
     .tp_doc       = "Opaque solver context used by mrcal",
 };
 
+static bool parse_lensmodel_from_arg(// output
+                                     lensmodel_t* lensmodel,
+                                     // input
+                                     PyObject* lensmodel_string)
+{
+    const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
+    if( lensmodel_cstring == NULL)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
+        return false;
+    }
+
+    *lensmodel = mrcal_lensmodel_from_name(lensmodel_cstring);
+    if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
+    {
+        if(lensmodel->type == LENSMODEL_INVALID_BADCONFIG)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
+                         lensmodel_cstring);
+            return false;
+        }
+        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
+                     lensmodel_cstring
+                     VALID_LENSMODELS_ARGLIST);
+        return false;
+    }
+    return true;
+}
 
 static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
                                   PyObject* args)
@@ -598,28 +626,9 @@ static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
     PyObject* lensmodel_string = NULL;
     if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
         goto done;
-
-    const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
-    if( lensmodel_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
+    lensmodel_t lensmodel;
+    if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
-    }
-
-    lensmodel_t lensmodel = mrcal_lensmodel_from_name(lensmodel_cstring);
-    if( !mrcal_lensmodel_type_is_valid(lensmodel.type) )
-    {
-        if(lensmodel.type == LENSMODEL_INVALID_BADCONFIG)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
-                         lensmodel_cstring);
-            goto done;
-        }
-        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_cstring
-                     VALID_LENSMODELS_ARGLIST);
-        goto done;
-    }
 
     mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(lensmodel);
 
@@ -655,28 +664,9 @@ static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
     PyObject* lensmodel_string = NULL;
     if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
         goto done;
-
-    const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
-    if( lensmodel_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
+    lensmodel_t lensmodel;
+    if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
-    }
-
-    lensmodel_t lensmodel = mrcal_lensmodel_from_name(lensmodel_cstring);
-    if( !mrcal_lensmodel_type_is_valid(lensmodel.type) )
-    {
-        if(lensmodel.type == LENSMODEL_INVALID_BADCONFIG)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
-                         lensmodel_cstring);
-            goto done;
-        }
-        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_cstring
-                     VALID_LENSMODELS_ARGLIST);
-        goto done;
-    }
 
     int Nparams = mrcal_getNlensParams(lensmodel);
 
@@ -737,53 +727,16 @@ static PyObject* getNextLensModel(PyObject* NPY_UNUSED(self),
                           &lensmodel_final_string))
         goto done;
 
-    const char* lensmodel_now_cstring = PyString_AsString(lensmodel_now_string);
-    if( lensmodel_now_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "lensmodel_now must be given as a string");
+    lensmodel_t lensmodel_now, lensmodel_final;
+    if(!parse_lensmodel_from_arg(&lensmodel_now,   lensmodel_now_string) ||
+       !parse_lensmodel_from_arg(&lensmodel_final, lensmodel_final_string))
         goto done;
-    }
-    const char* lensmodel_final_cstring = PyString_AsString(lensmodel_final_string);
-    if( lensmodel_final_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "lensmodel_final must be given as a string");
-        goto done;
-    }
-
-    lensmodel_t lensmodel_now = mrcal_lensmodel_from_name(lensmodel_now_cstring);
-    if( !mrcal_lensmodel_type_is_valid(lensmodel_now.type) )
-    {
-        if(lensmodel_now.type == LENSMODEL_INVALID_BADCONFIG)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
-                         lensmodel_now_cstring);
-            goto done;
-        }
-        PyErr_Format(PyExc_RuntimeError, "Invalid lensmodel_now was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_now_cstring
-                     VALID_LENSMODELS_ARGLIST);
-        goto done;
-    }
-    lensmodel_t lensmodel_final = mrcal_lensmodel_from_name(lensmodel_final_cstring);
-    if( !mrcal_lensmodel_type_is_valid(lensmodel_final.type) )
-    {
-        if(lensmodel_final.type == LENSMODEL_INVALID_BADCONFIG)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
-                         lensmodel_final_cstring);
-            goto done;
-        }
-        PyErr_Format(PyExc_RuntimeError, "Invalid lensmodel_final was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_final_cstring
-                     VALID_LENSMODELS_ARGLIST);
-        goto done;
-    }
 
     lensmodel_t lensmodel = mrcal_getNextLensModel(lensmodel_now, lensmodel_final);
     if(!mrcal_lensmodel_type_is_valid(lensmodel.type))
     {
-        PyErr_Format(PyExc_RuntimeError, "Couldn't figure out the 'next' lens model from '%s' to '%s'",
-                     lensmodel_now_cstring, lensmodel_final_cstring);
+        PyErr_Format(PyExc_RuntimeError, "Couldn't figure out the 'next' lens model from '%S' to '%S'",
+                     lensmodel_now_string, lensmodel_final_string);
         goto done;
     }
 
@@ -855,27 +808,8 @@ static bool _un_project_validate_args( // out
     PROJECT_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
 
-    const char* lensmodel_cstring = PyString_AsString(lensmodel);
-    if( lensmodel_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
+    if(!parse_lensmodel_from_arg(lensmodel_type, lensmodel))
         return false;
-    }
-
-    *lensmodel_type = mrcal_lensmodel_from_name(lensmodel_cstring);
-    if( !mrcal_lensmodel_type_is_valid(lensmodel_type->type) )
-    {
-        if(lensmodel_type->type == LENSMODEL_INVALID_BADCONFIG)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
-                         lensmodel_cstring);
-            return false;
-        }
-        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_cstring
-                     VALID_LENSMODELS_ARGLIST);
-        return false;
-    }
 
     int NlensParams = mrcal_getNlensParams(*lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[0] )
@@ -1381,27 +1315,8 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    const char* lensmodel_cstring = PyString_AsString(lensmodel);
-    if( lensmodel_cstring == NULL)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
+    if(!parse_lensmodel_from_arg(lensmodel_type, lensmodel))
         return false;
-    }
-
-    *lensmodel_type = mrcal_lensmodel_from_name(lensmodel_cstring);
-    if( !mrcal_lensmodel_type_is_valid(lensmodel_type->type) )
-    {
-        if(lensmodel_type->type == LENSMODEL_INVALID_BADCONFIG)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
-                         lensmodel_cstring);
-            return false;
-        }
-        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_cstring
-                     VALID_LENSMODELS_ARGLIST);
-        return false;
-    }
 
     int NlensParams = mrcal_getNlensParams(*lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[1] )
