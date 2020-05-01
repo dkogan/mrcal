@@ -4,7 +4,7 @@ r'''Visualizes the knots in a splined camera model
 
 SYNOPSIS
 
-  $ mrcal-show-splined-model-knots x cam.cameramodel
+  $ mrcal-show-splined-model-knots cam.cameramodel
   ... a plot pops up showing the imager and the knots
 
 Splined models are build with a splined surface that we index to compute the
