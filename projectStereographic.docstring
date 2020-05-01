@@ -2,9 +2,9 @@ Projects a set of 3D camera-frame points using a stereographic map
 
 SYNOPSIS
 
-    q = mrcal.project( # (N,3) array of 3d points we're projecting
-                       points,
-                       fx, fy, cx, cy )
+    q = mrcal.projectStereographic( # (N,3) array of 3d points we're projecting
+                                    points,
+                                    fx, fy, cx, cy )
 
     # q is now a (N,2) array of stereographic pixel coordinates
 
