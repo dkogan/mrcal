@@ -102,6 +102,7 @@ EXTRA_CLEAN += mrcal/*.so
 
 # Set up the test suite to be runnable in parallel
 TESTS :=					\
+  test/test-pywrap-functions.py			\
   test/test-pylib-projections.py		\
   test/test-poseutils.py			\
   test/test-cameramodel.py			\
