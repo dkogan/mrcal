@@ -2547,11 +2547,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
-    if isinstance(m, mrcal.cameramodel):
-        lens_models_intrinsics_data = [ m.intrinsics() for m in models_or_intrinsics ]
-    else:
-        lens_models_intrinsics_data = models_or_intrinsics
-
+    lens_models_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
     lens_models     = [di[0] for di in lens_models_intrinsics_data]
     intrinsics_data = [di[1] for di in lens_models_intrinsics_data]
 
