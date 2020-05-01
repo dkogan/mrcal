@@ -1406,10 +1406,10 @@ void _project_point_splined( // outputs
     }
 #warning this fov stuff can be done once per model, not for each projection
     double th_fov_x_edge = (double)config->fov_x_deg/2. * M_PI / 180.;
-    double q_edge_x      = tan(th_fov_x_edge / 2.) * 2;
-    double interval_size = (q_edge_x*2.) / (config->Nx - 1 - NextraIntervals);
-    double ix = u.x/interval_size + (double)(config->Nx-1)/2.;
-    double iy = u.y/interval_size + (double)(config->Ny-1)/2.;
+    double u_edge_x      = tan(th_fov_x_edge / 2.) * 2;
+    double u_per_segment = (u_edge_x*2.) / (config->Nx - 1 - NextraIntervals);
+    double ix = u.x/u_per_segment + (double)(config->Nx-1)/2.;
+    double iy = u.y/u_per_segment + (double)(config->Ny-1)/2.;
 #warning need to bounds-check
     int ix0 = (int)ix;
     int iy0 = (int)iy;
@@ -1436,8 +1436,8 @@ void _project_point_splined( // outputs
     // convert ddeltau_dixy to ddeltau_duxy
     for(int i=0; i<2; i++)
     {
-        ddeltau_dux[i] /= interval_size;
-        ddeltau_duy[i] /= interval_size;
+        ddeltau_dux[i] /= u_per_segment;
+        ddeltau_duy[i] /= u_per_segment;
     }
 
     // u = stereographic(p)
