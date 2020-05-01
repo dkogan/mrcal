@@ -2,7 +2,7 @@ Get the number of lens parameters for a particular model type
 
 SYNOPSIS
 
-    print mrcal.getNlensParams('LENSMODEL_OPENCV4')
+    print(mrcal.getNlensParams('LENSMODEL_OPENCV4'))
 
     8
 

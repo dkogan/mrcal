@@ -2,7 +2,7 @@ Returns the 'next' lens model in a family
 
 SYNOPSIS
 
-    print mrcal.getNextLensModel('LENSMODEL_OPENCV5', 'LENSMODEL_OPENCV14')
+    print(mrcal.getNextLensModel('LENSMODEL_OPENCV5', 'LENSMODEL_OPENCV14'))
 
     'LENSMODEL_OPENCV8'
 

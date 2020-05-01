@@ -2,7 +2,7 @@ Returns a tuple of strings for the various lens models we support
 
 SYNOPSIS
 
-    print mrcal.getSupportedLensModels()
+    print(mrcal.getSupportedLensModels())
 
     ('LENSMODEL_PINHOLE',
      'LENSMODEL_OPENCV4',
