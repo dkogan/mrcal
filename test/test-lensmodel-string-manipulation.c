@@ -6,6 +6,13 @@
 
 #include "test-harness.h"
 
+static
+bool modelHasCore_fxfycxcy( const lensmodel_t m )
+{
+    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
+    return meta.has_core;
+}
+
 static bool eq_lensmodel(const lensmodel_t* a, const lensmodel_t* b)
 {
     // for now this is a binary comparison
@@ -109,9 +116,9 @@ int main(int argc, char* argv[])
     confirm_lensmodel_name( buf, "LENSMODEL_SPLINED_STEREOGRAPHIC_3_30_20_200" );
 
 
-    confirm( mrcal_modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_CAHVOR}));
-    confirm( mrcal_modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_OPENCV8}));
-    confirm( mrcal_modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_SPLINED_STEREOGRAPHIC}));
+    confirm( modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_CAHVOR}));
+    confirm( modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_OPENCV8}));
+    confirm( modelHasCore_fxfycxcy((lensmodel_t){.type = LENSMODEL_SPLINED_STEREOGRAPHIC}));
 
 
     confirm_eq_int(mrcal_getNlensParams((lensmodel_t){.type = LENSMODEL_CAHVOR}),  9);

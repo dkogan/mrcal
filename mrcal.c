@@ -238,16 +238,41 @@ lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 #undef CHECK_AND_RETURN_WITHCONFIG
 }
 
-bool mrcal_modelHasCore_fxfycxcy( const lensmodel_t m )
+mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const lensmodel_t m )
 {
-    // everybody has a core!
-    return true;
+    switch(m.type)
+    {
+    case LENSMODEL_SPLINED_STEREOGRAPHIC:
+        return (mrcal_lensmodel_meta_t) { .has_core                  = true,
+                                          .can_project_behind_camera = true };
+    case LENSMODEL_PINHOLE:
+    case LENSMODEL_OPENCV4:
+    case LENSMODEL_OPENCV5:
+    case LENSMODEL_OPENCV8:
+    case LENSMODEL_OPENCV12:
+    case LENSMODEL_OPENCV14:
+    case LENSMODEL_CAHVOR:
+    case LENSMODEL_CAHVORE:
+        return (mrcal_lensmodel_meta_t) { .has_core                  = true,
+                                          .can_project_behind_camera = false };
+
+    default: ;
+    }
+    MSG("Unknown lens model %d. Barfing out", m.type);
+    assert(0);
 }
 
 static
-bool mrcal_model_supports_projection_behind_camera( const lensmodel_t m )
+bool modelHasCore_fxfycxcy( const lensmodel_t m )
 {
-    return m.type == LENSMODEL_SPLINED_STEREOGRAPHIC;
+    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
+    return meta.has_core;
+}
+static
+bool model_supports_projection_behind_camera( const lensmodel_t m )
+{
+    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
+    return meta.can_project_behind_camera;
 }
 
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__getNlensParams(const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
@@ -335,7 +360,7 @@ int getNdistortionOptimizationParams(mrcal_problem_details_t problem_details,
         return 0;
 
     int N = mrcal_getNlensParams(lensmodel);
-    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
+    if(modelHasCore_fxfycxcy(lensmodel))
         N -= 4; // ignoring fx,fy,cx,cy
     return N;
 }
@@ -346,7 +371,7 @@ int mrcal_getNintrinsicOptimizationParams(mrcal_problem_details_t problem_detail
     int N = getNdistortionOptimizationParams(problem_details, lensmodel);
 
     if( problem_details.do_optimize_intrinsic_core &&
-        mrcal_modelHasCore_fxfycxcy(lensmodel) )
+        modelHasCore_fxfycxcy(lensmodel) )
         N += 4; // fx,fy,cx,cy
     return N;
 }
@@ -468,7 +493,7 @@ int mrcal_getN_j_nonzero( int Ncameras,
 
     // x depends on fx,cx but NOT on fy, cy. And similarly for y.
     if( problem_details.do_optimize_intrinsic_core &&
-        mrcal_modelHasCore_fxfycxcy(lensmodel) )
+        modelHasCore_fxfycxcy(lensmodel) )
         Nintrinsics_per_measurement -= 2;
 
     int N = NobservationsBoard * ( (problem_details.do_optimize_frames         ? 6 : 0) +
@@ -1690,7 +1715,7 @@ void project( // out
 
     double* p_dq_dfxy                  = NULL;
     double* p_dq_dintrinsics_nocore    = NULL;
-    bool    has_core                   = mrcal_modelHasCore_fxfycxcy(lensmodel);
+    bool    has_core                   = modelHasCore_fxfycxcy(lensmodel);
     bool    has_dense_intrinsics_grad  = (lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC);
     bool    has_sparse_intrinsics_grad = (lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC);
 
@@ -2455,7 +2480,7 @@ bool _unproject( // out
     }
 
     double fx,fy,cx,cy;
-    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
+    if(modelHasCore_fxfycxcy(lensmodel))
     {
         fx = intrinsics[0];
         fy = intrinsics[1];
@@ -2597,7 +2622,7 @@ bool _unproject( // out
             mrcal_unproject_stereographic((point3_t*)out, NULL,
                                           (point2_t*)out, 1,
                                           fx,fy,cx,cy);
-            if(!mrcal_model_supports_projection_behind_camera(lensmodel) && out[2] < 0.0)
+            if(!model_supports_projection_behind_camera(lensmodel) && out[2] < 0.0)
             {
                 out[0] *= -1.0;
                 out[1] *= -1.0;
@@ -2681,7 +2706,7 @@ static int pack_solver_state_intrinsics( // out
     int i_state = 0;
 
     int Nintrinsics  = mrcal_getNlensParams(lensmodel);
-    int Ncore        = mrcal_modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+    int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
     int Ndistortions = Nintrinsics - Ncore;
 
     for(int i_camera=0; i_camera < Ncameras; i_camera++)
@@ -2855,7 +2880,7 @@ static int unpack_solver_state_intrinsics_onecamera( // out
 
     if( problem_details.do_optimize_intrinsic_distortions )
     {
-        int Ncore = mrcal_modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+        int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
         for(int i = 0; i<Nintrinsics-Ncore; i++)
             distortions[i] = p[i_state++] * SCALE_DISTORTION;
     }
@@ -2903,7 +2928,7 @@ static int unpack_solver_state_intrinsics( // out
 
     int Nintrinsics = mrcal_getNlensParams(lensmodel);
     int i_state = 0;
-    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
+    if(modelHasCore_fxfycxcy(lensmodel))
         for(int i_camera=0; i_camera < Ncameras; i_camera++)
         {
             i_state +=
@@ -3698,8 +3723,8 @@ void optimizerCallback(// input state
         } while(0)
 
 
-    int Ncore = mrcal_modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
-    int Ncore_state = (mrcal_modelHasCore_fxfycxcy(ctx->lensmodel) &&
+    int Ncore = modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
+    int Ncore_state = (modelHasCore_fxfycxcy(ctx->lensmodel) &&
                        ctx->problem_details.do_optimize_intrinsic_core) ? 4 : 0;
 
     // If I'm locking down some parameters, then the state vector contains a
@@ -4439,7 +4464,7 @@ void optimizerCallback(// input state
     // regularization terms for the intrinsics. I favor smaller distortion
     // parameters
     if(!ctx->problem_details.do_skip_regularization &&
-       mrcal_modelHasCore_fxfycxcy(ctx->lensmodel) &&
+       modelHasCore_fxfycxcy(ctx->lensmodel) &&
        ( ctx->problem_details.do_optimize_intrinsic_distortions ||
          ctx->problem_details.do_optimize_intrinsic_core
          ))
@@ -4660,7 +4685,7 @@ void mrcal_optimizerCallback(// output measurements
         return;
     }
 
-    if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+    if(!modelHasCore_fxfycxcy(lensmodel))
         problem_details.do_optimize_intrinsic_core = false;
 
     if(!problem_details.do_optimize_intrinsic_core        &&
@@ -4808,7 +4833,7 @@ mrcal_optimize( // out
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
 
-    if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+    if(!modelHasCore_fxfycxcy(lensmodel))
         problem_details.do_optimize_intrinsic_core = false;
 
     if(!problem_details.do_optimize_intrinsic_core        &&

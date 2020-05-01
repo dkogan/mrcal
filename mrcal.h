@@ -93,18 +93,22 @@ typedef struct {} LENSMODEL_OPENCV14__config_t;
 typedef struct {} LENSMODEL_CAHVOR__config_t;
 typedef struct {} LENSMODEL_CAHVORE__config_t;
 
+#define MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, bitfield, cookie) type name bitfield;
+
+_Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that");
+#define MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(_, cookie)    \
+    /* Maximum degree of each 1D polynomial. This is almost certainly 2 */ \
+    /* (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous) */ \
+    _(spline_order, uint16_t, "H", , cookie)                            \
+    /* We have a Nx by Ny grid of control points */                     \
+    _(Nx,           uint16_t, "H", , cookie)                            \
+    _(Ny,           uint16_t, "H", , cookie)                            \
+    /* The horizontal field of view. Not including fov_y. It's proportional with */ \
+    /* Ny and Nx */                                                     \
+    _(fov_x_deg,    uint16_t, "H", , cookie)
 typedef struct
 {
-    // Maximum degree of each 1D polynomial. This is almost certainly 2
-    // (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous)
-    uint16_t spline_order;
-
-    // We have a Nx by Ny grid of control points
-    uint16_t Nx, Ny;
-
-    // The horizontal field of view. Not including fov_y. It's proportional with
-    // Ny and Nx
-    uint16_t fov_x_deg;
+    MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
 } LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
 
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
@@ -137,11 +141,17 @@ bool mrcal_lensmodel_type_is_valid(lensmodel_type_t t)
     return t >= 0;
 }
 
+#define MRCAL_LENSMODEL_META_LIST(_, cookie)            \
+    _(has_core,                  bool, "i", :1, cookie) \
+    _(can_project_behind_camera, bool, "i", :1, cookie)
+typedef struct
+{
+    MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
+} mrcal_lensmodel_meta_t;
 
 typedef struct
 {
-    // Applies only to those models that HAVE a core (fx,fy,cx,cy). For those
-    // mrcal_modelHasCore_fxfycxcy(model) returns true
+    // Applies only to those models that HAVE a core (fx,fy,cx,cy)
     bool do_optimize_intrinsic_core        : 1;
 
     // For models that have a core, these are all the non-core parameters. For
@@ -186,7 +196,7 @@ lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
 // missing or unparseable. Unknown model names return LENSMODEL_INVALID
 lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
 
-bool               mrcal_modelHasCore_fxfycxcy           ( const lensmodel_t m );
+mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const lensmodel_t m );
 int                mrcal_getNlensParams                  ( const lensmodel_t m );
 int                mrcal_getNintrinsicOptimizationParams ( mrcal_problem_details_t problem_details,
                                                            lensmodel_t m );

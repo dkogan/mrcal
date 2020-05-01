@@ -1222,7 +1222,7 @@ def show_distortion(model,
 
 
     W,H = imagersize
-    if not mrcal.modelHasCore_fxfycxcy(lens_model):
+    if not mrcal.getLensModelMeta(lens_model)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
@@ -1471,7 +1471,7 @@ def show_stereographic_focal_surface(model,
 
 
     W,H = imagersize
-    if mrcal.modelHasCore_fxfycxcy(lensmodel):
+    if mrcal.getLensModelMeta(lensmodel)['has_core']:
         cxy = intrinsics_data[2:4]
     else:
         try:
@@ -2555,7 +2555,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
     lens_models     = [di[0] for di in lens_models_intrinsics_data]
     intrinsics_data = [di[1] for di in lens_models_intrinsics_data]
 
-    if not all([mrcal.modelHasCore_fxfycxcy(m) for m in lens_models]):
+    if not all([mrcal.getLensModelMeta(m)['has_core'] for m in lens_models]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
     fx = [ i[0] for i in intrinsics_data ]

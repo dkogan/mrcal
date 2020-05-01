@@ -5,6 +5,13 @@
 
 #include "mrcal.h"
 
+static
+bool modelHasCore_fxfycxcy( const lensmodel_t m )
+{
+    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
+    return meta.has_core;
+}
+
 int main(int argc, char* argv[] )
 {
     const char* usage = "Usage: %s LENSMODEL_XXX [problem-details problem-details ...]\n"
@@ -156,13 +163,13 @@ int main(int argc, char* argv[] )
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.fov_x_deg    = 200;
     }
 
-    if(!mrcal_modelHasCore_fxfycxcy(lensmodel))
+    if(!modelHasCore_fxfycxcy(lensmodel))
         // There is no core
         problem_details.do_optimize_intrinsic_core = false;
 
     int Nintrinsics = mrcal_getNlensParams(lensmodel);
     int Ndistortion = Nintrinsics;
-    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
+    if(modelHasCore_fxfycxcy(lensmodel))
         Ndistortion -= 4;
     double intrinsics[Ncameras * Nintrinsics];
 

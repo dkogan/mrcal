@@ -589,8 +589,8 @@ static PyTypeObject SolverContextType =
 };
 
 
-static PyObject* modelHasCore_fxfycxcy(PyObject* NPY_UNUSED(self),
-                                       PyObject* args)
+static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
+                                  PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
@@ -621,10 +621,24 @@ static PyObject* modelHasCore_fxfycxcy(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    if(mrcal_modelHasCore_fxfycxcy(lensmodel))
-        result = Py_True;
+    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(lensmodel);
+
+#define MRCAL_ITEM_BUILDVALUE_DEF(  name, type, pybuildvaluecode, bitfield, cookie) " s "pybuildvaluecode
+#define MRCAL_ITEM_BUILDVALUE_VALUE(name, type, pybuildvaluecode, bitfield, cookie) , #name, cookie name
+
+    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC )
+        result = Py_BuildValue("{"
+                               MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
+                               MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
+                               "}"
+                               MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, meta.)
+                               MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.));
     else
-        result = Py_False;
+        result = Py_BuildValue("{"
+                               MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
+                               "}"
+                               MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, meta.));
+
     Py_INCREF(result);
 
  done:
@@ -2190,8 +2204,8 @@ static const char optimize_docstring[] =
 static const char optimizerCallback_docstring[] =
 #include "optimizerCallback.docstring.h"
     ;
-static const char modelHasCore_fxfycxcy_docstring[] =
-#include "modelHasCore_fxfycxcy.docstring.h"
+static const char getLensModelMeta_docstring[] =
+#include "getLensModelMeta.docstring.h"
     ;
 static const char getNlensParams_docstring[] =
 #include "getNlensParams.docstring.h"
@@ -2217,7 +2231,7 @@ static const char unprojectStereographic_docstring[] =
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizerCallback,        METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,modelHasCore_fxfycxcy,    METH_VARARGS),
+      PYMETHODDEF_ENTRY(,getLensModelMeta,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
       PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
       PYMETHODDEF_ENTRY(,getNextLensModel,         METH_VARARGS),
