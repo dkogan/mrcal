@@ -1419,6 +1419,129 @@ def show_distortion(model,
                     }))
         return plot
 
+def show_splined_model_knots(model,
+
+                             extratitle       = None,
+                             hardcopy         = None,
+                             kwargs           = None):
+    r'''Visualizes the knots in a splined model
+
+    Splined models are build with a splined surface that we index to compute the
+    projection. The surface is defined by control points. The value of the
+    control points is set in the intrinsics vector, but their location is fixed,
+    as defined by the model configuration. The configuration selects the number
+    of control points AND the expected field of view of the lens. This field of
+    view should roughly match the actual lens+camera we're using, and this fit
+    can be visualized by running this tool.
+
+    If the field of view is too small, some parts of the imager will lie outside
+    of the region that the splined surface covers. This tool will throw a
+    warning in that case, and will visually display the offending regions
+
+    This function creates a plot and returns the corresponding gnuplotlib object
+
+    '''
+
+    lensmodel,intrinsics_data = model.intrinsics()
+    imagersize                = model.imagersize()
+
+    if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
+        raise Exception(f"This only makes sense with splined models. Input uses {lensmodel}")
+
+
+    import gnuplotlib as gp
+
+
+    if kwargs is None: kwargs = {}
+    if 'title' not in kwargs:
+
+        title = f"Knots for {lensmodel}"
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    if 'hardcopy' not in kwargs and hardcopy is not None:
+        kwargs['hardcopy'] = hardcopy
+
+    if 'set' not in kwargs:
+        kwargs['set'] = []
+    elif type(kwargs['set']) is not list:
+        kwargs['set'] = [kwargs['set']]
+
+
+    W,H = imagersize
+
+    imager_contour = np.array(((0,0),
+                               (W-1,0),
+                               (W-1,H-1),
+                               (0,H-1),
+                               (0,0)))
+
+
+    ux,uy = mrcal.getKnotsForSplinedModels(lensmodel)
+    u  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
+    v  = mrcal.unprojectStereographic(u, 1,1,0,0)
+
+    # q has shape (Ny,Nx,2)
+    q = mrcal.project(v, lensmodel,intrinsics_data)
+
+    meta = mrcal.getLensModelMeta(lensmodel)
+    if meta['spline_order'] != 3:
+        print(f"WARNING: spline_order is {meta['spline_order']}. I only plot the valid region for spline_order==3", file=sys.stderr)
+        valid_region_contour = None
+        invalid_regions      = ()
+    else:
+        # spline order is 3. The valid region is the outer contour, leaving one
+        # knot out
+        valid_region_contour = \
+            nps.glue( q[1,1:-2], q[1:-2, -2], q[-2, -2:1:-1], q[-2:0:-1, 1],
+                      axis=-2 )
+
+        from shapely.geometry import Polygon,MultiPolygon
+        diff = Polygon(imager_contour).difference(Polygon(valid_region_contour))
+
+        if isinstance(diff, MultiPolygon):
+            diff = list(diff)
+        elif isinstance(diff, Polygon):
+            diff = [diff]
+        else:
+            raise Exception(f"I only know how to deal with MultiPolygon or Polygon, but instead got type '{type(diff)}")
+
+        invalid_regions = [ np.array(r.exterior.coords) for r in diff if
+                            r.exterior and len(r.exterior.coords) ]
+        if len(invalid_regions) > 0:
+            print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
+
+    plotoptions = dict(kwargs,
+                       yinv    = True,
+                       xlabel  = 'Imager x',
+                       ylabel  = 'Imager y',
+                       square  = True)
+
+    plot = gp.gnuplotlib(**plotoptions)
+
+    data = [( nps.clump(q, n=2),
+              dict(tuplesize = -2,
+                   _with     = 'points ps 2') ),
+            ( imager_contour,
+              dict( tuplesize = -2,
+                    _with     = 'lines',
+                    legend    = 'Imager bounds'))]
+    if valid_region_contour is not None:
+        data.append( ( valid_region_contour,
+                       dict( tuplesize = -2,
+                             _with     = 'lines',
+                             legend    = 'Valid projection region')))
+
+    if invalid_regions is not None:
+        data.extend( [ ( r,
+                         dict( tuplesize = -2,
+                               _with     = 'filledcurves closed',
+                               legend    = 'Invalid regions'))
+                       for r in invalid_regions] )
+    plot.plot( *data )
+    return plot
+
 
 def _intrinsics_diff_get_Rfit(q0, v0, v1,
                               focus_center, focus_radius,

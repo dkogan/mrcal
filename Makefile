@@ -26,6 +26,7 @@ DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-distortion		\
 	mrcal-show-distortion			\
+	mrcal-show-splined-model-knots		\
 	mrcal-show-intrinsics-uncertainty	\
 	mrcal-show-intrinsics-diff		\
 	mrcal-undistort-image			\

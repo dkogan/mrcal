@@ -1,0 +1,91 @@
+#!/usr/bin/python3
+
+r'''Visualizes the knots in a splined camera model
+
+SYNOPSIS
+
+  $ mrcal-show-splined-model-knots x cam.cameramodel
+  ... a plot pops up showing the imager and the knots
+
+Splined models are build with a splined surface that we index to compute the
+projection. The surface is defined by control points. The value of the control
+points is set in the intrinsics vector, but their location is fixed, as defined
+by the model configuration. The configuration selects the number of control
+points AND the expected field of view of the lens. This field of view should
+roughly match the actual lens+camera we're using, and this fit can be visualized
+by running this tool.
+
+
+If the field of view is too small, some parts of the imager will lie outside of
+the region that the splined surface covers. This tool will throw a warning in
+that case, and will visually display the offending regions
+
+'''
+
+from __future__ import print_function
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the plot''')
+
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--extraset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+
+    parser.add_argument('model',
+                        type=str,
+                        help='''Input camera model. If "-' is given, we read standard input''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+import numpy as np
+import numpysane as nps
+
+import mrcal
+
+
+
+model = mrcal.cameramodel(args.model)
+lensmodel = model.intrinsics()[0]
+
+if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
+    print(f"This only makes sense with splined models. Input uses {lensmodel}",
+          file = sys.stderr)
+    sys.exit(1)
+
+plotkwargs = {}
+if args.extraset is not None:
+    plotkwargs['set'] = args.extraset
+
+plot = mrcal.show_splined_model_knots(model,
+
+                                      hardcopy     = args.hardcopy,
+                                      extratitle   = args.extratitle,
+                                      kwargs       = plotkwargs)
+
+if args.hardcopy is None:
+    plot.wait()
