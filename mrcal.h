@@ -83,7 +83,7 @@ typedef struct
     LENSMODEL_NOCONFIG_LIST(_)                  \
     LENSMODEL_WITHCONFIG_LIST(_)
 
-// parametric models have no extra configuration
+// parametric models have no extra configuration, and no precomputed data
 typedef struct {} LENSMODEL_PINHOLE__config_t;
 typedef struct {} LENSMODEL_OPENCV4__config_t;
 typedef struct {} LENSMODEL_OPENCV5__config_t;
@@ -93,9 +93,22 @@ typedef struct {} LENSMODEL_OPENCV14__config_t;
 typedef struct {} LENSMODEL_CAHVOR__config_t;
 typedef struct {} LENSMODEL_CAHVORE__config_t;
 
+typedef struct {} LENSMODEL_PINHOLE__precomputed_t;
+typedef struct {} LENSMODEL_OPENCV4__precomputed_t;
+typedef struct {} LENSMODEL_OPENCV5__precomputed_t;
+typedef struct {} LENSMODEL_OPENCV8__precomputed_t;
+typedef struct {} LENSMODEL_OPENCV12__precomputed_t;
+typedef struct {} LENSMODEL_OPENCV14__precomputed_t;
+typedef struct {} LENSMODEL_CAHVOR__precomputed_t;
+typedef struct {} LENSMODEL_CAHVORE__precomputed_t;
+
 #define MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, bitfield, cookie) type name bitfield;
 
-_Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that");
+_Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that. H means 'unsigned short'");
+
+
+// The splined stereographic models have the spline and projection configuration
+// parameters
 #define MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(_, cookie)    \
     /* Maximum degree of each 1D polynomial. This is almost certainly 2 */ \
     /* (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous) */ \
@@ -111,12 +124,22 @@ typedef struct
     MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
 } LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
 
+// The splined stereographic models configuration parameters can be used to
+// compute the segment size. I cache this computation
+typedef struct
+{
+    // The distance between adjacent knots (1 segment) is u_per_segment =
+    // 1/segments_per_u
+    double segments_per_u;
+} LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t;
+
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
 #define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV14
 #define LENSMODEL_CAHVOR_FIRST LENSMODEL_CAHVOR
 #define LENSMODEL_CAHVOR_LAST  LENSMODEL_CAHVORE
 #define LENSMODEL_IS_OPENCV(d) (LENSMODEL_OPENCV_FIRST <= (d) && (d) <= LENSMODEL_OPENCV_LAST)
 #define LENSMODEL_IS_CAHVOR(d) (LENSMODEL_CAHVOR_FIRST <= (d) && (d) <= LENSMODEL_CAHVOR_LAST)
+
 
 // types <0 are invalid. The different invalid types are just for error
 // reporting
@@ -126,6 +149,8 @@ typedef enum
       // The rest, starting with 0
 #define LIST_WITH_COMMA(s,n) ,s
       LENSMODEL_LIST( LIST_WITH_COMMA ) } lensmodel_type_t;
+
+
 typedef struct
 {
     lensmodel_type_t type;
@@ -136,6 +161,18 @@ typedef struct
 #undef CONFIG_STRUCT
     };
 } lensmodel_t;
+
+typedef struct
+{
+    bool ready;
+    union
+    {
+#define PRECOMPUTED_STRUCT(s,n) s##__precomputed_t s##__precomputed;
+        LENSMODEL_LIST(PRECOMPUTED_STRUCT);
+#undef PRECOMPUTED_STRUCT
+    };
+} mrcal_projection_precomputed_t;
+
 bool mrcal_lensmodel_type_is_valid(lensmodel_type_t t)
 {
     return t >= 0;

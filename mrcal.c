@@ -1290,6 +1290,55 @@ typedef struct
     double ABCDx[4];
     double ABCDy[4];
 } splined_intrinsics_grad_context_t;
+
+static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
+  ( // output
+    LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed,
+
+    //input
+    const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config )
+{
+    // I have N control points describing a given field-of-view. I
+    // want to space out the control points evenly. I'm using
+    // B-splines, so I need extra control points out past my edge.
+    // With cubic splines I need a whole extra interval past the
+    // edge. With quadratic splines I need half an interval (see
+    // show-fisheye-grid.py).
+    //
+    // (width + k*interval_size)/(N-1) = interval_size
+    // ---> width/(N-1) = interval_size * (1 - k/(N-1))
+    // ---> interval_size = width / (N - 1 - k)
+    int NextraIntervals;
+    switch(config->spline_order)
+    {
+        // case 2: NextraIntervals = 1; break;
+    case 3: NextraIntervals = 2; break;
+    default:
+        MSG("I only support spline_order 2 and 3");
+        assert(0);
+    }
+    if(config->Nx < 4 || config->Ny < 4)
+    {
+        MSG("I only support Nx and Ny must be >= 4");
+        assert(0);
+    }
+
+    double th_fov_x_edge = (double)config->fov_x_deg/2. * M_PI / 180.;
+    double u_edge_x      = tan(th_fov_x_edge / 2.) * 2;
+    precomputed->segments_per_u = (config->Nx - 1 - NextraIntervals) / (u_edge_x*2.);
+}
+
+static void precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
+                                      lensmodel_t lensmodel)
+{
+    // currently only this model has anything
+    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+        precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
+            ( &precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed,
+              &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config );
+    precomputed->ready = true;
+}
+
 static
 void _project_point_splined( // outputs
                             point2_t* q,
@@ -1314,20 +1363,11 @@ void _project_point_splined( // outputs
 
                             const double* restrict intrinsics,
                             bool camera_at_identity,
-                            lensmodel_t lensmodel,
+                            uint16_t Nx, uint16_t Ny,
+                            double segments_per_u,
+
                             int i_pt)
 {
-    if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
-    {
-        MSG("Unhandled lens model: %d (%s)",
-            lensmodel.type,
-            mrcal_lensmodel_name(lensmodel));
-        assert(0);
-    }
-
-    const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
-        &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-
     // stereographic projection:
     //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
     //   u = xy_unit * tan(th/2) * 2
@@ -1379,37 +1419,8 @@ void _project_point_splined( // outputs
                              p->y * (B * p->y)      + scale,
                              p->y * (B * p->z + A) } };
 
-    // I have N control points describing a given field-of-view. I
-    // want to space out the control points evenly. I'm using
-    // B-splines, so I need extra control points out past my edge.
-    // With cubic splines I need a whole extra interval past the
-    // edge. With quadratic splines I need half an interval (see
-    // show-fisheye-grid.py).
-    //
-    // (width + k*interval_size)/(N-1) = interval_size
-    // ---> width/(N-1) = interval_size * (1 - k/(N-1))
-    // ---> interval_size = width / (N - 1 - k)
-    int NextraIntervals;
-    switch(config->spline_order)
-    {
-#warning need to support quadratic splines
-        // case 2: NextraIntervals = 1; break;
-    case 3: NextraIntervals = 2; break;
-    default:
-        MSG("I only support spline_order 2 and 3");
-        assert(0);
-    }
-    if(config->Nx < 4 || config->Ny < 4)
-    {
-        MSG("I only support Nx and Ny must be >= 4");
-        assert(0);
-    }
-#warning this fov stuff can be done once per model, not for each projection
-    double th_fov_x_edge = (double)config->fov_x_deg/2. * M_PI / 180.;
-    double u_edge_x      = tan(th_fov_x_edge / 2.) * 2;
-    double u_per_segment = (u_edge_x*2.) / (config->Nx - 1 - NextraIntervals);
-    double ix = u.x/u_per_segment + (double)(config->Nx-1)/2.;
-    double iy = u.y/u_per_segment + (double)(config->Ny-1)/2.;
+    double ix = u.x*segments_per_u + (double)(Nx-1)/2.;
+    double iy = u.y*segments_per_u + (double)(Ny-1)/2.;
 #warning need to bounds-check
     int ix0 = (int)ix;
     int iy0 = (int)iy;
@@ -1420,7 +1431,7 @@ void _project_point_splined( // outputs
     double ddeltau_duy[2];
     *ivar0 =
         4 + // skip the core
-        2*( (iy0-1)*config->Nx +
+        2*( (iy0-1)*Nx +
             (ix0-1) );
     const double fx = intrinsics[0];
     const double fy = intrinsics[1];
@@ -1432,12 +1443,12 @@ void _project_point_splined( // outputs
 
                                  // control points
                                  &intrinsics[*ivar0],
-                                 2*config->Nx);
+                                 2*Nx);
     // convert ddeltau_dixy to ddeltau_duxy
     for(int i=0; i<2; i++)
     {
-        ddeltau_dux[i] /= u_per_segment;
-        ddeltau_duy[i] /= u_per_segment;
+        ddeltau_dux[i] *= segments_per_u;
+        ddeltau_duy[i] *= segments_per_u;
     }
 
     // u = stereographic(p)
@@ -1557,6 +1568,7 @@ void project( // out
 
              bool camera_at_identity, // if true, camera_rt is unused
              lensmodel_t lensmodel,
+             const mrcal_projection_precomputed_t* precomputed,
 
              // point index. If <0, a point at frame_rt->t is
              // assumed; frame_rt->r isn't referenced, and
@@ -1566,6 +1578,8 @@ void project( // out
              double calibration_object_spacing,
              int    calibration_object_width_n)
 {
+    assert(precomputed->ready);
+
     // Parametric and non-parametric models do different things:
     //
     // parametric models:
@@ -1874,7 +1888,9 @@ void project( // out
                                    dp_drc, dp_dtc, dp_drf, dp_dtf,
                                    intrinsics,
                                    camera_at_identity,
-                                   lensmodel,
+                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
+                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
+                                   precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u,
                                    i_pt);
             if(dq_dintrinsics_pool_int != NULL)
             {
@@ -2296,6 +2312,9 @@ bool mrcal_project( // out
     if(dq_dintrinsics != NULL)
         memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
 
+    mrcal_projection_precomputed_t precomputed;
+    precompute_lensmodel_data(&precomputed, lensmodel);
+
     for(int i=0; i<N; i++)
     {
         pose_t frame = {.r = {},
@@ -2309,7 +2328,9 @@ bool mrcal_project( // out
                      NULL, NULL, NULL, dq_dp, NULL,
 
                      // in
-                     intrinsics, NULL, &frame, NULL, true, lensmodel, 0.0, 0);
+                     intrinsics, NULL, &frame, NULL, true,
+                     lensmodel, &precomputed,
+                     0.0, 0);
         else
         {
             double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
@@ -2327,7 +2348,9 @@ bool mrcal_project( // out
                      NULL, NULL, NULL, dq_dp, NULL,
 
                      // in
-                     intrinsics, NULL, &frame, NULL, true, lensmodel, 0.0, 0);
+                     intrinsics, NULL, &frame, NULL, true,
+                     lensmodel, &precomputed,
+                     0.0, 0);
 
             int Ncore = 0;
             if(dq_dfxy != NULL)
@@ -2525,6 +2548,9 @@ bool _unproject( // out
     }
 
 
+    mrcal_projection_precomputed_t precomputed;
+    precompute_lensmodel_data(&precomputed, lensmodel);
+
     // I optimize in the space of the stereographic projection. This is a 2D
     // space with a direct mapping to/from observation vectors with a single
     // singularity directly behind the camera. The allows me to run an
@@ -2558,7 +2584,7 @@ bool _unproject( // out
                      &frame,
                      NULL,
                      true,
-                     lensmodel,
+                     lensmodel, &precomputed,
                      0.0, 0);
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
@@ -3655,6 +3681,7 @@ typedef struct
     bool verbose;
 
     lensmodel_t lensmodel;
+    mrcal_projection_precomputed_t precomputed;
     const int* imagersizes; // Ncameras*2 of these
 
     mrcal_problem_details_t problem_details;
@@ -3846,7 +3873,7 @@ void optimizerCallback(// input state
                 &camera_rt[i_camera-1], &frame_rt,
                 ctx->calobject_warp == NULL ? NULL : &calobject_warp_local,
                 i_camera == 0,
-                ctx->lensmodel,
+                ctx->lensmodel, &ctx->precomputed,
                 ctx->calibration_object_spacing,
                 ctx->calibration_object_width_n);
 
@@ -4140,7 +4167,7 @@ void optimizerCallback(// input state
                 NULL,
 
                 i_camera == 0,
-                ctx->lensmodel,
+                ctx->lensmodel, &ctx->precomputed,
                 0,0);
 #pragma GCC diagnostic pop
 
@@ -4735,6 +4762,7 @@ void mrcal_optimizerCallback(// output measurements
         .N_j_nonzero                = N_j_nonzero,
         .Nintrinsics                = Nintrinsics,
         .markedOutliers             = markedOutliers};
+    precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
     const int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
                                        problem_details,
@@ -4909,6 +4937,7 @@ mrcal_optimize( // out
         .Nintrinsics                = mrcal_getNlensParams(lensmodel),
 
         .markedOutliers = markedOutliers};
+    precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
 
     dogleg_solverContext_t*  solver_context = NULL;
