@@ -99,7 +99,15 @@ all_test_kwargs = ( dict(do_optimize_intrinsic_core        = False,
                          do_optimize_extrinsics            = True,
                          do_optimize_frames                = True,
                          do_optimize_calobject_warp        = True,
-                         skip_regularization               = True), )
+                         skip_regularization               = True),
+
+                    dict(do_optimize_intrinsic_core        = True,
+                         do_optimize_intrinsic_distortions = True,
+                         do_optimize_extrinsics            = True,
+                         do_optimize_frames                = True,
+                         do_optimize_calobject_warp        = True,
+                         skip_regularization               = True,
+                         outlier_indices = np.array((1,2), dtype=np.int32)))
 
 itest = 0
 for kwargs in all_test_kwargs:
