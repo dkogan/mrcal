@@ -231,7 +231,7 @@ def _write(f, m, note=None):
         f.write("Model = CAHVOR = perspective, distortion\n")
     elif lens_model == 'LENSMODEL_CAHVORE':
         f.write("Model = CAHVORE3,{} = general\n".format(intrinsics[4+5+3]))
-    elif re.match('LENSMODEL_(OPENCV.*|NONE)', lens_model):
+    elif re.match('LENSMODEL_(OPENCV.*|PINHOLE)', lens_model):
         f.write("Model = CAHV = perspective, linear\n")
     else:
         raise Exception("Don't know how to handle lens model '{}'".format(lens_model))
