@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 
 f'''Observe the interpolation grid implemented in the C code
+
+This is a validation of mrcal.project()
+
 '''
 
 import sys
@@ -22,20 +25,26 @@ Nx         = 11
 Ny         = 8
 fov_x_deg  = 200 # more than 180deg
 imagersize = np.array((3000,2000))
+fxy        = np.array((2000., 1900.))
 cxy        = (imagersize.astype(float) - 1.) / 2.
 
 # I want random control points, with some (different) bias on x and y
-controlpoints_fx = np.random.rand(Ny, Nx) * 50 + 2000. + 100. * np.arange(Nx)/Nx
-controlpoints_fy = np.random.rand(Ny, Nx) * 50 + 1200. - 100. * np.arange(Nx)/Nx
+controlpoints_x = np.random.rand(Ny, Nx) * 1 + 0.5 * np.arange(Nx)/Nx
+controlpoints_y = np.random.rand(Ny, Nx) * 1 - 0.9 * np.arange(Nx)/Nx
 
+# to test a delta function
+# controlpoints_y*=0
+# controlpoints_y[4,5] = 1
 
 # The parameters vector dimensions appear (in order from slowest-changing to
 # fastest-changing):
 # - y coord
 # - x coord
 # - fx/fy
-parameters = nps.mv(nps.cat(controlpoints_fx,controlpoints_fy),
-                    0, -1).ravel()
+parameters = nps.glue( np.array(( fxy[0], fxy[1], cxy[0], cxy[1])),
+                       nps.mv(nps.cat(controlpoints_x,controlpoints_y),
+                              0, -1).ravel(),
+                       axis = -1 )
 
 
 # Now I produce a grid of observation vectors indexed on the coords of the
@@ -50,19 +59,21 @@ ixy = \
     nps.reorder( nps.cat(*np.meshgrid( x_sampled, y_sampled )),
                  -1, -2, -3)
 
+##### this has mostly been implemented in mrcal_project_stereographic() and
+##### mrcal_unproject_stereographic()
 # Stereographic projection function:
 #   p   = xyz
 #   rxy = mag(xy)
 #   th = atan2(rxy, z)
-#   xy_stereographic = tan(th/2) * 2. * xy/mag(xy) * f + cxy
+#   u  = tan(th/2) * 2. * xy/mag(xy)
+#   xy_stereographic = (u + deltau) * f + cxy
 #
-# I look up f in the splined surface. The index of that lookup is linear (and
-# cartesian) with
+# I look up deltau in the splined surface. The index of that lookup is linear
+# (and cartesian) with u
 #
-#   tan(th/2) * 2. * xy/mag(xy)
+# So ixy = u * k + (Nxy-1)/2
 #
-# So ix = tan(th/2) * 2. * x/mag(xy) * k + (Nx-1)/2
-#    iy = tan(th/2) * 2. * y/mag(xy) * k + (Ny-1)/2
+# ix is in [0,Nx] (modulo edges). one per control point
 #
 # Note that the same scale k is applied for both the x and y indices. The
 # constants set the center of the spline surface to x=0 and y=0
@@ -72,27 +83,25 @@ ixy = \
 #   ix_margin = tan(-fov_x_deg/2/2) * 2. * k + (Nx-1)/2 --->
 #   k = (ix_margin - (Nx-1)/2) / (tan(fov_x_deg/2/2) * 2)
 #
-# I want to compute p from (ix,iy). I transform these in known ways to get
+# I want to compute p from (ix,iy). p is unique up-to scale. So let me
+# arbitrarily set mag(xy) = 1. I define a new var
 #
-#   jx = tan(th/2) x/mag(xy)
-#   jy = tan(th/2) y/mag(xy)
-#
-# Let mag(xy) = 1. This will be singular at one point at the center, but
-# supports points at the edges well, even behind the camera
+#   jxy = tan(th/2) xy --->
+#   jxy = (ixy - (Nxy-1)/2) / (2k)
 #
 #   jxy = tan(th/2) xy
-#       = tan(atan2(1, z)/2) xy
-#       = sin(atan2(1, z)) / (1 + cos(atan2(1, z))) xy
-#       = (1 - cos()) / sin() xy
-#       = (1 - z/sqrt(z^2+1)) / (1/sqrt(z^2+1)) xy =
-#       = (sqrt(z^2+1) - z) xy
+#       = (1 - cos(th)) / sin(th) xy
+#       = (1 - cos(atan2(1, z))) / sin(atan2(1, z)) xy
+#       = (1 - z/mag(xyz)) / (1/mag(xyz)) xy =
+#       = (mag(xyz) - z) xy =
 #
-#   mag(jxy) = sqrt(z^2+1) - z
+#   mag(jxy) = (mag(xyz) - z)
+#            = sqrt(z^2+1) - z
 #
-#   Let q = sqrt(z^2+1) + z ->
-#     mag(jxy) q   = 1
-#     q - mag(jxy) = 2z
-#   ---> z = (q - mag(jxy)) / 2 = (1/mag(jxy) - mag(jxy)) / 2
+#   Let h = sqrt(z^2+1) + z ->
+#     mag(jxy) h   = 1
+#     h - mag(jxy) = 2z
+#   ---> z = (h - mag(jxy)) / 2 = (1/mag(jxy) - mag(jxy)) / 2
 
 if order == 3:
     # cubic splines. There's exactly one extra control point on each side past
@@ -116,22 +125,23 @@ mxy = nps.mag(xy)
 # internals to project the unprojection, and to get the focal lengths it ended
 # up using. If the internals were implemented correctly, the dense surface of
 # focal lengths should follow the sparse surface of spline control points
-lens_model_type = f'LENSMODEL_SPLINED_STEREOGRAPHIC_{order}_{Nx}_{Ny}_{fov_x_deg}_{cxy[0]}_{cxy[1]}'
+lens_model_type = f'LENSMODEL_SPLINED_STEREOGRAPHIC_{order}_{Nx}_{Ny}_{fov_x_deg}'
 q = mrcal.project(np.ascontiguousarray(p), lens_model_type, parameters)
+th = np.arctan2( nps.mag(p[..., :2]), p[..., 2])
+uxy = p[..., :2] * nps.dummy(np.tan(th/2)*2/nps.mag(p[..., :2]), -1)
+deltau = (q-cxy) / fxy - uxy
 
-fxy = (q-cxy) / ( nps.dummy(np.tan(np.arctan2(mxy,z)/2.)/mxy, -1) * 2. * xy)
-
-fx,fy = nps.mv(fxy, -1,0)
+deltaux,deltauy = nps.mv(deltau, -1,0)
 
 
-gp.plot3d( (nps.transpose(fy),
+gp.plot3d( (nps.transpose(deltauy),
             dict( _with='lines',
                   using=f'($1*{x_sampled[1]-x_sampled[0]}+{x_sampled[0]}):($2*{y_sampled[1]-y_sampled[0]}+{y_sampled[0]}):3' )),
-           (controlpoints_fy,
+           (controlpoints_y,
             dict( _with='points pt 7 ps 2' )),
            xlabel='x control point index',
            ylabel='y control point index',
-           title='Focal-y',
+           title='Deltau-y',
            squarexy=True,
            ascii=True,
            wait=True)
