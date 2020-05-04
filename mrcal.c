@@ -3095,8 +3095,8 @@ static int unpack_solver_state_intrinsics_onecamera( // out
     return i_state;
 }
 
-static double get_scale_solver_state_intrinsics_onecamera( int i_state,
-                                                           int Nintrinsics,
+static double get_scale_solver_state_intrinsics_onecamera( int i_state, // relative to the start of vars for THIS camera
+                                                           int Nintrinsics_per_camera,
                                                            mrcal_problem_details_t problem_details )
 {
     if( problem_details.do_optimize_intrinsic_core )
@@ -3111,7 +3111,7 @@ static double get_scale_solver_state_intrinsics_onecamera( int i_state,
     }
 
     if( problem_details.do_optimize_intrinsic_distortions )
-        if( i_state < Nintrinsics-4)
+        if( i_state < Nintrinsics_per_camera-4)
             return SCALE_DISTORTION;
 
     fprintf(stderr, "ERROR! %s() was asked about an out-of-bounds state\n", __func__);

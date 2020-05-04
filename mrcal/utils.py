@@ -737,11 +737,11 @@ def compute_intrinsics_uncertainty( model, v,
 
       where s is observed_pixel_uncertainty
 
-      Mi W^-1 = inv(JtJ)[intrinsics] Jobservationst W W^-1 =
-              = inv(JtJ)[intrinsics] Jobservationst
+      Mi W^-1 = inv(JtJ)[intrinsicsrows] Jobservationst W W^-1 =
+              = inv(JtJ)[intrinsicsrows] Jobservationst
 
-      -> Var(intrinsics) = (inv(JtJ)[intrinsics] Jobservationst)
-                           (inv(JtJ)[intrinsics] Jobservationst)t
+      -> Var(intrinsics) = (inv(JtJ)[intrinsicsrows] Jobservationst)
+                           (inv(JtJ)[intrinsicsrows] Jobservationst)t
                            s^2
 
       If Jobservations was J (no regularization terms) then this would simplify
@@ -759,8 +759,8 @@ def compute_intrinsics_uncertainty( model, v,
       as is:
 
       Var(intrinsics)/s^2 =
-         inv(JtJ)[intrinsics] Jobservationst
-         Jobservations inv(JtJ)[intrinsics]t
+         inv(JtJ)[intrinsicsrows] Jobservationst
+         Jobservations inv(JtJ)[intrinsicsrows]t
 
 
       Ultimately the intrinsics are always used in a projection operation. So
@@ -2031,7 +2031,6 @@ def show_valid_intrinsics_region(models,
     instead of writing an image, makes a plot
 
     '''
-
     if isinstance(models, mrcal.cameramodel):
         models = (models,)
 
