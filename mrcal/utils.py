@@ -1450,6 +1450,7 @@ def show_splined_model_knots(model,
 
 
     import gnuplotlib as gp
+    from shapely.geometry import Polygon,MultiPolygon
 
 
     if kwargs is None: kwargs = {}
@@ -1486,31 +1487,60 @@ def show_splined_model_knots(model,
     q = mrcal.project(v, lensmodel,intrinsics_data)
 
     meta = mrcal.getLensModelMeta(lensmodel)
-    if meta['spline_order'] != 3:
-        print(f"WARNING: spline_order is {meta['spline_order']}. I only plot the valid region for spline_order==3", file=sys.stderr)
-        valid_region_contour = None
-        invalid_regions      = ()
-    else:
+    if meta['spline_order'] == 2:
+        # spline order is 3. The valid region is 1/2 segments inwards from the
+        # outer contour
+
+        u_contour = \
+            nps.glue( (u[0,1:-2] + u[1,1:-2]) / 2.,
+                      (u[0,-2] + u[1,-2] + u[0,-1] + u[1,-1]) / 4.,
+
+                      (u[1:-2, -2] + u[1:-2, -1]) / 2.,
+                      (u[-2,-2] + u[-1,-2] + u[-2,-1] + u[-1,-1]) / 4.,
+
+                      (u[-2, -2:1:-1] + u[-1, -2:1:-1]) / 2.,
+                      (u[-2, 1] + u[-1, 1] + u[-2, 0] + u[-1, 0]) / 4.,
+
+                      (u[-2:0:-1, 0] +u[-2:0:-1, 1]) / 2.,
+                      (u[0, 0] +u[0, 1] + u[1, 0] +u[1, 1]) / 4.,
+
+                      (u[0,1] + u[1,1]) / 2.,
+                      axis = -2 )
+
+
+        v_contour = mrcal.unprojectStereographic(u_contour, 1,1,0,0)
+        q_contour = mrcal.project(v_contour, lensmodel,intrinsics_data)
+
+        valid_region_contour = q_contour
+
+    elif meta['spline_order'] == 3:
         # spline order is 3. The valid region is the outer contour, leaving one
         # knot out
         valid_region_contour = \
             nps.glue( q[1,1:-2], q[1:-2, -2], q[-2, -2:1:-1], q[-2:0:-1, 1],
                       axis=-2 )
+    else:
+        raise Exception("I only support cubic (spline_order==3) and quadratic (spline_order==2) models")
 
-        from shapely.geometry import Polygon,MultiPolygon
-        diff = Polygon(imager_contour).difference(Polygon(valid_region_contour))
 
-        if isinstance(diff, MultiPolygon):
-            diff = list(diff)
-        elif isinstance(diff, Polygon):
-            diff = [diff]
-        else:
-            raise Exception(f"I only know how to deal with MultiPolygon or Polygon, but instead got type '{type(diff)}")
+    diff = Polygon(imager_contour).difference(Polygon(valid_region_contour))
 
-        invalid_regions = [ np.array(r.exterior.coords) for r in diff if
-                            r.exterior and len(r.exterior.coords) ]
-        if len(invalid_regions) > 0:
-            print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
+
+    if isinstance(diff, MultiPolygon):
+        diff = list(diff)
+    elif isinstance(diff, Polygon):
+        diff = [diff]
+    else:
+        raise Exception(f"I only know how to deal with MultiPolygon or Polygon, but instead got type '{type(diff)}")
+
+    invalid_regions = [ np.array(r.exterior.coords) for r in diff if
+                        r.exterior and len(r.exterior.coords) ]
+    if len(invalid_regions) > 0:
+        print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
+
+
+
+
 
     plotoptions = dict(kwargs,
                        yinv    = True,
