@@ -1546,7 +1546,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     PyObject* result = NULL;
 
     PyArrayObject* x_final                    = NULL;
-    PyArrayObject* covariance_intrinsics_full = NULL;
     PyArrayObject* covariance_intrinsics      = NULL;
     PyArrayObject* covariance_extrinsics      = NULL;
     PyArrayObject* outlier_indices_final      = NULL;
@@ -1831,15 +1830,10 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         int Nintrinsics_all = mrcal_getNlensParams(lensmodel_type);
 
-        double* c_covariance_intrinsics_full  = NULL;
-        double* c_covariance_intrinsics       = NULL;
+        double* c_covariance_intrinsics = NULL;
         if(Nintrinsics_all != 0 &&
            get_covariances && PyObject_IsTrue(get_covariances))
         {
-            covariance_intrinsics_full =
-                (PyArrayObject*)PyArray_SimpleNew(3,
-                                                  ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
-            c_covariance_intrinsics_full = PyArray_DATA(covariance_intrinsics_full);
             covariance_intrinsics =
                 (PyArrayObject*)PyArray_SimpleNew(3,
                                                   ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
@@ -1910,7 +1904,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
             mrcal_stats_t stats =
                 mrcal_optimize( c_x_final,
-                                c_covariance_intrinsics_full,
+                                NULL,
                                 c_covariance_intrinsics,
                                 c_covariance_extrinsics,
                                 c_outlier_indices_final,
@@ -1978,13 +1972,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                           (PyObject*)x_final) )
             {
                 PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'x'");
-                goto done;
-            }
-            if( covariance_intrinsics_full &&
-                0 != PyDict_SetItemString(pystats, "covariance_intrinsics_full",
-                                          (PyObject*)covariance_intrinsics_full) )
-            {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'covariance_intrinsics_full'");
                 goto done;
             }
             if( covariance_intrinsics &&
@@ -2118,8 +2105,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 #pragma GCC diagnostic pop
 
     if(x_final)               Py_DECREF(x_final);
-    if(covariance_intrinsics_full)
-        Py_DECREF(covariance_intrinsics_full);
     if(covariance_intrinsics)
         Py_DECREF(covariance_intrinsics);
     if(covariance_extrinsics)
