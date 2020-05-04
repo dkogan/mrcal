@@ -836,8 +836,10 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(intrinsics, PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
 
 #define PROJECT_ARGUMENTS_OPTIONAL(_) \
-    _(get_gradients,    PyObject*,  Py_False,    "O",                                   , NULL,      -1, {}) \
-    _(z1,               PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
+    _(get_gradients,    PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
+
+#define UNPROJECT_ARGUMENTS_REQUIRED(_) PROJECT_ARGUMENTS_REQUIRED(_)
+#define UNPROJECT_ARGUMENTS_OPTIONAL(_)
 
 static bool _un_project_validate_args( // out
                                       lensmodel_t* lensmodel_type,
@@ -888,7 +890,7 @@ static bool _un_project_validate_args( // out
     return true;
 }
 
-#define _UN_PROJECT_PREAMBLE(ARGUMENTS_REQUIRED,ARGUMENTS_OPTIONAL,ARGUMENTS_OPTIONAL_VALIDATE,dim_points_in_notz1,dim_points_in_z1,dim_points_out_notz1,dim_points_out_z1) \
+#define _UN_PROJECT_PREAMBLE(ARGUMENTS_REQUIRED,ARGUMENTS_OPTIONAL,ARGUMENTS_OPTIONAL_VALIDATE,dim_points_in,dim_points_out) \
     PyObject*      result          = NULL;                              \
                                                                         \
     SET_SIGINT();                                                       \
@@ -920,9 +922,9 @@ static bool _un_project_validate_args( // out
         goto done;                                                      \
     }                                                                   \
                                                                         \
-    lensmodel_t lensmodel_type;                           \
-    if(!_un_project_validate_args( &lensmodel_type,              \
-                                   IS_TRUE(z1) ? dim_points_in_z1 : dim_points_in_notz1, \
+    lensmodel_t lensmodel_type;                                         \
+    if(!_un_project_validate_args( &lensmodel_type,                     \
+                                   dim_points_in,                       \
                                    ARGUMENTS_REQUIRED(ARG_LIST_CALL)    \
                                    ARGUMENTS_OPTIONAL_VALIDATE(ARG_LIST_CALL) \
                                    NULL))                               \
@@ -942,7 +944,7 @@ static bool _un_project_validate_args( // out
         npy_intp dims[Nleading_dims+2]; /* one extra for the gradients */ \
         memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));      \
                                                                         \
-        dims[Nleading_dims + 0] = IS_TRUE(z1) ? dim_points_out_z1 : dim_points_out_notz1; \
+        dims[Nleading_dims + 0] =  dim_points_out;                      \
         out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,        \
                                                 dims,                   \
                                                 NPY_DOUBLE);            \
@@ -955,22 +957,12 @@ static bool _un_project_validate_args( // out
                                                                NPY_DOUBLE); \
                                                                         \
             dims[Nleading_dims + 0] = 2;                                \
-            dims[Nleading_dims + 1] = IS_TRUE(z1) ? dim_points_in_z1 : dim_points_in_notz1; \
+            dims[Nleading_dims + 1] = dim_points_in;                    \
             dq_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
                                                                dims,    \
                                                                NPY_DOUBLE); \
         }                                                               \
     }
-
-#define _UN_PROJECT_POSTAMBLE(ARGUMENTS_REQUIRED,       \
-                              ARGUMENTS_OPTIONAL)       \
-                                                        \
- done:                                                  \
-    ARGUMENTS_REQUIRED(FREE_PYARRAY) ;                  \
-    ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;                  \
-    RESET_SIGINT();                                     \
-    return result
-
 
 
 static PyObject* project(PyObject* NPY_UNUSED(self),
@@ -980,32 +972,18 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     _UN_PROJECT_PREAMBLE(PROJECT_ARGUMENTS_REQUIRED,
                          PROJECT_ARGUMENTS_OPTIONAL,
                          PROJECT_ARGUMENTS_OPTIONAL,
-                         3, 2,
-                         2, 2);
+                         3, 2);
 
-    bool mrcal_result;
-    if( IS_TRUE(z1) )
-        mrcal_result =
-            mrcal_project_z1((point2_t*)PyArray_DATA(out),
-                             get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
-                             get_gradients_bool ? (point2_t*)PyArray_DATA(dq_dp)  : NULL,
+    bool mrcal_result =
+        mrcal_project((point2_t*)PyArray_DATA(out),
+                      get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
+                      get_gradients_bool ? (point3_t*)PyArray_DATA(dq_dp)  : NULL,
 
-                             (const point2_t*)PyArray_DATA(points),
-                             Npoints,
-                             lensmodel_type,
-                             // core, distortions concatenated
-                             (const double*)PyArray_DATA(intrinsics));
-    else
-        mrcal_result =
-            mrcal_project((point2_t*)PyArray_DATA(out),
-                          get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
-                          get_gradients_bool ? (point3_t*)PyArray_DATA(dq_dp)  : NULL,
-
-                          (const point3_t*)PyArray_DATA(points),
-                          Npoints,
-                          lensmodel_type,
-                          // core, distortions concatenated
-                          (const double*)PyArray_DATA(intrinsics));
+                      (const point3_t*)PyArray_DATA(points),
+                      Npoints,
+                      lensmodel_type,
+                      // core, distortions concatenated
+                      (const double*)PyArray_DATA(intrinsics));
 
 
     if(!mrcal_result)
@@ -1025,13 +1003,12 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
     else
         result = (PyObject*)out;
 
-    _UN_PROJECT_POSTAMBLE(PROJECT_ARGUMENTS_REQUIRED,
-                          PROJECT_ARGUMENTS_OPTIONAL);
+ done:
+    PROJECT_ARGUMENTS_REQUIRED(FREE_PYARRAY);
+    PROJECT_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
+    RESET_SIGINT();
+    return result;
 }
-
-#define UNPROJECT_ARGUMENTS_REQUIRED(_) PROJECT_ARGUMENTS_REQUIRED(_)
-#define UNPROJECT_ARGUMENTS_OPTIONAL(_) \
-    _(z1,               PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
 
 static PyObject* _unproject(PyObject* NPY_UNUSED(self),
                             PyObject* args,
@@ -1045,27 +1022,15 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
     _UN_PROJECT_PREAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
                          UNPROJECT_ARGUMENTS_OPTIONAL,
                          PROJECT_ARGUMENTS_OPTIONAL,
-                         2, 2,
-                         3, 2);
-    bool mrcal_result;
-    if( IS_TRUE(z1) )
-        mrcal_result =
-            mrcal_unproject_z1((point2_t*)PyArray_DATA(out),
+                         2, 3);
+    bool mrcal_result =
+        mrcal_unproject((point3_t*)PyArray_DATA(out),
 
-                               (const point2_t*)PyArray_DATA(points),
-                               Npoints,
-                               lensmodel_type,
-                               /* core, distortions concatenated */
-                               (const double*)PyArray_DATA(intrinsics));
-    else
-        mrcal_result =
-            mrcal_unproject((point3_t*)PyArray_DATA(out),
-
-                            (const point2_t*)PyArray_DATA(points),
-                            Npoints,
-                            lensmodel_type,
-                            /* core, distortions concatenated */
-                            (const double*)PyArray_DATA(intrinsics));
+                        (const point2_t*)PyArray_DATA(points),
+                        Npoints,
+                        lensmodel_type,
+                        /* core, distortions concatenated */
+                        (const double*)PyArray_DATA(intrinsics));
     if(!mrcal_result)
     {
         PyErr_SetString(PyExc_RuntimeError, "mrcal_unproject() failed!");
@@ -1075,9 +1040,13 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 
     result = (PyObject*)out;
 
-    _UN_PROJECT_POSTAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
-                          UNPROJECT_ARGUMENTS_OPTIONAL);
+ done:
+    UNPROJECT_ARGUMENTS_REQUIRED(FREE_PYARRAY);
+    UNPROJECT_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
+    RESET_SIGINT();
+    return result;
 }
+
 // projectStereographic(), and unprojectStereographic() have very similar
 // arguments and operation, so the logic is consolidated as much as possible in
 // these functions. The first arg is called "points" in both cases, but is 2d in

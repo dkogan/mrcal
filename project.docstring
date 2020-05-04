@@ -40,18 +40,12 @@ ARGUMENTS
 - get_gradients: optional boolean that defaults to False. Whether we should
   compute and report the gradients
 
-- z1: optional boolean that defaults to False. If given, then the points
-  we're projecting are given not as 3D coordinates in world coordinates, but as
-  a 2D vector Vxy representing a 3D point (Vx,Vy,1). In this case the
-  corresponding gradients are reported as dq/dVxy, not as dq/dp
-
-
 if not get_gradients: we return an (...,2) array of projected pixel coordinates
 
 if get_gradients: we return a tuple:
 
   - (...,2) array of projected pixel coordinates
   - (...,2,3) array of the gradients of the pixel coordinates in respect to
-    the input 3D point positions ( or a (...,2,2) array if z1)
+    the input 3D point positions
   - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
     respect to the intrinsics

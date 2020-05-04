@@ -11,11 +11,8 @@ wrapper that has a slow path to handle CAHVORE. Otherwise, the wrapper just
 calls this function, which does NOT support CAHVORE
 
 Maps a set of 2D imager points q to a 3d vector in camera coordinates that
-produced these pixel observations. The 3d vector is unique only up-to-length, so
-the result vectors either
-
-- if not z1: are reported as (3,) arrays with z = 1
-- if z1:     are reported as (2,) arrays, implying that z = 1
+produced these pixel observations. The 3d vector is unique only up-to-length.
+The returned vectors aren't normalized.
 
 This is the "reverse" direction, so an iterative nonlinear optimization is
 performed internally to compute this result. This is much slower than
@@ -47,12 +44,3 @@ ARGUMENTS
     ...)
 
   The focal lengths are given in pixels.
-
-- z1: optional boolean that defaults to False
-
-  if False: we return an (...,3) array of points in camera coordinates, where
-  the last column (z) contains 1
-
-  if True: we return an (...,2) array. This represents points in camera
-  coordinates, where the x,y components are present in this array, and the z is
-  omitted, and assumed to be 1

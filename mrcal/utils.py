@@ -1286,12 +1286,13 @@ def show_distortion(model,
         q_centersy  = np.array(((x0,cxy[1]),
                                 (x1,cxy[1])), dtype=float)
 
-        Vxy_corners  = mrcal.unproject( q_corners,  lens_model, intrinsics_data, z1=True)
-        Vxy_centersx = mrcal.unproject( q_centersx, lens_model, intrinsics_data, z1=True)
-        Vxy_centersy = mrcal.unproject( q_centersy, lens_model, intrinsics_data, z1=True)
-        r_corners    = nps.mag(Vxy_corners)
-        r_centersx   = nps.mag(Vxy_centersx)
-        r_centersy   = nps.mag(Vxy_centersy)
+        v_corners  = mrcal.unproject( q_corners,  lens_model, intrinsics_data)
+        v_centersx = mrcal.unproject( q_centersx, lens_model, intrinsics_data)
+        v_centersy = mrcal.unproject( q_centersy, lens_model, intrinsics_data)
+
+        th_corners  = 180./np.pi * np.arctan2(nps.mag(v_corners [..., :2]), v_corners [..., 2])
+        th_centersx = 180./np.pi * np.arctan2(nps.mag(v_centersx[..., :2]), v_centersx[..., 2])
+        th_centersy = 180./np.pi * np.arctan2(nps.mag(v_centersy[..., :2]), v_centersy[..., 2])
 
         # Now the equations. The 'x' value here is "pinhole pixels off center",
         # which is f*tan(th). I plot this model's radial relationship, and that
@@ -1305,11 +1306,11 @@ def show_distortion(model,
                      f'180./pi*atan( sin( x*pi/180. )) title "orthogonal"']
         sets = \
             ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "red"'  . \
-             format(th=np.arctan(r)*180./np.pi) for r in r_centersy] + \
+             format(th=th) for th in th_centersy] + \
             ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "green"'. \
-             format(th=np.arctan(r)*180./np.pi) for r in r_centersx] + \
+             format(th=th) for th in th_centersx] + \
             ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
-             format(th=np.arctan(r)*180./np.pi) for r in r_corners ]
+             format(th=th) for th in th_corners ]
         if 'set' in kwargs:
             if type(kwargs['set']) is list: sets.extend(kwargs['set'])
             else:                           sets.append(kwargs['set'])
@@ -1328,7 +1329,7 @@ def show_distortion(model,
         kwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
         plot = gp.gnuplotlib(equation = equations,
                              _set=sets,
-                             _xrange = [0,np.arctan(np.max(r_corners)) * 180./np.pi * 1.01],
+                             _xrange = [0,np.max(th_corners) * 1.01],
                              xlabel = 'Angle off the projection center (deg)',
                              ylabel = 'Distorted angle off the projection center',
                              **kwargs)

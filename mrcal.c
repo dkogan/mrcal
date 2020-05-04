@@ -2597,85 +2597,26 @@ bool mrcal_project( // out
     return true;
 }
 
-bool mrcal_project_z1( // out
-                       point2_t* q,
+// Maps a set of distorted 2D imager points q to a 3d vector in camera
+// coordinates that produced these pixel observations. The 3d vector is defined
+// up-to-length, so the vectors reported here will all have z = 1.
+//
+// This is the "reverse" direction, so an iterative nonlinear optimization is
+// performed internally to compute this result. This is much slower than
+// mrcal_project. For OpenCV distortions specifically, OpenCV has
+// cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
+// https://github.com/opencv/opencv/issues/8811
+//
+// This function does NOT support CAHVORE
+bool mrcal_unproject( // out
+                     point3_t* out,
 
-                       // core, distortions concatenated. Stored as a row-first
-                       // array of shape (N,2,Nintrinsics)
-                       double*   dq_dintrinsics,
-
-                       // Stored as a row-first array of shape (N,2,2). Each
-                       // trailing ,2 dimension element is a point2_t
-                       point2_t* dq_dVxy,
-
-                       // in
-                       const point2_t* Vxy,
-                       int N,
-                       lensmodel_t lensmodel,
-                       // core, distortions concatenated
-                       const double* intrinsics)
-{
-    // I allocate/deallocate some temporary arrays, and use the normal
-    // mrcal_project(). Would be nice to not allocate or deallocate anything
-    int N_to_allocate = N;
-    if(dq_dVxy != NULL)
-        N_to_allocate += N*2;
-
-    point3_t* pool = (point3_t*)malloc(N_to_allocate*sizeof(point3_t));
-    if(!pool)
-    {
-        MSG("Couldn't not allocate memory for %d point3_t objects!",
-            N_to_allocate);
-        return false;
-    }
-
-    point3_t* p     = &pool[0];
-    point3_t* dq_dp = dq_dVxy != NULL ? &pool[N] : NULL;
-
-    for(int i=0; i<N; i++)
-    {
-        p[i].x = Vxy[i].x;
-        p[i].y = Vxy[i].y;
-        p[i].z = 1.0;
-    }
-
-    bool result = mrcal_project( q,
-                                 dq_dintrinsics,
-                                 dq_dp,
-                                 p,
-                                 N,
-                                 lensmodel,
-                                 intrinsics);
-    if(!result)           goto done;
-    if( dq_dVxy == NULL ) goto done;
-
-    // I have dq/dp. I want dq/dVxy = dq/dp dp/dVxy
-    // We constructed p from Vxy above, so dp/dVxy = [ I 0 ]t
-    for(int i=0; i<N; i++)
-    {
-        dq_dVxy[2*i + 0].x = dq_dp[2*i + 0].x;
-        dq_dVxy[2*i + 0].y = dq_dp[2*i + 0].y;
-        dq_dVxy[2*i + 1].x = dq_dp[2*i + 1].x;
-        dq_dVxy[2*i + 1].y = dq_dp[2*i + 1].y;
-    }
-
- done:
-    free(pool);
-
-    return result;
-}
-
-// internal function for mrcal_unproject() and mrcal_unproject_z1()
-static
-bool _unproject( // out
-                double* out, // pointer to point2_t or point3_t
-                bool output_2d_stereographic,
-
-                // in
-                const point2_t* q,
-                int N,
-                lensmodel_t lensmodel,
-                const double* intrinsics)
+                     // in
+                     const point2_t* q,
+                     int N,
+                     lensmodel_t lensmodel,
+                     // core, distortions concatenated
+                     const double* intrinsics)
 {
     if( lensmodel.type == LENSMODEL_CAHVORE )
     {
@@ -2704,26 +2645,12 @@ bool _unproject( // out
     {
         for(int i=0; i<N; i++)
         {
-            if(output_2d_stereographic)
-            {
-                mrcal_project_stereographic( (point2_t*)out, NULL,
-                                             (point3_t[]){ {.x = (q[i].x - cx) / fx,
-                                                            .y = (q[i].y - cy) / fy,
-                                                            .z = 1.0 } },
-                                             1,
-                                             fx,fy,cx,cy);
-                // advance
-                out = &out[2];
-            }
-            else
-            {
-                out[0] = (q[i].x - cx) / fx;
-                out[1] = (q[i].y - cy) / fy;
-                out[2] = 1.0;
+            out->x = (q[i].x - cx) / fx;
+            out->y = (q[i].y - cy) / fy;
+            out->z = 1.0;
 
-                // advance
-                out = &out[3];
-            }
+            // advance
+            out++;
         }
         return true;
     }
@@ -2793,14 +2720,14 @@ bool _unproject( // out
         // (OPENCV8 for instance) this pushes us into a place where stuff
         // doesn't converge anymore. This produces a more stable solution, and
         // my tests pass
-        out[0] = (q[i].x-cx)*0.7 + cx;
-        out[1] = (q[i].y-cy)*0.7 + cy;
+        out->xyz[0] = (q[i].x-cx)*0.7 + cx;
+        out->xyz[1] = (q[i].y-cy)*0.7 + cy;
 
         dogleg_parameters2_t dogleg_parameters;
         dogleg_getDefaultParameters(&dogleg_parameters);
         dogleg_parameters.dogleg_debug = 0;
         double norm2x =
-            dogleg_optimize_dense2(out, 2, 2, cb, NULL,
+            dogleg_optimize_dense2(out->xyz, 2, 2, cb, NULL,
                                    &dogleg_parameters,
                                    NULL);
         //This needs to be precise; if it isn't, I barf. Shouldn't happen
@@ -2816,10 +2743,10 @@ bool _unproject( // out
                 already_complained = true;
             }
             double nan = strtod("NAN", NULL);
-            out[0] = nan;
-            out[1] = nan;
+            out->xyz[0] = nan;
+            out->xyz[1] = nan;
         }
-        else if(!output_2d_stereographic)
+        else
         {
             // out[0,1] is the stereographic representation of the observation
             // vector using idealized fx,fy,cx,cy. This is already the right
@@ -2829,57 +2756,18 @@ bool _unproject( // out
             mrcal_unproject_stereographic((point3_t*)out, NULL,
                                           (point2_t*)out, 1,
                                           fx,fy,cx,cy);
-            if(!model_supports_projection_behind_camera(lensmodel) && out[2] < 0.0)
+            if(!model_supports_projection_behind_camera(lensmodel) && out->xyz[2] < 0.0)
             {
-                out[0] *= -1.0;
-                out[1] *= -1.0;
-                out[2] *= -1.0;
+                out->xyz[0] *= -1.0;
+                out->xyz[1] *= -1.0;
+                out->xyz[2] *= -1.0;
             }
         }
 
         // Advance to the next point. Error or not
-        if(output_2d_stereographic) out = &out[2];
-        else                        out = &out[3];
+        out++;
     }
     return true;
-}
-
-// Maps a set of distorted 2D imager points q to a 3d vector in camera
-// coordinates that produced these pixel observations. The 3d vector is defined
-// up-to-length, so the vectors reported here will all have z = 1.
-//
-// This is the "reverse" direction, so an iterative nonlinear optimization is
-// performed internally to compute this result. This is much slower than
-// mrcal_project. For OpenCV distortions specifically, OpenCV has
-// cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
-// https://github.com/opencv/opencv/issues/8811
-//
-// This function does NOT support CAHVORE
-bool mrcal_unproject( // out
-                     point3_t* out,
-
-                     // in
-                     const point2_t* q,
-                     int N,
-                     lensmodel_t lensmodel,
-                     // core, distortions concatenated
-                     const double* intrinsics)
-{
-    return _unproject(out->xyz, false, q,N,lensmodel,intrinsics);
-}
-// Exactly the same as mrcal_unproject(), but reports 2d points, omitting the
-// redundant z=1
-bool mrcal_unproject_z1( // out
-                        point2_t* out,
-
-                        // in
-                        const point2_t* q,
-                        int N,
-                        lensmodel_t lensmodel,
-                        // core, distortions concatenated
-                        const double* intrinsics)
-{
-    return _unproject(out->xy, true, q,N,lensmodel,intrinsics);
 }
 
 // The following functions define/use the layout of the state vector. In general

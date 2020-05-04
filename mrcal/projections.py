@@ -12,7 +12,7 @@ import scipy.optimize
 import mrcal
 
 
-def unproject(q, lens_model, intrinsics_data, z1=False):
+def unproject(q, lens_model, intrinsics_data):
     r'''Removes distortion from pixel observations
 
 SYNOPSIS
@@ -26,11 +26,8 @@ wrapper that has a slow path to handle CAHVORE. Otherwise, the it just calls
 _mrcal._unproject(), which does NOT support CAHVORE
 
 Maps a set of 2D imager points q to a 3d vector in camera coordinates that
-produced these pixel observations. The 3d vector is unique only up-to-length, so
-the result vectors either
-
-- if not z1: are reported as (3,) arrays with z = 1
-- if z1:     are reported as (2,) arrays, implying that z = 1
+produced these pixel observations. The 3d vector is unique only up-to-length.
+The returned vectors aren't normalized.
 
 This is the "reverse" direction, so an iterative nonlinear optimization is
 performed internally to compute this result. This is much slower than
@@ -63,19 +60,10 @@ ARGUMENTS
 
   The focal lengths are given in pixels.
 
-- z1: optional boolean that defaults to False
-
-  if False: we return an (...,3) array of points in camera coordinates, where
-  the last column (z) contains 1
-
-  if True: we return an (...,2) array. This represents points in camera
-  coordinates, where the x,y components are present in this array, and the z is
-  omitted, and assumed to be 1
-
     '''
 
     if lens_model != 'LENSMODEL_CAHVORE':
-        return mrcal._mrcal._unproject(q, lens_model, intrinsics_data, z1)
+        return mrcal._mrcal._unproject(q, lens_model, intrinsics_data)
 
     # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
     # and here for legacy compatibility only
@@ -123,8 +111,6 @@ ARGUMENTS
         return vxy
 
     vxy = undistort_this(q)
-
-    if z1: return vxy
 
     # I append a 1. shape = (..., 3)
     return  nps.glue(vxy, np.ones( vxy.shape[:-1] + (1,) ), axis=-1)

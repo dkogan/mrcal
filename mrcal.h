@@ -283,27 +283,6 @@ bool mrcal_project( // out
                    // core, distortions concatenated
                    const double* intrinsics);
 
-// Similar to mrcal_project(), but instead of projecting 3D points world
-// coordinates, takes in 2D vectors Vxy, which represent a 3D point (Vx,Vy,1).
-// For each point this produces a 2x2 gradient dxy_dVxy instead of a 2x3
-// gradient dxy_dp
-bool mrcal_project_z1( // out
-                       point2_t* q,
-
-                       // core, distortions concatenated. Stored as a row-first
-                       // array of shape (N,2,Nintrinsics)
-                       double*   dq_dintrinsics,
-                       // Stored as a row-first array of shape (N,2,2). Each
-                       // trailing ,2 dimension element is a point2_t
-                       point2_t* dq_dVxy,
-
-                       // in
-                       const point2_t* Vxy,
-                       int N,
-                       lensmodel_t lensmodel,
-                       // core, distortions concatenated
-                       const double* intrinsics);
-
 // Maps a set of distorted 2D imager points q to a 3d vector in camera
 // coordinates that produced these pixel observations. The 3d vector is defined
 // up-to-length, so the vectors reported here will all have z = 1.
@@ -324,21 +303,12 @@ bool mrcal_unproject( // out
                      lensmodel_t lensmodel,
                      // core, distortions concatenated
                      const double* intrinsics);
-// Exactly the same as mrcal_unproject(), but reports 2d points, omitting the
-// redundant z=1
-bool mrcal_unproject_z1( // out
-                        point2_t* out,
 
-                        // in
-                        const point2_t* q,
-                        int N,
-                        lensmodel_t lensmodel,
-                        // core, distortions concatenated
-                        const double* intrinsics);
-
-// Compute a stereographic projection using a constant fxy, cxy. This is the
-// same as the pinhole projection for long lenses, but supports views behind the
-// camera
+// Compute a stereographic projection/unprojection using a constant fxy, cxy.
+// This is the same as the pinhole projection for long lenses, but supports
+// views behind the camera. There's only one singularity point: directly behind
+// the camera. Thus this is a good basis for optimization over observation
+// vectors: it's unconstrained, smoooth and effectively singularity-free
 void mrcal_project_stereographic( // output
                                  point2_t* q,
                                  point3_t* dq_dv, // May be NULL. Each point
@@ -350,8 +320,6 @@ void mrcal_project_stereographic( // output
                                  int N,
                                  double fx, double fy,
                                  double cx, double cy);
-
-// Compute a stereographic unprojection using a constant fxy, cxy
 void mrcal_unproject_stereographic( // output
                                    point3_t* v,
                                    point2_t* dv_dq, // May be NULL. Each point
