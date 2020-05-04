@@ -108,7 +108,8 @@ if order == 3:
     # my fov. So ix_margin = 1
     ix_margin = 1
 else:
-    raise Exception("Only order==3 supported for now")
+    # quadratic splines. 1/2 control points on each side past my fov
+    ix_margin = 0.5
 
 k = (ix_margin - (Nx-1)/2) / (np.tan(-fov_x_deg*np.pi/180./2/2) * 2)
 

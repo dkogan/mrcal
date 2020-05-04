@@ -71,8 +71,10 @@ tests = ( # mostly all
           "LENSMODEL_OPENCV4 intrinsic-core",
 
           # splined
-          "LENSMODEL_SPLINED_STEREOGRAPHIC extrinsics intrinsic-distortions",
-          "LENSMODEL_SPLINED_STEREOGRAPHIC frames extrinsics intrinsic-distortions calobject-warp",
+          "LENSMODEL_SPLINED_STEREOGRAPHIC_3 extrinsics intrinsic-distortions",
+          "LENSMODEL_SPLINED_STEREOGRAPHIC_3 frames extrinsics intrinsic-distortions calobject-warp",
+          "LENSMODEL_SPLINED_STEREOGRAPHIC_2 extrinsics intrinsic-distortions",
+          "LENSMODEL_SPLINED_STEREOGRAPHIC_2 frames extrinsics intrinsic-distortions calobject-warp",
          )
 
 

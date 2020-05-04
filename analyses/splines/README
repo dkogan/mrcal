@@ -15,7 +15,9 @@ unprojects the points, and projects the vectors back to a number of common
 fisheye projections. I applied this to some wide models I had (their inaccurate
 OPENCV8 fits), and observed that the stereographic model works well here: a
 cartensian grid in the imager produces a cartesian-ish grid in the stereographic
-projection.
+projection. The other projections look like they'd work also. The pinhole
+projection most notably does NOT work; its projections run off to infinity at
+the edges.
 
 Then I needed to find a surface representation, and the expressions. I'm using
 b-splines: they have nice continuity properties, and they have nice local
@@ -33,4 +35,5 @@ behavior was correct. This is done by the
 script. It produces a random splined model, projects it with mrcal, and
 visualizes the sparse control point surface with the dense sampled surface. The
 sampled surface should appear smooth, and should be guided by the control
-points.
+points. This tool is the first test that the mrcal projection is implemented
+correctly

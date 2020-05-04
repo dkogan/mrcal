@@ -16,6 +16,11 @@ int main(int argc, char* argv[] )
 {
     const char* usage = "Usage: %s LENSMODEL_XXX [problem-details problem-details ...]\n"
         "\n"
+        "The lensmodels are given as the expected strings. Splined stereographic models\n"
+        "MUST be given as either of\n"
+        "  LENSMODEL_SPLINED_STEREOGRAPHIC_2\n"
+        "  LENSMODEL_SPLINED_STEREOGRAPHIC_3\n"
+        "\n"
         "problem-details are a list of parameters we're optimizing. This is some set of\n"
         "  intrinsic-core\n"
         "  intrinsic-distortions\n"
@@ -51,6 +56,20 @@ int main(int argc, char* argv[] )
                 ")\n", argv[iarg]);
         return 1;
     }
+    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+    {
+        if(0 == strcmp(argv[iarg], "LENSMODEL_SPLINED_STEREOGRAPHIC_2"))
+            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order = 2;
+        else if(0 == strcmp(argv[iarg], "LENSMODEL_SPLINED_STEREOGRAPHIC_3"))
+            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order = 3;
+        else
+        {
+            fprintf(stderr, "A splined stereographic model must be specified as exactly one of \"LENSMODEL_SPLINED_STEREOGRAPHIC_2\" or \"LENSMODEL_SPLINED_STEREOGRAPHIC_3\". Givin gup\n");
+            return 1;
+        }
+    }
+
+
     iarg++;
 
     if(iarg >= argc)
@@ -58,7 +77,6 @@ int main(int argc, char* argv[] )
     else
         for(; iarg < argc; iarg++)
         {
-
             if( 0 == strcmp(argv[iarg], "intrinsic-core") )
             {
                 problem_details.do_optimize_intrinsic_core = true;
@@ -157,7 +175,7 @@ int main(int argc, char* argv[] )
 
     if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC )
     {
-        lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order = 3;
+        // the spline_order was already set above
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx           = 11;
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny           = 8;
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.fov_x_deg    = 200;

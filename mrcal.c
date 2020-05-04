@@ -480,16 +480,22 @@ int mrcal_getN_j_nonzero( int Ncameras,
     // THAT camera. Camera0 doesn't have extrinsics, so I need to loop through
     // all my observations
 
-#warning "hard-coding cubic splines"
     // Each projected point has an x and y measurement, and each one depends on
     // some number of the intrinsic parameters. Parametric models are simple:
     // each one depends on ALL of the intrinsics. Splined models are sparse,
     // however, and there's only a partial dependence
-    int Nintrinsics_per_measurement =
-        (lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-        ( (problem_details.do_optimize_intrinsic_core        ? 4   : 0)  +
-          (problem_details.do_optimize_intrinsic_distortions ? 4*4 : 0) ) :
-        mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
+    int Nintrinsics_per_measurement;
+    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+    {
+        int run_len =
+            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order + 1;
+        Nintrinsics_per_measurement =
+            (problem_details.do_optimize_intrinsic_core        ? 4                 : 0)  +
+            (problem_details.do_optimize_intrinsic_distortions ? (run_len*run_len) : 0);
+    }
+    else
+        Nintrinsics_per_measurement =
+            mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
 
     // x depends on fx,cx but NOT on fy, cy. And similarly for y.
     if( problem_details.do_optimize_intrinsic_core &&
@@ -549,7 +555,7 @@ static
 void sample_bspline_surface_cubic(double* out,
                                   double* dout_dx,
                                   double* dout_dy,
-                                  double* ABCDx, double* ABCDy,
+                                  double* ABCDx_ABCDy,
 
                                   double x, double y,
                                   // control points
@@ -561,16 +567,17 @@ void sample_bspline_surface_cubic(double* out,
                                   // cache locality maybe
                                   )
 {
+    double* ABCDx = &ABCDx_ABCDy[0];
+    double* ABCDy = &ABCDx_ABCDy[4];
+
     // The sampling function assumes evenly spaced knots.
     // a,b,c,d are sequential control points
     // x is in [0,1] between b and c. Function looks like this:
-    //   double x2 = x*x;
-    //   double x3 = x2*x;
-    //   double A =  (-x3 + 3*x2 - 3*x + 1)/6;
-    //   double B = (3 * x3/2 - 3*x2 + 2)/3;
-    //   double C = (-3 * x3 + 3*x2 + 3*x + 1)/6;
-    //   double D = (x * x * x) / 6;
-    //   return A*a0 + B*b0 + C*c0 + D*d0;
+    //   double A = fA(x);
+    //   double B = fB(x);
+    //   double C = fC(x);
+    //   double D = fD(x);
+    //   return A*a + B*b + C*c + D*d;
     // I need to sample many such 1D segments, so I compute A,B,C,D separately,
     // and apply them together
     void get_sample_coeffs(double* ABCD, double* ABCDgrad, double x)
@@ -622,6 +629,79 @@ void sample_bspline_surface_cubic(double* out,
     interp(out,     ABCDx,     ABCDy);
     interp(dout_dx, ABCDgradx, ABCDy);
     interp(dout_dy, ABCDx,     ABCDgrady);
+}
+static
+void sample_bspline_surface_quadratic(double* out,
+                                      double* dout_dx,
+                                      double* dout_dy,
+                                      double* ABCx_ABCy,
+
+                                      double x, double y,
+                                      // control points
+                                      const double* c,
+                                      int stridey
+
+                                      // stridex is 2: the control points from the
+                                      // two surfaces are next to each other. Better
+                                      // cache locality maybe
+                                      )
+{
+    double* ABCx = &ABCx_ABCy[0];
+    double* ABCy = &ABCx_ABCy[3];
+
+    // The sampling function assumes evenly spaced knots.
+    // a,b,c are sequential control points
+    // x is in [-1/2,1/2] around b. Function looks like this:
+    //   double A = fA(x);
+    //   double B = fB(x);
+    //   double C = fC(x);
+    //   return A*a + B*b + C*c;
+    // I need to sample many such 1D segments, so I compute A,B,C separately,
+    // and apply them together
+    void get_sample_coeffs(double* ABC, double* ABCgrad, double x)
+    {
+        double x2 = x*x;
+        ABC[0] = (4*x2 - 4*x + 1)/8;
+        ABC[1] = (3 - 4*x2)/4;
+        ABC[2] = (4*x2 + 4*x + 1)/8;
+
+        ABCgrad[0] = x - 1./2.;
+        ABCgrad[1] = -2.*x;
+        ABCgrad[2] = x + 1./2.;
+    }
+
+    // 3 samples along one dimension, and then one sample along the other
+    // dimension, using the 3 samples as the control points. Order doesn't
+    // matter. See bsplines.py
+    //
+    // I do this twice: one for each focal length surface
+    double ABCgradx[3];
+    double ABCgrady[3];
+    get_sample_coeffs(ABCx, ABCgradx, x);
+    get_sample_coeffs(ABCy, ABCgrady, y);
+    void interp(double* out, const double* ABCx, const double* ABCy)
+    {
+        double cinterp[3][2];
+        const int stridex = 2;
+        for(int iy=0; iy<3; iy++)
+            for(int k=0;k<2;k++)
+                cinterp[iy][k] =
+                    ABCx[0] * c[iy*stridey + 0*stridex + k] +
+                    ABCx[1] * c[iy*stridey + 1*stridex + k] +
+                    ABCx[2] * c[iy*stridey + 2*stridex + k];
+        for(int k=0;k<2;k++)
+            out[k] =
+                ABCy[0] * cinterp[0][k] +
+                ABCy[1] * cinterp[1][k] +
+                ABCy[2] * cinterp[2][k];
+    }
+
+    // the intrinsics gradient is flatten(ABCx[0..3] * ABCy[0..3]) for both x
+    // and y. By returning ABC[xy] and not the cartesian products, I make
+    // smaller temporary data arrays
+    interp(out,     ABCx,     ABCy);
+    interp(dout_dx, ABCgradx, ABCy);
+    interp(dout_dy, ABCx,     ABCgrady);
 }
 
 typedef struct
@@ -1297,23 +1377,35 @@ static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
     // B-splines, so I need extra control points out past my edge.
     // With cubic splines I need a whole extra interval past the
     // edge. With quadratic splines I need half an interval (see
-    // show-fisheye-grid.py).
+    // stuff in analyses/splines/).
     //
     // (width + k*interval_size)/(N-1) = interval_size
     // ---> width/(N-1) = interval_size * (1 - k/(N-1))
     // ---> interval_size = width / (N - 1 - k)
     int NextraIntervals;
-    switch(config->spline_order)
+    if(config->spline_order == 2)
     {
-        // case 2: NextraIntervals = 1; break;
-    case 3: NextraIntervals = 2; break;
-    default:
-        MSG("I only support spline_order 2 and 3");
-        assert(0);
+        NextraIntervals = 1;
+        if(config->Nx < 3 || config->Ny < 3)
+        {
+            MSG("Quadratic splines: absolute minimum Nx, Ny is 3. Got Nx=%d Ny=%d. Barfing out",
+                config->Nx, config->Ny);
+            assert(0);
+        }
     }
-    if(config->Nx < 4 || config->Ny < 4)
+    else if(config->spline_order == 3)
     {
-        MSG("I only support Nx and Ny must be >= 4");
+        NextraIntervals = 2;
+        if(config->Nx < 4 || config->Ny < 4)
+        {
+            MSG("Cubic splines: absolute minimum Nx, Ny is 4. Got Nx=%d Ny=%d. Barfing out",
+                config->Nx, config->Ny);
+            assert(0);
+        }
+    }
+    else
+    {
+        MSG("I only support spline_order 2 and 3");
         assert(0);
     }
 
@@ -1366,18 +1458,12 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
     return true;
 }
 
-typedef struct
-{
-    double ABCDx[4];
-    double ABCDy[4];
-} splined_intrinsics_grad_context_t;
-
 static
 void _project_point_splined( // outputs
                             point2_t* q,
                             double* dq_dfxy,
 
-                            splined_intrinsics_grad_context_t* ctx,
+                            double* grad_ABCDx_ABCDy,
                             int* ivar0,
 
                             // Gradient outputs. May be NULL
@@ -1396,6 +1482,7 @@ void _project_point_splined( // outputs
 
                             const double* restrict intrinsics,
                             bool camera_at_identity,
+                            int spline_order,
                             uint16_t Nx, uint16_t Ny,
                             double segments_per_u,
 
@@ -1455,28 +1542,83 @@ void _project_point_splined( // outputs
     double ix = u.x*segments_per_u + (double)(Nx-1)/2.;
     double iy = u.y*segments_per_u + (double)(Ny-1)/2.;
 #warning need to bounds-check
-    int ix0 = (int)ix;
-    int iy0 = (int)iy;
-
-
+    int ix0, iy0;
     point2_t deltau;
     double ddeltau_dux[2];
     double ddeltau_duy[2];
-    *ivar0 =
-        4 + // skip the core
-        2*( (iy0-1)*Nx +
-            (ix0-1) );
     const double fx = intrinsics[0];
     const double fy = intrinsics[1];
     const double cx = intrinsics[2];
     const double cy = intrinsics[3];
-    sample_bspline_surface_cubic(deltau.xy, ddeltau_dux, ddeltau_duy,
-                                 ctx->ABCDx, ctx->ABCDy,
-                                 ix - ix0, iy - iy0,
 
-                                 // control points
-                                 &intrinsics[*ivar0],
-                                 2*Nx);
+    if( spline_order == 3 )
+    {
+        ix0 = (int)ix;
+        iy0 = (int)iy;
+        if(ix0 < 1){
+            ix0 = 1;
+        }
+        if(ix0 > Nx-3){
+            ix0 = Nx-3;
+        }
+        if(iy0 < 1){
+            iy0 = 1;
+        }
+        if(iy0 > Ny-3){
+            iy0 = Ny-3;
+        }
+
+        *ivar0 =
+            4 + // skip the core
+            2*( (iy0-1)*Nx +
+                (ix0-1) );
+
+        sample_bspline_surface_cubic(deltau.xy, ddeltau_dux, ddeltau_duy,
+                                     grad_ABCDx_ABCDy,
+                                     ix - ix0, iy - iy0,
+
+                                     // control points
+                                     &intrinsics[*ivar0],
+                                     2*Nx);
+    }
+    else if( spline_order == 2 )
+    {
+        ix0 = (int)(ix + 0.5);
+        iy0 = (int)(iy + 0.5);
+        if(ix0 < 1){
+            ix0 = 1;
+        }
+        if(ix0 > Nx-2){
+            ix0 = Nx-2;
+        }
+        if(iy0 < 1){
+            iy0 = 1;
+        }
+        if(iy0 > Ny-2){
+            iy0 = Ny-2;
+        }
+
+        *ivar0 =
+            4 + // skip the core
+            2*( (iy0-1)*Nx +
+                (ix0-1) );
+
+        sample_bspline_surface_quadratic(deltau.xy, ddeltau_dux, ddeltau_duy,
+                                         grad_ABCDx_ABCDy,
+                                         ix - ix0, iy - iy0,
+
+                                         // control points
+                                         &intrinsics[*ivar0],
+                                         2*Nx);
+    }
+    else
+    {
+        MSG("I only support spline_order==2 or 3. Somehow got %d. This is a bug. Barfing",
+            spline_order);
+        assert(0);
+    }
+
+
     // convert ddeltau_dixy to ddeltau_duxy
     for(int i=0; i<2; i++)
     {
@@ -1800,7 +1942,7 @@ void project( // out
             *gradient_sparse_meta =
                 (gradient_sparse_meta_t)
                 {
-                    .run_side_length = 4,
+                    .run_side_length = config->spline_order+1,
                     .ivar_stridey    = 2*config->Nx,
                     .pool            = &dq_dintrinsics_pool_double[ivar_pool]
                 };
@@ -1900,15 +2042,17 @@ void project( // out
                        bool camera_at_identity,
                        const double* _Rj)
     {
-        // this should be more generic, and should use has_...
         if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
         {
-            splined_intrinsics_grad_context_t ctx;
+            // only need 3+3 for quadratic splines
+            double grad_ABCDx_ABCDy[4+4];
             int ivar0;
+
             _project_point_splined( // outputs
                                    q,
                                    p_dq_dfxy,
-                                   &ctx, &ivar0,
+                                   grad_ABCDx_ABCDy,
+                                   &ivar0,
 
                                    dq_drcamera,
                                    dq_dtcamera,
@@ -1921,14 +2065,18 @@ void project( // out
                                    dp_drc, dp_dtc, dp_drf, dp_dtf,
                                    intrinsics,
                                    camera_at_identity,
+                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order,
                                    lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
                                    lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
                                    precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u,
                                    i_pt);
             if(dq_dintrinsics_pool_int != NULL)
             {
+                int runlen = lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order + 1;
                 *(dq_dintrinsics_pool_int++) = ivar0;
-                memcpy(&gradient_sparse_meta->pool[i_pt*sizeof(ctx)/sizeof(double)], &ctx, sizeof(ctx));
+                memcpy(&gradient_sparse_meta->pool[i_pt*runlen*2],
+                       grad_ABCDx_ABCDy,
+                       sizeof(double)*runlen*2);
             }
         }
         else
@@ -2419,12 +2567,12 @@ bool mrcal_project( // out
                 //
                 // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
 
-                // pool_double contains ABCDxy in a splined_intrinsics_grad_context_t
-                const splined_intrinsics_grad_context_t* ctx =
-                    (splined_intrinsics_grad_context_t*)gradient_sparse_meta.pool;
-                const int ivar0 = dq_dintrinsics_pool_int[0];
+                const int     ivar0 = dq_dintrinsics_pool_int[0];
+                const int     len   = gradient_sparse_meta.run_side_length;
 
-                const int len          = gradient_sparse_meta.run_side_length;
+                const double* ABCDx = &gradient_sparse_meta.pool[0];
+                const double* ABCDy = &gradient_sparse_meta.pool[len];
+
                 const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
                 const double* fxy = &intrinsics[0];
                 for(int i_xy=0; i_xy<2; i_xy++)
@@ -2433,7 +2581,7 @@ bool mrcal_project( // out
                         {
                             int ivar = ivar0 + ivar_stridey*iy + ix*2 + i_xy;
                             dq_dintrinsics[ivar + i_xy*Nintrinsics] =
-                                ctx->ABCDx[ix]*ctx->ABCDy[iy]*fxy[i_xy];
+                                ABCDx[ix]*ABCDy[iy]*fxy[i_xy];
                         }
             }
 
@@ -3965,21 +4113,20 @@ void optimizerCallback(// input state
                             //   dq/diii = f ddeltau/diii
                             //
                             // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
-
-                            // pool_double contains ABCDxy in a splined_intrinsics_grad_context_t
                             const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
                                 ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
-                            const splined_intrinsics_grad_context_t* ctx =
-                                &((splined_intrinsics_grad_context_t*)gradient_sparse_meta.pool)[splined_intrinsics_grad_irun];
 
-                            const int len          = gradient_sparse_meta.run_side_length;
+                            const int     len   = gradient_sparse_meta.run_side_length;
+                            const double* ABCDx = &gradient_sparse_meta.pool[len*2*splined_intrinsics_grad_irun + 0];
+                            const double* ABCDy = &gradient_sparse_meta.pool[len*2*splined_intrinsics_grad_irun + len];
+
                             const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
                             const double* fxy = &intrinsics_all[i_camera][0];
 
                             for(int iy=0; iy<len; iy++)
                                 for(int ix=0; ix<len; ix++)
                                     STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
-                                                    ctx->ABCDx[ix]*ctx->ABCDy[iy]*fxy[i_xy] *
+                                                    ABCDx[ix]*ABCDy[iy]*fxy[i_xy] *
                                                     weight * SCALE_DISTORTION );
                         }
                         else
@@ -4076,7 +4223,6 @@ void optimizerCallback(// input state
                     {
                         if(gradient_sparse_meta.pool != NULL)
                         {
-#warning hard-coding cubic splines
                             const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
                                 ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
                             const int len          = gradient_sparse_meta.run_side_length;
@@ -4250,14 +4396,13 @@ void optimizerCallback(// input state
                         //   dq/diii = f ddeltau/diii
                         //
                         // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
-
-                        // pool_double contains ABCDxy in a splined_intrinsics_grad_context_t
                         const int ivar0 = dq_dintrinsics_pool_int[0] -
                             ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
-                        const splined_intrinsics_grad_context_t* ctx =
-                            (splined_intrinsics_grad_context_t*)gradient_sparse_meta.pool;
 
-                        const int len          = gradient_sparse_meta.run_side_length;
+                        const int     len   = gradient_sparse_meta.run_side_length;
+                        const double* ABCDx = &gradient_sparse_meta.pool[0];
+                        const double* ABCDy = &gradient_sparse_meta.pool[len];
+
                         const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
                         const double* fxy = &intrinsics_all[i_camera][0];
 
@@ -4265,7 +4410,7 @@ void optimizerCallback(// input state
                             for(int ix=0; ix<len; ix++)
                             {
                                 STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
-                                                ctx->ABCDx[ix]*ctx->ABCDy[iy]*fxy[i_xy] *
+                                                ABCDx[ix]*ABCDy[iy]*fxy[i_xy] *
                                                 weight * SCALE_DISTORTION );
                             }
                     }
