@@ -8,7 +8,7 @@ SYNOPSIS
       --corners-cache corners.vnl
       --focal 1700 --object-spacing 0.01 --object-width-n 10
       --outdir /tmp
-      --lens-model LENSMODEL_OPENCV8
+      --lensmodel LENSMODEL_OPENCV8
       --observed-pixel-uncertainty 0.5
       --pairs
       'left*.png' 'right*.png'
@@ -109,7 +109,7 @@ Once we have gathered input images, we can run the calibration procedure:
     --object-spacing 0.1
     --object-width-n 10
     --outdir /tmp
-    --lens-model LENSMODEL_OPENCV8
+    --lensmodel LENSMODEL_OPENCV8
     --observed-pixel-uncertainty 1.0
     --explore
     'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
@@ -140,7 +140,7 @@ this is 10.
 
 --outdir specifies the directory where the output models will be written
 
---lens-model specifies which lens model we're using for the cameras.
+--lensmodel specifies which lens model we're using for the cameras.
 At this time all OpenCV lens models are supported, in addition to
 LENSMODEL_CAHVOR. The CAHVOR model is there for legacy compatibility only. If
 you're not going to be using these models in a system that only supports CAHVOR,
@@ -337,7 +337,7 @@ def parse_args():
                         type=int,
                         default=10,
                         help='How many points the calibration board has per side')
-    parser.add_argument('--lens-model',
+    parser.add_argument('--lensmodel',
                         required=False,
                         help='''Which lens model we're using. This is required unless we have a
                         --seed''')
@@ -826,7 +826,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         # I have no seed. I compute a rough seed, and run a few preliminary,
         # incremental optimizations to get it reasonably-close to the right
         # answer
-        lens_model = 'LENSMODEL_PINHOLE'
+        lensmodel = 'LENSMODEL_PINHOLE'
         intrinsics_data,extrinsics,frames = \
             mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
                                           focal_estimate       = args.focal,
@@ -840,7 +840,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
-                               lens_model,
+                               lensmodel,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = False,
@@ -859,7 +859,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
-                               lens_model,
+                               lensmodel,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = True,
@@ -877,7 +877,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
     else:
 
         # The caller made sure that all the models use the same lens model
-        lens_model = seedmodels[0].intrinsics()[0]
+        lensmodel = seedmodels[0].intrinsics()[0]
         intrinsics_data  = nps.cat( *[m.intrinsics()[1] for m in seedmodels])
 
         # I keep the relative camera poses constant, but place camera0 at the
@@ -927,13 +927,13 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                         roi_final[:,2:] * scale,
                         axis = -1)
 
-    def expand_intrinsics(lens_model, intrinsics_data):
+    def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \
-            mrcal.getNlensParams(lens_model) - \
+            mrcal.getNlensParams(lensmodel) - \
             intrinsics_data.shape[1]
         newDistortions = \
             (np.random.random((Ncameras, NnewDistortions)) - 0.5)*2. *1e-6
-        m = re.search("OPENCV([0-9]+)", lens_model)
+        m = re.search("OPENCV([0-9]+)", lensmodel)
         if m:
             Nd = int(m.group(1))
             if Nd >= 8:
@@ -1021,8 +1021,8 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
     # seed now. And thus I now run the main optimization loop
     if not incremental:
         # We're not doing the incremental loop. Just solve it once and call it good
-        lens_model = args.lens_model
-        intrinsics_data  = expand_intrinsics(lens_model, intrinsics_data)
+        lensmodel = args.lensmodel
+        intrinsics_data  = expand_intrinsics(lensmodel, intrinsics_data)
 
         print("=================== optimizing everything{}from seeded intrinsics". \
               format(" except board warp " if args.optimize_calobject_warp else " "))
@@ -1030,7 +1030,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
-                               lens_model,
+                               lensmodel,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
@@ -1044,7 +1044,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                roi                               = args.roi,
                                get_covariances                   = False,
                                verbose                           = args.verbose_solver)
-        return "fixed solve", (lens_model, intrinsics_data), extrinsics, frames, args.roi, stats
+        return "fixed solve", (lensmodel, intrinsics_data), extrinsics, frames, args.roi, stats
 
 
 
@@ -1081,14 +1081,14 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
 
         print("")
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv next distortion/ROI:\n")
-        print("lens model: {}"         .format(lens_model))
+        print("lens model: {}"         .format(lensmodel))
         print("ROI:        {}/{}  ({})".format(iroi+1, Nroi, roi))
 
         state = copy.deepcopy( (intrinsics_data, extrinsics, frames), )
         stats = mrcal.optimize(state[0], state[1], state[2], None,
                                observations, indices_frame_camera,
                                None, None,
-                               lens_model,
+                               lensmodel,
                                imagersizes                       = imagersizes,
                                observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsic_core        = True,
@@ -1116,7 +1116,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
             frames                = state[2].copy()
             stats_best            = copy.deepcopy(stats)
             roi_best              = copy.deepcopy(roi)
-            lens_model_best = copy.deepcopy(lens_model)
+            lensmodel_best = copy.deepcopy(lensmodel)
             result                = 'Usable solve found at the full ROI'
 
             outside_ROI_indices__prevROI = stats['outside_ROI_indices']
@@ -1126,9 +1126,9 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
             # This solution wasn't very good. Let's try a richer distortion
             # model
 
-            lens_model1 = mrcal.getNextLensModel(lens_model, args.lens_model)
+            lensmodel1 = mrcal.getNextLensModel(lensmodel, args.lensmodel)
 
-            if lens_model1 == lens_model:
+            if lensmodel1 == lensmodel:
 
                 # we're already at the last model in the family, or at the
                 # maximum model the user asked for. There's nowhere more to go,
@@ -1161,7 +1161,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                     frames                = state[2]
                     stats_best            = stats
                     roi_best              = roi
-                    lens_model_best = lens_model
+                    lensmodel_best = lensmodel
                     result                = 'No usable solves found'
                 else:
                     result                = 'Usable solves found, but not for the full ROI'
@@ -1170,14 +1170,14 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
             else:
                 # I try the next model in the family, keeping the roi and
                 # outlier list the same
-                lens_model = lens_model1
-                intrinsics_data  = expand_intrinsics(lens_model, intrinsics_data)
+                lensmodel = lensmodel1
+                intrinsics_data  = expand_intrinsics(lensmodel, intrinsics_data)
                 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, distortion++\n".format(solution_description))
 
     return                                                                            \
         result,                                                                       \
-        ( lens_model_best,                                                      \
-          intrinsics_data[:,:mrcal.getNlensParams(lens_model_best)]), \
+        ( lensmodel_best,                                                      \
+          intrinsics_data[:,:mrcal.getNlensParams(lensmodel_best)]), \
          extrinsics,                                                                  \
          frames,                                                                      \
          roi_best,                                                                    \
@@ -1224,23 +1224,23 @@ if args.seed:
             if args.imagersize != m.imagersize():
                 raise Exception("Both --seed and --imagersize were given, so they must match exactly. But I had --imagersize {} and one model has imagersize() = {}". \
                                 format(args.imagersize, m.imagersize()))
-    lens_model = seedmodels[0].intrinsics()[0]
+    lensmodel = seedmodels[0].intrinsics()[0]
     for m in seedmodels[1:]:
-        if lens_model != m.intrinsics()[0]:
+        if lensmodel != m.intrinsics()[0]:
             raise Exception("I expect all cameras to use the same lens model, but --seed saw {} and {}". \
-                            format(lens_model,
+                            format(lensmodel,
                                    m.intrinsics()[0]))
 
-    if args.lens_model is None:
-        args.lens_model = lens_model
+    if args.lensmodel is None:
+        args.lensmodel = lensmodel
 
 
 else:
     if not args.focal:
         raise Exception("Exactly one of --focal and --seed MUST be given")
 
-    if not args.lens_model:
-        raise Exception("--lens-model is required if no --seed")
+    if not args.lensmodel:
+        raise Exception("--lensmodel is required if no --seed")
 
     if args.skip_extrinsics_solve:
         raise Exception("--skip-extrinsics-solve requires --seed")
@@ -1903,7 +1903,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 
     '''
 
-    lens_model = intrinsics[0]
+    lensmodel = intrinsics[0]
 
 
     def callback(intrinsics_data):
@@ -1911,7 +1911,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
             mrcal.optimizerCallback(intrinsics_data,extrinsics,frames, None,
                                     observations, indices_frame_camera,
                                     None, None,
-                                    lens_model,
+                                    lensmodel,
                                     do_optimize_calobject_warp        = args.optimize_calobject_warp,
                                     calobject_warp                    = calobject_warp,
                                     imagersizes                       = imagersizes,
@@ -1981,7 +1981,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
     ###########################################################################
     # Fine. Let's make sure the noise propagation works as it should. First off,
     # is the implementation correct?
-    Nintrinsics         = mrcal.getNlensParams(lens_model)
+    Nintrinsics         = mrcal.getNlensParams(lensmodel)
     Nobservations_board = indices_frame_camera.shape[0]
     Nmeasurements_board = Nobservations_board * args.object_width_n * args.object_width_n * 2
 
@@ -2036,7 +2036,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
                                 None,
                                 observations_perturbed, indices_frame_camera,
                                 None, None,
-                                lens_model,
+                                lensmodel,
                                 do_optimize_calobject_warp        = args.optimize_calobject_warp,
                                 calobject_warp                    = calobject_warp_resolved,
                                 imagersizes                       = imagersizes,
@@ -2079,7 +2079,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
     # where I'm evaluating the projection. I look at 1/3 (w,h). I'd like to be
     # in the center-ish, but not AT the center
     v0 = mrcal.unproject(imagersizes[0] / 3,
-                         lens_model, intrinsics[1][0])
+                         lensmodel, intrinsics[1][0])
 
     stdev = 1e-4
     q_sampled = np.zeros((100,Ncameras,2), dtype=float)
@@ -2090,12 +2090,12 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 
         for icam in range(Ncameras):
             q_sampled[i,icam] = \
-                mrcal.project(v0, lens_model,
+                mrcal.project(v0, lensmodel,
                               p[Nintrinsics*icam:Nintrinsics*(icam+1)])
 
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
-        dq = q_sampled[:, icam, ...] - mrcal.project(v0, lens_model, intrinsics[1][icam])
+        dq = q_sampled[:, icam, ...] - mrcal.project(v0, lensmodel, intrinsics[1][icam])
 
         dq_mean0 = dq - np.mean(dq,axis=-2)
         C = nps.matmult(nps.transpose(dq_mean0), dq_mean0)
