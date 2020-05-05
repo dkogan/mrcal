@@ -1451,8 +1451,8 @@ def show_splined_model_knots(model,
 
 
     import gnuplotlib as gp
-    from shapely.geometry import Polygon,MultiPolygon
-
+    from shapely.geometry import Polygon,MultiPolygon,LineString
+    import shapely.ops
 
     if kwargs is None: kwargs = {}
     if 'title' not in kwargs:
@@ -1524,9 +1524,10 @@ def show_splined_model_knots(model,
         raise Exception("I only support cubic (spline_order==3) and quadratic (spline_order==2) models")
 
 
+    # Anything outside the valid region contour but inside the imager is an
+    # invalid area: the field-of-view of the camera needs to be increased. I
+    # plot this area
     diff = Polygon(imager_contour).difference(Polygon(valid_region_contour))
-
-
     if isinstance(diff, MultiPolygon):
         diff = list(diff)
     elif isinstance(diff, Polygon):
@@ -1534,8 +1535,42 @@ def show_splined_model_knots(model,
     else:
         raise Exception(f"I only know how to deal with MultiPolygon or Polygon, but instead got type '{type(diff)}")
 
-    invalid_regions = [ np.array(r.exterior.coords) for r in diff if
-                        r.exterior and len(r.exterior.coords) ]
+    def split_polygon_to_remove_holes(p):
+        if not isinstance(p, Polygon):
+            raise Exception(f"Expected a 'Polygon' type, but got {type(p)}")
+
+        if not (p.interiors and len(p.interiors)):
+            # No hole. Return the coords, if they exist
+            try:
+                return [np.array(p.exterior.coords)]
+            except:
+                return []
+
+        # There's a hole! We need to split this polygon. I cut the polygon by a
+        # line between the centroid and some vertex. Which one doesn't matter; I
+        # keep trying until some cut works
+        hole = p.interiors[0]
+        for i in range(0,len(hole.coords)):
+
+            l0 = np.array((hole.centroid))
+            l1 = np.array((hole.coords[i]))
+            l0,l1 = (l1 + 100*(l0-l1)),(l0 + 100*(l1-l0))
+            line = LineString( (l0,l1) )
+
+            s = shapely.ops.split(p, line)
+            if len(s) > 1:
+                # success. split into multiple pieces. I process each one
+                # recursively, and I'm done. I return a flattened list
+                return [subpiece for piece in s for subpiece in split_polygon_to_remove_holes(piece)]
+            # Split didn't work. Try the next vertex
+
+        print("WARNING: Couldn't split the invalid-projection region. Ignoring",
+              file = sys.stderr)
+        return []
+
+    invalid_regions = \
+        [subpiece for p in diff for subpiece in split_polygon_to_remove_holes(p)]
+
     if len(invalid_regions) > 0:
         print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
 
@@ -1551,25 +1586,27 @@ def show_splined_model_knots(model,
 
     plot = gp.gnuplotlib(**plotoptions)
 
-    data = [( nps.clump(q, n=2),
-              dict(tuplesize = -2,
-                   _with     = 'points ps 2') ),
-            ( imager_contour,
-              dict( tuplesize = -2,
-                    _with     = 'lines',
-                    legend    = 'Imager bounds'))]
-    if valid_region_contour is not None:
-        data.append( ( valid_region_contour,
-                       dict( tuplesize = -2,
-                             _with     = 'lines',
-                             legend    = 'Valid projection region')))
+    data = []
 
     if invalid_regions is not None:
         data.extend( [ ( r,
                          dict( tuplesize = -2,
-                               _with     = 'filledcurves closed',
+                               _with     = 'filledcurves closed fillcolor "red"',
                                legend    = 'Invalid regions'))
                        for r in invalid_regions] )
+    data.extend([( nps.clump(q, n=2),
+                   dict(tuplesize = -2,
+                        _with     = 'points ps 2 pt 1') ),
+                 ( imager_contour,
+                   dict( tuplesize = -2,
+                         _with     = 'lines lc 1',
+                         legend    = 'Imager bounds'))])
+    if valid_region_contour is not None:
+        data.append( ( valid_region_contour,
+                       dict( tuplesize = -2,
+                             _with     = 'lines lc 2',
+                             legend    = 'Valid projection region')))
+
     plot.plot( *data )
     return plot
 
