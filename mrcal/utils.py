@@ -1482,7 +1482,7 @@ def show_splined_model_knots(model,
 
     ux,uy = mrcal.getKnotsForSplinedModels(lensmodel)
     u  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
-    v  = mrcal.unprojectStereographic(u, 1,1,0,0)
+    v  = mrcal.unproject_stereographic(u, 1,1,0,0)
 
     # q has shape (Ny,Nx,2)
     q = mrcal.project(v, lensmodel,intrinsics_data)
@@ -1509,7 +1509,7 @@ def show_splined_model_knots(model,
                       axis = -2 )
 
 
-        v_contour = mrcal.unprojectStereographic(u_contour, 1,1,0,0)
+        v_contour = mrcal.unproject_stereographic(u_contour, 1,1,0,0)
         q_contour = mrcal.project(v_contour, lensmodel,intrinsics_data)
 
         valid_region_contour = q_contour

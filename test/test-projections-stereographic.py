@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-r'''Tests projectStereographic()
+r'''Tests project_stereographic()
 
 I do 3 things:
 
@@ -40,13 +40,13 @@ q_projected_ref = np.array([[  649.35582325,   552.6874014 ],
 
 
 
-q_projected = mrcal.projectStereographic(p, fx,fy,cx,cy)
+q_projected = mrcal.project_stereographic(p, fx,fy,cx,cy)
 testutils.confirm_equal(q_projected,
                         q_projected_ref,
                         msg = f"Projecting",
                         eps = 1e-3)
 
-p_unprojected = mrcal.unprojectStereographic(q_projected, fx,fy,cx,cy)
+p_unprojected = mrcal.unproject_stereographic(q_projected, fx,fy,cx,cy)
 cos = nps.inner(p_unprojected, p) / (nps.mag(p)*nps.mag(p_unprojected))
 cos = np.clip(cos, -1, 1)
 testutils.confirm_equal( np.arccos(cos),
@@ -57,7 +57,7 @@ testutils.confirm_equal( np.arccos(cos),
 
 # Now gradients for project()
 delta = 1e-6
-q_projected,dq_dp_reported = mrcal.projectStereographic(p, fx,fy,cx,cy, get_gradients=True)
+q_projected,dq_dp_reported = mrcal.project_stereographic(p, fx,fy,cx,cy, get_gradients=True)
 testutils.confirm_equal(q_projected,
                         q_projected_ref,
                         msg = f"Projecting",
@@ -68,14 +68,14 @@ for ivar in range(3):
     p0[...,ivar] -= delta/2
     p1[...,ivar] += delta/2
     dq_dpivar_observed = \
-        (mrcal.projectStereographic(p1, fx,fy,cx,cy) - mrcal.projectStereographic(p0, fx,fy,cx,cy)) / delta
+        (mrcal.project_stereographic(p1, fx,fy,cx,cy) - mrcal.project_stereographic(p0, fx,fy,cx,cy)) / delta
     testutils.confirm_equal(dq_dp_reported[..., ivar],
                             dq_dpivar_observed,
                             msg = f"project() gradient var {ivar}",
                             eps = 1e-3)
 
 # Now gradients for unproject()
-p_unprojected,dp_dq_reported = mrcal.unprojectStereographic(q_projected, fx,fy,cx,cy, get_gradients=True)
+p_unprojected,dp_dq_reported = mrcal.unproject_stereographic(q_projected, fx,fy,cx,cy, get_gradients=True)
 cos = nps.inner(p_unprojected, p) / (nps.mag(p)*nps.mag(p_unprojected))
 cos = np.clip(cos, -1, 1)
 testutils.confirm_equal( np.arccos(cos),
@@ -88,7 +88,7 @@ for ivar in range(2):
     q0[...,ivar] -= delta/2
     q1[...,ivar] += delta/2
     dp_dqivar_observed = \
-        (mrcal.unprojectStereographic(q1, fx,fy,cx,cy) - mrcal.unprojectStereographic(q0, fx,fy,cx,cy)) / delta
+        (mrcal.unproject_stereographic(q1, fx,fy,cx,cy) - mrcal.unproject_stereographic(q0, fx,fy,cx,cy)) / delta
 
     testutils.confirm_equal(dp_dq_reported[..., ivar],
                             dp_dqivar_observed,

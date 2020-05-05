@@ -1047,7 +1047,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-// projectStereographic(), and unprojectStereographic() have very similar
+// project_stereographic(), and unproject_stereographic() have very similar
 // arguments and operation, so the logic is consolidated as much as possible in
 // these functions. The first arg is called "points" in both cases, but is 2d in
 // one case, and 3d in the other
@@ -1088,10 +1088,10 @@ static bool _un_project_stereographic_validate_args(// in
     return true;
 }
 
-static PyObject* _un_projectStereographic(PyObject* NPY_UNUSED(self),
-                                          PyObject* args,
-                                          PyObject* kwargs,
-                                          bool projecting)
+static PyObject* _un_project_stereographic(PyObject* NPY_UNUSED(self),
+                                           PyObject* args,
+                                           PyObject* kwargs,
+                                           bool projecting)
 {
     int dim_points_in, dim_points_out;
     if(projecting)
@@ -1196,17 +1196,17 @@ static PyObject* _un_projectStereographic(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-static PyObject* projectStereographic(PyObject* self,
-                                      PyObject* args,
-                                      PyObject* kwargs)
+static PyObject* project_stereographic(PyObject* self,
+                                       PyObject* args,
+                                       PyObject* kwargs)
 {
-    return _un_projectStereographic(self, args, kwargs, true);
+    return _un_project_stereographic(self, args, kwargs, true);
 }
-static PyObject* unprojectStereographic(PyObject* self,
-                                        PyObject* args,
-                                        PyObject* kwargs)
+static PyObject* unproject_stereographic(PyObject* self,
+                                         PyObject* args,
+                                         PyObject* kwargs)
 {
-    return _un_projectStereographic(self, args, kwargs, false);
+    return _un_project_stereographic(self, args, kwargs, false);
 }
 
 
@@ -2159,11 +2159,11 @@ static const char project_docstring[] =
 static const char _unproject_docstring[] =
 #include "_unproject.docstring.h"
     ;
-static const char projectStereographic_docstring[] =
-#include "projectStereographic.docstring.h"
+static const char project_stereographic_docstring[] =
+#include "project_stereographic.docstring.h"
     ;
-static const char unprojectStereographic_docstring[] =
-#include "unprojectStereographic.docstring.h"
+static const char unproject_stereographic_docstring[] =
+#include "unproject_stereographic.docstring.h"
     ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
@@ -2175,8 +2175,8 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getKnotsForSplinedModels, METH_VARARGS),
       PYMETHODDEF_ENTRY(,project,                  METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_unproject,               METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,projectStereographic,     METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,unprojectStereographic,   METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,project_stereographic,    METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,unproject_stereographic,  METH_VARARGS | METH_KEYWORDS),
       {}
     };
 

@@ -2,9 +2,9 @@ Unprojects a set of 2D pixel coordinates using a stereographic map
 
 SYNOPSIS
 
-    v = mrcal.unprojectStereographic( # (N,2) array of 2d imager points
-                                      points,
-                                      fx, fy, cx, cy )
+    v = mrcal.unproject_stereographic( # (N,2) array of 2d imager points
+                                       points,
+                                       fx, fy, cx, cy )
 
     # v is now a (N,3) array of observation directions. v are not normalized
 
