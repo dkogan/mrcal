@@ -30,7 +30,7 @@ DIST_BIN :=					\
 	mrcal-show-intrinsics-uncertainty	\
 	mrcal-show-intrinsics-diff		\
 	mrcal-undistort-image			\
-	mrcal-redistort-points			\
+	mrcal-reproject-points			\
 	mrcal-redistort-image			\
 	mrcal-graft-cameramodel			\
 	mrcal-to-cahvor				\

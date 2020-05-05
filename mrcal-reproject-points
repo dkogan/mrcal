@@ -1,35 +1,26 @@
 #!/usr/bin/python3
 
-r'''Converts distorted points from one model to another
+r'''Reprojects pixel observations from one model to another
 
 SYNOPSIS
 
-  $ mrcal-redistort-points
+  $ mrcal-reproject-points
       from.cameramodel to.cameramodel
       < input.vnl > output.vnl
 
 This tool takes a set of pixel observations of world points captured by one
 camera model, and transforms them into observations of the same points made by
-another model. This is similar to mrcal-redistort-image, but acts on discrete
-points, rather than a full image. The two sets of intrinsics are always used.
+another model. This is similar to mrcal-reproject-image, but acts on discrete
+points, rather than a whole image. The two sets of intrinsics are always used.
 The translation component of the extrinsics is always ignored; the rotation is
 ignored as well if --ignore-rotation.
 
-This allows you to combine multiple image-processing techniques that expect
-different images. For instance:
-
-1. mrcal-undistort-image --model fisheye.cameramodel input.png This produces an
-   undistorted image and a corresponding pinhole camera model.
-
-2. Feed the image we just made (input_undistorted.png) to an image-processing
-   tool that expects images from a pinhole camera.
-
-3. mrcal-redistort-points to convert the pixel coordinates computed in step 2
-   back into the space of the original image
+This allows one to combine multiple image-processing techniques that expect
+different projections.
 
 The input data comes in on standard input, and the output data goes out on
 standard output. Both are vnlog data: human-readable text with 2 columns: x and
-y pixel coord. Comments are allowed, and start with the '#' character.
+y pixel coords. Comments are allowed, and start with the '#' character.
 
 '''
 

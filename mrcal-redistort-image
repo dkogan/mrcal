@@ -13,7 +13,7 @@ SYNOPSIS
 This tool takes an image of a scene captured by one camera model, and generates
 an image of the same scene, as it would appear if captured by a different
 model, taking into account both the different lens parameters and geometries.
-This is similar to mrcal-redistort-points, but acts on a full image, rather
+This is similar to mrcal-reproject-points, but acts on a full image, rather
 than a discrete set of points.
 
 We have 3 modes of operation, selected with --mode:

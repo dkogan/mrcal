@@ -37,7 +37,7 @@ supported. The toolkit includes:
     intrinsics of a number of models
   - =mrcal-undistort-image=: Given image(s) and a lens model, produces a
     new set of images that have removed the distortion
-  - =mrcal-redistort-points=: Given two lens models and a set of points,
+  - =mrcal-reproject-points=: Given two lens models and a set of points,
     maps them from one lens model to the other
   - =mrcal-redistort-image=: Given two lens models and two images, maps
     them from one lens model to the other
@@ -175,9 +175,9 @@ xxx-manpage-mrcal-show-intrinsics-diff-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-undistort-image-xxx
 #+END_EXAMPLE
-** mrcal-redistort-points
+** mrcal-reproject-points
 #+BEGIN_EXAMPLE
-xxx-manpage-mrcal-redistort-points-xxx
+xxx-manpage-mrcal-reproject-points-xxx
 #+END_EXAMPLE
 ** mrcal-redistort-image
 #+BEGIN_EXAMPLE
