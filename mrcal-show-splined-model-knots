@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 
-r'''Visualizes the knots in a splined camera model
+r'''Visualizes the knots in a splined lens model
 
 SYNOPSIS
 
   $ mrcal-show-splined-model-knots cam.cameramodel
   ... a plot pops up showing the imager and the knots
 
-Splined models are build with a splined surface that we index to compute the
+Splined models are built with a splined surface that we index to compute the
 projection. The surface is defined by control points. The value of the control
 points is set in the intrinsics vector, but their location is fixed, as defined
 by the model configuration. The configuration selects the number of control
@@ -72,7 +72,7 @@ import mrcal
 model = mrcal.cameramodel(args.model)
 lensmodel = model.intrinsics()[0]
 
-if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
+if not re.match('LENSMODEL_SPLINED', lensmodel):
     print(f"This only makes sense with splined models. Input uses {lensmodel}",
           file = sys.stderr)
     sys.exit(1)
