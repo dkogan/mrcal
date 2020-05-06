@@ -2665,18 +2665,18 @@ bool mrcal_unproject( // out
     // unconstrained optimization here
     for(int i=0; i<N; i++)
     {
-        void cb(const double*   q_stereographic,
+        void cb(const double*   u,
                 double*         x,
                 double*         J,
                 void*           cookie __attribute__((unused)))
         {
-            // q_stereographic is the constant-fxy-cxy 2D stereographic
+            // u is the constant-fxy-cxy 2D stereographic
             // projection of the hypothesis v. I unproject it stereographically,
             // and project it using the actual model
-            point2_t dv_dqstereographic[3];
+            point2_t dv_du[3];
             pose_t frame = {};
-            mrcal_unproject_stereographic( &frame.t, dv_dqstereographic,
-                                           (point2_t*)q_stereographic, 1,
+            mrcal_unproject_stereographic( &frame.t, dv_du,
+                                           (point2_t*)u, 1,
                                            fx,fy,cx,cy );
 
             point3_t dq_dtframe[2];
@@ -2697,21 +2697,21 @@ bool mrcal_unproject( // out
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
             J[0*2 + 0] =
-                dq_dtframe[0].x*dv_dqstereographic[0].x +
-                dq_dtframe[0].y*dv_dqstereographic[1].x +
-                dq_dtframe[0].z*dv_dqstereographic[2].x;
+                dq_dtframe[0].x*dv_du[0].x +
+                dq_dtframe[0].y*dv_du[1].x +
+                dq_dtframe[0].z*dv_du[2].x;
             J[0*2 + 1] =
-                dq_dtframe[0].x*dv_dqstereographic[0].y +
-                dq_dtframe[0].y*dv_dqstereographic[1].y +
-                dq_dtframe[0].z*dv_dqstereographic[2].y;
+                dq_dtframe[0].x*dv_du[0].y +
+                dq_dtframe[0].y*dv_du[1].y +
+                dq_dtframe[0].z*dv_du[2].y;
             J[1*2 + 0] =
-                dq_dtframe[1].x*dv_dqstereographic[0].x +
-                dq_dtframe[1].y*dv_dqstereographic[1].x +
-                dq_dtframe[1].z*dv_dqstereographic[2].x;
+                dq_dtframe[1].x*dv_du[0].x +
+                dq_dtframe[1].y*dv_du[1].x +
+                dq_dtframe[1].z*dv_du[2].x;
             J[1*2 + 1] =
-                dq_dtframe[1].x*dv_dqstereographic[0].y +
-                dq_dtframe[1].y*dv_dqstereographic[1].y +
-                dq_dtframe[1].z*dv_dqstereographic[2].y;
+                dq_dtframe[1].x*dv_du[0].y +
+                dq_dtframe[1].y*dv_du[1].y +
+                dq_dtframe[1].z*dv_du[2].y;
         }
 
 
