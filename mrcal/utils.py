@@ -1581,6 +1581,14 @@ def show_splined_model_knots(model,
         kwargs['set'] = [kwargs['set']]
 
 
+
+    ux,uy = mrcal.getKnotsForSplinedModels(lensmodel)
+    # shape (Ny,Nx,2) and (Ny,Nx,3)
+    u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
+    v = mrcal.unproject_stereographic(u, 1,1,0,0)
+    q = mrcal.project(v, lensmodel,intrinsics_data)
+
+
     W,H = imagersize
 
     imager_contour = np.array(((0,0),
@@ -1604,12 +1612,6 @@ def show_splined_model_knots(model,
     if len(invalid_regions) > 0:
         print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
 
-
-    ux,uy = mrcal.getKnotsForSplinedModels(lensmodel)
-    # shape (Ny,Nx,2) and (Ny,Nx,3)
-    u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
-    v = mrcal.unproject_stereographic(u, 1,1,0,0)
-    q = mrcal.project(v, lensmodel,intrinsics_data)
 
 
 
@@ -1648,20 +1650,31 @@ def show_splined_model_knots(model,
 
 
 def show_splined_model_surface(model, ixy,
-
-                               mesh             = False,
+                               imager_domain    = True,
                                extratitle       = None,
                                hardcopy         = None,
                                kwargs           = None):
+
     r'''Visualizes the surface represented in a splined model
 
     Splined models are built with a splined surface that we index to compute the
     projection. The meaning of what indexes the surface and the values of the
     surface varies by model, but in all cases, visualizing the surface is useful.
 
-    We plot the surface as either a heatmap (the default) or as an
-    interactive-rotatable 3D mesh. If a heatmap is rendered, we also overlay
-    lots of other infomation
+    The surface is defined by control points. The value of the control points is
+    set in the intrinsics vector, but their locations (called "knots") are
+    fixed, as defined by the model configuration. The configuration selects the
+    control point density AND the expected field of view of the lens. This field
+    of view should roughly match the actual lens+camera we're using, and this
+    fit can be visualized with this tool.
+
+    If the field of view is too small, some parts of the imager will lie outside
+    of the region that the splined surface covers. This tool throws a warning in
+    that case, and displays the offending regions.
+
+    This function can produce a plot in the imager domain or in the spline index
+    domain. Both are useful, and this is controlled by the imager_domain
+    argument; the default is True.
 
     This function creates a plot and returns the corresponding gnuplotlib object
 
@@ -1693,28 +1706,40 @@ def show_splined_model_surface(model, ixy,
         kwargs['set'] = [kwargs['set']]
 
 
-    # In the splined_stereographic models, the spline is indexed by u. So u is
-    # linear with the knots. I can thus get u at the edges, and linearly
-    # interpolate between
     ux_knots,uy_knots = mrcal.getKnotsForSplinedModels(lensmodel)
     meta = mrcal.getLensModelMeta(lensmodel)
     Nx = meta['Nx']
     Ny = meta['Ny']
-    # The index into my spline.
-    # Indexes on (x,y) and contains (x,y) tuples. Note that this is different from
-    # the numpy (y,x) convention. Shape (Nx,Ny,2)
-    uxy = \
-        nps.reorder( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],Nx*5),
-                                           np.linspace(uy_knots[0], uy_knots[-1],Ny*5) )),
-                     -1, -2, -3)
 
-    # My projection is q = (u + deltau) * fxy + cxy. deltau is queried from the
-    # spline surface
-    v = mrcal.unproject_stereographic(np.ascontiguousarray(uxy), 1,1,0,0)
-    q = mrcal.project(v, lensmodel, intrinsics_data)
+    if imager_domain:
+        # Shape (Nx,Ny,2)
+        q = \
+            nps.reorder( nps.cat(*np.meshgrid( np.linspace(0, W-1, 60),
+                                               np.linspace(0, H-1, 40) )),
+                         -1, -2, -3)
+        v = mrcal.unproject(np.ascontiguousarray(q), lensmodel, intrinsics_data)
+        u = mrcal.project_stereographic(v, 1,1,0,0)
+    else:
+
+        # In the splined_stereographic models, the spline is indexed by u. So u is
+        # linear with the knots. I can thus get u at the edges, and linearly
+        # interpolate between
+        # The index into my spline.
+        # Indexes on (x,y) and contains (x,y) tuples. Note that this is different from
+        # the numpy (y,x) convention. Shape (Nx,Ny,2)
+        u = \
+            nps.reorder( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],Nx*5),
+                                               np.linspace(uy_knots[0], uy_knots[-1],Ny*5) )),
+                         -1, -2, -3)
+
+        # My projection is q = (u + deltau) * fxy + cxy. deltau is queried from the
+        # spline surface
+        v = mrcal.unproject_stereographic(np.ascontiguousarray(u), 1,1,0,0)
+        q = mrcal.project(v, lensmodel, intrinsics_data)
+
     fxy = intrinsics_data[0:2]
     cxy = intrinsics_data[2:4]
-    deltau = (q - cxy) / fxy - uxy
+    deltau = (q - cxy) / fxy - u
 
     # the imager boundary
     imager_boundary_sparse = \
@@ -1723,74 +1748,98 @@ def show_splined_model_surface(model, ixy,
                   (W-1, H-1),
                   (0,   H-1),
                   (0,   0)), dtype=float)
-    imager_boundary = _densify_polyline(imager_boundary_sparse, spacing = 50)
-    u_imager_boundary = \
-        mrcal.project_stereographic( mrcal.unproject(imager_boundary,
-                                                     lensmodel, intrinsics_data),
-                                     1,1,0,0 )
+
+    if imager_domain:
+        imager_boundary = imager_boundary_sparse
+    else:
+        imager_boundary = \
+            mrcal.project_stereographic(
+                mrcal.unproject(
+                    _densify_polyline(imager_boundary_sparse,
+                                      spacing = 50),
+                    lensmodel, intrinsics_data ),
+                1,1,0,0)
 
     plotoptions = dict(kwargs,
-                       xlabel   = 'Stereographic ux',
-                       ylabel   = 'Stereographic uy',
                        zlabel   = f"Deltau{'y' if ixy else 'x'} (unitless)")
-
-    if mesh:
-        plotoptions['_3d']      = True
-        plotoptions['squarexy'] = True
-        plotoptions['ascii']    = True
-        surface_curveoptions    = dict(_with = 'lines')
+    surface_curveoptions = dict()
+    if imager_domain:
+        plotoptions['xlabel'] = 'X pixel coord'
+        plotoptions['ylabel'] = 'Y pixel coord'
+        surface_curveoptions['using'] = \
+            f'($1/({deltau.shape[0]-1})*({W-1})):' + \
+            f'($2/({deltau.shape[1]-1})*({H-1})):' + \
+            '3'
     else:
-        plotoptions['square']   = True
-        plotoptions['yinv']     = True
-        plotoptions['ascii']    = True
-        surface_curveoptions    = dict(_with = 'image',
-                                       tuplesize = 3)
+        plotoptions['xlabel'] = 'Stereographic ux'
+        plotoptions['ylabel'] = 'Stereographic uy'
+        surface_curveoptions['using'] = \
+            f'({ux_knots[0]}+$1/({deltau.shape[0]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
+            f'({uy_knots[0]}+$2/({deltau.shape[1]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
+            '3'
 
-    surface_curveoptions['using'] = \
-        f'({ux_knots[0]}+$1/({uxy.shape[0]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
-        f'({uy_knots[0]}+$2/({uxy.shape[1]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
-        '3'
+    plotoptions['square']   = True
+    plotoptions['yinv']     = True
+    plotoptions['ascii']    = True
+    surface_curveoptions['_with']     = 'image'
+    surface_curveoptions['tuplesize'] = 3
 
     plot = gp.gnuplotlib(**plotoptions)
 
+    print(nps.transpose(deltau[..., ixy]))
     data = [ ( nps.transpose(deltau[..., ixy]),
                surface_curveoptions ) ]
-    if not mesh:
-        valid_region_contour_uxy = splined_stereographic_valid_region(lensmodel)
 
-        data.extend( [ ( u_imager_boundary,
-                         dict(_with     = 'lines lw 2',
-                              tuplesize = -2,
-                              legend    = 'imager boundary')),
-                       ( valid_region_contour_uxy,
-                         dict(_with     = 'lines lw 1',
-                              tuplesize = -2,
-                              legend    = 'Valid projection region')),
-                       ( nps.clump(nps.mv(nps.cat(*np.meshgrid(ux_knots,uy_knots)),
-                                          0, -1),
-                                   n = 2),
-                         dict(_with     = 'points pt 2 ps 2',
-                              tuplesize = -2,
-                              legend    = 'knots'))] )
+    valid_region_contour_u = splined_stereographic_valid_region(lensmodel)
+    knots_u = nps.clump(nps.mv(nps.cat(*np.meshgrid(ux_knots,uy_knots)),
+                               0, -1),
+                        n = 2)
+    if imager_domain:
+        valid_region_contour = \
+            mrcal.project(
+                mrcal.unproject_stereographic( valid_region_contour_u,
+                                               1,1,0,0 ),
+                lensmodel, intrinsics_data)
+        knots = \
+            mrcal.project(
+                mrcal.unproject_stereographic( np.ascontiguousarray(knots_u),
+                                               1,1,0,0 ),
+                lensmodel, intrinsics_data)
+    else:
+        valid_region_contour = valid_region_contour_u
+        knots = knots_u
+
+    data.extend( [ ( imager_boundary,
+                     dict(_with     = 'lines lw 2',
+                          tuplesize = -2,
+                          legend    = 'imager boundary')),
+                   ( valid_region_contour,
+                     dict(_with     = 'lines lw 1',
+                          tuplesize = -2,
+                          legend    = 'Valid projection region')),
+                   ( knots,
+                     dict(_with     = 'points pt 2 ps 2',
+                          tuplesize = -2,
+                          legend    = 'knots'))] )
 
 
-        # Anything outside the valid region contour but inside the imager is an
-        # invalid area: the field-of-view of the camera needs to be increased. I
-        # plot this area
-        u_imager_boundary_nonan = \
-            u_imager_boundary[ np.isfinite(u_imager_boundary[:,0]) *
-                               np.isfinite(u_imager_boundary[:,1]),:]
-        invalid_regions = polygon_difference(u_imager_boundary_nonan,
-                                             valid_region_contour_uxy)
+    # Anything outside the valid region contour but inside the imager is an
+    # invalid area: the field-of-view of the camera needs to be increased. I
+    # plot this area
+    imager_boundary_nonan = \
+        imager_boundary[ np.isfinite(imager_boundary[:,0]) *
+                         np.isfinite(imager_boundary[:,1]),:]
+    invalid_regions = polygon_difference(imager_boundary_nonan,
+                                         valid_region_contour)
 
-        if len(invalid_regions) > 0:
-            print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
+    if len(invalid_regions) > 0:
+        print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
 
-            data.extend( [ ( r,
-                             dict( tuplesize = -2,
-                                   _with     = 'filledcurves closed fillcolor "red"',
-                                   legend    = 'Invalid regions'))
-                           for r in invalid_regions] )
+        data.extend( [ ( r,
+                         dict( tuplesize = -2,
+                               _with     = 'filledcurves closed fillcolor "red"',
+                               legend    = 'Invalid regions'))
+                       for r in invalid_regions] )
 
 
     plot.plot( *data )
