@@ -66,7 +66,7 @@ ixy = \
 #   rxy = mag(xy)
 #   th = atan2(rxy, z)
 #   u  = tan(th/2) * 2. * xy/mag(xy)
-#   xy_stereographic = (u + deltau) * f + cxy
+#   q = (u + deltau) * fxy + cxy
 #
 # I look up deltau in the splined surface. The index of that lookup is linear
 # (and cartesian) with u
