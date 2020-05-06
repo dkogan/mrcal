@@ -1420,79 +1420,32 @@ def show_distortion(model,
                     }))
         return plot
 
-def show_splined_model_knots(model,
 
-                             extratitle       = None,
-                             hardcopy         = None,
-                             kwargs           = None):
-    r'''Visualizes the knots in a splined model
 
-    Splined models are build with a splined surface that we index to compute the
-    projection. The surface is defined by control points. The value of the
-    control points is set in the intrinsics vector, but their location is fixed,
-    as defined by the model configuration. The configuration selects the number
-    of control points AND the expected field of view of the lens. This field of
-    view should roughly match the actual lens+camera we're using, and this fit
-    can be visualized by running this tool.
+def splined_stereographic_valid_region(lensmodel):
+    '''Return the bounds of the valid region for these models
 
-    If the field of view is too small, some parts of the imager will lie outside
-    of the region that the splined surface covers. This tool will throw a
-    warning in that case, and will visually display the offending regions
+    Splined stereographic models are defined by a splined surface. This
+    surface has some finite domain, beyond which it carries no information.
+    This function reports a piecewise linear contour reporting this region.
 
-    This function creates a plot and returns the corresponding gnuplotlib object
+    We return the contour in whatever domain is being used to index the surface.
+    At this time this is the stereographic projection uxy.
 
     '''
-
-    lensmodel,intrinsics_data = model.intrinsics()
-    imagersize                = model.imagersize()
 
     if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
         raise Exception(f"This only makes sense with splined models. Input uses {lensmodel}")
 
-
-    import gnuplotlib as gp
-    from shapely.geometry import Polygon,MultiPolygon,LineString
-    import shapely.ops
-
-    if kwargs is None: kwargs = {}
-    if 'title' not in kwargs:
-
-        title = f"Knots for {lensmodel}"
-        if extratitle is not None:
-            title += ": " + extratitle
-        kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
-
-    if 'set' not in kwargs:
-        kwargs['set'] = []
-    elif type(kwargs['set']) is not list:
-        kwargs['set'] = [kwargs['set']]
-
-
-    W,H = imagersize
-
-    imager_contour = np.array(((0,0),
-                               (W-1,0),
-                               (W-1,H-1),
-                               (0,H-1),
-                               (0,0)))
-
-
     ux,uy = mrcal.getKnotsForSplinedModels(lensmodel)
-    u  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
-    v  = mrcal.unproject_stereographic(u, 1,1,0,0)
-
-    # q has shape (Ny,Nx,2)
-    q = mrcal.project(v, lensmodel,intrinsics_data)
+    # shape (Ny,Nx,2)
+    u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
 
     meta = mrcal.getLensModelMeta(lensmodel)
     if meta['spline_order'] == 2:
         # spline order is 3. The valid region is 1/2 segments inwards from the
         # outer contour
-
-        u_contour = \
+        return \
             nps.glue( (u[0,1:-2] + u[1,1:-2]) / 2.,
                       (u[0,-2] + u[1,-2] + u[0,-1] + u[1,-1]) / 4.,
 
@@ -1508,26 +1461,33 @@ def show_splined_model_knots(model,
                       (u[0,1] + u[1,1]) / 2.,
                       axis = -2 )
 
-
-        v_contour = mrcal.unproject_stereographic(u_contour, 1,1,0,0)
-        q_contour = mrcal.project(v_contour, lensmodel,intrinsics_data)
-
-        valid_region_contour = q_contour
-
     elif meta['spline_order'] == 3:
         # spline order is 3. The valid region is the outer contour, leaving one
         # knot out
-        valid_region_contour = \
-            nps.glue( q[1,1:-2], q[1:-2, -2], q[-2, -2:1:-1], q[-2:0:-1, 1],
+        return \
+            nps.glue( u[1,1:-2], u[1:-2, -2], u[-2, -2:1:-1], u[-2:0:-1, 1],
                       axis=-2 )
     else:
         raise Exception("I only support cubic (spline_order==3) and quadratic (spline_order==2) models")
 
 
-    # Anything outside the valid region contour but inside the imager is an
-    # invalid area: the field-of-view of the camera needs to be increased. I
-    # plot this area
-    diff = Polygon(imager_contour).difference(Polygon(valid_region_contour))
+def polygon_difference(positive, negative):
+    r'''Returns the difference of two closed polygons
+
+    The polygons are represented as (.,2) arrays.
+
+    The result is represented as a list of (.,2) arrays, to be interpreted as a
+    union. Each of the constituent resulting arrays is guaranteed to not have
+    holes. If any holes are found when computing the difference, we cut apart
+    the resulting shape until no holes remain.
+
+    '''
+
+    from shapely.geometry import Polygon,MultiPolygon,LineString
+    import shapely.ops
+
+
+    diff = Polygon(positive).difference(Polygon(negative))
     if isinstance(diff, MultiPolygon):
         diff = list(diff)
     elif isinstance(diff, Polygon):
@@ -1564,16 +1524,92 @@ def show_splined_model_knots(model,
                 return [subpiece for piece in s for subpiece in split_polygon_to_remove_holes(piece)]
             # Split didn't work. Try the next vertex
 
-        print("WARNING: Couldn't split the invalid-projection region. Ignoring",
+        print("WARNING: Couldn't split the region. Ignoring",
               file = sys.stderr)
         return []
 
-    invalid_regions = \
+    return \
         [subpiece for p in diff for subpiece in split_polygon_to_remove_holes(p)]
+
+
+def show_splined_model_knots(model,
+
+                             extratitle       = None,
+                             hardcopy         = None,
+                             kwargs           = None):
+    r'''Visualizes the knots in a splined model
+
+    Splined models are built with a splined surface that we index to compute the
+    projection. The surface is defined by control points. The value of the
+    control points is set in the intrinsics vector, but their location is fixed,
+    as defined by the model configuration. The configuration selects the number
+    of control points AND the expected field of view of the lens. This field of
+    view should roughly match the actual lens+camera we're using, and this fit
+    can be visualized by running this tool.
+
+    If the field of view is too small, some parts of the imager will lie outside
+    of the region that the splined surface covers. This tool will throw a
+    warning in that case, and will visually display the offending regions
+
+    This function creates a plot and returns the corresponding gnuplotlib object
+
+    '''
+
+    lensmodel,intrinsics_data = model.intrinsics()
+    imagersize                = model.imagersize()
+
+    if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
+        raise Exception(f"This only makes sense with splined models. Input uses {lensmodel}")
+
+
+    import gnuplotlib as gp
+
+    if kwargs is None: kwargs = {}
+    if 'title' not in kwargs:
+
+        title = f"Knots for {lensmodel}"
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    if 'hardcopy' not in kwargs and hardcopy is not None:
+        kwargs['hardcopy'] = hardcopy
+
+    if 'set' not in kwargs:
+        kwargs['set'] = []
+    elif type(kwargs['set']) is not list:
+        kwargs['set'] = [kwargs['set']]
+
+
+    W,H = imagersize
+
+    imager_contour = np.array(((0,0),
+                               (W-1,0),
+                               (W-1,H-1),
+                               (0,H-1),
+                               (0,0)))
+
+    valid_region_contour_uxy = splined_stereographic_valid_region(lensmodel)
+    valid_region_contour = \
+        mrcal.project(
+            mrcal.unproject_stereographic(
+                valid_region_contour_uxy, 1,1,0,0),
+            lensmodel,intrinsics_data)
+
+    # Anything outside the valid region contour but inside the imager is an
+    # invalid area: the field-of-view of the camera needs to be increased. I
+    # plot this area
+    invalid_regions = polygon_difference(imager_contour,valid_region_contour)
 
     if len(invalid_regions) > 0:
         print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
 
+
+    ux,uy = mrcal.getKnotsForSplinedModels(lensmodel)
+    # shape (Ny,Nx,2) and (Ny,Nx,3)
+    u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
+    v = mrcal.unproject_stereographic(u, 1,1,0,0)
+    q = mrcal.project(v, lensmodel,intrinsics_data)
 
 
 
@@ -1606,6 +1642,156 @@ def show_splined_model_knots(model,
                        dict( tuplesize = -2,
                              _with     = 'lines lc 2',
                              legend    = 'Valid projection region')))
+
+    plot.plot( *data )
+    return plot
+
+
+def show_splined_model_surface(model, ixy,
+
+                               mesh             = False,
+                               extratitle       = None,
+                               hardcopy         = None,
+                               kwargs           = None):
+    r'''Visualizes the surface represented in a splined model
+
+    Splined models are built with a splined surface that we index to compute the
+    projection. The meaning of what indexes the surface and the values of the
+    surface varies by model, but in all cases, visualizing the surface is useful.
+
+    We plot the surface as either a heatmap (the default) or as an
+    interactive-rotatable 3D mesh. If a heatmap is rendered, we also overlay
+    lots of other infomation
+
+    This function creates a plot and returns the corresponding gnuplotlib object
+
+    '''
+
+    lensmodel,intrinsics_data = model.intrinsics()
+    W,H                       = model.imagersize()
+
+    if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
+        raise Exception(f"This only makes sense with splined models. Input uses {lensmodel}")
+
+
+    import gnuplotlib as gp
+
+    if kwargs is None: kwargs = {}
+    if 'title' not in kwargs:
+
+        title = f"Surface for {lensmodel}. Looking at deltau{'y' if ixy else 'x'}"
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    if 'hardcopy' not in kwargs and hardcopy is not None:
+        kwargs['hardcopy'] = hardcopy
+
+    if 'set' not in kwargs:
+        kwargs['set'] = []
+    elif type(kwargs['set']) is not list:
+        kwargs['set'] = [kwargs['set']]
+
+
+    # In the splined_stereographic models, the spline is indexed by u. So u is
+    # linear with the knots. I can thus get u at the edges, and linearly
+    # interpolate between
+    ux_knots,uy_knots = mrcal.getKnotsForSplinedModels(lensmodel)
+    meta = mrcal.getLensModelMeta(lensmodel)
+    Nx = meta['Nx']
+    Ny = meta['Ny']
+    # The index into my spline.
+    # Indexes on (x,y) and contains (x,y) tuples. Note that this is different from
+    # the numpy (y,x) convention. Shape (Nx,Ny,2)
+    uxy = \
+        nps.reorder( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],Nx*5),
+                                           np.linspace(uy_knots[0], uy_knots[-1],Ny*5) )),
+                     -1, -2, -3)
+
+    # My projection is q = (u + deltau) * fxy + cxy. deltau is queried from the
+    # spline surface
+    v = mrcal.unproject_stereographic(np.ascontiguousarray(uxy), 1,1,0,0)
+    q = mrcal.project(v, lensmodel, intrinsics_data)
+    fxy = intrinsics_data[0:2]
+    cxy = intrinsics_data[2:4]
+    deltau = (q - cxy) / fxy - uxy
+
+    # the imager boundary
+    imager_boundary_sparse = \
+        np.array(((0,   0),
+                  (W-1, 0),
+                  (W-1, H-1),
+                  (0,   H-1),
+                  (0,   0)), dtype=float)
+    imager_boundary = _densify_polyline(imager_boundary_sparse, spacing = 50)
+    u_imager_boundary = \
+        mrcal.project_stereographic( mrcal.unproject(imager_boundary,
+                                                     lensmodel, intrinsics_data),
+                                     1,1,0,0 )
+
+    plotoptions = dict(kwargs,
+                       xlabel   = 'Stereographic ux',
+                       ylabel   = 'Stereographic uy',
+                       zlabel   = f"Deltau{'y' if ixy else 'x'} (unitless)")
+
+    if mesh:
+        plotoptions['_3d']      = True
+        plotoptions['squarexy'] = True
+        plotoptions['ascii']    = True
+        surface_curveoptions    = dict(_with = 'lines')
+    else:
+        plotoptions['square']   = True
+        plotoptions['yinv']     = True
+        plotoptions['ascii']    = True
+        surface_curveoptions    = dict(_with = 'image',
+                                       tuplesize = 3)
+
+    surface_curveoptions['using'] = \
+        f'({ux_knots[0]}+$1/({uxy.shape[0]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
+        f'({uy_knots[0]}+$2/({uxy.shape[1]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
+        '3'
+
+    plot = gp.gnuplotlib(**plotoptions)
+
+    data = [ ( nps.transpose(deltau[..., ixy]),
+               surface_curveoptions ) ]
+    if not mesh:
+        valid_region_contour_uxy = splined_stereographic_valid_region(lensmodel)
+
+        data.extend( [ ( u_imager_boundary,
+                         dict(_with     = 'lines lw 2',
+                              tuplesize = -2,
+                              legend    = 'imager boundary')),
+                       ( valid_region_contour_uxy,
+                         dict(_with     = 'lines lw 1',
+                              tuplesize = -2,
+                              legend    = 'Valid projection region')),
+                       ( nps.clump(nps.mv(nps.cat(*np.meshgrid(ux_knots,uy_knots)),
+                                          0, -1),
+                                   n = 2),
+                         dict(_with     = 'points pt 2 ps 2',
+                              tuplesize = -2,
+                              legend    = 'knots'))] )
+
+
+        # Anything outside the valid region contour but inside the imager is an
+        # invalid area: the field-of-view of the camera needs to be increased. I
+        # plot this area
+        u_imager_boundary_nonan = \
+            u_imager_boundary[ np.isfinite(u_imager_boundary[:,0]) *
+                               np.isfinite(u_imager_boundary[:,1]),:]
+        invalid_regions = polygon_difference(u_imager_boundary_nonan,
+                                             valid_region_contour_uxy)
+
+        if len(invalid_regions) > 0:
+            print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
+
+            data.extend( [ ( r,
+                             dict( tuplesize = -2,
+                                   _with     = 'filledcurves closed fillcolor "red"',
+                                   legend    = 'Invalid regions'))
+                           for r in invalid_regions] )
+
 
     plot.plot( *data )
     return plot

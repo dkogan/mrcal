@@ -4,12 +4,14 @@ r'''Visualizes the surface represented in a splined lens model
 
 SYNOPSIS
 
-  $ mrcal-show-splined-model-surface cam.cameramodel
+  $ mrcal-show-splined-model-surface cam.cameramodel 0
   ... a plot pops up showing the surface
 
 Splined models are built with a splined surface that we index to compute the
 projection. The meaning of what indexes the surface and the values of the
-surface varies by model, but in all cases, visualizing the surface is useful
+surface varies by model, but in all cases, visualizing the surface is useful.
+
+We plot a heat map by default, unless --mesh is given
 
 '''
 
@@ -38,10 +40,18 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+    parser.add_argument('--mesh',
+                        action='store_true',
+                        help='''If given, plot the surface as a mesh instead of as a heat map''')
 
     parser.add_argument('model',
                         type=str,
                         help='''Input camera model. If "-' is given, we read standard input''')
+
+    parser.add_argument('ixy',
+                        type=int,
+                        choices = (0,1),
+                        help='''Whether we're looking at the x surface (0) or the y surface (1)''')
 
     return parser.parse_args()
 
@@ -72,8 +82,9 @@ plotkwargs = {}
 if args.extraset is not None:
     plotkwargs['set'] = args.extraset
 
-plot = mrcal.show_splined_model_surface(model,
+plot = mrcal.show_splined_model_surface(model, args.ixy,
 
+                                        mesh = args.mesh,
                                         hardcopy     = args.hardcopy,
                                         extratitle   = args.extratitle,
                                         kwargs       = plotkwargs)
