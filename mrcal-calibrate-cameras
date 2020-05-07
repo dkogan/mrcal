@@ -1775,7 +1775,7 @@ Potential things to look at:
     show_distortion('heatmap',    i_camera)
     show_distortion('vectorfield',i_camera)
     show_distortion('radial',     i_camera)
-    show_splined_model_knots(     i_camera)
+    show_splined_model_surface(   i_camera)
     show_roi(i_camera)
     stats
     i_observations_worst
@@ -2562,16 +2562,16 @@ def show_distortion(mode, i_camera, gridn_x = 60, gridn_y = 40, **kwargs):
                                   gridn_y=gridn_y,
                                   **kwargs)
 
-plots_splined_model_knots = [None] * Ncameras
-def show_splined_model_knots(i_camera, **kwargs):
+plots_splined_model_surface = [None] * Ncameras
+def show_splined_model_surface(i_camera, **kwargs):
 
-    global plots_splined_model_knots
+    global plots_splined_model_surface
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
-        plots_splined_model_knots[i_camera] = \
-            mrcal.show_splined_model_knots(models[i_camera],
-                                           extratitle = "camera {}".format(i_camera),
-                                           **kwargs)
+        plots_splined_model_surface[i_camera] = \
+            mrcal.show_splined_model_surface(models[i_camera],
+                                             extratitle = "camera {}".format(i_camera),
+                                             **kwargs)
 
 plots_roi = [None] * Ncameras
 def show_roi(i_camera = None, **kwargs):

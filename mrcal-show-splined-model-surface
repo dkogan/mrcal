@@ -11,8 +11,9 @@ Splined models are built with a splined surface that we index to compute the
 projection. The meaning of what indexes the surface and the values of the
 surface varies by model, but in all cases, visualizing the surface is useful.
 
-We plot a heat map by default, unless --mesh is given
-
+This tool can produce a plot in the imager domain (the default) or in the spline
+index domain (normalized stereographic coordinates, usually). Both are useful.
+Pass --spline-index-domain to choose that domain
 '''
 
 from __future__ import print_function
@@ -40,10 +41,12 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
-    parser.add_argument('--mesh',
+    parser.add_argument('--spline-index-domain',
                         action='store_true',
-                        help='''If given, plot the surface as a mesh instead of as a heat map''')
-
+                        help='''By default this produces a visualization in the domain of the imager.
+                        Sometimes it's more informative to look at this in the
+                        domain of the spline-index (normalized stereographic
+                        coordinates). This can be selected by this option''')
     parser.add_argument('model',
                         type=str,
                         help='''Input camera model. If "-' is given, we read standard input''')
@@ -84,10 +87,10 @@ if args.extraset is not None:
 
 plot = mrcal.show_splined_model_surface(model, args.ixy,
 
-                                        mesh = args.mesh,
-                                        hardcopy     = args.hardcopy,
-                                        extratitle   = args.extratitle,
-                                        kwargs       = plotkwargs)
+                                        imager_domain = not args.spline_index_domain,
+                                        hardcopy      = args.hardcopy,
+                                        extratitle    = args.extratitle,
+                                        kwargs        = plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()
