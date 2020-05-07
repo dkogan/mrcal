@@ -1601,7 +1601,7 @@ def show_splined_model_surface(model, ixy,
                                                np.linspace(0, H-1, 40) )),
                          -1, -2, -3)
         v = mrcal.unproject(np.ascontiguousarray(q), lensmodel, intrinsics_data)
-        u = mrcal.project_stereographic(v, 1,1,0,0)
+        u = mrcal.project_stereographic(v)
     else:
 
         # In the splined_stereographic models, the spline is indexed by u. So u is
@@ -1617,7 +1617,7 @@ def show_splined_model_surface(model, ixy,
 
         # My projection is q = (u + deltau) * fxy + cxy. deltau is queried from the
         # spline surface
-        v = mrcal.unproject_stereographic(np.ascontiguousarray(u), 1,1,0,0)
+        v = mrcal.unproject_stereographic(np.ascontiguousarray(u))
         q = mrcal.project(v, lensmodel, intrinsics_data)
 
     fxy = intrinsics_data[0:2]
@@ -1640,8 +1640,7 @@ def show_splined_model_surface(model, ixy,
                 mrcal.unproject(
                     _densify_polyline(imager_boundary_sparse,
                                       spacing = 50),
-                    lensmodel, intrinsics_data ),
-                1,1,0,0)
+                    lensmodel, intrinsics_data ))
 
     plotoptions = dict(kwargs,
                        zlabel   = f"Deltau{'y' if ixy else 'x'} (unitless)")
@@ -1680,13 +1679,11 @@ def show_splined_model_surface(model, ixy,
     if imager_domain:
         valid_region_contour = \
             mrcal.project(
-                mrcal.unproject_stereographic( valid_region_contour_u,
-                                               1,1,0,0 ),
+                mrcal.unproject_stereographic( valid_region_contour_u),
                 lensmodel, intrinsics_data)
         knots = \
             mrcal.project(
-                mrcal.unproject_stereographic( np.ascontiguousarray(knots_u),
-                                               1,1,0,0 ),
+                mrcal.unproject_stereographic( np.ascontiguousarray(knots_u)),
                 lensmodel, intrinsics_data)
     else:
         valid_region_contour = valid_region_contour_u

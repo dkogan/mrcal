@@ -3,10 +3,9 @@ Projects a set of 3D camera-frame points using a stereographic map
 SYNOPSIS
 
     q = mrcal.project_stereographic( # (N,3) array of 3d points we're projecting
-                                     points,
-                                     fx, fy, cx, cy )
+                                     points )
 
-    # q is now a (N,2) array of stereographic pixel coordinates
+    # q is now a (N,2) array of normalized stereographic pixel coordinates
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and parameters of a perfect stereographic camera, this
