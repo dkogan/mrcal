@@ -1,0 +1,431 @@
+#!/usr/bin/python3
+
+r'''Remaps a captured image into another camera model
+
+SYNOPSIS
+
+  ### To "undistort" images to reproject to a pinhole projection
+  $ mrcal-reproject-image --to-pinhole
+      camera0.cameramodel
+      image*.jpg
+  Wrote image0-pinhole.jpg
+  Wrote image1-pinhole.jpg
+  ...
+
+  ### To reproject images from one lens model to another
+  $ mrcal-reproject-image
+      camera0.cameramodel camera1.cameramodel
+      image*.jpg
+  Wrote image0-reprojected.jpg
+  Wrote image1-reprojected.jpg
+  Wrote image2-reprojected.jpg
+  ...
+
+  ### To reproject two sets of images to a common pihole projection
+  $ mrcal-reproject-image --to-pinhole
+      camera0.cameramodel camera1.cameramodel
+      'image*-cam0.jpg' 'image*-cam1.jpg'
+  Wrote image0-reprojected.jpg
+  Wrote image1-reprojected.jpg
+  Wrote image2-reprojected.jpg
+  ...
+
+This tool takes image(s) of a scene captured by one camera model, and produces
+image(s) of the same scene, as it would appear if captured by a different model,
+taking into account both the different lens parameters and geometries. This is
+similar to mrcal-reproject-points, but acts on a full image, rather than a
+discrete set of points.
+
+There are several modes of operation, depending on how many camera models are
+given, and whether --to-pinhole is given, and whether --plane-n,--plane-d are
+given.
+
+To "undistort" (remap to a pinhole projection) a set of images captured using a
+particular camera model, invoke this tool like this:
+
+  mrcal-reproject-image
+    --to-pinhole
+    model0.cameramodel image*.jpg
+
+Each of the given images will be reprojected, and written to disk as
+"image....-reprojected.jpg". The pinhole model used for the reprojection will be
+written to standard output.
+
+To remap images of a scene captured by model0 to images of the same scene
+captured by model1, do this:
+
+  mrcal-reproject-image
+    model0.cameramodel model1.cameramodel image*.jpg
+
+Each of the given images will be reprojected, and written to disk as
+"image....-reprojected.jpg". Nothing will be written to standard output. By
+default, the rotation component of the relative extrinsics between the two
+models is used in the reprojection. To ignore it, pass --intrinsics-only.
+Relative translation is always ignored. The usual use case is to validate the
+relative intrinsics and extrinsics in two models. If you have a pair of models
+and a pair of observed images, you can compute the reprojection, and compare the
+reprojection-to-model1 to images that were actually captured by model1. If the
+intrinsics and extrinsics were correct, then the two images would line up
+exactly for objects at infinity (where the translation=0 assumption is correct).
+Computing this reprojection map is often very slow. But if the use case is
+comparing two sets of captured images, the next, much faster invocation method
+can be used.
+
+To remap images of a scene captured by model0 and images of the same scene
+captured by model1 to a common pinhole projection, do this:
+
+  mrcal-reproject-image
+    --to-pinhole
+    model0.cameramodel model1.cameramodel 'image*-cam0.jpg' 'image*-cam1.jpg'
+
+A pinhole model is constructed that has the same extrinsics as model1, and both
+sets of images are reprojected to this model. This is similar to the previous
+mode, but since we're projection to a pinhole mode, this computes much faster.
+The generated pinhole model is written to standard output.
+
+Finally instead of reprojecting to match up images of objects at infinity, it is
+possible to reproject to match up images of arbitrary planes. This can be done
+by a command like this:
+
+  mrcal-reproject-image
+    --to-pinhole
+    --plane-n 1.1 2.2 3.3
+    --plane-d 4.4
+    model0.cameramodel model1.cameramodel 'image*-cam0.jpg' 'image*-cam1.jpg'
+
+This maps observations of a given plane in camera0 coordinates to where this
+plane would be observed in camera1 coordinates. This uses ALL the intrinsics,
+extrinsics and the plane representation. If all of these are correct, the
+observations of this plane would line up exactly in the remapped-camera0 image
+and the camera1 image. The plane is represented in camera0 coordinates by a
+normal vector given by --plane-n, and the distance to the normal given by
+plane-d. The plane is all points p such that inner(p,planen) = planed. planen
+does not need to be normalized.
+
+If 2 camera models are given, we use the rotation component of the extrinsics,
+unless --intrinsics-only. The translation is always ignored.
+
+If --to-pinhole, then we generate a pinhole model, that is written to standard
+output. By default, the focal length of this pinhole model is the same as that
+of the input model. The "zoom" level of this pinhole model can be adjusted by
+passing --scale-focal SCALE, or more precisely by passing --fit. --fit takes an
+argument that is one of
+
+- "corners": make sure all of the corners of the original image remain in-bounds
+  of the pinhole projection
+
+- "centers-horizontal": make sure the extreme left-center and right-center
+  points in the original image remain in-bounds of the pinhole projection
+
+- "centers-vertical": make sure the extreme top-center and bottom-center points
+  in the original image remain in-bounds of the pinhole projection
+
+- A list of pixel coordinates x0,y0,x1,y1,x2,y2,.... The focal-length will be
+  chosen to fit all of the given points
+
+By default, the resolution of the generated pinhole model is the same as the
+resolution of the input model. This can be adjusted by passing --scale-image.
+For instance, passing "--scale-image 0.5" will generate a pinhole model and
+images that are half the size of the input images, in both the width and height.
+
+The output image(s) are written into the same directory as the input image(s),
+with annotations in the filename. This tool will refuse to overwrite any
+existing files unless --force is given.
+
+It is often desired to apply transformations to lots of images in bulk. To make
+this go faster, this tool supports the -j JOBS option. This works just like in
+Make: the work will be parallelized amoung JOBS simultaneous processes. Unlike
+make, the JOBS value must be specified.
+
+'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--to-pinhole',
+                        action="store_true",
+                        help='''If given, we reproject the images to a pinhole model that's generated off the
+                        MODEL-FROM and --fit, --scale-focal, --scale-image. The
+                        generated pinhole model is written to the standard
+                        output''')
+
+    parser.add_argument('--intrinsics-only',
+                        action='store_true',
+                        help='''If two camera models are given, then by default the relative camera rotation
+                        is used in the transformation. If we want to use the
+                        intrinsics ONLY, pass --intrinsics-only. Note that
+                        relative translation is ALWAYS ignored''')
+
+    parser.add_argument('--fit',
+                        type=str,
+                        required=False,
+                        help='''If we generate a target pinhole model (if --to-pinhole is given) then we can
+                        choose the focal length of the target model. This is a
+                        "zoom" operation. By default just use whatever value
+                        model-from has. Or we scale it by the value given in
+                        --scale-focal. Or we use --fit to scale the focal length
+                        intelligently. The --fit argument could be one of
+                        ("corners", "centers-horizontal", "centers-vertical"),
+                        or the argument could be given as a list of points
+                        x0,y0,x1,y1,x2,y2,.... The focal length scale woudl then
+                        be chosen to zoom in as far as possible, while fitting
+                        all of these points''')
+
+    parser.add_argument('--scale-focal',
+                        type=float,
+                        help='''If we generate a target pinhole model (if --to-pinhole is given) then we can
+                        choose the focal length of the target model. This is a
+                        "zoom" operation. By default just use whatever value
+                        model-from has. Or we scale it by the value given in
+                        --scale-focal. Or we use --fit to scale the focal length
+                        intelligently.''')
+
+    parser.add_argument('--scale-image',
+                        type=float,
+                        help='''If we generate a target pinhole model (if --to-pinhole is given) then we can
+                        choose the dimensions of the output image. By default we
+                        use the dimensions of model-from. If --scale-image is
+                        given, we use this value to scale the imager dimensions
+                        of model-from. This parameter changes the RESOLUTION of
+                        the output, unlike --scale-focal, which ZOOMS the
+                        output''')
+
+    parser.add_argument('--plane-n',
+                        type=float,
+                        nargs=3,
+                        help='''We're reprojecting a plane. The normal vector to this plane is given here, in
+                        from-camera coordinates. The normal does not need to be
+                        normalized; any scaling is compensated in planed. The
+                        plane is all points p such that inner(p,planen) =
+                        planed''')
+    parser.add_argument('--plane-d',
+                        type=float,
+                        help='''We're reprojecting a plane. The distance-along-the-normal to the plane, in
+                        from-camera coordinates is given here. The plane is all
+                        points p such that inner(p,planen) = planed''')
+
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing files are not overwritten. Pass --force to overwrite them
+                        without complaint''')
+
+    parser.add_argument('--jobs', '-j',
+                        type=int,
+                        required=False,
+                        default=1,
+                        help='''parallelize the processing JOBS-ways. This is like Make, except you're
+                        required to explicitly specify a job count.''')
+
+    parser.add_argument('model-from',
+                        type=str,
+                        help='''Camera model for the FROM image(s)''')
+
+    parser.add_argument('model-to-and-image-globs',
+                        type=str,
+                        nargs='+',
+                        help='''Optionally, the camera model for the TO image. Followed, by the from/to image
+                        globs. See the mrcal-reproject-image documentation for
+                        the details.''')
+
+    args = parser.parse_args()
+
+    # I have to manually process this because the first model-to-and-image-globs
+    # element's identity is ambiguous in a way I can't communicate to argparse.
+    # It can be model-to or it can be the first image glob
+    def looks_like_cameramodel(m):
+        return m=="-" or \
+            re.match(".*\.(cameramodel|cahvor)$", m, re.I)
+    mi = getattr(args, 'model-to-and-image-globs')
+    model_to   = [ m for m in mi if looks_like_cameramodel(m) ]
+    imageglobs = [ m for m in mi if not looks_like_cameramodel(m) ]
+    setattr(args, "model-to",    model_to)
+    setattr(args, "imageglobs", imageglobs)
+    delattr(args, 'model-to-and-image-globs')
+
+    return args
+
+
+args = parse_args()
+
+
+if   len(getattr(args, 'model-to')) == 0: setattr(args, 'model-to', None)
+elif len(getattr(args, 'model-to')) == 1: setattr(args, 'model-to', getattr(args, 'model-to')[0])
+else:
+    print(f"At most one model-to can be given. Instead got {len(getattr(args, 'model-to'))} of them. Giving up.", file=sys.stderr)
+    sys.exit(1)
+
+if getattr(args, 'model-from') == '-' and \
+   getattr(args, 'model-to')   == '-':
+    print("At most one model can be given at '-' to read standard input. Giving up.", file=sys.stderr)
+    sys.exit(1)
+
+if not args.to_pinhole:
+    if args.fit         is not None or \
+       args.scale_focal is not None or \
+       args.scale_image is not None:
+        print("--fit, --scale-focal, --scale-image make sense ONLY with --to-pinhole",
+              file = sys.stderr)
+        sys.exit(1)
+else:
+    if args.fit         is not None and \
+       args.scale_focal is not None:
+        print("--fit and --scale-focal are mutually exclusive", file=sys.stderr)
+        sys.exit(1)
+
+if getattr(args, 'model-to') is None and \
+   args.intrinsics_only:
+    print("--intrinsics-only makes sense ONLY when both the FROM and TO camera models are given",
+          file=sys.stderr)
+    sys.exit(1)
+
+if args.scale_image is not None and args.scale_image <= 1e-6:
+    print("--scale-image should be given a reasonable value > 0", file=sys.stderr)
+    sys.exit(1)
+
+if (args.plane_n is     None and args.plane_d is not None) or \
+   (args.plane_n is not None and args.plane_d is     None):
+    print("--plane-n and --plane-d should both be given or neither should be", file=sys.stderr)
+    sys.exit(1)
+
+
+
+
+
+
+import numpy as np
+import numpysane as nps
+import cv2
+import glob
+import multiprocessing
+import signal
+
+import mrcal
+import time
+
+model_from = mrcal.cameramodel(getattr(args, 'model-from'))
+
+if not args.to_pinhole:
+    if not getattr(args, 'model-to'):
+        print("Either --to-pinhole or the TO camera model MUST be given. Giving up", file=sys.stderr)
+        sys.exit(1)
+    if len(getattr(args, 'imageglobs')) < 1:
+        print("No --to-pinhole with both TO and FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
+        sys.exit(1)
+
+    model_to = mrcal.cameramodel(getattr(args, 'model-to'))
+
+else:
+    if not getattr(args, 'model-to'):
+        if len(getattr(args, 'imageglobs')) < 1:
+            print("--to-pinhole with only the FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
+            sys.exit(1)
+
+        model_to = mrcal.make_target_pinhole_model_for_reprojection(model_from, args.fit, args.scale_focal, args.scale_image)
+
+        print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                     ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
+        print("# Generated pinhole model:")
+        model_to.write(sys.stdout)
+
+    else:
+        if len(getattr(args, 'imageglobs')) != 2:
+            print("--to-pinhole with both the TO and FROM models given: must have EXACTLY two image globs. Giving up", file=sys.stderr)
+            sys.exit(1)
+
+        model_to     = mrcal.cameramodel(getattr(args, 'model-to'))
+        model_target = mrcal.make_target_pinhole_model_for_reprojection(model_to, args.fit, args.scale_focal, args.scale_image)
+        print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                     ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
+        print("# Generated pinhole model:")
+        model_target.write(sys.stdout)
+
+if args.plane_n is not None:
+    if getattr(args, 'model-to') is None:
+       print("Plane remapping requires BOTH camera models to be given", file=sys.stderr)
+       sys.exit(1)
+    if args.intrinsics_only:
+       print("Plane remapping makes no sense with --intrinsics-only", file=sys.stderr)
+       sys.exit(1)
+
+    args.plane_n = np.array(args.plane_n, dtype=float)
+
+
+
+# weird business to handle weird signal handling in multiprocessing. I want
+# things like the user hitting C-c to work properly. So I ignore SIGINT for the
+# children. And I want the parent's blocking wait for results to respond to
+# signals. Which means map_async() instead of map(), and wait(big number)
+# instead of wait()
+signal_handler_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+signal.signal(signal.SIGINT, signal_handler_sigint)
+
+# This stuff needs to be global for the multiprocessing pool to pick it up. It
+# really is quite terrible. All I REALLY want is some os.fork() calls...
+mapxy = None
+def _transform_this(inout):
+    image = cv2.imread(inout[0])
+    image_transformed = mrcal.transform_image(image, mapxy)
+    cv2.imwrite(inout[1], image_transformed)
+    print(f"Wrote {inout[1]}", file=sys.stderr)
+
+def process(model_from, model_to, image_globs, suffix,
+            use_rotation, plane_n, plane_d):
+
+    def target_image_filename(f,suffix):
+        m = re.match("(.*)\.([a-z][a-z][a-z])$", f, flags=re.I)
+        if not m:
+            raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(f))
+
+        f = "{}-{}.{}".format(m.group(1),suffix,m.group(2))
+        if not args.force and os.path.isfile(f):
+            print(f"Target image '{f}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
+                  file=sys.stderr)
+            sys.exit(1)
+        return f
+
+    global mapxy
+    mapxy = mrcal.reproject_image__compute_map(model_from, model_to,
+                                               use_rotation    = use_rotation,
+                                               plane_n         = plane_n,
+                                               plane_d         = plane_d)
+
+    filenames_in  = [f for g in image_globs for f in glob.glob(g)]
+    filenames_out = [target_image_filename(f, suffix) for f in filenames_in]
+    filenames_inout = zip(filenames_in, filenames_out)
+
+    pool = multiprocessing.Pool(args.jobs)
+    try:
+        mapresult = pool.map_async(_transform_this, filenames_inout)
+
+        # like wait(), but will barf if something goes wrong. I don't actually care
+        # about the results
+        mapresult.get(1000000)
+    except:
+        pool.terminate()
+
+    pool.close()
+    pool.join()
+
+
+
+
+if args.to_pinhole and getattr(args, 'model-to'):
+    # I'm reprojecting each of my sets of images to a pinhole model (a DIFFERENT
+    # model from TO and FROM)
+    process(model_from, model_target, (getattr(args, 'imageglobs')[0],), "pinhole-remapped",
+            not args.intrinsics_only, args.plane_n, args.plane_d)
+    process(model_to,   model_target, (getattr(args, 'imageglobs')[1],), "pinhole",
+            not args.intrinsics_only, None, None)
+else:
+    # Simple case. I have by two models, and I reproject all the images
+    process(model_from, model_to, getattr(args, 'imageglobs'), "reprojected",
+            not args.intrinsics_only, args.plane_n, args.plane_d)

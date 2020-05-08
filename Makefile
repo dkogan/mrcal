@@ -29,9 +29,8 @@ DIST_BIN :=					\
 	mrcal-show-splined-model-surface	\
 	mrcal-show-intrinsics-uncertainty	\
 	mrcal-show-intrinsics-diff		\
-	mrcal-undistort-image			\
 	mrcal-reproject-points			\
-	mrcal-redistort-image			\
+	mrcal-reproject-image			\
 	mrcal-graft-cameramodel			\
 	mrcal-to-cahvor				\
 	mrcal-to-cameramodel			\

@@ -19,9 +19,9 @@ m               = mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel")
 W,H             = m.imagersize()
 intrinsics_core = m.intrinsics()[1][:4]
 
-# testutils.confirm_equal( mrcal.compute_scale_f_pinhole_for_fit(m, None),
-#                          1.0,
-#                          msg = 'compute_scale_f_pinhole_for_fit')
+testutils.confirm_equal( mrcal.compute_scale_f_pinhole_for_fit(m, None),
+                         1.0,
+                         msg = 'compute_scale_f_pinhole_for_fit')
 
 
 def fit_check(scale_f_pinhole, intrinsics, v,
@@ -105,19 +105,5 @@ err_msg = \
                                 *m.intrinsics()),)
 testutils.confirm( err_msg == '',
                    msg = 'compute_scale_f_pinhole_for_fit' + err_msg)
-
-err_msg = \
-    fit_check( mrcal.compute_scale_f_pinhole_for_fit(m, 'centers-horizontal',
-                                                     scale_imagersize_pinhole = 0.5),
-               intrinsics_core,
-               mrcal.unproject( np.array(((  0, (H-1.)/2.),
-                                          (W-1, (H-1.)/2.)), dtype=float),
-                                *m.intrinsics()),
-               W = W / 2.,
-               H = H / 2.,
-               scale_imagersize_pinhole = 0.5)
-testutils.confirm( err_msg == '',
-                   msg = 'compute_scale_f_pinhole_for_fit' + err_msg)
-
 
 testutils.finish()

@@ -8,17 +8,18 @@ SYNOPSIS
       from.cameramodel to.cameramodel
       < input.vnl > output.vnl
 
-This tool takes a set of pixel observations of world points captured by one
-camera model, and transforms them into observations of the same points made by
+This tool takes a set of pixel observations of points captured by one camera
+model, and transforms them into observations of the same points captured by
 another model. This is similar to mrcal-reproject-image, but acts on discrete
-points, rather than a whole image. The two sets of intrinsics are always used.
+points, rather than on whole images. The two sets of intrinsics are always used.
 The translation component of the extrinsics is always ignored; the rotation is
-ignored as well if --ignore-rotation.
+ignored as well if --intrinsics-only.
 
 This allows one to combine multiple image-processing techniques that expect
-different projections.
+different projections. For instance, planes projected using a pinhole projection
+have some nice properties, and we can use those after running this tool.
 
-The input data comes in on standard input, and the output data goes out on
+The input data comes in on standard input, and the output data is written to
 standard output. Both are vnlog data: human-readable text with 2 columns: x and
 y pixel coords. Comments are allowed, and start with the '#' character.
 
@@ -37,11 +38,11 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--ignore-rotation',
+    parser.add_argument('--intrinsics-only',
                         action='store_true',
-                        help='''By default the relative camera rotation is used in the transformation. If we
-                        want to use the intrinsics ONLY, pass
-                        --ignore-rotation''')
+                        help='''By default, the relative camera rotation is used in the transformation. If we
+                        want to use the intrinsics ONLY, pass --intrinsics-only.
+                        Note that relative translation is ALWAYS ignored''')
 
     parser.add_argument('model-from',
                         type=str,
@@ -70,19 +71,26 @@ import numpy as np
 import numpysane as nps
 
 import mrcal
+import time
 
 model_from = mrcal.cameramodel(getattr(args, 'model-from'))
 model_to   = mrcal.cameramodel(getattr(args, 'model-to'))
 
 
 p = nps.atleast_dims(np.genfromtxt(sys.stdin), -2)
-
 v = mrcal.unproject(p, *model_from.intrinsics())
 
-if not args.ignore_rotation:
-    R = nps.matmult( model_to.  extrinsics_Rt_fromref()[:3,:],
-                     model_from.extrinsics_Rt_toref  ()[:3,:] )
-    v = nps.matmult(R, nps.dummy(v, -1))[..., 0]
+print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                             ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
+if not args.intrinsics_only:
+    Rt_to_from = \
+        mrcal.compose_Rt( model_to.  extrinsics_Rt_fromref(),
+                          model_from.extrinsics_Rt_toref  () )
 
-p = mrcal.project  (v, *model_to  .intrinsics())
+    if nps.norm2(Rt_to_from[3,:]) > 1e-6:
+        print(f"## WARNING: {sys.argv[0]} ignores relative translations, which were non-zero here. t_to_from = {Rt_to_from[3,:]}")
+
+    v = nps.matmult(Rt_to_from[:3,:], nps.dummy(v, -1))[..., 0]
+
+p = mrcal.project  (v, *model_to.intrinsics())
 np.savetxt(sys.stdout, p, fmt='%f', header='x y')
