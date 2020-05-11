@@ -227,7 +227,8 @@ def parse_args():
 
     parser.add_argument('model-from',
                         type=str,
-                        help='''Camera model for the FROM image(s)''')
+                        help='''Camera model for the FROM image(s). If "-' is given, we read standard
+                        input''')
 
     parser.add_argument('model-to-and-image-globs',
                         type=str,

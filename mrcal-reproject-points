@@ -46,15 +46,12 @@ def parse_args():
 
     parser.add_argument('model-from',
                         type=str,
-                        help='''Camera model for the input points. Assumed to be mrcal native, Unless the
-                        name is xxx.cahvor, in which case the cahvor format is
-                        used.''')
+                        help='''Camera model for the input points. If "-' is given, we read standard input''')
 
     parser.add_argument('model-to',
                         type=str,
-                        help='''Camera model for the output points. Assumed to be mrcal native, Unless the
-                        name is xxx.cahvor, in which case the cahvor format is
-                        assumed''')
+                        help='''Camera model for the output points. If "-' is given, we read standard
+                        input''')
 
     return parser.parse_args()
 

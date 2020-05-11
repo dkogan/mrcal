@@ -19,8 +19,6 @@ SYNOPSIS
     Worst reprojection error: 7.8 pixels
     Noutliers: 319 out of 17100 total points: 1.9% of the data
 
-    Wrote /tmp/camera0-0.cahvor
-    Wrote /tmp/camera0-1.cahvor
     Wrote /tmp/camera0-0.cameramodel
     Wrote /tmp/camera0-1.cameramodel
 
@@ -181,14 +179,9 @@ When you run the program as given above, the tool will spend a bit of time
 computing (usually 10-20 seconds is enough, but this is highly dependent on the
 specific problem, the amount of data, and the computational hardware). When
 finished, it will write the resulting models to disk, and open a REPL (if
---explore was given). Models are written in both .cahvor and .cameramodel file
-formats. Both contain the same information, but .cameramodel is far more
-sensible. The .cahvor file format exists for legacy compatibility only. Use this
-one one only if you'll be using these models in some cahvor-only tool; in this
-case you'll probably want to choose the LENSMODEL_CAHVOR model as well. The
-resulting filenames are "camera-N.cameramodel" where N is the index of the
-camera, starting at 0. The models contain the intrinsics and extrinsics, with
-camera-0 sitting at the reference coordinate system.
+--explore was given). The resulting filenames are "camera-N.cameramodel" where N
+is the index of the camera, starting at 0. The models contain the intrinsics and
+extrinsics, with camera-0 sitting at the reference coordinate system.
 
 When the solve is completed, you'll see a summary such as this one:
 

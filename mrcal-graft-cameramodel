@@ -28,17 +28,15 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--cahvor',
-                        action='store_true',
-                        help='''If given, we write the output using the cahvor file format''')
+
     parser.add_argument('intrinsics',
                         type=str,
-                        help='''Input camera model for the intrinsics. Assumed to be mrcal native, Unless the
-                        name is xxx.cahvor, in which case the cahvor format is assumed''')
+                        help='''Input camera model for the intrinsics. If "-' is given, we read standard
+                        input''')
     parser.add_argument('extrinsics',
                         type=str,
-                        help='''Input camera model for the extrinsics. Assumed to be mrcal native, Unless the
-                        name is xxx.cahvor, in which case the cahvor format is assumed''')
+                        help='''Input camera model for the extrinsics. If "-' is given, we read standard
+                        input''')
 
     return parser.parse_args()
 
@@ -74,9 +72,4 @@ sys.stderr.write("Combined\nIntrinsics from '{}'\nExtrinsics from '{}'\n". \
     format(args.intrinsics,
            args.extrinsics))
 
-
-if args.cahvor:
-    import mrcal.cahvor
-    mrcal.cahvor.write(sys.stdout, joint, note)
-else:
-    joint.write(sys.stdout, note)
+joint.write(sys.stdout, note)

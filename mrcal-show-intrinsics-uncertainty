@@ -16,9 +16,6 @@ translated to uncertainty in projection. This tool plots the expected value of
 this projection error across the imager. Areas with a high expected projection
 error are unreliable for further work.
 
-Only mrcal-native .cameramodel files are supported because .cahvor files don't
-store the data used in these computations.
-
 See mrcal.compute_intrinsics_uncertainty() for a full description of the
 computation performed here
 
@@ -79,8 +76,7 @@ def parse_args():
 
     parser.add_argument('model',
                         type=str,
-                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
-                        in which case the cahvor format is assumed. If "-' is given, we read standard input''')
+                        help='''Input camera model. If "-' is given, we read standard input''')
 
     return parser.parse_args()
 

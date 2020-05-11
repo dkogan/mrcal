@@ -94,18 +94,13 @@ def parse_args():
                         default I ignore a large-ish chunk area at the
                         corners.''')
 
-    parser.add_argument('--writecahvor',
-                        action='store_true',
-                        help='''If given, we write the output using the cahvor file format''')
-
     parser.add_argument('to',
                         type=str,
                         help='The target lens model')
 
     parser.add_argument('model',
                         type=str,
-                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
-                        in which case the cahvor format is assumed. If "-' is given, we read standard input''')
+                        help='''Input camera model. If "-' is given, we read standard input''')
 
     return parser.parse_args()
 
@@ -281,11 +276,7 @@ note = \
     "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-if args.writecahvor:
-    import mrcal.cahvor
-    mrcal.cahvor.write(sys.stdout, m_to, note=note)
-else:
-    m_to.write(sys.stdout, note=note)
+m_to.write(sys.stdout, note=note)
 
 if args.viz:
 

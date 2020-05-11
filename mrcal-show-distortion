@@ -71,8 +71,7 @@ def parse_args():
 
     parser.add_argument('model',
                         type=str,
-                        help='''Input camera model. Assumed to be mrcal native, Unless the name is xxx.cahvor,
-                        in which case the cahvor format is assumed. If "-' is given, we read standard input''')
+                        help='''Input camera model. If "-' is given, we read standard input''')
 
     return parser.parse_args()
 
