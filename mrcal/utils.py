@@ -1667,7 +1667,6 @@ def show_splined_model_surface(model, ixy,
 
     plot = gp.gnuplotlib(**plotoptions)
 
-    print(nps.transpose(deltau[..., ixy]))
     data = [ ( nps.transpose(deltau[..., ixy]),
                surface_curveoptions ) ]
 
