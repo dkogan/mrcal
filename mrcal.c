@@ -2714,14 +2714,8 @@ bool mrcal_unproject( // out
                 dq_dtframe[1].z*dv_du[2].y;
         }
 
-
-        // Seed from a perfect stereographic projection, pushed towards the
-        // center a bit. Normally I'd set out[] to q[i], but for some models
-        // (OPENCV8 for instance) this pushes us into a place where stuff
-        // doesn't converge anymore. This produces a more stable solution, and
-        // my tests pass
-        out->xyz[0] = (q[i].x-cx)*0.7 + cx;
-        out->xyz[1] = (q[i].y-cy)*0.7 + cy;
+        out->xyz[0] = (q[i].x-cx)/fx;
+        out->xyz[1] = (q[i].y-cy)/fy;
 
         dogleg_parameters2_t dogleg_parameters;
         dogleg_getDefaultParameters(&dogleg_parameters);
