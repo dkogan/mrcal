@@ -1054,11 +1054,11 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
 #define UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_REQUIRED(_)                                   \
     _(points,     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} )
 #define UN_PROJECT_STEREOGRAPHIC_ARGUMENTS_OPTIONAL(_)                                   \
-    _(get_gradients,    PyObject*,  Py_False,    "O",  , NULL, -1, {} ) \
     _(fx,                  double,       1.0,    "d",  , NULL, -1, {} ) \
     _(fy,                  double,       1.0,    "d",  , NULL, -1, {} ) \
     _(cx,                  double,       0.0,    "d",  , NULL, -1, {} ) \
-    _(cy,                  double,       0.0,    "d",  , NULL, -1, {} )
+    _(cy,                  double,       0.0,    "d",  , NULL, -1, {} ) \
+    _(get_gradients,    PyObject*,  Py_False,    "O",  , NULL, -1, {} )
 
 static bool _un_project_stereographic_validate_args(// in
                                                     int dim_points_in, // 3 for project(), 2 for unproject()
