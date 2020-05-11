@@ -31,16 +31,18 @@ supported. The toolkit includes:
   - =mrcal-convert-distortion=: fits one lens model to another
   - =mrcal-show-distortion=: visualize the distortion effects of a specific
     model
+  - =mrcal-show-splined-model-surface=: visualize the surface and knots used in
+    the specification of splined models
   - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
     due to noise in the calibration inputs
   - =mrcal-show-intrinsics-diff=: visualize the difference between the
     intrinsics of a number of models
-  - =mrcal-undistort-image=: Given image(s) and a lens model, produces a
-    new set of images that have removed the distortion
   - =mrcal-reproject-points=: Given two lens models and a set of points,
     maps them from one lens model to the other
-  - =mrcal-redistort-image=: Given two lens models and two images, maps
-    them from one lens model to the other
+  - =mrcal-reproject-image=: Given image(s) and lens model(s), produces a new
+    set of images that observe the same scene but with the other model. Several
+    flavors of functionality are included here, such as undistortion-to-pinhole,
+    re-rotation, and remapping to infinity.
   - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
     the extrinsics of another
   - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
@@ -53,6 +55,8 @@ supported. The toolkit includes:
     lens model
   - =mrcal-show-geometry=: Shows a visual representation of the extrinsics of N
     cameras
+  - =mrcal-show-valid-intrinsics-regions=: Visualize the region where a model's
+    intrinsics are valid
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -163,6 +167,10 @@ xxx-manpage-mrcal-convert-distortion-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-show-distortion-xxx
 #+END_EXAMPLE
+** mrcal-show-splined-model-surface
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-show-splined-model-surface-xxx
+#+END_EXAMPLE
 ** mrcal-show-intrinsics-uncertainty
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-show-intrinsics-uncertainty-xxx
@@ -171,17 +179,13 @@ xxx-manpage-mrcal-show-intrinsics-uncertainty-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-show-intrinsics-diff-xxx
 #+END_EXAMPLE
-** mrcal-undistort-image
-#+BEGIN_EXAMPLE
-xxx-manpage-mrcal-undistort-image-xxx
-#+END_EXAMPLE
 ** mrcal-reproject-points
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-reproject-points-xxx
 #+END_EXAMPLE
-** mrcal-redistort-image
+** mrcal-reproject-image
 #+BEGIN_EXAMPLE
-xxx-manpage-mrcal-redistort-image-xxx
+xxx-manpage-mrcal-reproject-image-xxx
 #+END_EXAMPLE
 ** mrcal-graft-cameramodel
 #+BEGIN_EXAMPLE
@@ -199,7 +203,10 @@ xxx-manpage-mrcal-to-cameramodel-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-show-geometry-xxx
 #+END_EXAMPLE
-
+** mrcal-show-valid-intrinsics-region
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-show-valid-intrinsics-region-xxx
+#+END_EXAMPLE
 
 * REPOSITORY
 
