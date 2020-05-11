@@ -1536,7 +1536,7 @@ def show_splined_model_surface(model, ixy,
                                imager_domain    = True,
                                extratitle       = None,
                                hardcopy         = None,
-                               kwargs           = None):
+                               **kwargs):
 
     r'''Visualizes the surface represented in a splined model
 
@@ -1572,7 +1572,6 @@ def show_splined_model_surface(model, ixy,
 
     import gnuplotlib as gp
 
-    if kwargs is None: kwargs = {}
     if 'title' not in kwargs:
 
         title = f"Surface for {lensmodel}. Looking at deltau{'y' if ixy else 'x'}"
