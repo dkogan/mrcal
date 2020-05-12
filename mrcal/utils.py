@@ -1483,12 +1483,12 @@ def polygon_difference(positive, negative):
 
     '''
 
-    from shapely.geometry import Polygon,MultiPolygon,LineString
+    from shapely.geometry import Polygon,MultiPolygon,GeometryCollection,LineString
     import shapely.ops
 
 
     diff = Polygon(positive).difference(Polygon(negative))
-    if isinstance(diff, MultiPolygon):
+    if isinstance(diff, (MultiPolygon,GeometryCollection)):
         diff = list(diff)
     elif isinstance(diff, Polygon):
         diff = [diff]
