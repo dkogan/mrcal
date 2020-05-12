@@ -111,7 +111,7 @@ check( ('LENSMODEL_CAHVORE', np.array((4842.918, 4842.771, 1970.528, 1085.302,
 # off the imager (x<0). This is aphysical, but it just means that the model was
 # made up; which it was. The math still works normally, and this is just fine as
 # a test
-check( ('LENSMODEL_SPLINED_STEREOGRAPHIC_3_11_8_200',
+check( ('LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=11_Ny=8_fov_x_deg=200',
         np.array([ 1500.0, 1800.0, 1499.5,999.5,
                    2.017284705,1.242204557,2.053514381,1.214368063,2.0379067,1.212609628,
                    2.033278227,1.183689487,2.040018023,1.188554431,2.069146825,1.196304649,
@@ -152,7 +152,7 @@ check( ('LENSMODEL_SPLINED_STEREOGRAPHIC_3_11_8_200',
                  [1246.58668369, 4621.35427783],
                  [4329.41598149, 3183.75121559]]))
 
-check( ('LENSMODEL_SPLINED_STEREOGRAPHIC_2_11_8_200',
+check( ('LENSMODEL_SPLINED_STEREOGRAPHIC_order=2_Nx=11_Ny=8_fov_x_deg=200',
         np.array([ 1500.0, 1800.0, 1499.5,999.5,
                    2.017284705,1.242204557,2.053514381,1.214368063,2.0379067,1.212609628,
                    2.033278227,1.183689487,2.040018023,1.188554431,2.069146825,1.196304649,

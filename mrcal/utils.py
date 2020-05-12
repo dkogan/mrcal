@@ -1442,7 +1442,7 @@ def splined_stereographic_valid_region(lensmodel):
     u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
 
     meta = mrcal.getLensModelMeta(lensmodel)
-    if meta['spline_order'] == 2:
+    if meta['order'] == 2:
         # spline order is 3. The valid region is 1/2 segments inwards from the
         # outer contour
         return \
@@ -1461,14 +1461,14 @@ def splined_stereographic_valid_region(lensmodel):
                       (u[0,1] + u[1,1]) / 2.,
                       axis = -2 )
 
-    elif meta['spline_order'] == 3:
+    elif meta['order'] == 3:
         # spline order is 3. The valid region is the outer contour, leaving one
         # knot out
         return \
             nps.glue( u[1,1:-2], u[1:-2, -2], u[-2, -2:1:-1], u[-2:0:-1, 1],
                       axis=-2 )
     else:
-        raise Exception("I only support cubic (spline_order==3) and quadratic (spline_order==2) models")
+        raise Exception("I only support cubic (order==3) and quadratic (order==2) models")
 
 
 def polygon_difference(positive, negative):

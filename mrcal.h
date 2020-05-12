@@ -102,7 +102,7 @@ typedef struct {} LENSMODEL_OPENCV14__precomputed_t;
 typedef struct {} LENSMODEL_CAHVOR__precomputed_t;
 typedef struct {} LENSMODEL_CAHVORE__precomputed_t;
 
-#define MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, bitfield, cookie) type name bitfield;
+#define MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
 
 _Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that. H means 'unsigned short'");
 
@@ -112,13 +112,13 @@ _Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short t
 #define MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(_, cookie)    \
     /* Maximum degree of each 1D polynomial. This is almost certainly 2 */ \
     /* (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous) */ \
-    _(spline_order, uint16_t, "H", , cookie)                            \
+    _(order,        uint16_t, "H", PRIu16,SCNu16, , cookie)             \
     /* We have a Nx by Ny grid of control points */                     \
-    _(Nx,           uint16_t, "H", , cookie)                            \
-    _(Ny,           uint16_t, "H", , cookie)                            \
+    _(Nx,           uint16_t, "H", PRIu16,SCNu16, , cookie)             \
+    _(Ny,           uint16_t, "H", PRIu16,SCNu16, , cookie)             \
     /* The horizontal field of view. Not including fov_y. It's proportional with */ \
     /* Ny and Nx */                                                     \
-    _(fov_x_deg,    uint16_t, "H", , cookie)
+    _(fov_x_deg,    uint16_t, "H", PRIu16,SCNu16, , cookie)
 typedef struct
 {
     MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
@@ -178,9 +178,9 @@ bool mrcal_lensmodel_type_is_valid(lensmodel_type_t t)
     return t >= 0;
 }
 
-#define MRCAL_LENSMODEL_META_LIST(_, cookie)            \
-    _(has_core,                  bool, "i", :1, cookie) \
-    _(can_project_behind_camera, bool, "i", :1, cookie)
+#define MRCAL_LENSMODEL_META_LIST(_, cookie)                    \
+    _(has_core,                  bool, "i",,, :1, cookie)       \
+    _(can_project_behind_camera, bool, "i",,, :1, cookie)
 typedef struct
 {
     MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )

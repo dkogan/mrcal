@@ -130,6 +130,17 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
     return NULL;
 }
 
+#define LENSMODEL_PRINT_CFG_ELEMENT_FMT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    "_" #name "=%" PRIcode
+#define LENSMODEL_PRINT_CFG_ELEMENT_VAR(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    ,config->name
+#define LENSMODEL_SCAN_CFG_ELEMENT_FMT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    "_" #name "=%" SCNcode
+#define LENSMODEL_SCAN_CFG_ELEMENT_VAR(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    ,&config->name
+#define LENSMODEL_SCAN_CFG_ELEMENT_PLUS1(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    +1
+
 // Write the model name WITH the full config into the given buffer. Identical to
 // mrcal_lensmodel_name() for configuration-free models
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
@@ -137,10 +148,9 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
    const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
-        snprintf( out, size, "LENSMODEL_SPLINED_STEREOGRAPHIC_%"PRIu16"_%"PRIu16"_%"PRIu16"_%"PRIu16,
-                  config->spline_order,
-                  config->Nx, config->Ny,
-                  config->fov_x_deg);
+        snprintf( out, size, "LENSMODEL_SPLINED_STEREOGRAPHIC"
+                  MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_FMT, )
+                  MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_VAR, ));
 }
 bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 {
@@ -169,14 +179,21 @@ bool mrcal_lensmodel_name_full( char* out, int size, lensmodel_t model )
 static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config, const char* config_str)
 {
     int pos;
+    int Nelements = 0 MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_SCAN_CFG_ELEMENT_PLUS1, );
     return
-        4 == sscanf( config_str, "%"SCNu16"_%"SCNu16"_%"SCNu16"_%"SCNu16"%n",
-                     &config->spline_order,
-                     &config->Nx, &config->Ny,
-                     &config->fov_x_deg,
-                     &pos) &&
+        Nelements ==
+        sscanf( config_str,
+                MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_SCAN_CFG_ELEMENT_FMT, )"%n"
+                MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_SCAN_CFG_ELEMENT_VAR, ),
+                &pos) &&
         config_str[pos] == '\0';
 }
+
+#undef LENSMODEL_PRINT_CFG_ELEMENT_FMT
+#undef LENSMODEL_PRINT_CFG_ELEMENT_VAR
+#undef LENSMODEL_SCAN_CFG_ELEMENT_FMT
+#undef LENSMODEL_SCAN_CFG_ELEMENT_VAR
+#undef LENSMODEL_SCAN_CFG_ELEMENT_PLUS1
 
 // parses the model name AND the configuration into a lensmodel_t structure.
 // Strings with valid model names but missing or unparseable configuration
@@ -190,7 +207,7 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
 
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. I need to extract the config from the string. */ \
-    /* The string format is NAME_cfg1_cfg2 ... */                       \
+    /* The string format is NAME_cfg1=var1_cfg2=var2... */              \
     if( 0 == strcmp( name, #s) )                                        \
         return (lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG};      \
     if( 0 == strncmp( name, #s"_", strlen(#s)+1) )                      \
@@ -199,7 +216,7 @@ lensmodel_t mrcal_lensmodel_from_name( const char* name )
         lensmodel_t model = {.type = s};                                \
         s##__config_t* config = &model.s##__config;                     \
                                                                         \
-        const char* config_str = &name[strlen(#s)+1];                   \
+        const char* config_str = &name[strlen(#s)];                     \
                                                                         \
         if(s##__scan_model_config(config, config_str))                  \
             return model;                                               \
@@ -488,7 +505,7 @@ int mrcal_getN_j_nonzero( int Ncameras,
     if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         int run_len =
-            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order + 1;
+            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1;
         Nintrinsics_per_measurement =
             (problem_details.do_optimize_intrinsic_core        ? 4                 : 0)  +
             (problem_details.do_optimize_intrinsic_distortions ? (run_len*run_len) : 0);
@@ -1383,7 +1400,7 @@ static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
     // ---> width/(N-1) = interval_size * (1 - k/(N-1))
     // ---> interval_size = width / (N - 1 - k)
     int NextraIntervals;
-    if(config->spline_order == 2)
+    if(config->order == 2)
     {
         NextraIntervals = 1;
         if(config->Nx < 3 || config->Ny < 3)
@@ -1393,7 +1410,7 @@ static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
             assert(0);
         }
     }
-    else if(config->spline_order == 3)
+    else if(config->order == 3)
     {
         NextraIntervals = 2;
         if(config->Nx < 4 || config->Ny < 4)
@@ -1405,7 +1422,7 @@ static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
     }
     else
     {
-        MSG("I only support spline_order 2 and 3");
+        MSG("I only support spline order 2 and 3");
         assert(0);
     }
 
@@ -1613,7 +1630,7 @@ void _project_point_splined( // outputs
     }
     else
     {
-        MSG("I only support spline_order==2 or 3. Somehow got %d. This is a bug. Barfing",
+        MSG("I only support spline order==2 or 3. Somehow got %d. This is a bug. Barfing",
             spline_order);
         assert(0);
     }
@@ -1942,7 +1959,7 @@ void project( // out
             *gradient_sparse_meta =
                 (gradient_sparse_meta_t)
                 {
-                    .run_side_length = config->spline_order+1,
+                    .run_side_length = config->order+1,
                     .ivar_stridey    = 2*config->Nx,
                     .pool            = &dq_dintrinsics_pool_double[ivar_pool]
                 };
@@ -2065,14 +2082,14 @@ void project( // out
                                    dp_drc, dp_dtc, dp_drf, dp_dtf,
                                    intrinsics,
                                    camera_at_identity,
-                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order,
+                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order,
                                    lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
                                    lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
                                    precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u,
                                    i_pt);
             if(dq_dintrinsics_pool_int != NULL)
             {
-                int runlen = lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order + 1;
+                int runlen = lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1;
                 *(dq_dintrinsics_pool_int++) = ivar0;
                 memcpy(&gradient_sparse_meta->pool[i_pt*runlen*2],
                        grad_ABCDx_ABCDy,

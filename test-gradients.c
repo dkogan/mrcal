@@ -59,9 +59,9 @@ int main(int argc, char* argv[] )
     if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         if(0 == strcmp(argv[iarg], "LENSMODEL_SPLINED_STEREOGRAPHIC_2"))
-            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order = 2;
+            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order = 2;
         else if(0 == strcmp(argv[iarg], "LENSMODEL_SPLINED_STEREOGRAPHIC_3"))
-            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.spline_order = 3;
+            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order = 3;
         else
         {
             fprintf(stderr, "A splined stereographic model must be specified as exactly one of \"LENSMODEL_SPLINED_STEREOGRAPHIC_2\" or \"LENSMODEL_SPLINED_STEREOGRAPHIC_3\". Givin gup\n");
@@ -175,7 +175,7 @@ int main(int argc, char* argv[] )
 
     if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC )
     {
-        // the spline_order was already set above
+        // the order was already set above
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx           = 11;
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny           = 8;
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.fov_x_deg    = 200;

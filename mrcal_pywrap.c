@@ -632,8 +632,8 @@ static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
 
     mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(lensmodel);
 
-#define MRCAL_ITEM_BUILDVALUE_DEF(  name, type, pybuildvaluecode, bitfield, cookie) " s "pybuildvaluecode
-#define MRCAL_ITEM_BUILDVALUE_VALUE(name, type, pybuildvaluecode, bitfield, cookie) , #name, cookie name
+#define MRCAL_ITEM_BUILDVALUE_DEF(  name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) " s "pybuildvaluecode
+#define MRCAL_ITEM_BUILDVALUE_VALUE(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) , #name, cookie name
 
     if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC )
         result = Py_BuildValue("{"

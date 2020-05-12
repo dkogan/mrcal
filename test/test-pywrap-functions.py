@@ -30,7 +30,7 @@ testutils.confirm_equal(uy,
 meta = mrcal.getLensModelMeta(model_splined.intrinsics()[0])
 meta_ref = {'has_core': 1,
             'can_project_behind_camera': 1,
-            'spline_order': 3,
+            'order': 3,
             'Nx': 16,
             'Ny': 14,
             'fov_x_deg': 200}

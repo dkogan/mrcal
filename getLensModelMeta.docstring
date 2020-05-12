@@ -3,14 +3,14 @@ Returns meta-information about a model
 SYNOPSIS
 
   import pprint
-  pprint.pprint(mrcal.getLensModelMeta('LENSMODEL_SPLINED_STEREOGRAPHIC_3_16_14_200'))
+  pprint.pprint(mrcal.getLensModelMeta('LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=16_Ny=14_fov_x_deg=200'))
 
     {'Nx': 16,
      'Ny': 14,
      'can_project_behind_camera': 1,
      'fov_x_deg': 200,
      'has_core': 1,
-     'spline_order': 3}
+     'order': 3}
 
 I support a number of lens models, which have different properties. Some models
 also have configuration embedded in the model string. This function returns a
