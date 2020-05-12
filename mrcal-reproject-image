@@ -404,15 +404,18 @@ def process(model_from, model_to, image_globs, suffix,
             sys.exit(1)
         return filename_out
 
+    filenames_in  = [f for g in image_globs for f in glob.glob(g)]
+    if len(filenames_in) == 0:
+        print(f"Globs '{image_globs}' matched no files!", file=sys.stderr)
+        sys.exit(1)
+    filenames_out = [target_image_filename(f, suffix) for f in filenames_in]
+    filenames_inout = zip(filenames_in, filenames_out)
+
     global mapxy
     mapxy = mrcal.reproject_image__compute_map(model_from, model_to,
                                                use_rotation    = use_rotation,
                                                plane_n         = plane_n,
                                                plane_d         = plane_d)
-
-    filenames_in  = [f for g in image_globs for f in glob.glob(g)]
-    filenames_out = [target_image_filename(f, suffix) for f in filenames_in]
-    filenames_inout = zip(filenames_in, filenames_out)
 
     pool = multiprocessing.Pool(args.jobs)
     try:
