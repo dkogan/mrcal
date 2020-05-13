@@ -212,6 +212,13 @@ def parse_args():
                         from-camera coordinates is given here. The plane is all
                         points p such that inner(p,planen) = planed''')
 
+    parser.add_argument('--outdir',
+                        required=False,
+                        type=lambda d: d if os.path.isdir(d) else \
+                                parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
+                        help='''Directory to write the output images into. If omitted, we write the output
+                        images to the same directory as the input images''')
+
     parser.add_argument('--force', '-f',
                         action='store_true',
                         default=False,
@@ -381,17 +388,21 @@ def _transform_this(inout):
 def process(model_from, model_to, image_globs, suffix,
             use_rotation, plane_n, plane_d):
 
-    def target_image_filename(f,suffix):
-        m = re.match("(.*)\.([a-z][a-z][a-z])$", f, flags=re.I)
-        if not m:
-            raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(f))
+    def target_image_filename(filename_in, suffix):
 
-        f = "{}-{}.{}".format(m.group(1),suffix,m.group(2))
-        if not args.force and os.path.isfile(f):
-            print(f"Target image '{f}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
+        base,extension = os.path.splitext(filename_in)
+        if len(extension) != 4:
+            raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
+
+        if args.outdir is not None:
+            base = args.outdir + '/' + os.path.split(base)[1]
+
+        filename_out = f"{base}-{suffix}{extension}"
+        if not args.force and os.path.isfile(filename_out):
+            print(f"Target image '{filename_out}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
                   file=sys.stderr)
             sys.exit(1)
-        return f
+        return filename_out
 
     global mapxy
     mapxy = mrcal.reproject_image__compute_map(model_from, model_to,
