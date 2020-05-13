@@ -94,14 +94,16 @@ if args.writeimage:
 
     import cv2
 
-    def target_image_filename(f):
-        m = re.match("(.*)\.([a-z][a-z][a-z])$", f, flags=re.I)
-        if not m:
-            raise Exception("imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{}'".format(imagefile))
+    # this function stolen from mrcal-reproject-image. Please consolidate
+    def target_image_filename(filename_in, suffix):
+        base,extension = os.path.splitext(filename_in)
+        if len(extension) != 4:
+            raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
+        filename_out = f"{base}-{suffix}{extension}"
+        return filename_out
 
-        return "{}-valid-intrinsics-region.{}".format(m.group(1),m.group(2))
 
-    imagefile_out = target_image_filename(args.image)
+    imagefile_out = target_image_filename(args.image, 'valid-intrinsics-region')
     image_out = cv2.imread(args.image)
     for m in models:
         mrcal.annotate_image__valid_intrinsics_region(m, image_out)
