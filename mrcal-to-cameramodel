@@ -5,8 +5,9 @@ r'''Converts model to the cameramodel file format
 
 SYNOPSIS
 
-  $ mrcal-to-cameramodel model.cahvor
-  Wrote model.cameramodel
+  $ mrcal-to-cameramodel model1.cahvor model2.cahvor
+  Wrote model1.cameramodel
+  Wrote model2.cameramodel
 
 This tool converts a given model to the cameramodel file format. No changes to
 the content are made; this is purely a format converter. If the model is
@@ -29,9 +30,20 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing files are not overwritten. Pass --force to overwrite them
+                        without complaint''')
+    parser.add_argument('--outdir',
+                        required=False,
+                        type=lambda d: d if os.path.isdir(d) else \
+                                parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
+                        help='''Directory to write the output models into. If omitted, we write the output
+                        models to the same directory as the input models''')
     parser.add_argument('model',
-                        default='-',
-                        nargs='?',
+                        default=['-'],
+                        nargs='*',
                         type=str,
                         help='''Input camera model''')
 
@@ -42,20 +54,34 @@ args = parse_args()
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
 
+Nstdin = sum(1 for m in args.model if m=='-')
+if Nstdin > 1:
+    print(f"At most one model can be read from standard input ('-'), but I got {Nstdin}", file=sys.stderr)
+    sys.exit(1)
 
 import mrcal
 
-if args.model == '-':
-    m = mrcal.cameramodel(args.model)
-    m.write(sys.stdout)
-else:
+for model in args.model:
+    if model == '-':
+        try:
+            m = mrcal.cameramodel(model)
+        except KeyboardInterrupt:
+            sys.exit(1)
+        m.write(sys.stdout, cahvor = False)
+    else:
+        base,extension = os.path.splitext(model)
+        if extension.lower() == '.cameramodel':
+            print("Input file is already in the cameramodel format (judging from the filename). Doing nothing",
+                  file=sys.stderr)
+            sys.exit(0)
 
-    base,extension = os.path.splitext(args.model)
-    if extension.lower() == '.cameramodel':
-        sys.stderr.write("Input file is already in the cameramodel format (judging from the filename). Doing nothing\n")
-        sys.exit()
-
-    m = mrcal.cameramodel(args.model)
-    filename_out = base + '.cameramodel'
-    m.write(filename_out)
-    print("Wrote " + filename_out)
+        if args.outdir is not None:
+            base = args.outdir + '/' + os.path.split(base)[1]
+        filename_out = base + '.cameramodel'
+        if not args.force and os.path.isfile(filename_out):
+            print(f"Target model '{filename_out}' already exists. Doing nothing with this model. Pass -f to overwrite",
+                  file=sys.stderr)
+        else:
+            m = mrcal.cameramodel(model)
+            m.write(filename_out)
+            print("Wrote " + filename_out)
