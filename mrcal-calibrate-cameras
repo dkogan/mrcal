@@ -819,7 +819,6 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         # I have no seed. I compute a rough seed, and run a few preliminary,
         # incremental optimizations to get it reasonably-close to the right
         # answer
-        lensmodel = 'LENSMODEL_PINHOLE'
         intrinsics_data,extrinsics,frames = \
             mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
                                           focal_estimate       = args.focal,
@@ -830,6 +829,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                           object_width_n       = args.object_width_n)
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
+        lensmodel = 'LENSMODEL_STEREOGRAPHIC'
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                                observations, indices_frame_camera,
                                None, None,
