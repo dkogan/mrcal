@@ -13,6 +13,6 @@ This function returns the next model in a sequence.
 
 If this is the last model in the sequence, returns the current model. This
 function takes in both the current model, and the last model we're aiming for.
-The second part is required because all familie begin at LENSMODEL_PINHOLE, so
+The second part is required because all families begin at LENSMODEL_PINHOLE, so
 the next model from LENSMODEL_PINHOLE is not well-defined without more
 information

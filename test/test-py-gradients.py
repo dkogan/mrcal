@@ -23,6 +23,8 @@ import testutils
 intrinsics = \
     ( ('LENSMODEL_PINHOLE',
        np.array((1512., 1112, 500., 333.))),
+      ('LENSMODEL_STEREOGRAPHIC',
+       np.array((1512., 1112, 500., 333.))),
       ('LENSMODEL_OPENCV4',
        np.array((1512., 1112, 500., 333.,
                  -0.012, 0.035, -0.001, 0.002))),

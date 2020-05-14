@@ -5,6 +5,8 @@ SYNOPSIS
     print(mrcal.getSupportedLensModels())
 
     ('LENSMODEL_PINHOLE',
+     'LENSMODEL_STEREOGRAPHIC',
+     'LENSMODEL_SPLINED_STEREOGRAPHIC_...',
      'LENSMODEL_OPENCV4',
      'LENSMODEL_OPENCV5',
      'LENSMODEL_OPENCV8',
@@ -14,5 +16,7 @@ SYNOPSIS
      'LENSMODEL_CAHVORE')
 
 The above list is correct as of this writing, but more models could be added
-with time. Note that at this time CAHVORE is supported only partially: gradients
-aren't implemented, so we can't compute an optimal CAHVORE model
+with time. Models ending in '...' have configuration parameters given in the
+model string, replacing the '...'. Note that at this time CAHVORE is supported
+only partially: gradients aren't implemented, so we can't compute an optimal
+CAHVORE model

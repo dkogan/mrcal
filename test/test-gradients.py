@@ -31,6 +31,12 @@ tests = ( # mostly all
           "LENSMODEL_PINHOLE extrinsics frames                intrinsic-distortions",
           "LENSMODEL_PINHOLE extrinsics frames intrinsic-core",
           "LENSMODEL_PINHOLE extrinsics frames",
+
+          "LENSMODEL_STEREOGRAPHIC extrinsics frames intrinsic-core intrinsic-distortions calobject-warp",
+          "LENSMODEL_STEREOGRAPHIC extrinsics                       intrinsic-distortions",
+          "LENSMODEL_STEREOGRAPHIC extrinsics frames intrinsic-core",
+          "LENSMODEL_STEREOGRAPHIC frames",
+
           "LENSMODEL_CAHVOR  extrinsics frames intrinsic-core intrinsic-distortions calobject-warp",
           "LENSMODEL_CAHVOR  extrinsics frames                intrinsic-distortions",
           "LENSMODEL_CAHVOR  extrinsics frames intrinsic-core",

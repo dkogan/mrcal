@@ -70,6 +70,7 @@ typedef struct
 // configuration that affects the parameter count
 #define LENSMODEL_NOCONFIG_LIST(_)                                    \
     _(LENSMODEL_PINHOLE, 4)                                           \
+    _(LENSMODEL_STEREOGRAPHIC, 4) /* Simple stereographic-only model */ \
     _(LENSMODEL_OPENCV4, 8)                                           \
     _(LENSMODEL_OPENCV5, 9)                                           \
     _(LENSMODEL_OPENCV8, 12)                                          \
@@ -85,6 +86,7 @@ typedef struct
 
 // parametric models have no extra configuration, and no precomputed data
 typedef struct {} LENSMODEL_PINHOLE__config_t;
+typedef struct {} LENSMODEL_STEREOGRAPHIC__config_t;
 typedef struct {} LENSMODEL_OPENCV4__config_t;
 typedef struct {} LENSMODEL_OPENCV5__config_t;
 typedef struct {} LENSMODEL_OPENCV8__config_t;
@@ -94,6 +96,7 @@ typedef struct {} LENSMODEL_CAHVOR__config_t;
 typedef struct {} LENSMODEL_CAHVORE__config_t;
 
 typedef struct {} LENSMODEL_PINHOLE__precomputed_t;
+typedef struct {} LENSMODEL_STEREOGRAPHIC__precomputed_t;
 typedef struct {} LENSMODEL_OPENCV4__precomputed_t;
 typedef struct {} LENSMODEL_OPENCV5__precomputed_t;
 typedef struct {} LENSMODEL_OPENCV8__precomputed_t;

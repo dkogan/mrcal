@@ -47,11 +47,8 @@ ARGUMENTS
 
   LENSMODEL_PINHOLE
   LENSMODEL_OPENCV4
-  LENSMODEL_OPENCV5
-  LENSMODEL_OPENCV8
-  LENSMODEL_OPENCV12 (if we have OpenCV >= 3.0.0)
-  LENSMODEL_OPENCV14 (if we have OpenCV >= 3.1.0)
   LENSMODEL_CAHVOR
+  LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=16_Ny=12_fov_x_deg=100
 
 - intrinsics_data: array of dims (Nintrinsics):
 
@@ -423,12 +420,15 @@ def reproject_image__compute_map(model_from, model_to,
                                              -1, -2, -3),
                                  dtype = float)
     if lens_model_to == "LENSMODEL_PINHOLE":
-        # faster path for the unproject; probably
+        # Faster path for the unproject. Nice, simple closed-form solution
         fxy_to = intrinsics_data_to[0:2]
         cxy_to = intrinsics_data_to[2:4]
         v = np.zeros( (grid.shape[0], grid.shape[1], 3), dtype=float)
         v[..., :2] = (grid-cxy_to)/fxy_to
         v[...,  2] = 1
+    elif lens_model_to == "LENSMODEL_STEREOGRAPHIC":
+        # Faster path for the unproject. Nice, simple closed-form solution
+        v = mrcal.unproject_stereographic(grid, *intrinsics_data_to[:4])
     else:
         v = mrcal.unproject(grid, lens_model_to, intrinsics_data_to)
 

@@ -260,6 +260,7 @@ mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const lensmodel_t m )
     switch(m.type)
     {
     case LENSMODEL_SPLINED_STEREOGRAPHIC:
+    case LENSMODEL_STEREOGRAPHIC:
         return (mrcal_lensmodel_meta_t) { .has_core                  = true,
                                           .can_project_behind_camera = true };
     case LENSMODEL_PINHOLE:
@@ -343,8 +344,8 @@ const char* const* mrcal_getSupportedLensModels( void )
 // If this is the last model in the sequence, returns the current model. This
 // function takes in both the current model, and the last model we're aiming
 // for. The second part is required because all familie begin at
-// LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not well-defined
-// without more information
+// LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not
+// well-defined without more information
 lensmodel_t mrcal_getNextLensModel( lensmodel_t lensmodel_now,
                                      lensmodel_t lensmodel_final )
 {
@@ -1018,7 +1019,8 @@ void _project_point_parametric( // outputs
     // q = uxy/uz * fxy + cxy
     int NdistortionParams = mrcal_getNlensParams(lensmodel) - 4;
 
-    if( lensmodel.type == LENSMODEL_PINHOLE )
+    if( lensmodel.type == LENSMODEL_PINHOLE ||
+        lensmodel.type == LENSMODEL_STEREOGRAPHIC )
     {
         // q = fxy pxy/pz + cxy
         // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
@@ -1027,13 +1029,26 @@ void _project_point_parametric( // outputs
         const double fy = intrinsics[1];
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
-        double pz_recip = 1. / p->z;
-        q[i_pt].x = p->x*pz_recip * fx + cx;
-        q[i_pt].y = p->y*pz_recip * fy + cy;
+        double dq_dp[2][3];
+        if( lensmodel.type == LENSMODEL_PINHOLE )
+        {
+            double pz_recip = 1. / p->z;
+            q[i_pt].x = p->x*pz_recip * fx + cx;
+            q[i_pt].y = p->y*pz_recip * fy + cy;
 
-        double dq_dp[2][3] =
-            { { fx * pz_recip,             0, -fx*p->x*pz_recip*pz_recip},
-              { 0,             fy * pz_recip, -fy*p->y*pz_recip*pz_recip} };
+            dq_dp[0][0] = fx * pz_recip;
+            dq_dp[0][1] = 0;
+            dq_dp[0][2] = -fx*p->x*pz_recip*pz_recip;
+
+            dq_dp[1][0] = 0;
+            dq_dp[1][1] = fy * pz_recip;
+            dq_dp[1][2] = -fy*p->y*pz_recip*pz_recip;
+        }
+        else
+        {
+            mrcal_project_stereographic(&q[i_pt], (point3_t*)dq_dp,
+                                        p, 1, fx,fy,cx,cy);
+        }
 
         // dq/deee = dq/dp dp/deee
         if(camera_at_identity)
@@ -1056,8 +1071,8 @@ void _project_point_parametric( // outputs
         {
             // I have the projection, and I now need to propagate the gradients
             // xy = fxy * distort(xy)/distort(z) + cxy
-            dq_dfxy[2*i_pt + 0] = p->x*pz_recip; // dx/dfx
-            dq_dfxy[2*i_pt + 1] = p->y*pz_recip; // dy/dfy
+            dq_dfxy[2*i_pt + 0] = (q[i_pt].x - cx)/fx; // dqx/dfx
+            dq_dfxy[2*i_pt + 1] = (q[i_pt].y - cy)/fy; // dqy/dfy
         }
     }
     else if( lensmodel.type == LENSMODEL_CAHVOR )
@@ -2657,7 +2672,7 @@ bool mrcal_unproject( // out
         assert(0);
     }
 
-    // easy special-case
+    // easy special-cases
     if( lensmodel.type == LENSMODEL_PINHOLE )
     {
         for(int i=0; i<N; i++)
@@ -2669,6 +2684,11 @@ bool mrcal_unproject( // out
             // advance
             out++;
         }
+        return true;
+    }
+    if( lensmodel.type == LENSMODEL_STEREOGRAPHIC )
+    {
+        mrcal_unproject_stereographic(out, NULL, q, N, fx,fy,cx,cy);
         return true;
     }
 

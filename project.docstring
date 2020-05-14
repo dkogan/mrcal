@@ -22,13 +22,8 @@ ARGUMENTS
 
   LENSMODEL_PINHOLE
   LENSMODEL_OPENCV4
-  LENSMODEL_OPENCV5
-  LENSMODEL_OPENCV8
-  LENSMODEL_OPENCV12 (if we have OpenCV >= 3.0.0)
-  LENSMODEL_OPENCV14 (if we have OpenCV >= 3.1.0)
   LENSMODEL_CAHVOR
-
-  LENSMODEL_CAHVORE is explicitly NOT supported at this time
+  LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=16_Ny=12_fov_x_deg=100
 
 - intrinsics: array of dims (Nintrinsics):
 

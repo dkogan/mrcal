@@ -131,13 +131,18 @@ and mrcal supports =.cameramodel= files.
 
 ** Lens models
 
-Lens models are specified as elements of =enum lens_model_t= (in C)
-or, as strings that match the entries of that enum (in Python). Currently I
-support all CAHVOR flavors and all models implemented in OpenCV. A limitation is
-that the solver core does not support CAHVORE, so use the OpenCV models if a
-high-distoriton model is required. Currently the supported models are:
+Lens models are specified as elements of =enum lens_model_t= (in C) or, as
+strings that match the entries of that enum (in Python). Currently I support all
+CAHVOR flavors and all models implemented in OpenCV and a pure stereographic
+model and a /very/ rich splined stereographic model. CAHVORE isn't supported in
+the solver. Some models have configuration parameters defined in the model
+string. These define details of the model, and are not subject to optimization.
+Currently the supported models are:
 
 - =LENSMODEL_PINHOLE=
+- =LENSMODEL_STEREOGRAPHIC=
+- =LENSMODEL_SPLINED_STEREOGRAPHIC_...= (this model has configuration
+  parameters)
 - =LENSMODEL_OPENCV4=
 - =LENSMODEL_OPENCV5=
 - =LENSMODEL_OPENCV8=
