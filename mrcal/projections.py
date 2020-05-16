@@ -538,6 +538,12 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
     error for each point: shape (Nobservations,Nwant,Nwant,2). One includes the
     outliers in the returned errors, and the other does not
 
+    Note that the data is expected to come from a pure calibration problem, not
+    structure-from-motion or anything else. I have N stationary cameras, with
+    different intrinsics, and different extrinsics. The first camera is the
+    reference coordinate system. We take an indices_frame_camera and NOT
+    indices_frame_camintrinsics_camextrinsics
+
     '''
 
     if outlier_indices is None: outlier_indices = np.array(())

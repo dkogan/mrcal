@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 
-r'''Shows the geometry defined by the camera extrinsics
+r'''Shows the calibration geometry defined by the camera extrinsics
 
 SYNOPSIS
 
-  $ mrcal-show-geometry *.cameramodel
+  $ mrcal-show-calibration-geometry *.cameramodel
   ... a plot pops up showing the camera arrangement
 
 This allows us to visualize the relative geometry between several cameras
@@ -89,10 +89,10 @@ plotkwargs = {}
 if args.title    is not None: plotkwargs['title'   ] = args.title
 if args.hardcopy is not None: plotkwargs['hardcopy'] = args.hardcopy
 
-plot = mrcal.show_solution_geometry(models,
-                                    args.models,
-                                    cameras_Rt_plot_ref,
-                                    **plotkwargs)
+plot = mrcal.show_calibration_geometry(models,
+                                       args.models,
+                                       cameras_Rt_plot_ref,
+                                       **plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()

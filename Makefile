@@ -34,7 +34,7 @@ DIST_BIN :=					\
 	mrcal-graft-cameramodel			\
 	mrcal-to-cahvor				\
 	mrcal-to-cameramodel			\
-	mrcal-show-geometry			\
+	mrcal-show-calibration-geometry		\
 	mrcal-show-valid-intrinsics-region
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky

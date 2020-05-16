@@ -85,7 +85,7 @@ do {                                                                    \
             for(int i=0; i<ndims; i++)                                  \
                 if(dims[i] >= 0 && dims[i] != PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]) \
                 {                                                       \
-                    PyErr_Format(PyExc_RuntimeError, "'" #name "'must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]); \
+                    PyErr_Format(PyExc_RuntimeError, "'" #name "' must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]); \
                     return false;                                       \
                 }                                                       \
         }                                                               \
@@ -98,7 +98,7 @@ do {                                                                    \
             }                                                           \
             if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)name_pyarrayobj) )       \
             {                                                           \
-                PyErr_SetString(PyExc_RuntimeError, "'" #name "'must be c-style contiguous"); \
+                PyErr_SetString(PyExc_RuntimeError, "'" #name "' must be c-style contiguous"); \
                 return false;                                           \
             }                                                           \
         }                                                               \
@@ -119,7 +119,8 @@ typedef struct {
     lensmodel_t lensmodel;
     mrcal_problem_details_t problem_details;
 
-    int Ncameras, Nframes, Npoints;
+    int Ncameras_intrinsics, Ncameras_extrinsics;
+    int Nframes, Npoints;
     int NobservationsBoard;
     int calibration_object_width_n;
 
@@ -145,7 +146,8 @@ static PyObject* SolverContext_str(SolverContext* self)
     }
 
     return PyString_FromFormat("Non-empty context made with        %s\n"
-                               "Ncameras:                          %d\n"
+                               "Ncameras_intrinsics:               %d\n"
+                               "Ncameras_extrinsics:               %d\n"
                                "Nframes:                           %d\n"
                                "Npoints:                           %d\n"
                                "NobservationsBoard:                %d\n"
@@ -153,7 +155,9 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "do_optimize_intrinsic_core:        %d\n"
                                "do_optimize_intrinsic_distortions: %d\n",
                                p_lensmodel_name,
-                               self->Ncameras, self->Nframes, self->Npoints,
+                               self->Ncameras_intrinsics,
+                               self->Ncameras_extrinsics,
+                               self->Nframes, self->Npoints,
                                self->NobservationsBoard,
                                self->calibration_object_width_n,
                                self->problem_details.do_optimize_intrinsic_core,
@@ -293,17 +297,17 @@ static PyObject* SolverContext_state_index_intrinsics(SolverContext* self,
         return NULL;
     }
     PyObject* result = NULL;
-    int i_camera = -1;
-    if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
-    if( i_camera < 0 || i_camera >= self->Ncameras )
+    int i_cam_intrinsics = -1;
+    if(!PyArg_ParseTuple( args, "i", &i_cam_intrinsics )) goto done;
+    if( i_cam_intrinsics < 0 || i_cam_intrinsics >= self->Ncameras_intrinsics )
     {
         PyErr_Format(PyExc_RuntimeError,
-                     "i_camera must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Ncameras-1,i_camera);
+                     "i_cam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+                     self->Ncameras_intrinsics-1,i_cam_intrinsics);
         goto done;
     }
     result = Py_BuildValue("i",
-                           mrcal_state_index_intrinsics(i_camera,
+                           mrcal_state_index_intrinsics(i_cam_intrinsics,
                                                         self->problem_details,
                                                         self->lensmodel));
  done:
@@ -319,18 +323,18 @@ static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
         return NULL;
     }
     PyObject* result = NULL;
-    int i_camera = -1;
-    if(!PyArg_ParseTuple( args, "i", &i_camera )) goto done;
-    if( i_camera < 1 || i_camera >= self->Ncameras )
+    int i_cam_extrinsics = -1;
+    if(!PyArg_ParseTuple( args, "i", &i_cam_extrinsics )) goto done;
+    if( i_cam_extrinsics < 0 || i_cam_extrinsics >= self->Ncameras_extrinsics )
     {
         PyErr_Format(PyExc_RuntimeError,
-                     "i_camera must refer to a valid camera that's NOT the first camera i.e. be in the range [1,%d] inclusive. Instead I got %d. The first camera defines the reference coordinate system, so it has no state",
-                     self->Ncameras-1,i_camera);
+                     "i_cam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+                     self->Ncameras_extrinsics-1,i_cam_extrinsics);
         goto done;
     }
     result = Py_BuildValue("i",
-                           mrcal_state_index_camera_rt(i_camera,
-                                                       self->Ncameras,
+                           mrcal_state_index_camera_rt(i_cam_extrinsics,
+                                                       self->Ncameras_intrinsics,
                                                        self->problem_details,
                                                        self->lensmodel));
  done:
@@ -356,7 +360,8 @@ static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
     }
     result = Py_BuildValue("i",
                            mrcal_state_index_frame_rt(i_frame,
-                                                      self->Ncameras,
+                                                      self->Ncameras_intrinsics,
+                                                      self->Ncameras_extrinsics,
                                                       self->problem_details,
                                                       self->lensmodel));
  done:
@@ -382,7 +387,9 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
     }
     result = Py_BuildValue("i",
                            mrcal_state_index_point(i_point,
-                                                   self->Nframes, self->Ncameras,
+                                                   self->Nframes,
+                                                   self->Ncameras_intrinsics,
+                                                   self->Ncameras_extrinsics,
                                                    self->problem_details,
                                                    self->lensmodel));
  done:
@@ -399,7 +406,9 @@ static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
 
     return Py_BuildValue("i",
                          mrcal_state_index_calobject_warp(self->Npoints,
-                                                          self->Nframes, self->Ncameras,
+                                                          self->Nframes,
+                                                          self->Ncameras_intrinsics,
+                                                          self->Ncameras_extrinsics,
                                                           self->problem_details,
                                                           self->lensmodel));
 }
@@ -414,7 +423,7 @@ static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
 
     int Nmeasurements_all = self->ctx->beforeStep->Jt->ncol;
     int Nmeasurements_regularization =
-        mrcal_getNmeasurements_regularization(self->Ncameras,
+        mrcal_getNmeasurements_regularization(self->Ncameras_intrinsics,
                                               self->problem_details,
                                               self->lensmodel);
     int Nmeasurements_boards =
@@ -493,7 +502,8 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
         {
             mrcal_pack_solver_state_vector( x,
                                             self->lensmodel, self->problem_details,
-                                            self->Ncameras, self->Nframes, self->Npoints );
+                                            self->Ncameras_intrinsics, self->Ncameras_extrinsics,
+                                            self->Nframes, self->Npoints );
             x = &x[Nstate];
         }
     else
@@ -501,7 +511,8 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
         {
             mrcal_unpack_solver_state_vector( x,
                                               self->lensmodel, self->problem_details,
-                                              self->Ncameras, self->Nframes, self->Npoints );
+                                              self->Ncameras_intrinsics, self->Ncameras_extrinsics,
+                                              self->Nframes, self->Npoints );
             x = &x[Nstate];
         }
 
@@ -1217,9 +1228,9 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames,                      NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,                      NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA 3 } ) \
-    _(indices_frame_camera_board,         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camera_board,  NPY_INT,    {-1 COMMA  2       } ) \
+    _(indices_frame_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camintrinsics_camextrinsics,  NPY_INT,    {-1 COMMA  3       } ) \
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  4       } ) \
-    _(indices_point_camera_points,        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camera_points, NPY_INT,    {-1 COMMA  2       } ) \
+    _(indices_point_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camintrinsics_camextrinsics, NPY_INT,    {-1 COMMA  3       } ) \
     _(lensmodel,                         PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
@@ -1278,36 +1289,29 @@ static bool optimize_validate_args( // out
     OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
 #pragma GCC diagnostic pop
 
-    int Ncameras = PyArray_DIMS(intrinsics)[0];
-    if( Ncameras-1 !=
-        PyArray_DIMS(extrinsics)[0] )
+    int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
+    int Ncameras_extrinsics = PyArray_DIMS(extrinsics)[0];
+    if( PyArray_DIMS(imagersizes)[0] != Ncameras_intrinsics )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'intrinsics' says %ld",
-                     PyArray_DIMS(extrinsics)[0] + 1,
-                     PyArray_DIMS(intrinsics)[0] );
-        return false;
-    }
-    if( PyArray_DIMS(imagersizes)[0] != Ncameras )
-    {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'imagersizes' says %ld",
-                     PyArray_DIMS(extrinsics)[0] + 1,
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'intrinsics' says %ld, 'imagersizes' says %ld",
+                     Ncameras_intrinsics,
                      PyArray_DIMS(imagersizes)[0]);
         return false;
     }
-    if( !IS_NULL(roi) && PyArray_DIMS(roi)[0] != Ncameras )
+    if( !IS_NULL(roi) && PyArray_DIMS(roi)[0] != Ncameras_intrinsics )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'extrinsics' says %ld, 'roi' says %ld",
-                     PyArray_DIMS(extrinsics)[0] + 1,
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'intrinsics' says %ld, 'roi' says %ld",
+                     Ncameras_intrinsics,
                      PyArray_DIMS(roi)[0]);
         return false;
     }
 
     long int NobservationsBoard = PyArray_DIMS(observations_board)[0];
-    if( PyArray_DIMS(indices_frame_camera_board)[0] != NobservationsBoard )
+    if( PyArray_DIMS(indices_frame_camintrinsics_camextrinsics)[0] != NobservationsBoard )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent NobservationsBoard: 'observations_board' says %ld, 'indices_frame_camera_board' says %ld",
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent NobservationsBoard: 'observations_board' says %ld, 'indices_frame_camintrinsics_camextrinsics' says %ld",
                      NobservationsBoard,
-                     PyArray_DIMS(indices_frame_camera_board)[0]);
+                     PyArray_DIMS(indices_frame_camintrinsics_camextrinsics)[0]);
         return false;
     }
 
@@ -1341,11 +1345,11 @@ static bool optimize_validate_args( // out
     }
 
     long int NobservationsPoint = PyArray_DIMS(observations_point)[0];
-    if( PyArray_DIMS(indices_point_camera_points)[0] != NobservationsPoint )
+    if( PyArray_DIMS(indices_point_camintrinsics_camextrinsics)[0] != NobservationsPoint )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent NobservationsPoint: 'observations_point' says %ld, 'indices_point_camera_points' says %ld",
+        PyErr_Format(PyExc_RuntimeError, "Inconsistent NobservationsPoint: 'observations_point' says %ld, 'indices_point_camintrinsics_camextrinsics' says %ld",
                      NobservationsPoint,
-                     PyArray_DIMS(indices_point_camera_points)[0]);
+                     PyArray_DIMS(indices_point_camintrinsics_camextrinsics)[0]);
         return false;
     }
 
@@ -1423,94 +1427,119 @@ static bool optimize_validate_args( // out
     if( !IS_NULL(frames) )
         Nframes = PyArray_DIMS(frames)[0];
     int i_frame_last  = -1;
-    int i_camera_last = -1;
+    int i_cam_intrinsics_last = -1;
+    int i_cam_extrinsics_last = -1;
     for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
     {
         // check for monotonicity and in-rangeness
-        int i_frame  = ((int*)PyArray_DATA(indices_frame_camera_board))[i_observation*2 + 0];
-        int i_camera = ((int*)PyArray_DATA(indices_frame_camera_board))[i_observation*2 + 1];
+        int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int i_cam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int i_cam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         // First I make sure everything is in-range
         if(i_frame < 0 || i_frame >= Nframes)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be in [0,%d], instead got %d in row %d of indices_frame_camera_board",
+            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
                          Nframes-1, i_frame, i_observation);
             return false;
         }
-        if(i_camera < 0 || i_camera >= Ncameras)
+        if(i_cam_intrinsics < 0 || i_cam_intrinsics >= Ncameras_intrinsics)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_camera MUST be in [0,%d], instead got %d in row %d of indices_frame_camera_board",
-                         Ncameras-1, i_camera, i_observation);
+            PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+                         Ncameras_intrinsics-1, i_cam_intrinsics, i_observation);
             return false;
         }
-
+        if(i_cam_extrinsics < -1 || i_cam_extrinsics >= Ncameras_extrinsics)
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+                         Ncameras_extrinsics-1, i_cam_extrinsics, i_observation);
+            return false;
+        }
         // And then I check monotonicity
         if(i_frame == i_frame_last)
         {
-            if( i_camera <= i_camera_last )
+            if( i_cam_intrinsics <= i_cam_intrinsics_last )
             {
-                PyErr_Format(PyExc_RuntimeError, "i_camera MUST be monotonically increasing in indices_frame_camera_board. Instead row %d (frame %d) of indices_frame_camera_board has i_camera=%d after seeing i_camera=%d",
-                             i_observation, i_frame, i_camera, i_camera_last);
+                PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
+                             i_observation, i_frame, i_cam_intrinsics, i_cam_intrinsics_last);
+                return false;
+            }
+            if( i_cam_extrinsics <= i_cam_extrinsics_last )
+            {
+                PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
+                             i_observation, i_frame, i_cam_extrinsics, i_cam_extrinsics_last);
                 return false;
             }
         }
         else if( i_frame < i_frame_last )
         {
-            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be monotonically increasing in indices_frame_camera_board. Instead row %d of indices_frame_camera_board has i_frame=%d after seeing i_frame=%d",
+            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d of indices_frame_camintrinsics_camextrinsics has i_frame=%d after previously seeing i_frame=%d",
                          i_observation, i_frame, i_frame_last);
             return false;
         }
 
-        i_frame_last  = i_frame;
-        i_camera_last = i_camera;
+        i_frame_last          = i_frame;
+        i_cam_intrinsics_last = i_cam_intrinsics;
+        i_cam_extrinsics_last = i_cam_extrinsics;
     }
     int Npoints = 0;
     if( !IS_NULL(points) )
         Npoints = PyArray_DIMS(points)[0];
     int i_point_last = -1;
-    i_camera_last = -1;
+    i_cam_intrinsics_last = -1;
+    i_cam_extrinsics_last = -1;
     for(int i_observation=0; i_observation<NobservationsPoint; i_observation++)
     {
-        int i_point  = ((int*)PyArray_DATA(indices_point_camera_points))[i_observation*2 + 0];
-        int i_camera = ((int*)PyArray_DATA(indices_point_camera_points))[i_observation*2 + 1];
+        int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int i_cam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int i_cam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         // First I make sure everything is in-range
         if(i_point < 0 || i_point >= Npoints)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_point MUST be in [0,%d], instead got %d in row %d of indices_point_camera_points",
+            PyErr_Format(PyExc_RuntimeError, "i_point MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
                          Npoints-1, i_point, i_observation);
             return false;
         }
-        if(i_camera < 0 || i_camera >= Ncameras)
+        if(i_cam_intrinsics < 0 || i_cam_intrinsics >= Ncameras_intrinsics)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_camera MUST be in [0,%d], instead got %d in row %d of indices_point_camera_points",
-                         Ncameras-1, i_camera, i_observation);
+            PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
+                         Ncameras_intrinsics-1, i_cam_intrinsics, i_observation);
             return false;
         }
-
+        if(i_cam_extrinsics < -1 || i_cam_extrinsics >= Ncameras_extrinsics)
+        {
+            PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
+                         Ncameras_extrinsics-1, i_cam_extrinsics, i_observation);
+            return false;
+        }
         // And then I check monotonicity
         if(i_point == i_point_last)
         {
-            if( i_camera <= i_camera_last )
+            if( i_cam_intrinsics <= i_cam_intrinsics_last )
             {
-                PyErr_Format(PyExc_RuntimeError, "i_camera MUST be monotonically increasing in indices_point_camera_points. Instead row %d (point %d) of indices_point_camera_points has i_camera=%d after seeing i_camera=%d",
-                             i_observation, i_point, i_camera, i_camera_last);
+                PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
+                             i_observation, i_point, i_cam_intrinsics, i_cam_intrinsics_last);
+                return false;
+            }
+            if( i_cam_extrinsics <= i_cam_extrinsics_last )
+            {
+                PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_board. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_board has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
+                             i_observation, i_point, i_cam_extrinsics, i_cam_extrinsics_last);
                 return false;
             }
         }
         else if( i_point < i_point_last )
         {
-            PyErr_Format(PyExc_RuntimeError, "i_point MUST be monotonically increasing in indices_point_camera_points. Instead row %d of indices_point_camera_points has i_point=%d after seeing i_point=%d",
+            PyErr_Format(PyExc_RuntimeError, "i_point MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics. Instead row %d of indices_point_camintrinsics_camextrinsics has i_point=%d after previously seeing i_point=%d",
                          i_observation, i_point, i_point_last);
             return false;
         }
 
-        i_point_last  = i_point;
-        i_camera_last = i_camera;
+        i_point_last          = i_point;
+        i_cam_intrinsics_last = i_cam_intrinsics;
+        i_cam_extrinsics_last = i_cam_extrinsics;
     }
-
-
-
 
     if(skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection) )
     {
@@ -1615,11 +1644,11 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
     SET_SIZE0_IF_NONE(frames,                     NPY_DOUBLE, 0,6);
     SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
-    SET_SIZE0_IF_NONE(indices_frame_camera_board, NPY_INT,    0,2);
+    SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics, NPY_INT,    0,3);
 
     SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
     SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,4);
-    SET_SIZE0_IF_NONE(indices_point_camera_points,NPY_INT,    0,2);
+    SET_SIZE0_IF_NONE(indices_point_camintrinsics_camextrinsics,NPY_INT,    0,3);
     SET_SIZE0_IF_NONE(imagersizes,                NPY_INT,    0,2);
 #undef SET_NULL_IF_NONE
 
@@ -1636,7 +1665,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         goto done;
 
     {
-        int Ncameras           = PyArray_DIMS(intrinsics)[0];
+        int Ncameras_intrinsics= PyArray_DIMS(intrinsics)[0];
+        int Ncameras_extrinsics= PyArray_DIMS(extrinsics)[0];
         int Nframes            = PyArray_DIMS(frames)[0];
         int Npoints            = PyArray_DIMS(points)[0];
         int NobservationsBoard = PyArray_DIMS(observations_board)[0];
@@ -1669,10 +1699,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         int i_frame_last            = -1;
         for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
         {
-            int i_frame  = ((int*)PyArray_DATA(indices_frame_camera_board))[i_observation*2 + 0];
-            int i_camera = ((int*)PyArray_DATA(indices_frame_camera_board))[i_observation*2 + 1];
+            int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
+            int i_cam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
+            int i_cam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
-            c_observations_board[i_observation].i_camera         = i_camera;
+            c_observations_board[i_observation].i_cam_intrinsics = i_cam_intrinsics;
+            c_observations_board[i_observation].i_cam_extrinsics = i_cam_extrinsics;
             c_observations_board[i_observation].i_frame          = i_frame;
             c_observations_board[i_observation].px               = &((point3_t*)PyArray_DATA(observations_board))[calibration_object_width_n*calibration_object_width_n*i_observation];
 
@@ -1749,10 +1781,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         int i_point_last            = -1;
         for(int i_observation=0; i_observation<NobservationsPoint; i_observation++)
         {
-            int i_point  = ((int*)PyArray_DATA(indices_point_camera_points))[i_observation*2 + 0];
-            int i_camera = ((int*)PyArray_DATA(indices_point_camera_points))[i_observation*2 + 1];
+            int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
+            int i_cam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+            int i_cam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
-            c_observations_point[i_observation].i_camera         = i_camera;
+            c_observations_point[i_observation].i_cam_intrinsics = i_cam_intrinsics;
+            c_observations_point[i_observation].i_cam_extrinsics = i_cam_extrinsics;
             c_observations_point[i_observation].i_point          = i_point;
             c_observations_point[i_observation].px               = *(point3_t*)(&((double*)PyArray_DATA(observations_point))[i_observation*4]);
             c_observations_point[i_observation].dist             = ((double*)PyArray_DATA(observations_point))[i_observation*4 + 3];
@@ -1822,7 +1856,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
               .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
             };
 
-        int Nmeasurements = mrcal_getNmeasurements_all(Ncameras, NobservationsBoard,
+        int Nmeasurements = mrcal_getNmeasurements_all(Ncameras_intrinsics, NobservationsBoard,
                                                        c_observations_point, NobservationsPoint,
                                                        calibration_object_width_n,
                                                        problem_details,
@@ -1836,17 +1870,18 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         {
             covariance_intrinsics =
                 (PyArrayObject*)PyArray_SimpleNew(3,
-                                                  ((npy_intp[]){Ncameras,Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
+                                                  ((npy_intp[]){Ncameras_intrinsics,
+                                                                Nintrinsics_all,Nintrinsics_all}), NPY_DOUBLE);
             c_covariance_intrinsics = PyArray_DATA(covariance_intrinsics);
         }
 
         double* c_covariance_extrinsics = NULL;
-        if(Ncameras > 1 &&
+        if(Ncameras_extrinsics > 1 &&
            get_covariances && PyObject_IsTrue(get_covariances))
         {
             covariance_extrinsics =
                 (PyArrayObject*)PyArray_SimpleNew(2,
-                                                  ((npy_intp[]){(Ncameras-1)*6,(Ncameras-1)*6}), NPY_DOUBLE);
+                                                  ((npy_intp[]){Ncameras_extrinsics*6,Ncameras_extrinsics*6}), NPY_DOUBLE);
             c_covariance_extrinsics = PyArray_DATA(covariance_extrinsics);
         }
 
@@ -1878,7 +1913,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             solver_context_optimizer                   = &solver_context->ctx;
             solver_context->lensmodel                  = lensmodel_type;
             solver_context->problem_details            = problem_details;
-            solver_context->Ncameras                   = Ncameras;
+            solver_context->Ncameras_intrinsics        = Ncameras_intrinsics;
+            solver_context->Ncameras_extrinsics        = Ncameras_extrinsics;
             solver_context->Nframes                    = Nframes;
             solver_context->Npoints                    = Npoints;
             solver_context->NobservationsBoard         = NobservationsBoard;
@@ -1916,7 +1952,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_points,
                                 c_calobject_warp,
 
-                                Ncameras, Nframes, Npoints,
+                                Ncameras_intrinsics, Ncameras_extrinsics,
+                                Nframes, Npoints,
 
                                 c_observations_board,
                                 NobservationsBoard,
@@ -2030,7 +2067,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         }
         else
         {
-            int N_j_nonzero = mrcal_getN_j_nonzero(Ncameras,
+            int N_j_nonzero = mrcal_getN_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
                                                    c_observations_board, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
                                                    problem_details,
@@ -2038,7 +2075,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                    calibration_object_width_n);
             int Nintrinsics = mrcal_getNlensParams(lensmodel_type);
 
-            int Nstate = mrcal_getNstate(Ncameras, Nframes, Npoints,
+            int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
+                                         Nframes, Npoints,
                                          problem_details, lensmodel_type);
 
             PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
@@ -2068,7 +2106,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                      c_points,
                                      c_calobject_warp,
 
-                                     Ncameras, Nframes, Npoints,
+                                     Ncameras_intrinsics, Ncameras_extrinsics,
+                                     Nframes, Npoints,
 
                                      c_observations_board,
                                      NobservationsBoard,

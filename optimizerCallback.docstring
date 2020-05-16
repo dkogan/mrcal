@@ -5,8 +5,8 @@ SYNOPSIS
     x,Jt = mrcal.optimizerCallback( intrinsics_data,
                                     extrinsics_rt10,
                                     frames, points
-                                    observations_board, indices_frame_camera,
-                                    observations_point, indices_point_camera_points,
+                                    observations_board, indices_frame_camintrinsics_camextrinsics,
+                                    observations_point, indices_point_camintrinsics_camextrinsics,
 
                                     lens_model,
                                     imagersizes                       = imagersizes,

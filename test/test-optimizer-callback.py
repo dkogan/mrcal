@@ -32,10 +32,14 @@ observations, indices_frame_camera, paths = \
     mrcal.get_chessboard_observations(10, 10,
                                       ('frame*-cam0.xxx','frame*-cam1.xxx'),
                                       f"{testdir}/data/synthetic-board-observations.vnl")
+indices_frame_camintrinsics_camextrinsics = np.zeros((len(indices_frame_camera), 3), dtype=indices_frame_camera.dtype)
+indices_frame_camintrinsics_camextrinsics[:, :2] = indices_frame_camera
+indices_frame_camintrinsics_camextrinsics[:,  2] = indices_frame_camintrinsics_camextrinsics[:, 1]-1
+
 i = (1,2,4,5)
-observations         = observations        [i, ...]
-indices_frame_camera = indices_frame_camera[i, ...]
-paths                = [paths[_] for _ in i]
+observations                              = observations        [i, ...]
+indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics[i, ...]
+paths                                     = [paths[_] for _ in i]
 
 # reference models
 models = [ mrcal.cameramodel(m) for m in ( f"{testdir}/data/cam0.opencv8.cameramodel",
@@ -62,9 +66,9 @@ observations_point          = nps.glue(observations_point_xy,
                                        observations_point_weights,
                                        observations_point_distance,
                                        axis = -1)
-indices_point_camera_points = np.array(((0,1),
-                                        (1,0)),
-                                       dtype = np.int32)
+indices_point_camintrinsics_camextrinsics = np.array(((0,1, 0),
+                                                      (1,0,-1)),
+                                                     dtype = np.int32)
 
 all_test_kwargs = ( dict(do_optimize_intrinsic_core        = False,
                          do_optimize_intrinsic_distortions = True,
@@ -114,8 +118,8 @@ for kwargs in all_test_kwargs:
     x,Jt = mrcal.optimizerCallback( intrinsics_data,
                                     nps.atleast_dims(extrinsics_rt10, -2),
                                     frames, points,
-                                    observations,       indices_frame_camera,
-                                    observations_point, indices_point_camera_points,
+                                    observations,       indices_frame_camintrinsics_camextrinsics,
+                                    observations_point, indices_point_camintrinsics_camextrinsics,
 
                                     lensmodel,
                                     imagersizes                       = imagersizes,

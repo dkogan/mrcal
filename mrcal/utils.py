@@ -146,21 +146,21 @@ def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
     return full_object
 
 
-def show_solution_geometry(models,
-                           cameranames                 = None,
-                           cameras_Rt_plot_ref         = None,
-                           frames                      = None,
-                           points                      = None,
-                           observations_board          = None,
-                           indices_frame_camera_board  = None,
-                           observations_point          = None,
-                           indices_frame_camera_points = None,
+def show_calibration_geometry(models,
+                              cameranames                 = None,
+                              cameras_Rt_plot_ref         = None,
+                              frames                      = None,
+                              points                      = None,
+                              observations_board          = None,
+                              indices_frame_camintrinsics_camextrinsics_board  = None,
+                              observations_point          = None,
+                              indices_point_camintrinsics_camextrinsics_points = None,
 
-                           axis_scale = 1.0,
-                           object_spacing = 0, object_width_n = 10,
-                           i_camera_highlight=None,
+                              axis_scale = 1.0,
+                              object_spacing = 0, object_width_n = 10,
+                              i_camera_highlight=None,
 
-                           **kwargs):
+                              **kwargs):
 
     r'''Plot what a hypothetical 3d calibrated world looks like
 
@@ -169,23 +169,36 @@ def show_solution_geometry(models,
     mrcal.optimize() takes.
 
     If we don't have any observed calibration boards, observations_board and
-    indices_frame_camera_board should be None
+    indices_frame_camintrinsics_camextrinsics_board should be None
 
     If we don't have any observed points, observations_point and
-    indices_frame_camera_points should be None
+    indices_point_camintrinsics_camextrinsics_points should be None
 
-    The inputs are the same as to mrcal.optimize(). If i_camera_highlight is not None, the
-    visualization is colored by the reprojection-error-quality of the fit
+    The inputs are the same as to mrcal.optimize(). If i_camera_highlight is not
+    None, the visualization is colored by the reprojection-error-quality of the
+    fit
 
     object_spacing may be omitted ONLY if we are not observing any calibration
     boards
 
+    The data is expected to come from a pure calibration problem, not
+    structure-from-motion or anything else. I.e I assume (and confirm) that
+
+    - Ncameras_extrinsics = Ncameras_intrinsics-1
+    - indices_frame_camintrinsics_camextrinsics_board has i_cam_extrinsics =
+      i_cam_intrinsics-1 for all observations
     '''
 
     import gnuplotlib as gp
 
     if i_camera_highlight is not None:
         raise Exception("This isn't done yet. Sorry")
+
+    if indices_frame_camintrinsics_camextrinsics_board is not None:
+        indices_frame_camera_board = indices_frame_camintrinsics_camextrinsics_board[..., :2]
+    if indices_point_camintrinsics_camextrinsics_points is not None:
+        indices_point_camera_points = indices_point_camintrinsics_camextrinsics_points[..., :2]
+
 
     def extend_axes_for_plotting(axes):
         r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
@@ -337,9 +350,9 @@ def show_solution_geometry(models,
     def gen_curves_points():
 
         if observations_point               is None or \
-           indices_frame_camera_points      is None or \
+           indices_point_camera_points      is None or \
            len(observations_point)          == 0    or \
-           len(indices_frame_camera_points) == 0:
+           len(indices_point_camera_points) == 0:
             return []
 
         curveopts = {'with':'points pt 7 ps 2'}
@@ -2455,7 +2468,7 @@ def get_mapping_file_framecamera(*files_per_camera):
 
 
 def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, exclude=set(), weighted=True):
-    r'''Computes the point observations and returns them in a usable form
+    r'''Computes the chessboard observations and returns them in a usable form
 
     We are given globs of images (one glob per camera), where the filenames
     encode the instantaneous frame numbers. This function invokes the chessboard
@@ -2472,6 +2485,11 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
     (index_frame,index_camera)
 
     files_sorted is a list of paths of images corresponding to the observations
+
+    Note that this assumes we're solving a calibration problem (stationary
+    cameras) observing a moving object, so this returns indices_frame_camera. It
+    is the caller's job to convert this into
+    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
 
     '''
 
@@ -2743,6 +2761,10 @@ def estimate_local_calobject_poses( indices_frame_camera,
     - cameramodel object
     - (lens_model,intrinsics_data) tuple
 
+    Note that this assumes we're solving a calibration problem (stationary
+    cameras) observing a moving object, so uses indices_frame_camera, not
+    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
+
     """
 
     # For now I ignore all the weights
@@ -2840,9 +2862,9 @@ def estimate_local_calobject_poses( indices_frame_camera,
     return Rt_cf_all
 
 
-def estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
-                           observations, dot_spacing, Ncameras,
-                           Nwant):
+def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
+                            observations, dot_spacing, Ncameras,
+                            Nwant):
     r'''Estimate camera poses in respect to each other
 
     We are given poses of the calibration object in respect to each observing
@@ -2854,6 +2876,9 @@ def estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
     fixed-relative-pose cameras, so we compute the relative camera pose to
     optimize the observations
 
+    Note that this assumes we're solving a calibration problem (stationary
+    cameras) observing a moving object, so uses indices_frame_camera, not
+    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
     '''
 
     import heapq
@@ -3130,6 +3155,10 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, extri
     (r,t) where r is a Rodrigues rotation and t is a translation that map points
     in the calobject coord system to that of camera 0
 
+    Note that this assumes we're solving a calibration problem (stationary
+    cameras) observing a moving object, so uses indices_frame_camera, not
+    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
+
     '''
 
     Rt_0c = mrcal.invert_Rt( mrcal.Rt_from_rt( extrinsics_rt10 ))
@@ -3214,7 +3243,12 @@ def make_seed_no_distortion( imagersizes,
                              observations,
                              dot_spacing,
                              object_width_n):
-    r'''Generate a solution seed for a given input'''
+    r'''Generate a solution seed for a given input
+
+    Note that this assumes we're solving a calibration problem (stationary
+    cameras) observing a moving object, so uses indices_frame_camera, not
+    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
+    '''
 
 
     def make_intrinsics_vector(i_camera):
@@ -3253,12 +3287,12 @@ def make_seed_no_distortion( imagersizes,
     #
     # I get transformations that map points in 1-Nth camera coord system to 0th
     # camera coord system. Rt have dimensions (N-1,4,3)
-    camera_poses_Rt01 = mrcal.estimate_camera_poses( calobject_poses_local_Rt_cf,
-                                                     indices_frame_camera,
-                                                     observations,
-                                                     dot_spacing,
-                                                     Ncameras,
-                                                     object_width_n)
+    camera_poses_Rt01 = _estimate_camera_poses( calobject_poses_local_Rt_cf,
+                                                indices_frame_camera,
+                                                observations,
+                                                dot_spacing,
+                                                Ncameras,
+                                                object_width_n)
 
     if len(camera_poses_Rt01):
         # extrinsics should map FROM the ref coord system TO the coord system of the

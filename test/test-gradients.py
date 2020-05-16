@@ -96,9 +96,6 @@ def get_variable_map(s):
     4 discrete points
     5 calobject_warp'''
 
-    m = re.search("^## Ncameras = (\d+)", s, re.M)
-    Ncameras = int(m.group(1))
-
     m = re.search("^## Intrinsics: (\d+) variables per camera \((\d+) for the core, (\d+) for the rest; (\d+) total\). Starts at variable (\d+)", s, re.M)
     NintrinsicsPerCamera            = int(m.group(1))
     NintrinsicsCorePerCamera        = int(m.group(2))

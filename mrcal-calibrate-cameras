@@ -814,6 +814,10 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
     '''
 
     Ncameras = len(args.images)
+    indices_frame_camintrinsics_camextrinsics = \
+        nps.glue(indices_frame_camera,
+                 indices_frame_camera[:,(1,)]-1,
+                 axis=-1)
 
     if seedmodels is None:
         # I have no seed. I compute a rough seed, and run a few preliminary,
@@ -831,7 +835,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                               observations, indices_frame_camera,
+                               observations, indices_frame_camintrinsics_camextrinsics,
                                None, None,
                                lensmodel,
                                imagersizes                       = imagersizes,
@@ -850,7 +854,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only\n")
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                               observations, indices_frame_camera,
+                               observations, indices_frame_camintrinsics_camextrinsics,
                                None, None,
                                lensmodel,
                                imagersizes                       = imagersizes,
@@ -1021,7 +1025,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
               format(" except board warp " if args.optimize_calobject_warp else " "))
 
         stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                               observations, indices_frame_camera,
+                               observations, indices_frame_camintrinsics_camextrinsics,
                                None, None,
                                lensmodel,
                                imagersizes                       = imagersizes,
@@ -1079,7 +1083,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
 
         state = copy.deepcopy( (intrinsics_data, extrinsics, frames), )
         stats = mrcal.optimize(state[0], state[1], state[2], None,
-                               observations, indices_frame_camera,
+                               observations, indices_frame_camintrinsics_camextrinsics,
                                None, None,
                                lensmodel,
                                imagersizes                       = imagersizes,
@@ -1395,6 +1399,11 @@ if args.num_cross_validation_splits > 1:
             get_observation_subset__from_indices(s, observations, indices_frame_camera, paths,
                                                  frames, stats['outlier_indices'])
 
+        split_indices_frame_camintrinsics_camextrinsics = \
+            nps.glue(split_indices_frame_camera,
+                     indices_frame_camera[:,(1,)]-1,
+                     axis=-1)
+
         split_intrinsics = copy.deepcopy(intrinsics)
         split_extrinsics = copy.deepcopy(extrinsics)
 
@@ -1403,7 +1412,7 @@ if args.num_cross_validation_splits > 1:
                                split_extrinsics,
                                split_frames,
                                None,
-                               split_observations, split_indices_frame_camera,
+                               split_observations, split_indices_frame_camintrinsics_camextrinsics,
                                None, None,
                                split_intrinsics[0],
                                imagersizes                       = imagersizes,
@@ -1456,6 +1465,10 @@ if args.num_cross_validation_splits > 1:
 
 
 
+indices_frame_camintrinsics_camextrinsics = \
+    nps.glue(indices_frame_camera,
+             indices_frame_camera[:,(1,)]-1,
+             axis=-1)
 
 if args.optimize_calobject_warp:
     calobject_warp = np.array((0,0), dtype=float)
@@ -1464,7 +1477,7 @@ else:
 
 sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, covariance_intrinsics and solver_context\n")
 stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
-                       observations, indices_frame_camera,
+                       observations, indices_frame_camintrinsics_camextrinsics,
                        None, None,
                        intrinsics[0],
                        do_optimize_calobject_warp        = args.optimize_calobject_warp,
@@ -1896,13 +1909,18 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 
     '''
 
+    indices_frame_camintrinsics_camextrinsics = \
+        nps.glue(indices_frame_camera,
+                 indices_frame_camera[:,(1,)]-1,
+                 axis=-1)
+
     lensmodel = intrinsics[0]
 
 
     def callback(intrinsics_data):
         x,Joptimizer = \
             mrcal.optimizerCallback(intrinsics_data,extrinsics,frames, None,
-                                    observations, indices_frame_camera,
+                                    observations, indices_frame_camintrinsics_camextrinsics,
                                     None, None,
                                     lensmodel,
                                     do_optimize_calobject_warp        = args.optimize_calobject_warp,
@@ -2027,7 +2045,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
                                 extrinsics_resolved,
                                 frames_resolved,
                                 None,
-                                observations_perturbed, indices_frame_camera,
+                                observations_perturbed, indices_frame_camintrinsics_camextrinsics,
                                 None, None,
                                 lensmodel,
                                 do_optimize_calobject_warp        = args.optimize_calobject_warp,
