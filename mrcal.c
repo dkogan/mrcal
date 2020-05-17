@@ -107,14 +107,27 @@ LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
 
 // Returns a static string, using "..." as a placeholder for any configuration
 // values
+#define LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    "_" #name "=..."
+#define LENSMODEL_PRINT_CFG_ELEMENT_FMT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    "_" #name "=%" PRIcode
+#define LENSMODEL_PRINT_CFG_ELEMENT_VAR(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    ,config->name
+#define LENSMODEL_SCAN_CFG_ELEMENT_FMT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    "_" #name "=%" SCNcode
+#define LENSMODEL_SCAN_CFG_ELEMENT_VAR(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    ,&config->name
+#define LENSMODEL_SCAN_CFG_ELEMENT_PLUS1(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    +1
 const char* mrcal_lensmodel_name( lensmodel_t model )
 {
     switch(model.type)
     {
 #define CASE_STRING_NOCONFIG(s,n) case s: ;                             \
         return #s;
-#define CASE_STRING_WITHCONFIG(s,n) case s: ;                           \
-        return #s "_...";
+#define _CASE_STRING_WITHCONFIG(s,n,s_CONFIG_LIST) case s: ;            \
+        return #s s_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE, );
+#define CASE_STRING_WITHCONFIG(s,n) _CASE_STRING_WITHCONFIG(s,n,MRCAL_ ## s ## _CONFIG_LIST)
 
         LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
         LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
@@ -129,17 +142,6 @@ const char* mrcal_lensmodel_name( lensmodel_t model )
     }
     return NULL;
 }
-
-#define LENSMODEL_PRINT_CFG_ELEMENT_FMT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
-    "_" #name "=%" PRIcode
-#define LENSMODEL_PRINT_CFG_ELEMENT_VAR(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
-    ,config->name
-#define LENSMODEL_SCAN_CFG_ELEMENT_FMT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
-    "_" #name "=%" SCNcode
-#define LENSMODEL_SCAN_CFG_ELEMENT_VAR(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
-    ,&config->name
-#define LENSMODEL_SCAN_CFG_ELEMENT_PLUS1(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
-    +1
 
 // Write the model name WITH the full config into the given buffer. Identical to
 // mrcal_lensmodel_name() for configuration-free models
@@ -189,6 +191,23 @@ static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( LENSMODEL_SPLINE
         config_str[pos] == '\0';
 }
 
+const char* const* mrcal_getSupportedLensModels( void )
+{
+#define NAMESTRING_NOCONFIG(s,n)                  #s,
+#define _NAMESTRING_WITHCONFIG(s,n,s_CONFIG_LIST) #s s_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE, ),
+#define NAMESTRING_WITHCONFIG(s,n) _NAMESTRING_WITHCONFIG(s,n,MRCAL_ ## s ## _CONFIG_LIST)
+
+    static const char* names[] = {
+        LENSMODEL_NOCONFIG_LIST(  NAMESTRING_NOCONFIG)
+        LENSMODEL_WITHCONFIG_LIST(NAMESTRING_WITHCONFIG)
+
+        //        return #s MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE, );
+
+        NULL };
+    return names;
+}
+
+#undef LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE
 #undef LENSMODEL_PRINT_CFG_ELEMENT_FMT
 #undef LENSMODEL_PRINT_CFG_ELEMENT_VAR
 #undef LENSMODEL_SCAN_CFG_ELEMENT_FMT
@@ -321,17 +340,6 @@ int mrcal_getNlensParams(const lensmodel_t m)
 
 #undef CASE_NUM_NOCONFIG
 #undef CASE_NUM_WITHCONFIG
-}
-
-const char* const* mrcal_getSupportedLensModels( void )
-{
-#define NAMESTRING_NOCONFIG(s,n)   #s,
-#define NAMESTRING_WITHCONFIG(s,n) #s"_...",
-    static const char* names[] = {
-        LENSMODEL_NOCONFIG_LIST(  NAMESTRING_NOCONFIG)
-        LENSMODEL_WITHCONFIG_LIST(NAMESTRING_WITHCONFIG)
-        NULL };
-    return names;
 }
 
 // Returns the 'next' lens model in a family

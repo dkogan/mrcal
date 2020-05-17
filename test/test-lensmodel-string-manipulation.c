@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     confirm(!mrcal_lensmodel_name_full(buf_small, sizeof(buf_small), (lensmodel_t){.type = LENSMODEL_CAHVOR}));
     confirm(!mrcal_lensmodel_name_full(buf_small, sizeof(buf_small), (lensmodel_t){.type = LENSMODEL_CAHVORE}));
 
-    confirm_lensmodel_name( mrcal_lensmodel_name((lensmodel_t){.type = LENSMODEL_SPLINED_STEREOGRAPHIC}), "LENSMODEL_SPLINED_STEREOGRAPHIC_..." );
+    confirm_lensmodel_name( mrcal_lensmodel_name((lensmodel_t){.type = LENSMODEL_SPLINED_STEREOGRAPHIC}), "LENSMODEL_SPLINED_STEREOGRAPHIC_order=..._Nx=..._Ny=..._fov_x_deg=..." );
     confirm(mrcal_lensmodel_name_full(buf, sizeof(buf), (lensmodel_t){.type = LENSMODEL_SPLINED_STEREOGRAPHIC}));
     confirm_lensmodel_name( buf, "LENSMODEL_SPLINED_STEREOGRAPHIC_order=0_Nx=0_Ny=0_fov_x_deg=0" );
 

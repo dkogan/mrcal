@@ -219,9 +219,9 @@ typedef struct
 // returns a static string. For models with no configuration, this is the FULL
 // string. For models that have a configuration, however, a static string cannot
 // contain the configuration values, so mrcal_lensmodel_name() returns
-// LENSMODEL_XXX_... Note the ... that stands in for the configuration
-// parameters. So for models with a configuration mrcal_lensmodel_from_name(
-// mrcal_lensmodel_name(...) ) would fail
+// LENSMODEL_XXX_a=..._b=..._c=... Note the ... that stands in for the
+// configuration parameters. So for models with a configuration
+// mrcal_lensmodel_from_name( mrcal_lensmodel_name(...) ) would fail
 //
 // mrcal_lensmodel_name_full() does the same thing, except it writes the string
 // into a buffer, and it expands the configuration parameters. The arguments are
