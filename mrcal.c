@@ -4792,10 +4792,10 @@ void mrcal_optimizerCallback(// output measurements
                              // and the distortion params. The specific distortion
                              // parameters may vary, depending on lensmodel, so
                              // this is a variable-length structure
-                             const double*       intrinsics, // Ncameras * NlensParams
-                             const pose_t*       extrinsics, // Ncameras-1 of these. Transform FROM camera0 frame
-                             const pose_t*       frames,     // Nframes of these.    Transform TO   camera0 frame
-                             const point3_t*     points,     // Npoints of these.    In the camera0 frame
+                             const double*       intrinsics, // Ncameras_intrinsics * NlensParams
+                             const pose_t*       extrinsics, // Ncameras_extrinsics of these. Transform FROM the reference frame
+                             const pose_t*       frames,     // Nframes of these.    Transform TO the reference frame
+                             const point3_t*     points,     // Npoints of these.    In the reference frame
                              const point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes, int Npoints,
@@ -4812,7 +4812,7 @@ void mrcal_optimizerCallback(// output measurements
                              bool verbose,
 
                              lensmodel_t lensmodel,
-                             const int* imagersizes, // Ncameras*2 of these
+                             const int* imagersizes, // Ncameras_intrinsics*2 of these
 
                              mrcal_problem_details_t problem_details,
 
