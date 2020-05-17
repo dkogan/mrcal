@@ -1768,6 +1768,7 @@ import gnuplotlib as gp
 print(r'''Calibration results REPL.
 Potential things to look at:
 
+    show_calibration_geometry()
     show_residuals_observation_worst(i_observation_in_order_from_worst)
     show_residuals_observation(i_observation, vectorscale=20)
     show_intrinsics_uncertainty(i_camera)
@@ -2614,6 +2615,15 @@ def show_roi(i_camera = None, **kwargs):
         plots_roi[i_camera]. \
             plot( (feats[iFeature_roi_in_thiscam, 0], feats[iFeature_roi_in_thiscam, 1], dict(legend='in' )),
                   (feats[iFeature_roi_out_thiscam,0], feats[iFeature_roi_out_thiscam,1], dict(legend='out')) )
+
+plot_calibration_geometry = None
+def show_calibration_geometry(**kwargs):
+    global plot_calibration_geometry
+    plot_calibration_geometry = \
+        mrcal.show_calibration_geometry(models,
+                                        [f"camera {i}" for i in range(len(models))],
+                                        frames=frames,
+                                        object_spacing=args.object_spacing)
 
 import IPython
 IPython.embed()
