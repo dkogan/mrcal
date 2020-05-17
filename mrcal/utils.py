@@ -288,16 +288,15 @@ def show_calibration_geometry(models,
 
     def gen_curves_calobjects():
 
-        if observations_board              is None or \
-           indices_frame_camera_board      is None or \
-           len(observations_board)         == 0    or \
-           len(indices_frame_camera_board) == 0:
-            return []
-
         if object_spacing <= 0:
             raise Exception("We're observing calibration boards, but their spacing is 0: please pass a valid object_spacing")
 
-        Nobservations = len(indices_frame_camera_board)
+        # if observations_board              is None or \
+        #    indices_frame_camera_board      is None or \
+        #    len(observations_board)         == 0    or \
+        #    len(indices_frame_camera_board) == 0:
+        #     return []
+        # Nobservations = len(indices_frame_camera_board)
 
         # if i_camera_highlight is not None:
         #     i_observations_frames = [(i_observation,indices_frame_camera_board[i_observation,0]) \
