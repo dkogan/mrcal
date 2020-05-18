@@ -1736,6 +1736,48 @@ def show_splined_model_surface(model, ixy,
     return plot
 
 
+def is_within_valid_intrinsics_region(q, model):
+    r'''Which of the pixel coordinates fall within the valid-intrinsics region?
+
+SYNOPSIS
+
+    mask = mrcal.is_within_valid_intrinsics_region(q, model)
+    q_trustworthy = q[mask]
+
+mrcal camera models may have an estimate of the region of the imager where the
+intrinsics are trustworthy (originally computed with a low-enough error and
+uncertainty). When using a model, we may want to process points that fall
+outside of this region differnetly from points that fall within this region.
+This function returns a mask that indicates whether each point is within the
+region or not.
+
+If no valid-intrinsics region is defined in the model, returns None.
+
+ARGUMENTS
+
+- q: an array of shape (..., 2) of pixel coordinates
+
+- model: the model we're interrogating
+
+    '''
+
+    r = model.valid_intrinsics_region()
+    if r is None:
+        return None
+
+    from shapely.geometry import Polygon,Point
+
+    r = Polygon(r)
+
+    mask = np.zeros(q.shape[:-1], dtype=bool)
+    mask_flat = mask.ravel()
+    q_flat = q.reshape(q.size//2, 2)
+    for i in range(q.size // 2):
+        if r.contains(Point(q_flat[i])):
+            mask_flat[i] = True
+    return mask
+
+
 def _intrinsics_diff_get_Rfit(q0, v0, v1,
                               focus_center, focus_radius,
                               imagersizes):
