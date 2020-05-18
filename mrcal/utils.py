@@ -1719,8 +1719,15 @@ def show_splined_model_surface(model, ixy,
     imager_boundary_nonan = \
         imager_boundary[ np.isfinite(imager_boundary[:,0]) *
                          np.isfinite(imager_boundary[:,1]),:]
-    invalid_regions = polygon_difference(imager_boundary_nonan,
-                                         valid_region_contour)
+
+    try:
+        invalid_regions = polygon_difference(imager_boundary_nonan,
+                                             valid_region_contour)
+    except Exception as e:
+        # sometimes the valid_region_contour self-intersects, and this makes us
+        # barf
+        print(f"WARNING: Couldn't compute invalid projection region. Exception: {e}")
+        invalid_regions = []
 
     if len(invalid_regions) > 0:
         print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
