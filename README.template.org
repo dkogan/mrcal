@@ -55,8 +55,11 @@ supported. The toolkit includes:
     lens model
   - =mrcal-show-calibration-geometry=: Shows a visual representation of the
     extrinsics of N calibrated cameras
-  - =mrcal-show-valid-intrinsics-regions=: Visualize the region where a model's
+  - =mrcal-show-valid-intrinsics-regions=: Visualizes the region where a model's
     intrinsics are valid
+  - =mrcal-is-within-valid-intrinsics-region=: Augments a vnlog of pixel
+    coordinates with a column indicating whether or not each point lies within
+    the valid-intrinsics region
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -211,6 +214,10 @@ xxx-manpage-mrcal-show-calibration-geometry-xxx
 ** mrcal-show-valid-intrinsics-region
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-show-valid-intrinsics-region-xxx
+#+END_EXAMPLE
+** mrcal-is-within-valid-intrinsics-region
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-is-within-valid-intrinsics-region-xxx
 #+END_EXAMPLE
 
 * REPOSITORY

@@ -1747,7 +1747,7 @@ SYNOPSIS
 mrcal camera models may have an estimate of the region of the imager where the
 intrinsics are trustworthy (originally computed with a low-enough error and
 uncertainty). When using a model, we may want to process points that fall
-outside of this region differnetly from points that fall within this region.
+outside of this region differently from points that fall within this region.
 This function returns a mask that indicates whether each point is within the
 region or not.
 
