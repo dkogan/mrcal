@@ -4,9 +4,10 @@ r'''Reprojects pixel observations from one model to another
 
 SYNOPSIS
 
-  $ mrcal-reproject-points
+  $ < points-in.vnl
+    mrcal-reproject-points
       from.cameramodel to.cameramodel
-      < input.vnl > output.vnl
+    > points-out.vnl
 
 This tool takes a set of pixel observations of points captured by one camera
 model, and transforms them into observations of the same points captured by
