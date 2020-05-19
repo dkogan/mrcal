@@ -1078,9 +1078,15 @@ def show_intrinsics_uncertainty(model,
     plot_data_args = [(nps.transpose(err), # err has shape (W,H), but the plotter wants
                                            # what numpy wants: (H,W)
                        dict( tuplesize=3,
-                             _with=np.array(('image','lines nosurface'),),
                              legend = "", # needed to force contour labels
-                             using = imagergrid_using(model.imagersize(), gridn_x, gridn_y)))]
+                             using = imagergrid_using(model.imagersize(), gridn_x, gridn_y),
+
+                             # Currently "with image" can't produce contours. I work around this, by
+                             # plotting the data a second time. Yuck.
+                             # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
+                             _with=np.array(('image','lines nosurface'),),
+
+))]
 
     valid_intrinsics_region = model.valid_intrinsics_region()
     if valid_intrinsics_region is not None:
@@ -1099,10 +1105,6 @@ def show_intrinsics_uncertainty(model,
                       ascii=1,
                       **kwargs)
 
-    # Currently "with image" can't produce contours. I work around this, by
-    # plotting the data a second time.
-    # Yuck.
-    # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
     plot.plot(*plot_data_args)
     return plot
 
