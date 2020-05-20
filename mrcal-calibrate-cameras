@@ -2157,7 +2157,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors):
     r'''Return the data used by the various show_residuals() functions'''
 
-    if i_camera < 0: i_camera = -1
+    if i_camera < 0: i_camera = 0 # first camera by default
 
     # I have a bunch of errors in reproj_err_including_outliers. I need to pick out
     # - the ones for THIS camera (if requested)
@@ -2218,7 +2218,7 @@ def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_repr
 
 
 plots_residuals = dict()
-def show_residuals(how, i_camera, focus_center=None, focus_radius=0,
+def show_residuals(how, i_camera = 0, focus_center=None, focus_radius=0,
                    vectorscale = 1.0,
                    show_all_reproj_errors=False, **kwargs):
 
@@ -2239,7 +2239,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0,
                                ignored. This is useful to see systematic
                                patterns in the error surface
 
-    i_camera is the camera in question. <0 means "all cameras"
+    i_camera is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -2323,7 +2323,7 @@ def show_residuals(how, i_camera, focus_center=None, focus_radius=0,
                         format(how))
 
 plots_residuals_radial = None
-def show_residuals_radial(i_camera, focus_center=None, focus_radius=0,
+def show_residuals_radial(i_camera = 0, focus_center=None, focus_radius=0,
                           show_all_reproj_errors=False, **kwargs):
 
     r'''Visualize the optimized reprojection errors, looking at distance-from-center
@@ -2331,7 +2331,7 @@ def show_residuals_radial(i_camera, focus_center=None, focus_radius=0,
     Plot residuals against distance from the center. If focus_center is not
     None, we use that; otherwise we use the imager center
 
-    i_camera is the camera in question. <0 means "all cameras"
+    i_camera is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -2370,7 +2370,7 @@ def show_residuals_radial(i_camera, focus_center=None, focus_radius=0,
 
 
 plots_residuals_regional = None
-def show_residuals_regional(i_camera, focus_center=None, focus_radius=0,
+def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
                             show_all_reproj_errors=False, **kwargs):
 
     r'''Visualize the optimized reprojection errors, broken up by region
@@ -2378,7 +2378,7 @@ def show_residuals_regional(i_camera, focus_center=None, focus_radius=0,
     Plots residuals grouped by discrete regions of the image. Useful to see
     specifically where the fit is poor
 
-    i_camera is the camera in question. <0 means "all cameras"
+    i_camera is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -2440,7 +2440,7 @@ def show_residuals_regional(i_camera, focus_center=None, focus_radius=0,
 
 
 plots_residuals_histogram = None
-def show_residuals_histogram(i_camera, focus_center=None, focus_radius=0, binwidth=0.02,
+def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, binwidth=0.02,
                              show_all_reproj_errors=False, **kwargs):
 
     r'''Visualize the histogram of the optimized reprojection errors
@@ -2449,7 +2449,7 @@ def show_residuals_histogram(i_camera, focus_center=None, focus_radius=0, binwid
     distribution. If the optimization was successful, and if
     observed_pixel_uncertainty was correct, the two should line up.
 
-    i_camera is the camera in question. <0 means "all cameras"
+    i_camera is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -2561,7 +2561,7 @@ def show_valid_intrinsics_region(i_camera = None, **kwargs):
                                                **kwargs)
 
 plots_distortion = [None] * Ncameras
-def show_distortion(mode, i_camera, gridn_x = 60, gridn_y = 40, **kwargs):
+def show_distortion(mode, i_camera = None, gridn_x = 60, gridn_y = 40, **kwargs):
 
     global plots_distortion
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
@@ -2575,7 +2575,7 @@ def show_distortion(mode, i_camera, gridn_x = 60, gridn_y = 40, **kwargs):
                                   **kwargs)
 
 plots_splined_model_surface = [None] * Ncameras
-def show_splined_model_surface(i_camera, i_xy, **kwargs):
+def show_splined_model_surface(i_camera = None, i_xy=0, **kwargs):
 
     global plots_splined_model_surface
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
