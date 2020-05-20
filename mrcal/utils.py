@@ -1093,7 +1093,7 @@ def show_intrinsics_uncertainty(model,
         plot_data_args.append( (valid_intrinsics_region[:,0],
                                 valid_intrinsics_region[:,1],
                                 np.zeros(valid_intrinsics_region.shape[-2]),
-                                dict(_with  = 'lines lw 3',
+                                dict(_with  = 'lines lw 3 nocontour',
                                      legend = "Valid-intrinsics region")) )
     plot = \
         gp.gnuplotlib(_3d=1,
@@ -2219,12 +2219,12 @@ def show_intrinsics_diff(models,
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
-                                    dict(_with = 'lines lw 3',
+                                    dict(_with = 'lines lw 3 nocontour',
                                          legend = "valid region of 1st camera")) )
         else:
             # 3d plot
             plot_data_args.append( (valid_region0[:,0], valid_region0[:,1], valid_region0[:,0]*0,
-                                    dict(_with = 'lines lw 3',
+                                    dict(_with = 'lines lw 3 nocontour',
                                          legend = "valid region of 1st camera")) )
 
     valid_region1 = models[1].valid_intrinsics_region()
@@ -2242,12 +2242,12 @@ def show_intrinsics_diff(models,
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
-                                    dict(_with = 'lines lw 3',
+                                    dict(_with = 'lines lw 3 nocontour',
                                          legend = "valid region of 2nd camera")) )
         else:
             # 3d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1], valid_region1[:,0]*0,
-                                    dict(_with = 'lines lw 3',
+                                    dict(_with = 'lines lw 3 nocontour',
                                          legend = "valid region of 2nd camera")) )
 
     plot.plot( *plot_data_args )
