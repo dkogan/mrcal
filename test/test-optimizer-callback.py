@@ -58,10 +58,19 @@ imagersizes = nps.cat(models[0].imagersize(),
 frames = linspace_shaped(3,6)
 frames[:,5] += 5 # push them back
 
+indices_point_camintrinsics_camextrinsics = np.array(((0,1,-1),
+                                                      (1,0,-1),
+                                                      (1,1, 0),
+                                                      (2,0,-1),
+                                                      (2,1, 0)),
+                                                     dtype = np.int32)
+
 points                      = 10. + 2.*linspace_shaped(3,3)
 observations_point_xy       = 1000. + 500. * linspace_shaped(5,2)
 observations_point_weights  = np.array((0.9, 0.8, 0.9, 1.3, 1.8))
-observations_point_distance = np.array((-1, -1, 100.0, 123.0, 443.9))
+observations_point_distance = nps.mag(points[indices_point_camintrinsics_camextrinsics[:,0], ...])
+observations_point_distance[0] = -1
+observations_point_distance[1] = -1
 
 observations_point = \
     nps.glue(observations_point_xy[:2],
@@ -73,13 +82,6 @@ observations_point_with_ref_distance = \
              nps.transpose(observations_point_distance[2:]),
              axis = -1)
 observations_point_with_ref_position = None
-
-indices_point_camintrinsics_camextrinsics = np.array(((0,1,-1),
-                                                      (1,0,-1),
-                                                      (1,1, 0),
-                                                      (2,0,-1),
-                                                      (2,1, 0)),
-                                                     dtype = np.int32)
 
 all_test_kwargs = ( dict(do_optimize_intrinsic_core        = False,
                          do_optimize_intrinsic_distortions = True,
