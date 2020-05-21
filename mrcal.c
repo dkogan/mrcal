@@ -467,7 +467,7 @@ int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
 
     // known-distance measurements
     for(int i=0; i<NobservationsPoint; i++)
-        if(observations_point[i].has_ref_distance) Nmeas++;
+        if(observations_point[i].has_ref_range) Nmeas++;
     return Nmeas;
 }
 
@@ -547,13 +547,13 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
     for(int i=0; i<NobservationsPoint; i++)
     {
         N += 2*Nintrinsics_per_measurement;
-        if(problem_details.do_optimize_frames)
+        if(problem_details.do_optimize_frames &&
+           !observations_point[i].has_ref_position)
             N += 2*3;
         if( problem_details.do_optimize_extrinsics &&
             observations_point[i].i_cam_extrinsics >= 0 )
             N += 2*6;
-
-        if(observations_point[i].has_ref_distance)
+        if(observations_point[i].has_ref_range)
         {
             if(problem_details.do_optimize_frames)
                 N += 3;
@@ -3788,8 +3788,6 @@ typedef struct
     int NobservationsBoard;
 
     const observation_point_t* observations_point;
-    const double* observations_point_distances_pool;
-    const point3_t* observations_point_positions_pool;
     int NobservationsPoint;
 
     bool verbose;
@@ -4215,8 +4213,7 @@ void optimizerCallback(// input state
 
     // Handle all the point observations. This is VERY similar to the
     // board-observation loop above. Please consolidate
-    int i_ref_distance = 0;
-    int i_ref_position = 0;
+    int i_ref_range = 0;
     for(int i_observation_point = 0;
         i_observation_point < ctx->NobservationsPoint;
         i_observation_point++)
@@ -4226,6 +4223,9 @@ void optimizerCallback(// input state
         const int i_cam_intrinsics = observation->i_cam_intrinsics;
         const int i_cam_extrinsics = observation->i_cam_extrinsics;
         const int i_point          = observation->i_point;
+        const bool use_position_from_state =
+            ctx->problem_details.do_optimize_frames &&
+            !observation->has_ref_position;
 
         const point3_t* pt_observed = &observation->px;
         double weight = region_of_interest_weight(pt_observed, ctx->roi, i_cam_intrinsics);
@@ -4239,7 +4239,7 @@ void optimizerCallback(// input state
                                                                   ctx->problem_details, ctx->lensmodel);
         point3_t  point;
 
-        if(ctx->problem_details.do_optimize_frames)
+        if(use_position_from_state)
             unpack_solver_state_point_one(&point, &packed_state[i_var_point]);
         else
             point = ctx->points[i_point];
@@ -4285,8 +4285,7 @@ void optimizerCallback(// input state
                 ctx->problem_details.do_optimize_extrinsics ?
                 dq_dtcamera : NULL,
                 NULL, // frame rotation. I only have a point position
-                ctx->problem_details.do_optimize_frames ?
-                dq_dpoint : NULL,
+                use_position_from_state ? dq_dpoint : NULL,
                 NULL,
                 intrinsics_all[i_cam_intrinsics],
                 &camera_rt[i_cam_extrinsics],
@@ -4402,7 +4401,7 @@ void optimizerCallback(// input state
                                          weight * SCALE_TRANSLATION_CAMERA);
                     }
 
-                if( ctx->problem_details.do_optimize_frames )
+                if( use_position_from_state )
                     STORE_JACOBIAN3( i_var_point,
                                      dq_dpoint[i_xy].xyz[0] *
                                      invalid_point_scale *
@@ -4417,12 +4416,17 @@ void optimizerCallback(// input state
                 iMeasurement++;
             }
 
-            if( observation->has_ref_distance )
+            if( observation->has_ref_range )
             {
                 // I do this in the observing-camera coord system. The
                 // camera is at 0. The point is at
                 //
                 //   Rc*p_point + t
+
+                const double dist_ref =
+                    sqrt( ctx->points[i_point].x*ctx->points[i_point].x +
+                          ctx->points[i_point].y*ctx->points[i_point].y +
+                          ctx->points[i_point].z*ctx->points[i_point].z );
 
                 // This code is copied from project(). PLEASE consolidate
                 if(i_cam_extrinsics < 0)
@@ -4430,14 +4434,14 @@ void optimizerCallback(// input state
                     double dist = sqrt( point.x*point.x +
                                         point.y*point.y +
                                         point.z*point.z );
-                    double err = dist - ctx->observations_point_distances_pool[i_ref_distance];
+                    double err = dist - dist_ref;
                     err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
-                    if( ctx->problem_details.do_optimize_frames )
+                    if( use_position_from_state )
                     {
                         double scale = DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M / dist * SCALE_POSITION_POINT;
                         STORE_JACOBIAN3( i_var_point,
@@ -4468,7 +4472,7 @@ void optimizerCallback(// input state
                                         p.y*p.y +
                                         p.z*p.z );
                     double dist_recip = 1.0/dist;
-                    double err = dist - ctx->observations_point_distances_pool[i_ref_distance];
+                    double err = dist - dist_ref;
                     err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
@@ -4515,7 +4519,7 @@ void optimizerCallback(// input state
                                          dist_recip*p.z );
                     }
 
-                    if( ctx->problem_details.do_optimize_frames )
+                    if( use_position_from_state )
                         STORE_JACOBIAN3( i_var_point,
                                          DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
                                          SCALE_POSITION_POINT*
@@ -4529,7 +4533,7 @@ void optimizerCallback(// input state
                     iMeasurement++;
                 }
 
-                i_ref_distance++;
+                i_ref_range++;
             }
         }
         else
@@ -4581,7 +4585,7 @@ void optimizerCallback(// input state
                         STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
                     }
 
-                if( ctx->problem_details.do_optimize_frames )
+                if( use_position_from_state )
                 {
                     const double dpoint = observation->skip_point ? 1.0 : 0.0;
                     // Arbitrary differences between the dimensions to keep
@@ -4594,7 +4598,7 @@ void optimizerCallback(// input state
                 iMeasurement++;
             }
 
-            if(observation->has_ref_distance)
+            if(observation->has_ref_range)
             {
                 const double err = 0.0;
 
@@ -4608,10 +4612,10 @@ void optimizerCallback(// input state
                         STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
                         STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
                     }
-                if( ctx->problem_details.do_optimize_frames )
+                if( use_position_from_state )
                     STORE_JACOBIAN3( i_var_point, 0.0, 0.0, 0.0);
                 iMeasurement++;
-                i_ref_distance++;
+                i_ref_range++;
             }
         }
     }
@@ -4821,8 +4825,6 @@ void mrcal_optimizerCallback(// output measurements
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
-                             const double* observations_point_distances_pool,
-                             const point3_t* observations_point_positions_pool,
                              int NobservationsPoint,
 
                              int Noutlier_indices_input,
@@ -4886,8 +4888,6 @@ void mrcal_optimizerCallback(// output measurements
         .observations_board_pool    = observations_board_pool,
         .NobservationsBoard         = NobservationsBoard,
         .observations_point         = observations_point,
-        .observations_point_distances_pool = observations_point_distances_pool,
-        .observations_point_positions_pool = observations_point_positions_pool,
         .NobservationsPoint         = NobservationsPoint,
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
@@ -4970,8 +4970,6 @@ mrcal_optimize( // out
                 int NobservationsBoard,
 
                 const observation_point_t* observations_point,
-                const double* observations_point_distances_pool,
-                const point3_t* observations_point_positions_pool,
                 int NobservationsPoint,
 
                 bool check_gradient,
@@ -5056,8 +5054,6 @@ mrcal_optimize( // out
         .observations_board_pool    = observations_board_pool,
         .NobservationsBoard         = NobservationsBoard,
         .observations_point         = observations_point,
-        .observations_point_distances_pool = observations_point_distances_pool,
-        .observations_point_positions_pool = observations_point_positions_pool,
         .NobservationsPoint         = NobservationsPoint,
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,

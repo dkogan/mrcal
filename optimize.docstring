@@ -151,23 +151,23 @@ REQUIRED ARGUMENTS
   that produced these observations are given in the indices_point_camera_points
   array.
 
-- observations_point_with_ref_distance: array of dims (NobservationsPoint, 4).
-  Same as observations_point, but with an extra column: the known distance to
-  this point from the origin of the reference coordinate system. Set to None if
-  we don't have any of these
+- indices_point_camintrinsics_camextrinsics_flags: array of dims
+  (NobservationsPoint, 4). For each observation these are an
+  (i_point,i_cam_intrinsics,i_cam_extrinsics,flags) tuple. The first 3 elements
+  are analogous to indices_frame_camintrinsics_camextrinsics, but for
+  observations of discrete points. The flags are a bit field:
 
-- observations_point_with_ref_position: array of dims (NobservationsPoint, 6).
-  Same as observations_point, but with an extra 3 columns: the known position of
-  this point in the reference coordinate system. Here we don't optimize the
-  position, but this observation is still affected by moving the observing
-  cameras around, and changing their lens parameters. Set to None if we don't
-  have any of these
+  - mrcal.POINT_HAS_REF_RANGE: we know the distance from this point to the
+    origin of the reference coordinate system. The distance error will be a part
+    of the optimization cost that we try to minimize. The reference distance is
+    given in the initial value of the "points" array passed to this function
 
-- indices_point_camintrinsics_camextrinsics: array of dims (NobservationsPoint,
-  3). For each observation these are an
-  (i_point,i_cam_intrinsics,i_cam_extrinsics) tuple. This is analogous to
-  indices_frame_camintrinsics_camextrinsics, but for observations of discrete
-  points
+  - mrcal.POINT_HAS_REF_POSITION: we know the position of this point in the
+    reference coordinate system. We thus don't include this point in the vector
+    we're optimizing. The reference position is given in the "points" array
+    passed to this function
+
+  If none of these apply, the flags should be 0
 
 - lens_model: a string such as
 

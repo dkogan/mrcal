@@ -10,6 +10,9 @@
 
 
 
+#define MRCAL_POINT_HAS_REF_RANGE_BIT    0
+#define MRCAL_POINT_HAS_REF_POSITION_BIT 1
+
 
 // unconstrained 6DOF pose containing a rodrigues rotation and a translation
 typedef struct
@@ -37,7 +40,7 @@ typedef struct
     // indexes the intrinsics array
     int  i_cam_intrinsics : 29;
     bool skip_point       : 1;
-    bool has_ref_distance : 1;
+    bool has_ref_range    : 1;
     bool has_ref_position : 1;
     int  i_point          : 31;
     bool skip_observation : 1;
@@ -402,8 +405,6 @@ mrcal_optimize( // out
                 int NobservationsBoard,
 
                 const observation_point_t* observations_point,
-                const double* observations_point_distances_pool,
-                const point3_t* observations_point_positions_pool,
                 int NobservationsPoint,
 
                 bool check_gradient,
@@ -466,8 +467,6 @@ void mrcal_optimizerCallback(// output measurements
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
-                             const double* observations_point_distances_pool,
-                             const point3_t* observations_point_positions_pool,
                              int NobservationsPoint,
 
                              int Noutlier_indices_input,
