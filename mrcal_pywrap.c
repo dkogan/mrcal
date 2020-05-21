@@ -1532,7 +1532,7 @@ static bool optimize_validate_args( // out
             }
             if( i_cam_extrinsics <= i_cam_extrinsics_last )
             {
-                PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_board. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_board has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
+                PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
                              i_observation, i_point, i_cam_extrinsics, i_cam_extrinsics_last);
                 return false;
             }
