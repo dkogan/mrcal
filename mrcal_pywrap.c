@@ -2266,6 +2266,12 @@ static PyMethodDef methods[] =
     };
 
 
+static void _init_mrcal_common(PyObject* module)
+{
+    Py_INCREF(&SolverContextType);
+    PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
+}
+
 #if PY_MAJOR_VERSION == 2
 
 PyMODINIT_FUNC init_mrcal(void)
@@ -2276,9 +2282,7 @@ PyMODINIT_FUNC init_mrcal(void)
     PyObject* module =
         Py_InitModule3("_mrcal", methods,
                        "Calibration and SFM routines");
-    Py_INCREF(&SolverContextType);
-    PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
-
+    _init_mrcal_common(module);
     import_array();
 }
 
@@ -2301,9 +2305,7 @@ PyMODINIT_FUNC PyInit__mrcal(void)
     PyObject* module =
         PyModule_Create(&module_def);
 
-    Py_INCREF(&SolverContextType);
-    PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
-
+    _init_mrcal_common(module);
     import_array();
 
     return module;
