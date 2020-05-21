@@ -140,18 +140,28 @@ REQUIRED ARGUMENTS
   All of the indices are guaranteed to be monotonic. This array contains plain
   'int' integers.
 
-- observations_point: array of dims (NobservationsPoint, 4). Each slice is an
-  (x,y,weight,distance) tuple where (x,y) are the pixel coordinates of the
-  observed point, "weight" is the relative weight of this point observation, and
-  "distance" is the known distance from the origin of camera-0 to the observed
-  point. If no reference distance is available, set this to <= 0. Most of the
-  weights are expected to be 1.0, which implies that the noise on the
+- observations_point: array of dims (NobservationsPoint, 3). Each slice is an
+  (x,y,weight) tuple where (x,y) are the pixel coordinates of the observed
+  point, and "weight" is the relative weight of this point observation. Most of
+  the weights are expected to be 1.0, which implies that the noise on the
   observation is gaussian, independent on x,y, and has standard deviation of
   observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely with
   the weight. Subpixel interpolation is assumed, so these contain 64-bit
   floating point values, like all the other data. The point index and camera
   that produced these observations are given in the indices_point_camera_points
   array.
+
+- observations_point_with_ref_distance: array of dims (NobservationsPoint, 4).
+  Same as observations_point, but with an extra column: the known distance to
+  this point from the origin of the reference coordinate system. Set to None if
+  we don't have any of these
+
+- observations_point_with_ref_position: array of dims (NobservationsPoint, 6).
+  Same as observations_point, but with an extra 3 columns: the known position of
+  this point in the reference coordinate system. Here we don't optimize the
+  position, but this observation is still affected by moving the observing
+  cameras around, and changing their lens parameters. Set to None if we don't
+  have any of these
 
 - indices_point_camintrinsics_camextrinsics: array of dims (NobservationsPoint,
   3). For each observation these are an

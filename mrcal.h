@@ -35,8 +35,10 @@ typedef struct
     // indexes the extrinsics array. -1 means "at coordinate system reference"
     int  i_cam_extrinsics : 32;
     // indexes the intrinsics array
-    int  i_cam_intrinsics : 31;
+    int  i_cam_intrinsics : 29;
     bool skip_point       : 1;
+    bool has_ref_distance : 1;
+    bool has_ref_position : 1;
     int  i_point          : 31;
     bool skip_observation : 1;
 
@@ -48,9 +50,6 @@ typedef struct
     // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
     // with the weight.
     point3_t px;
-
-    // Reference distance. This is optional; skipped if <= 0
-    double dist;
 } observation_point_t;
 
 
@@ -403,6 +402,8 @@ mrcal_optimize( // out
                 int NobservationsBoard,
 
                 const observation_point_t* observations_point,
+                const double* observations_point_distances_pool,
+                const point3_t* observations_point_positions_pool,
                 int NobservationsPoint,
 
                 bool check_gradient,
@@ -465,6 +466,8 @@ void mrcal_optimizerCallback(// output measurements
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
+                             const double* observations_point_distances_pool,
+                             const point3_t* observations_point_positions_pool,
                              int NobservationsPoint,
 
                              int Noutlier_indices_input,

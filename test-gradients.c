@@ -130,6 +130,7 @@ int main(int argc, char* argv[] )
 
     point3_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
     point3_t observations_point_px[4] = {};
+    double   observations_point_distances[] = {18.0, 180.0};
     // How many of the observations we want to actually use. Can be fewer than
     // defined in the above arrays if we're testing something
 #define NobservationsBoard 6
@@ -165,8 +166,8 @@ int main(int argc, char* argv[] )
     observation_point_t observations_point[] =
         { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 0, .px = observations_point_px[0]},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 0, .px = observations_point_px[1]},
-          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 1, .px = observations_point_px[2], .dist = 18.0},
-          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 1, .px = observations_point_px[3], .dist = 180.0} };
+          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 1, .px = observations_point_px[2], .has_ref_distance = true},
+          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 1, .px = observations_point_px[3], .has_ref_distance = true} };
 
     // simple camera calibration case
     int Ncameras_extrinsics = sizeof(extrinsics)/sizeof(extrinsics[0]);
@@ -335,6 +336,8 @@ int main(int argc, char* argv[] )
                     NobservationsBoard,
 
                     observations_point,
+                    observations_point_distances,
+                    NULL,
                     NobservationsPoint,
 
                     true,

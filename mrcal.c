@@ -467,7 +467,7 @@ int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
 
     // known-distance measurements
     for(int i=0; i<NobservationsPoint; i++)
-        if(observations_point[i].dist > 0.0) Nmeas++;
+        if(observations_point[i].has_ref_distance) Nmeas++;
     return Nmeas;
 }
 
@@ -553,7 +553,7 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
             observations_point[i].i_cam_extrinsics >= 0 )
             N += 2*6;
 
-        if(observations_point[i].dist > 0)
+        if(observations_point[i].has_ref_distance)
         {
             if(problem_details.do_optimize_frames)
                 N += 3;
@@ -3788,6 +3788,8 @@ typedef struct
     int NobservationsBoard;
 
     const observation_point_t* observations_point;
+    const double* observations_point_distances_pool;
+    const point3_t* observations_point_positions_pool;
     int NobservationsPoint;
 
     bool verbose;
@@ -4213,6 +4215,8 @@ void optimizerCallback(// input state
 
     // Handle all the point observations. This is VERY similar to the
     // board-observation loop above. Please consolidate
+    int i_ref_distance = 0;
+    int i_ref_position = 0;
     for(int i_observation_point = 0;
         i_observation_point < ctx->NobservationsPoint;
         i_observation_point++)
@@ -4413,8 +4417,7 @@ void optimizerCallback(// input state
                 iMeasurement++;
             }
 
-            // Now handle the reference distance, if given
-            if( observation->dist > 0.0)
+            if( observation->has_ref_distance )
             {
                 // I do this in the observing-camera coord system. The
                 // camera is at 0. The point is at
@@ -4427,7 +4430,7 @@ void optimizerCallback(// input state
                     double dist = sqrt( point.x*point.x +
                                         point.y*point.y +
                                         point.z*point.z );
-                    double err = dist - observation->dist;
+                    double err = dist - ctx->observations_point_distances_pool[i_ref_distance];
                     err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
@@ -4465,7 +4468,7 @@ void optimizerCallback(// input state
                                         p.y*p.y +
                                         p.z*p.z );
                     double dist_recip = 1.0/dist;
-                    double err = dist - observation->dist;
+                    double err = dist - ctx->observations_point_distances_pool[i_ref_distance];
                     err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
@@ -4525,6 +4528,8 @@ void optimizerCallback(// input state
                                          dist_recip*(p.x*_Rc[2] + p.y*_Rc[5] + p.z*_Rc[8]) );
                     iMeasurement++;
                 }
+
+                i_ref_distance++;
             }
         }
         else
@@ -4589,8 +4594,7 @@ void optimizerCallback(// input state
                 iMeasurement++;
             }
 
-            // Now handle the reference distance, if given
-            if( observation->dist > 0.0)
+            if(observation->has_ref_distance)
             {
                 const double err = 0.0;
 
@@ -4607,6 +4611,7 @@ void optimizerCallback(// input state
                 if( ctx->problem_details.do_optimize_frames )
                     STORE_JACOBIAN3( i_var_point, 0.0, 0.0, 0.0);
                 iMeasurement++;
+                i_ref_distance++;
             }
         }
     }
@@ -4816,6 +4821,8 @@ void mrcal_optimizerCallback(// output measurements
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
+                             const double* observations_point_distances_pool,
+                             const point3_t* observations_point_positions_pool,
                              int NobservationsPoint,
 
                              int Noutlier_indices_input,
@@ -4879,6 +4886,8 @@ void mrcal_optimizerCallback(// output measurements
         .observations_board_pool    = observations_board_pool,
         .NobservationsBoard         = NobservationsBoard,
         .observations_point         = observations_point,
+        .observations_point_distances_pool = observations_point_distances_pool,
+        .observations_point_positions_pool = observations_point_positions_pool,
         .NobservationsPoint         = NobservationsPoint,
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
@@ -4961,6 +4970,8 @@ mrcal_optimize( // out
                 int NobservationsBoard,
 
                 const observation_point_t* observations_point,
+                const double* observations_point_distances_pool,
+                const point3_t* observations_point_positions_pool,
                 int NobservationsPoint,
 
                 bool check_gradient,
@@ -5045,6 +5056,8 @@ mrcal_optimize( // out
         .observations_board_pool    = observations_board_pool,
         .NobservationsBoard         = NobservationsBoard,
         .observations_point         = observations_point,
+        .observations_point_distances_pool = observations_point_distances_pool,
+        .observations_point_positions_pool = observations_point_positions_pool,
         .NobservationsPoint         = NobservationsPoint,
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,

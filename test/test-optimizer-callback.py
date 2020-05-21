@@ -62,10 +62,18 @@ points                      = 10. + 2.*linspace_shaped(3,3)
 observations_point_xy       = 1000. + 500. * linspace_shaped(5,2)
 observations_point_weights  = np.array((0.9, 0.8, 0.9, 1.3, 1.8))
 observations_point_distance = np.array((-1, -1, 100.0, 123.0, 443.9))
-observations_point          = nps.glue(observations_point_xy,
-                                       nps.transpose(observations_point_weights),
-                                       nps.transpose(observations_point_distance),
-                                       axis = -1)
+
+observations_point = \
+    nps.glue(observations_point_xy[:2],
+             nps.transpose(observations_point_weights[:2]),
+             axis = -1)
+observations_point_with_ref_distance = \
+    nps.glue(observations_point_xy[2:],
+             nps.transpose(observations_point_weights[2:]),
+             nps.transpose(observations_point_distance[2:]),
+             axis = -1)
+observations_point_with_ref_position = None
+
 indices_point_camintrinsics_camextrinsics = np.array(((0,1,-1),
                                                       (1,0,-1),
                                                       (1,1, 0),
@@ -122,7 +130,10 @@ for kwargs in all_test_kwargs:
                                     nps.atleast_dims(extrinsics_rt10, -2),
                                     frames, points,
                                     observations,       indices_frame_camintrinsics_camextrinsics,
-                                    observations_point, indices_point_camintrinsics_camextrinsics,
+                                    observations_point,
+                                    observations_point_with_ref_distance,
+                                    observations_point_with_ref_position,
+                                    indices_point_camintrinsics_camextrinsics,
 
                                     lensmodel,
                                     imagersizes                       = imagersizes,
