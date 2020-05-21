@@ -1683,6 +1683,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
 
         observation_board_t c_observations_board[NobservationsBoard];
+        const point3_t* c_observations_board_pool = (point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
+
         int Nskipped_observations_board =
             IS_NULL(skipped_observations_board) ?
             0 :
@@ -1706,7 +1708,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             c_observations_board[i_observation].i_cam_intrinsics = i_cam_intrinsics;
             c_observations_board[i_observation].i_cam_extrinsics = i_cam_extrinsics;
             c_observations_board[i_observation].i_frame          = i_frame;
-            c_observations_board[i_observation].px               = &((point3_t*)PyArray_DATA(observations_board))[calibration_object_width_n*calibration_object_width_n*i_observation];
 
             // I skip this frame if I skip ALL observations of this frame
             if( i_frame_current_skipped >= 0 &&
@@ -1956,6 +1957,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 Nframes, Npoints,
 
                                 c_observations_board,
+                                c_observations_board_pool,
                                 NobservationsBoard,
                                 c_observations_point,
                                 NobservationsPoint,
@@ -2110,6 +2112,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                      Nframes, Npoints,
 
                                      c_observations_board,
+                                     c_observations_board_pool,
                                      NobservationsBoard,
                                      c_observations_point,
                                      NobservationsPoint,

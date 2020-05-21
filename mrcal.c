@@ -3646,6 +3646,7 @@ bool markOutliers(// output, input
 
                   // input
                   const observation_board_t* observations_board,
+                  const point3_t* observations_board_pool,
                   int NobservationsBoard,
                   int calibration_object_width_n,
                   const double* roi,
@@ -3692,7 +3693,7 @@ bool markOutliers(// output, input
             i_pt < calibration_object_width_n*calibration_object_width_n; \
             i_pt++, i_feature++)                                        \
         {                                                               \
-            const point3_t* pt_observed = &observation->px[i_pt]; \
+            const point3_t* pt_observed = &observations_board_pool[i_feature]; \
             double weight_roi = region_of_interest_weight(pt_observed, roi, i_cam_intrinsics); \
             double weight = weight_roi * pt_observed->z;
 
@@ -3783,6 +3784,7 @@ typedef struct
     int Ncameras_intrinsics, Ncameras_extrinsics, Nframes, Npoints;
 
     const observation_board_t* observations_board;
+    const point3_t* observations_board_pool;
     int NobservationsBoard;
 
     const observation_point_t* observations_point;
@@ -3921,6 +3923,7 @@ void optimizerCallback(// input state
             memcpy(&camera_rt[i_camera_extrinsics], &ctx->extrinsics[i_camera_extrinsics], sizeof(pose_t));
     }
 
+    int i_feature = 0;
     for(int i_observation_board = 0;
         i_observation_board < ctx->NobservationsBoard;
         i_observation_board++)
@@ -4001,9 +4004,9 @@ void optimizerCallback(// input state
 
         for(int i_pt=0;
             i_pt < ctx->calibration_object_width_n*ctx->calibration_object_width_n;
-            i_pt++)
+            i_pt++, i_feature++)
         {
-            const point3_t* pt_observed = &observation->px[i_pt];
+            const point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
             double weight = region_of_interest_weight(pt_observed, ctx->roi, i_cam_intrinsics);
             weight *= pt_observed->z;
 
@@ -4809,6 +4812,7 @@ void mrcal_optimizerCallback(// output measurements
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes, int Npoints,
 
                              const observation_board_t* observations_board,
+                             const point3_t* observations_board_pool,
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
@@ -4872,6 +4876,7 @@ void mrcal_optimizerCallback(// output measurements
         .Nframes                    = Nframes,
         .Npoints                    = Npoints,
         .observations_board         = observations_board,
+        .observations_board_pool    = observations_board_pool,
         .NobservationsBoard         = NobservationsBoard,
         .observations_point         = observations_point,
         .NobservationsPoint         = NobservationsPoint,
@@ -4952,6 +4957,7 @@ mrcal_optimize( // out
                 int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes, int Npoints,
 
                 const observation_board_t* observations_board,
+                const point3_t* observations_board_pool,
                 int NobservationsBoard,
 
                 const observation_point_t* observations_point,
@@ -5036,6 +5042,7 @@ mrcal_optimize( // out
         .Nframes                    = Nframes,
         .Npoints                    = Npoints,
         .observations_board         = observations_board,
+        .observations_board_pool    = observations_board_pool,
         .NobservationsBoard         = NobservationsBoard,
         .observations_point         = observations_point,
         .NobservationsPoint         = NobservationsPoint,
@@ -5137,6 +5144,7 @@ mrcal_optimize( // out
                  markOutliers(markedOutliers,
                               &stats.Noutliers,
                               observations_board,
+                              observations_board_pool,
                               NobservationsBoard,
                               calibration_object_width_n,
                               roi,
@@ -5268,6 +5276,7 @@ mrcal_optimize( // out
         stats.NoutsideROI = 0;
         if( roi != NULL )
         {
+            int i_feature = 0;
             for(int i_observation_board=0;
                 i_observation_board<NobservationsBoard;
                 i_observation_board++)
@@ -5276,9 +5285,9 @@ mrcal_optimize( // out
                 const int i_cam_intrinsics = observation->i_cam_intrinsics;
                 for(int i_pt=0;
                     i_pt < calibration_object_width_n*calibration_object_width_n;
-                    i_pt++)
+                    i_pt++, i_feature++)
                 {
-                    const point3_t* pt_observed = &observation->px[i_pt];
+                    const point3_t* pt_observed = &observations_board_pool[i_feature];
                     double weight = region_of_interest_weight(pt_observed, roi, i_cam_intrinsics);
                     if( weight != 1.0 )
                         outside_ROI_indices_final[stats.NoutsideROI++] =

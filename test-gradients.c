@@ -156,12 +156,12 @@ int main(int argc, char* argv[] )
 
     // The observations of chessboards and of discrete points
     observation_board_t observations_board[] =
-        { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 0, .px = observations_px[0]},
-          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 0, .px = observations_px[1]},
-          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 1, .px = observations_px[2]},
-          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 2, .px = observations_px[3]},
-          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 3, .px = observations_px[4]},
-          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 3, .px = observations_px[5]} };
+        { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 0},
+          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 0},
+          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 1},
+          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 2},
+          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 3},
+          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 3} };
     observation_point_t observations_point[] =
         { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 0, .px = observations_point_px[0]},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 0, .px = observations_point_px[1]},
@@ -331,6 +331,7 @@ int main(int argc, char* argv[] )
                     Nframes, Npoints,
 
                     observations_board,
+                    (const point3_t*)observations_px,
                     NobservationsBoard,
 
                     observations_point,

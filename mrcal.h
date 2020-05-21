@@ -28,15 +28,6 @@ typedef struct
     bool skip_frame       : 1;
     int  i_frame          : 31;
     bool skip_observation : 1;
-
-    // NUM_POINTS_IN_CALOBJECT of these.
-    // .x, .y are the pixel observations
-    // .z is the weight of the observation. Most of the weights are expected to
-    // be 1.0, which implies that the noise on the observation is gaussian,
-    // independent on x,y, and has standard deviation of
-    // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
-    // with the weight.
-    const point3_t* px;
 } observation_board_t;
 
 typedef struct
@@ -400,6 +391,15 @@ mrcal_optimize( // out
                 int Ncameras_intrinsics, int Ncamera_extrinsics, int Nframes, int Npoints,
 
                 const observation_board_t* observations_board,
+
+                // All the board pixel observations, in order.
+                // .x, .y are the pixel observations
+                // .z is the weight of the observation. Most of the weights are expected to
+                // be 1.0, which implies that the noise on the observation is gaussian,
+                // independent on x,y, and has standard deviation of
+                // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
+                // with the weight
+                const point3_t*            observations_board_pool,
                 int NobservationsBoard,
 
                 const observation_point_t* observations_point,
@@ -453,6 +453,15 @@ void mrcal_optimizerCallback(// output measurements
                              int Ncameras_intrinsics, int Ncamera_extrinsics, int Nframes, int Npoints,
 
                              const observation_board_t* observations_board,
+
+                             // All the board pixel observations, in order.
+                             // .x, .y are the pixel observations
+                             // .z is the weight of the observation. Most of the weights are expected to
+                             // be 1.0, which implies that the noise on the observation is gaussian,
+                             // independent on x,y, and has standard deviation of
+                             // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
+                             // with the weight
+                             const point3_t* observations_board_pool,
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
