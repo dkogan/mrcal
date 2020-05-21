@@ -3177,8 +3177,10 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
     return nps.cat(*Rt_0c)
 
 
-def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, extrinsics_rt10, indices_frame_camera,
-                                              dot_spacing, Nwant):
+def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
+                                              extrinsics_rt_fromref,
+                                              indices_frame_camera, dot_spacing,
+                                              Nwant):
     r'''Estimate poses of the calibration object using no extrinsic information
 
     We're given
@@ -3189,7 +3191,7 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, extri
       camera-from-calobject transformation estimate, for each observation of the
       board
 
-    extrinsics_rt10:
+    extrinsics_rt_fromref:
 
       an array of dimensions (Ncameras-1,6) that contains a camerai-from-camera0
       transformation estimate. camera0-from-camera0 is the identity, so this isn't
@@ -3211,7 +3213,7 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf, extri
 
     '''
 
-    Rt_0c = mrcal.invert_Rt( mrcal.Rt_from_rt( extrinsics_rt10 ))
+    Rt_0c = mrcal.invert_Rt( mrcal.Rt_from_rt( extrinsics_rt_fromref ))
 
 
     def process(i_observation0, i_observation1):

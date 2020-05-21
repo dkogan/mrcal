@@ -3,7 +3,7 @@ Call the optimization callback function
 SYNOPSIS
 
     x,Jt = mrcal.optimizerCallback( intrinsics_data,
-                                    extrinsics_rt10,
+                                    extrinsics_rt_fromref,
                                     frames, points
                                     observations_board, indices_frame_camintrinsics_camextrinsics,
                                     observations_point, indices_point_camintrinsics_camextrinsics,

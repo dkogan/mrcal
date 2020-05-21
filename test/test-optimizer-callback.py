@@ -48,8 +48,8 @@ models = [ mrcal.cameramodel(m) for m in ( f"{testdir}/data/cam0.opencv8.cameram
 lensmodel       = models[0].intrinsics()[0]
 intrinsics_data = nps.cat(models[0].intrinsics()[1],
                           models[1].intrinsics()[1])
-extrinsics_rt10 = mrcal.compose_rt( models[1].extrinsics_rt_fromref(),
-                                    models[0].extrinsics_rt_toref() )
+extrinsics_rt_fromref = mrcal.compose_rt( models[1].extrinsics_rt_fromref(),
+                                          models[0].extrinsics_rt_toref() )
 
 imagersizes = nps.cat(models[0].imagersize(),
                       models[1].imagersize())
@@ -121,7 +121,7 @@ all_test_kwargs = ( dict(do_optimize_intrinsic_core        = False,
 itest = 0
 for kwargs in all_test_kwargs:
     x,Jt = mrcal.optimizerCallback( intrinsics_data,
-                                    nps.atleast_dims(extrinsics_rt10, -2),
+                                    nps.atleast_dims(extrinsics_rt_fromref, -2),
                                     frames, points,
                                     observations,       indices_frame_camintrinsics_camextrinsics,
                                     observations_point,
