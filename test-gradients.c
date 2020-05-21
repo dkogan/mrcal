@@ -165,8 +165,8 @@ int main(int argc, char* argv[] )
     observation_point_t observations_point[] =
         { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 0, .px = observations_point_px[0]},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 0, .px = observations_point_px[1]},
-          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 1, .px = observations_point_px[2], .has_ref_range = true},
-          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 1, .px = observations_point_px[3], .has_ref_range = true} };
+          {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 1, .px = observations_point_px[2], .has_ref_range    = true},
+          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 1, .px = observations_point_px[3], .has_ref_position = true} };
 
     // simple camera calibration case
     int Ncameras_extrinsics = sizeof(extrinsics)/sizeof(extrinsics[0]);
