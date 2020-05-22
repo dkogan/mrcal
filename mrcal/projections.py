@@ -12,14 +12,14 @@ import scipy.optimize
 import mrcal
 
 
-def unproject(q, lens_model, intrinsics_data):
+def unproject(q, lensmodel, intrinsics_data):
     r'''Removes distortion from pixel observations
 
 SYNOPSIS
 
     v = mrcal.unproject( # (N,2) array of pixel observations
                          q,
-                         lens_model, intrinsics_data )
+                         lensmodel, intrinsics_data )
 
 This is the python wrapper to the internal written-in-C _mrcal._unproject(). This
 wrapper that has a slow path to handle CAHVORE. Otherwise, the it just calls
@@ -43,7 +43,7 @@ ARGUMENTS
   supports broadcasting fully, and any leading dimensions are allowed, including
   none
 
-- lens_model: a string such as
+- lensmodel: a string such as
 
   LENSMODEL_PINHOLE
   LENSMODEL_OPENCV4
@@ -59,8 +59,8 @@ ARGUMENTS
 
     '''
 
-    if lens_model != 'LENSMODEL_CAHVORE':
-        return mrcal._mrcal._unproject(q, lens_model, intrinsics_data)
+    if lensmodel != 'LENSMODEL_CAHVORE':
+        return mrcal._mrcal._unproject(q, lensmodel, intrinsics_data)
 
     # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
     # and here for legacy compatibility only
@@ -86,7 +86,7 @@ ARGUMENTS
         def cost_no_gradients(vxy, *args, **kwargs):
             '''Optimization functions'''
             return \
-                mrcal.project(np.array((vxy[0],vxy[1],1.)), lens_model, intrinsics_data) - \
+                mrcal.project(np.array((vxy[0],vxy[1],1.)), lensmodel, intrinsics_data) - \
                 q0
 
         # seed assuming distortions aren't there
@@ -162,11 +162,11 @@ def compute_scale_f_pinhole_for_fit(model, fit):
     else:
         raise Exception("fit must be either None or a numpy array of one of ('corners','centers-horizontal','centers-vertical')")
 
-    lens_model,intrinsics_data = model.intrinsics()
+    lensmodel,intrinsics_data = model.intrinsics()
 
-    v_edges = mrcal.unproject(q_edges, lens_model, intrinsics_data)
+    v_edges = mrcal.unproject(q_edges, lensmodel, intrinsics_data)
 
-    if not mrcal.getLensModelMeta(lens_model)['has_core']:
+    if not mrcal.getLensModelMeta(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
@@ -373,11 +373,11 @@ def reproject_image__compute_map(model_from, model_to,
         Rt_r_from  = model_from.extrinsics_Rt_toref()
         Rt_to_from = mrcal.compose_Rt(Rt_to_r, Rt_r_from)
 
-    lens_model_from,intrinsics_data_from = model_from.intrinsics()
-    lens_model_to,  intrinsics_data_to   = model_to.  intrinsics()
+    lensmodel_from,intrinsics_data_from = model_from.intrinsics()
+    lensmodel_to,  intrinsics_data_to   = model_to.  intrinsics()
 
-    if re.match("LENSMODEL_OPENCV",lens_model_from) and \
-       lens_model_to == "LENSMODEL_PINHOLE"         and \
+    if re.match("LENSMODEL_OPENCV",lensmodel_from) and \
+       lensmodel_to == "LENSMODEL_PINHOLE"         and \
        plane_n is None:
 
         # This is a common special case. This branch works identically to the
@@ -419,18 +419,18 @@ def reproject_image__compute_map(model_from, model_to,
                                                                   np.arange(H_to))),
                                              -1, -2, -3),
                                  dtype = float)
-    if lens_model_to == "LENSMODEL_PINHOLE":
+    if lensmodel_to == "LENSMODEL_PINHOLE":
         # Faster path for the unproject. Nice, simple closed-form solution
         fxy_to = intrinsics_data_to[0:2]
         cxy_to = intrinsics_data_to[2:4]
         v = np.zeros( (grid.shape[0], grid.shape[1], 3), dtype=float)
         v[..., :2] = (grid-cxy_to)/fxy_to
         v[...,  2] = 1
-    elif lens_model_to == "LENSMODEL_STEREOGRAPHIC":
+    elif lensmodel_to == "LENSMODEL_STEREOGRAPHIC":
         # Faster path for the unproject. Nice, simple closed-form solution
         v = mrcal.unproject_stereographic(grid, *intrinsics_data_to[:4])
     else:
-        v = mrcal.unproject(grid, lens_model_to, intrinsics_data_to)
+        v = mrcal.unproject(grid, lensmodel_to, intrinsics_data_to)
 
     if plane_n is not None:
 
@@ -450,7 +450,7 @@ def reproject_image__compute_map(model_from, model_to,
             # rotation isn't identity. apply
             v = nps.matmult(v, R_to_from)
 
-    mapxy = mrcal.project( v, lens_model_from, intrinsics_data_from )
+    mapxy = mrcal.project( v, lensmodel_from, intrinsics_data_from )
     # Reorder to (2,Nheight,Nwidth)
     return nps.reorder(mapxy, -1, -2, -3).astype(np.float32)
 
@@ -486,7 +486,7 @@ def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
         cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
 
 
-def calobservations_project(lens_model, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
+def calobservations_project(lensmodel, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
     the projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)
 
@@ -516,7 +516,7 @@ def calobservations_project(lens_model, intrinsics, extrinsics, frames, dot_spac
     intrinsics = nps.atleast_dims(intrinsics, -2)
     Ncameras = intrinsics.shape[-2]
     return nps.mv( nps.cat(*[mrcal.project( np.ascontiguousarray(object_cam[...,i_camera,:,:,:]),
-                                            lens_model,
+                                            lensmodel,
                                             intrinsics[i_camera,:] ) for \
                              i_camera in range(Ncameras)]),
                    0,-4)

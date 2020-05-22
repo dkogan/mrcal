@@ -134,7 +134,7 @@ and mrcal supports =.cameramodel= files.
 
 ** Lens models
 
-Lens models are specified as elements of =enum lens_model_t= (in C) or, as
+Lens models are specified as elements of =enum lensmodel_t= (in C) or, as
 strings that match the entries of that enum (in Python). Currently I support all
 CAHVOR flavors and all models implemented in OpenCV and a pure stereographic
 model and a /very/ rich splined stereographic model. CAHVORE isn't supported in

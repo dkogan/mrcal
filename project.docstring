@@ -5,7 +5,7 @@ SYNOPSIS
     points = mrcal.project( # (N,3) array of 3d points we're projecting
                             v,
 
-                            lens_model, intrinsics_data)
+                            lensmodel, intrinsics_data)
 
     # points is now a (N,2) array of pixel coordinates
 
@@ -18,7 +18,7 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- lens_model: a string such as
+- lensmodel: a string such as
 
   LENSMODEL_PINHOLE
   LENSMODEL_OPENCV4
@@ -44,3 +44,5 @@ if get_gradients: we return a tuple:
     the input 3D point positions
   - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
     respect to the intrinsics
+
+What happens if behind the camera?

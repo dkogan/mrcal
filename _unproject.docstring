@@ -4,7 +4,7 @@ SYNOPSIS
 
     v = mrcal._unproject( # (N,2) array of pixel observations
                           q,
-                          lens_model, intrinsics_data )
+                          lensmodel, intrinsics_data )
 
 This is the internal written-in-C _unproject(). mrcal.unproject() is a python
 wrapper that has a slow path to handle CAHVORE. Otherwise, the wrapper just
@@ -28,7 +28,7 @@ ARGUMENTS
   supports broadcasting fully, and any leading dimensions are allowed, including
   none
 
-- lens_model: a string such as
+- lensmodel: a string such as
 
   LENSMODEL_PINHOLE
   LENSMODEL_OPENCV4

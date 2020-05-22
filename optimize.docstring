@@ -6,9 +6,9 @@ SYNOPSIS
                             extrinsics_rt_fromref,
                             frames, points
                             observations_board, indices_frame_camintrinsics_camextrinsics,
-                            observations_point, indices_point_camintrinsics_camextrinsics,
+                            observations_point, indices_point_camintrinsics_camextrinsics_flags,
 
-                            lens_model,
+                            lensmodel,
                             imagersizes                       = imagersizes,
                             observed_pixel_uncertainty        = observed_pixel_uncertainty,
                             do_optimize_intrinsic_core        = True,
@@ -36,7 +36,7 @@ The cameras and what they're observing is given in the arrays
 - frames
 - points
 - indices_frame_camintrinsics_camextrinsics
-- indices_point_camintrinsics_camextrinsics
+- indices_point_camintrinsics_camextrinsics_flags
 
 intrinsics_data contains the intrinsics for all the physical cameras present in
 the problem. len(intrinsics_data) = Ncameras_intrinsics
@@ -54,7 +54,8 @@ described by a tuple (i_frame,i_cam_intrinsics,i_cam_extrinsics). The board at
 frames[i_frame] was observed by camera intrinsics_data[i_cam_intrinsics], which
 was at extrinsics_rt_fromref[i_cam_extrinsics]
 
-indices_point_camintrinsics_camextrinsics is the same thing for discrete points.
+indices_point_camintrinsics_camextrinsics_flags is the same thing for discrete
+points.
 
 If we're solving a vanilla calibration problem, we have stationary cameras
 observing a moving target. By convention, camera 0 is at the reference
@@ -127,8 +128,7 @@ REQUIRED ARGUMENTS
   observed_pixel_uncertainty scales inversely with the weight. Subpixel
   interpolation is assumed, so these contain 64-bit floating point values, like
   all the other data. The frame and camera that produced these observations are
-  given in the indices_frame_camintrinsics_camextrinsics,
-  indices_point_camintrinsics_camextrinsics arrays
+  given in the indices_frame_camintrinsics_camextrinsics
 
 - indices_frame_camintrinsics_camextrinsics: array of dims (NobservationsBoard,
   3). For each observation these are an
@@ -170,7 +170,7 @@ REQUIRED ARGUMENTS
 
   If none of these apply, the flags should be 0
 
-- lens_model: a string such as
+- lensmodel: a string such as
 
   LENSMODEL_PINHOLE
   LENSMODEL_OPENCV4

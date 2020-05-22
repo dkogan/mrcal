@@ -126,8 +126,8 @@ mxy = nps.mag(xy)
 # internals to project the unprojection, and to get the focal lengths it ended
 # up using. If the internals were implemented correctly, the dense surface of
 # focal lengths should follow the sparse surface of spline control points
-lens_model_type = f'LENSMODEL_SPLINED_STEREOGRAPHIC_{order}_{Nx}_{Ny}_{fov_x_deg}'
-q = mrcal.project(np.ascontiguousarray(p), lens_model_type, parameters)
+lensmodel_type = f'LENSMODEL_SPLINED_STEREOGRAPHIC_{order}_{Nx}_{Ny}_{fov_x_deg}'
+q = mrcal.project(np.ascontiguousarray(p), lensmodel_type, parameters)
 th = np.arctan2( nps.mag(p[..., :2]), p[..., 2])
 uxy = p[..., :2] * nps.dummy(np.tan(th/2)*2/nps.mag(p[..., :2]), -1)
 deltau = (q-cxy) / fxy - uxy
