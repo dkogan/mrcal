@@ -112,6 +112,7 @@ TESTS :=					\
   test/test-py-gradients.py			\
   test/test-cahvor                              \
   test/test-optimizer-callback.py		\
+  test/test-basic-sfm.py			\
   test/test-lensmodel-string-manipulation
 
 TESTS_RUN := $(addsuffix .RUN,$(TESTS))
