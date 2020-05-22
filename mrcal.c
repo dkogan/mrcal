@@ -5091,6 +5091,12 @@ mrcal_optimize( // out
                                        Nframes, Npoints,
                                        problem_details,
                                        lensmodel);
+    if(ctx.Nmeasurements <= Nstate)
+    {
+        MSG("WARNING: problem isn't overdetermined: Nmeasurements=%d, Nstate=%d. Solver may not converge, and if it does, the results aren't reliable. Add more constraints and/or regularization",
+            ctx.Nmeasurements, Nstate);
+    }
+
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       lensmodel, intrinsics,
