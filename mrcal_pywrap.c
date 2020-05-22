@@ -27,6 +27,8 @@
 #define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
 #define IS_TRUE(x) ((x) != NULL && PyObject_IsTrue(x))
 
+#define BARF(fmt, ...) PyErr_Format(PyExc_RuntimeError, "%s:%d %s(): "fmt, __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+
 // Python is silly. There's some nuance about signal handling where it sets a
 // SIGINT (ctrl-c) handler to just set a flag, and the python layer then reads
 // this flag and does the thing. Here I'm running C code, so SIGINT would set a
@@ -39,14 +41,14 @@ do {                                                                    \
                        &(struct sigaction){ .sa_handler = SIG_DFL },    \
                        &sigaction_old) )                                \
     {                                                                   \
-        PyErr_SetString(PyExc_RuntimeError, "sigaction() failed");      \
+        BARF("sigaction() failed");      \
         goto done;                                                      \
     }                                                                   \
 } while(0)
 #define RESET_SIGINT() do {                                             \
     if( 0 != sigaction(SIGINT,                                          \
                        &sigaction_old, NULL ))                          \
-        PyErr_SetString(PyExc_RuntimeError, "sigaction-restore failed"); \
+        BARF("sigaction-restore failed"); \
 } while(0)
 
 #define PERCENT_S_COMMA(s,n) "'%s',"
@@ -57,7 +59,7 @@ do {                                                                    \
 #define CHECK_CONTIGUOUS(x) do {                                        \
     if( !PyArray_IS_C_CONTIGUOUS(x) )                                   \
     {                                                                   \
-        PyErr_SetString(PyExc_RuntimeError, "All inputs must be c-style contiguous arrays (" #x ")"); \
+        BARF("All inputs must be c-style contiguous arrays (" #x ")"); \
         return false;                                                   \
     } } while(0)
 
@@ -79,13 +81,13 @@ do {                                                                    \
         {                                                               \
             if( PyArray_NDIM((PyArrayObject*)name_pyarrayobj) != ndims )          \
             {                                                           \
-                PyErr_Format(PyExc_RuntimeError, "'" #name "' must have exactly %d dims; got %d", ndims, PyArray_NDIM((PyArrayObject*)name_pyarrayobj)); \
+                BARF("'" #name "' must have exactly %d dims; got %d", ndims, PyArray_NDIM((PyArrayObject*)name_pyarrayobj)); \
                 return false;                                           \
             }                                                           \
             for(int i=0; i<ndims; i++)                                  \
                 if(dims[i] >= 0 && dims[i] != PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]) \
                 {                                                       \
-                    PyErr_Format(PyExc_RuntimeError, "'" #name "' must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]); \
+                    BARF("'" #name "' must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]); \
                     return false;                                       \
                 }                                                       \
         }                                                               \
@@ -93,12 +95,12 @@ do {                                                                    \
         {                                                               \
             if( PyArray_TYPE((PyArrayObject*)name_pyarrayobj) != npy_type )       \
             {                                                           \
-                PyErr_SetString(PyExc_RuntimeError, "'" #name "' must have type: " #npy_type); \
+                BARF("'" #name "' must have type: " #npy_type); \
                 return false;                                           \
             }                                                           \
             if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)name_pyarrayobj) )       \
             {                                                           \
-                PyErr_SetString(PyExc_RuntimeError, "'" #name "' must be c-style contiguous"); \
+                BARF("'" #name "' must be c-style contiguous"); \
                 return false;                                           \
             }                                                           \
         }                                                               \
@@ -184,12 +186,12 @@ static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
     PyObject* args   = NULL;
     if(NULL == (module = PyImport_ImportModule("scipy.sparse")))
     {
-        PyErr_SetString(PyExc_RuntimeError, "Couldn't import scipy.sparse. I need that to represent J");
+        BARF("Couldn't import scipy.sparse. I need that to represent J");
         goto done;
     }
     if(NULL == (method = PyObject_GetAttrString(module, "csr_matrix")))
     {
-        PyErr_SetString(PyExc_RuntimeError, "Couldn't find 'csr_matrix' in scipy.sparse");
+        BARF("Couldn't find 'csr_matrix' in scipy.sparse");
         goto done;
     }
 
@@ -257,7 +259,7 @@ static PyObject* SolverContext_J(SolverContext* self)
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
 
@@ -268,7 +270,7 @@ static PyObject* SolverContext_p(SolverContext* self)
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
 
@@ -280,7 +282,7 @@ static PyObject* SolverContext_x(SolverContext* self)
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
 
@@ -293,7 +295,7 @@ static PyObject* SolverContext_state_index_intrinsics(SolverContext* self,
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
     PyObject* result = NULL;
@@ -301,9 +303,8 @@ static PyObject* SolverContext_state_index_intrinsics(SolverContext* self,
     if(!PyArg_ParseTuple( args, "i", &i_cam_intrinsics )) goto done;
     if( i_cam_intrinsics < 0 || i_cam_intrinsics >= self->Ncameras_intrinsics )
     {
-        PyErr_Format(PyExc_RuntimeError,
-                     "i_cam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Ncameras_intrinsics-1,i_cam_intrinsics);
+        BARF( "i_cam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              self->Ncameras_intrinsics-1,i_cam_intrinsics);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -319,7 +320,7 @@ static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
     PyObject* result = NULL;
@@ -327,9 +328,8 @@ static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
     if(!PyArg_ParseTuple( args, "i", &i_cam_extrinsics )) goto done;
     if( i_cam_extrinsics < 0 || i_cam_extrinsics >= self->Ncameras_extrinsics )
     {
-        PyErr_Format(PyExc_RuntimeError,
-                     "i_cam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Ncameras_extrinsics-1,i_cam_extrinsics);
+        BARF( "i_cam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              self->Ncameras_extrinsics-1,i_cam_extrinsics) ;
         goto done;
     }
     result = Py_BuildValue("i",
@@ -345,7 +345,7 @@ static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
     PyObject* result = NULL;
@@ -353,9 +353,8 @@ static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
     if(!PyArg_ParseTuple( args, "i", &i_frame )) goto done;
     if( i_frame < 0 || i_frame >= self->Nframes )
     {
-        PyErr_Format(PyExc_RuntimeError,
-                     "i_frame must refer to a valid frame i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Nframes-1,i_frame);
+        BARF( "i_frame must refer to a valid frame i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              self->Nframes-1,i_frame);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -372,7 +371,7 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
     PyObject* result = NULL;
@@ -380,9 +379,8 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
     if(!PyArg_ParseTuple( args, "i", &i_point )) goto done;
     if( i_point < 0 || i_point >= self->Nframes )
     {
-        PyErr_Format(PyExc_RuntimeError,
-                     "i_point must refer to a valid point i.e. be in the range [0,%d] inclusive. Instead I got %d",
-                     self->Npoints-1,i_point);
+        BARF( "i_point must refer to a valid point i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              self->Npoints-1,i_point);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -400,7 +398,7 @@ static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
 
@@ -417,7 +415,7 @@ static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
 
@@ -460,7 +458,7 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
 {
     if( self->ctx == NULL )
     {
-        PyErr_SetString(PyExc_RuntimeError, "I need a non-empty context");
+        BARF("I need a non-empty context");
         return NULL;
     }
 
@@ -470,13 +468,13 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
 
     if( PyArray_TYPE(p) != NPY_DOUBLE )
     {
-        PyErr_SetString(PyExc_RuntimeError, "The input array MUST have values of type 'float'");
+        BARF("The input array MUST have values of type 'float'");
         goto done;
     }
 
     if( !PyArray_IS_C_CONTIGUOUS(p) )
     {
-        PyErr_SetString(PyExc_RuntimeError, "The input array MUST be a C-style contiguous array");
+        BARF("The input array MUST be a C-style contiguous array");
         goto done;
     }
 
@@ -484,14 +482,14 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
     npy_intp* dims       = PyArray_DIMS(p);
     if( ndim <= 0 || dims[ndim-1] <= 0 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "The input array MUST have non-degenerate data in it");
+        BARF("The input array MUST have non-degenerate data in it");
         goto done;
     }
 
     int Nstate = self->ctx->beforeStep->Jt->nrow;
     if( dims[ndim-1] != Nstate )
     {
-        PyErr_Format(PyExc_RuntimeError, "The input array MUST have last dimension of size Nstate=%d; instead got %ld",
+        BARF("The input array MUST have last dimension of size Nstate=%d; instead got %ld",
                      Nstate, dims[ndim-1]);
         goto done;
     }
@@ -607,7 +605,7 @@ static bool parse_lensmodel_from_arg(// output
     const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
     if( lensmodel_cstring == NULL)
     {
-        PyErr_SetString(PyExc_RuntimeError, "The lens model must be given as a string");
+        BARF("The lens model must be given as a string");
         return false;
     }
 
@@ -616,11 +614,11 @@ static bool parse_lensmodel_from_arg(// output
     {
         if(lensmodel->type == LENSMODEL_INVALID_BADCONFIG)
         {
-            PyErr_Format(PyExc_RuntimeError, "Couldn't parse the configuration of the given lens model '%s'",
+            BARF("Couldn't parse the configuration of the given lens model '%s'",
                          lensmodel_cstring);
             return false;
         }
-        PyErr_Format(PyExc_RuntimeError, "Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
+        BARF("Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
                      lensmodel_cstring
                      VALID_LENSMODELS_ARGLIST);
         return false;
@@ -683,9 +681,8 @@ static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
 
     if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
-        PyErr_Format(PyExc_RuntimeError,
-                     "This function works only with the LENSMODEL_SPLINED_STEREOGRAPHIC model. %S passed in",
-                     lensmodel_string);
+        BARF( "This function works only with the LENSMODEL_SPLINED_STEREOGRAPHIC model. %S passed in",
+              lensmodel_string);
         goto done;
     }
 
@@ -694,8 +691,7 @@ static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
         double uy[lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny];
         if(!mrcal_get_knots_for_splined_models(ux,uy, lensmodel))
         {
-            PyErr_SetString(PyExc_RuntimeError,
-                            "mrcal_get_knots_for_splined_models() failed");
+            BARF( "mrcal_get_knots_for_splined_models() failed");
             goto done;
         }
 
@@ -706,7 +702,7 @@ static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
         py_ux = (PyArrayObject*)PyArray_SimpleNew(1, dims, NPY_DOUBLE);
         if(py_ux == NULL)
         {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate ux");
+            BARF("Couldn't allocate ux");
             goto done;
         }
 
@@ -714,7 +710,7 @@ static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
         py_uy = (PyArrayObject*)PyArray_SimpleNew(1, dims, NPY_DOUBLE);
         if(py_uy == NULL)
         {
-            PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate uy");
+            BARF("Couldn't allocate uy");
             goto done;
         }
 
@@ -768,7 +764,7 @@ static PyObject* getSupportedLensModels(PyObject* NPY_UNUSED(self),
     result = PyTuple_New(N);
     if(result == NULL)
     {
-        PyErr_Format(PyExc_RuntimeError, "Failed PyTuple_New(%d)", N);
+        BARF("Failed PyTuple_New(%d)", N);
         goto done;
     }
 
@@ -777,7 +773,7 @@ static PyObject* getSupportedLensModels(PyObject* NPY_UNUSED(self),
         PyObject* name = Py_BuildValue("s", names[i]);
         if( name == NULL )
         {
-            PyErr_Format(PyExc_RuntimeError, "Failed Py_BuildValue...");
+            BARF("Failed Py_BuildValue...");
             Py_DECREF(result);
             result = NULL;
             goto done;
@@ -811,7 +807,7 @@ static PyObject* getNextLensModel(PyObject* NPY_UNUSED(self),
     lensmodel_t lensmodel = mrcal_getNextLensModel(lensmodel_now, lensmodel_final);
     if(!mrcal_lensmodel_type_is_valid(lensmodel.type))
     {
-        PyErr_Format(PyExc_RuntimeError, "Couldn't figure out the 'next' lens model from '%S' to '%S'",
+        BARF("Couldn't figure out the 'next' lens model from '%S' to '%S'",
                      lensmodel_now_string, lensmodel_final_string);
         goto done;
     }
@@ -863,18 +859,18 @@ static bool _un_project_validate_args( // out
 {
     if( PyArray_NDIM(intrinsics) != 1 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "'intrinsics' must have exactly 1 dim");
+        BARF("'intrinsics' must have exactly 1 dim");
         return false;
     }
 
     if( PyArray_NDIM(points) < 1 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
+        BARF("'points' must have ndims >= 1");
         return false;
     }
     if( dim_points_in != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
     {
-        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be %d. Instead got %ld",
+        BARF("points.shape[-1] MUST be %d. Instead got %ld",
                      dim_points_in,
                      PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
         return false;
@@ -892,7 +888,7 @@ static bool _un_project_validate_args( // out
     int NlensParams = mrcal_getNlensParams(*lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[0] )
     {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[0] MUST be %d. Instead got %ld",
+        BARF("intrinsics.shape[0] MUST be %d. Instead got %ld",
                      NlensParams,
                      PyArray_DIMS(intrinsics)[0] );
         return false;
@@ -999,7 +995,7 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
     if(!mrcal_result)
     {
-        PyErr_SetString(PyExc_RuntimeError, "mrcal_project() failed!");
+        BARF("mrcal_project() failed!");
         Py_DECREF((PyObject*)out);
         goto done;
     }
@@ -1044,7 +1040,7 @@ static PyObject* _unproject(PyObject* NPY_UNUSED(self),
                         (const double*)PyArray_DATA(intrinsics));
     if(!mrcal_result)
     {
-        PyErr_SetString(PyExc_RuntimeError, "mrcal_unproject() failed!");
+        BARF("mrcal_unproject() failed!");
         Py_DECREF((PyObject*)out);
         goto done;
     }
@@ -1079,12 +1075,12 @@ static bool _un_project_stereographic_validate_args(// in
 {
     if( PyArray_NDIM(points) < 1 )
     {
-        PyErr_SetString(PyExc_RuntimeError, "'points' must have ndims >= 1");
+        BARF("'points' must have ndims >= 1");
         return false;
     }
     if( dim_points_in != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
     {
-        PyErr_Format(PyExc_RuntimeError, "points.shape[-1] MUST be %d. Instead got %ld",
+        BARF("points.shape[-1] MUST be %d. Instead got %ld",
                      dim_points_in,
                      PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
         return false;
@@ -1278,7 +1274,7 @@ static bool optimize_validate_args( // out
     if(PyObject_IsTrue(do_optimize_calobject_warp) &&
        IS_NULL(calobject_warp))
     {
-        PyErr_SetString(PyExc_RuntimeError, "if(do_optimize_calobject_warp) then calobject_warp MUST be given as an array to seed the optimization and to receive the results");
+        BARF("if(do_optimize_calobject_warp) then calobject_warp MUST be given as an array to seed the optimization and to receive the results");
         return false;
     }
 
@@ -1293,14 +1289,14 @@ static bool optimize_validate_args( // out
     int Ncameras_extrinsics = PyArray_DIMS(extrinsics)[0];
     if( PyArray_DIMS(imagersizes)[0] != Ncameras_intrinsics )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'intrinsics' says %ld, 'imagersizes' says %ld",
+        BARF("Inconsistent Ncameras: 'intrinsics' says %ld, 'imagersizes' says %ld",
                      Ncameras_intrinsics,
                      PyArray_DIMS(imagersizes)[0]);
         return false;
     }
     if( !IS_NULL(roi) && PyArray_DIMS(roi)[0] != Ncameras_intrinsics )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent Ncameras: 'intrinsics' says %ld, 'roi' says %ld",
+        BARF("Inconsistent Ncameras: 'intrinsics' says %ld, 'roi' says %ld",
                      Ncameras_intrinsics,
                      PyArray_DIMS(roi)[0]);
         return false;
@@ -1309,7 +1305,7 @@ static bool optimize_validate_args( // out
     long int NobservationsBoard = PyArray_DIMS(observations_board)[0];
     if( PyArray_DIMS(indices_frame_camintrinsics_camextrinsics)[0] != NobservationsBoard )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent NobservationsBoard: 'observations_board' says %ld, 'indices_frame_camintrinsics_camextrinsics' says %ld",
+        BARF("Inconsistent NobservationsBoard: 'observations_board' says %ld, 'indices_frame_camintrinsics_camextrinsics' says %ld",
                      NobservationsBoard,
                      PyArray_DIMS(indices_frame_camintrinsics_camextrinsics)[0]);
         return false;
@@ -1321,13 +1317,13 @@ static bool optimize_validate_args( // out
     {
         if( calibration_object_spacing <= 0.0 )
         {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_spacing MUST be a valid float > 0");
+            BARF("We have board observations, so calibration_object_spacing MUST be a valid float > 0");
             return false;
         }
 
         if( calibration_object_width_n <= 0 )
         {
-            PyErr_Format(PyExc_RuntimeError, "We have board observations, so calibration_object_width_n MUST be a valid int > 0");
+            BARF("We have board observations, so calibration_object_width_n MUST be a valid int > 0");
             return false;
         }
 
@@ -1335,7 +1331,7 @@ static bool optimize_validate_args( // out
         if( calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
             calibration_object_width_n != PyArray_DIMS(observations_board)[2] )
         {
-            PyErr_Format(PyExc_RuntimeError, "observations_board.shape[1:] MUST be (%d,%d,3). Instead got (%ld,%ld,%ld)",
+            BARF("observations_board.shape[1:] MUST be (%d,%d,3). Instead got (%ld,%ld,%ld)",
                          calibration_object_width_n, calibration_object_width_n,
                          PyArray_DIMS(observations_board)[1],
                          PyArray_DIMS(observations_board)[2],
@@ -1347,7 +1343,7 @@ static bool optimize_validate_args( // out
     int NobservationsPoint = PyArray_DIMS(observations_point)[0];
     if( PyArray_DIMS(indices_point_camintrinsics_camextrinsics_flags)[0] != NobservationsPoint )
     {
-        PyErr_Format(PyExc_RuntimeError, "Inconsistent NobservationsPoint: 'observations_point...' says %ld, 'indices_point_camintrinsics_camextrinsics_flags' says %ld",
+        BARF("Inconsistent NobservationsPoint: 'observations_point...' says %ld, 'indices_point_camintrinsics_camextrinsics_flags' says %ld",
                      NobservationsPoint,
                      PyArray_DIMS(indices_point_camintrinsics_camextrinsics_flags)[0]);
         return false;
@@ -1359,7 +1355,7 @@ static bool optimize_validate_args( // out
     int NlensParams = mrcal_getNlensParams(*lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[1] )
     {
-        PyErr_Format(PyExc_RuntimeError, "intrinsics.shape[1] MUST be %d. Instead got %ld",
+        BARF("intrinsics.shape[1] MUST be %d. Instead got %ld",
                      NlensParams,
                      PyArray_DIMS(intrinsics)[1] );
         return false;
@@ -1369,7 +1365,7 @@ static bool optimize_validate_args( // out
     {
         if( !PySequence_Check(skipped_observations_board) )
         {
-            PyErr_Format(PyExc_RuntimeError, "skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
+            BARF("skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
             return false;
         }
 
@@ -1380,13 +1376,13 @@ static bool optimize_validate_args( // out
             PyObject* nextskip = PySequence_GetItem(skipped_observations_board, i);
             if(!PyInt_Check(nextskip))
             {
-                PyErr_Format(PyExc_RuntimeError, "skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
+                BARF("skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
                 return false;
             }
             long iskip = PyInt_AsLong(nextskip);
             if(iskip <= iskip_last)
             {
-                PyErr_Format(PyExc_RuntimeError, "skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
+                BARF("skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
                 return false;
             }
             iskip_last = iskip;
@@ -1397,7 +1393,7 @@ static bool optimize_validate_args( // out
     {
         if( !PySequence_Check(skipped_observations_point) )
         {
-            PyErr_Format(PyExc_RuntimeError, "skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
+            BARF("skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
             return false;
         }
 
@@ -1408,13 +1404,13 @@ static bool optimize_validate_args( // out
             PyObject* nextskip = PySequence_GetItem(skipped_observations_point, i);
             if(!PyInt_Check(nextskip))
             {
-                PyErr_Format(PyExc_RuntimeError, "skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
+                BARF("skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
                 return false;
             }
             long iskip = PyInt_AsLong(nextskip);
             if(iskip <= iskip_last)
             {
-                PyErr_Format(PyExc_RuntimeError, "skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
+                BARF("skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
                 return false;
             }
             iskip_last = iskip;
@@ -1439,19 +1435,19 @@ static bool optimize_validate_args( // out
         // First I make sure everything is in-range
         if(i_frame < 0 || i_frame >= Nframes)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+            BARF("i_frame MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
                          Nframes-1, i_frame, i_observation);
             return false;
         }
         if(i_cam_intrinsics < 0 || i_cam_intrinsics >= Ncameras_intrinsics)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+            BARF("i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
                          Ncameras_intrinsics-1, i_cam_intrinsics, i_observation);
             return false;
         }
         if(i_cam_extrinsics < -1 || i_cam_extrinsics >= Ncameras_extrinsics)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+            BARF("i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
                          Ncameras_extrinsics-1, i_cam_extrinsics, i_observation);
             return false;
         }
@@ -1460,20 +1456,20 @@ static bool optimize_validate_args( // out
         {
             if( i_cam_intrinsics <= i_cam_intrinsics_last )
             {
-                PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
+                BARF("i_cam_intrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
                              i_observation, i_frame, i_cam_intrinsics, i_cam_intrinsics_last);
                 return false;
             }
             if( i_cam_extrinsics <= i_cam_extrinsics_last )
             {
-                PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
+                BARF("i_cam_extrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
                              i_observation, i_frame, i_cam_extrinsics, i_cam_extrinsics_last);
                 return false;
             }
         }
         else if( i_frame < i_frame_last )
         {
-            PyErr_Format(PyExc_RuntimeError, "i_frame MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d of indices_frame_camintrinsics_camextrinsics has i_frame=%d after previously seeing i_frame=%d",
+            BARF("i_frame MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d of indices_frame_camintrinsics_camextrinsics has i_frame=%d after previously seeing i_frame=%d",
                          i_observation, i_frame, i_frame_last);
             return false;
         }
@@ -1497,19 +1493,19 @@ static bool optimize_validate_args( // out
         // First I make sure everything is in-range
         if(i_point < 0 || i_point >= Npoints)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_point MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics_flags",
+            BARF("i_point MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics_flags",
                          Npoints-1, i_point, i_observation);
             return false;
         }
         if(i_cam_intrinsics < 0 || i_cam_intrinsics >= Ncameras_intrinsics)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics_flags",
+            BARF("i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics_flags",
                          Ncameras_intrinsics-1, i_cam_intrinsics, i_observation);
             return false;
         }
         if(i_cam_extrinsics < -1 || i_cam_extrinsics >= Ncameras_extrinsics)
         {
-            PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics_flags",
+            BARF("i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics_flags",
                          Ncameras_extrinsics-1, i_cam_extrinsics, i_observation);
             return false;
         }
@@ -1518,20 +1514,20 @@ static bool optimize_validate_args( // out
         {
             if( i_cam_intrinsics <= i_cam_intrinsics_last )
             {
-                PyErr_Format(PyExc_RuntimeError, "i_cam_intrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_flags has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
+                BARF("i_cam_intrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_flags has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
                              i_observation, i_point, i_cam_intrinsics, i_cam_intrinsics_last);
                 return false;
             }
             if( i_cam_extrinsics <= i_cam_extrinsics_last )
             {
-                PyErr_Format(PyExc_RuntimeError, "i_cam_extrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_flags has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
+                BARF("i_cam_extrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_flags has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
                              i_observation, i_point, i_cam_extrinsics, i_cam_extrinsics_last);
                 return false;
             }
         }
         else if( i_point < i_point_last )
         {
-            PyErr_Format(PyExc_RuntimeError, "i_point MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d of indices_point_camintrinsics_camextrinsics_flags has i_point=%d after previously seeing i_point=%d",
+            BARF("i_point MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d of indices_point_camintrinsics_camextrinsics_flags has i_point=%d after previously seeing i_point=%d",
                          i_observation, i_point, i_point_last);
             return false;
         }
@@ -1552,7 +1548,7 @@ static bool optimize_validate_args( // out
         // must be valid
         if( observed_pixel_uncertainty <= 0.0 )
         {
-            PyErr_Format(PyExc_RuntimeError, "observed_pixel_uncertainty MUST be a valid float > 0");
+            BARF("observed_pixel_uncertainty MUST be a valid float > 0");
             return false;
         }
     }
@@ -1560,7 +1556,7 @@ static bool optimize_validate_args( // out
     if( !(IS_NULL(solver_context) ||
           Py_TYPE(solver_context) == &SolverContextType) )
     {
-        PyErr_Format(PyExc_RuntimeError, "solver_context must be None or of type mrcal.SolverContext");
+        BARF("solver_context must be None or of type mrcal.SolverContext");
         return false;
     }
 
@@ -1982,14 +1978,14 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             if(stats.rms_reproj_error__pixels < 0.0)
             {
                 // Error! I throw an exception
-                PyErr_SetString(PyExc_RuntimeError, "mrcal.optimize() failed!");
+                BARF("mrcal.optimize() failed!");
                 goto done;
             }
 
             pystats = PyDict_New();
             if(pystats == NULL)
             {
-                PyErr_SetString(PyExc_RuntimeError, "PyDict_New() failed!");
+                BARF("PyDict_New() failed!");
                 goto done;
             }
 #define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)         \
@@ -1997,13 +1993,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 PyObject* obj = pyconverter( (type)stats.name);         \
                 if( obj == NULL)                                        \
                 {                                                       \
-                    PyErr_SetString(PyExc_RuntimeError, "Couldn't make PyObject for '" #name "'"); \
+                    BARF("Couldn't make PyObject for '" #name "'"); \
                     goto done;                                          \
                 }                                                       \
                                                                         \
                 if( 0 != PyDict_SetItemString(pystats, #name, obj) )    \
                 {                                                       \
-                    PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict '" #name "'"); \
+                    BARF("Couldn't add to stats dict '" #name "'"); \
                     Py_DECREF(obj);                                     \
                     goto done;                                          \
                 }                                                       \
@@ -2013,21 +2009,21 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             if( 0 != PyDict_SetItemString(pystats, "x",
                                           (PyObject*)x_final) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'x'");
+                BARF("Couldn't add to stats dict 'x'");
                 goto done;
             }
             if( covariance_intrinsics &&
                 0 != PyDict_SetItemString(pystats, "covariance_intrinsics",
                                           (PyObject*)covariance_intrinsics) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'covariance_intrinsics'");
+                BARF("Couldn't add to stats dict 'covariance_intrinsics'");
                 goto done;
             }
             if( covariance_extrinsics &&
                 0 != PyDict_SetItemString(pystats, "covariance_extrinsics",
                                           (PyObject*)covariance_extrinsics) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'covariance_extrinsics'");
+                BARF("Couldn't add to stats dict 'covariance_extrinsics'");
                 goto done;
             }
             // The outlier_indices_final numpy array has Nfeatures elements,
@@ -2038,14 +2034,14 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                        true,
                                        NPY_ANYORDER))
             {
-                PyErr_Format(PyExc_RuntimeError, "Couldn't resize outlier_indices_final to %d elements",
+                BARF("Couldn't resize outlier_indices_final to %d elements",
                              stats.Noutliers);
                 goto done;
             }
             if( 0 != PyDict_SetItemString(pystats, "outlier_indices",
                                           (PyObject*)outlier_indices_final) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outlier_indices'");
+                BARF("Couldn't add to stats dict 'outlier_indices'");
                 goto done;
             }
             // The outside_ROI_indices_final numpy array has Nfeatures elements,
@@ -2056,14 +2052,14 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                        true,
                                        NPY_ANYORDER))
             {
-                PyErr_Format(PyExc_RuntimeError, "Couldn't resize outside_ROI_indices_final to %d elements",
+                BARF("Couldn't resize outside_ROI_indices_final to %d elements",
                              stats.NoutsideROI);
                 goto done;
             }
             if( 0 != PyDict_SetItemString(pystats, "outside_ROI_indices",
                                           (PyObject*)outside_ROI_indices_final) )
             {
-                PyErr_SetString(PyExc_RuntimeError, "Couldn't add to stats dict 'outside_ROI_indices'");
+                BARF("Couldn't add to stats dict 'outside_ROI_indices'");
                 goto done;
             }
 
