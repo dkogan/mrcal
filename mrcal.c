@@ -5091,6 +5091,8 @@ mrcal_optimize( // out
                                        Nframes, Npoints,
                                        problem_details,
                                        lensmodel);
+    if(verbose)
+        MSG("## Nmeasurements=%d, Nstate=%d", ctx.Nmeasurements, Nstate);
     if(ctx.Nmeasurements <= Nstate)
     {
         MSG("WARNING: problem isn't overdetermined: Nmeasurements=%d, Nstate=%d. Solver may not converge, and if it does, the results aren't reliable. Add more constraints and/or regularization",
