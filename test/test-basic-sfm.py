@@ -190,4 +190,39 @@ testutils.confirm_equal(fit_rms, 0,
                         msg = f"Solved at ref-cam0 with one ranged point",
                         eps = 2.0)
 
+
+
+############### Second solve: do everything in the ref coord system, with a few
+############### fixed-position points to set the coords
+extrinsics_rt_fromref, points, observations = make_noisy_inputs()
+
+# De-noise the fixed points. We know where they are exactly. And correctly
+Npoints_fixed = 3
+points[-Npoints_fixed:, ...] = ref_p[-Npoints_fixed:, ...]
+
+stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
+                        extrinsics_rt_fromref,
+                        None, points,
+                        None, None,
+                        observations,
+                        indices_point_camintrinsics_camextrinsics_flags,
+                        lensmodel,
+                        imagersizes                       = nps.atleast_dims(imagersize, -2),
+                        Npoints_fixed                     = Npoints_fixed,
+                        observed_pixel_uncertainty        = 1.0,
+                        do_optimize_intrinsic_core        = False,
+                        do_optimize_intrinsic_distortions = False,
+                        do_optimize_extrinsics            = True,
+                        do_optimize_frames                = True,
+                        skip_outlier_rejection            = True,
+                        skip_regularization               = False,
+                        verbose                           = False)
+
+# Got a solution. How well do they fit?
+fit_rms = np.sqrt(np.mean(nps.norm2(points - ref_p)))
+
+testutils.confirm_equal(fit_rms, 0,
+                        msg = f"Solved at ref coords with known-position points",
+                        eps = 1.0)
+
 testutils.finish()
