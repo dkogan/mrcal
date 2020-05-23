@@ -111,7 +111,9 @@ REQUIRED ARGUMENTS
 
 - points: array of dims (Npoints, 3). The estimated positions of discrete points
   we're observing. These positions are represented in the reference coord
-  system.
+  system. The initial Npoints-Npoints_fixed points are optimized by this
+  routine. The final Npoints_fixed points are fixed. By default
+  Npoints_fixed==0, and we optimize all the points.
 
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
@@ -163,11 +165,6 @@ REQUIRED ARGUMENTS
     of the optimization cost that we try to minimize. The reference distance is
     given in the initial value of the "points" array passed to this function
 
-  - mrcal.POINT_HAS_REF_POSITION: we know the position of this point in the
-    reference coordinate system. We thus don't include this point in the vector
-    we're optimizing. The reference position is given in the "points" array
-    passed to this function
-
   If none of these apply, the flags should be 0
 
 - lensmodel: a string such as
@@ -189,6 +186,12 @@ OPTIONAL ARGUMENTS
   board. If omitted or None, the board is assumed to be perfectly flat. And if
   do_optimize_calobject_warp then we optimize these parameters to find the
   best-fitting board shape.
+
+- Npoints_fixed
+
+  Specifies how many points at the end of the points array are fixed, and remain
+  unaffected by the optimization. This is 0 by default, and we optimize all the
+  points.
 
 - do_optimize_intrinsic_core
 - do_optimize_intrinsic_distortions

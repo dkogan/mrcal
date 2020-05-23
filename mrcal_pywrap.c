@@ -122,7 +122,7 @@ typedef struct {
     mrcal_problem_details_t problem_details;
 
     int Ncameras_intrinsics, Ncameras_extrinsics;
-    int Nframes, Npoints;
+    int Nframes, Npoints, Npoints_fixed;
     int NobservationsBoard;
     int calibration_object_width_n;
 
@@ -152,6 +152,7 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "Ncameras_extrinsics:               %d\n"
                                "Nframes:                           %d\n"
                                "Npoints:                           %d\n"
+                               "Npoints_fixed:                      %d\n"
                                "NobservationsBoard:                %d\n"
                                "calibration_object_width_n:        %d\n"
                                "do_optimize_intrinsic_core:        %d\n"
@@ -159,7 +160,7 @@ static PyObject* SolverContext_str(SolverContext* self)
                                p_lensmodel_name,
                                self->Ncameras_intrinsics,
                                self->Ncameras_extrinsics,
-                               self->Nframes, self->Npoints,
+                               self->Nframes, self->Npoints, self->Npoints_fixed,
                                self->NobservationsBoard,
                                self->calibration_object_width_n,
                                self->problem_details.do_optimize_intrinsic_core,
@@ -377,10 +378,11 @@ static PyObject* SolverContext_state_index_point(SolverContext* self,
     PyObject* result = NULL;
     int i_point = -1;
     if(!PyArg_ParseTuple( args, "i", &i_point )) goto done;
-    if( i_point < 0 || i_point >= self->Nframes )
+    if( i_point < 0 || i_point >= self->Npoints-self->Npoints_fixed )
     {
         BARF( "i_point must refer to a valid point i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              self->Npoints-1,i_point);
+              self->Npoints-self->Npoints_fixed-1,
+              i_point);
         goto done;
     }
     result = Py_BuildValue("i",
@@ -403,7 +405,7 @@ static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
     }
 
     return Py_BuildValue("i",
-                         mrcal_state_index_calobject_warp(self->Npoints,
+                         mrcal_state_index_calobject_warp(self->Npoints-self->Npoints_fixed,
                                                           self->Nframes,
                                                           self->Ncameras_intrinsics,
                                                           self->Ncameras_extrinsics,
@@ -501,7 +503,7 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
             mrcal_pack_solver_state_vector( x,
                                             self->lensmodel, self->problem_details,
                                             self->Ncameras_intrinsics, self->Ncameras_extrinsics,
-                                            self->Nframes, self->Npoints );
+                                            self->Nframes, self->Npoints-self->Npoints_fixed );
             x = &x[Nstate];
         }
     else
@@ -510,7 +512,7 @@ static PyObject* SolverContext_pack_unpack(SolverContext* self,
             mrcal_unpack_solver_state_vector( x,
                                               self->lensmodel, self->problem_details,
                                               self->Ncameras_intrinsics, self->Ncameras_extrinsics,
-                                              self->Nframes, self->Npoints );
+                                              self->Nframes, self->Npoints-self->Npoints_fixed );
             x = &x[Nstate];
         }
 
@@ -1232,6 +1234,7 @@ static PyObject* unproject_stereographic(PyObject* self,
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
     _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp,              NPY_DOUBLE, {2}                  ) \
+    _(Npoints_fixed,                      int,            0,       "i",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
@@ -1480,7 +1483,23 @@ static bool optimize_validate_args( // out
     }
     int Npoints = 0;
     if( !IS_NULL(points) )
+    {
         Npoints = PyArray_DIMS(points)[0];
+        if(Npoints_fixed > Npoints)
+        {
+            BARF("I have Npoints=len(points)=%d, but Npoints_fixed=%d. Npoints_fixed > Npoints makes no sense",
+                 Npoints, Npoints_fixed);
+            return false;
+        }
+    }
+    else
+    {
+        if(Npoints_fixed)
+        {
+            BARF("No 'points' array was given, so it's 'Npoints_fixed' doesn't do anything, and shouldn't be given");
+            return false;
+        }
+    }
     int i_point_last = -1;
     i_cam_intrinsics_last = -1;
     i_cam_extrinsics_last = -1;
@@ -1787,7 +1806,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             c_observations_point[i_observation].i_cam_extrinsics = i_cam_extrinsics;
             c_observations_point[i_observation].i_point          = i_point;
             c_observations_point[i_observation].has_ref_range    = flags & (1U << MRCAL_POINT_HAS_REF_RANGE_BIT);
-            c_observations_point[i_observation].has_ref_position = flags & (1U << MRCAL_POINT_HAS_REF_POSITION_BIT);;
 
             c_observations_point[i_observation].px = ((point3_t*)PyArray_DATA(observations_point))[i_observation];
 
@@ -1953,7 +1971,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_calobject_warp,
 
                                 Ncameras_intrinsics, Ncameras_extrinsics,
-                                Nframes, Npoints,
+                                Nframes, Npoints, Npoints_fixed,
 
                                 c_observations_board,
                                 c_observations_board_pool,
@@ -2071,13 +2089,14 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             int N_j_nonzero = mrcal_getN_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
                                                    c_observations_board, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
+                                                   Npoints, Npoints_fixed,
                                                    problem_details,
                                                    lensmodel_type,
                                                    calibration_object_width_n);
             int Nintrinsics = mrcal_getNlensParams(lensmodel_type);
 
             int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
-                                         Nframes, Npoints,
+                                         Nframes, Npoints-Npoints_fixed,
                                          problem_details, lensmodel_type);
 
             PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
@@ -2108,7 +2127,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                      c_calobject_warp,
 
                                      Ncameras_intrinsics, Ncameras_extrinsics,
-                                     Nframes, Npoints,
+                                     Nframes, Npoints, Npoints_fixed,
 
                                      c_observations_board,
                                      c_observations_board_pool,
@@ -2230,9 +2249,6 @@ static void _init_mrcal_common(PyObject* module)
     PyModule_AddIntConstant(module,
                             "POINT_HAS_REF_RANGE",
                             1U << MRCAL_POINT_HAS_REF_RANGE_BIT);
-    PyModule_AddIntConstant(module,
-                            "POINT_HAS_REF_POSITION",
-                            1U << MRCAL_POINT_HAS_REF_POSITION_BIT);
 }
 
 #if PY_MAJOR_VERSION == 2

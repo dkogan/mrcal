@@ -186,7 +186,7 @@ for test in tests:
                                      shell = False,
                                      encoding = 'ascii')
     except Exception as e:
-        testutils.confirm(False, msg=f"failed to check gradients for '{test}")
+        testutils.confirm(False, msg=f"failed to check gradients for '{test}'")
         continue
 
     varmap  = get_variable_map(full)
