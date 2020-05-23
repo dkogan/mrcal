@@ -146,6 +146,194 @@ def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
     return full_object
 
 
+def make_synthetic_board_observations(models,
+                                      object_width_n,object_height_n,
+                                      object_spacing, calobject_warp,
+                                      at_xyz_rpydeg, noiseradius_xyz_rpydeg,
+                                      Nframes):
+    r'''Produces synthetic observations of a chessboard
+
+SYNOPSIS
+
+    models = [mrcal.cameramodel("0.cameramodel"),
+              mrcal.cameramodel("1.cameramodel"),]
+    p = mrcal.make_synthetic_board_observations(models,
+
+                                                # board geometry
+                                                10,12,0.1,None,
+
+                                                # Mean board pose
+                                                at_xyz_rpydeg,
+
+                                                # Noise radius of the board pose
+                                                noiseradius_xyz_rpydeg,
+
+                                                # How many frames we want
+                                                100)
+
+    print(p.shape)
+    [100, 2, 12, 10, 2]
+
+Given a description of a calibration object and of the cameras observing it,
+produces pixel observations of the objects by those cameras. Exactly Nframes
+frames of data will be returned. In each frame ALL the cameras will see ALL the
+points in the calibration object
+
+The "models" provides the intrinsics and extrinsics.
+
+The calibration objects are nominally have pose at_xyz_rpydeg in the reference
+coordinate system, with each pose perturbed uniformly with radius
+noiseradius_xyz_rpydeg. I'd like control over roll,pitch,yaw, so this isn't a
+normal rt transformation.
+
+Returns array of shape (Nframes, Ncameras, object_height, object_width, 2)
+
+ARGUMENTS
+
+- models: an array of mrcal.cameramodel objects, one for each camera we're
+  simulating. This is the intrinsics and the extrinsics. Ncameras = len(models)
+
+- object_width_n:  the number of horizontal points in the calibration object grid
+
+- object_height_n: the number of vertical   points in the calibration object grid
+
+- object_spacing: the distance between adjacent points in the calibration object grid
+
+- calobject_warp: a description of the calibration board warping. None means "no
+  warping": the object is flat. Otherwise this is an array of shape (2,). See
+  the docs for get_ref_calibration_object() for a description.
+
+- at_xyz_rpydeg: the nominal pose of the calibration object, in the reference
+  coordinate system. This is an array of shape (6,): the position of the center
+  of the object, followed by the roll-pitch-yaw orientation, in degrees
+
+- noiseradius_xyz_rpydeg: the deviation-from-nominal for the chessboard for each
+  frame. This is the uniform distribution radius; the elements have the same
+  meaning as at_xyz_rpydeg
+
+- Nframes: how many frames of observations to return
+
+    '''
+
+    Ncameras = len(models)
+
+
+    def get_observation_chunk():
+        '''Get some number of observations. I make Nframes of them, but keep only the
+        in-bounds ones'''
+
+        # I move the board, and keep the cameras stationary.
+        #
+        # Camera coords: x,y with pixels, z forward
+        # Board coords:  x,y along. z forward (i.e. back towards the camera)
+        #                rotation around (x,y,z) is (pitch,yaw,roll)
+        #                respectively
+
+
+
+        # shape: (Nh,Nw,3)
+        # The center of the board is at the origin (ignoring warping)
+        board_reference = \
+            mrcal.get_ref_calibration_object(object_width_n,object_height_n,
+                                             object_spacing,calobject_warp) - \
+            np.array(( (object_height_n-1)*object_spacing/2.,
+                       (object_width_n -1)*object_spacing/2.,
+                       0 ))
+
+        xyz             = np.array( at_xyz_rpydeg         [:3] )
+        rpy             = np.array( at_xyz_rpydeg         [3:] ) * np.pi/180.
+        xyz_noiseradius = np.array( noiseradius_xyz_rpydeg[:3] )
+        rpy_noiseradius = np.array( noiseradius_xyz_rpydeg[3:] ) * np.pi/180.
+
+        # shape (Nframes,3)
+        xyz = xyz + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * xyz_noiseradius
+        rpy = rpy + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * rpy_noiseradius
+
+        roll,pitch,yaw = nps.transpose(rpy)
+
+        sr,cr = np.sin(roll), np.cos(roll)
+        sp,cp = np.sin(pitch),np.cos(pitch)
+        sy,cy = np.sin(yaw),  np.cos(yaw)
+
+        Rp = np.zeros((Nframes,3,3), dtype=float)
+        Ry = np.zeros((Nframes,3,3), dtype=float)
+        Rr = np.zeros((Nframes,3,3), dtype=float)
+
+        Rp[:,0,0] =   1
+        Rp[:,1,1] =  cp
+        Rp[:,2,1] =  sp
+        Rp[:,1,2] = -sp
+        Rp[:,2,2] =  cp
+
+        Ry[:,1,1] =   1
+        Ry[:,0,0] =  cy
+        Ry[:,2,0] =  sy
+        Ry[:,0,2] = -sy
+        Ry[:,2,2] =  cy
+
+        Rr[:,2,2] =   1
+        Rr[:,0,0] =  cr
+        Rr[:,1,0] =  sr
+        Rr[:,0,1] = -sr
+        Rr[:,1,1] =  cr
+
+        # I didn't think about the order too hard; it might be backwards. It also
+        # probably doesn't really matter
+        # shape (Nframes,3,3)
+        R = nps.matmult(Rr, Ry, Rp)
+
+        # shape = (Nframes, Nh,Nw,3)
+        boards_cam0 = nps.matmult( # shape (        Nh,Nw,1,3)
+                                   nps.dummy(board_reference, -2),
+
+                                   # shape (Nframes, 1, 1,3,3)
+                                   nps.mv(R,               0,-5),
+                                 )[..., 0, :] + \
+                      nps.mv(xyz, 0,-4) # shape (Nframes,1,1,3)
+
+        # I project everything. Shape: (Nframes,Ncameras,Nh,Nw,2)
+        p = \
+          nps.mv( \
+            nps.cat( \
+              *[ mrcal.project( mrcal.transform_point_Rt(models[i].extrinsics_Rt_fromref(), boards_cam0),
+                                *models[i].intrinsics()) \
+                 for i in range(Ncameras) ]),
+                  0,1 )
+
+        # I pick only those frames where all observations (over all the cameras) are
+        # in view
+        iframe = \
+            np.all(nps.clump(p,n=-4) >= 0, axis=-1)
+        for i in range(Ncameras):
+            W,H = models[i].imagersize()
+            iframe *= \
+                np.all(nps.clump(p[..., 0], n=-3) <= W-1, axis=-1) * \
+                np.all(nps.clump(p[..., 1], n=-3) <= H-1, axis=-1)
+        p = p[iframe, ...]
+
+        # p now has shape (Nframes_inview,Ncameras,Nh*Nw,2)
+        return p
+
+
+
+
+    # shape (Nframes_sofar,Ncameras,Nh,Nw,2)
+    p = np.zeros((0,
+                  Ncameras,
+                  object_height_n,object_width_n,
+                  2),
+                 dtype=float)
+
+    # I keep creating data, until I get Nframes-worth of in-view observations
+    while True:
+        p = nps.glue(p, get_observation_chunk(), axis=-5)
+        if p.shape[0] >= Nframes:
+            p = p[:Nframes,...]
+            break
+
+    return p
+
+
 def show_calibration_geometry(models,
                               cameranames                 = None,
                               cameras_Rt_plot_ref         = None,

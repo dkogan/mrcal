@@ -142,6 +142,9 @@ sys.path[:0] = (os.path.dirname(os.path.abspath(sys.argv[0])) + '/../..'),
 import mrcal
 
 
+Nframes  = args.Nframes
+Ncameras = len(args.models)
+
 # I move the board, and keep the cameras stationary.
 #
 # Camera coords: x,y with pixels, z forward
@@ -149,22 +152,6 @@ import mrcal
 #                rotation around (x,y,z) is (pitch,yaw,roll)
 #                respectively
 
-
-
-
-# shape: (N,N,3)
-board_reference = \
-    mrcal.get_ref_calibration_object(args.object_width_n,
-                                     args.object_width_n,
-                                     args.object_spacing,
-                                     args.calobject_warp) - \
-                                     (args.object_width_n-1)*args.object_spacing/2. * np.array((1,1,0))
-# shape: (N*N,3)
-board_reference = nps.clump(board_reference, n=2)
-
-
-Nframes  = args.Nframes
-Ncameras = len(args.models)
 
 models = [ mrcal.cameramodel(modelfile) for modelfile in args.models ]
 if args.relative_extrinsics:
@@ -174,101 +161,20 @@ else:
 Rt_xr = [ m.extrinsics_Rt_fromref() for m in models ]
 Rt_x0 = [ mrcal.compose_Rt( Rt_xr[i], Rt_r0 ) \
           for i in range(Ncameras) ]
+for i in range(Ncameras):
+    models[i].extrinsics_Rt_fromref(Rt_x0[i])
 
 pixel_noise_xy_1stdev = args.observed_pixel_uncertainty
 
 
 
-def get_observation_chunk():
-    '''Evaluates Nframes-worth of observations
-
-    But many of these will produce out-of-bounds views, and will be thrown out.
-    So <Nframes observations will be returned.
-
-    Returns array of shape (Nframes_inview,Ncameras,N*N,2)
-
-    '''
-
-    xyz             = np.array( args.at_xyz_rpydeg         [:3] )
-    rpy             = np.array( args.at_xyz_rpydeg         [3:] ) * np.pi/180.
-    xyz_noiseradius = np.array( args.noiseradius_xyz_rpydeg[:3] )
-    rpy_noiseradius = np.array( args.noiseradius_xyz_rpydeg[3:] ) * np.pi/180.
-
-    # shape (Nframes,3)
-    xyz = xyz + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * xyz_noiseradius
-    rpy = rpy + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * rpy_noiseradius
-
-    roll,pitch,yaw = nps.transpose(rpy)
-
-    sr,cr = np.sin(roll), np.cos(roll)
-    sp,cp = np.sin(pitch),np.cos(pitch)
-    sy,cy = np.sin(yaw),  np.cos(yaw)
-
-    Rp = np.zeros((Nframes,3,3), dtype=float)
-    Ry = np.zeros((Nframes,3,3), dtype=float)
-    Rr = np.zeros((Nframes,3,3), dtype=float)
-
-    Rp[:,0,0] =   1
-    Rp[:,1,1] =  cp
-    Rp[:,2,1] =  sp
-    Rp[:,1,2] = -sp
-    Rp[:,2,2] =  cp
-
-    Ry[:,1,1] =   1
-    Ry[:,0,0] =  cy
-    Ry[:,2,0] =  sy
-    Ry[:,0,2] = -sy
-    Ry[:,2,2] =  cy
-
-    Rr[:,2,2] =   1
-    Rr[:,0,0] =  cr
-    Rr[:,1,0] =  sr
-    Rr[:,0,1] = -sr
-    Rr[:,1,1] =  cr
-
-    # I didn't think about the order too hard; it might be backwards. It also
-    # probably doesn't really matter
-    R = nps.matmult(Rr, Ry, Rp)
-
-    # shape = (Nframes, N*N, 3)
-    boards_cam0 = nps.matmult( # shape (        N*N,1,3)
-                               nps.mv(board_reference, 0,-3),
-
-                               # shape (Nframes,1,  3,3)
-                               nps.mv(R,               0,-4),
-                             )[..., 0, :] + \
-                  nps.mv(xyz, 0,-3) # shape (Nframes,1,3)
-
-    # I project everything. Shape: (Nframes,Ncameras,N*N,2)
-    p = nps.mv( nps.cat( *[ mrcal.project( mrcal.transform_point_Rt(Rt_x0[i], boards_cam0),
-                                           *models[i].intrinsics()) \
-                            for i in range(Ncameras) ]),
-                0,1 )
-
-    # I pick only those frames where all observations (over all the cameras) are
-    # in view
-    iframe = \
-        np.all(nps.clump(p,         n=-3) >= 0,   axis=-1)
-    for i in range(Ncameras):
-        W,H = models[i].imagersize()
-        iframe *= \
-            np.all(nps.clump(p[..., 0], n=-2) <= W-1, axis=-1) * \
-            np.all(nps.clump(p[..., 1], n=-2) <= H-1, axis=-1)
-    p = p[iframe, ...]
-
-    # p now has shape (Nframes_inview,Ncameras,N*N,2)
-    return p
-
-
-# shape (Nframes_inview,Ncameras,N*N,2)
-p = np.zeros((0,Ncameras,args.object_width_n*args.object_width_n,2), dtype=float)
-
-# I keep creating data, until I get Nframes-worth of in-view observations
-while True:
-    p = nps.glue(p, get_observation_chunk(), axis=-4)
-    if p.shape[0] >= Nframes:
-        p = p[:,:Nframes,...]
-        break
+# shape (Nframes,Ncameras,Nh,Nw,2)
+p = mrcal.make_synthetic_board_observations(models,
+                                            args.object_width_n,args.object_width_n,
+                                            args.object_spacing,args.calobject_warp,
+                                            args.at_xyz_rpydeg,
+                                            args.noiseradius_xyz_rpydeg,
+                                            Nframes)
 
 p += np.random.randn(*p.shape) * pixel_noise_xy_1stdev
 
@@ -287,11 +193,11 @@ for iframe in range(Nframes):
             fmt = 'frame{:06d}-cam{:01d}.xxx %.3f %.3f'.format(iframe, icam)
         else:
             if args.reported_level >= 0:
-                level = args.reported_level * np.ones((p.shape[-2],),)
+                level = args.reported_level * np.ones((p.shape[-3],p.shape[-2]),)
             else:
-                level = np.random.randint(low=0, high=1-args.reported_level, size=(p.shape[-2],))
+                level = np.random.randint(low=0, high=1-args.reported_level, size=(p.shape[-3],p.shape[-2],))
 
-            arr = nps.glue( p[iframe,icam,...], nps.transpose(level),
+            arr = nps.glue( p[iframe,icam,...], nps.dummy(level,-1),
                             axis=-1)
             fmt = 'frame{:06d}-cam{:01d}.xxx %.3f %.3f %d'.format(iframe, icam)
 
