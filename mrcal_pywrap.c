@@ -1529,22 +1529,7 @@ static bool optimize_validate_args( // out
             return false;
         }
         // And then I check monotonicity
-        if(i_point == i_point_last)
-        {
-            if( i_cam_intrinsics <= i_cam_intrinsics_last )
-            {
-                BARF("i_cam_intrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_flags has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
-                             i_observation, i_point, i_cam_intrinsics, i_cam_intrinsics_last);
-                return false;
-            }
-            if( i_cam_extrinsics <= i_cam_extrinsics_last )
-            {
-                BARF("i_cam_extrinsics MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d (point %d) of indices_point_camintrinsics_camextrinsics_flags has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
-                             i_observation, i_point, i_cam_extrinsics, i_cam_extrinsics_last);
-                return false;
-            }
-        }
-        else if( i_point < i_point_last )
+        if( i_point < i_point_last )
         {
             BARF("i_point MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics_flags. Instead row %d of indices_point_camintrinsics_camextrinsics_flags has i_point=%d after previously seeing i_point=%d",
                          i_observation, i_point, i_point_last);
