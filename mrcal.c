@@ -22,8 +22,6 @@ static inline int cvRound(float value)
 
 #include "mrcal.h"
 
-#warning terminology: measurement and observation are the same?
-
 #warning kill this comment?
 /*
 
@@ -4309,7 +4307,7 @@ void optimizerCallback(// input state
 #pragma GCC diagnostic pop
 
         if(!observation->skip_observation
-#warning "no outlier rejection on points yet; see warning above"
+#warning "no outlier rejection on points yet; see warning below"
            )
         {
             // I have my two measurements (dx, dy). I propagate their
