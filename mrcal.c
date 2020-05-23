@@ -2761,8 +2761,28 @@ bool mrcal_unproject( // out
                 dq_dtframe[1].z*dv_du[2].y;
         }
 
+
+#warning "This should go away. For some reason it makes unproject() converge better, and it makes the tests pass. But it's not even right!"
+#if 0
         out->xyz[0] = (q[i].x-cx)/fx;
         out->xyz[1] = (q[i].y-cy)/fy;
+#else
+        // Seed from a perfect stereographic projection, pushed towards the
+        // center a bit. Normally I'd set out[] to q[i], but for some models
+        // (OPENCV8 for instance) this pushes us into a place where stuff
+        // doesn't converge anymore. This produces a more stable solution, and
+        // my tests pass
+        out->xyz[0] = (q[i].x-cx)*0.7 + cx;
+        out->xyz[1] = (q[i].y-cy)*0.7 + cy;
+
+        // something like this makes more sense, but it doesn't work! The tests still fail
+        // out->xyz[0] = (q[i].x-cx)/fx * 0.7;
+        // out->xyz[1] = (q[i].y-cy)/fy * 0.7;
+#endif
+
+
+
+
 
         dogleg_parameters2_t dogleg_parameters;
         dogleg_getDefaultParameters(&dogleg_parameters);
