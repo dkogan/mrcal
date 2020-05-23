@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-r'''Basic SFM test
+r'''Basic structure-from-motion test
 
 I observe, with noise, a number of points from various angles with a single
 camera, and I make sure that I can accurately compute the locations of the
