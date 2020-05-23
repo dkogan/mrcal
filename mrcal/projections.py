@@ -486,13 +486,13 @@ def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
         cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
 
 
-def calobservations_project(lensmodel, intrinsics, extrinsics, frames, dot_spacing, Nwant, calobject_warp):
+def calobservations_project(lensmodel, intrinsics, extrinsics, frames, object_spacing, Nwant, calobject_warp):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
     the projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)
 
     '''
 
-    object_ref = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing, calobject_warp)
+    object_ref = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing, calobject_warp)
     Rf = mrcal.R_from_r(frames[:,:3])
     Rf = nps.mv(Rf,           0, -5)
     tf = nps.mv(frames[:,3:], 0, -5)

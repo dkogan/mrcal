@@ -111,7 +111,7 @@ def align3d_procrustes(A, B, vectors=False):
     else:       return _align3d_procrustes_points (A,B)
 
 
-def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
+def get_ref_calibration_object(W, H, object_spacing, calobject_warp=None):
     r'''Returns the geometry of the calibration object in its own coordinate frame
 
     Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
@@ -132,7 +132,7 @@ def get_ref_calibration_object(W, H, dot_spacing, calobject_warp=None):
     full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
                            np.zeros((H,W,1)),
                            axis=-1) # shape (H,W,3)
-    full_object *= dot_spacing
+    full_object *= object_spacing
 
     if calobject_warp is not None:
         xr = xx / (W-1)
@@ -2738,7 +2738,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
     from tempfile import mkstemp
 
 
-    def get_dot_observations(Nw, Nh, globs, corners_cache_vnl, exclude=set()):
+    def get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude=set()):
         r'''Return dot observations, from a cache or from mrgingham
 
         Returns a dict mapping from filename to a numpy array with a full grid
@@ -2935,7 +2935,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
     #               push indices_frame_camera
 
     # inputs[camera][image] = (image_filename, frame_number)
-    mapping_file_corners,files_per_camera = get_dot_observations(Nw, Nh, globs, corners_cache_vnl, exclude)
+    mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude)
     mapping_file_framecamera              = get_mapping_file_framecamera(*files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
@@ -2967,7 +2967,7 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
 def estimate_local_calobject_poses( indices_frame_camera,
                                     observations,
-                                    dot_spacing,Nwant,
+                                    object_spacing,Nwant,
                                     models_or_intrinsics ):
     r"""Estimates pose of observed object in a single-camera view
 
@@ -2982,7 +2982,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
     The observations are given in a numpy array with axes:
 
-      (iframe, idot_x, idot_y, idot2d_xyweight)
+      (iframe, icorner_x, icorner_y, idot2d_xyweight)
 
     So as an example, the observed pixel coord of the dot (3,4) in frame index 5
     is the 2-vector observations[5,3,4,:2] with weight observations[5,3,4,2]
@@ -3039,7 +3039,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
     Rt_cf_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
     # No calobject_warp. Good-enough for the seeding
-    full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+    full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing)
 
     for i_observation in range(Nobservations):
 
@@ -3101,7 +3101,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
 
 def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
-                            observations, dot_spacing, Ncameras,
+                            observations, object_spacing, Ncameras,
                             Nwant):
     r'''Estimate camera poses in respect to each other
 
@@ -3161,7 +3161,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
         # j!=0. Good enough for now
         #
         # No calobject_warp. Good-enough for the seeding
-        full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+        full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing)
 
         A = np.array(())
         B = np.array(())
@@ -3367,7 +3367,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
 def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
                                               extrinsics_rt_fromref,
-                                              indices_frame_camera, dot_spacing,
+                                              indices_frame_camera, object_spacing,
                                               Nwant):
     r'''Estimate poses of the calibration object using no extrinsic information
 
@@ -3433,7 +3433,7 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
         # object into the mean point cloud
         #
         # No calobject_warp. Good-enough for the seeding
-        obj = mrcal.get_ref_calibration_object(Nwant, Nwant, dot_spacing)
+        obj = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing)
 
         sum_obj_unproj = obj*0
         for i_observation in range(i_observation0, i_observation1):
@@ -3481,7 +3481,7 @@ def make_seed_no_distortion( imagersizes,
                              Ncameras,
                              indices_frame_camera,
                              observations,
-                             dot_spacing,
+                             object_spacing,
                              object_width_n):
     r'''Generate a solution seed for a given input
 
@@ -3513,7 +3513,7 @@ def make_seed_no_distortion( imagersizes,
     calobject_poses_local_Rt_cf = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
                                               observations,
-                                              dot_spacing, object_width_n,
+                                              object_spacing, object_width_n,
                                               intrinsics)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
@@ -3530,7 +3530,7 @@ def make_seed_no_distortion( imagersizes,
     camera_poses_Rt01 = _estimate_camera_poses( calobject_poses_local_Rt_cf,
                                                 indices_frame_camera,
                                                 observations,
-                                                dot_spacing,
+                                                object_spacing,
                                                 Ncameras,
                                                 object_width_n)
 
@@ -3546,7 +3546,7 @@ def make_seed_no_distortion( imagersizes,
         mrcal.estimate_frame_poses_from_monocular_views(
             calobject_poses_local_Rt_cf, extrinsics,
             indices_frame_camera,
-            dot_spacing, object_width_n)
+            object_spacing, object_width_n)
 
     return intrinsics_data,extrinsics,frames
 

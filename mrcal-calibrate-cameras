@@ -829,7 +829,7 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                                           Ncameras             = Ncameras,
                                           indices_frame_camera = indices_frame_camera,
                                           observations         = observations,
-                                          dot_spacing          = args.object_spacing,
+                                          object_spacing       = args.object_spacing,
                                           object_width_n       = args.object_width_n)
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
