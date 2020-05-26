@@ -348,16 +348,6 @@ def parse_args():
                         axis-aligned ellipsoid. If passing in ANY roi, you MUST
                         pass in the ROI for EACH camera; a separate '--roi' for
                         each one.''')
-    parser.add_argument('--incremental',
-                        required=False,
-                        default=False,
-                        action='store_true',
-                        help='''THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet. If passed, we
-                        incrementally increase ROI and lens model
-                        complexity across multiple solves. In this mode the
-                        requested ROI is a target, and the requested distortion
-                        model is the upper bound. If we can get away with a
-                        simpler one, we use that.''')
     parser.add_argument('--seed',
                         required=False,
                         type=str,
@@ -371,12 +361,6 @@ def parse_args():
                         with --focal. If given, --imagersize is omitted or it
                         must match EXACTLY with whatever is in the --seed
                         models''')
-    parser.add_argument('--num-cross-validation-splits',
-                        required=False,
-                        default=1,
-                        type=positive_int,
-                        help='''If passed, we cross-validate the results with this many splits. This only
-                        makes sense as an integer >1. THIS IS EXPERIMENTAL.''')
     parser.add_argument('--jobs', '-j',
                         type=int,
                         default=1,
@@ -783,8 +767,9 @@ def get_observation_subset__right_of_threshold_and_within_center(point_x_thresho
                        dtype=int)
     return get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths)
 
-def incremental_optimization_loop(args, seedmodels, imagersizes, observations, indices_frame_camera,
-                                  outlier_indices, incremental):
+def solve_initial(args, seedmodels, imagersizes,
+                  observations, indices_frame_camera,
+                  outlier_indices):
     '''Solve an incrementally-expanding optimization problem in several passes
 
     The logic is this:
@@ -911,19 +896,6 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                 indices_frame_camera,
                 args.object_spacing, args.object_width_n)
 
-
-    def get_scaled_roi(roi_final, iroi, Nroi):
-
-        if Nroi == 1:
-            if iroi != 0:
-                raise Exception("get_scaled_roi(Nroi=1, iroi != 0) doesn't make any sense")
-            return roi_final
-
-        scale = float(iroi+1)/float(Nroi)
-        return nps.glue(roi_final[:,:2],
-                        roi_final[:,2:] * scale,
-                        axis = -1)
-
     def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \
             mrcal.getNlensParams(lensmodel) - \
@@ -951,234 +923,33 @@ def incremental_optimization_loop(args, seedmodels, imagersizes, observations, i
                 newDistortions[5:8] *= 1e-3
         return nps.glue( intrinsics_data, newDistortions, axis=-1 )
 
-    def eval_solution(stats, outside_ROI_indices__prevROI):
-
-        Nfeatures = args.object_width_n*args.object_width_n*len(observations)
-        x    = stats['x'][:Nfeatures*2]
-
-        def makemask_inside(outside_indices):
-            maskout = np.zeros(x.shape, dtype=bool)
-            maskout[outside_indices*2 + 0] = True
-            maskout[outside_indices*2 + 1] = True
-            return ~maskout
-
-
-        if outside_ROI_indices__prevROI is None:
-            maskin = makemask_inside(stats['outside_ROI_indices'])
-            s = np.std(x[maskin])
-
-        else:
-            maskold_only = makemask_inside(outside_ROI_indices__prevROI)
-            masknew_only = \
-                makemask_inside (stats['outside_ROI_indices']) * \
-                ~maskold_only
-
-
-            # It's possible that increasing the roi adds a SMALL NUMBER of
-            # points total. If the model doesn't fit the new ROI well, these
-            # points would have high errors, but since there aren't a lot of
-            # them, this wouldn't reflect at all in the new distribution. I
-            # re-weight the distribution of the NEW points to be equal to k
-            # times the distribution of all the previous points in the set. If
-            # k==1 then the set of the new points is equivalent in weight to the
-            # set of the old points
-            k = 1
-            xold = x[maskold_only]
-            xnew = x[masknew_only]
-            if len(xnew) == 0:
-                print("RMS error: {}".format(stats['rms_reproj_error__pixels']))
-                return True,"Extended ROI contains no new data"
-
-            wnew = k * len(xold)/len(xnew)
-
-            mean = (np.sum( xold                  ) + wnew*np.sum( xnew                  )) / ((1. + k) * len(xold))
-            var  = (np.sum((xold-mean)*(xold-mean)) + wnew*np.sum((xnew-mean)*(xnew-mean))) / ((1. + k) * len(xold))
-            s    = np.sqrt(var)
-
-
-
-        print("RMS error: {}".format(stats['rms_reproj_error__pixels']))
-        print("In-ROI independent x,y stdev: {} (user says {})".format(s, args.observed_pixel_uncertainty))
-
-        # If a model fits in a specific ROI, then (assuming no outliers) all the
-        # error is attributable to input noise. I'm given an estimate of this
-        # noise on the input, so I can check to see if this is true
-        stdev_error_ratio = s / args.observed_pixel_uncertainty
-
-        q_threshold = 1.5
-
-        return stdev_error_ratio < q_threshold, "stdev_error_ratio={} (wanted < {})".format(stdev_error_ratio, q_threshold)
-
-
-
-
-
 
     # Alrighty. All the preliminary business is finished. I should have a usable
     # seed now. And thus I now run the main optimization loop
-    if not incremental:
-        # We're not doing the incremental loop. Just solve it once and call it good
-        lensmodel = args.lensmodel
-        intrinsics_data  = expand_intrinsics(lensmodel, intrinsics_data)
+    lensmodel = args.lensmodel
+    intrinsics_data  = expand_intrinsics(lensmodel, intrinsics_data)
 
-        print("=================== optimizing everything{}from seeded intrinsics". \
-              format(" except board warp " if args.optimize_calobject_warp else " "))
+    print("=================== optimizing everything{}from seeded intrinsics". \
+          format(" except board warp " if args.optimize_calobject_warp else " "))
 
-        stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                               observations, indices_frame_camintrinsics_camextrinsics,
-                               None, None,
-                               lensmodel,
-                               imagersizes                       = imagersizes,
-                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                               do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
-                               do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
-                               do_optimize_extrinsics            = not args.skip_extrinsics_solve,
-                               calibration_object_spacing        = args.object_spacing,
-                               calibration_object_width_n        = args.object_width_n,
-                               skip_outlier_rejection            = args.skip_outlier_rejection,
-                               skip_regularization               = args.skip_regularization,
-                               outlier_indices                   = outlier_indices,
-                               roi                               = args.roi,
-                               get_covariances                   = False,
-                               verbose                           = args.verbose_solver)
-        return "fixed solve", (lensmodel, intrinsics_data), extrinsics, frames, args.roi, stats
-
-
-
-
-    if seedmodels is not None:
-        # What do I do here? Probably I want to start out at the seeded
-        # lens model? This maybe just works, actually, but somebody needs
-        # to think about it. This currently doesn't touch
-        # --skip-extrinsics-solve,--skip-intrinsics-solve
-        raise Exception("--seed and --incremental are currently not supported together")
-
-
-    # I favor the center pixel at the center of the imager
-    intrinsics_data[:,2:4] = (imagersizes - 1) / 2
-
-    Nroi = 8
-    if args.roi is None:
-        # no explicit region-of-interest given. I thus use the whole imager.
-        # I use an ellipse with the imager's aspect ratio, passing through
-        # the corner
-        widths       = imagersizes.astype(float)-1
-        centerpixels = widths / 2.
-        roi_final = nps.glue(centerpixels, widths/2.*np.sqrt(2), axis=-1)
-    else:
-        roi_final = args.roi
-
-    stats_best = None
-    roi_best   = None
-
-    iroi = 0
-    outside_ROI_indices__prevROI = None
-    while iroi<Nroi:
-        roi = get_scaled_roi(roi_final, iroi, Nroi)
-
-        print("")
-        sys.stderr.write("vvvvvvvvvvvvvvvvvvvv next distortion/ROI:\n")
-        print("lens model: {}"         .format(lensmodel))
-        print("ROI:        {}/{}  ({})".format(iroi+1, Nroi, roi))
-
-        state = copy.deepcopy( (intrinsics_data, extrinsics, frames), )
-        stats = mrcal.optimize(state[0], state[1], state[2], None,
-                               observations, indices_frame_camintrinsics_camextrinsics,
-                               None, None,
-                               lensmodel,
-                               imagersizes                       = imagersizes,
-                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                               do_optimize_intrinsic_core        = True,
-                               do_optimize_intrinsic_distortions = True,
-                               calibration_object_spacing        = args.object_spacing,
-                               calibration_object_width_n        = args.object_width_n,
-                               skip_outlier_rejection            = True,
-                               skip_regularization               = args.skip_regularization,
-                               outlier_indices                   = outlier_indices,
-                               roi                               = roi,
-                               get_covariances                   = False,
-                               verbose                           = args.verbose_solver)
-
-        solution_acceptable,solution_description = eval_solution(stats, outside_ROI_indices__prevROI)
-
-        if solution_acceptable:
-            # We found a good solution for this lens model and ROI. Let's
-            # expand the region of interest and go again
-
-            # save the initial state. The last one of these chunks of data is
-            # the best solution I got
-            outlier_indices       = stats['outlier_indices']
-            intrinsics_data       = state[0].copy()
-            extrinsics            = state[1].copy()
-            frames                = state[2].copy()
-            stats_best            = copy.deepcopy(stats)
-            roi_best              = copy.deepcopy(roi)
-            lensmodel_best = copy.deepcopy(lensmodel)
-            result                = 'Usable solve found at the full ROI'
-
-            outside_ROI_indices__prevROI = stats['outside_ROI_indices']
-            iroi += 1
-            sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: good solve! roi++\n".format(solution_description))
-        else:
-            # This solution wasn't very good. Let's try a richer distortion
-            # model
-
-            lensmodel1 = mrcal.getNextLensModel(lensmodel, args.lensmodel)
-
-            if lensmodel1 == lensmodel:
-
-                # we're already at the last model in the family, or at the
-                # maximum model the user asked for. There's nowhere more to go,
-                # so I guess I'm done
-                sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, but no more lens-models remaining. I'm done\n".format(solution_description))
-
-                # # For testing. The distribution can be plotted thusly:
-                # import gnuplotlib as gp
-                # x    = stats['x']
-                # maskout = np.zeros(x.shape, dtype=bool)
-                # maskout[stats['outside_ROI_indices']*2 + 0] = True
-                # maskout[stats['outside_ROI_indices']*2 + 1] = True
-                # x = x[~maskout]
-                # s    = np.std(x)
-                # s2   = s*s
-                # gp.plot(x, histogram='freq', binwidth=0.2,
-                #         equation='1./sqrt(2.*pi*{s2})*exp(-x*x/(2.*{s2})) axis x1y2'.format(s2=s2),
-                #         _xrange=[-5.*s,5.*s],
-                #         ymin=0, y2min=0,
-                #         hardcopy='/tmp/tst.gp')
-                # import IPython
-                # IPython.embed()
-                # sys.exit()
-
-
-                if stats_best is None:
-                    # This is the best I got I guess
-                    intrinsics_data       = state[0]
-                    extrinsics            = state[1]
-                    frames                = state[2]
-                    stats_best            = stats
-                    roi_best              = roi
-                    lensmodel_best = lensmodel
-                    result                = 'No usable solves found'
-                else:
-                    result                = 'Usable solves found, but not for the full ROI'
-                break
-
-            else:
-                # I try the next model in the family, keeping the roi and
-                # outlier list the same
-                lensmodel = lensmodel1
-                intrinsics_data  = expand_intrinsics(lensmodel, intrinsics_data)
-                sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ {}: ill-fitting solve, distortion++\n".format(solution_description))
-
-    return                                                                            \
-        result,                                                                       \
-        ( lensmodel_best,                                                      \
-          intrinsics_data[:,:mrcal.getNlensParams(lensmodel_best)]), \
-         extrinsics,                                                                  \
-         frames,                                                                      \
-         roi_best,                                                                    \
-         stats_best
+    stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+                           observations, indices_frame_camintrinsics_camextrinsics,
+                           None, None,
+                           lensmodel,
+                           imagersizes                       = imagersizes,
+                           observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
+                           do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
+                           do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
+                           do_optimize_extrinsics            = not args.skip_extrinsics_solve,
+                           calibration_object_spacing        = args.object_spacing,
+                           calibration_object_width_n        = args.object_width_n,
+                           skip_outlier_rejection            = args.skip_outlier_rejection,
+                           skip_regularization               = args.skip_regularization,
+                           outlier_indices                   = outlier_indices,
+                           roi                               = args.roi,
+                           get_covariances                   = False,
+                           verbose                           = args.verbose_solver)
+    return intrinsics_data, extrinsics, frames, stats
 
 
 
@@ -1309,161 +1080,18 @@ if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
     outlier_indices = np.array(sorted(list(outlier_indices0.union( outlier_indices1 ))), dtype=np.int32)
 
 
-result,intrinsics,extrinsics,frames,roi,stats = \
-    incremental_optimization_loop(args, seedmodels, imagersizes, observations, indices_frame_camera, outlier_indices, args.incremental)
-if args.incremental:
-    print(">>>>>>>>>>>>>>>>> " + result)
-    print("Final lens model: {}".format(intrinsics[0]))
-    print("Final ROI:        {}".format(roi))
-
-
 if args.skip_outlier_rejection: print("We are NOT rejecting outliers")
 else:                           print("We ARE rejecting outliers")
 if args.skip_regularization:    print("We are NOT applying regularization in the solver")
 else:                           print("We ARE applying regularization in the solver")
 
+intrinsics_data,extrinsics,frames,stats = \
+    solve_initial(args, seedmodels,
+                  imagersizes,
+                  observations, indices_frame_camera,
+                  outlier_indices)
 
 solver_context = mrcal.SolverContext()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-if args.num_cross_validation_splits > 1:
-
-    # THIS IS ALL VERY EXPERIMENTAL
-
-
-    def cross_validation_makesplit(Nobservations, Nsplit):
-        r'''Returns a random splitting of the data set
-
-        This function returns a python list (of length Nsplit). Each contains a
-        numpy array of sorted integer indices
-
-        I have Nobservations observations, and I want to split them into Nsplit
-        equal (and random) sets. If an even splitting isn't possible, the N
-        stragglers are distributed amount the N trailing sets
-
-        '''
-
-        # I create a random list of indices, and take sequential subsets of it
-        i_observations = np.arange(Nobservations, dtype=np.int32)
-        np.random.shuffle(i_observations)
-
-        # I could do this:
-        #   s = [i_observations[isplit*N_insplit:(isplit+1)*N_insplit] for isplit in range(Nsplit)]
-        # But then I need to deal with the remaining observations. For instance,
-        # trying to split 14 into 4 groups would create 4 groups of 3, and 2
-        # observations remaining. I want to distribute these 2 extra observations
-        # one-at-a-time among my groups, hence this logic:
-
-        s = [None] * Nsplit
-        iobservation = 0
-        for isplit in range(Nsplit):
-            N_inthissplit = int( (Nobservations - iobservation) / (Nsplit - isplit))
-            s[isplit] = i_observations[iobservation:iobservation+N_inthissplit]
-            iobservation += N_inthissplit
-
-        for i in s:
-            i.sort()
-
-        return s
-
-
-
-
-    splits = cross_validation_makesplit(Nobservations, args.num_cross_validation_splits)
-
-    cross_validation_models = []
-
-    for isplit in range(len(splits)):
-
-        s = splits[isplit]
-
-        split_observations, split_indices_frame_camera, split_paths, split_frames, split_outlier_indices = \
-            get_observation_subset__from_indices(s, observations, indices_frame_camera, paths,
-                                                 frames, stats['outlier_indices'])
-
-        split_indices_frame_camintrinsics_camextrinsics = \
-            nps.glue(split_indices_frame_camera,
-                     indices_frame_camera[:,(1,)]-1,
-                     axis=-1)
-
-        split_intrinsics = copy.deepcopy(intrinsics)
-        split_extrinsics = copy.deepcopy(extrinsics)
-
-        sys.stderr.write("vvvvvvvvvvvvvvvvvvvv Evaluating split {}/{}\n".format(isplit+1, args.num_cross_validation_splits))
-        stats = mrcal.optimize(split_intrinsics[1],
-                               split_extrinsics,
-                               split_frames,
-                               None,
-                               split_observations, split_indices_frame_camintrinsics_camextrinsics,
-                               None, None,
-                               split_intrinsics[0],
-                               imagersizes                       = imagersizes,
-                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                               do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
-                               do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
-                               do_optimize_extrinsics            = not args.skip_extrinsics_solve,
-                               calibration_object_spacing        = args.object_spacing,
-                               calibration_object_width_n        = args.object_width_n,
-                               skip_outlier_rejection            = args.skip_outlier_rejection,
-                               skip_regularization               = args.skip_regularization,
-                               outlier_indices                   = split_outlier_indices,
-                               roi                               = roi,
-                               get_covariances                   = True,
-                               verbose                           = False,
-                               solver_context                    = solver_context)
-
-        covariance_intrinsics = stats.get('covariance_intrinsics')
-
-        report = "RMS reprojection error: {} pixels\n".format(stats['rms_reproj_error__pixels'])
-        sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ \n" + report)
-
-        raise Exception("This make_cameramodels() call has bit-rotted. Fix if you need it")
-        cross_validation_models.append( make_cameramodels(split_intrinsics, split_extrinsics) )
-    # for i_camera in range(len(intrinsics[1]):
-    i_camera = 0
-    if roi is None:
-        focus_center = None
-        focus_radius = min(imagersizes[i_camera])/6
-    else:
-        focus_center = roi[i_camera,:2]
-        focus_radius = min(roi[i_camera,2:])
-    plot = \
-        mrcal.show_intrinsics_diff([models[i_camera] for models in cross_validation_models],
-                                   focus_center = focus_center,
-                                   focus_radius = focus_radius)
-
-    plot.wait()
-
-    print("done!!!!!!")
-    sys.exit()
-
-
-
-
-
-
-
-
-
-
 
 indices_frame_camintrinsics_camextrinsics = \
     nps.glue(indices_frame_camera,
@@ -1476,13 +1104,13 @@ else:
     calobject_warp = None
 
 sys.stderr.write("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, covariance_intrinsics and solver_context\n")
-stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
+stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                        observations, indices_frame_camintrinsics_camextrinsics,
                        None, None,
-                       intrinsics[0],
+                       args.lensmodel,
+                       imagersizes                       = imagersizes,
                        do_optimize_calobject_warp        = args.optimize_calobject_warp,
                        calobject_warp                    = calobject_warp,
-                       imagersizes                       = imagersizes,
                        observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                        do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
                        do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
@@ -1492,12 +1120,12 @@ stats = mrcal.optimize(intrinsics[1],extrinsics,frames, None,
                        skip_outlier_rejection            = True, # use outliers in outlier_indices
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = stats['outlier_indices'],
-                       roi                               = roi,
+                       roi                               = args.roi,
                        get_covariances                   = True,
                        verbose                           = args.verbose_solver,
                        solver_context                    = solver_context)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
-
+intrinsics = (args.lensmodel, intrinsics_data)
 
 if args.skip_intrinsics_solve:
     covariance_intrinsics      = None
@@ -1934,7 +1562,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
                                     calibration_object_width_n        = args.object_width_n,
                                     skip_regularization               = args.skip_regularization,
                                     outlier_indices                   = stats['outlier_indices'],
-                                    roi                               = roi,
+                                    roi                               = args.roi,
                                     verbose                           = False)
         Joptimizer = Joptimizer.toarray()
         J = Joptimizer.copy()
@@ -2060,7 +1688,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
                                 skip_outlier_rejection            = True, # use outliers in outlier_indices
                                 skip_regularization               = args.skip_regularization,
                                 outlier_indices                   = stats['outlier_indices'],
-                                roi                               = roi,
+                                roi                               = args.roi,
                                 get_covariances                   = False,
                                 verbose                           = False,
                                 solver_context                    = solver_context)

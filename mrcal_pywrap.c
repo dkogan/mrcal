@@ -788,39 +788,6 @@ static PyObject* getSupportedLensModels(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-static PyObject* getNextLensModel(PyObject* NPY_UNUSED(self),
-                                  PyObject* args)
-{
-    PyObject* result = NULL;
-    SET_SIGINT();
-
-    PyObject* lensmodel_now_string   = NULL;
-    PyObject* lensmodel_final_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT STRING_OBJECT,
-                          &lensmodel_now_string,
-                          &lensmodel_final_string))
-        goto done;
-
-    lensmodel_t lensmodel_now, lensmodel_final;
-    if(!parse_lensmodel_from_arg(&lensmodel_now,   lensmodel_now_string) ||
-       !parse_lensmodel_from_arg(&lensmodel_final, lensmodel_final_string))
-        goto done;
-
-    lensmodel_t lensmodel = mrcal_getNextLensModel(lensmodel_now, lensmodel_final);
-    if(!mrcal_lensmodel_type_is_valid(lensmodel.type))
-    {
-        BARF("Couldn't figure out the 'next' lens model from '%S' to '%S'",
-                     lensmodel_now_string, lensmodel_final_string);
-        goto done;
-    }
-
-    result = Py_BuildValue("s", mrcal_lensmodel_name(lensmodel));
-
- done:
-    RESET_SIGINT();
-    return result;
-}
-
 // just like PyArray_Converter(), but leave None as None
 static
 int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
@@ -2192,9 +2159,6 @@ static const char getNlensParams_docstring[] =
 static const char getSupportedLensModels_docstring[] =
 #include "getSupportedLensModels.docstring.h"
     ;
-static const char getNextLensModel_docstring[] =
-#include "getNextLensModel.docstring.h"
-    ;
 static const char getKnotsForSplinedModels_docstring[] =
 #include "getKnotsForSplinedModels.docstring.h"
     ;
@@ -2216,7 +2180,6 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getLensModelMeta,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
       PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
-      PYMETHODDEF_ENTRY(,getNextLensModel,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,getKnotsForSplinedModels, METH_VARARGS),
       PYMETHODDEF_ENTRY(,project,                  METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_unproject,               METH_VARARGS | METH_KEYWORDS),

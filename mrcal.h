@@ -135,10 +135,7 @@ typedef struct
 
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
 #define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV14
-#define LENSMODEL_CAHVOR_FIRST LENSMODEL_CAHVOR
-#define LENSMODEL_CAHVOR_LAST  LENSMODEL_CAHVORE
 #define LENSMODEL_IS_OPENCV(d) (LENSMODEL_OPENCV_FIRST <= (d) && (d) <= LENSMODEL_OPENCV_LAST)
-#define LENSMODEL_IS_CAHVOR(d) (LENSMODEL_CAHVOR_FIRST <= (d) && (d) <= LENSMODEL_CAHVOR_LAST)
 
 
 // types <0 are invalid. The different invalid types are just for error
@@ -244,21 +241,6 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
                                          // respectively
                                          double* ux, double* uy,
                                          lensmodel_t lensmodel);
-
-// Returns the 'next' lens model in a family
-//
-// In a family of lens models we have a sequence of models with increasing
-// complexity. Subsequent models add distortion parameters to the end of the
-// vector. Ealier models are identical, but with the extra paramaters set to 0.
-// This function returns the next model in a sequence.
-//
-// If this is the last model in the sequence, returns the current model. This
-// function takes in both the current model, and the last model we're aiming
-// for. The second part is required because all familie begin at
-// LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not well-defined
-// without more information
-lensmodel_t mrcal_getNextLensModel( lensmodel_t lensmodel_now,
-                                    lensmodel_t lensmodel_final);
 
 // Wrapper around the internal project() function: the function used in the
 // inner optimization loop. These map world points to their observed pixel

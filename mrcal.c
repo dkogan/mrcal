@@ -340,42 +340,6 @@ int mrcal_getNlensParams(const lensmodel_t m)
 #undef CASE_NUM_WITHCONFIG
 }
 
-// Returns the 'next' lens model in a family
-//
-// In a family of lens models we have a sequence of models with increasing
-// complexity. Subsequent models add distortion parameters to the end of the
-// vector. Ealier models are identical, but with the extra paramaters set to 0.
-// This function returns the next model in a sequence.
-//
-// If this is the last model in the sequence, returns the current model. This
-// function takes in both the current model, and the last model we're aiming
-// for. The second part is required because all familie begin at
-// LENSMODEL_PINHOLE, so the next model from LENSMODEL_PINHOLE is not
-// well-defined without more information
-lensmodel_t mrcal_getNextLensModel( lensmodel_t lensmodel_now,
-                                     lensmodel_t lensmodel_final )
-{
-    // if we're at the start of a sequence...
-    if(lensmodel_now.type == LENSMODEL_PINHOLE)
-    {
-        if(LENSMODEL_IS_OPENCV(lensmodel_final.type)) return (lensmodel_t){.type=LENSMODEL_OPENCV4};
-        if(LENSMODEL_IS_CAHVOR(lensmodel_final.type)) return (lensmodel_t){.type=LENSMODEL_CAHVOR};
-        return (lensmodel_t){.type=LENSMODEL_INVALID};
-    }
-
-    // if we're at the end of a sequence...
-    if(lensmodel_now.type == lensmodel_final.type)
-        return lensmodel_now;
-
-    // If there is no possible sequence, barf
-    if(!LENSMODEL_IS_OPENCV(lensmodel_final.type) &&
-       !LENSMODEL_IS_CAHVOR(lensmodel_final.type) )
-        return (lensmodel_t){.type=LENSMODEL_INVALID};
-
-    // I guess we're in the middle of a sequence
-    return (lensmodel_t){.type=lensmodel_now.type+1};
-}
-
 static
 int getNdistortionOptimizationParams(mrcal_problem_details_t problem_details,
                                      lensmodel_t lensmodel)
