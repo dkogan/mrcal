@@ -343,6 +343,7 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               axis_scale = 1.0,
                               object_spacing = 0, object_width_n = 10,
                               i_camera_highlight=None,
+                              point_labels=None,
 
                               **kwargs):
 
@@ -355,6 +356,10 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
     If we don't have any observed calibration boards, frames should be None
 
     If we don't have any observed points, points should be None
+
+    point_labels is a dict from a point index to a name string. Points in this
+    dict are plotted with this legend; all other points are plotted under a
+    generic "points" legend. This can be omitted to plot all points together
 
     object_spacing may be omitted ONLY if we are not observing any calibration
     boards
@@ -373,8 +378,10 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
     else:
         extrinsics_Rt_toref = \
             mrcal.invert_Rt(mrcal.Rt_from_rt(models_or_extrinsics_rt_fromref))
+    extrinsics_Rt_toref = nps.atleast_dims(extrinsics_Rt_toref, -3)
 
-
+    if frames is not None: frames = nps.atleast_dims(frames, -2)
+    if points is not None: points = nps.atleast_dims(points, -2)
 
 
     def extend_axes_for_plotting(axes):
@@ -393,13 +400,16 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
         return out
 
 
-    def gen_plot_axes(transforms, label, scale = 1.0, label_offset = None):
+    def gen_plot_axes(transforms, legend, scale = 1.0):
         r'''Given a list of transforms (applied to the reference set of axes in reverse
-        order) and a label, return a list of plotting directives gnuplotlib
+        order) and a legend, return a list of plotting directives gnuplotlib
         understands. Each transform is an Rt (4,3) matrix
 
         Transforms are in reverse order so a point x being transformed as A*B*C*x
         can be represented as a transforms list (A,B,C).
+
+        if legend is not None: plot ONLY the axis vectors. If legend is None: plot
+        ONLY the axis labels
 
         '''
         axes = np.array( ((0,0,0),
@@ -411,22 +421,19 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
 
         for x in transforms:
             transform = mrcal.compose_Rt(transform, x)
-        axes = np.array([ mrcal.transform_point_Rt(transform, x) for x in axes ])
 
-        axes_forplotting = extend_axes_for_plotting(axes)
-
-        l_axes = tuple(nps.transpose(axes_forplotting)) + \
-            (dict(_with     = 'vectors',
-                  tuplesize = 6,
-                  legend    = label), )
-
-        l_labels = tuple(nps.transpose(axes[1:,:]*1.01 + \
-                                       (label_offset if label_offset is not None else 0))) + \
-            (np.array(('x', 'y', 'z')),
-             dict(_with     = 'labels',
-                  tuplesize = 4,
-                  legend    = label),)
-        return l_axes, l_labels
+        if legend is not None:
+            return \
+                (extend_axes_for_plotting(mrcal.transform_point_Rt(transform, axes)),
+                 dict(_with     = 'vectors',
+                      tuplesize = -6,
+                      legend    = legend), )
+        return tuple(nps.transpose(mrcal.transform_point_Rt(transform,
+                                                    axes[1:,:]*1.01))) + \
+                                   (np.array(('x', 'y', 'z')),
+                                    dict(_with     = 'labels',
+                                         tuplesize = 4,
+                                         legend    = 'labels'),)
 
 
 
@@ -453,14 +460,22 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
             except:
                 return 'cam{}'.format(i)
 
-        cam_axes_labels  = [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
-                                           camera_name(i),
-                                           scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
+        cam_axes  = \
+            [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
+                            legend = camera_name(i),
+                            scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
+        cam_axes_labels = \
+            [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
+                            legend = None,
+                            scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
 
-        # flatten the list. I have [ [axes0,labels0], [axes1,labels1],
-        # [axes2,labels2], ...], and I return [ axes0,labels0, axes1,labels1,
-        # axes2,labels2, ...]
-        return [ca for x in cam_axes_labels for ca in x]
+        # I collapse all the labels into one gnuplotlib dataset. Thus I'll be
+        # able to turn them all on/off together
+        return cam_axes + [(np.ravel(nps.cat(*[l[0] for l in cam_axes_labels])),
+                            np.ravel(nps.cat(*[l[1] for l in cam_axes_labels])),
+                            np.ravel(nps.cat(*[l[2] for l in cam_axes_labels])),
+                            np.tile(cam_axes_labels[0][3], len(extrinsics_Rt_toref))) + \
+                            cam_axes_labels[0][4:]]
 
 
     def gen_curves_calobjects():
@@ -530,14 +545,36 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
         if points is None or len(points) == 0:
             return []
 
-        return [ (points, dict(tuplesize = -2,
-                               _with = 'points pt 7 ps 2')) ]
+        if point_labels is not None:
+
+            # the labelled points
+            point_curves = [ (points[ipoint],
+                              dict(tuplesize = -3,
+                                   _with = 'points',
+                                   legend = point_labels[ipoint])) \
+                             for ipoint in point_labels.keys() ]
+
+
+            # and all the others
+            ipoint_not = np.ones( (len(points),), dtype=bool)
+            ipoint_not[np.array(list(point_labels.keys()))] = False
+
+            point_curves += [ (points[ipoint_not],
+                               dict(tuplesize = -3,
+                                    _with = 'points',
+                                    legend = 'points')) ]
+            return point_curves
+        else:
+            return [ (points, dict(tuplesize = -3,
+                                   _with = 'points',
+                                   legend = 'points')) ]
 
     curves_cameras    = gen_curves_cameras()
     curves_calobjects = gen_curves_calobjects()
     curves_points     = gen_curves_points()
 
-    plot = gp.gnuplotlib(_3d=1, square=1, ascii=1,
+    plot = gp.gnuplotlib(_3d=1,
+                         square=1,
                          xlabel='x',
                          ylabel='y',
                          zlabel='z',
