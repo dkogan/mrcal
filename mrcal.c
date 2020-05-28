@@ -1717,7 +1717,7 @@ typedef struct
 // calibration_object_width_n*calibration_object_width_n points. q and the
 // gradients reference ALL of these points
 static
-void project( // out
+bool project( // out
              point2_t* restrict q,
 
              // The intrinsics gradients. These are split among several arrays.
@@ -1860,6 +1860,11 @@ void project( // out
         p_tj = &tf;
     }
 
+    bool suspicious_point =
+        calibration_object_width_n==0 &&
+        ( p_tj->data.db[2] > POINT_MAXZ ||
+          p_tj->data.db[2] <= 0.0 );
+
     if( LENSMODEL_IS_OPENCV(lensmodel.type) )
     {
         // Special-case path for opencv. This isn't strictly required, but
@@ -1894,7 +1899,7 @@ void project( // out
                         Nintrinsics-4,
                         camera_at_identity ? NULL : &gg,
                         p_rj, p_tj);
-        return;
+        return !suspicious_point;
     }
 
 
@@ -2209,6 +2214,8 @@ void project( // out
                 i_pt++;
             }
     }
+
+    return !suspicious_point;
 }
 
 // Compute the region-of-interest weight. The region I care about is in r=[0,1];
@@ -4226,25 +4233,12 @@ void optimizerCallback(// input state
         const int i_var_point      = mrcal_state_index_point     (i_point, ctx->Nframes,
                                                                   ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                                                   ctx->problem_details, ctx->lensmodel);
-        point3_t  point;
-
+        point3_t point;
         if(use_position_from_state)
             unpack_solver_state_point_one(&point, &packed_state[i_var_point]);
         else
             point = ctx->points[i_point];
 
-
-        // Check for invalid points. I report a very poor cost if I see
-        // this.
-        bool have_invalid_point = false;
-        if( point.z <= 0.0 || point.z >= POINT_MAXZ )
-        {
-            have_invalid_point = true;
-            if(ctx->verbose)
-                MSG( "Saw invalid point distance: z = %g! obs/point/cam: %d %d %d",
-                     point.z,
-                     i_observation_point, i_point, i_cam_extrinsics);
-        }
 
         double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics)];
         int    dq_dintrinsics_pool_int   [1];
@@ -4261,34 +4255,46 @@ void optimizerCallback(// input state
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
         point2_t pt_hypothesis;
-        project(&pt_hypothesis,
+        bool suspicious_point =
+          !project(&pt_hypothesis,
 
-                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                  dq_dintrinsics_pool_double : NULL,
-                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                  dq_dintrinsics_pool_int : NULL,
-                &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
+                   ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                   dq_dintrinsics_pool_double : NULL,
+                   ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                   dq_dintrinsics_pool_int : NULL,
+                   &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
-                ctx->problem_details.do_optimize_extrinsics ?
-                dq_drcamera : NULL,
-                ctx->problem_details.do_optimize_extrinsics ?
-                dq_dtcamera : NULL,
-                NULL, // frame rotation. I only have a point position
-                use_position_from_state ? dq_dpoint : NULL,
-                NULL,
-                intrinsics_all[i_cam_intrinsics],
-                &camera_rt[i_cam_extrinsics],
+                   ctx->problem_details.do_optimize_extrinsics ?
+                   dq_drcamera : NULL,
+                   ctx->problem_details.do_optimize_extrinsics ?
+                   dq_dtcamera : NULL,
+                   NULL, // frame rotation. I only have a point position
+                   use_position_from_state ? dq_dpoint : NULL,
+                   NULL,
+                   intrinsics_all[i_cam_intrinsics],
+                   &camera_rt[i_cam_extrinsics],
 
-                // I only have the point position, so the 'rt' memory
-                // points 3 back. The fake "r" here will not be
-                // referenced
-                (pose_t*)(&point.xyz[-3]),
-                NULL,
+                   // I only have the point position, so the 'rt' memory
+                   // points 3 back. The fake "r" here will not be
+                   // referenced
+                   (pose_t*)(&point.xyz[-3]),
+                   NULL,
 
-                i_cam_extrinsics < 0,
-                ctx->lensmodel, &ctx->precomputed,
-                0,0);
+                   i_cam_extrinsics < 0,
+                   ctx->lensmodel, &ctx->precomputed,
+                   0,0);
 #pragma GCC diagnostic pop
+
+        // Check for invalid points. I report a very poor cost if I see
+        // this.
+        if( suspicious_point )
+        {
+            if(ctx->verbose)
+                MSG( "Saw suspicious point. Discouraging the solver with a high cost. obs/point/cam: %d %d %d",
+                     i_observation_point, i_point, i_cam_extrinsics);
+        }
+
+
 
         if(!observation->skip_observation
 #warning "no outlier rejection on points yet; see warning below"
@@ -4297,7 +4303,7 @@ void optimizerCallback(// input state
             // I have my two measurements (dx, dy). I propagate their
             // gradient and store them
             double invalid_point_scale = 1.0;
-            if(have_invalid_point)
+            if(suspicious_point)
                 // I have an invalid point. This is a VERY bad solution. The solver
                 // needs to try again with a smaller step
                 invalid_point_scale = 1e6;
