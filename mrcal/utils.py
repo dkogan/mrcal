@@ -334,15 +334,11 @@ ARGUMENTS
     return p
 
 
-def show_calibration_geometry(models,
+def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               cameranames                 = None,
                               cameras_Rt_plot_ref         = None,
                               frames                      = None,
                               points                      = None,
-                              observations_board          = None,
-                              indices_frame_camintrinsics_camextrinsics_board  = None,
-                              observations_point          = None,
-                              indices_point_camintrinsics_camextrinsics_points = None,
 
                               axis_scale = 1.0,
                               object_spacing = 0, object_width_n = 10,
@@ -356,25 +352,13 @@ def show_calibration_geometry(models,
     coindicentally, the geometric parameters are all identical to those
     mrcal.optimize() takes.
 
-    If we don't have any observed calibration boards, observations_board and
-    indices_frame_camintrinsics_camextrinsics_board should be None
+    If we don't have any observed calibration boards, frames should be None
 
-    If we don't have any observed points, observations_point and
-    indices_point_camintrinsics_camextrinsics_points should be None
-
-    The inputs are the same as to mrcal.optimize(). If i_camera_highlight is not
-    None, the visualization is colored by the reprojection-error-quality of the
-    fit
+    If we don't have any observed points, points should be None
 
     object_spacing may be omitted ONLY if we are not observing any calibration
     boards
 
-    The data is expected to come from a pure calibration problem, not
-    structure-from-motion or anything else. I.e I assume (and confirm) that
-
-    - Ncameras_extrinsics = Ncameras_intrinsics-1
-    - indices_frame_camintrinsics_camextrinsics_board has i_cam_extrinsics =
-      i_cam_intrinsics-1 for all observations
     '''
 
     import gnuplotlib as gp
@@ -382,10 +366,15 @@ def show_calibration_geometry(models,
     if i_camera_highlight is not None:
         raise Exception("This isn't done yet. Sorry")
 
-    if indices_frame_camintrinsics_camextrinsics_board is not None:
-        indices_frame_camera_board = indices_frame_camintrinsics_camextrinsics_board[..., :2]
-    if indices_point_camintrinsics_camextrinsics_points is not None:
-        indices_point_camera_points = indices_point_camintrinsics_camextrinsics_points[..., :2]
+
+    if isinstance(models_or_extrinsics_rt_fromref, mrcal.cameramodel):
+        extrinsics_Rt_toref = \
+            nps.cat(*[m.extrinsics_Rt_toref() for m in models_or_extrinsics_rt_fromref])
+    else:
+        extrinsics_Rt_toref = \
+            mrcal.invert_Rt(mrcal.Rt_from_rt(models_or_extrinsics_rt_fromref))
+
+
 
 
     def extend_axes_for_plotting(axes):
@@ -450,7 +439,7 @@ def show_calibration_geometry(models,
     def gen_curves_cameras():
 
         def camera_Rt_toplotcoords(i):
-            Rt_ref_cam = models[i].extrinsics_Rt_toref()
+            Rt_ref_cam = extrinsics_Rt_toref[i]
             try:
                 Rt_plot_ref = cameras_Rt_plot_ref[i]
                 return mrcal.compose_Rt(Rt_plot_ref,
@@ -466,7 +455,7 @@ def show_calibration_geometry(models,
 
         cam_axes_labels  = [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
                                            camera_name(i),
-                                           scale=axis_scale) for i in range(0,len(models))]
+                                           scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
 
         # flatten the list. I have [ [axes0,labels0], [axes1,labels1],
         # [axes2,labels2], ...], and I return [ axes0,labels0, axes1,labels1,
@@ -475,6 +464,9 @@ def show_calibration_geometry(models,
 
 
     def gen_curves_calobjects():
+
+        if frames is None or len(frames) == 0:
+            return []
 
         if object_spacing <= 0:
             raise Exception("We're observing calibration boards, but their spacing is 0: please pass a valid object_spacing")
@@ -535,18 +527,13 @@ def show_calibration_geometry(models,
 
 
     def gen_curves_points():
-
-        if observations_point               is None or \
-           indices_point_camera_points      is None or \
-           len(observations_point)          == 0    or \
-           len(indices_point_camera_points) == 0:
+        if points is None or len(points) == 0:
             return []
 
-        curveopts = {'with':'points pt 7 ps 2'}
-        return [tuple(list(nps.transpose(points)) + [curveopts,])]
+        return [ (points, dict(tuplesize = -2,
+                               _with = 'points pt 7 ps 2')) ]
 
     curves_cameras    = gen_curves_cameras()
-
     curves_calobjects = gen_curves_calobjects()
     curves_points     = gen_curves_points()
 
