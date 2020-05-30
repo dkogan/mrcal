@@ -2022,7 +2022,7 @@ def show_residuals_radial(i_camera = 0, focus_center=None, focus_radius=0,
 
     global plots_residuals_radial
     if plots_residuals_radial is None:
-        plots_residuals_radial = [None] * (Ncameras+1)
+        plots_residuals_radial = [None] * Ncameras
 
     i_camera,err,obs, \
         W, \
@@ -2034,14 +2034,14 @@ def show_residuals_radial(i_camera = 0, focus_center=None, focus_radius=0,
             _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
 
     r = np.sqrt(nps.norm2(obs - focus_center))
-    plots_residuals_radial[i_camera+1] = \
+    plots_residuals_radial[i_camera] = \
         gp.gnuplotlib(
             title = 'Fitted reprojection errors shown against distance from {}. Data from {}'. \
             format( focus_center, 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
             xlabel = 'Distance from {} (pixels)'.format(focus_center),
             ylabel = 'Reprojection error (pixels). x and y components of error are counted separately',
             **kwargs)
-    plots_residuals_radial[i_camera+1]. \
+    plots_residuals_radial[i_camera]. \
         plot( nps.transpose(nps.cat(r,r)).ravel(),
               err.ravel(),
               _with='points')
@@ -2069,7 +2069,7 @@ def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
 
     global plots_residuals_regional
     if plots_residuals_regional is None:
-        plots_residuals_regional = [None] * (Ncameras+1)
+        plots_residuals_regional = [None] * Ncameras
 
     i_camera,err,obs, \
         W, \
@@ -2112,9 +2112,9 @@ def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
         p.plot(*plot_data_args)
         return p
 
-    plots_residuals_regional[i_camera+1] = [ mkplot(np.abs(mean), 'abs(mean)'),
-                                             mkplot(stdev,        'stdev'),
-                                             mkplot(count,        'count', cbrange = (0, 20)) ]
+    plots_residuals_regional[i_camera] = [ mkplot(np.abs(mean), 'abs(mean)'),
+                                           mkplot(stdev,        'stdev'),
+                                           mkplot(count,        'count', cbrange = (0, 20)) ]
 
 
 plots_residuals_histogram = None
@@ -2140,7 +2140,7 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
 
     global plots_residuals_histogram
     if plots_residuals_histogram is None:
-        plots_residuals_histogram = [None] * (Ncameras+1)
+        plots_residuals_histogram = [None] * Ncameras
 
     i_camera,err,obs, \
         W, \
@@ -2200,14 +2200,14 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
     equations = [make_gaussian(sigma,title) for sigma,title in \
                  ( (sigma_expected, 'Normal distribution of residuals with expected stdev: {:.02f} pixels'.format(sigma_expected)),
                    (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
-    plots_residuals_histogram[i_camera+1] = \
+    plots_residuals_histogram[i_camera] = \
         gp.gnuplotlib(equation_above = equations,
                       title = 'Observed and expected distribution of fitted reprojection errors {}'. \
                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
                       xlabel = 'Reprojection error (pixels). x and y components of error are counted separately',
                       ylabel = 'Observed frequency',
                       **kwargs)
-    plots_residuals_histogram[i_camera+1].plot(x, histogram=1, binwidth=binwidth,)
+    plots_residuals_histogram[i_camera].plot(x, histogram=1, binwidth=binwidth,)
 
 
 plots_intrinsics_uncertainty = [None] * Ncameras
