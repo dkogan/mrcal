@@ -519,7 +519,8 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
             N += 2*6;
         if(observations_point[i].has_ref_range)
         {
-            if(problem_details.do_optimize_frames)
+            if(problem_details.do_optimize_frames &&
+                observations_point[i].i_point < Npoints-Npoints_fixed )
                 N += 3;
 
             if( problem_details.do_optimize_extrinsics &&
