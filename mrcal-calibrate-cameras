@@ -1399,9 +1399,9 @@ Potential things to look at:
     show_residuals_observation(i_observation, vectorscale=20)
     show_intrinsics_uncertainty(i_camera)
     show_valid_intrinsics_region(i_camera)
-    show_residuals('vectorfield', i_camera, show_all_reproj_errors=True)
-    show_residuals('heatmap',     i_camera)
-    show_residuals('directions',  i_camera)
+    show_residuals_vectorfield(   i_camera, show_all_reproj_errors=True)
+    show_residuals_heatmap(       i_camera)
+    show_residuals_directions(    i_camera)
     show_residuals_histogram(     i_camera)
     show_residuals_radial(        i_camera)
     show_residuals_regional(      i_camera)
@@ -1781,7 +1781,7 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
 
 
 def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors):
-    r'''Return the data used by the various show_residuals() functions'''
+    r'''Return the data used by the various show_residuals_...() functions'''
 
     if i_camera < 0: i_camera = 0 # first camera by default
 
@@ -1843,27 +1843,15 @@ def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_repr
     return i_camera,err,obs,W,H,focus_center,focus_radius,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
 
 
-plots_residuals = dict()
-def show_residuals(how, i_camera = 0, focus_center=None, focus_radius=0,
-                   vectorscale = 1.0,
-                   show_all_reproj_errors=False, **kwargs):
+plots_residuals_vectorfield = None
+def show_residuals_vectorfield(i_camera = 0, focus_center=None, focus_radius=0,
+                               vectorscale = 1.0,
+                               show_all_reproj_errors=False, **kwargs):
 
-    r'''Visualize the optimized reprojection errors
+    r'''Visualize the optimized reprojection errors as a vector field
 
-    This function visualizes the solution in several ways, selected by the 'how'
-    argument.
-
-      if how == 'vectorfield': we plot a vectorfield, showing each observed
-                               point, and its reprojection discrepancy
-
-      if how == 'heatmap':     we plot each observed point, but instead of showing
-                               an error vector, we render a point that's
-                               color-coded with its error
-      elif how == 'directions':we plot each observed point, but instead of showing
-                               an error vector, we show the color-coded
-                               direction of the error. The error magnitude is
-                               ignored. This is useful to see systematic
-                               patterns in the error surface
+    We plot a vectorfield, showing each observed point, and its reprojection
+    discrepancy
 
     i_camera is the camera in question. First camera by default
 
@@ -1876,10 +1864,9 @@ def show_residuals(how, i_camera = 0, focus_center=None, focus_radius=0,
 
     '''
 
-    global plots_residuals
-    if not how in plots_residuals:
-        plots_residuals[how] = [None] * (Ncameras+1)
-    plots_how = plots_residuals[how]
+    global plots_residuals_vectorfield
+    if plots_residuals_vectorfield is None:
+        plots_residuals_vectorfield = [None] * Ncameras
 
     i_camera,err,obs, \
         W, \
@@ -1890,63 +1877,128 @@ def show_residuals(how, i_camera = 0, focus_center=None, focus_radius=0,
         valid_intrinsics_region_plotarg_3d = \
             _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
 
-    if how == 'vectorfield':
-        plots_how[i_camera+1] = \
-            gp.gnuplotlib( square=1,
-                           _xrange=[0,W], yrange=[H,0],
-                           title = 'Fitted reprojection errors {}. Errors shown as vectors and colors'. \
-                           format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
-                           xlabel = 'Imager x',
-                           ylabel = 'Imager y',
-                           **kwargs)
-        plot_data_args = [(obs[:,0], obs[:,1],
-                           vectorscale*err[:,0], vectorscale*err[:,1],
-                           np.sqrt(nps.norm2(err)),
-                           dict(_with='vectors size screen 0.01,20 fixed filled palette',
-                                tuplesize=5))]
-        if valid_intrinsics_region_plotarg_2d is not None:
-            plot_data_args.append(valid_intrinsics_region_plotarg_2d)
-        plots_how[i_camera+1].plot(*plot_data_args)
-    if how == 'heatmap':
-        plots_how[i_camera+1] = \
-            gp.gnuplotlib( square=1,
-                           _xrange=[0,W], yrange=[H,0],
-                           title = 'Fitted reprojection errors {}. Errors shown as colors'. \
-                           format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
-                           xlabel = 'Imager x',
-                           ylabel = 'Imager y',
-                           **kwargs)
-        plot_data_args = [( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
-                            dict(_with='points pt 7 palette',
-                                 tuplesize=3))]
-        if valid_intrinsics_region_plotarg_2d is not None:
-            plot_data_args.append(valid_intrinsics_region_plotarg_2d)
-        plots_how[i_camera+1].plot(*plot_data_args)
-    elif how == 'directions':
-        plots_how[i_camera+1] = \
-            gp.gnuplotlib( square=1,
-                           _xrange=[0,W], yrange=[H,0],
-                           title = 'Fitted reprojection errors {}. Directions shown as colors. Magnitudes ignored'. \
-                           format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
-                           xlabel = 'Imager x',
-                           ylabel = 'Imager y',
+    plots_residuals_vectorfield[i_camera] = \
+        gp.gnuplotlib( square=1,
+                       _xrange=[0,W], yrange=[H,0],
+                       title = 'Fitted reprojection errors {}. Errors shown as vectors and colors'. \
+                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
+                       xlabel = 'Imager x',
+                       ylabel = 'Imager y',
+                       **kwargs)
+    plot_data_args = [(obs[:,0], obs[:,1],
+                       vectorscale*err[:,0], vectorscale*err[:,1],
+                       np.sqrt(nps.norm2(err)),
+                       dict(_with='vectors size screen 0.01,20 fixed filled palette',
+                            tuplesize=5))]
+    if valid_intrinsics_region_plotarg_2d is not None:
+        plot_data_args.append(valid_intrinsics_region_plotarg_2d)
+    plots_residuals_vectorfield[i_camera].plot(*plot_data_args)
 
-                           # Use an maximum-saturation, maximum-value HSV
-                           # palette where the hue encodes the error direction.
-                           # The direction is periodic, as is the hue
-                           _set='palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV',
-                           cbrange = [-180., 180.],
-                           **kwargs)
-        plot_data_args = [( obs[:,0], obs[:,1], 180./np.pi * np.arctan2(err[...,1], err[...,0]),
-                            dict(_with='points pt 7 palette',
-                                 tuplesize=3))]
-        if valid_intrinsics_region_plotarg_2d is not None:
-            plot_data_args.append(valid_intrinsics_region_plotarg_2d)
-        plots_how[i_camera+1].plot(*plot_data_args)
+plots_residuals_heatmap = None
+def show_residuals_heatmap(i_camera = 0, focus_center=None, focus_radius=0,
+                           vectorscale = 1.0,
+                           show_all_reproj_errors=False, **kwargs):
 
-    else:
-        raise Exception("Unknown visualization method '{}'. I know of 'vectorfield','heatmap','directions'". \
-                        format(how))
+    r'''Visualize the optimized reprojection errors as a heat map
+
+    We plot each observed point, but instead of showing an error vector, we
+    render a point that's color-coded with its error
+
+    i_camera is the camera in question. First camera by default
+
+    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
+    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
+    outliers, and errors were scaled to trust poor corner detections less.
+
+    if not show_all_reproj_errors: we show what was actually optimized. The
+    outliers do not appear, and the errors are scaled. This is the default
+
+    '''
+
+    global plots_residuals_heatmap
+    if plots_residuals_heatmap is None:
+        plots_residuals_heatmap = [None] * Ncameras
+
+    i_camera,err,obs, \
+        W, \
+        H, \
+        focus_center, \
+        focus_radius, \
+        valid_intrinsics_region_plotarg_2d, \
+        valid_intrinsics_region_plotarg_3d = \
+            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+
+    plots_residuals_heatmap[i_camera] = \
+        gp.gnuplotlib( square=1,
+                       _xrange=[0,W], yrange=[H,0],
+                       title = 'Fitted reprojection errors {}. Errors shown as colors'. \
+                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
+                       xlabel = 'Imager x',
+                       ylabel = 'Imager y',
+                       **kwargs)
+    plot_data_args = [( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
+                        dict(_with='points pt 7 palette',
+                             tuplesize=3))]
+    if valid_intrinsics_region_plotarg_2d is not None:
+        plot_data_args.append(valid_intrinsics_region_plotarg_2d)
+    plots_residuals_heatmap[i_camera].plot(*plot_data_args)
+
+plots_residuals_directions = None
+def show_residuals_directions(i_camera = 0, focus_center=None, focus_radius=0,
+                   vectorscale = 1.0,
+                   show_all_reproj_errors=False, **kwargs):
+
+    r'''Visualize the optimized reprojection errors as color-coded directions
+
+    We plot each observed point, but instead of showing an error vector, we show
+    the color-coded direction of the error. The error magnitude is ignored. This
+    is useful to see systematic patterns in the error surface
+
+    i_camera is the camera in question. First camera by default
+
+    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
+    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
+    outliers, and errors were scaled to trust poor corner detections less.
+
+    if not show_all_reproj_errors: we show what was actually optimized. The
+    outliers do not appear, and the errors are scaled. This is the default
+
+    '''
+
+
+    global plots_residuals_directions
+    if plots_residuals_directions is None:
+        plots_residuals_directions = [None] * Ncameras
+
+    i_camera,err,obs, \
+        W, \
+        H, \
+        focus_center, \
+        focus_radius, \
+        valid_intrinsics_region_plotarg_2d, \
+        valid_intrinsics_region_plotarg_3d = \
+            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+
+    plots_residuals_directions[i_camera] = \
+        gp.gnuplotlib( square=1,
+                       _xrange=[0,W], yrange=[H,0],
+                       title = 'Fitted reprojection errors {}. Directions shown as colors. Magnitudes ignored'. \
+                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
+                       xlabel = 'Imager x',
+                       ylabel = 'Imager y',
+
+                       # Use an maximum-saturation, maximum-value HSV
+                       # palette where the hue encodes the error direction.
+                       # The direction is periodic, as is the hue
+                       _set='palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV',
+                       cbrange = [-180., 180.],
+                       **kwargs)
+    plot_data_args = [( obs[:,0], obs[:,1], 180./np.pi * np.arctan2(err[...,1], err[...,0]),
+                        dict(_with='points pt 7 palette',
+                             tuplesize=3))]
+    if valid_intrinsics_region_plotarg_2d is not None:
+        plot_data_args.append(valid_intrinsics_region_plotarg_2d)
+    plots_residuals_directions[i_camera].plot(*plot_data_args)
 
 plots_residuals_radial = None
 def show_residuals_radial(i_camera = 0, focus_center=None, focus_radius=0,
