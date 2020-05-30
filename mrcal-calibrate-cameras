@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-r'''Calibrate some synchronized cameras
+r'''Calibrate some synchronized, stationary cameras
 
 SYNOPSIS
 
@@ -1393,7 +1393,7 @@ if not args.explore:
 import gnuplotlib as gp
 
 
-print(r'''Calibration results REPL.
+print(r'''Solution-examination REPL.
 Potential things to look at:
 
     show_calibration_geometry()
