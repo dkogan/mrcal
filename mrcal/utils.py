@@ -547,23 +547,21 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
 
         if point_labels is not None:
 
-            # the labelled points
-            point_curves = [ (points[ipoint],
-                              dict(tuplesize = -3,
-                                   _with = 'points',
-                                   legend = point_labels[ipoint])) \
-                             for ipoint in point_labels.keys() ]
-
-
-            # and all the others
+            # all the non-fixed point indices
             ipoint_not = np.ones( (len(points),), dtype=bool)
             ipoint_not[np.array(list(point_labels.keys()))] = False
 
-            point_curves += [ (points[ipoint_not],
-                               dict(tuplesize = -3,
-                                    _with = 'points',
-                                    legend = 'points')) ]
-            return point_curves
+            return \
+                [ (points[ipoint_not],
+                   dict(tuplesize = -3,
+                        _with = 'points',
+                        legend = 'points')) ] + \
+                [ (points[ipoint],
+                   dict(tuplesize = -3,
+                        _with = 'points',
+                        legend = point_labels[ipoint])) \
+                  for ipoint in point_labels.keys() ]
+
         else:
             return [ (points, dict(tuplesize = -3,
                                    _with = 'points',
@@ -582,7 +580,7 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
 
 
 
-    plot.plot(*(curves_cameras + curves_calobjects + curves_points))
+    plot.plot(*(curves_points + curves_cameras + curves_calobjects))
     return plot
 
 
