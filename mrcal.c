@@ -4405,11 +4405,11 @@ void optimizerCallback(// input state
                     point.y*point.y +
                     point.z*point.z;
                 double penalty, dpenalty_ddistsq;
-                if(point.z > 0.0)
+                if(model_supports_projection_behind_camera(ctx->lensmodel) ||
+                   point.z > 0.0)
                     get_penalty(&penalty, &dpenalty_ddistsq, distsq);
                 else
                 {
-#warning "some lens models support behind-the-camera views, so I don't need to discourage those"
                     get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
                     dpenalty_ddistsq *= -1.;
                 }
@@ -4450,7 +4450,8 @@ void optimizerCallback(// input state
                     pcam.y*pcam.y +
                     pcam.z*pcam.z;
                 double penalty, dpenalty_ddistsq;
-                if(pcam.z > 0.0)
+                if(model_supports_projection_behind_camera(ctx->lensmodel) ||
+                   pcam.z > 0.0)
                     get_penalty(&penalty, &dpenalty_ddistsq, distsq);
                 else
                 {
