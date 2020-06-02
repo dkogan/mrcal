@@ -813,7 +813,8 @@ def solve_initial(args, seedmodels, imagersizes,
                                           indices_frame_camera = indices_frame_camera,
                                           observations         = observations,
                                           object_spacing       = args.object_spacing,
-                                          object_width_n       = args.object_width_n)
+                                          object_width_n       = args.object_width_n,
+                                          object_height_n      = args.object_width_n)
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
@@ -886,13 +887,15 @@ def solve_initial(args, seedmodels, imagersizes,
         calobject_poses_local_Rt_cf = \
             mrcal.estimate_local_calobject_poses( indices_frame_camera,
                                                   observations,
-                                                  args.object_spacing, args.object_width_n,
+                                                  args.object_spacing,
+                                                  args.object_width_n,args.object_height_n,
                                                   seedmodels)
         frames = \
             mrcal.estimate_frame_poses_from_monocular_views(
                 calobject_poses_local_Rt_cf, extrinsics,
                 indices_frame_camera,
-                args.object_spacing, args.object_width_n)
+                args.object_spacing,
+                args.object_width_n,args.object_width_n)
 
     def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \
@@ -2301,7 +2304,9 @@ def show_calibration_geometry(**kwargs):
         mrcal.show_calibration_geometry(models,
                                         [f"camera {i}" for i in range(len(models))],
                                         frames=frames,
-                                        object_spacing=args.object_spacing)
+                                        object_width_n  = args.object_width_n,
+                                        object_height_n = args.object_width_n,
+                                        object_spacing  = args.object_spacing)
 
 import IPython
 IPython.embed()

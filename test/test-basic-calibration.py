@@ -39,13 +39,14 @@ models[3].extrinsics_rt_fromref(np.array((0.06,0.08,0.08, 4.4,0.2,0.1)))
 
 object_spacing     = 0.1
 object_width_n     = 10
+object_height_n    = 9
 calobject_warp_ref = np.array((0.002, -0.005))
 
 print("making synth")
 
 # shape (Nframes, Ncameras, Nh, Nw, 2)
 p = mrcal.make_synthetic_board_observations(models,
-                                            object_width_n, object_width_n, object_spacing,
+                                            object_width_n, object_height_n, object_spacing,
                                             calobject_warp_ref,
                                             np.array((0,   0,   5.0,  0.,  0.,  0.)),
                                             np.array((1.5, 1.5, 1.0,  40., 30., 30.)),
@@ -88,7 +89,8 @@ intrinsics_data,extrinsics,frames = \
                                   indices_frame_camera = indices_frame_camera,
                                   observations         = observations,
                                   object_spacing       = object_spacing,
-                                  object_width_n       = object_width_n)
+                                  object_width_n       = object_width_n,
+                                  object_height_n      = object_height_n)
 
 # I have a pinhole intrinsics estimate. Mount it into a full distortiony model,
 # seeded with random numbers

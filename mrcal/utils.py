@@ -341,7 +341,9 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               points                      = None,
 
                               axis_scale = 1.0,
-                              object_spacing = 0, object_width_n = 10,
+                              object_spacing = 0,
+                              object_width_n  = 10,
+                              object_height_n = 10,
                               i_camera_highlight=None,
                               point_labels=None,
 
@@ -503,33 +505,34 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
 
 
         # I don't bother with calobject_warp here. It'll look close-enough
-        calobject_ref = get_ref_calibration_object(object_width_n, object_width_n, object_spacing)
+        calobject_ref = get_ref_calibration_object(object_height_n, object_width_n,
+                                                   object_spacing)
 
         Rf = mrcal.R_from_r(frames[..., :3])
         Rf = nps.mv(Rf,              0, -4)
         tf = nps.mv(frames[..., 3:], 0, -4)
 
-        # object in the cam0 coord system. shape=(Nframes, object_width_n, object_width_n, 3)
+        # object in the cam0 coord system. shape=(Nframes, object_height_n, object_width_n, 3)
         calobject_cam0 = nps.matmult( calobject_ref, nps.transpose(Rf)) + tf
 
         # if i_camera_highlight is not None:
-        #     # shape=(Nobservations, object_width_n, object_width_n, 2)
+        #     # shape=(Nobservations, object_height_n, object_width_n, 2)
         #     calobject_cam = nps.transform_point_Rt( models[i_camera_highlight].extrinsics_Rt_fromref(), calobject_cam0 )
 
         #     print("double-check this. I don't broadcast over the intrinsics anymore")
         #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, *models[i_camera_highlight].intrinsics())
         #     err = nps.clump(err, n=-3)
-        #     rms = np.sqrt(nps.inner(err,err) / (object_width_n*object_width_n))
+        #     rms = np.sqrt(nps.inner(err,err) / (object_height_n*object_width_n))
         #     # igood = rms <  0.4
         #     # ibad  = rms >= 0.4
         #     # rms[igood] = 0
         #     # rms[ibad] = 1
         #     calobject_cam0 = nps.glue( calobject_cam0,
-        #                             nps.dummy( nps.mv(rms, -1, -3) * np.ones((object_width_n,object_width_n)),
+        #                             nps.dummy( nps.mv(rms, -1, -3) * np.ones((object_height_n,object_width_n)),
         #                                        -1 ),
         #                             axis = -1)
 
-        # calobject_cam0 shape: (3, Nframes, object_width_n*object_width_n).
+        # calobject_cam0 shape: (3, Nframes, object_height_n*object_width_n).
         # This will broadcast nicely
         calobject_cam0 = nps.clump( nps.mv(calobject_cam0, -1, -4), n=-2)
 
@@ -2989,7 +2992,8 @@ def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, e
 
 def estimate_local_calobject_poses( indices_frame_camera,
                                     observations,
-                                    object_spacing,Nwant,
+                                    object_spacing,
+                                    object_width_n,object_height_n,
                                     models_or_intrinsics ):
     r"""Estimates pose of observed object in a single-camera view
 
@@ -3061,7 +3065,7 @@ def estimate_local_calobject_poses( indices_frame_camera,
     Rt_cf_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
     # No calobject_warp. Good-enough for the seeding
-    full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing)
+    full_object = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing)
 
     for i_observation in range(Nobservations):
 
@@ -3072,10 +3076,10 @@ def estimate_local_calobject_poses( indices_frame_camera,
         d = observations[i_observation, ...]
 
         d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
-        # d is (Nwant*Nwant,5); each row is an xy pixel observation followed by the xyz
+        # d is (object_height_n*object_width_n,5); each row is an xy pixel observation followed by the xyz
         # coord of the point in the calibration object. I pick off those rows
         # where the observations are both >= 0. Result should be (N,5) where N
-        # <= Nwant*Nwant
+        # <= object_height_n*object_width_n
         i = (d[..., 0] >= 0) * (d[..., 1] >= 0)
         d = d[i,:]
 
@@ -3123,8 +3127,9 @@ def estimate_local_calobject_poses( indices_frame_camera,
 
 
 def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
-                            observations, object_spacing, Ncameras,
-                            Nwant):
+                            observations, Ncameras,
+                            object_spacing,
+                            object_width_n, object_height_n):
     r'''Estimate camera poses in respect to each other
 
     We are given poses of the calibration object in respect to each observing
@@ -3183,7 +3188,8 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
         # j!=0. Good enough for now
         #
         # No calobject_warp. Good-enough for the seeding
-        full_object = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing)
+        full_object = mrcal.get_ref_calibration_object(object_width_n,object_height_n,
+                                                       object_spacing)
 
         A = np.array(())
         B = np.array(())
@@ -3224,13 +3230,13 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
 
 
-                # d looks at one frame and has shape (Nwant,Nwant,7). Each row is
+                # d looks at one frame and has shape (object_height_n,object_width_n,7). Each row is
                 #   xy pixel observation in left camera
                 #   xy pixel observation in right camera
                 #   xyz coord of dot in the calibration object coord system
                 d = nps.glue( d0, d1, full_object, axis=-1 )
 
-                # squash dims so that d is (Nwant*Nwant,7)
+                # squash dims so that d is (object_height_n*object_width_n,7)
                 d = nps.clump(d, n=2)
 
                 ref_object = nps.clump(full_object, n=2)
@@ -3247,7 +3253,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                 # #   xyz coord of dot in the calibration object coord system
                 # d = nps.glue( d0, d1, full_object, axis=-1 )
 
-                # # squash dims so that d is (Nwant*Nwant,7)
+                # # squash dims so that d is (object_height_n*object_width_n,7)
                 # d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
 
                 # # I pick out those points that have observations in both frames
@@ -3390,7 +3396,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
                                               extrinsics_rt_fromref,
                                               indices_frame_camera, object_spacing,
-                                              Nwant):
+                                              object_width_n, object_height_n):
     r'''Estimate poses of the calibration object using no extrinsic information
 
     We're given
@@ -3455,7 +3461,8 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
         # object into the mean point cloud
         #
         # No calobject_warp. Good-enough for the seeding
-        obj = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing)
+        obj = mrcal.get_ref_calibration_object(object_width_n, object_height_n,
+                                               object_spacing)
 
         sum_obj_unproj = obj*0
         for i_observation in range(i_observation0, i_observation1):
@@ -3504,7 +3511,8 @@ def make_seed_no_distortion( imagersizes,
                              indices_frame_camera,
                              observations,
                              object_spacing,
-                             object_width_n):
+                             object_width_n,
+                             object_height_n):
     r'''Generate a solution seed for a given input
 
     Note that this assumes we're solving a calibration problem (stationary
@@ -3535,7 +3543,8 @@ def make_seed_no_distortion( imagersizes,
     calobject_poses_local_Rt_cf = \
         mrcal.estimate_local_calobject_poses( indices_frame_camera,
                                               observations,
-                                              object_spacing, object_width_n,
+                                              object_spacing,
+                                              object_width_n, object_height_n,
                                               intrinsics)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
@@ -3552,9 +3561,9 @@ def make_seed_no_distortion( imagersizes,
     camera_poses_Rt01 = _estimate_camera_poses( calobject_poses_local_Rt_cf,
                                                 indices_frame_camera,
                                                 observations,
-                                                object_spacing,
                                                 Ncameras,
-                                                object_width_n)
+                                                object_spacing,
+                                                object_width_n, object_height_n)
 
     if len(camera_poses_Rt01):
         # extrinsics should map FROM the ref coord system TO the coord system of the
@@ -3568,7 +3577,8 @@ def make_seed_no_distortion( imagersizes,
         mrcal.estimate_frame_poses_from_monocular_views(
             calobject_poses_local_Rt_cf, extrinsics,
             indices_frame_camera,
-            object_spacing, object_width_n)
+            object_spacing,
+            object_width_n, object_height_n)
 
     return intrinsics_data,extrinsics,frames
 
