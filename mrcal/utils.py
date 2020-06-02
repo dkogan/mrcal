@@ -186,7 +186,12 @@ coordinate system, with each pose perturbed uniformly with radius
 noiseradius_xyz_rpydeg. I'd like control over roll,pitch,yaw, so this isn't a
 normal rt transformation.
 
-Returns array of shape (Nframes, Ncameras, object_height, object_width, 2)
+Returns a tuple:
+
+- The point observations p:
+  array of shape (Nframes, Ncameras, object_height, object_width, 2)
+- The pose of the chessboards Rt_cam0_boardref:
+  array of shape (Nframes, Ncameras, 4,3)
 
 ARGUMENTS
 
@@ -277,19 +282,19 @@ ARGUMENTS
         Rr[:,0,1] = -sr
         Rr[:,1,1] =  cr
 
-        # I didn't think about the order too hard; it might be backwards. It also
-        # probably doesn't really matter
-        # shape (Nframes,3,3)
+        # I didn't think about the order too hard; it might be backwards. It
+        # also doesn't really matter. shape (Nframes,3,3)
         R = nps.matmult(Rr, Ry, Rp)
 
-        # shape = (Nframes, Nh,Nw,3)
-        boards_cam0 = nps.matmult( # shape (        Nh,Nw,1,3)
-                                   nps.dummy(board_reference, -2),
+        # shape(Nframes,4,3)
+        Rt_cam0_boardref = nps.glue(R, nps.dummy(xyz, -2), axis=-2)
 
-                                   # shape (Nframes, 1, 1,3,3)
-                                   nps.mv(R,               0,-5),
-                                 )[..., 0, :] + \
-                      nps.mv(xyz, 0,-4) # shape (Nframes,1,1,3)
+        # shape = (Nframes, Nh,Nw,3)
+        boards_cam0 = mrcal.transform_point_Rt( # shape (Nframes, 1,1,4,3)
+                                                nps.mv(Rt_cam0_boardref, 0, -5),
+
+                                                # shape ( Nh,Nw,3)
+                                                board_reference )
 
         # I project everything. Shape: (Nframes,Ncameras,Nh,Nw,2)
         p = \
@@ -309,10 +314,10 @@ ARGUMENTS
             iframe *= \
                 np.all(nps.clump(p[..., 0], n=-3) <= W-1, axis=-1) * \
                 np.all(nps.clump(p[..., 1], n=-3) <= H-1, axis=-1)
-        p = p[iframe, ...]
 
-        # p now has shape (Nframes_inview,Ncameras,Nh*Nw,2)
-        return p
+        # p                has shape (Nframes_inview,Ncameras,Nh*Nw,2)
+        # Rt_cam0_boardref has shape (Nframes_inview,4,3)
+        return p[iframe, ...], Rt_cam0_boardref[iframe, ...]
 
 
 
@@ -323,15 +328,21 @@ ARGUMENTS
                   object_height_n,object_width_n,
                   2),
                  dtype=float)
+    # shape (Nframes_sofar,4,3)
+    Rt_cam0_boardref = np.zeros((0,4,3), dtype=float)
 
     # I keep creating data, until I get Nframes-worth of in-view observations
     while True:
-        p = nps.glue(p, get_observation_chunk(), axis=-5)
+        p_here, Rt_cam0_boardref_here = get_observation_chunk()
+
+        p = nps.glue(p, p_here, axis=-5)
+        Rt_cam0_boardref = nps.glue(Rt_cam0_boardref, Rt_cam0_boardref_here, axis=-3)
         if p.shape[0] >= Nframes:
-            p = p[:Nframes,...]
+            p                = p               [:Nframes,...]
+            Rt_cam0_boardref = Rt_cam0_boardref[:Nframes,...]
             break
 
-    return p
+    return p,Rt_cam0_boardref
 
 
 def show_calibration_geometry(models_or_extrinsics_rt_fromref,

@@ -169,12 +169,12 @@ pixel_noise_xy_1stdev = args.observed_pixel_uncertainty
 
 
 # shape (Nframes,Ncameras,Nh,Nw,2)
-p = mrcal.make_synthetic_board_observations(models,
-                                            args.object_width_n,args.object_width_n,
-                                            args.object_spacing,args.calobject_warp,
-                                            args.at_xyz_rpydeg,
-                                            args.noiseradius_xyz_rpydeg,
-                                            Nframes)
+p,_ = mrcal.make_synthetic_board_observations(models,
+                                              args.object_width_n,args.object_width_n,
+                                              args.object_spacing,args.calobject_warp,
+                                              args.at_xyz_rpydeg,
+                                              args.noiseradius_xyz_rpydeg,
+                                              Nframes)
 
 p += np.random.randn(*p.shape) * pixel_noise_xy_1stdev
 

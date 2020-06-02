@@ -45,7 +45,8 @@ calobject_warp_ref = np.array((0.002, -0.005))
 print("making synth")
 
 # shape (Nframes, Ncameras, Nh, Nw, 2)
-p = mrcal.make_synthetic_board_observations(models,
+p,Rt_cam0_boardref = \
+    mrcal.make_synthetic_board_observations(models,
                                             object_width_n, object_height_n, object_spacing,
                                             calobject_warp_ref,
                                             np.array((0,   0,   5.0,  0.,  0.,  0.)),
