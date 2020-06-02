@@ -6,13 +6,6 @@
 #include "basic_points.h"
 
 
-
-
-
-
-#define MRCAL_POINT_HAS_REF_RANGE_BIT    0
-
-
 // unconstrained 6DOF pose containing a rodrigues rotation and a translation
 typedef struct
 {
@@ -39,7 +32,6 @@ typedef struct
     // indexes the intrinsics array
     int  i_cam_intrinsics : 30;
     bool skip_point       : 1;
-    bool has_ref_range    : 1;
     int  i_point          : 31;
     bool skip_observation : 1;
 

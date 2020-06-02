@@ -50,31 +50,31 @@ ref_p_cam = mrcal.transform_point_rt(nps.mv(ref_extrinsics_rt_fromref, -2,-3),
 ref_q_cam = mrcal.project(ref_p_cam, lensmodel, intrinsics_data)
 
 # Observations are incomplete. Not all points are observed from everywhere
-indices_point_camintrinsics_camextrinsics_flags = \
-    np.array(((0, 0, 1, 0),
-              (0, 0, 2, 0),
-              (0, 0, 4, 0),
-              (1, 0, 0, 0),
-              (1, 0, 1, 0),
-              (1, 0, 4, 0),
-              (2, 0, 0, 0),
-              (2, 0, 1, 0),
-              (2, 0, 2, 0),
-              (3, 0, 1, 0),
-              (3, 0, 2, 0),
-              (3, 0, 3, 0),
-              (3, 0, 4, 0),
-              (4, 0, 0, 0),
-              (4, 0, 3, 0),
-              (4, 0, 4, 0),
-              (5, 0, 0, 0),
-              (5, 0, 1, 0),
-              (5, 0, 2, 0),
-              (5, 0, 3, 0),
-              (5, 0, 4, 0),
-              (6, 0, 2, 0),
-              (6, 0, 3, 0),
-              (6, 0, 4, 0)),
+indices_point_camintrinsics_camextrinsics = \
+    np.array(((0, 0, 1),
+              (0, 0, 2),
+              (0, 0, 4),
+              (1, 0, 0),
+              (1, 0, 1),
+              (1, 0, 4),
+              (2, 0, 0),
+              (2, 0, 1),
+              (2, 0, 2),
+              (3, 0, 1),
+              (3, 0, 2),
+              (3, 0, 3),
+              (3, 0, 4),
+              (4, 0, 0),
+              (4, 0, 3),
+              (4, 0, 4),
+              (5, 0, 0),
+              (5, 0, 1),
+              (5, 0, 2),
+              (5, 0, 3),
+              (5, 0, 4),
+              (6, 0, 2),
+              (6, 0, 3),
+              (6, 0, 4)),
              dtype = np.int32)
 
 
@@ -93,8 +93,8 @@ def make_noisy_inputs():
     points_noisy = ref_p * (1. + points_noise)
 
     Ncamposes,Npoints = ref_p_cam.shape[:2]
-    ipoints   = indices_point_camintrinsics_camextrinsics_flags[:,0]
-    icamposes = indices_point_camintrinsics_camextrinsics_flags[:,2]
+    ipoints   = indices_point_camintrinsics_camextrinsics[:,0]
+    icamposes = indices_point_camintrinsics_camextrinsics[:,2]
     ref_q_cam_indexed = nps.clump(ref_q_cam, n=2)[icamposes*Npoints+ipoints,:]
 
     #print(repr(np.random.randn(*ref_q_cam_indexed.shape) * 1.0))
@@ -141,59 +141,8 @@ def make_noisy_inputs():
 
 
 
-############### First solve: do everything in the coord system of camera0, use
-############### one ranged observation to set range
-extrinsics_rt_fromref, points, observations = make_noisy_inputs()
-rt_0r = ref_extrinsics_rt_fromref[0,:]
-points_cam0ref = mrcal.transform_point_rt(rt_0r, points)
-extrinsics_rt_fromref_cam0ref = \
-    mrcal.compose_rt(extrinsics_rt_fromref,
-                     mrcal.invert_rt(rt_0r))[1:, ...]
-
-indices_point_camintrinsics_camextrinsics_flags_cam0ref = \
-    indices_point_camintrinsics_camextrinsics_flags.copy()
-indices_point_camintrinsics_camextrinsics_flags_cam0ref[:,2] -= 1
-
-# And I set one ranged point to set the problem scale
-indices_point_camintrinsics_camextrinsics_flags_cam0ref[0,3] = mrcal.POINT_HAS_REF_RANGE
-ipoint_observation0 = indices_point_camintrinsics_camextrinsics_flags_cam0ref[0,0]
-ref_range_point0 = \
-    nps.mag( \
-      mrcal.transform_point_rt(ref_extrinsics_rt_fromref[0,:],
-                               ref_p[ipoint_observation0 ]))
-points_cam0ref[ipoint_observation0] *= \
-    ref_range_point0 / nps.mag(points_cam0ref[ipoint_observation0])
-
-stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
-                        extrinsics_rt_fromref_cam0ref,
-                        None, points_cam0ref,
-                        None, None,
-                        observations, indices_point_camintrinsics_camextrinsics_flags_cam0ref,
-                        lensmodel,
-                        imagersizes                       = nps.atleast_dims(imagersize, -2),
-                        observed_pixel_uncertainty        = 1.0,
-                        do_optimize_intrinsic_core        = False,
-                        do_optimize_intrinsic_distortions = False,
-                        do_optimize_extrinsics            = True,
-                        do_optimize_frames                = True,
-                        skip_outlier_rejection            = True,
-                        skip_regularization               = False,
-                        verbose                           = False)
-
-# Got a solution. I align the (reference, solved) point clouds, and report how
-# well they fit
-Rt_ref_solved = mrcal.align3d_procrustes(ref_p, points_cam0ref)
-ref_p_aligned_solved = mrcal.transform_point_Rt(Rt_ref_solved, points_cam0ref)
-fit_rms = np.sqrt(np.mean(nps.norm2(ref_p_aligned_solved - ref_p)))
-
-testutils.confirm_equal(fit_rms, 0,
-                        msg = f"Solved at ref-cam0 with one ranged point",
-                        eps = 2.0)
-
-
-
-############### Second solve: do everything in the ref coord system, with a few
-############### fixed-position points to set the coords
+############### Do everything in the ref coord system, with a few fixed-position
+############### points to set the coords
 extrinsics_rt_fromref, points, observations = make_noisy_inputs()
 
 # De-noise the fixed points. We know where they are exactly. And correctly
@@ -205,7 +154,7 @@ stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
                         None, points,
                         None, None,
                         observations,
-                        indices_point_camintrinsics_camextrinsics_flags,
+                        indices_point_camintrinsics_camextrinsics,
                         lensmodel,
                         imagersizes                       = nps.atleast_dims(imagersize, -2),
                         Npoints_fixed                     = Npoints_fixed,

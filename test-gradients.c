@@ -165,7 +165,7 @@ int main(int argc, char* argv[] )
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 3} };
     observation_point_t observations_point[] =
         { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 0, .px = observations_point_px[0]},
-          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 0, .px = observations_point_px[1], .has_ref_range = true},
+          {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 0, .px = observations_point_px[1]},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 1, .px = observations_point_px[3]} };
 
     // simple camera calibration case

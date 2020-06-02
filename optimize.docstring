@@ -6,7 +6,7 @@ SYNOPSIS
                             extrinsics_rt_fromref,
                             frames, points
                             observations_board, indices_frame_camintrinsics_camextrinsics,
-                            observations_point, indices_point_camintrinsics_camextrinsics_flags,
+                            observations_point, indices_point_camintrinsics_camextrinsics,
 
                             lensmodel,
                             imagersizes                       = imagersizes,
@@ -36,7 +36,7 @@ The cameras and what they're observing is given in the arrays
 - frames
 - points
 - indices_frame_camintrinsics_camextrinsics
-- indices_point_camintrinsics_camextrinsics_flags
+- indices_point_camintrinsics_camextrinsics
 
 intrinsics_data contains the intrinsics for all the physical cameras present in
 the problem. len(intrinsics_data) = Ncameras_intrinsics
@@ -54,8 +54,7 @@ described by a tuple (i_frame,i_cam_intrinsics,i_cam_extrinsics). The board at
 frames[i_frame] was observed by camera intrinsics_data[i_cam_intrinsics], which
 was at extrinsics_rt_fromref[i_cam_extrinsics]
 
-indices_point_camintrinsics_camextrinsics_flags is the same thing for discrete
-points.
+indices_point_camintrinsics_camextrinsics is the same thing for discrete points.
 
 If we're solving a vanilla calibration problem, we have stationary cameras
 observing a moving target. By convention, camera 0 is at the reference
@@ -154,18 +153,11 @@ REQUIRED ARGUMENTS
   that produced these observations are given in the indices_point_camera_points
   array.
 
-- indices_point_camintrinsics_camextrinsics_flags: array of dims
-  (NobservationsPoint, 4). For each observation these are an
-  (i_point,i_cam_intrinsics,i_cam_extrinsics,flags) tuple. The first 3 elements
-  are analogous to indices_frame_camintrinsics_camextrinsics, but for
-  observations of discrete points. The flags are a bit field:
-
-  - mrcal.POINT_HAS_REF_RANGE: we know the distance from this point to the
-    origin of the reference coordinate system. The distance error will be a part
-    of the optimization cost that we try to minimize. The reference distance is
-    given in the initial value of the "points" array passed to this function
-
-  If none of these apply, the flags should be 0
+- indices_point_camintrinsics_camextrinsics: array of dims (NobservationsPoint,
+  3). For each observation these are an
+  (i_point,i_cam_intrinsics,i_cam_extrinsics) tuple. Analogous to
+  indices_frame_camintrinsics_camextrinsics, but for observations of discrete
+  points.
 
 - lensmodel: a string such as
 

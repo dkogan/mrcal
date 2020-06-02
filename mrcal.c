@@ -79,12 +79,9 @@ calibration and sfm formulations are a little different
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 #define SCALE_CALOBJECT_WARP          0.01
 
-#define DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M 1.0
-
-// I need to constrain the point motion since it's not well-defined, and can
-// jump to clearly-incorrect values. This is the distance in front of the
-// reference camera. I make sure this is positive and not unreasonably high
-#define POINT_MAXZ                    50000
+// These shouldn't be hard-coded, but it will do for now
+#define POINT_MAX_RANGE 100.0e3
+#define POINT_MIN_RANGE  10.0e3
 
 // This is hard-coded to 1.0; the computation of scale_distortion_regularization
 // below assumes it
@@ -425,13 +422,8 @@ int mrcal_getNmeasurements_boards(int NobservationsBoard,
 int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
                                   int NobservationsPoint)
 {
-    // *2 because I have separate x and y measurements
-    int Nmeas = NobservationsPoint * 2;
-
-    // known-distance measurements
-    for(int i=0; i<NobservationsPoint; i++)
-        if(observations_point[i].has_ref_range) Nmeas++;
-    return Nmeas;
+    // 3: x,y measurements, range normalization
+    return NobservationsPoint * 3;
 }
 
 int mrcal_getNmeasurements_regularization(int Ncameras_intrinsics,
@@ -517,16 +509,14 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
         if( problem_details.do_optimize_extrinsics &&
             observations_point[i].i_cam_extrinsics >= 0 )
             N += 2*6;
-        if(observations_point[i].has_ref_range)
-        {
-            if(problem_details.do_optimize_frames &&
-                observations_point[i].i_point < Npoints-Npoints_fixed )
-                N += 3;
 
-            if( problem_details.do_optimize_extrinsics &&
-                observations_point[i].i_cam_extrinsics >= 0 )
-                N += 6;
-        }
+        // range normalization
+        if(problem_details.do_optimize_frames &&
+            observations_point[i].i_point < Npoints-Npoints_fixed )
+            N += 3;
+        if( problem_details.do_optimize_extrinsics &&
+            observations_point[i].i_cam_extrinsics >= 0 )
+            N += 6;
     }
 
     N +=
@@ -1718,7 +1708,7 @@ typedef struct
 // calibration_object_width_n*calibration_object_width_n points. q and the
 // gradients reference ALL of these points
 static
-bool project( // out
+void project( // out
              point2_t* restrict q,
 
              // The intrinsics gradients. These are split among several arrays.
@@ -1861,11 +1851,6 @@ bool project( // out
         p_tj = &tf;
     }
 
-    bool suspicious_point =
-        calibration_object_width_n==0 &&
-        ( p_tj->data.db[2] > POINT_MAXZ ||
-          p_tj->data.db[2] <= 0.0 );
-
     if( LENSMODEL_IS_OPENCV(lensmodel.type) )
     {
         // Special-case path for opencv. This isn't strictly required, but
@@ -1900,7 +1885,7 @@ bool project( // out
                         Nintrinsics-4,
                         camera_at_identity ? NULL : &gg,
                         p_rj, p_tj);
-        return !suspicious_point;
+        return;
     }
 
 
@@ -2215,8 +2200,6 @@ bool project( // out
                 i_pt++;
             }
     }
-
-    return !suspicious_point;
 }
 
 // Compute the region-of-interest weight. The region I care about is in r=[0,1];
@@ -3991,6 +3974,8 @@ void optimizerCallback(// input state
                 (point3_t*)dq_dtframe : NULL,
                 ctx->problem_details.do_optimize_calobject_warp ?
                 (point2_t*)dq_dcalobject_warp : NULL,
+
+                // input
                 intrinsics_all[i_cam_intrinsics],
                 &camera_rt[i_cam_extrinsics], &frame_rt,
                 ctx->calobject_warp == NULL ? NULL : &calobject_warp_local,
@@ -4210,7 +4195,6 @@ void optimizerCallback(// input state
 
     // Handle all the point observations. This is VERY similar to the
     // board-observation loop above. Please consolidate
-    int i_ref_range = 0;
     for(int i_observation_point = 0;
         i_observation_point < ctx->NobservationsPoint;
         i_observation_point++)
@@ -4256,45 +4240,36 @@ void optimizerCallback(// input state
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
         point2_t pt_hypothesis;
-        bool suspicious_point =
-          !project(&pt_hypothesis,
+        project(&pt_hypothesis,
 
-                   ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                   dq_dintrinsics_pool_double : NULL,
-                   ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
-                   dq_dintrinsics_pool_int : NULL,
-                   &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
+                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                dq_dintrinsics_pool_double : NULL,
+                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                dq_dintrinsics_pool_int : NULL,
+                &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
-                   ctx->problem_details.do_optimize_extrinsics ?
-                   dq_drcamera : NULL,
-                   ctx->problem_details.do_optimize_extrinsics ?
-                   dq_dtcamera : NULL,
-                   NULL, // frame rotation. I only have a point position
-                   use_position_from_state ? dq_dpoint : NULL,
-                   NULL,
-                   intrinsics_all[i_cam_intrinsics],
-                   &camera_rt[i_cam_extrinsics],
+                ctx->problem_details.do_optimize_extrinsics ?
+                dq_drcamera : NULL,
+                ctx->problem_details.do_optimize_extrinsics ?
+                dq_dtcamera : NULL,
+                NULL, // frame rotation. I only have a point position
+                use_position_from_state ? dq_dpoint : NULL,
+                NULL,
 
-                   // I only have the point position, so the 'rt' memory
-                   // points 3 back. The fake "r" here will not be
-                   // referenced
-                   (pose_t*)(&point.xyz[-3]),
-                   NULL,
+                // input
+                intrinsics_all[i_cam_intrinsics],
+                &camera_rt[i_cam_extrinsics],
 
-                   i_cam_extrinsics < 0,
-                   ctx->lensmodel, &ctx->precomputed,
-                   0,0);
+                // I only have the point position, so the 'rt' memory
+                // points 3 back. The fake "r" here will not be
+                // referenced
+                (pose_t*)(&point.xyz[-3]),
+                NULL,
+
+                i_cam_extrinsics < 0,
+                ctx->lensmodel, &ctx->precomputed,
+                0,0);
 #pragma GCC diagnostic pop
-
-        // Check for invalid points. I report a very poor cost if I see
-        // this.
-        if( suspicious_point )
-        {
-            if(ctx->verbose)
-                MSG( "Saw suspicious point. Discouraging the solver with a high cost. obs/point/cam: %d %d %d",
-                     i_observation_point, i_point, i_cam_extrinsics);
-        }
-
 
 
         if(!observation->skip_observation
@@ -4303,16 +4278,9 @@ void optimizerCallback(// input state
         {
             // I have my two measurements (dx, dy). I propagate their
             // gradient and store them
-            double invalid_point_scale = 1.0;
-            if(suspicious_point)
-                // I have an invalid point. This is a VERY bad solution. The solver
-                // needs to try again with a smaller step
-                invalid_point_scale = 1e6;
-
-
             for( int i_xy=0; i_xy<2; i_xy++ )
             {
-                const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy])*invalid_point_scale*weight;
+                const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy])*weight;
 
                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
                 x[iMeasurement] = err;
@@ -4323,12 +4291,10 @@ void optimizerCallback(// input state
                     // fx,fy. x depends on fx only. y depends on fy only
                     STORE_JACOBIAN( i_var_intrinsics + i_xy,
                                     dq_dfxy[i_xy] *
-                                    invalid_point_scale *
                                     weight * SCALE_INTRINSICS_FOCAL_LENGTH );
 
                     // cx,cy. The gradients here are known to be 1. And x depends on cx only. And y depends on cy only
                     STORE_JACOBIAN( i_var_intrinsics + i_xy+2,
-                                    invalid_point_scale *
                                     weight * SCALE_INTRINSICS_CENTER_PIXEL );
                 }
 
@@ -4367,7 +4333,6 @@ void optimizerCallback(// input state
                             STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
                                             dq_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
                                                                    i] *
-                                            invalid_point_scale *
                                             weight * SCALE_DISTORTION );
                     }
                 }
@@ -4377,159 +4342,169 @@ void optimizerCallback(// input state
                     {
                         STORE_JACOBIAN3( i_var_camera_rt + 0,
                                          dq_drcamera[i_xy].xyz[0] *
-                                         invalid_point_scale *
                                          weight * SCALE_ROTATION_CAMERA,
                                          dq_drcamera[i_xy].xyz[1] *
-                                         invalid_point_scale *
                                          weight * SCALE_ROTATION_CAMERA,
                                          dq_drcamera[i_xy].xyz[2] *
-                                         invalid_point_scale *
                                          weight * SCALE_ROTATION_CAMERA);
                         STORE_JACOBIAN3( i_var_camera_rt + 3,
                                          dq_dtcamera[i_xy].xyz[0] *
-                                         invalid_point_scale *
                                          weight * SCALE_TRANSLATION_CAMERA,
                                          dq_dtcamera[i_xy].xyz[1] *
-                                         invalid_point_scale *
                                          weight * SCALE_TRANSLATION_CAMERA,
                                          dq_dtcamera[i_xy].xyz[2] *
-                                         invalid_point_scale *
                                          weight * SCALE_TRANSLATION_CAMERA);
                     }
 
                 if( use_position_from_state )
                     STORE_JACOBIAN3( i_var_point,
                                      dq_dpoint[i_xy].xyz[0] *
-                                     invalid_point_scale *
                                      weight * SCALE_POSITION_POINT,
                                      dq_dpoint[i_xy].xyz[1] *
-                                     invalid_point_scale *
                                      weight * SCALE_POSITION_POINT,
                                      dq_dpoint[i_xy].xyz[2] *
-                                     invalid_point_scale *
                                      weight * SCALE_POSITION_POINT);
 
                 iMeasurement++;
             }
 
-            if( observation->has_ref_range )
+            // Now the range normalization (make sure the range isn't
+            // aphysically high or aphysically low). This code is copied from
+            // project(). PLEASE consolidate
+            void get_penalty(// out
+                             double* penalty, double* dpenalty_ddistsq,
+
+                             // in
+                             // SIGNED distance. <0 means "behind the camera"
+                             const double distsq)
             {
-                // I do this in the observing-camera coord system. The
-                // camera is at 0. The point is at
-                //
-                //   Rc*p_point + t
-
-                const double dist_ref =
-                    sqrt( ctx->points[i_point].x*ctx->points[i_point].x +
-                          ctx->points[i_point].y*ctx->points[i_point].y +
-                          ctx->points[i_point].z*ctx->points[i_point].z );
-
-                // This code is copied from project(). PLEASE consolidate
-                if(i_cam_extrinsics < 0)
+                const double maxsq = POINT_MAX_RANGE*POINT_MAX_RANGE;
+                const double minsq = POINT_MIN_RANGE*POINT_MIN_RANGE;
+                const double scale = 1e0;
+                if(distsq > maxsq)
                 {
-                    double dist = sqrt( point.x*point.x +
-                                        point.y*point.y +
-                                        point.z*point.z );
-                    double err = dist - dist_ref;
-                    err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
-
-                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                    x[iMeasurement] = err;
-                    norm2_error += err*err;
-
-                    if( use_position_from_state )
-                    {
-                        double scale = DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M / dist * SCALE_POSITION_POINT;
-                        STORE_JACOBIAN3( i_var_point,
-                                         scale*point.x,
-                                         scale*point.y,
-                                         scale*point.z );
-                    }
-
-                    iMeasurement++;
+                    *penalty = scale * (distsq/maxsq - 1.0);
+                    *dpenalty_ddistsq = scale*(1. / maxsq);
+                }
+                else if(distsq < minsq)
+                {
+                    // too close OR behind the camera
+                    *penalty = scale*(1.0 - distsq/minsq);
+                    *dpenalty_ddistsq = scale*(-1. / minsq);
                 }
                 else
+                    *penalty = *dpenalty_ddistsq = 0.0;
+            }
+
+
+            if(i_cam_extrinsics < 0)
+            {
+                double distsq =
+                    point.x*point.x +
+                    point.y*point.y +
+                    point.z*point.z;
+                double penalty, dpenalty_ddistsq;
+                if(point.z > 0.0)
+                    get_penalty(&penalty, &dpenalty_ddistsq, distsq);
+                else
                 {
-                    // I need to transform the point. I already computed
-                    // this stuff in project()...
-                    CvMat rc = cvMat(3,1, CV_64FC1, camera_rt[i_cam_extrinsics].r.xyz);
-
-                    double _Rc[3*3];
-                    CvMat  Rc = cvMat(3,3,CV_64FC1, _Rc);
-                    double _d_Rc_rc[9*3];
-                    CvMat d_Rc_rc = cvMat(9,3,CV_64F, _d_Rc_rc);
-                    cvRodrigues2(&rc, &Rc, &d_Rc_rc);
-
-                    point3_t p;
-                    mul_vec3_gen33t_vout(point.xyz, _Rc, p.xyz);
-                    add_vec(3, p.xyz, camera_rt[i_cam_extrinsics].t.xyz);
-
-                    double dist = sqrt( p.x*p.x +
-                                        p.y*p.y +
-                                        p.z*p.z );
-                    double dist_recip = 1.0/dist;
-                    double err = dist - dist_ref;
-                    err *= DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M;
-
-                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                    x[iMeasurement] = err;
-                    norm2_error += err*err;
-
-                    if( ctx->problem_details.do_optimize_extrinsics )
-                    {
-                        // p.x       = Rc[row0]*point*SCALE + tc
-                        // d(p.x)/dr = d(Rc[row0])/drc*point*SCALE
-                        // d(Rc[row0])/drc is 3x3 matrix at &_d_Rc_rc[0]
-                        double d_ptcamx_dr[3];
-                        double d_ptcamy_dr[3];
-                        double d_ptcamz_dr[3];
-                        mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*0], d_ptcamx_dr );
-                        mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*1], d_ptcamy_dr );
-                        mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*2], d_ptcamz_dr );
-
-                        STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
-                                         SCALE_ROTATION_CAMERA*
-                                         dist_recip*( p.x*d_ptcamx_dr[0] +
-                                                      p.y*d_ptcamy_dr[0] +
-                                                      p.z*d_ptcamz_dr[0] ),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
-                                         SCALE_ROTATION_CAMERA*
-                                         dist_recip*( p.x*d_ptcamx_dr[1] +
-                                                      p.y*d_ptcamy_dr[1] +
-                                                      p.z*d_ptcamz_dr[1] ),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M *
-                                         SCALE_ROTATION_CAMERA*
-                                         dist_recip*( p.x*d_ptcamx_dr[2] +
-                                                      p.y*d_ptcamy_dr[2] +
-                                                      p.z*d_ptcamz_dr[2] ) );
-                        STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*p.x,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*p.y,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_TRANSLATION_CAMERA*
-                                         dist_recip*p.z );
-                    }
-
-                    if( use_position_from_state )
-                        STORE_JACOBIAN3( i_var_point,
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_POSITION_POINT*
-                                         dist_recip*(p.x*_Rc[0] + p.y*_Rc[3] + p.z*_Rc[6]),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_POSITION_POINT*
-                                         dist_recip*(p.x*_Rc[1] + p.y*_Rc[4] + p.z*_Rc[7]),
-                                         DISTANCE_ERROR_EQUIVALENT__PIXELS_PER_M*
-                                         SCALE_POSITION_POINT*
-                                         dist_recip*(p.x*_Rc[2] + p.y*_Rc[5] + p.z*_Rc[8]) );
-                    iMeasurement++;
+#warning "some lens models support behind-the-camera views, so I don't need to discourage those"
+                    get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
+                    dpenalty_ddistsq *= -1.;
                 }
 
-                i_ref_range++;
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                x[iMeasurement] = penalty;
+                norm2_error += penalty*penalty;
+
+                if( use_position_from_state )
+                {
+                    double scale = 2.0 * dpenalty_ddistsq * SCALE_POSITION_POINT;
+                    STORE_JACOBIAN3( i_var_point,
+                                     scale*point.x,
+                                     scale*point.y,
+                                     scale*point.z );
+                }
+
+                iMeasurement++;
+            }
+            else
+            {
+                // I need to transform the point. I already computed
+                // this stuff in project()...
+                CvMat rc = cvMat(3,1, CV_64FC1, camera_rt[i_cam_extrinsics].r.xyz);
+
+                double _Rc[3*3];
+                CvMat  Rc = cvMat(3,3,CV_64FC1, _Rc);
+                double _d_Rc_rc[9*3];
+                CvMat d_Rc_rc = cvMat(9,3,CV_64F, _d_Rc_rc);
+                cvRodrigues2(&rc, &Rc, &d_Rc_rc);
+
+                point3_t pcam;
+                mul_vec3_gen33t_vout(point.xyz, _Rc, pcam.xyz);
+                add_vec(3, pcam.xyz, camera_rt[i_cam_extrinsics].t.xyz);
+
+                double distsq =
+                    pcam.x*pcam.x +
+                    pcam.y*pcam.y +
+                    pcam.z*pcam.z;
+                double penalty, dpenalty_ddistsq;
+                if(pcam.z > 0.0)
+                    get_penalty(&penalty, &dpenalty_ddistsq, distsq);
+                else
+                {
+#warning "some lens models support behind-the-camera views, so I don't need to discourage those"
+                    get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
+                    dpenalty_ddistsq *= -1.;
+                }
+
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                x[iMeasurement] = penalty;
+                norm2_error += penalty*penalty;
+
+                if( ctx->problem_details.do_optimize_extrinsics )
+                {
+                    // pcam.x       = Rc[row0]*point*SCALE + tc
+                    // d(pcam.x)/dr = d(Rc[row0])/drc*point*SCALE
+                    // d(Rc[row0])/drc is 3x3 matrix at &_d_Rc_rc[0]
+                    double d_ptcamx_dr[3];
+                    double d_ptcamy_dr[3];
+                    double d_ptcamz_dr[3];
+                    mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*0], d_ptcamx_dr );
+                    mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*1], d_ptcamy_dr );
+                    mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*2], d_ptcamz_dr );
+
+                    STORE_JACOBIAN3( i_var_camera_rt + 0,
+                                     SCALE_ROTATION_CAMERA*
+                                     2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[0] +
+                                                            pcam.y*d_ptcamy_dr[0] +
+                                                            pcam.z*d_ptcamz_dr[0] ),
+                                     SCALE_ROTATION_CAMERA*
+                                     2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[1] +
+                                                            pcam.y*d_ptcamy_dr[1] +
+                                                            pcam.z*d_ptcamz_dr[1] ),
+                                     SCALE_ROTATION_CAMERA*
+                                     2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[2] +
+                                                            pcam.y*d_ptcamy_dr[2] +
+                                                            pcam.z*d_ptcamz_dr[2] ) );
+                    STORE_JACOBIAN3( i_var_camera_rt + 3,
+                                     SCALE_TRANSLATION_CAMERA*
+                                     2.0*dpenalty_ddistsq*pcam.x,
+                                     SCALE_TRANSLATION_CAMERA*
+                                     2.0*dpenalty_ddistsq*pcam.y,
+                                     SCALE_TRANSLATION_CAMERA*
+                                     2.0*dpenalty_ddistsq*pcam.z );
+                }
+
+                if( use_position_from_state )
+                    STORE_JACOBIAN3( i_var_point,
+                                     SCALE_POSITION_POINT*
+                                     2.0*dpenalty_ddistsq*(pcam.x*_Rc[0] + pcam.y*_Rc[3] + pcam.z*_Rc[6]),
+                                     SCALE_POSITION_POINT*
+                                     2.0*dpenalty_ddistsq*(pcam.x*_Rc[1] + pcam.y*_Rc[4] + pcam.z*_Rc[7]),
+                                     SCALE_POSITION_POINT*
+                                     2.0*dpenalty_ddistsq*(pcam.x*_Rc[2] + pcam.y*_Rc[5] + pcam.z*_Rc[8]) );
+                iMeasurement++;
             }
         }
         else
@@ -4594,25 +4569,21 @@ void optimizerCallback(// input state
                 iMeasurement++;
             }
 
-            if(observation->has_ref_range)
-            {
-                const double err = 0.0;
+            const double penalty = 0.0;
 
-                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                x[iMeasurement] = err;
-                norm2_error += err*err;
+            if(Jt) Jrowptr[iMeasurement] = iJacobian;
+            x[iMeasurement] = penalty;
+            norm2_error += penalty*penalty;
 
-                if( ctx->problem_details.do_optimize_extrinsics )
-                    if(i_cam_extrinsics >= 0)
-                    {
-                        STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
-                        STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
-                    }
-                if( use_position_from_state )
-                    STORE_JACOBIAN3( i_var_point, 0.0, 0.0, 0.0);
-                iMeasurement++;
-                i_ref_range++;
-            }
+            if( ctx->problem_details.do_optimize_extrinsics )
+                if(i_cam_extrinsics >= 0)
+                {
+                    STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
+                    STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
+                }
+            if( use_position_from_state )
+                STORE_JACOBIAN3( i_var_point, 0.0, 0.0, 0.0);
+            iMeasurement++;
         }
     }
 

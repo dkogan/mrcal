@@ -58,12 +58,12 @@ imagersizes = nps.cat(models[0].imagersize(),
 frames = linspace_shaped(3,6)
 frames[:,5] += 5 # push them back
 
-indices_point_camintrinsics_camextrinsics_flags = \
-    np.array(((0,1,-1, 0),
-              (1,0,-1, 0),
-              (1,1, 0, mrcal.POINT_HAS_REF_RANGE),
-              (2,0,-1, mrcal.POINT_HAS_REF_RANGE),
-              (2,1, 0, mrcal.POINT_HAS_REF_RANGE)),
+indices_point_camintrinsics_camextrinsics = \
+    np.array(((0,1,-1),
+              (1,0,-1),
+              (1,1, 0),
+              (2,0,-1),
+              (2,1, 0)),
              dtype = np.int32)
 
 points                      = 10. + 2.*linspace_shaped(3,3)
@@ -125,7 +125,7 @@ for kwargs in all_test_kwargs:
                                     frames, points,
                                     observations,       indices_frame_camintrinsics_camextrinsics,
                                     observations_point,
-                                    indices_point_camintrinsics_camextrinsics_flags,
+                                    indices_point_camintrinsics_camextrinsics,
 
                                     lensmodel,
                                     imagersizes                       = imagersizes,
