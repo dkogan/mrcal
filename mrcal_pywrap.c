@@ -1211,6 +1211,8 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_width_n,         int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
+    _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
+    _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
     _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, roi,            NPY_DOUBLE, {-1 COMMA 4} ) \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
@@ -1456,6 +1458,13 @@ static bool optimize_validate_args( // out
         {
             BARF("I have Npoints=len(points)=%d, but Npoints_fixed=%d. Npoints_fixed > Npoints makes no sense",
                  Npoints, Npoints_fixed);
+            return false;
+        }
+        if(point_min_range <= 0.0 ||
+           point_max_range <= 0.0 ||
+           point_min_range >= point_max_range)
+        {
+            BARF("Point observations were given, so point_min_range and point_max_range MUST have been given usable values > 0 and max>min");
             return false;
         }
     }
@@ -1824,6 +1833,10 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
               .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
             };
 
+        mrcal_problem_constants_t problem_constants =
+            {.point_min_range = point_min_range,
+             .point_max_range = point_max_range};
+
         int Nmeasurements = mrcal_getNmeasurements_all(Ncameras_intrinsics, NobservationsBoard,
                                                        c_observations_point, NobservationsPoint,
                                                        calibration_object_width_n,
@@ -1938,7 +1951,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 lensmodel_type,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,
-                                problem_details,
+                                problem_details, &problem_constants,
 
                                 calibration_object_spacing,
                                 calibration_object_width_n);
@@ -2091,7 +2104,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                      verbose && PyObject_IsTrue(verbose),
                                      lensmodel_type,
                                      c_imagersizes,
-                                     problem_details,
+                                     problem_details, &problem_constants,
 
                                      calibration_object_spacing,
                                      calibration_object_width_n,

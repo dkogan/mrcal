@@ -14,6 +14,8 @@ SYNOPSIS
                                     do_optimize_intrinsic_distortions = True,
                                     calibration_object_spacing        = object_spacing,
                                     calibration_object_width_n        = 10,
+                                    point_min_range                   = 0.1,
+                                    point_max_range                   = 100.0,
                                     skip_regularization               = False,
                                     verbose                           = False)
 

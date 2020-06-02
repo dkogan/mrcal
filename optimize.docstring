@@ -15,6 +15,8 @@ SYNOPSIS
                             do_optimize_intrinsic_distortions = True,
                             calibration_object_spacing        = object_spacing,
                             calibration_object_width_n        = 10,
+                            point_min_range                   = 0.1,
+                            point_max_range                   = 100.0,
                             skip_outlier_rejection            = False,
                             skip_regularization               = False,
                             verbose                           = False)
@@ -242,6 +244,11 @@ OPTIONAL ARGUMENTS
   deviation, treated independently. If each of these is s, then the LENGTH of
   the deviation of each pixel is a Rayleigh distribution with expected value
   s*sqrt(pi/2) ~ s*1.25. This is used to set the outlier rejection threshold
+
+- point_min_range, point_max_range: Required ONLY if point observations are
+  given. These are lower, upper bounds for the distance of a point observation
+  to its observing camera. Each observation outside of this range is penalized.
+  This helps the solver by guiding it away from unreasonable solutions.
 
 - solver_context: an object that will receive the context from this solve. This
   context can be re-used in other calls. The usage is

@@ -188,6 +188,13 @@ typedef struct
     bool do_skip_regularization            : 1;
     bool do_optimize_calobject_warp        : 1;
 } mrcal_problem_details_t;
+
+typedef struct
+{
+    double  point_max_range;
+    double  point_min_range;
+} mrcal_problem_constants_t;
+
 #define DO_OPTIMIZE_ALL ((mrcal_problem_details_t) { .do_optimize_intrinsic_core        = true, \
                                                      .do_optimize_intrinsic_distortions = true, \
                                                      .do_optimize_extrinsics            = true, \
@@ -401,7 +408,8 @@ mrcal_optimize( // out
                 lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
-                mrcal_problem_details_t problem_details,
+                mrcal_problem_details_t          problem_details,
+                const mrcal_problem_constants_t* problem_constants,
 
                 double calibration_object_spacing,
                 int calibration_object_width_n);
@@ -451,7 +459,8 @@ void mrcal_optimizerCallback(// output measurements
                              lensmodel_t lensmodel,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
-                             mrcal_problem_details_t problem_details,
+                             mrcal_problem_details_t          problem_details,
+                             const mrcal_problem_constants_t* problem_constants,
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,

@@ -79,10 +79,6 @@ calibration and sfm formulations are a little different
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 #define SCALE_CALOBJECT_WARP          0.01
 
-// These shouldn't be hard-coded, but it will do for now
-#define POINT_MAX_RANGE 100.0e3
-#define POINT_MIN_RANGE  10.0e3
-
 // This is hard-coded to 1.0; the computation of scale_distortion_regularization
 // below assumes it
 #define SCALE_DISTORTION              1.0
@@ -3775,7 +3771,8 @@ typedef struct
     mrcal_projection_precomputed_t precomputed;
     const int* imagersizes; // Ncameras_intrinsics*2 of these
 
-    mrcal_problem_details_t problem_details;
+    mrcal_problem_details_t          problem_details;
+    const mrcal_problem_constants_t* problem_constants;
 
     double calibration_object_spacing;
     int calibration_object_width_n;
@@ -4378,22 +4375,26 @@ void optimizerCallback(// input state
                              // SIGNED distance. <0 means "behind the camera"
                              const double distsq)
             {
-                const double maxsq = POINT_MAX_RANGE*POINT_MAX_RANGE;
-                const double minsq = POINT_MIN_RANGE*POINT_MIN_RANGE;
                 const double scale = 1e0;
+
+                const double maxsq = ctx->problem_constants->point_max_range*ctx->problem_constants->point_max_range;
                 if(distsq > maxsq)
                 {
                     *penalty = scale * (distsq/maxsq - 1.0);
                     *dpenalty_ddistsq = scale*(1. / maxsq);
+                    return;
                 }
-                else if(distsq < minsq)
+
+                const double minsq = ctx->problem_constants->point_min_range*ctx->problem_constants->point_min_range;
+                if(distsq < minsq)
                 {
                     // too close OR behind the camera
                     *penalty = scale*(1.0 - distsq/minsq);
                     *dpenalty_ddistsq = scale*(-1. / minsq);
+                    return;
                 }
-                else
-                    *penalty = *dpenalty_ddistsq = 0.0;
+
+                *penalty = *dpenalty_ddistsq = 0.0;
             }
 
 
@@ -4813,7 +4814,8 @@ void mrcal_optimizerCallback(// output measurements
                              lensmodel_t lensmodel,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
-                             mrcal_problem_details_t problem_details,
+                             mrcal_problem_details_t          problem_details,
+                             const mrcal_problem_constants_t* problem_constants,
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,
@@ -4872,6 +4874,7 @@ void mrcal_optimizerCallback(// output measurements
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
         .problem_details            = problem_details,
+        .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n,
         .roi                        = roi,
@@ -4967,7 +4970,8 @@ mrcal_optimize( // out
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
 
-                mrcal_problem_details_t problem_details,
+                mrcal_problem_details_t          problem_details,
+                const mrcal_problem_constants_t* problem_constants,
 
                 double calibration_object_spacing,
                 int calibration_object_width_n)
@@ -5040,6 +5044,7 @@ mrcal_optimize( // out
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
         .problem_details            = problem_details,
+        .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n,
         .roi                        = roi,

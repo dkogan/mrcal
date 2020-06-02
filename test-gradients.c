@@ -322,6 +322,10 @@ int main(int argc, char* argv[] )
 
     const double roi[] = { 1000., 1000., 400., 400.,
                             900., 1200., 300., 800. };
+    mrcal_problem_constants_t problem_constants =
+        { .point_min_range =  30.0,
+          .point_max_range = 180.0};
+
     mrcal_optimize( NULL, NULL, NULL, NULL, NULL, NULL, NULL,
                     intrinsics,
                     extrinsics,
@@ -347,6 +351,7 @@ int main(int argc, char* argv[] )
                     1.0,
                     imagersizes,
                     problem_details,
+                    &problem_constants,
 
                     1.0, calibration_object_width_n);
 
