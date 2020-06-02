@@ -4791,8 +4791,18 @@ void optimizerCallback(// input state
     if( !ctx->reportFitMsg )
     {
         if(Jt) Jrowptr[iMeasurement] = iJacobian;
-        assert(iMeasurement == ctx->Nmeasurements);
-        assert(iJacobian    == ctx->N_j_nonzero  );
+        if(iMeasurement != ctx->Nmeasurements)
+        {
+            MSG("Assertion (iMeasurement == ctx->Nmeasurements) failed: (%d != %d)",
+                iMeasurement, ctx->Nmeasurements);
+            assert(0);
+        }
+        if(iJacobian    != ctx->N_j_nonzero  )
+        {
+            MSG("Assertion (iJacobian    == ctx->N_j_nonzero  ) failed: (%d != %d)",
+                iJacobian, ctx->N_j_nonzero);
+            assert(0);
+        }
 
         // MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / ((double)ctx>Nmeasurements / 2.0)));
     }
