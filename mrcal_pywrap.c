@@ -1391,9 +1391,7 @@ static bool optimize_validate_args( // out
 
     // make sure the indices arrays are valid: the data is monotonic and
     // in-range
-    int Nframes = 0;
-    if( !IS_NULL(frames) )
-        Nframes = PyArray_DIMS(frames)[0];
+    int Nframes = PyArray_DIMS(frames)[0];
     int i_frame_last  = -1;
     int i_cam_intrinsics_last = -1;
     int i_cam_extrinsics_last = -1;
@@ -1450,10 +1448,9 @@ static bool optimize_validate_args( // out
         i_cam_intrinsics_last = i_cam_intrinsics;
         i_cam_extrinsics_last = i_cam_extrinsics;
     }
-    int Npoints = 0;
-    if( !IS_NULL(points) )
+    int Npoints = PyArray_DIMS(points)[0];
+    if( Npoints > 0 )
     {
-        Npoints = PyArray_DIMS(points)[0];
         if(Npoints_fixed > Npoints)
         {
             BARF("I have Npoints=len(points)=%d, but Npoints_fixed=%d. Npoints_fixed > Npoints makes no sense",
@@ -1472,7 +1469,7 @@ static bool optimize_validate_args( // out
     {
         if(Npoints_fixed)
         {
-            BARF("No 'points' array was given, so it's 'Npoints_fixed' doesn't do anything, and shouldn't be given");
+            BARF("No 'points' were given, so it's 'Npoints_fixed' doesn't do anything, and shouldn't be given");
             return false;
         }
     }
