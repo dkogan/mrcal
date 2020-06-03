@@ -2198,27 +2198,6 @@ void project( // out
     }
 }
 
-// Compute the region-of-interest weight. The region I care about is in r=[0,1];
-// here the weight is ~ 1. Past that, the weight falls off. I don't attenuate
-// all the way to 0 to preserve the constraints of the problem. Letting these go
-// to 0 could make the problem indeterminate
-static double region_of_interest_weight_from_unitless_rad(double rsq)
-{
-    if( rsq < 1.0 ) return 1.0;
-    return 1e-3;
-}
-static double region_of_interest_weight(const point3_t* pt,
-                                        const double* roi, int i_cam_intrinsics)
-{
-    if(roi == NULL) return 1.0;
-
-    roi = &roi[4*i_cam_intrinsics];
-    double dx = (pt->x - roi[0]) / roi[2];
-    double dy = (pt->y - roi[1]) / roi[3];
-
-    return region_of_interest_weight_from_unitless_rad(dx*dx + dy*dy);
-}
-
 static
 bool _project_cahvore( // out
                       point2_t* out,
@@ -3610,9 +3589,7 @@ static bool computeUncertaintyMatrices(// out
 #undef X
 }
 
-// Doing this myself instead of hooking into the logic in libdogleg. THIS
-// implementation is simpler (looks just at the residuals), but also knows to
-// ignore the outside-ROI data
+// Doing this myself instead of hooking into the logic in libdogleg
 static
 bool markOutliers(// output, input
                   struct dogleg_outliers_t* markedOutliers,
@@ -3626,7 +3603,6 @@ bool markOutliers(// output, input
                   int NobservationsBoard,
                   int calibration_object_width_n,
                   int calibration_object_height_n,
-                  const double* roi,
 
                   const double* x_measurements,
                   double expected_xy_stdev,
@@ -3671,8 +3647,7 @@ bool markOutliers(// output, input
             i_pt++, i_feature++)                                        \
         {                                                               \
             const point3_t* pt_observed = &observations_board_pool[i_feature]; \
-            double weight_roi = region_of_interest_weight(pt_observed, roi, i_cam_intrinsics); \
-            double weight = weight_roi * pt_observed->z;
+            double weight = pt_observed->z;
 
 
 #define LOOP_FEATURE_END() \
@@ -3691,7 +3666,6 @@ bool markOutliers(// output, input
           (*Noutliers)++;
           continue;
         }
-        if(weight_roi != 1.0) continue;
 
         sum_mean +=
             weight *
@@ -3707,7 +3681,6 @@ bool markOutliers(// output, input
     {
         if(markedOutliers[i_feature].marked)
           continue;
-        if(weight_roi != 1.0) continue;
 
         double dx = (x_measurements[2*i_feature + 0] - sum_mean);
         double dy = (x_measurements[2*i_feature + 1] - sum_mean);
@@ -3725,7 +3698,6 @@ bool markOutliers(// output, input
     {
         if(markedOutliers[i_feature].marked)
           continue;
-        if(weight_roi != 1.0) continue;
 
         double dx = (x_measurements[2*i_feature + 0] - sum_mean);
         double dy = (x_measurements[2*i_feature + 1] - sum_mean);
@@ -3781,7 +3753,6 @@ typedef struct
     int calibration_object_width_n;
     int calibration_object_height_n;
 
-    const double* roi;
     const int Nmeasurements, N_j_nonzero, Nintrinsics;
     struct dogleg_outliers_t* markedOutliers;
     const char* reportFitMsg;
@@ -3991,8 +3962,7 @@ void optimizerCallback(// input state
             i_pt++, i_feature++)
         {
             const point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
-            double weight = region_of_interest_weight(pt_observed, ctx->roi, i_cam_intrinsics);
-            weight *= pt_observed->z;
+            double weight = pt_observed->z;
 
             if(!observation->skip_observation &&
 
@@ -4211,8 +4181,7 @@ void optimizerCallback(// input state
             i_point < ctx->Npoints - ctx->Npoints_fixed;
 
         const point3_t* pt_observed = &observation->px;
-        double weight = region_of_interest_weight(pt_observed, ctx->roi, i_cam_intrinsics);
-        weight *= pt_observed->z;
+        double weight = pt_observed->z;
 
         const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                              ctx->problem_details, ctx->lensmodel);
         // invalid if i_cam_extrinsics < 0, but unused in that case
@@ -4814,7 +4783,6 @@ void mrcal_optimizerCallback(// output measurements
 
                              int Noutlier_indices_input,
                              const int* outlier_indices_input,
-                             const double* roi,
                              bool verbose,
 
                              lensmodel_t lensmodel,
@@ -4885,7 +4853,6 @@ void mrcal_optimizerCallback(// output measurements
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
         .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
-        .roi                        = roi,
         .Nmeasurements              = Nmeasurements,
         .N_j_nonzero                = N_j_nonzero,
         .Nintrinsics                = Nintrinsics,
@@ -4927,9 +4894,6 @@ mrcal_optimize( // out
                 // Buffer should be at least Npoints long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,
-                // Buffer should be at least Npoints long. stats->NoutsideROI
-                // elements will be filled in
-                int*    outside_ROI_indices_final,
 
                 // out, in
 
@@ -4968,7 +4932,6 @@ mrcal_optimize( // out
                 // skip_outlier_rejection.
                 int Noutlier_indices_input,
                 int* outlier_indices_input,
-                const double* roi,
                 bool verbose,
                 // Whether to try to find NEW outliers. These would be added to
                 // the outlier_indices_input, which are respected regardless
@@ -5057,7 +5020,6 @@ mrcal_optimize( // out
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
         .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
-        .roi                        = roi,
         .Nmeasurements              = mrcal_getNmeasurements_all(Ncameras_intrinsics,
                                                                  NobservationsBoard,
                                                                  observations_point, NobservationsPoint,
@@ -5165,7 +5127,6 @@ mrcal_optimize( // out
                               NobservationsBoard,
                               calibration_object_width_n,
                               calibration_object_height_n,
-                              roi,
                               solver_context->beforeStep->x,
                               observed_pixel_uncertainty,
                               verbose) );
@@ -5289,32 +5250,6 @@ mrcal_optimize( // out
                 outlier_indices_final[ioutlier++] = iFeature;
 
         assert(ioutlier == stats.Noutliers);
-    }
-    if(outside_ROI_indices_final)
-    {
-        stats.NoutsideROI = 0;
-        if( roi != NULL )
-        {
-            int i_feature = 0;
-            for(int i_observation_board=0;
-                i_observation_board<NobservationsBoard;
-                i_observation_board++)
-            {
-                const observation_board_t* observation = &observations_board[i_observation_board];
-                const int i_cam_intrinsics = observation->i_cam_intrinsics;
-                for(int i_pt=0;
-                    i_pt < calibration_object_width_n*calibration_object_height_n;
-                    i_pt++, i_feature++)
-                {
-                    const point3_t* pt_observed = &observations_board_pool[i_feature];
-                    double weight = region_of_interest_weight(pt_observed, roi, i_cam_intrinsics);
-                    if( weight != 1.0 )
-                        outside_ROI_indices_final[stats.NoutsideROI++] =
-                            i_observation_board*calibration_object_width_n*calibration_object_height_n +
-                            i_pt;
-                }
-            }
-        }
     }
 
  done:

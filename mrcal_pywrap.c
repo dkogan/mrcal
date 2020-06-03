@@ -1219,7 +1219,6 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
-    _(roi,                                PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, roi,            NPY_DOUBLE, {-1 COMMA 4} ) \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
 
@@ -1269,13 +1268,6 @@ static bool optimize_validate_args( // out
         BARF("Inconsistent Ncameras: 'intrinsics' says %ld, 'imagersizes' says %ld",
                      Ncameras_intrinsics,
                      PyArray_DIMS(imagersizes)[0]);
-        return false;
-    }
-    if( !IS_NULL(roi) && PyArray_DIMS(roi)[0] != Ncameras_intrinsics )
-    {
-        BARF("Inconsistent Ncameras: 'intrinsics' says %ld, 'roi' says %ld",
-                     Ncameras_intrinsics,
-                     PyArray_DIMS(roi)[0]);
         return false;
     }
 
@@ -1556,7 +1548,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     PyArrayObject* covariance_intrinsics      = NULL;
     PyArrayObject* covariance_extrinsics      = NULL;
     PyArrayObject* outlier_indices_final      = NULL;
-    PyArrayObject* outside_ROI_indices_final  = NULL;
     PyObject*      pystats                    = NULL;
 
     SET_SIGINT();
@@ -1883,12 +1874,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             Noutlier_indices = PyArray_DIMS(outlier_indices)[0];
         }
 
-        double* c_roi;
-        if(IS_NULL(roi))
-            c_roi = NULL;
-        else
-            c_roi = PyArray_DATA(roi);
-
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         dogleg_solverContext_t** solver_context_optimizer = NULL;
@@ -1917,11 +1902,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 NobservationsBoard *
                 calibration_object_width_n*calibration_object_height_n;
             outlier_indices_final     = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
-            outside_ROI_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
 
             // output
             int* c_outlier_indices_final     = PyArray_DATA(outlier_indices_final);
-            int* c_outside_ROI_indices_final = PyArray_DATA(outside_ROI_indices_final);
 
             mrcal_stats_t stats =
                 mrcal_optimize( c_x_final,
@@ -1929,7 +1912,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_covariance_intrinsics,
                                 c_covariance_extrinsics,
                                 c_outlier_indices_final,
-                                c_outside_ROI_indices_final,
                                 (void**)solver_context_optimizer,
                                 c_intrinsics,
                                 c_extrinsics,
@@ -1949,7 +1931,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 false,
                                 Noutlier_indices,
                                 c_outlier_indices,
-                                c_roi,
                                 verbose &&                PyObject_IsTrue(verbose),
                                 skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                                 lensmodel_type,
@@ -2030,24 +2011,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 BARF("Couldn't add to stats dict 'outlier_indices'");
                 goto done;
             }
-            // The outside_ROI_indices_final numpy array has Nfeatures elements,
-            // but I want to return only the first NoutsideROI elements
-            if( NULL == PyArray_Resize(outside_ROI_indices_final,
-                                       &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.NoutsideROI}),
-                                           .len = 1 },
-                                       true,
-                                       NPY_ANYORDER))
-            {
-                BARF("Couldn't resize outside_ROI_indices_final to %d elements",
-                             stats.NoutsideROI);
-                goto done;
-            }
-            if( 0 != PyDict_SetItemString(pystats, "outside_ROI_indices",
-                                          (PyObject*)outside_ROI_indices_final) )
-            {
-                BARF("Couldn't add to stats dict 'outside_ROI_indices'");
-                goto done;
-            }
 
             result = pystats;
             Py_INCREF(result);
@@ -2106,7 +2069,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
                                      Noutlier_indices,
                                      c_outlier_indices,
-                                     c_roi,
                                      verbose && PyObject_IsTrue(verbose),
                                      lensmodel_type,
                                      c_imagersizes,

@@ -323,13 +323,11 @@ int main(int argc, char* argv[] )
     printf("## Measurement regularization: %d measurements. Starts at measurement %d\n",
            Nmeasurements_regularization, Nmeasurements_boards+Nmeasurements_points);
 
-    const double roi[] = { 1000., 1000., 400., 400.,
-                            900., 1200., 300., 800. };
     mrcal_problem_constants_t problem_constants =
         { .point_min_range =  30.0,
           .point_max_range = 180.0};
 
-    mrcal_optimize( NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    mrcal_optimize( NULL, NULL, NULL, NULL, NULL, NULL,
                     intrinsics,
                     extrinsics,
                     frames,
@@ -347,7 +345,6 @@ int main(int argc, char* argv[] )
 
                     true,
                     0, NULL,
-                    roi,
                     false,
                     true,
                     lensmodel,

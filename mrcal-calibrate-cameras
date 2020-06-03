@@ -332,20 +332,6 @@ def parse_args():
                         required=False,
                         help='''Which lens model we're using. This is required unless we have a
                         --seed''')
-    parser.add_argument('--roi',
-                        nargs=4,
-                        type=float,
-                        action='append',
-                        required=False,
-                        help='''Region of interest of the calibration. This is the area in the imager we're
-                        interested in. Errors in observations outside this area
-                        will be attenuated significantly. If we want to use all
-                        the data evenly, omit this argument. Otherwise pass 4
-                        values for each --roi:
-                        (x_center,y_center,x_radius,y_radius). The region is an
-                        axis-aligned ellipsoid. If passing in ANY roi, you MUST
-                        pass in the ROI for EACH camera; a separate '--roi' for
-                        each one.''')
     parser.add_argument('--seed',
                         required=False,
                         type=str,
@@ -769,31 +755,6 @@ def solve_initial(args, seedmodels, imagersizes,
                   observations, indices_frame_camera,
                   outlier_indices):
     '''Solve an incrementally-expanding optimization problem in several passes
-
-    The logic is this:
-
-        m   = simplest_model
-        roi = smallest region
-
-        while roi<ROI:
-            solve(m,roi)
-            if(couldn't fit the data very well):
-                if m < M:
-                    m++
-                else:
-                    # I'm already at the most complex model
-                    print("Given lens model doesn't fit in the required ROI!")
-                    break
-            else:
-                roi++
-
-    I.e. I start with a smaller region-of-interest than what I actually care
-    about, and with a simpler lens model than what I was asked to use. I
-    solve again and again, increasing the region-of-interest and distortion
-    model complexity as I go, using the outlier counts to guide the process.
-
-    have minimal m that works with ROI
-
     '''
 
     Ncameras = len(args.images)
@@ -832,7 +793,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
                                outlier_indices                   = outlier_indices,
-                               roi                               = args.roi,
                                get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
@@ -852,7 +812,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
                                outlier_indices                   = outlier_indices,
-                               roi                               = args.roi,
                                get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
@@ -950,7 +909,6 @@ def solve_initial(args, seedmodels, imagersizes,
                            skip_outlier_rejection            = args.skip_outlier_rejection,
                            skip_regularization               = args.skip_regularization,
                            outlier_indices                   = outlier_indices,
-                           roi                               = args.roi,
                            get_covariances                   = False,
                            verbose                           = args.verbose_solver)
     return intrinsics_data, extrinsics, frames, stats
@@ -1022,16 +980,6 @@ else:
     seedmodels = None
 
 
-
-if args.roi is not None:
-    if len(args.roi) != Ncameras:
-        raise Exception("Globs say we have {} cameras, but --roi suggests I have {}. These MUST match". \
-                        format(Ncameras, len(args.roi)))
-    try:
-        args.roi = np.array(args.roi, dtype=float)
-    except:
-        sys.stderr.write("Couldn't interpret --roi as a numpy array")
-        raise
 
 observations, indices_frame_camera, paths = \
     mrcal.get_chessboard_observations(args.object_width_n,
@@ -1125,7 +1073,6 @@ stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                        skip_outlier_rejection            = True, # use outliers in outlier_indices
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = stats['outlier_indices'],
-                       roi                               = args.roi,
                        get_covariances                   = True,
                        verbose                           = args.verbose_solver,
                        solver_context                    = solver_context)
@@ -1416,7 +1363,6 @@ Potential things to look at:
     show_distortion('vectorfield',i_camera)
     show_distortion('radial',     i_camera)
     show_splined_model_surface(   i_camera, i_xy)
-    show_roi(i_camera)
     stats
     i_observations_worst
     rms_reproj_err_including_outliers_perobservation
@@ -1568,7 +1514,6 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
                                     calibration_object_height_n       = args.object_width_n,
                                     skip_regularization               = args.skip_regularization,
                                     outlier_indices                   = stats['outlier_indices'],
-                                    roi                               = args.roi,
                                     verbose                           = False)
         Joptimizer = Joptimizer.toarray()
         J = Joptimizer.copy()
@@ -1695,7 +1640,6 @@ def check_confidence_computations(solver_context, observed_pixel_uncertainty):
                                 skip_outlier_rejection            = True, # use outliers in outlier_indices
                                 skip_regularization               = args.skip_regularization,
                                 outlier_indices                   = stats['outlier_indices'],
-                                roi                               = args.roi,
                                 get_covariances                   = False,
                                 verbose                           = False,
                                 solver_context                    = solver_context)
@@ -2271,37 +2215,6 @@ def show_splined_model_surface(i_camera = None, i_xy=0, **kwargs):
             mrcal.show_splined_model_surface(models[i_camera], i_xy,
                                              extratitle = "camera {}".format(i_camera),
                                              **kwargs)
-
-plots_roi = [None] * Ncameras
-def show_roi(i_camera = None, **kwargs):
-    global plots_roi
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
-
-    NboardPoints     = args.object_width_n*args.object_width_n
-    Nfeatures        = NboardPoints*len(observations)
-    feats            = observations[..., :2].reshape(Nfeatures,2)
-
-    def append_icamera(iFeatures):
-        '''input: (N,) array of feature indices; output: (2,N) array of feature,camera indices)'''
-        iObservations = iFeatures / NboardPoints
-        iObservations = iObservations.astype(int)
-        iCamera = np.array([indices_frame_camera[iObs,1] for iObs in iObservations])
-        return nps.cat(iFeatures, iCamera)
-
-    iFeature_roi_out = append_icamera(stats['outside_ROI_indices'])
-    iFeature_roi_in  = append_icamera(np.setdiff1d(np.arange(Nfeatures), iFeature_roi_out[0,:]))
-
-    for i_camera in i_camera_all:
-
-        iFeature_roi_in_thiscam  = iFeature_roi_in [ 0, iFeature_roi_in [1,:] == i_camera]
-        iFeature_roi_out_thiscam = iFeature_roi_out[ 0, iFeature_roi_out[1,:] == i_camera]
-
-        plots_roi[i_camera] = \
-            gp.gnuplotlib(square=1, xrange=(0,imagersizes[i_camera,0]-1),yrange=(imagersizes[i_camera,1]-1,0), _with='points pt 7 ps 2',
-                          **kwargs)
-        plots_roi[i_camera]. \
-            plot( (feats[iFeature_roi_in_thiscam, 0], feats[iFeature_roi_in_thiscam, 1], dict(legend='in' )),
-                  (feats[iFeature_roi_out_thiscam,0], feats[iFeature_roi_out_thiscam,1], dict(legend='out')) )
 
 plot_calibration_geometry = None
 def show_calibration_geometry(**kwargs):

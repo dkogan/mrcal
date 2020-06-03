@@ -316,7 +316,6 @@ void mrcal_unproject_stereographic( // output
 
 #define MRCAL_STATS_ITEM(_)                                           \
     _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble) \
-    _(int,            NoutsideROI,                PyInt_FromLong)     \
     _(int,            Noutliers,                  PyInt_FromLong)
 
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
@@ -338,9 +337,6 @@ mrcal_optimize( // out
                 // Buffer should be at least Nfeatures long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,
-                // Buffer should be at least Nfeatures long. stats->NoutsideROI
-                // elements will be filled in
-                int*    outside_ROI_indices_final,
 
                 // out, in
                 //
@@ -392,13 +388,6 @@ mrcal_optimize( // out
                 // skip_outlier_rejection.
                 int Noutlier_indices_input,
                 int* outlier_indices_input,
-
-                // region-of-interest. If not NULL, errors for observations
-                // outside this region are strongly attenuated. The region is
-                // specified separately for each camera. Each region is an
-                // ellipse, represented as a 4-double slice with values
-                // (x_center, y_center, x_width, y_width)
-                const double* roi,
 
                 bool verbose,
                 // Whether to try to find NEW outliers. These would be added to
@@ -454,7 +443,6 @@ void mrcal_optimizerCallback(// output measurements
 
                              int Noutlier_indices_input,
                              const int* outlier_indices_input,
-                             const double* roi,
                              bool verbose,
 
                              lensmodel_t lensmodel,
