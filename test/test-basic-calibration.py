@@ -37,14 +37,13 @@ for m in models:
     m.intrinsics( imagersize=imagersizes[0],
                   intrinsics = (lensmodel, m.intrinsics()[1][:8]))
 
-
 Ncameras = len(models)
-Nframes  = 150
+Nframes  = 50
 
 models[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
-models[1].extrinsics_rt_fromref(np.array((0.08,0.02,0.02, 1., 0.9,0.1)))
-models[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.02, 2.1,0.4,0.2)))
-models[3].extrinsics_rt_fromref(np.array((0.06,0.08,0.08, 4.4,0.2,0.1)))
+models[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
+models[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
+models[3].extrinsics_rt_fromref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
 
 
 pixel_uncertainty  = 1.5
@@ -52,8 +51,6 @@ object_spacing     = 0.1
 object_width_n     = 10
 object_height_n    = 9
 calobject_warp_ref = np.array((0.002, -0.005))
-
-print("making synth")
 
 # shapes (Nframes, Ncameras, Nh, Nw, 2),
 #        (Nframes, 4,3)
@@ -65,7 +62,6 @@ p,Rt_cam0_boardref = \
                                             np.array((1.5, 1.5, 1.0,  40., 30., 30.)),
                                             Nframes)
 
-print("made synth")
 p_noise = np.random.randn(*p.shape) * pixel_uncertainty
 p_noisy = p + p_noise
 
@@ -108,71 +104,43 @@ intrinsics = nps.cat(*[m.intrinsics()[1] for m in models])
 intrinsics[:,:4] = intrinsics_data
 intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 
-print("optimizing")
-stats = mrcal.optimize( intrinsics,
-                        extrinsics,
-                        frames, None,
-                        observations, indices_frame_camintrinsics_camextrinsics,
-                        None, None,
+args = ( intrinsics,
+         extrinsics,
+         frames, None,
+         observations, indices_frame_camintrinsics_camextrinsics,
+         None, None,
+         lensmodel)
 
-                        lensmodel,
-                        imagersizes                       = imagersizes,
-                        observed_pixel_uncertainty        = pixel_uncertainty,
+kwargs = dict( imagersizes                       = imagersizes,
+               observed_pixel_uncertainty        = pixel_uncertainty,
+               calibration_object_spacing        = object_spacing,
+               calibration_object_width_n        = object_width_n,
+               calibration_object_height_n       = object_height_n,
+               skip_outlier_rejection            = True,
+               skip_regularization               = False,
+               verbose                           = False )
+
+stats = mrcal.optimize( *args, **kwargs,
+                        do_optimize_frames                = True,
                         do_optimize_intrinsic_core        = False,
                         do_optimize_intrinsic_distortions = False,
-                        do_optimize_extrinsics            = True,
+                        do_optimize_extrinsics            = True)
+stats = mrcal.optimize( *args, **kwargs,
                         do_optimize_frames                = True,
-                        calibration_object_spacing        = object_spacing,
-                        calibration_object_width_n        = object_width_n,
-                        calibration_object_height_n       = object_height_n,
-                        skip_outlier_rejection            = True,
-                        skip_regularization               = False,
-                        verbose                           = False)
-print("optimizing")
-stats = mrcal.optimize( intrinsics,
-                        extrinsics,
-                        frames, None,
-                        observations, indices_frame_camintrinsics_camextrinsics,
-                        None, None,
-
-                        lensmodel,
-                        imagersizes                       = imagersizes,
-                        observed_pixel_uncertainty        = pixel_uncertainty,
                         do_optimize_intrinsic_core        = True,
                         do_optimize_intrinsic_distortions = False,
-                        do_optimize_extrinsics            = True,
-                        do_optimize_frames                = True,
-                        calibration_object_spacing        = object_spacing,
-                        calibration_object_width_n        = object_width_n,
-                        calibration_object_height_n       = object_height_n,
-                        skip_outlier_rejection            = True,
-                        skip_regularization               = False,
-                        verbose                           = False)
-print("optimizing")
-calobject_warp = np.array((0.001, 0.001))
-stats = mrcal.optimize( intrinsics,
-                        extrinsics,
-                        frames, None,
-                        observations, indices_frame_camintrinsics_camextrinsics,
-                        None, None,
+                        do_optimize_extrinsics            = True)
 
-                        lensmodel,
-                        calobject_warp                    = calobject_warp,
-                        imagersizes                       = imagersizes,
-                        observed_pixel_uncertainty        = pixel_uncertainty,
-                        do_optimize_calobject_warp        = True,
+calobject_warp = np.array((0.001, 0.001))
+stats = mrcal.optimize( *args, **kwargs,
+                        do_optimize_frames                = True,
                         do_optimize_intrinsic_core        = True,
                         do_optimize_intrinsic_distortions = True,
                         do_optimize_extrinsics            = True,
-                        do_optimize_frames                = True,
-                        calibration_object_spacing        = object_spacing,
-                        calibration_object_width_n        = object_width_n,
-                        calibration_object_height_n       = object_height_n,
-                        skip_outlier_rejection            = True,
-                        skip_regularization               = False,
-                        verbose                           = False)
 
-print(f"solved calobject_warp: {calobject_warp}; this is backwards")
+                        do_optimize_calobject_warp        = True,
+                        calobject_warp                    = calobject_warp)
+
 models_solved = \
     [ mrcal.cameramodel( imagersize = imagersizes[0],
                          intrinsics = (lensmodel, intrinsics[i,:])) \
@@ -194,65 +162,39 @@ testutils.confirm_equal( np.std(stats['x']),
                          eps = pixel_uncertainty*0.1,
                          msg = "Residual have the expected distribution" )
 
-
-
-# Relative extrinsics. Absolute extrinsics make no physical sense, since the whole world
-def get_compensating_Rt_ref_solved(i):
-    v,q0 = mrcal.sample_imager_unproject(60,45,
-                                         (lensmodel,lensmodel),
-                                         (models[i].intrinsics()[1], intrinsics[i]),
-                                         *imagersizes[0])
-
-    Rt = np.zeros((4,3), dtype=float)
-    Rt[:3,:] = \
-        mrcal.utils._intrinsics_diff_get_Rfit(q0,
-                                              v[0,...], v[1,...],
-                                              focus_center = (imagersizes[0]-1.)/2.,
-                                              focus_radius = -1,
-                                              imagersizes  = nps.cat(imagersizes[i],imagersizes[i]))
-    return Rt
-compensating_Rt_ref_solved = [ get_compensating_Rt_ref_solved(i) for i in range(len(models)) ]
-
-def get_Rt_solved(i):
-    if i == 0: return mrcal.identity_Rt()
-    return mrcal.Rt_from_rt(extrinsics[i-1])
-Rt_solved_cr = [get_Rt_solved(i) for i in range(len(models))]
-
+# Checking the extrinsics. These aren't defined absolutely: each solve is free
+# to put the observed frames anywhere it likes. The intrinsics-diff code
+# computes a compensating rotation to address this. Here I simply look at the
+# relative transformations between cameras, which would cancel out any extra
+# rotations. AND since camera0 is fixed at the identity transformation, I can
+# simply look at each extrinsics transformation.
 for icam in range(1,len(models)):
 
-    Rt_ref01 = mrcal.compose_Rt( models[icam-1].extrinsics_Rt_fromref(),
-                                 models[icam  ].extrinsics_Rt_toref() )
+    Rt_extrinsics_err = \
+        mrcal.compose_Rt( models_solved[icam].extrinsics_Rt_fromref(),
+                          models       [icam].extrinsics_Rt_toref() )
 
-    Rt_solved_01 = mrcal.compose_Rt( mrcal.invert_Rt(compensating_Rt_ref_solved[icam-1]),
-                                     Rt_solved_cr[icam-1],
-                                     mrcal.invert_Rt(Rt_solved_cr[icam  ]),
-                                     compensating_Rt_ref_solved[icam] )
+    testutils.confirm_equal( nps.mag(Rt_extrinsics_err[3,:]),
+                             0.0,
+                             eps = 0.05,
+                             msg = f"Recovered extrinsic translation for camera {icam}")
 
-    Rt_diff = mrcal.compose_Rt( Rt_ref01,
-                                mrcal.invert_Rt(Rt_solved_01))
-    rt_diff = mrcal.rt_from_Rt(Rt_diff)
-    print(rt_diff)
+    testutils.confirm_equal( (np.trace(Rt_extrinsics_err[:3,:]) - 1) / 2.,
+                             1.0,
+                             eps = np.cos(1. * np.pi/180.0), # 1 deg
+                             msg = f"Recovered extrinsic rotation for camera {icam}")
 
+Rt_frame_err = \
+    mrcal.compose_Rt( mrcal.Rt_from_rt(frames),
+                      mrcal.invert_Rt(Rt_cam0_boardref) )
 
-    Rt_solved_01 = mrcal.compose_Rt( Rt_solved_cr[icam-1],
-                                     mrcal.invert_Rt(Rt_solved_cr[icam  ]))
+testutils.confirm_equal( np.max(nps.mag(Rt_frame_err[..., 3,:])),
+                         0.0,
+                         eps = 0.08,
+                         msg = "Recovered frame translation")
+testutils.confirm_equal( np.min( (nps.trace(Rt_frame_err[..., :3,:]) - 1)/2. ),
+                         1.0,
+                         eps = np.cos(1. * np.pi/180.0), # 1 deg
+                         msg = "Recovered frame rotation")
 
-    Rt_diff = mrcal.compose_Rt( Rt_ref01,
-                                mrcal.invert_Rt(Rt_solved_01))
-    rt_diff = mrcal.rt_from_Rt(Rt_diff)
-    print(rt_diff)
-
-
-# extrinsics
-# frames
-# intrinsics
-
-# uncertainty of intrinsics
-# uncertainty of extrinsics
-
-
-# import IPython
-# IPython.embed()
-# sys.exit()
-
-# testutils.finish()
+testutils.finish()
