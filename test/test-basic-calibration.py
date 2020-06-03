@@ -28,6 +28,16 @@ models = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
            mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
            mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
 
+imagersizes = nps.cat( *[m.imagersize() for m in models] )
+lensmodel   = models[0].intrinsics()[0]
+# I have opencv8 models, but let me truncate to opencv4 models to keep this
+# simple and fast
+lensmodel = 'LENSMODEL_OPENCV4'
+for m in models:
+    m.intrinsics( imagersize=imagersizes[0],
+                  intrinsics = (lensmodel, m.intrinsics()[1][:8]))
+
+
 Ncameras = len(models)
 Nframes  = 150
 
@@ -37,6 +47,7 @@ models[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.02, 2.1,0.4,0.2)))
 models[3].extrinsics_rt_fromref(np.array((0.06,0.08,0.08, 4.4,0.2,0.1)))
 
 
+pixel_uncertainty  = 1.5
 object_spacing     = 0.1
 object_width_n     = 10
 object_height_n    = 9
@@ -44,7 +55,8 @@ calobject_warp_ref = np.array((0.002, -0.005))
 
 print("making synth")
 
-# shape (Nframes, Ncameras, Nh, Nw, 2)
+# shapes (Nframes, Ncameras, Nh, Nw, 2),
+#        (Nframes, 4,3)
 p,Rt_cam0_boardref = \
     mrcal.make_synthetic_board_observations(models,
                                             object_width_n, object_height_n, object_spacing,
@@ -52,17 +64,14 @@ p,Rt_cam0_boardref = \
                                             np.array((0,   0,   5.0,  0.,  0.,  0.)),
                                             np.array((1.5, 1.5, 1.0,  40., 30., 30.)),
                                             Nframes)
+
 print("made synth")
-p_noise = np.random.randn(*p.shape) * 1.0
+p_noise = np.random.randn(*p.shape) * pixel_uncertainty
 p_noisy = p + p_noise
 
-imagersizes = nps.cat( *[m.imagersize() for m in models] )
-
-
-# I want observations of shape (Nframes*Ncameras, Nw, Nh, 3) where each row is
+# I want observations of shape (Nframes*Ncameras, Nh, Nw, 3) where each row is
 # (x,y,weight)
-observations = nps.xchg( nps.clump(p_noisy, n=2),
-                         -2,-3 )
+observations = nps.clump(p_noisy, n=2)
 observations = nps.glue(observations,
                         np.ones(observations[...,(0,)].shape, dtype=float),
                         axis=-1)
@@ -106,9 +115,9 @@ stats = mrcal.optimize( intrinsics,
                         observations, indices_frame_camintrinsics_camextrinsics,
                         None, None,
 
-                        models[0].intrinsics()[0],
+                        lensmodel,
                         imagersizes                       = imagersizes,
-                        observed_pixel_uncertainty        = 1.0,
+                        observed_pixel_uncertainty        = pixel_uncertainty,
                         do_optimize_intrinsic_core        = False,
                         do_optimize_intrinsic_distortions = False,
                         do_optimize_extrinsics            = True,
@@ -126,9 +135,9 @@ stats = mrcal.optimize( intrinsics,
                         observations, indices_frame_camintrinsics_camextrinsics,
                         None, None,
 
-                        models[0].intrinsics()[0],
+                        lensmodel,
                         imagersizes                       = imagersizes,
-                        observed_pixel_uncertainty        = 1.0,
+                        observed_pixel_uncertainty        = pixel_uncertainty,
                         do_optimize_intrinsic_core        = True,
                         do_optimize_intrinsic_distortions = False,
                         do_optimize_extrinsics            = True,
@@ -147,10 +156,10 @@ stats = mrcal.optimize( intrinsics,
                         observations, indices_frame_camintrinsics_camextrinsics,
                         None, None,
 
-                        models[0].intrinsics()[0],
+                        lensmodel,
                         calobject_warp                    = calobject_warp,
                         imagersizes                       = imagersizes,
-                        observed_pixel_uncertainty        = 1.0,
+                        observed_pixel_uncertainty        = pixel_uncertainty,
                         do_optimize_calobject_warp        = True,
                         do_optimize_intrinsic_core        = True,
                         do_optimize_intrinsic_distortions = True,
@@ -165,20 +174,85 @@ stats = mrcal.optimize( intrinsics,
 
 print(f"solved calobject_warp: {calobject_warp}; this is backwards")
 models_solved = \
-    [ mrcal.cameramodel( imagersize = models[0].imagersize(),
-                         intrinsics = (models[0].intrinsics()[0], intrinsics[i,:])) \
+    [ mrcal.cameramodel( imagersize = imagersizes[0],
+                         intrinsics = (lensmodel, intrinsics[i,:])) \
       for i in range(Ncameras)]
 for i in range(1,Ncameras):
     models_solved[i].extrinsics_rt_fromref( extrinsics[i-1,:] )
 
-import IPython
-IPython.embed()
-sys.exit()
+testutils.confirm_equal(stats['rms_reproj_error__pixels'], 0,
+                        eps = 2.5,
+                        msg = "Converged to a low RMS error")
 
-mrcal.show_intrinsics_diff((models_solved[0], models[0]),)
+testutils.confirm_equal( calobject_warp,
+                         calobject_warp_ref,
+                         eps = 2e-3,
+                         msg = "Recovered the calibration object shape" )
 
-testutils.confirm_equal(fit_rms, 0,
-                        msg = f"Solved at ref coords with known-position points",
-                        eps = 1.0)
+testutils.confirm_equal( np.std(stats['x']),
+                         pixel_uncertainty,
+                         eps = pixel_uncertainty*0.1,
+                         msg = "Residual have the expected distribution" )
 
-testutils.finish()
+
+
+# Relative extrinsics. Absolute extrinsics make no physical sense, since the whole world
+def get_compensating_Rt_ref_solved(i):
+    v,q0 = mrcal.sample_imager_unproject(60,45,
+                                         (lensmodel,lensmodel),
+                                         (models[i].intrinsics()[1], intrinsics[i]),
+                                         *imagersizes[0])
+
+    Rt = np.zeros((4,3), dtype=float)
+    Rt[:3,:] = \
+        mrcal.utils._intrinsics_diff_get_Rfit(q0,
+                                              v[0,...], v[1,...],
+                                              focus_center = (imagersizes[0]-1.)/2.,
+                                              focus_radius = -1,
+                                              imagersizes  = nps.cat(imagersizes[i],imagersizes[i]))
+    return Rt
+compensating_Rt_ref_solved = [ get_compensating_Rt_ref_solved(i) for i in range(len(models)) ]
+
+def get_Rt_solved(i):
+    if i == 0: return mrcal.identity_Rt()
+    return mrcal.Rt_from_rt(extrinsics[i-1])
+Rt_solved_cr = [get_Rt_solved(i) for i in range(len(models))]
+
+for icam in range(1,len(models)):
+
+    Rt_ref01 = mrcal.compose_Rt( models[icam-1].extrinsics_Rt_fromref(),
+                                 models[icam  ].extrinsics_Rt_toref() )
+
+    Rt_solved_01 = mrcal.compose_Rt( mrcal.invert_Rt(compensating_Rt_ref_solved[icam-1]),
+                                     Rt_solved_cr[icam-1],
+                                     mrcal.invert_Rt(Rt_solved_cr[icam  ]),
+                                     compensating_Rt_ref_solved[icam] )
+
+    Rt_diff = mrcal.compose_Rt( Rt_ref01,
+                                mrcal.invert_Rt(Rt_solved_01))
+    rt_diff = mrcal.rt_from_Rt(Rt_diff)
+    print(rt_diff)
+
+
+    Rt_solved_01 = mrcal.compose_Rt( Rt_solved_cr[icam-1],
+                                     mrcal.invert_Rt(Rt_solved_cr[icam  ]))
+
+    Rt_diff = mrcal.compose_Rt( Rt_ref01,
+                                mrcal.invert_Rt(Rt_solved_01))
+    rt_diff = mrcal.rt_from_Rt(Rt_diff)
+    print(rt_diff)
+
+
+# extrinsics
+# frames
+# intrinsics
+
+# uncertainty of intrinsics
+# uncertainty of extrinsics
+
+
+# import IPython
+# IPython.embed()
+# sys.exit()
+
+# testutils.finish()
