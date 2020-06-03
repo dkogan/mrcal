@@ -327,7 +327,12 @@ def parse_args():
     parser.add_argument('--object-width-n',
                         type=int,
                         default=10,
-                        help='How many points the calibration board has per side')
+                        help='How many points the calibration board has per horizontal side. If omitted we
+                        default to 10')
+    parser.add_argument('--object-height-n',
+                        type=int,
+                        help='How many points the calibration board has per vertical side. If omitted, we
+                        assume a square object, setting height=width')
     parser.add_argument('--lensmodel',
                         required=False,
                         help='''Which lens model we're using. This is required unless we have a
@@ -468,9 +473,12 @@ args = parse_args()
 
 
 if args.object_spacing is None:
-    sys.stderr.write("Warning: assuming default calibration-object spacing of 0.1m. If this is wrong, all distances will be off by a scale factor\n")
+    print("WARNING: assuming default calibration-object spacing of 0.1m. If this is wrong, all distances will be off by a scale factor",
+          file = sys.stdderr)
     args.object_spacing = 0.1
 
+if args.object_height_n is None:
+    args.object_height_n = args.object_width_n
 
 
 
@@ -775,7 +783,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                           observations         = observations,
                                           object_spacing       = args.object_spacing,
                                           object_width_n       = args.object_width_n,
-                                          object_height_n      = args.object_width_n)
+                                          object_height_n      = args.object_height_n)
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
@@ -789,7 +797,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_optimize_intrinsic_distortions = False,
                                calibration_object_spacing        = args.object_spacing,
                                calibration_object_width_n        = args.object_width_n,
-                               calibration_object_height_n       = args.object_width_n,
+                               calibration_object_height_n       = args.object_height_n,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
                                outlier_indices                   = outlier_indices,
@@ -808,7 +816,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_optimize_intrinsic_distortions = False,
                                calibration_object_spacing        = args.object_spacing,
                                calibration_object_width_n        = args.object_width_n,
-                               calibration_object_height_n       = args.object_width_n,
+                               calibration_object_height_n       = args.object_height_n,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
                                outlier_indices                   = outlier_indices,
@@ -849,14 +857,15 @@ def solve_initial(args, seedmodels, imagersizes,
             mrcal.estimate_local_calobject_poses( indices_frame_camera,
                                                   observations,
                                                   args.object_spacing,
-                                                  args.object_width_n,args.object_height_n,
+                                                  args.object_width_n,
+                                                  args.object_height_n,
                                                   seedmodels)
         frames = \
             mrcal.estimate_frame_poses_from_monocular_views(
                 calobject_poses_local_Rt_cf, extrinsics,
                 indices_frame_camera,
                 args.object_spacing,
-                args.object_width_n,args.object_width_n)
+                args.object_width_n,args.object_height_n)
 
     def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \
@@ -905,7 +914,7 @@ def solve_initial(args, seedmodels, imagersizes,
                            do_optimize_extrinsics            = not args.skip_extrinsics_solve,
                            calibration_object_spacing        = args.object_spacing,
                            calibration_object_width_n        = args.object_width_n,
-                           calibration_object_height_n       = args.object_width_n,
+                           calibration_object_height_n       = args.object_height_n,
                            skip_outlier_rejection            = args.skip_outlier_rejection,
                            skip_regularization               = args.skip_regularization,
                            outlier_indices                   = outlier_indices,
@@ -983,7 +992,7 @@ else:
 
 observations, indices_frame_camera, paths = \
     mrcal.get_chessboard_observations(args.object_width_n,
-                                      args.object_width_n,
+                                      args.object_height_n,
                                       args.images,
                                       args.corners_cache,
                                       jobs = args.jobs,
@@ -1068,7 +1077,7 @@ stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                        do_optimize_extrinsics            = not args.skip_extrinsics_solve,
                        calibration_object_spacing        = args.object_spacing,
                        calibration_object_width_n        = args.object_width_n,
-                       calibration_object_height_n       = args.object_width_n,
+                       calibration_object_height_n       = args.object_height_n,
                        skip_outlier_rejection            = True, # use outliers in outlier_indices
                        skip_regularization               = args.skip_regularization,
                        outlier_indices                   = stats['outlier_indices'],
@@ -1088,19 +1097,19 @@ else:
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
-Npoints_chessboard = args.object_width_n*args.object_width_n*Nobservations
+Npoints_chessboard = args.object_width_n*args.object_height_n*Nobservations
 
-# shape (Nobservations,Nwant,Nwant,2)
+# shape (Nobservations,Nheight,Nwidth,2)
 measurements_0_for_outliers = \
     stats['x'][:Npoints_chessboard*2]. \
-    reshape(Nobservations, args.object_width_n, args.object_width_n, 2)
+    reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
 worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(measurements_0_for_outliers, n=3) )))
 report += "Worst reprojection error (by measurement): {:.01f} pixels\n".format(worst_point_err)
 if not args.skip_outlier_rejection:
     report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
         format(stats['Noutliers'],
-               args.object_width_n*args.object_width_n*len(observations),
-               100.0 * stats['Noutliers'] / (args.object_width_n*args.object_width_n*len(observations)))
+               args.object_height_n*args.object_width_n*len(observations),
+               100.0 * stats['Noutliers'] / (args.object_height_n*args.object_width_n*len(observations)))
 if calobject_warp is not None:
     report += "calobject_warp = {}\n".format(calobject_warp)
 
@@ -1211,16 +1220,19 @@ if args.pairs:
 
 print(report)
 
-# shape (Nframes,Ncameras,Nwant,Nwant,2)
+# shape (Nframes,Ncameras,Nheight,Nwidth,2)
 projected = \
     mrcal.calobservations_project(intrinsics[0], intrinsics[1],
                                   extrinsics, frames,
-                                  args.object_spacing, args.object_width_n, calobject_warp)
+                                  args.object_spacing,
+                                  args.object_width_n, args.object_height_n,
+                                  calobject_warp)
 
-# Each has shape (Nobservations,Nwant,Nwant,2)
+# Each has shape (Nobservations,Nheight,Nwidth,2)
 reproj_err_including_outliers, reproj_err_0_for_outliers = \
     mrcal.calobservations_compute_reproj_error(projected, observations,
-                                               indices_frame_camera, args.object_width_n,
+                                               indices_frame_camera,
+                                               args.object_width_n,args.object_height_n,
                                                stats['outlier_indices'])
 
 
@@ -1372,7 +1384,7 @@ Potential things to look at:
 
 
 non_outlier_mask = np.ones( (Nobservations,
-                             args.object_width_n,
+                             args.object_height_n,
                              args.object_width_n), dtype=bool)
 non_outlier_mask.ravel()[stats['outlier_indices']] = False
 non_outliers_per_observation = np.sum( nps.clump(non_outlier_mask, n=-2).astype(int),
@@ -1380,7 +1392,7 @@ non_outliers_per_observation = np.sum( nps.clump(non_outlier_mask, n=-2).astype(
 
 rms_reproj_err_including_outliers_perobservation = \
     np.sqrt( nps.norm2( nps.clump(reproj_err_including_outliers,n=-3) ) /
-             (args.object_width_n*args.object_width_n) )
+             (args.object_height_n*args.object_width_n) )
 rms_reproj_err_0_for_outliers_perobservation     = \
     np.sqrt( nps.norm2( nps.clump(reproj_err_0_for_outliers,n=-3) ) /
              non_outliers_per_observation )
@@ -1426,9 +1438,9 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     # outliers. And these may have been scaled in the measurement vector
     err = reproj - obs
 
-    # non_outlier_mask[i_observation] is dtype=bool, shape=(Nwant,Nwant), so I
+    # non_outlier_mask[i_observation] is dtype=bool, shape=(Nheight,Nwidth), so I
     # can use it as an index. measurements_0_for_outliers has shape
-    # (Nobservations,Nwant,Nwant,2)
+    # (Nobservations,Nheight,Nwidth,2)
     # This thing has shape (Nvalidpoints,2)
     measurements_no_outliers = \
         measurements_0_for_outliers[i_observation,
@@ -1962,7 +1974,7 @@ def show_calibration_geometry(**kwargs):
                                         [f"camera {i}" for i in range(len(models))],
                                         frames=frames,
                                         object_width_n  = args.object_width_n,
-                                        object_height_n = args.object_width_n,
+                                        object_height_n = args.object_height_n,
                                         object_spacing  = args.object_spacing)
 
 import IPython

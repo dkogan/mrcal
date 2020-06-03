@@ -486,31 +486,34 @@ def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
         cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
 
 
-def calobservations_project(lensmodel, intrinsics, extrinsics, frames, object_spacing, Nwant, calobject_warp):
+def calobservations_project(lensmodel, intrinsics, extrinsics, frames,
+                            object_spacing,
+                            object_width_n,
+                            calobject_warp):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
-    the projections. Output has shape (Nframes,Ncameras,Nwant,Nwant,2)
+    the projections. Output has shape (Nframes,Ncameras,object_height_n,object_width_n,2)
 
     '''
 
-    object_ref = mrcal.get_ref_calibration_object(Nwant, Nwant, object_spacing, calobject_warp)
+    object_ref = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing, calobject_warp)
     Rf = mrcal.R_from_r(frames[:,:3])
     Rf = nps.mv(Rf,           0, -5)
     tf = nps.mv(frames[:,3:], 0, -5)
 
-    # object in the cam0 coord system. shape=(Nframes, 1, Nwant, Nwant, 3)
+    # object in the cam0 coord system. shape=(Nframes, 1, object_height_n, object_width_n, 3)
     object_cam0 = nps.matmult( object_ref, nps.transpose(Rf)) + tf
 
     Rc = mrcal.R_from_r(extrinsics[:,:3])
     Rc = nps.mv(Rc,               0, -4)
     tc = nps.mv(extrinsics[:,3:], 0, -4)
 
-    # object in the OTHER camera coord systems. shape=(Nframes, Ncameras-1, Nwant, Nwant, 3)
+    # object in the OTHER camera coord systems. shape=(Nframes, Ncameras-1, object_height_n, object_width_n, 3)
     object_cam_others = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
 
-    # object in the ALL camera coord systems. shape=(Nframes, Ncameras, Nwant, Nwant, 3)
+    # object in the ALL camera coord systems. shape=(Nframes, Ncameras, object_height_n, object_width_n, 3)
     object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
 
-    # projected points. shape=(Nframes, Ncameras, Nwant, Nwant, 2)
+    # projected points. shape=(Nframes, Ncameras, object_height_n, object_width_n, 2)
 
     # loop over Ncameras. project() will broadcast over the points
     intrinsics = nps.atleast_dims(intrinsics, -2)
@@ -521,22 +524,24 @@ def calobservations_project(lensmodel, intrinsics, extrinsics, frames, object_sp
                              i_camera in range(Ncameras)]),
                    0,-4)
 
-def calobservations_compute_reproj_error(projected, observations, indices_frame_camera, Nwant,
+def calobservations_compute_reproj_error(projected, observations, indices_frame_camera,
+                                         object_width_n, object_height_n,
                                          outlier_indices = None):
     r'''Computes reprojection errors when calibrating with board observations
 
     Given
 
-    - projected (shape [Nframes,Ncameras,Nwant,Nwant,2])
-    - observations (shape [Nframes,Nwant,Nwant,3])
+    - projected (shape [Nframes,Ncameras,object_height_n,object_width_n,2])
+    - observations (shape [Nframes,object_height_n,object_width_n,3])
     - indices_frame_camera (shape [Nobservations,2])
     - outlier_indices, a list of point indices that were deemed to be outliers.
       These are plain integers indexing the flattened observations array, but
       one per POINT, not (x,y) independently
 
     Return (err_all_points,err_ignoring_outliers). Each is the reprojection
-    error for each point: shape (Nobservations,Nwant,Nwant,2). One includes the
-    outliers in the returned errors, and the other does not
+    error for each point: shape
+    (Nobservations,object_height_n,object_width_n,2). One includes the outliers
+    in the returned errors, and the other does not
 
     Note that the data is expected to come from a pure calibration problem, not
     structure-from-motion or anything else. I have N stationary cameras, with
@@ -550,7 +555,7 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
 
     Nframes               = projected.shape[0]
     Nobservations         = indices_frame_camera.shape[0]
-    err_all_points        = np.zeros((Nobservations,Nwant,Nwant,2))
+    err_all_points        = np.zeros((Nobservations,object_height_n,object_width_n,2))
 
     for i_observation in range(Nobservations):
         i_frame, i_camera = indices_frame_camera[i_observation]
