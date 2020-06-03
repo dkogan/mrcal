@@ -113,7 +113,7 @@ TESTS :=					\
   test/test-cahvor                              \
   test/test-optimizer-callback.py		\
   test/test-basic-sfm.py			\
-  test/test-basic-calibration.py		\
+  test/test-calibration.py			\
   test/test-lensmodel-string-manipulation
 
 TESTS_RUN := $(addsuffix .RUN,$(TESTS))
