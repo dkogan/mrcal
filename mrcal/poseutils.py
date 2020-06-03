@@ -10,6 +10,14 @@ import cv2
 from functools import reduce
 
 
+def identity_Rt():
+    r'''Returns an identity Rt transform'''
+    return nps.glue( np.eye(3), np.zeros(3), axis=-2)
+
+def identity_rt():
+    r'''Returns an identity rt transform'''
+    return np.zeros(6, dtype=float)
+
 @nps.broadcast_define( ((3,3),),
                        (3,), )
 def r_from_R(R):
@@ -103,10 +111,7 @@ def compose_Rt(*args):
     their composition
 
     '''
-    return reduce( _compose_Rt, args, np.array(((1,0,0),
-                                                (0,1,0),
-                                                (0,0,1),
-                                                (0,0,0)), dtype=float) )
+    return reduce( _compose_Rt, args, identity_Rt() )
 
 def compose_rt(*args):
     r'''Composes rt transformations
@@ -117,14 +122,6 @@ def compose_rt(*args):
     '''
 
     return rt_from_Rt( compose_Rt( *[Rt_from_rt(rt) for rt in args] ) )
-
-def identity_Rt():
-    r'''Returns an identity Rt transform'''
-    return nps.glue( np.eye(3), np.zeros(3), axis=-2)
-
-def identity_rt():
-    r'''Returns an identity rt transform'''
-    return np.zeros(6, dtype=float)
 
 @nps.broadcast_define( ((4,3),(3,)),
                        (3,), )
