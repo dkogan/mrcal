@@ -626,25 +626,29 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
     def normalize(x):
         return x / nps.dummy(nps.mag(x), axis=-1)
 
+    def is_list_or_tuple(l):
+        return isinstance(l,list) or isinstance(l,tuple)
+
 
     # shape: Nwidth,Nheight,2
     grid = _sample_imager(gridn_x, gridn_y, W, H)
 
-    if type(lensmodel) is list and type(intrinsics_data) is list:
+    if is_list_or_tuple(lensmodel) and is_list_or_tuple(intrinsics_data):
         # shape: Ncameras,Nwidth,Nheight,3
         return np.array([normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                                    lensmodel[i],
                                                    intrinsics_data[i])) \
                          for i in range(len(lensmodel))]), \
                grid
-    elif type(lensmodel) is not list and type(intrinsics_data) is not list:
+    elif not is_list_or_tuple(lensmodel) and not is_list_or_tuple(intrinsics_data):
+
         # shape: Nwidth,Nheight,3
         return \
             normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                       lensmodel, intrinsics_data)), \
             grid
     else:
-        raise Exception("Both or neither of (lensmodel, intrinsics_data) should be None")
+        raise Exception("Both or neither of (lensmodel, intrinsics_data) should be lists/tuples")
 
 
 def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
