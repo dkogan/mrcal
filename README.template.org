@@ -219,6 +219,10 @@ xxx-manpage-mrcal-show-valid-intrinsics-region-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-is-within-valid-intrinsics-region-xxx
 #+END_EXAMPLE
+** mrcal-cull-corners
+#+BEGIN_EXAMPLE
+xxx-manpage-mrcal-cull-corners-xxx
+#+END_EXAMPLE
 
 * REPOSITORY
 

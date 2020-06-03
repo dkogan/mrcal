@@ -443,28 +443,6 @@ def parse_args():
                         'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
                         'right1.jpg', ...''')
 
-    parser.add_argument('--cull-points-left-of',
-                        required=False,
-                        default=-1,
-                        type=float,
-                        help='''For testing. Throw out all observations with x < the given value''')
-    parser.add_argument('--cull-points-rad-off-center',
-                        required=False,
-                        default=-1,
-                        type=float,
-                        help='''For testing. Throw out all observations with dist_from_center > the given
-                        value''')
-    parser.add_argument('--cull-random-observations-ratio',
-                        required=False,
-                        default=-1,
-                        type=float,
-                        help='''For testing. Throw out a random number of board observations. The ratio of
-                        observations is given as the argument. 1.0 = throw out
-                        ALL the observations; 0.0 = throw out NONE of the
-                        observations''')
-
-
-
     return parser.parse_args()
 
 args = parse_args()
@@ -576,189 +554,6 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
                               covariance_intrinsics,
                               valid_intrinsics_region) for i_camera in range(len(intrinsics[1])) ]
 
-
-# # Test for this function
-# Nobservations = 5
-# indices = np.array((1,3,4), dtype=int)
-# observations = np.arange(15).reshape(5,3)
-# frames = np.array((10,11,12,13), dtype=int)
-# indices_frame_camera = np.array(((0,100),
-#                                  (1,200),
-#                                  (2,300),
-#                                  (3,900),
-#                                  (3,800)),
-#                                 dtype=int)
-# paths = np.arange(Nobservations)
-# outlier_indices=np.array((2,5, 205,208, 311,390), dtype=int)
-# # observations 0xx and 2xx are skipped
-# # observation 3xx is now observation 1xx
-# # 111,190
-# split_observations, split_indices_frame_camera, split_paths, split_frames, split_outlier_indices = \
-#     get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths,
-#                                          frames,
-#                                          outlier_indices)
-# print split_outlier_indices
-def get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths,
-                                         frames = None,
-                                         outlier_indices = None):
-    r'''Returns a subset of observations from observation indices
-
-    Observations are stored across variables:
-
-    - observations
-    - indices_frame_camera
-    - paths
-    - frames
-    - outlier_indices
-
-    These must all be self-consistent. This function takes in the desired
-    observation indices to keep, and returns copies of all the variables that
-    contain the requested subset of data and are consistent with each other
-
-    '''
-
-    if len(indices) == 0:
-        raise Exception("Selected subset of data is empty: I threw out everything!")
-
-    observations_new         = observations        [indices, ...].copy()
-    paths_new                = [paths[i] for i in indices]
-    indices_frame_camera_new = indices_frame_camera[indices, ...].copy()
-
-    # I now collapse newly-missing frames and build the frame indices
-    indices_frames  = []
-    iframe_old_last = -1
-    iframe_new_last = -1
-
-    if outlier_indices is not None:
-        # I make a copy of the outlier indices array, and iterate through it. As I
-        # go I copy indices from the back of the array to the front. Initially the
-        # to/from pointers are identical, but as I skip observations I'm going to be
-        # skipping outlier indices, and a gap will developt between the pointers
-        outlier_indices = outlier_indices.copy()
-
-        # Index into the outlier_indices array that I copy FROM
-        i_outlier_indices_old = 0
-        # Index into the outlier_indices array that I copy TO
-        i_outlier_indices_new = 0
-
-
-    Nfeatures_in_observation = args.object_width_n*args.object_width_n
-
-    def outlier_index_next_bounds(i0, iobs):
-
-
-        ifeature_threshold = iobs*Nfeatures_in_observation
-        for i in range(i0,len(outlier_indices)):
-            if outlier_indices[i] >= ifeature_threshold:
-                break
-        else:
-            return len(outlier_indices),len(outlier_indices)
-
-        # found beginning of the set of outliers for this observation (or
-        # further ones). If these outliers are for THIS observation, find the
-        # end of the outliers for this observation. Otherwise tell the caller
-        i0 = i
-        if int(outlier_indices[i]/Nfeatures_in_observation) != iobs:
-            # I don't have any outliers for this observation
-            return i0,i0
-
-        ifeature_threshold += Nfeatures_in_observation
-        for i in range(i0+1,len(outlier_indices)):
-            if outlier_indices[i] >= ifeature_threshold:
-                return i0,i
-
-        return i0,len(outlier_indices)
-
-    def outlier_indices_accept(iobs_old, iobs_new, i_outlier_indices_old,i_outlier_indices_new):
-
-        # I need to grab outliers for this observation. These begin somewhere
-        # at/after i_outlier_indices_old because I may have skipped some
-        # observations. First I find where the observations I want begin
-        iold0,iold1 = outlier_index_next_bounds(i_outlier_indices_old, iobs_old)
-        if iold0 == iold1:
-            # I don't have any outliers for this observation
-            return iold1, i_outlier_indices_new
-
-        Noutliers_here = iold1-iold0
-        inew0 = i_outlier_indices_new
-        inew1 = inew0 + Noutliers_here
-        i_observations_offset = iobs_old-iobs_new
-
-        outlier_indices[inew0:inew1] = outlier_indices[iold0:iold1] - i_observations_offset*Nfeatures_in_observation
-
-        return iold1, i_outlier_indices_new + Noutliers_here
-
-
-    for iobs_new in range(len(indices)):
-        iobs_old   = indices[iobs_new]
-        iframe_old = indices_frame_camera_new[iobs_new,0]
-        if iframe_old != iframe_old_last:
-            # Saw new frame. The iframe in the data is going to be
-            # non-consecutive, so I adjust it to become consecutive. And I then
-            # update the mapping
-            iframe_new_last += 1
-            iframe_old_last = iframe_old
-            indices_frames.append(iframe_old)
-        indices_frame_camera_new[iobs_new,0] = iframe_new_last
-
-        if outlier_indices is not None:
-            i_outlier_indices_old,i_outlier_indices_new = \
-                outlier_indices_accept(iobs_old, iobs_new,
-                                   i_outlier_indices_old,i_outlier_indices_new)
-
-
-    if frames is not None:
-        frames_new = frames[indices_frames, ...].copy()
-    else:
-        frames_new = None
-
-    if outlier_indices is not None:
-        outlier_indices = outlier_indices[:i_outlier_indices_new]
-    return observations_new, indices_frame_camera_new, paths_new, frames_new, outlier_indices
-
-def get_observation_subset__random(ratio_cull, observations, indices_frame_camera, paths):
-    r'''Returns a random subset of observations'''
-
-    # keep this many
-    N = int(round((1.0 - ratio_cull) * len(observations)))
-
-    indices = np.sort(np.random.choice(len(observations), N, replace=False))
-
-    return get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths)
-
-def get_observation_subset__right_of_threshold_and_within_center(point_x_threshold,
-                                                                 rad_threshold,
-                                                                 observations,
-                                                                 imagersizes,
-                                                                 indices_frame_camera, paths, object_width_n):
-    r'''Returns a subset of observations
-
-    This throws out all observations that lie COMPLETELY to the left of the
-    given threshold or outside the given circle. The mrcal internals handle
-    partial board observations
-
-    '''
-
-    # observations that have fewer than this many points are thrown out
-    must_have_at_least_points = object_width_n*2
-
-    def have_enough_points(i):
-        x = None
-        if point_x_threshold > 0:
-            x = observations[i,:,:,0] >= point_x_threshold
-        if rad_threshold > 0:
-            y = nps.norm2(observations[i, ..., :2] - (imagersizes[indices_frame_camera[i,1]] - 1.)/2.) < rad_threshold*rad_threshold
-            if x is None:
-                x = y
-            else:
-                x = x*y
-
-        return np.count_nonzero(x) >= must_have_at_least_points
-
-    indices = np.array([i for i in range(len(observations)) if \
-                        have_enough_points(i)],
-                       dtype=int)
-    return get_observation_subset__from_indices(indices, observations, indices_frame_camera, paths)
 
 def solve_initial(args, seedmodels, imagersizes,
                   observations, indices_frame_camera,
@@ -1009,37 +804,12 @@ imagersizes = np.array([get_imagersize_one(icamera,
                                            seedmodels) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
-if args.cull_random_observations_ratio >= 0:
-    observations, indices_frame_camera, paths, _, _ = \
-        get_observation_subset__random(args.cull_random_observations_ratio,
-                                       observations, indices_frame_camera, paths)
-outlier_indices = None
-if args.cull_points_left_of > 0 or args.cull_points_rad_off_center > 0:
-
-    # first cut off full observations
-    observations, indices_frame_camera, paths, _, _ = \
-        get_observation_subset__right_of_threshold_and_within_center( \
-            args.cull_points_left_of,
-            args.cull_points_rad_off_center,
-            observations,
-            imagersizes, indices_frame_camera, paths,
-            args.object_width_n)
-
-    # any observations that lie partially outside the threshold remain. I cut
-    # out individual points as outliers
-    if args.cull_points_left_of > 0:
-        outlier_indices0 = set(np.flatnonzero(observations[..., 0] < args.cull_points_left_of))
-    else:
-        outlier_indices0 = set()
-
-    if args.cull_points_rad_off_center > 0:
-        centerpixels = (imagersizes[ indices_frame_camera[:,1] ] - 1.)[:,np.newaxis,np.newaxis,:] / 2.
-        radsq = args.cull_points_rad_off_center*args.cull_points_rad_off_center
-        outlier_indices1 = set(np.flatnonzero(nps.norm2(observations[..., :2] - centerpixels) > radsq))
-    else:
-        outlier_indices1 = set()
-
-    outlier_indices = np.array(sorted(list(outlier_indices0.union( outlier_indices1 ))), dtype=np.int32)
+# observation weights <= 0 are to be ignored, so I mark them as outliers
+outlier_indices = np.flatnonzero(observations[...,2] <= 0.0)
+if len(outlier_indices) == 0:
+    outlier_indices = None
+else:
+    outlier_indices = outlier_indices.astype(np.int32)
 
 
 if args.skip_outlier_rejection: print("We are NOT rejecting outliers")

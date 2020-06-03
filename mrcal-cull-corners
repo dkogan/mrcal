@@ -1,0 +1,184 @@
+#!/usr/bin/python3
+
+r'''Filters a corners.vnl on stdin to cut out some points
+
+SYNOPSIS
+
+  $ < corners.vnl mrcal-cull-corners --cull-left-of 1000 > corners.culled.vnl
+
+This tool reads a set of corner detections on stdin, throws some of them out,
+and writes the result to stdout. This is useful for testing and evaluating the
+performance of the mrcal calibration tools.
+
+The specific operation of this tool is defined on which --cull-... option is
+given. Exactly one is required:
+
+  --cull-left-of X: throw away all corner observations to the left of the given
+    X coordinate
+
+  --cull-rad-off-center D: throw away all corner observations further than D
+    away from the imager center. --imagersize must be given also so that we know
+    where the imager center is
+
+  --cull-random-observations-ratio R: throws away a ratio R object observations
+    at random. To throw out half of all object observations, pass R = 0.5.
+    --object-width-n and --object-height-n are then required to make the parsing
+    work
+
+--cull-left-of X and --cull-rad-off-center throw out individual points. This is
+  done by keeping the point in the output data strem, but setting its decimation
+  level to '-'. The downstream tools then know to ignore those points
+
+--cull-random-observations-ratio throws out whole object observations, not just
+  individual points. These removed observations do not appear in the output data
+  stream at all
+'''
+
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--object-width-n',
+                        type=int,
+                        help='''How many points the calibration board has per horizontal side. This is required
+                        if --cull-random-observation-ratio''')
+    parser.add_argument('--object-height-n',
+                        type=int,
+                        help='''How many points the calibration board has per vertical side. If omitted, I
+                        assume a square object and use the same value as --object-width-n''')
+    parser.add_argument('--imagersize',
+                        nargs=2,
+                        type=int,
+                        help='''Size of the imager. This is required if --cull-rad-off-center''')
+
+    parser.add_argument('--cull-left-of',
+                        required=False,
+                        type=float,
+                        help='''Throw out all observations with x < the given value. Exclusive with the other
+                        --cull-... options''')
+    parser.add_argument('--cull-rad-off-center',
+                        required=False,
+                        type=float,
+                        help='''Throw out all observations with dist_from_center > the given value. Exclusive
+                        with the other --cull-... options''')
+    parser.add_argument('--cull-random-observations-ratio',
+                        required=False,
+                        type=float,
+                        help='''Throw out a random number of board observations. The ratio of observations is
+                        given as the argument. 1.0 = throw out ALL the
+                        observations; 0.0 = throw out NONE of the observations.
+                        Exclusive with the other --cull-... options''')
+    return parser.parse_args()
+
+args = parse_args()
+
+Nculloptions = 0
+if args.cull_left_of                   is not None: Nculloptions += 1
+if args.cull_rad_off_center            is not None: Nculloptions += 1
+if args.cull_random_observations_ratio is not None: Nculloptions += 1
+
+if Nculloptions != 1:
+    print("Exactly one --cull-... option must be given", file=sys.stderr)
+    sys.exit(1)
+
+if args.object_width_n is not None and args.object_height_n is None:
+    args.object_height_n = args.object_width_n
+if args.cull_random_observations_ratio and \
+   (args.object_width_n is None or args.object_height_n is None):
+    print("--cull-random-observation-ratio requires --object-width-n and --object-height-n",
+          file=sys.stderr)
+    sys.exit(1)
+
+if args.cull_rad_off_center is not None and args.imagersize is None:
+    print("--cull-rad-off-center requires --imagersize", file=sys.stderr)
+    sys.exit(1)
+
+
+
+
+import re
+import numpy as np
+import numpysane as nps
+import mrcal
+
+if args.cull_left_of is not None or args.cull_rad_off_center is not None:
+    # Simple file parsing.
+
+    if args.cull_rad_off_center is not None:
+        c  = (np.array(args.imagersize, dtype=float) - 1.) / 2.
+        r2 = args.cull_rad_off_center*args.cull_rad_off_center
+
+    for l in sys.stdin:
+        if re.match('\s*(?:##|$)',l):
+            sys.stdout.write(l)
+            continue
+
+        if l == '# filename x y level\n':
+            sys.stdout.write(l)
+            break
+
+        print("This tool REQUIRES a vnlog with legend matching EXACTLY '# filename x y level'. Giving up", file=sys.stderr)
+        sys.exit(1)
+
+    for l in sys.stdin:
+        if re.match('\s*(?:#|$)',l):
+            sys.stdout.write(l)
+            continue
+
+        f = l.split()
+        if f[1] == '-':
+            sys.stdout.write(l)
+            continue
+
+        if args.cull_left_of        is not None and float(f[1]) > args.cull_left_of:
+            sys.stdout.write(l)
+            continue
+        if args.cull_rad_off_center is not None and \
+           nps.norm2(np.array((float(f[1]), float(f[2]))) - c) < r2:
+            sys.stdout.write(l)
+            continue
+
+        f[3] = '-'
+        sys.stdout.write(' '.join(f) + '\n')
+
+    sys.exit()
+
+
+
+
+
+observations, _, paths = \
+    mrcal.get_chessboard_observations(Nw = args.object_width_n,
+                                      Nh = args.object_height_n,
+                                      corners_cache_vnl = sys.stdin,
+                                      keep_level = True)
+
+N_keep       = int(round((1.0 - args.cull_random_observations_ratio) * len(observations)))
+indices_keep = np.sort(np.random.choice(len(observations), N_keep, replace=False))
+
+# shape (N, Nh,Nw,3)
+observations = observations[indices_keep]
+paths        = [paths[i] for i in indices_keep]
+
+# shape (N, Nh*Nw, 3)
+observations = nps.mv( nps.clump(nps.mv(observations, -1,-3),
+                                 n = -2),
+                       -2, -1)
+
+# I cut out the data. Now I reconstitute the corners.vnl
+print('# filename x y level')
+for i in range(len(paths)):
+    path   = paths[i]
+    for j in range(observations.shape[-2]):
+        l = observations[i][j][2]
+        if l < 0: l = '-'
+        else:     l = int(l)
+        print(f"{path} {observations[i][j][0]} {observations[i][j][1]} {l}")
