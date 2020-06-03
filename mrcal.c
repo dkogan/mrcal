@@ -378,12 +378,13 @@ int mrcal_getNstate(int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframe
 
 static int getNmeasurements_observationsonly(int NobservationsBoard,
                                              int NobservationsPoint,
-                                             int calibration_object_width_n)
+                                             int calibration_object_width_n,
+                                             int calibration_object_height_n)
 {
     // *2 because I have separate x and y measurements
     int Nmeas =
         NobservationsBoard *
-        calibration_object_width_n*calibration_object_width_n *
+        calibration_object_width_n*calibration_object_height_n *
         2;
 
     // *2 because I have separate x and y measurements
@@ -406,12 +407,13 @@ static int getNregularizationTerms_percamera(mrcal_problem_details_t problem_det
 }
 
 int mrcal_getNmeasurements_boards(int NobservationsBoard,
-                                  int calibration_object_width_n)
+                                  int calibration_object_width_n,
+                                  int calibration_object_height_n)
 {
     // *2 because I have separate x and y measurements
     return
         NobservationsBoard *
-        calibration_object_width_n*calibration_object_width_n *
+        calibration_object_width_n*calibration_object_height_n *
         2;
 }
 
@@ -436,11 +438,14 @@ int mrcal_getNmeasurements_all(int Ncameras_intrinsics,
                                const observation_point_t* observations_point,
                                int NobservationsPoint,
                                int calibration_object_width_n,
+                               int calibration_object_height_n,
                                mrcal_problem_details_t problem_details,
                                lensmodel_t lensmodel)
 {
     return
-        mrcal_getNmeasurements_boards( NobservationsBoard, calibration_object_width_n) +
+        mrcal_getNmeasurements_boards( NobservationsBoard,
+                                       calibration_object_width_n,
+                                       calibration_object_height_n) +
         mrcal_getNmeasurements_points( observations_point, NobservationsPoint) +
         mrcal_getNmeasurements_regularization( Ncameras_intrinsics, problem_details, lensmodel);
 }
@@ -453,7 +458,8 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
                           int Npoints, int Npoints_fixed,
                           mrcal_problem_details_t problem_details,
                           lensmodel_t lensmodel,
-                          int calibration_object_width_n)
+                          int calibration_object_width_n,
+                          int calibration_object_height_n)
 {
     // each observation depends on all the parameters for THAT frame and for
     // THAT camera. Camera0 doesn't have extrinsics, so I need to loop through
@@ -493,7 +499,7 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
             if(observations_board[i].i_cam_extrinsics < 0)
                 N -= 6;
     // *2 because I have separate x and y measurements
-    N *= 2*calibration_object_width_n*calibration_object_width_n;
+    N *= 2*calibration_object_width_n*calibration_object_height_n;
 
     // Now the point observations
     for(int i=0; i<NobservationsPoint; i++)
@@ -727,6 +733,7 @@ static void project_opencv( // out
 
                            double calibration_object_spacing,
                            int    calibration_object_width_n,
+                           int    calibration_object_height_n,
 
                            // stuff from project()
                            int NdistortionParams,
@@ -739,7 +746,7 @@ static void project_opencv( // out
 {
     const int Npoints =
         calibration_object_width_n ?
-        calibration_object_width_n*calibration_object_width_n : 1;
+        calibration_object_width_n*calibration_object_height_n : 1;
 
     point3_t pt_ref        [Npoints];
     point2_t dpt_ref2_dwarp[Npoints];
@@ -750,7 +757,7 @@ static void project_opencv( // out
         int i_pt = 0;
 
         // The calibration object has a simple grid geometry
-        for(int y = 0; y<calibration_object_width_n; y++)
+        for(int y = 0; y<calibration_object_height_n; y++)
             for(int x = 0; x<calibration_object_width_n; x++)
             {
                 pt_ref[i_pt].x = (double)x * calibration_object_spacing;
@@ -767,10 +774,8 @@ static void project_opencv( // out
                     // (0,N-1) the equivalent expression is: d = k*( 1 - 4*x^2/(N-1)^2 +
                     // 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2) = d =
                     // 4.*k*x*r(1. - x*r)
-                    double r = 1./(double)(calibration_object_width_n-1);
-
-                    double xr = (double)x * r;
-                    double yr = (double)y * r;
+                    double xr = (double)x / (double)(calibration_object_width_n -1);
+                    double yr = (double)y / (double)(calibration_object_height_n-1);
                     double dx = 4. * xr * (1. - xr);
                     double dy = 4. * yr * (1. - yr);
                     pt_ref[i_pt].z += calobject_warp->x * dx;
@@ -909,7 +914,7 @@ static void project_opencv( // out
 
         if(calibration_object_width_n)
             for(int i_pt = 0;
-                i_pt<calibration_object_width_n*calibration_object_width_n;
+                i_pt<calibration_object_width_n*calibration_object_height_n;
                 i_pt++)
                 set_dq_drtframe(i_pt);
         else
@@ -934,7 +939,7 @@ static void project_opencv( // out
         cvRodrigues2(p_rj, &Rj, NULL);
 
         for(int i_pt = 0;
-            i_pt<calibration_object_width_n*calibration_object_width_n;
+            i_pt<calibration_object_width_n*calibration_object_height_n;
             i_pt++)
         {
             double d[] =
@@ -1701,7 +1706,7 @@ typedef struct
 //
 // if(calibration_object_width_n > 0) then we're projecting a whole calibration
 // object. The pose of this object is given in frame_rt. We project ALL
-// calibration_object_width_n*calibration_object_width_n points. q and the
+// calibration_object_width_n*calibration_object_height_n points. q and the
 // gradients reference ALL of these points
 static
 void project( // out
@@ -1738,13 +1743,9 @@ void project( // out
              lensmodel_t lensmodel,
              const mrcal_projection_precomputed_t* precomputed,
 
-             // point index. If <0, a point at frame_rt->t is
-             // assumed; frame_rt->r isn't referenced, and
-             // dq_drframe is expected to be NULL. And the
-             // calibration_object_... variables aren't used either
-
              double calibration_object_spacing,
-             int    calibration_object_width_n)
+             int    calibration_object_width_n,
+             int    calibration_object_height_n)
 {
     assert(precomputed->ready);
 
@@ -1776,7 +1777,7 @@ void project( // out
 
     const int Npoints =
         calibration_object_width_n ?
-        calibration_object_width_n*calibration_object_width_n : 1;
+        calibration_object_width_n*calibration_object_height_n : 1;
     const int Nintrinsics = mrcal_getNlensParams(lensmodel);
 
     // I need to compose two transformations
@@ -1877,6 +1878,7 @@ void project( // out
 
                         calibration_object_spacing,
                         calibration_object_width_n,
+                        calibration_object_height_n,
 
                         Nintrinsics-4,
                         camera_at_identity ? NULL : &gg,
@@ -2152,7 +2154,7 @@ void project( // out
         int i_pt = 0;
 
          // The calibration object has a simple grid geometry
-        for(int y = 0; y<calibration_object_width_n; y++)
+        for(int y = 0; y<calibration_object_height_n; y++)
             for(int x = 0; x<calibration_object_width_n; x++)
             {
                 point3_t pt_ref = {.x = (double)x * calibration_object_spacing,
@@ -2169,10 +2171,8 @@ void project( // out
                     // (0,N-1) the equivalent expression is: d = k*( 1 - 4*x^2/(N-1)^2 +
                     // 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2) = d =
                     // 4.*k*x*r(1. - x*r)
-                    double r = 1./(double)(calibration_object_width_n-1);
-
-                    double xr = (double)x * r;
-                    double yr = (double)y * r;
+                    double xr = (double)x / (double)(calibration_object_width_n -1);
+                    double yr = (double)y / (double)(calibration_object_height_n-1);
                     double dx = 4. * xr * (1. - xr);
                     double dy = 4. * yr * (1. - yr);
                     pt_ref.z += calobject_warp->x * dx;
@@ -2504,7 +2504,7 @@ bool mrcal_project( // out
                      // in
                      intrinsics, NULL, &frame, NULL, true,
                      lensmodel, &precomputed,
-                     0.0, 0);
+                     0.0, 0,0);
         else
         {
             double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
@@ -2524,7 +2524,7 @@ bool mrcal_project( // out
                      // in
                      intrinsics, NULL, &frame, NULL, true,
                      lensmodel, &precomputed,
-                     0.0, 0);
+                     0.0, 0,0);
 
             int Ncore = 0;
             if(dq_dfxy != NULL)
@@ -2691,7 +2691,7 @@ bool mrcal_unproject( // out
                      NULL,
                      true,
                      lensmodel, &precomputed,
-                     0.0, 0);
+                     0.0, 0,0);
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
             J[0*2 + 0] =
@@ -3283,6 +3283,7 @@ static bool computeUncertaintyMatrices(// out
                                        int NobservationsPoint,
                                        int Nframes, int NpointsVariable,
                                        int calibration_object_width_n,
+                                       int calibration_object_height_n,
 
                                        dogleg_solverContext_t* solverCtx)
 {
@@ -3301,7 +3302,8 @@ static bool computeUncertaintyMatrices(// out
         mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
     int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
                                                                NobservationsPoint,
-                                                               calibration_object_width_n);
+                                                               calibration_object_width_n,
+                                                               calibration_object_height_n);
 
     if(covariance_intrinsics)
         memset(covariance_intrinsics, 0,
@@ -3623,6 +3625,7 @@ bool markOutliers(// output, input
                   const point3_t* observations_board_pool,
                   int NobservationsBoard,
                   int calibration_object_width_n,
+                  int calibration_object_height_n,
                   const double* roi,
 
                   const double* x_measurements,
@@ -3664,7 +3667,7 @@ bool markOutliers(// output, input
         const observation_board_t* observation = &observations_board[i_observation_board]; \
         const int i_cam_intrinsics = observation->i_cam_intrinsics;     \
         for(i_pt=0;                                                     \
-            i_pt < calibration_object_width_n*calibration_object_width_n; \
+            i_pt < calibration_object_width_n*calibration_object_height_n; \
             i_pt++, i_feature++)                                        \
         {                                                               \
             const point3_t* pt_observed = &observations_board_pool[i_feature]; \
@@ -3776,6 +3779,7 @@ typedef struct
 
     double calibration_object_spacing;
     int calibration_object_width_n;
+    int calibration_object_height_n;
 
     const double* roi;
     const int Nmeasurements, N_j_nonzero, Nintrinsics;
@@ -3930,12 +3934,12 @@ void optimizerCallback(// input state
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
-        point3_t dq_drcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dq_dtcamera       [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dq_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point3_t dq_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point2_t dq_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_width_n][2];
-        point2_t pt_hypothesis     [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
+        point3_t dq_drcamera       [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        point3_t dq_dtcamera       [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        point3_t dq_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        point3_t dq_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        point2_t dq_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        point2_t pt_hypothesis     [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
         // I get the intrinsics gradients in separate arrays, possibly sparsely.
         // All the data lives in dq_dintrinsics_pool_double[], with the other data
         // indicating the meaning of the values in the pool.
@@ -3945,8 +3949,8 @@ void optimizerCallback(// input state
         // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
         // for cx,cy, except we know the gradient value beforehand. I support
         // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
-        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_width_n*2*(1+ctx->Nintrinsics)];
-        int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_width_n];
+        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*2*(1+ctx->Nintrinsics)];
+        int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
         double* dq_dfxy = NULL;
         double* dq_dintrinsics_nocore = NULL;
         gradient_sparse_meta_t gradient_sparse_meta;
@@ -3979,10 +3983,11 @@ void optimizerCallback(// input state
                 i_cam_extrinsics < 0,
                 ctx->lensmodel, &ctx->precomputed,
                 ctx->calibration_object_spacing,
-                ctx->calibration_object_width_n);
+                ctx->calibration_object_width_n,
+                ctx->calibration_object_height_n);
 
         for(int i_pt=0;
-            i_pt < ctx->calibration_object_width_n*ctx->calibration_object_width_n;
+            i_pt < ctx->calibration_object_width_n*ctx->calibration_object_height_n;
             i_pt++, i_feature++)
         {
             const point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
@@ -4265,7 +4270,7 @@ void optimizerCallback(// input state
 
                 i_cam_extrinsics < 0,
                 ctx->lensmodel, &ctx->precomputed,
-                0,0);
+                0,0,0);
 #pragma GCC diagnostic pop
 
 
@@ -4820,6 +4825,7 @@ void mrcal_optimizerCallback(// output measurements
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,
+                             int calibration_object_height_n,
 
                              int Nintrinsics, int Nmeasurements, int N_j_nonzero)
 {
@@ -4844,7 +4850,7 @@ void mrcal_optimizerCallback(// output measurements
 
     const int Npoints_fromBoards =
         NobservationsBoard *
-        calibration_object_width_n*calibration_object_width_n;
+        calibration_object_width_n*calibration_object_height_n;
 
 #warning "outliers only work with board observations for now. I assume consecutive xy measurements, but points can have xyr sprinkled in there. I should make the range-full points always follow the range-less points. Then this will work"
     struct dogleg_outliers_t* markedOutliers = malloc(Npoints_fromBoards*sizeof(struct dogleg_outliers_t));
@@ -4877,7 +4883,8 @@ void mrcal_optimizerCallback(// output measurements
         .problem_details            = problem_details,
         .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
-        .calibration_object_width_n = calibration_object_width_n,
+        .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
+        .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
         .roi                        = roi,
         .Nmeasurements              = Nmeasurements,
         .N_j_nonzero                = N_j_nonzero,
@@ -4975,7 +4982,8 @@ mrcal_optimize( // out
                 const mrcal_problem_constants_t* problem_constants,
 
                 double calibration_object_spacing,
-                int calibration_object_width_n)
+                int calibration_object_width_n,
+                int calibration_object_height_n)
 {
     if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
     {
@@ -5014,7 +5022,7 @@ mrcal_optimize( // out
 
     const int Npoints_fromBoards =
         NobservationsBoard *
-        calibration_object_width_n*calibration_object_width_n;
+        calibration_object_width_n*calibration_object_height_n;
 
 #warning "outliers only work with board observations for now. I assume consecutive xy measurements, but points can have xyr sprinkled in there. I should make the range-full points always follow the range-less points. Then this will work"
     struct dogleg_outliers_t* markedOutliers = malloc(Npoints_fromBoards*sizeof(struct dogleg_outliers_t));
@@ -5047,12 +5055,14 @@ mrcal_optimize( // out
         .problem_details            = problem_details,
         .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
-        .calibration_object_width_n = calibration_object_width_n,
+        .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
+        .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
         .roi                        = roi,
         .Nmeasurements              = mrcal_getNmeasurements_all(Ncameras_intrinsics,
                                                                  NobservationsBoard,
                                                                  observations_point, NobservationsPoint,
                                                                  calibration_object_width_n,
+                                                                 calibration_object_height_n,
                                                                  problem_details,
                                                                  lensmodel),
         .N_j_nonzero                = mrcal_getN_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
@@ -5061,7 +5071,8 @@ mrcal_optimize( // out
                                                            Npoints, Npoints_fixed,
                                                            problem_details,
                                                            lensmodel,
-                                                           calibration_object_width_n),
+                                                           calibration_object_width_n,
+                                                           calibration_object_height_n),
         .Nintrinsics                = mrcal_getNlensParams(lensmodel),
 
         .markedOutliers = markedOutliers};
@@ -5153,6 +5164,7 @@ mrcal_optimize( // out
                               observations_board_pool,
                               NobservationsBoard,
                               calibration_object_width_n,
+                              calibration_object_height_n,
                               roi,
                               solver_context->beforeStep->x,
                               observed_pixel_uncertainty,
@@ -5251,6 +5263,7 @@ mrcal_optimize( // out
                                        NobservationsPoint,
                                        Nframes, Npoints-Npoints_fixed,
                                        calibration_object_width_n,
+                                       calibration_object_height_n,
 
                                        solver_context);
         if(!result)
@@ -5290,14 +5303,14 @@ mrcal_optimize( // out
                 const observation_board_t* observation = &observations_board[i_observation_board];
                 const int i_cam_intrinsics = observation->i_cam_intrinsics;
                 for(int i_pt=0;
-                    i_pt < calibration_object_width_n*calibration_object_width_n;
+                    i_pt < calibration_object_width_n*calibration_object_height_n;
                     i_pt++, i_feature++)
                 {
                     const point3_t* pt_observed = &observations_board_pool[i_feature];
                     double weight = region_of_interest_weight(pt_observed, roi, i_cam_intrinsics);
                     if( weight != 1.0 )
                         outside_ROI_indices_final[stats.NoutsideROI++] =
-                            i_observation_board*calibration_object_width_n*calibration_object_width_n +
+                            i_observation_board*calibration_object_width_n*calibration_object_height_n +
                             i_pt;
                 }
             }

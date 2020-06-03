@@ -412,7 +412,8 @@ mrcal_optimize( // out
                 const mrcal_problem_constants_t* problem_constants,
 
                 double calibration_object_spacing,
-                int calibration_object_width_n);
+                int calibration_object_width_n,
+                int calibration_object_height_n);
 
 struct cholmod_sparse_struct;
 // callback function. This is primarily for debugging
@@ -464,6 +465,7 @@ void mrcal_optimizerCallback(// output measurements
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,
+                             int calibration_object_height_n,
                              int Nintrinsics, int Nmeasurements, int N_j_nonzero);
 
 
@@ -472,10 +474,12 @@ int mrcal_getNmeasurements_all(int Ncameras_intrinsics,
                                const observation_point_t* observations_point,
                                int NobservationsPoint,
                                int calibration_object_width_n,
+                               int calibration_object_height_n,
                                mrcal_problem_details_t problem_details,
                                lensmodel_t lensmodel);
 int mrcal_getNmeasurements_boards(int NobservationsBoard,
-                                  int calibration_object_width_n);
+                                  int calibration_object_width_n,
+                                  int calibration_object_height_n);
 int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
                                   int NobservationsPoint);
 int mrcal_getNmeasurements_regularization(int Ncameras_intrinsics,
@@ -493,7 +497,8 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
                           int Npoints, int Npoints_fixed,
                           mrcal_problem_details_t problem_details,
                           lensmodel_t lensmodel,
-                          int calibration_object_width_n);
+                          int calibration_object_width_n,
+                          int calibration_object_height_n);
 
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
 // this is void

@@ -127,9 +127,10 @@ int main(int argc, char* argv[] )
     int Npoints      = sizeof(points)/sizeof(points[0]);
     int Npoints_fixed = 1;
 
-#define calibration_object_width_n 10 /* arbitrary */
+#define calibration_object_width_n  10
+#define calibration_object_height_n 9
 
-    point3_t observations_px      [6][calibration_object_width_n*calibration_object_width_n] = {};
+    point3_t observations_px      [6][calibration_object_width_n*calibration_object_height_n] = {};
     point3_t observations_point_px[4] = {};
     // How many of the observations we want to actually use. Can be fewer than
     // defined in the above arrays if we're testing something
@@ -138,7 +139,7 @@ int main(int argc, char* argv[] )
 
     // fill observations with arbitrary data
     for(int i=0; i<NobservationsBoard; i++)
-        for(int j=0; j<calibration_object_width_n; j++)
+        for(int j=0; j<calibration_object_height_n; j++)
             for(int k=0; k<calibration_object_width_n; k++)
             {
                 observations_px[i][calibration_object_width_n*j + k].x =
@@ -310,7 +311,9 @@ int main(int argc, char* argv[] )
            (problem_details.do_optimize_calobject_warp ? 2 : 0),
            mrcal_state_index_calobject_warp(Npoints-Npoints_fixed,
                                             Nframes, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
-    int Nmeasurements_boards         = mrcal_getNmeasurements_boards(NobservationsBoard, calibration_object_width_n);
+    int Nmeasurements_boards         = mrcal_getNmeasurements_boards(NobservationsBoard,
+                                                                     calibration_object_width_n,
+                                                                     calibration_object_height_n);
     int Nmeasurements_points         = mrcal_getNmeasurements_points(observations_point, NobservationsPoint);
     int Nmeasurements_regularization = mrcal_getNmeasurements_regularization(Ncameras_intrinsics, problem_details, lensmodel);
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
@@ -353,7 +356,9 @@ int main(int argc, char* argv[] )
                     problem_details,
                     &problem_constants,
 
-                    1.0, calibration_object_width_n);
+                    1.2,
+                    calibration_object_width_n,
+                    calibration_object_height_n);
 
     return 0;
 }

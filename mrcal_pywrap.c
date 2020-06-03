@@ -125,6 +125,7 @@ typedef struct {
     int Nframes, Npoints, Npoints_fixed;
     int NobservationsBoard;
     int calibration_object_width_n;
+    int calibration_object_height_n;
 
 } SolverContext;
 static void SolverContext_dealloc(SolverContext* self)
@@ -152,9 +153,10 @@ static PyObject* SolverContext_str(SolverContext* self)
                                "Ncameras_extrinsics:               %d\n"
                                "Nframes:                           %d\n"
                                "Npoints:                           %d\n"
-                               "Npoints_fixed:                      %d\n"
+                               "Npoints_fixed:                     %d\n"
                                "NobservationsBoard:                %d\n"
                                "calibration_object_width_n:        %d\n"
+                               "calibration_object_height_n        %d\n"
                                "do_optimize_intrinsic_core:        %d\n"
                                "do_optimize_intrinsic_distortions: %d\n",
                                p_lensmodel_name,
@@ -163,6 +165,7 @@ static PyObject* SolverContext_str(SolverContext* self)
                                self->Nframes, self->Npoints, self->Npoints_fixed,
                                self->NobservationsBoard,
                                self->calibration_object_width_n,
+                               self->calibration_object_height_n,
                                self->problem_details.do_optimize_intrinsic_core,
                                self->problem_details.do_optimize_intrinsic_distortions);
 }
@@ -428,7 +431,8 @@ static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
                                               self->lensmodel);
     int Nmeasurements_boards =
         mrcal_getNmeasurements_boards( self->NobservationsBoard,
-                                       self->calibration_object_width_n);
+                                       self->calibration_object_width_n,
+                                       self->calibration_object_height_n);
     int Nmeasurements_points =
         Nmeasurements_all - Nmeasurements_regularization - Nmeasurements_boards;
 
@@ -1211,6 +1215,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_width_n,         int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
+    _(calibration_object_height_n,        int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
@@ -1283,8 +1288,9 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    // calibration_object_spacing and calibration_object_width_n must be > 0 OR
-    // we have to not be using a calibration board
+    // calibration_object_spacing and calibration_object_width_n and
+    // calibration_object_height_n must be > 0 OR we have to not be using a
+    // calibration board
     if( NobservationsBoard > 0 )
     {
         if( calibration_object_spacing <= 0.0 )
@@ -1293,18 +1299,17 @@ static bool optimize_validate_args( // out
             return false;
         }
 
-        if( calibration_object_width_n <= 0 )
+        if( calibration_object_width_n <= 0 || calibration_object_height_n <= 0)
         {
-            BARF("We have board observations, so calibration_object_width_n MUST be a valid int > 0");
+            BARF("We have board observations, so calibration_object_width_n and calibration_object_height_n MUST both be a valid int > 0");
             return false;
         }
 
-
-        if( calibration_object_width_n != PyArray_DIMS(observations_board)[1] ||
-            calibration_object_width_n != PyArray_DIMS(observations_board)[2] )
+        if( calibration_object_height_n != PyArray_DIMS(observations_board)[1] ||
+            calibration_object_width_n  != PyArray_DIMS(observations_board)[2] )
         {
-            BARF("observations_board.shape[1:] MUST be (%d,%d,3). Instead got (%ld,%ld,%ld)",
-                         calibration_object_width_n, calibration_object_width_n,
+            BARF("observations_board.shape MUST be (...,%d,%d,3). Instead got (%ld,%ld,%ld)",
+                         calibration_object_height_n, calibration_object_width_n,
                          PyArray_DIMS(observations_board)[1],
                          PyArray_DIMS(observations_board)[2],
                          PyArray_DIMS(observations_board)[3]);
@@ -1837,6 +1842,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         int Nmeasurements = mrcal_getNmeasurements_all(Ncameras_intrinsics, NobservationsBoard,
                                                        c_observations_point, NobservationsPoint,
                                                        calibration_object_width_n,
+                                                       calibration_object_height_n,
                                                        problem_details,
                                                        lensmodel_type);
 
@@ -1897,6 +1903,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             solver_context->Npoints                    = Npoints;
             solver_context->NobservationsBoard         = NobservationsBoard;
             solver_context->calibration_object_width_n = calibration_object_width_n;
+            solver_context->calibration_object_height_n= calibration_object_height_n;
 
         }
 
@@ -1908,7 +1915,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         {
             const int Npoints_fromBoards =
                 NobservationsBoard *
-                calibration_object_width_n*calibration_object_width_n;
+                calibration_object_width_n*calibration_object_height_n;
             outlier_indices_final     = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
             outside_ROI_indices_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
 
@@ -1951,7 +1958,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 problem_details, &problem_constants,
 
                                 calibration_object_spacing,
-                                calibration_object_width_n);
+                                calibration_object_width_n,
+                                calibration_object_height_n);
 
             if(stats.rms_reproj_error__pixels < 0.0)
             {
@@ -2052,7 +2060,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                    Npoints, Npoints_fixed,
                                                    problem_details,
                                                    lensmodel_type,
-                                                   calibration_object_width_n);
+                                                   calibration_object_width_n,
+                                                   calibration_object_height_n);
             int Nintrinsics = mrcal_getNlensParams(lensmodel_type);
 
             int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
@@ -2105,6 +2114,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
                                      calibration_object_spacing,
                                      calibration_object_width_n,
+                                     calibration_object_height_n,
                                      Nintrinsics, Nmeasurements, N_j_nonzero);
 
             result = PyTuple_Pack(2, x_final, csr_from_cholmod_sparse(&Jt,

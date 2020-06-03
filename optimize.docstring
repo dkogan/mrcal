@@ -15,6 +15,7 @@ SYNOPSIS
                             do_optimize_intrinsic_distortions = True,
                             calibration_object_spacing        = object_spacing,
                             calibration_object_width_n        = 10,
+                            calibration_object_height_n       = 9,
                             point_min_range                   = 0.1,
                             point_max_range                   = 100.0,
                             skip_outlier_rejection            = False,
@@ -120,7 +121,7 @@ REQUIRED ARGUMENTS
   MODIFIED BY THIS CALL.
 
 - observations_board: array of dims (NobservationsBoard,
-                                     calibration_object_width_n,
+                                     calibration_object_height_n,
                                      calibration_object_width_n,
                                      3).
   Each slice is an (x,y,weight) tuple where (x,y) are the observed pixel
@@ -206,9 +207,10 @@ OPTIONAL ARGUMENTS
 - calibration_object_spacing: the width of each square in a calibration
   board. Can be omitted if we have no board observations, just points
 
-- calibration_object_width_n: the calibration board is square, with this many
-  points on each side. Can be omitted if we have no board observations, just
-  points
+- calibration_object_width_n,calibration_object_height_n: the calibration board
+  dimensions. This specifies the point counts on each side. The
+  "calibration_object_spacing" argument specifies the dimensions of each square.
+  Can be omitted if we have no board observations, just points
 
 - outlier_indices: Feature indices that are to be considered outliers. Each
   "feature" is an observed point, meaning either 2 measurements (x,y) or 3
