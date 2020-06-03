@@ -923,8 +923,7 @@ def compute_intrinsics_uncertainty( model, v,
 
     *** input-noise-based method
 
-      The below derivation is double-checked in check_confidence_computations()
-      in mrcal-calibrate-cameras
+      The below derivation is double-checked in test-calibration.py
 
       The pixel observations input to the calibration method are noisy. I assume
       they are zero-mean, independent and gaussian. I treat the x and y
