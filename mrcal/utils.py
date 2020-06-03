@@ -114,8 +114,8 @@ def align3d_procrustes(A, B, vectors=False):
 def get_ref_calibration_object(W, H, object_spacing, calobject_warp=None):
     r'''Returns the geometry of the calibration object in its own coordinate frame
 
-    Shape is (H,W,3). I.e. the x index varies the fastest and each xyz
-    coordinate lives at (y,x,:)
+    Shape is (H,W,3). The corner of the board is at the origin, so
+    get_ref_calibration_object(...)[0,0,:] will be a vector of 0
 
     By default the calibration object is flat: z = 0 for all points. If we want
     to add bowing to the board, pass a length-2 iterable in calobject_warp.
@@ -191,7 +191,8 @@ Returns a tuple:
 - The point observations p:
   array of shape (Nframes, Ncameras, object_height, object_width, 2)
 - The pose of the chessboards Rt_cam0_boardref:
-  array of shape (Nframes, Ncameras, 4,3)
+  array of shape (Nframes, Ncameras, 4,3). This transforms an object returned by
+  make_synthetic_board_observations() to the pose that was projected
 
 ARGUMENTS
 
@@ -222,28 +223,34 @@ ARGUMENTS
 
     Ncameras = len(models)
 
+    # I move the board, and keep the cameras stationary.
+    #
+    # Camera coords: x,y with pixels, z forward
+    # Board coords:  x,y along. z forward (i.e. back towards the camera)
+    #                rotation around (x,y,z) is (pitch,yaw,roll)
+    #                respectively
+
+
+    # shape: (Nh,Nw,3)
+    # The center of the board is at the origin (ignoring warping)
+    board_translation = \
+        np.array(( (object_height_n-1)*object_spacing/2.,
+                   (object_width_n -1)*object_spacing/2.,
+                   0 ))
+    board_reference = \
+        mrcal.get_ref_calibration_object(object_width_n,object_height_n,
+                                         object_spacing,calobject_warp) - \
+        board_translation
+
+    # Transformation from the board returned by get_ref_calibration_object() to
+    # the one I use here. It's a shift to move the origin to the center of the
+    # board
+    Rt_boardref_origboardref = mrcal.identity_Rt()
+    Rt_boardref_origboardref[3,:] = -board_translation
 
     def get_observation_chunk():
         '''Get some number of observations. I make Nframes of them, but keep only the
         in-bounds ones'''
-
-        # I move the board, and keep the cameras stationary.
-        #
-        # Camera coords: x,y with pixels, z forward
-        # Board coords:  x,y along. z forward (i.e. back towards the camera)
-        #                rotation around (x,y,z) is (pitch,yaw,roll)
-        #                respectively
-
-
-
-        # shape: (Nh,Nw,3)
-        # The center of the board is at the origin (ignoring warping)
-        board_reference = \
-            mrcal.get_ref_calibration_object(object_width_n,object_height_n,
-                                             object_spacing,calobject_warp) - \
-            np.array(( (object_height_n-1)*object_spacing/2.,
-                       (object_width_n -1)*object_spacing/2.,
-                       0 ))
 
         xyz             = np.array( at_xyz_rpydeg         [:3] )
         rpy             = np.array( at_xyz_rpydeg         [3:] ) * np.pi/180.
@@ -342,7 +349,7 @@ ARGUMENTS
             Rt_cam0_boardref = Rt_cam0_boardref[:Nframes,...]
             break
 
-    return p,Rt_cam0_boardref
+    return p, mrcal.compose_Rt(Rt_cam0_boardref, Rt_boardref_origboardref)
 
 
 def show_calibration_geometry(models_or_extrinsics_rt_fromref,
