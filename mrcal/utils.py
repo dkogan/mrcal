@@ -624,25 +624,28 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
     # I return unit vectors. Not clear this is necessary, but I do it just in
     # case
     def normalize(x):
-        return x / nps.dummy(np.sqrt(nps.norm2(x)), axis=-1)
+        return x / nps.dummy(nps.mag(x), axis=-1)
 
 
     # shape: Nwidth,Nheight,2
     grid = _sample_imager(gridn_x, gridn_y, W, H)
 
-    if type(lensmodel) is list or type(intrinsics_data) is list:
+    if type(lensmodel) is list and type(intrinsics_data) is list:
         # shape: Ncameras,Nwidth,Nheight,3
         return np.array([normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                                    lensmodel[i],
                                                    intrinsics_data[i])) \
                          for i in range(len(lensmodel))]), \
                grid
-    else:
+    elif type(lensmodel) is not list and type(intrinsics_data) is not list:
         # shape: Nwidth,Nheight,3
         return \
             normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                       lensmodel, intrinsics_data)), \
             grid
+    else:
+        raise Exception("Both or neither of (lensmodel, intrinsics_data) should be None")
+
 
 def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
                                       imagersize,
@@ -2025,7 +2028,7 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     matching up known vectors.
 
 
-    I compute the rotation is with a Procrustes fit:
+    I compute the rotation using a Procrustes fit:
 
         R = align3d_procrustes( nps.clump(v0,n=2),
                                 nps.clump(v1,n=2), vectors=True)
@@ -2307,7 +2310,7 @@ def show_intrinsics_diff(models,
                         format(imagersizes))
     W,H=imagersizes[0]
 
-    lensmodels     = [model.intrinsics()[0] for model in models]
+    lensmodels      = [model.intrinsics()[0] for model in models]
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
 
@@ -2318,12 +2321,12 @@ def show_intrinsics_diff(models,
     if len(models) == 2:
         # Two models. Take the difference and call it good
 
-        Rcompensating = \
+        Rcompensating01 = \
             _intrinsics_diff_get_Rfit(q0,
                                       v[0,...], v[1,...],
                                       focus_center, focus_radius,
                                       imagersizes)
-        q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating),
+        q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating01),
                            lensmodels[1], intrinsics_data[1])
 
         diff    = q1 - q0
@@ -2461,7 +2464,7 @@ def show_intrinsics_diff(models,
         # more densely.
         v1 = mrcal.unproject(_densify_polyline(valid_region1, spacing = 50),
                              lensmodels[1], intrinsics_data[1])
-        valid_region1 = mrcal.project( nps.matmult( v1, nps.transpose(Rcompensating) ),
+        valid_region1 = mrcal.project( nps.matmult( v1, nps.transpose(Rcompensating01) ),
                                        lensmodels[0], intrinsics_data[0] )
         if vectorfield:
             # 2d plot
