@@ -2811,7 +2811,8 @@ This function returns a tuple (observations, indices_frame_camera, files_sorted)
 - observations: an ordered (N,object-height-n,object-width-n,3) array describing
   N board observations where the board has dimensions
   (object-height-n,object-width-n) and each point is an (x,y,weight) pixel
-  observation
+  observation. A weight<0 means "ignore this point". Incomplete chessboard
+  observations can be specified in this way.
 
 - indices_frame_camera is an (N,2) array of contiguous, sorted integers where
   each observation is (index_frame,index_camera)
@@ -2955,24 +2956,34 @@ which mrcal.optimize() expects
             if m is None:
                 raise Exception("Unexpected line in the corners output: '{}'".format(line))
             if m.group(2)[:2] == '- ':
+                # No observations for this image. Done with this image; move on
                 finish_chessboard_observation()
                 continue
             if context['f'] != m.group(1):
+                # Got data for the next image. Finish out this one
                 finish_chessboard_observation()
                 context['f'] = m.group(1)
 
-            # The row may have 2 or 3 values: if 3, it contains a weight. If 2,
-            # a weight of 1.0 is assumed. The array is pre-filled with 1.0
+            # The row may have 2 or 3 values: if 3, it contains a decimation
+            # level of the corner observation (used for the weight). If 2, a
+            # weight of 1.0 is assumed. The weight array is pre-filled with 1.0.
+            # A decimation level of - will be used to set weight <0 which means
+            # "ignore this point"
             row = np.fromstring(m.group(2), sep=' ', dtype=np.float)
             if len(row) < 2:
                 raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead got line '{}'".format(line))
             else:
                 context['grid'][context['igrid'],:2] = row[:2]
-                if len(row) == 3 and weighted:
-                    # convert decimation level to weight. The weight is
-                    # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
-                    # weight=0.5, etc
-                    context['grid'][context['igrid'],2] = 1. / (1 << int(row[2]))
+                if len(row) == 3:
+                    if row[2] == '-':
+                        # ignore this point
+                        context['grid'][context['igrid'],2] = -1.0
+                    elif weighted:
+                        # convert decimation level to weight. The weight is
+                        # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
+                        # weight=0.5, etc
+                        context['grid'][context['igrid'],2] = 1. / (1 << int(row[2]))
+                    # else use the 1.0 that's already there
 
             context['igrid'] += 1
 
