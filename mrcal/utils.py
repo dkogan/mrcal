@@ -2768,7 +2768,19 @@ SYNOPSIS
 The input to a calibration problem is a set of images of a calibration object
 from different angles and positions. This function ingests these images, and
 outputs the detected chessboard corner coordinates in a form usable by the mrcal
-optimization routines.
+optimization routines. The "corners_cache_vnl" argument specifies a file to read
+from, or write to. This is a vnlog with legend
+
+  # filename x y level
+
+Each record is a chessboard corner. The image filename and corner coordinates
+are given. The "level" is a decimation level of the detected corner. If we
+needed to cut down the image resolution to detect a corner, its coordinates are
+known less precisely, and we use that information to weight the errors
+appropriately later. We are able to read data that is missing the "level" field:
+a level of 0 (weight = 1) will be filled in. If we read data from a file,
+records with a "-" level mean "skip this point". We'll report the point with
+weight < 0. Any images with fewer than 3 points will be ignored entirely.
 
 ARGUMENTS
 
@@ -2935,16 +2947,18 @@ which mrcal.optimize() expects
 
 
         mapping = {}
-        context = dict(f     = '',
-                       grid  = np.ones((Nh*Nw,3), dtype=float),
-                       igrid = 0)
+        context = dict(f            = '',
+                       grid         = np.ones((Nh*Nw,3), dtype=float),
+                       igrid        = 0,
+                       Nvalidpoints = 0)
 
         def finish_chessboard_observation():
             if context['igrid']:
                 if Nw*Nh != context['igrid']:
                     raise Exception("File '{}' expected to have {} points, but got {}". \
                                     format(context['f'], Nw*Nh, context['igrid']))
-                if context['f'] not in exclude_images:
+                if context['f'] not in exclude_images and \
+                   context['Nvalidpoints'] > 3:
                     # There is a bit of ambiguity here. The image path stored in
                     # the 'corners_cache_vnl' file is relative to what? It could be
                     # relative to the directory the corners_cache_vnl lives in, or it
@@ -2959,9 +2973,10 @@ which mrcal.optimize() expects
                         filename_canonical = os.path.join(corners_dir, context['f'])
                     if accum_files(filename_canonical):
                         mapping[filename_canonical] = context['grid'].reshape(Nh,Nw,3)
-                context['f']     = ''
-                context['grid']  = np.ones((Nh*Nw,3), dtype=float)
-                context['igrid'] = 0
+                context['f']            = ''
+                context['grid']         = np.ones((Nh*Nw,3), dtype=float)
+                context['igrid']        = 0
+                context['Nvalidpoints'] = 0
 
         for line in pipe_corners_read:
             if pipe_corners_write_fd is not None:
@@ -2986,20 +3001,22 @@ which mrcal.optimize() expects
             # weight of 1.0 is assumed. The weight array is pre-filled with 1.0.
             # A decimation level of - will be used to set weight <0 which means
             # "ignore this point"
-            row = np.fromstring(m.group(2), sep=' ', dtype=np.float)
-            if len(row) < 2:
+            fields = m.group(2).split()
+            if len(fields) < 2:
                 raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead got line '{}'".format(line))
             else:
-                context['grid'][context['igrid'],:2] = row[:2]
-                if len(row) == 3:
-                    if row[2] == '-':
+                context['grid'][context['igrid'],:2] = (float(fields[0]),float(fields[1]))
+                context['Nvalidpoints'] += 1
+                if len(fields) == 3:
+                    if fields[2] == '-':
                         # ignore this point
                         context['grid'][context['igrid'],2] = -1.0
+                        context['Nvalidpoints'] -= 1
                     elif weighted:
                         # convert decimation level to weight. The weight is
                         # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
                         # weight=0.5, etc
-                        context['grid'][context['igrid'],2] = 1. / (1 << int(row[2]))
+                        context['grid'][context['igrid'],2] = 1. / (1 << int(fields[2]))
                     # else use the 1.0 that's already there
 
             context['igrid'] += 1
