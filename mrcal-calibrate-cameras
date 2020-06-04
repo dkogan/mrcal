@@ -122,8 +122,8 @@ to that file. So the same command is used to both compute the corners initially,
 and to reuse the pre-computed corners with subsequent runs.
 
 '-j 10' says to spread the mrgingham computation across 10 CPU cores. This
-command controls mrgingham only; if 'corners.vnl' exists, this option does
-nothing.
+command controls mrgingham only; if 'corners.vnl' already exists, this option
+does nothing.
 
 '--focal 2000' says that the initial estimate for the camera focal lengths is
 2000 pixels. This doesn't need to be precise at all, but do try to get this
@@ -394,9 +394,10 @@ def parse_args():
 
     parser.add_argument('--unweighted-corners',
                         action='store_true',
-                        help='''By default we weight each corner error contribution using information from
-                        mrgingham. If we want to ignore this information, and
-                        weigh them all the same, pass --unweighted-corners.''')
+                        help='''By default we weight each corner error contribution using the uncertainty
+                        from the corner detector. If we want to ignore this
+                        information, and weigh them all equally, pass
+                        --unweighted-corners.''')
 
     parser.add_argument('--verbose-solver',
                         action='store_true',
