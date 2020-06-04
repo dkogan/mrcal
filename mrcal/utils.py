@@ -2785,10 +2785,11 @@ ARGUMENTS
   you'd pass ('frame*-cam0.jpg','frame*-cam1.jpg') in the "globs" argument
 
 - corners_cache_vnl: the name of a file to use to read/write the detected
-  corners. If this file exists, we read the detections from the file, and do not
-  run the detector. If this file does NOT exist (which is what happens the first
-  time), mrgingham will be invoked to compute the corners from the images, and
-  the results will be written to that file. So the same function call can be
+  corners; or a python file object to read data from. If the given file exists
+  or a python file object is given, we read the detections from it, and do not
+  run the detector. If the given file does NOT exist (which is what happens the
+  first time), mrgingham will be invoked to compute the corners from the images,
+  and the results will be written to that file. So the same function call can be
   used to both compute the corners initially, and to reuse the pre-computed
   corners with subsequent calls. This exists to save time where re-analyzing the
   same data multiple times.
@@ -2831,6 +2832,7 @@ which mrcal.optimize() expects
     import subprocess
     import shutil
     from tempfile import mkstemp
+    import io
 
 
     def get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images=set()):
@@ -2840,9 +2842,10 @@ which mrcal.optimize() expects
         of dot observations. If no grid was observed in a particular image, the
         relevant dict entry is empty
 
-        The corners_cache_vnl argument is for caching corner-finder results. This can be
-        None if we want to ignore this. Otherwise, this is treated as a path to
-        a file on disk. If this file exists:
+        The corners_cache_vnl argument is for caching corner-finder results.
+        This can be None if we want to ignore this. Otherwise, this is treated
+        as a path to a file on disk or a python file object. If this file
+        exists:
 
             The corner coordinates are read from this file instead of being
             computed. We don't need to actually have the images stored on disk.
@@ -2869,8 +2872,14 @@ which mrcal.optimize() expects
         for i in range(Ncameras):
             files_per_camera.append([])
 
-        # images in corners_cache_vnl have paths relative to where the corners_cache_vnl lives
-        corners_dir = None if corners_cache_vnl is None else os.path.dirname( corners_cache_vnl )
+        # images in corners_cache_vnl have paths relative to where the
+        # corners_cache_vnl lives
+        corners_dir = None
+
+        reading_pipe = isinstance(corners_cache_vnl, io.IOBase)
+
+        if corners_cache_vnl is not None and not reading_pipe:
+            corners_dir = os.path.dirname( corners_cache_vnl )
 
         def accum_files(f):
             for i_camera in range(Ncameras):
@@ -2885,10 +2894,15 @@ which mrcal.optimize() expects
 
         pipe_corners_write_fd          = None
         pipe_corners_write_tmpfilename = None
-        if corners_cache_vnl is not None and os.path.isdir(corners_cache_vnl):
+        if corners_cache_vnl is not None and \
+           not reading_pipe              and \
+           os.path.isdir(corners_cache_vnl):
             raise Exception("Given cache path '{}' is a directory. Must be a file or must not exist". \
                             format(corners_cache_vnl))
-        if corners_cache_vnl is None or not os.path.isfile(corners_cache_vnl):
+
+        if corners_cache_vnl is None or \
+           ( not reading_pipe and \
+             not os.path.isfile(corners_cache_vnl) ):
             # Need to compute the dot coords. And maybe need to save them into a
             # cache file too
             if Nw != 10 or Nh != 10:
@@ -2913,7 +2927,10 @@ which mrcal.optimize() expects
             pipe_corners_read = corners_output.stdout
         else:
             # Have an existing cache file. Just read it
-            pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
+            if reading_pipe:
+                pipe_corners_read = corners_cache_vnl
+            else:
+                pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
             corners_output    = None
 
 
@@ -2998,7 +3015,7 @@ which mrcal.optimize() expects
             if pipe_corners_write_fd is not None:
                 os.close(pipe_corners_write_fd)
                 shutil.move(pipe_corners_write_tmpfilename, corners_cache_vnl)
-        else:
+        elif not reading_pipe:
             pipe_corners_read.close()
 
         # If I have multiple cameras, I use the filenames to figure out what
