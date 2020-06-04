@@ -2640,17 +2640,47 @@ except:
     shellquote = shlex.quote
 
 
-def get_mapping_file_framecamera(*files_per_camera):
+def get_mapping_file_framenocameraindex(*files_per_camera):
     r'''Parse image filenames to get the frame numbers
 
-    I take in a list of image paths per camera. I return a dict that maps each
-    image filename to (framenumber,cameraindex)
+SYNOPSIS
 
-    If I have just one image, I can't tell where in the filenames I have the
-    frame, camera numbers, so I return frame=0,camera=0
+    mapping_file_framenocameraindex = \
+      get_mapping_file_framenocameraindex( ('img5-cam2.jpg', 'img6-cam2.jpg'),
+                                           ('img6-cam3.jpg', 'img7-cam3.jpg'),)
 
-    If I have a set of images that differ in only one area of the filename, I
-    assume I have ONE camera and MANY frames
+    print(mapping_file_framenocameraindex)
+
+    ===>
+
+    { 'frame5-cam2.jpg': (5, 0),
+      'frame6-cam2.jpg': (6, 0),
+      'frame6-cam3.jpg': (6, 1),
+      'frame7-cam3.jpg': (7, 1) }
+
+
+Prior to this call we already applied a glob to some images, so we already know
+which images belong to which camera. This function further classifies the images
+to find the frame number of each image. This is done by looking at the filenames
+of images in each camera, removing common prefixes and suffixes, and using the
+central varying filename component as the frame number.
+
+If we have just one image for a camera, I can't tell what is constant in the
+filenames, so I return framenumber=0
+
+ARGUMENTS:
+
+- *files_per_camera: one argument per camera. Each argument is a list of strings
+   of filenames of images observed by that camera
+
+RETURNED VALUES:
+
+We return a dict from filenames to (framenumber, cameraindex) tuples. The
+"cameraindex" is a sequential index counting up from 0. cameraindex==0
+corresponds to files_per_camera[0] and so on.
+
+The "framenumber" may not be sequential OR starting from 0: this comes directly
+from the filename.
 
     '''
 
@@ -3075,12 +3105,12 @@ which mrcal.optimize() expects
 
     # inputs[camera][image] = (image_filename, frame_number)
     mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images)
-    mapping_file_framecamera              = get_mapping_file_framecamera(*files_per_camera)
+    mapping_file_framenocameraindex       = get_mapping_file_framenocameraindex(*files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
     # {for(cameras) {}} loop will just end up looking at these files in order
-    files_sorted = sorted(mapping_file_corners.keys(), key=lambda f: mapping_file_framecamera[f][1])
-    files_sorted = sorted(files_sorted,                key=lambda f: mapping_file_framecamera[f][0])
+    files_sorted = sorted(mapping_file_corners.keys(), key=lambda f: mapping_file_framenocameraindex[f][1])
+    files_sorted = sorted(files_sorted,                key=lambda f: mapping_file_framenocameraindex[f][0])
 
     i_observation = 0
 
@@ -3089,7 +3119,7 @@ which mrcal.optimize() expects
     for f in files_sorted:
         # The frame indices I return are consecutive starting from 0, NOT the
         # original frame numbers
-        i_frame,i_camera = mapping_file_framecamera[f]
+        i_frame,i_camera = mapping_file_framenocameraindex[f]
         if i_frame_last == None or i_frame_last != i_frame:
             index_frame += 1
             i_frame_last = i_frame
