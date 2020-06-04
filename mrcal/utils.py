@@ -887,7 +887,7 @@ def compute_intrinsics_uncertainty( model, v,
                                     focus_radius = -1.):
     r'''Computes the uncertainty in a projection of a 3D point
 
-    Given a (broadcastable) 3D vector, and the inv(JtJ) matrix for the
+    Given a (broadcastable) 3D vector, and the covariance matrix for the
     intrinsics, returns the uncertainty of the projection of that vector,
     measured in pixels. This function broadcasts over v.
 
@@ -2755,28 +2755,72 @@ def get_mapping_file_framecamera(*files_per_camera):
 
 
 def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, exclude=set(), weighted=True):
-    r'''Computes the chessboard observations and returns them in a usable form
+    r'''Compute the chessboard observations and returns them in a usable form
 
-    We are given globs of images (one glob per camera), where the filenames
-    encode the instantaneous frame numbers. This function invokes the chessboard
-    finder to compute the point coordinates, and returns a tuple
+SYNOPSIS
 
-      observations, indices_frame_camera, files_sorted
+  observations, indices_frame_camera, paths = \
+      mrcal.get_chessboard_observations(10, 10,
+                                        ('frame*-cam0.jpg','frame*-cam1.jpg'),
+                                        "corners.vnl")
 
-    where observations is an (N,object-width-n,object-width-n,3) array
-    describing N board observations where the board has dimensions
-    (object-width-n,object-width-n) and each point is an (x,y,weight) pixel
-    observation
+The input to a calibration problem is a set of images of a calibration object
+from different angles and positions. This function ingests these images, and
+outputs the detected chessboard corner coordinates in a form usable by the mrcal
+optimization routines.
 
-    indices_frame_camera is an (N,2) array of integers where each observation is
-    (index_frame,index_camera)
+ARGUMENTS
 
-    files_sorted is a list of paths of images corresponding to the observations
+- Nw, Nh: the width and height of the point grid in the calibration object we're
+  using
 
-    Note that this assumes we're solving a calibration problem (stationary
-    cameras) observing a moving object, so this returns indices_frame_camera. It
-    is the caller's job to convert this into
-    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
+- globs: a list of strings, one per camera, containing globs matching the image
+  filenames for that camera. The filenames are expected to encode the
+  instantaneous frame numbers, with identical frame numbers implying
+  synchronized images. A common scheme is to name an image taken by frame C at
+  time T "frameT-camC.jpg". Then images frame10-cam0.jpg and frame10-cam1.jpg
+  are assumed to have been captured at the same moment in time by cameras 0 and
+  1. With this scheme, if you wanted to calibrate these two cameras together,
+  you'd pass ('frame*-cam0.jpg','frame*-cam1.jpg') in the "globs" argument
+
+- corners_cache_vnl: the name of a file to use to read/write the detected
+  corners. If this file exists, we read the detections from the file, and do not
+  run the detector. If this file does NOT exist (which is what happens the first
+  time), mrgingham will be invoked to compute the corners from the images, and
+  the results will be written to that file. So the same function call can be
+  used to both compute the corners initially, and to reuse the pre-computed
+  corners with subsequent calls. This exists to save time where re-analyzing the
+  same data multiple times.
+
+- jobs: a GNU-Make style parallelization flag. Indicates how many parallel
+  processes should be invoked when computing the corners. If given, a numerical
+  argument is required. This flag does nothing if the corners-cache file already
+  exists
+
+- exclude: a set of filenames to exclude from reported results
+
+- weighted: corner detectors can report an uncertainty in the coordinates of
+  each corner, and we use that by default. To ignore this, and to weigh all the
+  corners equally, call with weighted=True
+
+RETURNED VALUES
+
+This function returns a tuple (observations, indices_frame_camera, files_sorted)
+
+- observations: an ordered (N,object-height-n,object-width-n,3) array describing
+  N board observations where the board has dimensions
+  (object-height-n,object-width-n) and each point is an (x,y,weight) pixel
+  observation
+
+- indices_frame_camera is an (N,2) array of contiguous, sorted integers where
+  each observation is (index_frame,index_camera)
+
+- files_sorted is a list of paths of images corresponding to the observations
+
+Note that this assumes we're solving a calibration problem (stationary cameras)
+observing a moving object, so this returns indices_frame_camera. It is the
+caller's job to convert this into indices_frame_camintrinsics_camextrinsics,
+which mrcal.optimize() expects
 
     '''
 
