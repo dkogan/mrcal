@@ -2754,7 +2754,8 @@ def get_mapping_file_framecamera(*files_per_camera):
     return mapping
 
 
-def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1, exclude=set(), weighted=True):
+def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1,
+                                exclude_images=set(), weighted=True):
     r'''Compute the chessboard observations and returns them in a usable form
 
 SYNOPSIS
@@ -2797,7 +2798,7 @@ ARGUMENTS
   argument is required. This flag does nothing if the corners-cache file already
   exists
 
-- exclude: a set of filenames to exclude from reported results
+- exclude_images: a set of filenames to exclude from reported results
 
 - weighted: corner detectors can report an uncertainty in the coordinates of
   each corner, and we use that by default. To ignore this, and to weigh all the
@@ -2831,7 +2832,7 @@ which mrcal.optimize() expects
     from tempfile import mkstemp
 
 
-    def get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude=set()):
+    def get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images=set()):
         r'''Return dot observations, from a cache or from mrgingham
 
         Returns a dict mapping from filename to a numpy array with a full grid
@@ -2925,7 +2926,7 @@ which mrcal.optimize() expects
                 if Nw*Nh != context['igrid']:
                     raise Exception("File '{}' expected to have {} points, but got {}". \
                                     format(context['f'], Nw*Nh, context['igrid']))
-                if context['f'] not in exclude:
+                if context['f'] not in exclude_images:
                     # There is a bit of ambiguity here. The image path stored in
                     # the 'corners_cache_vnl' file is relative to what? It could be
                     # relative to the directory the corners_cache_vnl lives in, or it
@@ -3028,7 +3029,7 @@ which mrcal.optimize() expects
     #               push indices_frame_camera
 
     # inputs[camera][image] = (image_filename, frame_number)
-    mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude)
+    mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images)
     mapping_file_framecamera              = get_mapping_file_framecamera(*files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
