@@ -2795,8 +2795,10 @@ from the filename.
     return mapping
 
 
-def get_chessboard_observations(Nw, Nh, globs, corners_cache_vnl=None, jobs=1,
-                                exclude_images=set(), weighted=True):
+def get_chessboard_observations(Nw, Nh, globs=('*',), corners_cache_vnl=None, jobs=1,
+                                exclude_images=set(),
+                                weighted=True,
+                                keep_level=False):
     r'''Compute the chessboard observations and returns them in a usable form
 
 SYNOPSIS
@@ -2823,6 +2825,10 @@ a level of 0 (weight = 1) will be filled in. If we read data from a file,
 records with a "-" level mean "skip this point". We'll report the point with
 weight < 0. Any images with fewer than 3 points will be ignored entirely.
 
+if keep_level: then instead of converting a decimation level to a weight, we'll
+just write the decimation level into the returned observations array. We write
+<0 to mean "skip this point".
+
 ARGUMENTS
 
 - Nw, Nh: the width and height of the point grid in the calibration object we're
@@ -2835,7 +2841,10 @@ ARGUMENTS
   time T "frameT-camC.jpg". Then images frame10-cam0.jpg and frame10-cam1.jpg
   are assumed to have been captured at the same moment in time by cameras 0 and
   1. With this scheme, if you wanted to calibrate these two cameras together,
-  you'd pass ('frame*-cam0.jpg','frame*-cam1.jpg') in the "globs" argument
+  you'd pass ('frame*-cam0.jpg','frame*-cam1.jpg') in the "globs" argument.
+
+  The "globs" argument may be omitted. In this case all images are mapped to the
+  same camera.
 
 - corners_cache_vnl: the name of a file to use to read/write the detected
   corners; or a python file object to read data from. If the given file exists
@@ -2858,6 +2867,10 @@ ARGUMENTS
   each corner, and we use that by default. To ignore this, and to weigh all the
   corners equally, call with weighted=True
 
+- keep_level: if True, we write the decimation level into the observations
+  array, instead of converting it to a weight first. If keep_level: then
+  "weighted" has no effect. The default is False.
+
 RETURNED VALUES
 
 This function returns a tuple (observations, indices_frame_camera, files_sorted)
@@ -2866,7 +2879,8 @@ This function returns a tuple (observations, indices_frame_camera, files_sorted)
   N board observations where the board has dimensions
   (object-height-n,object-width-n) and each point is an (x,y,weight) pixel
   observation. A weight<0 means "ignore this point". Incomplete chessboard
-  observations can be specified in this way.
+  observations can be specified in this way. if keep_level: then the decimation
+  level appears in the last column, instead of the weight
 
 - indices_frame_camera is an (N,2) array of contiguous, sorted integers where
   each observation is (index_frame,index_camera)
@@ -2886,7 +2900,7 @@ which mrcal.optimize() expects
     import shutil
     from tempfile import mkstemp
     import io
-
+    import copy
 
     def get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images=set()):
         r'''Return dot observations, from a cache or from mrgingham
@@ -2988,12 +3002,17 @@ which mrcal.optimize() expects
 
 
         mapping = {}
-        context = dict(f            = '',
-                       grid         = np.ones((Nh*Nw,3), dtype=float),
-                       igrid        = 0,
-                       Nvalidpoints = 0)
+        context0 = dict(f            = '',
+                        igrid        = 0,
+                        Nvalidpoints = 0)
+        # The default weight is 1; the default decimation level is 0
+        if keep_level: context0['grid'] = np.zeros((Nh*Nw,3), dtype=float)
+        else:          context0['grid'] = np.ones( (Nh*Nw,3), dtype=float)
+
+        context = copy.deepcopy(context0)
 
         def finish_chessboard_observation():
+            nonlocal context
             if context['igrid']:
                 if Nw*Nh != context['igrid']:
                     raise Exception("File '{}' expected to have {} points, but got {}". \
@@ -3014,10 +3033,7 @@ which mrcal.optimize() expects
                         filename_canonical = os.path.join(corners_dir, context['f'])
                     if accum_files(filename_canonical):
                         mapping[filename_canonical] = context['grid'].reshape(Nh,Nw,3)
-                context['f']            = ''
-                context['grid']         = np.ones((Nh*Nw,3), dtype=float)
-                context['igrid']        = 0
-                context['Nvalidpoints'] = 0
+                context = copy.deepcopy(context0)
 
         for line in pipe_corners_read:
             if pipe_corners_write_fd is not None:
@@ -3053,6 +3069,8 @@ which mrcal.optimize() expects
                         # ignore this point
                         context['grid'][context['igrid'],2] = -1.0
                         context['Nvalidpoints'] -= 1
+                    elif keep_level:
+                        context['grid'][context['igrid'],2] = float(fields[2])
                     elif weighted:
                         # convert decimation level to weight. The weight is
                         # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
@@ -3113,8 +3131,6 @@ which mrcal.optimize() expects
     #           if have observation:
     #               push observations
     #               push indices_frame_camera
-
-    # inputs[camera][image] = (image_filename, frame_number)
     mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images)
     mapping_file_framenocameraindex       = get_mapping_file_framenocameraindex(*files_per_camera)
 
