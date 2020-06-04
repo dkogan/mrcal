@@ -2663,10 +2663,12 @@ Prior to this call we already applied a glob to some images, so we already know
 which images belong to which camera. This function further classifies the images
 to find the frame number of each image. This is done by looking at the filenames
 of images in each camera, removing common prefixes and suffixes, and using the
-central varying filename component as the frame number.
+central varying filename component as the frame number. This varying component
+should be numeric. If it isn't and we have multiple cameras, then we barf. If it
+isn't, but we only have one camera, we fallback on sequential frame numbers.
 
 If we have just one image for a camera, I can't tell what is constant in the
-filenames, so I return framenumber=0
+filenames, so I return framenumber=0.
 
 ARGUMENTS:
 
@@ -2778,7 +2780,16 @@ from the filename.
     Ncameras = len(files_per_camera)
     mapping = {}
     for icamera in range(Ncameras):
-        framenumbers = pull_framenumbers(files_per_camera[icamera])
+        try:
+            framenumbers = pull_framenumbers(files_per_camera[icamera])
+        except:
+            # If we couldn't parse out the frame numbers, but there's only one
+            # camera, then I just use a sequential list of integers. Since it
+            # doesn't matter
+            if Ncameras == 1:
+                framenumbers = range(len(files_per_camera[icamera]))
+            else:
+                raise
         if framenumbers is not None:
             mapping.update(zip(files_per_camera[icamera], [(iframe,icamera) for iframe in framenumbers]))
     return mapping
