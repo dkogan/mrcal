@@ -1168,27 +1168,31 @@ def compute_intrinsics_uncertainty( model, v,
 
         where M = inv(JtJ) Jobservationst W
 
-      As an example of what I might want to do: let's say I have 4 cameras (3
-      sets of extrinsics). How do I compute Var(yaw between cameras 2,3)? For
-      simplicity let's assume the cameras have relative transformation ~
-      identity, so yaw ~ rodrigues[1]. I have relative extrinsics for my
-      cameras: rt20, rt30 -> rt23[1] = compose(rt20, invert(rt30))[1]. I
-      linearize this, so that locally rt23[1] ~ rt23[1](0) + drt23[1]/drt20 drt20
-      + drt23[1]/drt30 drt30 = rt23[1](0) + A drt20 + B drt30 ~ AB drt2030
+      Unlike with the intrinsics, I'm going to want to look at the extrinsics
+      uncertainties of some cameras in respect to other cameras; this also
+      allows me to have some uncertainty in the pose of any cameras that are at
+      the coordinate-system reference. As an example of what I might want to do:
+      let's say I have 4 cameras, with camera0 at the reference (3 sets of
+      extrinsics). How do I compute Var(yaw between cameras 2,3)? For simplicity
+      let's assume the cameras have relative transformation ~ identity, so yaw ~
+      rodrigues[1]. I have relative extrinsics for my cameras: rt20, rt30 ->
+      rt23[1] = compose(rt20, invert(rt30))[1]. I linearize this, so that
+      locally rt23[1] ~ rt23[1](0) + drt23[1]/drt20 drt20 + drt23[1]/drt30 drt30
+      = rt23[1](0) + A drt20 + B drt30 ~ AB drt2030
 
       -> Var(rt23[1]) = AB Var(drt2030) ABt =
                       = AB Mrt2030 Var(qref) Mrt2030t ABt =
                       = AB Mrt2030 W^-2 s^2 Mrt2030t ABt =
-                      = AB inv(JtJ)_2030 Jobservationst W W^-2 s^2 W^-1 Jobservationst inv(JtJ)_2030t ABt =
-                      = AB inv(JtJ)_2030 Jobservationst s^2 Jobservationst inv(JtJ)_2030t ABt =
+                      = AB inv(JtJ)_2030 Jobservationst W W^-2 s^2 W Jobservations inv(JtJ)_2030t ABt =
+                      = AB inv(JtJ)_2030 Jobservationst s^2 Jobservations inv(JtJ)_2030t ABt
 
-      So the full covariance of all the extrinsics must be available to do this
-      sort of analysis: I need inv(JtJ)_allextrinsics Jobservationst
+      Thus I make available the full covariance of all the extrinsics variables,
+      so that all the pairwise relationships can be observed.
 
     '''
 
     lensmodel, intrinsics_data = model.intrinsics()
-    imagersize                  = model.imagersize()
+    imagersize                 = model.imagersize()
 
     if outlierness:
         intrinsics_covariance = model.covariance_intrinsics_full()
