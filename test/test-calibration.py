@@ -111,22 +111,25 @@ args = ( intrinsics,
          None, None,
          lensmodel)
 
-kwargs = dict( imagersizes                       = imagersizes,
-               observed_pixel_uncertainty        = pixel_uncertainty,
-               calibration_object_spacing        = object_spacing,
-               calibration_object_width_n        = object_width_n,
-               calibration_object_height_n       = object_height_n,
-               skip_outlier_rejection            = True,
-               skip_regularization               = False,
-               verbose                           = False )
+kwargs_callback = \
+    dict( imagersizes                       = imagersizes,
+          calibration_object_spacing        = object_spacing,
+          calibration_object_width_n        = object_width_n,
+          calibration_object_height_n       = object_height_n,
+          skip_regularization               = False,
+          verbose                           = False )
+
+kwargs_optimize = dict(kwargs_callback,
+                       observed_pixel_uncertainty = pixel_uncertainty,
+                       skip_outlier_rejection     = True)
 
 # Simpler pre-solves
-stats = mrcal.optimize( *args, **kwargs,
+stats = mrcal.optimize( *args, **kwargs_optimize,
                         do_optimize_frames                = True,
                         do_optimize_intrinsic_core        = False,
                         do_optimize_intrinsic_distortions = False,
                         do_optimize_extrinsics            = True)
-stats = mrcal.optimize( *args, **kwargs,
+stats = mrcal.optimize( *args, **kwargs_optimize,
                         do_optimize_frames                = True,
                         do_optimize_intrinsic_core        = True,
                         do_optimize_intrinsic_distortions = False,
@@ -135,7 +138,7 @@ stats = mrcal.optimize( *args, **kwargs,
 # Complete final solve
 calobject_warp = np.array((0.001, 0.001))
 solver_context = mrcal.SolverContext()
-stats = mrcal.optimize( *args, **kwargs,
+stats = mrcal.optimize( *args, **kwargs_optimize,
                         do_optimize_frames                = True,
                         do_optimize_intrinsic_core        = True,
                         do_optimize_intrinsic_distortions = True,
@@ -207,8 +210,6 @@ testutils.confirm_equal( np.min( (nps.trace(Rt_frame_err[..., :3,:]) - 1)/2. ),
                          eps = np.cos(1. * np.pi/180.0), # 1 deg
                          msg = "Recovered frame rotation")
 
-testutils.finish()
-sys.exit()
 
 
 
@@ -239,92 +240,86 @@ def callback(intrinsics_data):
                                 observations, indices_frame_camintrinsics_camextrinsics,
                                 None, None,
                                 lensmodel,
+                                **kwargs_callback,
                                 do_optimize_calobject_warp        = True,
                                 calobject_warp                    = calobject_warp,
-                                imagersizes                       = imagersizes,
                                 do_optimize_intrinsic_core        = True,
                                 do_optimize_intrinsic_distortions = True,
-                                do_optimize_extrinsics            = True,
-                                calibration_object_spacing        = object_spacing,
-                                calibration_object_width_n        = object_width_n,
-                                calibration_object_height_n       = object_height_n,
-                                skip_regularization               = False,
-                                verbose                           = False)
+                                do_optimize_extrinsics            = True)
+
     Joptimizer = Joptimizer.toarray()
     J = Joptimizer.copy()
     solver_context.pack(J)
     return x,J,Joptimizer
 
-def callback_perturbed(delta, i_var):
-    intrinsics_data = intrinsics.copy()
-    intrinsics_data[0, i_var] += delta
-    return callback(intrinsics_data)[0]
 
-def callback_perturbed_intrinsics(delta, i_var):
-    ivar = solver_context.state_index_intrinsics(0) + i_var
-    return callback_perturbed(delta, i_var), ivar
-
-
-
-# State and measurements at the operating point
+# State and measurements at the optimal operating point
 p0 = solver_context.p().copy()
 x0,J0,Joptimizer0 = callback(intrinsics)
 
+###########################################################################
+# First a very basic gradient check. Looking at anarbitrary state variable. The
+# test-gradients tool does this much more thoroughly
+icam        = 1
+Nintrinsics = mrcal.getNlensParams(lensmodel)
+delta       = np.random.randn(Nintrinsics) * 1e-6
+ivar        = solver_context.state_index_intrinsics(icam)
+J0_slice    = J0[:,ivar:ivar+Nintrinsics]
+intrinsics_perturbed = intrinsics.copy()
+intrinsics_perturbed[icam] += delta
+x1                   = callback(intrinsics_perturbed)[0]
+dx                   = x1 - x0
+dx_predicted         = nps.inner(J0_slice, delta)
+testutils.confirm_equal( dx_predicted, dx,
+                         eps = 1e-3,
+                         worstcase = True,
+                         relative = True,
+                         msg = "Trivial, sanity-checking gradient check")
 
 ###########################################################################
-# First a very basic gradient check. The test-gradients tool does this much
-# more thoroughly
-delta = 1e-3
-x2,ivar2 = callback_perturbed_intrinsics(delta,0)
-
-dx2          = x2 - x0
-dx2_estimate = J0[:,ivar2]*delta
-
-print("Gradient check. Should be close to 0: {:.2g}". \
-      format(nps.norm2(dx2-dx2_estimate)))
-
-###########################################################################
-# We're supposed to be at the optimum. E = norm2(x) ~ norm2(x0 + Jdp) =
-# norm2(x0) + 2 Jt x0 dp + norm2(Jdp). For very small dp, I should see Jt x0
-# = 0 at the optimum. But if the gradients are large, the 2nd-order dp
-# dependence isn't negligible, and I won't see 0
-delta = 1e-8
-x2,ivar2 = callback_perturbed_intrinsics(delta,0)
-dx2                = x2 - x0
-dx2_predicted      = J0[:,ivar2] * delta
-x2_predicted       = x0 + dx2_predicted
-dE2                = nps.norm2(x2)           - nps.norm2(x0)
-dE2_predicted      = nps.norm2(x2_predicted) - nps.norm2(x0)
-dE2_predicted_jtx  = 2 * nps.inner(x0, J0[:,ivar2]) * delta
-dE2_predicted_jtx2 = dE2_predicted_jtx + nps.norm2(dx2_predicted)
-print("Sanity check. Should be close to 0: {:.2g} {:.2g}". \
-      format(dE2_predicted      - dE2,
-             dE2_predicted_jtx2 - dE2))
-print("Sanity check. It would be nice if it was close to 0, but maybe not: {:.2g}". \
-      format(dE2_predicted_jtx - dE2))
-
+# We're supposed to be at the optimum. E = norm2(x) ~ norm2(x0 + J dp) =
+# norm2(x0) + 2 dpt Jt x0 + norm2(J dp). At the optimum Jt x0 = 0 -> E =
+# norm2(x0) + norm2(J dp). dE = norm2(J dp) = norm2(dx_predicted)
+x_predicted  = x0 + dx_predicted
+dE           = nps.norm2(x1) - nps.norm2(x0)
+dE_predicted = nps.norm2(dx_predicted)
+testutils.confirm_equal( dE_predicted, dE,
+                         eps = 1e-3,
+                         relative = True,
+                         msg = "diff(E) predicted")
 
 ###########################################################################
-# Fine. Let's make sure the noise propagation works as it should. First off,
-# is the implementation correct?
-Nintrinsics         = mrcal.getNlensParams(lensmodel)
+# Fine. Let's make sure the noise propagation works as it should. First off, is
+# the implementation correct? Derivation in compute_intrinsics_uncertainty()
+# says intrinsics covariance:
+#
+#   Var(intrinsics) = (inv(JtJ)[intrinsicsrows] Jobservationst)
+#                     (inv(JtJ)[intrinsicsrows] Jobservationst)t
+#                     s^2
+#
+# Let's make sure the computation was done correctly
 Nobservations_board = indices_frame_camera.shape[0]
 Nmeasurements_board = Nobservations_board * object_height_n * object_width_n * 2
 
 invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J0), J0))
-J0obs = J0[:Nmeasurements_board,:]
+J0observations = J0[:Nmeasurements_board,:]
 
 for icam in range(Ncameras):
-    invJtJ_slice = invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),
-                          Nintrinsics*icam:Nintrinsics*(icam+1)]
-    err_inv_jtj_intrinsics = \
-        np.linalg.norm(covariance_intrinsics[icam, ...]/(pixel_uncertainty*pixel_uncertainty) -
-                       nps.matmult( invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),:],
-                                    nps.transpose(J0obs),
-                                    J0obs,
-                                    invJtJ[:,Nintrinsics*icam:Nintrinsics*(icam+1)]))
 
-    print("covariance_intrinsics error (should be 0): {}".format(err_inv_jtj_intrinsics))
+    covariance_intrinsics_predicted = \
+        (pixel_uncertainty*pixel_uncertainty) * \
+        nps.matmult( invJtJ[Nintrinsics*icam:Nintrinsics*(icam+1),:],
+                     nps.transpose(J0observations),
+                     J0observations,
+                     invJtJ[:,Nintrinsics*icam:Nintrinsics*(icam+1)])
+
+    testutils.confirm_equal( covariance_intrinsics_predicted,
+                             covariance_intrinsics[icam, ...],
+                             relative = True,
+                             eps = 1e-3,
+                             msg = f"covariance_intrinsics predicted for camera {icam}")
+
+testutils.finish()
 
 err_inv_jtj_extrinsics = \
     np.linalg.norm(covariance_extrinsics/(pixel_uncertainty*pixel_uncertainty) -
