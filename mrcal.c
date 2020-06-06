@@ -3452,7 +3452,7 @@ static bool computeUncertaintyMatrices(// out
         int istate_intrinsics0 = mrcal_state_index_intrinsics(0,
                                                               problem_details,
                                                               lensmodel);
-        int istate_extrinsics0 = mrcal_state_index_camera_rt(0, Ncameras_extrinsics,
+        int istate_extrinsics0 = mrcal_state_index_camera_rt(0, Ncameras_intrinsics,
                                                              problem_details,
                                                              lensmodel);
 
