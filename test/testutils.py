@@ -2,6 +2,7 @@
 
 import sys
 import numpy as np
+import numpysane as nps
 import os
 import re
 from inspect import currentframe
@@ -48,13 +49,22 @@ def print_green(x):
     sys.stdout.write("\x1b[32m" + test_location() + ": " + x + "\x1b[0m\n")
 
 
-def confirm_equal(x, xref, msg='', eps=1e-6):
+def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
     r'''If x is equal to xref, report test success.
 
     msg identifies this check. eps sets the RMS equality tolerance. The x,xref
     arguments can be given as many different types. This function tries to do
     the right thing.
 
+    if relative: I look at a relative error:
+                 err = (a-b) / ((abs(a)+abs(b))/2 + eps)
+    else:        I look at absolute error:
+                 err = a-b
+
+    if worstcase: I look at the worst-case error
+                  err = np.max(np.abs(err))
+    else:         RMS error
+                  error = np.sqrt(np.mean(nps.norm2(err)))
     '''
 
     global Nchecks
@@ -105,21 +115,27 @@ def confirm_equal(x, xref, msg='', eps=1e-6):
 
     if N != 0:
         try:  # I I can subtract, get the error that way
-            diff = x - xref
+            if relative:
+                diff = (x - xref) / ((np.abs(x)+np.abs(xref))/2 + 1e-8)
+            else:
+                diff = x - xref
 
-            def norm2sq(x):
-                """Return 2 norm"""
-                return np.inner(x, x)
-            rms = np.sqrt(norm2sq(diff) / N)
-            if not np.all(np.isfinite(rms)):
+            if worstcase:
+                what = 'worst-case'
+                err  = np.max(np.abs(diff))
+            else:
+                what = 'RMS'
+                err  = np.sqrt(np.mean(nps.norm2(diff)))
+
+            if not np.all(np.isfinite(err)):
                 print_red("FAILED{}: Some comparison results are NaN or Inf. "
-                          "rms error = {}. x = {}, xref = {}".format(
-                              (': ' + msg) if msg else '', rms, x, xref))
+                          "{} error = {}. x = {}, xref = {}".format(
+                              (': ' + msg) if msg else '', what, err, x, xref))
                 NchecksFailed = NchecksFailed + 1
                 return False
-            if rms > eps:
-                print_red("FAILED{}: rms error = {}.\nx = {}\nxref = {}\nerr = {}".format(
-                    (': ' + msg) if msg else '', rms,
+            if err > eps:
+                print_red("FAILED{}: {} error = {}.\nx = {}\nxref = {}\nerr = {}".format(
+                    (': ' + msg) if msg else '', what, err,
                     x,xref,diff))
                 NchecksFailed = NchecksFailed + 1
                 return False
