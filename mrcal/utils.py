@@ -668,11 +668,6 @@ def sample_imager_unproject(gridn_x, gridn_y, W, H, lensmodel, intrinsics_data):
 
     '''
 
-    # I return unit vectors. Not clear this is necessary, but I do it just in
-    # case
-    def normalize(x):
-        return x / nps.dummy(nps.mag(x), axis=-1)
-
     def is_list_or_tuple(l):
         return isinstance(l,list) or isinstance(l,tuple)
 
@@ -682,16 +677,16 @@ def sample_imager_unproject(gridn_x, gridn_y, W, H, lensmodel, intrinsics_data):
 
     if is_list_or_tuple(lensmodel):
         # shape: Ncameras,Nwidth,Nheight,3
-        return np.array([normalize(mrcal.unproject(np.ascontiguousarray(grid),
-                                                   lensmodel[i],
-                                                   intrinsics_data[i])) \
+        return np.array([mrcal.unproject(np.ascontiguousarray(grid),
+                                         lensmodel[i],
+                                         intrinsics_data[i]) \
                          for i in range(len(lensmodel))]), \
                grid
     else:
         # shape: Nheight,Nwidth,3
         return \
-            normalize(mrcal.unproject(np.ascontiguousarray(grid),
-                                      lensmodel, intrinsics_data)), \
+            mrcal.unproject(np.ascontiguousarray(grid),
+                            lensmodel, intrinsics_data), \
             grid
 
 
@@ -2115,6 +2110,12 @@ def compute_Rcompensating(q0, v0, v1,
     way
 
     '''
+
+    # I THINK this function expects normalized vectors, so I normalize them here
+    def normalize(x):
+        return x / nps.dummy(nps.mag(x), axis=-1)
+    v0 = normalize(v0)
+    v1 = normalize(v1)
 
     # my state vector is a rodrigues rotation, seeded with the identity
     # rotation
