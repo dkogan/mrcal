@@ -124,11 +124,13 @@ int main(int argc, char* argv[])
     confirm_eq_int(mrcal_getNlensParams((lensmodel_t){.type = LENSMODEL_CAHVOR}),  9);
     confirm_eq_int(mrcal_getNlensParams((lensmodel_t){.type = LENSMODEL_OPENCV8}), 12);
 
-    #warning add test for spline parameter counts
-    // ref =
-    //     (lensmodel_t){.type = LENSMODEL_SPLINED_STEREOGRAPHIC,
-    //     .LENSMODEL_SPLINED_STEREOGRAPHIC__config = {.a = 1, .b = 2}};
-    // confirm_eq_int(mrcal_getNlensParams(ref), 3);
+    confirm_eq_int(mrcal_getNlensParams((lensmodel_t){.type = LENSMODEL_SPLINED_STEREOGRAPHIC,
+                                                      .LENSMODEL_SPLINED_STEREOGRAPHIC__config =
+                                                      { .order     = 3,
+                                                        .Nx        = 30,
+                                                        .Ny        = 20,
+                                                        .fov_x_deg = 200 }}),
+                   4 + 30*20*2);
 
 
     TEST_FOOTER();
