@@ -2204,28 +2204,6 @@ def _intrinsics_diff_get_Rfit(q0, v0, v1,
     return R_fit
 
 
-def _intrinsics_diff_get_reprojections(q0, v0, v1,
-                                       focus_center,
-                                       focus_radius,
-                                       lensmodels, intrinsics_data,
-
-                                       imagersizes):
-
-    r'''Computes a reprojection into camera1 from observations in camera0
-
-    This is a convenience function we can use if we don't need the compensating
-    rotation for anything else
-    '''
-
-    R = _intrinsics_diff_get_Rfit(q0, v0, v1,
-                                  focus_center,
-                                  focus_radius,
-                                  imagersizes)
-
-    return mrcal.project(nps.matmult(v0,R),
-                         lensmodels, intrinsics_data)
-
-
 def _densify_polyline(p, spacing):
     r'''Returns the input polyline, but resampled more densely
     The input and output polylines are a numpy array of shape (N,2). The output
@@ -2344,11 +2322,23 @@ def show_intrinsics_diff(models,
 
     else:
         # Many models. Look at the stdev
-        grids = nps.cat(*[_intrinsics_diff_get_reprojections(q0,
-                                                             v[0,...], v[i,...],
-                                                             focus_center, focus_radius,
-                                                             lensmodels[i], intrinsics_data[i],
-                                                             imagersizes) for i in range(1,len(v))])
+        def get_reprojections(q0, v0, v1,
+                              focus_center,
+                              focus_radius,
+                              lensmodel, intrinsics_data,
+                              imagersizes):
+            R = _intrinsics_diff_get_Rfit(q0, v0, v1,
+                                          focus_center,
+                                          focus_radius,
+                                          imagersizes)
+            return mrcal.project(nps.matmult(v0,R),
+                                 lensmodel, intrinsics_data)
+
+        grids = nps.cat(*[get_reprojections(q0,
+                                            v[0,...], v[i,...],
+                                            focus_center, focus_radius,
+                                            lensmodels[i], intrinsics_data[i],
+                                            imagersizes) for i in range(1,len(v))])
 
         # I look at synthetic data with calibrations fit off ONLY the right half
         # of the image. I look to see how well I'm doing on the left half of the
