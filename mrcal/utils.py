@@ -618,9 +618,8 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
     r'''Reports 3d observation vectors that regularly sample the imager
 
     This is a utility function for the various visualization routines.
-    Broadcasts on the lensmodel and intrinsics_data (if they're lists,
-    not numpy arrays. Couldn't do it with numpy arrays because the intrinsics
-    have varying sizes)
+    Broadcasts on the lensmodel and intrinsics_data (if lensmodel is a list or
+    tuple; not a numpy array).
 
     Note: the returned matrices index on X and THEN on Y. This is opposite of
     how numpy does it: Y then X. A consequence is that plotting the matrices
@@ -640,22 +639,19 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
     # shape: Nwidth,Nheight,2
     grid = _sample_imager(gridn_x, gridn_y, W, H)
 
-    if is_list_or_tuple(lensmodel) and is_list_or_tuple(intrinsics_data):
+    if is_list_or_tuple(lensmodel):
         # shape: Ncameras,Nwidth,Nheight,3
         return np.array([normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                                    lensmodel[i],
                                                    intrinsics_data[i])) \
                          for i in range(len(lensmodel))]), \
                grid
-    elif not is_list_or_tuple(lensmodel) and not is_list_or_tuple(intrinsics_data):
-
+    else:
         # shape: Nwidth,Nheight,3
         return \
             normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                       lensmodel, intrinsics_data)), \
             grid
-    else:
-        raise Exception("Both or neither of (lensmodel, intrinsics_data) should be lists/tuples")
 
 
 def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
