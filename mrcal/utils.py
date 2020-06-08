@@ -2660,12 +2660,12 @@ isn't, but we only have one camera, we fallback on sequential frame numbers.
 If we have just one image for a camera, I can't tell what is constant in the
 filenames, so I return framenumber=0.
 
-ARGUMENTS:
+ARGUMENTS
 
 - *files_per_camera: one argument per camera. Each argument is a list of strings
    of filenames of images observed by that camera
 
-RETURNED VALUES:
+RETURNED VALUES
 
 We return a dict from filenames to (framenumber, cameraindex) tuples. The
 "cameraindex" is a sequential index counting up from 0. cameraindex==0
