@@ -653,7 +653,7 @@ coordinate.
                   0,-1)
 
 
-def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
+def sample_imager_unproject(gridn_x, gridn_y, W, H, lensmodel, intrinsics_data):
     r'''Reports 3d observation vectors that regularly sample the imager
 
     This is a utility function for the various visualization routines.
@@ -1310,8 +1310,8 @@ def show_intrinsics_uncertainty(model,
     lensmodel, intrinsics_data = model.intrinsics()
     imagersize                 = model.imagersize()
     v,_ =sample_imager_unproject(gridn_x, gridn_y,
-                                 lensmodel, intrinsics_data,
-                                 *imagersize)
+                                 *imagersize,
+                                 lensmodel, intrinsics_data)
     err = compute_intrinsics_uncertainty(model, v,
                                          outlierness,
                                          focus_center = focus_center,
@@ -2337,8 +2337,8 @@ def show_intrinsics_diff(models,
 
     # shape (...,Nheight,Nwidth,...)
     v,q0 = sample_imager_unproject(gridn_x, gridn_y,
-                                   lensmodels, intrinsics_data,
-                                   W, H)
+                                   W, H,
+                                   lensmodels, intrinsics_data)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
