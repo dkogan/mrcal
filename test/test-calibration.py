@@ -213,8 +213,48 @@ testutils.confirm_equal( np.min( (nps.trace(Rt_frame_err[..., :3,:]) - 1)/2. ),
                          msg = "Recovered frame rotation")
 
 
+# Checking the intrinsics. Each intrinsics vector encodes an implicit rotation.
+# I compute and compensate for this rotation when making my intrinsics
+# comparisons. I make sure that within some distance of the pixel center, the
+# projections match up to within some number of pixels
+Nw = 60
+def projection_diff(models, max_dist_from_center, fit_Rcompensating = True):
+    lensmodels      = [model.intrinsics()[0] for model in models]
+    intrinsics_data = [model.intrinsics()[1] for model in models]
+
+    # shape (..., Nh,Nw, ...)
+    v,q0 = \
+        mrcal.sample_imager_unproject(Nw,None,
+                                      *imagersizes[0],
+                                      lensmodels, intrinsics_data)
+    Rcompensating01 = \
+        mrcal.compute_Rcompensating(q0,
+                                    v[0,...], v[1,...],
+                                    focus_center = None,
+                                    focus_radius = -1 if fit_Rcompensating else 0,
+                                    imagersizes  = imagersizes)
+    q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating01),
+                       lensmodels[1], intrinsics_data[1])
+    diff = nps.mag(q1 - q0)
+
+    # zero-out everything too far from the center
+    center = (imagersizes[0] - 1.) / 2.
+    diff[ nps.norm2(q0 - center) > max_dist_from_center*max_dist_from_center ] = 0
+    # gp.plot(diff,
+    #         ascii = True,
+    #         using = mrcal.imagergrid_using(imagersizes[0], Nw),
+    #         square=1, _with='image', tuplesize=3, hardcopy='/tmp/yes.gp', cbmax=3)
+
+    return diff
 
 
+for icam in range(len(models)):
+    diff = projection_diff( (models[icam], models_solved[icam]), 800, True)
+
+    testutils.confirm_equal(diff, 0,
+                            worstcase = True,
+                            eps = 3.,
+                            msg = f"Recovered intrinsics for camera {icam}")
 
 
 import gnuplotlib as gp
