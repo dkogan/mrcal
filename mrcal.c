@@ -3381,6 +3381,104 @@ static bool computeUncertaintyMatrices(// out
     // Compute covariance_intrinsics_full. This is the intrinsics-per-camera
     // diagonal block inv(JtJ) for each camera separately
     if(covariance_intrinsics_full)
+    {
+        // Enables a testing branch that uses more or CHOLDMOD functions to
+        // perform this computation. In theory it should produce the same
+        // results, but relying on the library more, thus being faster (maybe)
+        // and more likely to do the right thing now and in the future
+        // (probably). Disabled by default. Could be a model for the other
+        // covariance computations. USE GPL CODE. DO NOT RE-ENABLE PERMANENTLY
+        // WITHOUT ADDRESSING THAT
+#define COVARIANCE_FULL_COMPUTE_WITH_CHOLMOD 0
+
+#if defined COVARIANCE_FULL_COMPUTE_WITH_CHOLMOD && COVARIANCE_FULL_COMPUTE_WITH_CHOLMOD
+        cholmod_sparse* I_stacked = cholmod_allocate_sparse
+            ( Nstate, Nintrinsics_per_camera_state, Nintrinsics_per_camera_state,
+              1, // sorted
+              1, // packed
+              0, // stype
+              CHOLMOD_REAL,
+              &solverCtx->common ) ;
+
+        for(int i=0; i<Nintrinsics_per_camera_state; i++)
+        {
+            ((int*)I_stacked->p)[i] = i;
+            ((double*)I_stacked->x)[i] = 1.0;
+            // will fill this in later, for each camera
+            // ((int   *)I_stacked->i)[i] = istate0 + i;
+        }
+        ((int*)I_stacked->p)[Nintrinsics_per_camera_state] = Nintrinsics_per_camera_state;
+        for(int icam = 0; icam < Ncameras_intrinsics; icam++)
+        {
+            const int istate0 = Nintrinsics_per_camera_state * icam;
+            for(int i=0; i<Nintrinsics_per_camera_state; i++)
+                ((int*)I_stacked->i)[i] = istate0 + i;
+
+            cholmod_sparse* var_stacked = cholmod_spsolve
+                ( CHOLMOD_A, solverCtx->factorization, I_stacked,
+                  &solverCtx->common);
+
+            // I now have a matrix with Nstate rows and
+            // Nintrinsics_per_camera_state cols. The variance is in a subset of
+            // the rows, which I pull out
+            int rset[Nintrinsics_per_camera_state];
+            int cset[Nintrinsics_per_camera_state];
+            for(int i=0; i<Nintrinsics_per_camera_state; i++)
+            {
+                rset[i] = i + istate0;
+                cset[i] = i;
+            }
+            // USE ONLY FOR TESTING. LICENSED UNDER THE GPL
+            cholmod_sparse* var = cholmod_submatrix
+                (
+                 var_stacked,
+                 rset, Nintrinsics_per_camera_state,
+                 cset, Nintrinsics_per_camera_state,
+                 1, 1,
+                 &solverCtx->common ) ;
+            MSG("new-way var-full matrix has a total %d elements. Sparse representation: %d elements",
+                var->ncol*var->nrow,
+                ((int*)var->p)[var->ncol]);
+
+            // The J are unitless. I need to scale them to get real units
+            double scale[Nintrinsics_per_camera_state];
+            for(int i=0; i<Nintrinsics_per_camera_state; i++)
+                scale[i] =
+                    get_scale_solver_state_intrinsics_onecamera(i,
+                                                                Nintrinsics_per_camera_state,
+                                                                problem_details);
+            for(int i_col=0; i_col<Nintrinsics_per_camera_state; i_col++)
+            {
+                for(int i_value = ((int*)var->p)[i_col];
+                    i_value < ((int*)var->p)[i_col+1];
+                    i_value++)
+                {
+                    // If I haven't grabbed the subset yet
+                    //   int i_row = ((int*)var_stacked->i)[i_value] - istate0;
+                    //   if(i_row < 0) continue;
+                    //   if(i_row >= Nintrinsics_per_camera_state) break;
+
+                    int i_row = ((int*)var->i)[i_value];
+                    ((double*)var->x)[i_value] *= (scale[i_row]*scale[i_col]);
+                }
+            }
+
+            cholmod_dense* var_dense = cholmod_sparse_to_dense
+                ( var, &solverCtx->common);
+
+            // MSG("new-way var-full:");
+            // for(int i_row=0; i_row<(int)var_dense->nrow; i_row++)
+            // {
+            //     for(int i_col=0; i_col<(int)var_dense->ncol; i_col++)
+            //         fprintf(stderr, "%10g ", ((double*)var_dense->x)[var_dense->d*i_col + i_row]);
+            //     fprintf(stderr, "\n");
+            // }
+
+            cholmod_free_sparse(&var_stacked, &solverCtx->common);
+            cholmod_free_sparse(&var,         &solverCtx->common);
+        }
+        cholmod_free_sparse(&I_stacked, &solverCtx->common);
+#else
         for(int icam = 0; icam < Ncameras_intrinsics; icam++)
         {
             // Here I want the diagonal blocks of inv(JtJ) for each camera's
@@ -3431,14 +3529,13 @@ static bool computeUncertaintyMatrices(// out
                     invJtJ = &invJtJ[Ncols*Nintrinsics_per_camera_state];
                 }
             }
-
-
-
-
             const int istate0 = Nintrinsics_per_camera_state * icam;
             double* invJtJ_thiscam = &covariance_intrinsics_full[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
             compute_invJtJ_block( invJtJ_thiscam, istate0, Nintrinsics_per_camera_state );
         }
+#endif
+    }
+
 
     // Compute covariance_intrinsics. This is the
     // intrinsics-per-camera diagonal block
