@@ -2024,9 +2024,9 @@ ARGUMENTS
     return mask
 
 
-def _intrinsics_diff_get_Rfit(q0, v0, v1,
-                              focus_center, focus_radius,
-                              imagersizes):
+def compute_Rcompensating(q0, v0, v1,
+                          focus_center, focus_radius,
+                          imagersizes):
 
     r'''Computes a compensating rotation to fit two cameras' projections
 
@@ -2310,10 +2310,10 @@ def show_intrinsics_diff(models,
         # Two models. Take the difference and call it good
 
         Rcompensating01 = \
-            _intrinsics_diff_get_Rfit(q0,
-                                      v[0,...], v[1,...],
-                                      focus_center, focus_radius,
-                                      imagersizes)
+            compute_Rcompensating(q0,
+                                  v[0,...], v[1,...],
+                                  focus_center, focus_radius,
+                                  imagersizes)
         q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating01),
                            lensmodels[1], intrinsics_data[1])
 
@@ -2327,10 +2327,10 @@ def show_intrinsics_diff(models,
                               focus_radius,
                               lensmodel, intrinsics_data,
                               imagersizes):
-            R = _intrinsics_diff_get_Rfit(q0, v0, v1,
-                                          focus_center,
-                                          focus_radius,
-                                          imagersizes)
+            R = compute_Rcompensating(q0, v0, v1,
+                                      focus_center,
+                                      focus_radius,
+                                      imagersizes)
             return mrcal.project(nps.matmult(v0,R),
                                  lensmodel, intrinsics_data)
 
