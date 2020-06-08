@@ -540,7 +540,7 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
         #     print("double-check this. I don't broadcast over the intrinsics anymore")
         #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, *models[i_camera_highlight].intrinsics())
         #     err = nps.clump(err, n=-3)
-        #     rms = np.sqrt(nps.inner(err,err) / (object_height_n*object_width_n))
+        #     rms = np.mag(err) / (object_height_n*object_width_n))
         #     # igood = rms <  0.4
         #     # ibad  = rms >= 0.4
         #     # rms[igood] = 0
@@ -1624,7 +1624,7 @@ def show_distortion(model,
 
         # shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib) want it that
         # way
-        distortion = nps.transpose(np.sqrt(nps.norm2(delta)))
+        distortion = nps.transpose(nps.mag(delta))
 
         # Currently "with image" can't produce contours. I work around this, by
         # plotting the data a second time.
@@ -2244,7 +2244,7 @@ def _densify_polyline(p, spacing):
         a = p[i-1,:]
         b = p[i,  :]
         d = b-a
-        l = np.sqrt(nps.norm2(d))
+        l = nps.mag(d)
 
         # A hacky method of rounding up
         N = int(l/spacing - 1e-6 + 1.)
@@ -2344,7 +2344,7 @@ def show_intrinsics_diff(models,
                            lensmodels[1], intrinsics_data[1])
 
         diff    = q1 - q0
-        difflen = np.sqrt(nps.inner(diff, diff))
+        difflen = nps.mag(diff)
 
     else:
         # Many models. Look at the stdev
@@ -2380,7 +2380,7 @@ def show_intrinsics_diff(models,
 
         # I also had this: is it better?
         # stdevs  = np.std(grids, axis=0)
-        # difflen = np.sqrt(nps.inner(stdevs, stdevs))
+        # difflen = nps.mag(stdevs)
 
         difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
 
@@ -3826,7 +3826,7 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
             r'''Given two unit vectors, returns an "average"'''
 
             v = n0+n1
-            return v / np.sqrt(nps.norm2(v))
+            return v / nps.mag(v)
 
         def get_R_abn(n):
             r'''Return a rotation with the given n as the last column
@@ -3848,19 +3848,19 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
                 proj = nps.inner(a, n)
 
             a -= proj*n
-            a /= np.sqrt(nps.norm2(a))
+            a /= nps.mag(a)
             b = np.cross(n,a)
             return nps.transpose(nps.cat(a,b,n))
 
 
-        n0 = p0/np.sqrt(nps.norm2(p0))
+        n0 = p0/nps.mag(p0)
 
         if Rt10 is None:
             return get_R_abn(n0)
 
         if p1 is None:
             p1 = mrcal.transform_point_Rt(Rt10, p0)
-        n1 = p1/np.sqrt(nps.norm2(p1))   # n1 in cam1 coords
+        n1 = p1/nps.mag(p1)   # n1 in cam1 coords
         n1 = nps.matmult(n1, Rt10[:3,:]) # n1 in cam0 coords
         n = mean_direction(n0, n1)
 
@@ -3883,18 +3883,18 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
         # Assume we're looking at faraway objects
         if range0 is not None:
             v0 = mrcal.unproject(q0, *intrinsics0)
-            p0 = v0 / np.sqrt(nps.norm2(v0)) * range0
+            p0 = v0 / nps.mag(v0) * range0
             p1 = p0
         else:
             v0 = mrcal.unproject(q0, *intrinsics0)
-            p0 = v0 / np.sqrt(nps.norm2(v0)) * 1000.
+            p0 = v0 / nps.mag(v0) * 1000.
             v1 = mrcal.unproject(q1, *intrinsics1)
-            p1 = v1 / np.sqrt(nps.norm2(v1)) * 1000.
+            p1 = v1 / nps.mag(v1) * 1000.
     else:
 
         if range0 is not None:
             v0 = mrcal.unproject(q0, *intrinsics0)
-            p0 = v0 / np.sqrt(nps.norm2(v0)) * range0
+            p0 = v0 / nps.mag(v0) * range0
         else:
             p0 = deltapose_lite. \
                 compute_3d_intersection_lindstrom( mrcal.rt_from_Rt(Rt10),
