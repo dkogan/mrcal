@@ -20,6 +20,8 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 
+# I want the RNG to be deterministic
+np.random.seed(0)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
