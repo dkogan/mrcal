@@ -64,7 +64,7 @@ def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
     if worstcase: I look at the worst-case error
                   err = np.max(np.abs(err))
     else:         RMS error
-                  error = np.sqrt(np.mean(nps.norm2(err)))
+                  error = np.sqrt(nps.norm2(err) / len(err))
     '''
 
     global Nchecks
@@ -130,7 +130,7 @@ def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
                 err  = np.max(np.abs(diff))
             else:
                 what = 'RMS'
-                err  = np.sqrt(np.mean(nps.norm2(diff)))
+                err  = np.sqrt(nps.norm2(diff) / len(diff))
 
             if not np.all(np.isfinite(err)):
                 print_red("FAILED{}: Some comparison results are NaN or Inf. "
