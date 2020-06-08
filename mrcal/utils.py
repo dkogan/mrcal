@@ -1273,7 +1273,7 @@ def show_intrinsics_uncertainty(model,
     W,H=model.imagersize()
 
     lensmodel, intrinsics_data = model.intrinsics()
-    imagersize                  = model.imagersize()
+    imagersize                 = model.imagersize()
     v,_ =sample_imager_unproject(gridn_x, gridn_y,
                                  lensmodel, intrinsics_data,
                                  *imagersize)
