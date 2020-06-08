@@ -1035,6 +1035,8 @@ def get_valid_intrinsics_region(i_camera,
     gridn_x,gridn_y = 20,10
     # This looks at reprojection errors EVEN FOR POINTS THROWN OUT AS OUTLIERS
     # This IGNORES measurement weighting
+
+    # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
         mrcal.report_residual_statistics(obs,err, imagersizes[i_camera],
                                          gridn_x = gridn_x,
@@ -1063,13 +1065,16 @@ def get_valid_intrinsics_region(i_camera,
     try:
 
         sys.stderr.write("These thresholds for the valid-intrinsics-region are completely made up\n")
+
+        # shape (Nheight,Nwidth).
         im = (err < 1) * (mean < 0.5) * (stdev < 1.5) * (count > 3)
 
-        # I compute the contour. OpenCV can't process binary images, so I need to
-        # convert to a different image type first. AND findContours() reports the
-        # coordinates in the opposite order as how they're given (image is x,y;
-        # returned coords are y,x). Ugh
-        contour = cv2.findContours(nps.transpose(im).astype(np.uint8).copy(),
+        # I compute the contour. OpenCV can't process binary images, so I need
+        # to convert to a different image type first. AND findContours() reports
+        # the coordinates in the opposite order as how they're given (image is
+        # given as y,x; returned coords are x,y). This is what I want, but feels
+        # conterintuitive
+        contour = cv2.findContours(im.astype(np.uint8).copy(),
                                    cv2.RETR_EXTERNAL,
                                    cv2.CHAIN_APPROX_SIMPLE)[1][0][:,0,:].astype(float)
         contour = mrcal.close_contour(contour)
@@ -1558,6 +1563,7 @@ def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
     if i_camera < 0:
         raise Exception("Regional visualization for 'all' cameras at once isn't useful. Pass i_camera >= 0")
 
+    # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
         mrcal.report_residual_statistics(obs,err,
                                          imagersizes[i_camera])
@@ -1577,7 +1583,7 @@ def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
                                    'view map'],
                            title = title,
                            **kwargs_here)
-        plot_data_args = [( nps.transpose(x),
+        plot_data_args = [( x,
                             dict(tuplesize=3,
                                  _with='image',
                                  using=using))]

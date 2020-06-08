@@ -113,21 +113,27 @@ except:
 
 
 W,H = m.imagersize()
+Nw  = 40
+Nh  = 30
+# shape (Nh,Nw,2)
 xy = \
-    nps.reorder( nps.cat(*np.meshgrid( np.linspace(0,W-1,40),
-                                       np.linspace(0,H-1,30) )),
-                 -1, -2, -3)
-
+    nps.mv(nps.cat(*np.meshgrid( np.linspace(0,W-1,Nw),
+                                 np.linspace(0,H-1,Nh) )),
+           0,-1)
 fxy = m.intrinsics()[1][0:2]
 cxy = m.intrinsics()[1][2:4]
 
+# shape (Nh,Nw,2)
 v  = mrcal.unproject(np.ascontiguousarray(xy), *m.intrinsics())
 v0 = mrcal.unproject(cxy, *m.intrinsics())
 
+# shape (Nh,Nw)
 costh = nps.inner(v,v0) / (nps.mag(v) * nps.mag(v0))
 th = np.arccos(costh)
 
+# shape (Nh,Nw,2)
 xy_rel = xy-cxy
+# shape (Nh,Nw)
 az = np.arctan2( xy_rel[...,1], xy_rel[..., 0])
 
 if   args.scheme == 'stereographic':  r = np.tan(th/2.) * 2.
@@ -138,7 +144,6 @@ elif args.scheme == 'pinhole':        r = np.tan(th)
 else: print("Unknown scheme {args.scheme}. Shouldn't happen. argparse should have taken care of it")
 
 mapped = xy_rel * nps.dummy(r/nps.mag(xy_rel),-1)
-
 gp.plot(mapped, tuplesize=-2,
         _with  = 'linespoints',
         title  = f"Gridded model '{args.model}' looking at pinhole unprojection with z=1",

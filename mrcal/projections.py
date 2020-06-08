@@ -414,11 +414,11 @@ def reproject_image__compute_map(model_from, model_to,
     W_from,H_from = model_from.imagersize()
     W_to,  H_to   = model_to.  imagersize()
 
-    # shape: Nwidth,Nheight,2
-    grid  = np.ascontiguousarray(nps.reorder(nps.cat(*np.meshgrid(np.arange(W_to),
-                                                                  np.arange(H_to))),
-                                             -1, -2, -3),
-                                 dtype = float)
+    # shape: (Nheight,Nwidth,2). Contains (x,y) rows
+    grid = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(np.arange(W_to),
+                                                            np.arange(H_to))),
+                                       0,-1),
+                                dtype = float)
     if lensmodel_to == "LENSMODEL_PINHOLE":
         # Faster path for the unproject. Nice, simple closed-form solution
         fxy_to = intrinsics_data_to[0:2]
@@ -452,7 +452,7 @@ def reproject_image__compute_map(model_from, model_to,
 
     mapxy = mrcal.project( v, lensmodel_from, intrinsics_data_from )
     # Reorder to (2,Nheight,Nwidth)
-    return nps.reorder(mapxy, -1, -2, -3).astype(np.float32)
+    return nps.mv(mapxy, -1,0).astype(np.float32)
 
 
 def transform_image(image, mapxy):

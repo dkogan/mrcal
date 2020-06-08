@@ -606,12 +606,51 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
 
 
 def _sample_imager(gridn_x, gridn_y, W, H):
+    r'''Returns regularly-sampled, gridded pixels coordinates across the imager
+
+SYNOPSIS
+
+    q = _sample_imager( 60, 40, 640,480 )
+
+    print(q.shape)
+    ===>
+    (40,60,2)
+
+Note that the arguments are given in width,height order, as is customary when
+generally talking about images and indexing. However, the output is in
+height,width order, as is customary when talking about matrices and numpy arrays.
+
+If we ask for gridding dimensions (gridn_x, gridn_y), the output has shape
+(gridn_y,gridn_x,2) where each row is an (x,y) pixel coordinate.
+
+The top-left corner is at [0,0,:]:
+
+    _sample_imager(...)[0,0] = [0,0]
+
+The the bottom-right corner is at [-1,-1,:]:
+
+     _sample_imager(...)[       -1,       -1,:] =
+     _sample_imager(...)[gridn_y-1,gridn_x-1,:] =
+     (W-1,H-1)
+
+ARGUMENTS
+
+- gridn_x, gridn_y: the gridding dimensions. gridn_x defines the number of grid
+  points distributed along the horizontal dimension. gridn_y works similarly for
+  the vertical dimension
+
+- W,H: the width, height of the imager
+
+RETURNED VALUES
+
+We return an array of shape (gridn_y,gridn_x,2). Each row is an (x,y) pixel
+coordinate.
+    '''
 
     w = np.linspace(0,W-1,gridn_x)
     h = np.linspace(0,H-1,gridn_y)
-
-    # shape: Nwidth,Nheight,2
-    return nps.reorder(nps.cat(*np.meshgrid(w,h)), -1, -2, -3)
+    return nps.mv(nps.cat(*np.meshgrid(w,h)),
+                  0,-1)
 
 
 def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
@@ -620,10 +659,6 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
     This is a utility function for the various visualization routines.
     Broadcasts on the lensmodel and intrinsics_data (if lensmodel is a list or
     tuple; not a numpy array).
-
-    Note: the returned matrices index on X and THEN on Y. This is opposite of
-    how numpy does it: Y then X. A consequence is that plotting the matrices
-    directly will produce transposed images
 
     '''
 
@@ -636,7 +671,7 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
         return isinstance(l,list) or isinstance(l,tuple)
 
 
-    # shape: Nwidth,Nheight,2
+    # shape: Nheight,Nwidth,2
     grid = _sample_imager(gridn_x, gridn_y, W, H)
 
     if is_list_or_tuple(lensmodel):
@@ -647,7 +682,7 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
                          for i in range(len(lensmodel))]), \
                grid
     else:
-        # shape: Nwidth,Nheight,3
+        # shape: Nheight,Nwidth,3
         return \
             normalize(mrcal.unproject(np.ascontiguousarray(grid),
                                       lensmodel, intrinsics_data)), \
@@ -1312,8 +1347,7 @@ def show_intrinsics_uncertainty(model,
                           'key box opaque',
                           'cntrparam levels incremental 3,-0.5,0'])
 
-    plot_data_args = [(nps.transpose(err), # err has shape (W,H), but the plotter wants
-                                           # what numpy wants: (H,W)
+    plot_data_args = [(err,
                        dict( tuplesize=3,
                              legend = "", # needed to force contour labels
                              using = imagergrid_using(model.imagersize(), gridn_x, gridn_y),
@@ -1354,22 +1388,22 @@ def report_residual_statistics( obs, err,
     If everything fits well, the residual distributions in each area of the
     imager should be identical. If the model doesn't fit well, the statistics
     will not be consistent. This function returns a tuple
-    (mean,stdev,count,imagergrid_using). The first 3 area all W,H arrays indexing
-    the imager. imagergrid_using is a "using" keyword for plotting this data in a
-    heatmap
+    (mean,stdev,count,imagergrid_using). imagergrid_using is a "using" keyword
+    for plotting this data in a heatmap
 
     '''
 
     W,H=imagersize
 
-    # shape: Nwidth,Nheight,2
+    # shape: (Nheight,Nwidth,2). Contains (x,y) rows
     c = _sample_imager(gridn_x, gridn_y, W, H)
 
     wcell = float(W-1) / (gridn_x-1)
     hcell = float(H-1) / (gridn_y-1)
     rcell = np.array((wcell,hcell), dtype=float) / 2.
 
-    @nps.broadcast_define( (('N',2), ('N',), (2,)), (3,) )
+    @nps.broadcast_define( (('N',2), ('N',), (2,)),
+                           (3,) )
     def residual_stats(xy, z, center):
         r'''Generates localized residual statistics
 
@@ -1400,9 +1434,11 @@ def report_residual_statistics( obs, err,
     errflat = err.ravel()
     obsflat = nps.clump(nps.mv(nps.cat(obs,obs), -3, -2), n=2)
 
+    # Each has shape (2,Nheight,Nwidth)
     mean,stdev,count = nps.mv( residual_stats(obsflat, errflat, c),
                                -1, 0)
     return mean,stdev,count,imagergrid_using(imagersize, gridn_x, gridn_y)
+
 
 def show_distortion(model,
                     mode,
@@ -1592,10 +1628,10 @@ def show_distortion(model,
         raise Exception("Unknown mode '{}'. I only know about 'heatmap','vectorfield','radial'".format(mode))
 
 
-    # shape: Nwidth,Nheight,2
-    grid  = np.ascontiguousarray(nps.reorder(nps.cat(*np.meshgrid(np.linspace(0,W-1,gridn_x),
-                                                                  np.linspace(0,H-1,gridn_y))),
-                                             -1, -2, -3),
+    # shape: (Nheight,Nwidth,2). Contains (x,y) rows
+    grid  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(np.linspace(0,W-1,gridn_x),
+                                                             np.linspace(0,H-1,gridn_y))),
+                                        0,-1),
                                  dtype = float)
 
     dgrid =  mrcal.project( nps.glue( (grid-cxy)/fxy,
@@ -1614,13 +1650,12 @@ def show_distortion(model,
                                'contour surface',
                                'cntrparam levels incremental {},-1,0'.format(cbmax)])
 
-        # shape: gridn_x*gridn_y,2
         delta = dgrid-grid
         delta *= scale
 
         # shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib) want it that
         # way
-        distortion = nps.transpose(nps.mag(delta))
+        distortion = nps.mag(delta)
 
         # Currently "with image" can't produce contours. I work around this, by
         # plotting the data a second time.
@@ -1643,7 +1678,7 @@ def show_distortion(model,
     else:
         # vectorfield
 
-        # shape: gridn*gridn,2
+        # shape: gridn_y*gridn_x,2
         grid  = nps.clump(grid,  n=2)
         dgrid = nps.clump(dgrid, n=2)
 
@@ -1670,7 +1705,6 @@ def show_distortion(model,
                      'tuplesize': 2,
                     }))
         return plot
-
 
 
 def splined_stereographic_valid_region(lensmodel):
@@ -1845,11 +1879,11 @@ def show_splined_model_surface(model, ixy,
     Ny = meta['Ny']
 
     if imager_domain:
-        # Shape (Nx,Ny,2)
+        # Shape (Ny,Nx,2); contains (x,y) rows
         q = \
-            nps.reorder( nps.cat(*np.meshgrid( np.linspace(0, W-1, 60),
-                                               np.linspace(0, H-1, 40) )),
-                         -1, -2, -3)
+            nps.mv( nps.cat(*np.meshgrid( np.linspace(0, W-1, 60),
+                                          np.linspace(0, H-1, 40) )),
+                    0,-1)
         v = mrcal.unproject(np.ascontiguousarray(q), lensmodel, intrinsics_data)
         u = mrcal.project_stereographic(v)
     else:
@@ -1857,13 +1891,12 @@ def show_splined_model_surface(model, ixy,
         # In the splined_stereographic models, the spline is indexed by u. So u is
         # linear with the knots. I can thus get u at the edges, and linearly
         # interpolate between
-        # The index into my spline.
-        # Indexes on (x,y) and contains (x,y) tuples. Note that this is different from
-        # the numpy (y,x) convention. Shape (Nx,Ny,2)
+
+        # Shape (Ny,Nx,2); contains (x,y) rows
         u = \
-            nps.reorder( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],Nx*5),
-                                               np.linspace(uy_knots[0], uy_knots[-1],Ny*5) )),
-                         -1, -2, -3)
+            nps.mv( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],Nx*5),
+                                          np.linspace(uy_knots[0], uy_knots[-1],Ny*5) )),
+                    0,-1)
 
         # My projection is q = (u + deltau) * fxy + cxy. deltau is queried from the
         # spline surface
@@ -1899,15 +1932,15 @@ def show_splined_model_surface(model, ixy,
         plotoptions['xlabel'] = 'X pixel coord'
         plotoptions['ylabel'] = 'Y pixel coord'
         surface_curveoptions['using'] = \
-            f'($1/({deltau.shape[0]-1})*({W-1})):' + \
-            f'($2/({deltau.shape[1]-1})*({H-1})):' + \
+            f'($1/({deltau.shape[1]-1})*({W-1})):' + \
+            f'($2/({deltau.shape[0]-1})*({H-1})):' + \
             '3'
     else:
         plotoptions['xlabel'] = 'Stereographic ux'
         plotoptions['ylabel'] = 'Stereographic uy'
         surface_curveoptions['using'] = \
-            f'({ux_knots[0]}+$1/({deltau.shape[0]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
-            f'({uy_knots[0]}+$2/({deltau.shape[1]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
+            f'({ux_knots[0]}+$1/({deltau.shape[1]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
+            f'({uy_knots[0]}+$2/({deltau.shape[0]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
             '3'
 
     plotoptions['square']   = True
@@ -1918,7 +1951,7 @@ def show_splined_model_surface(model, ixy,
 
     plot = gp.gnuplotlib(**plotoptions)
 
-    data = [ ( nps.transpose(deltau[..., ixy]),
+    data = [ ( deltau[..., ixy],
                surface_curveoptions ) ]
 
     valid_region_contour_u = splined_stereographic_valid_region(lensmodel)
@@ -2302,6 +2335,7 @@ def show_intrinsics_diff(models,
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
 
+    # shape (...,Nheight,Nwidth,...)
     v,q0 = sample_imager_unproject(gridn_x, gridn_y,
                                    lensmodels, intrinsics_data,
                                    W, H)
@@ -2432,9 +2466,7 @@ def show_intrinsics_diff(models,
         # plotting the data a second time.
         # Yuck.
         # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        #
-        # difflen has shape (W,H), but the plotter wants what numpy wants: (H,W)
-        plot_data_args = [ (nps.transpose(difflen),
+        plot_data_args = [ (difflen,
                             dict( tuplesize=3,
                                   _with=np.array(('image','lines nosurface'),),
                                   legend = "", # needed to force contour labels
@@ -2640,9 +2672,7 @@ SYNOPSIS
                                            ('img6-cam3.jpg', 'img7-cam3.jpg'),)
 
     print(mapping_file_framenocameraindex)
-
     ===>
-
     { 'frame5-cam2.jpg': (5, 0),
       'frame6-cam2.jpg': (6, 0),
       'frame6-cam3.jpg': (6, 1),

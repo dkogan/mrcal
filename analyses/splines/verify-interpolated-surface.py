@@ -50,14 +50,14 @@ parameters = nps.glue( np.array(( fxy[0], fxy[1], cxy[0], cxy[1])),
 # Now I produce a grid of observation vectors indexed on the coords of the
 # control-point arrays
 
-# The index into my spline.
-# Indexes on (x,y) and contains (x,y) tuples. Note that this is different from
-# the numpy (y,x) convention
-x_sampled = np.linspace(1,Nx-2,Nx*5)
-y_sampled = np.linspace(1,Ny-2,Ny*5)
+# The index into my spline. ixy has shape (Ny,Nx,2) and contains (x,y) rows
+Nw = Nx*5
+Nh = Ny*5
+x_sampled = np.linspace(1,Nx-2,Nh)
+y_sampled = np.linspace(1,Ny-2,Nw)
 ixy = \
-    nps.reorder( nps.cat(*np.meshgrid( x_sampled, y_sampled )),
-                 -1, -2, -3)
+    nps.mv( nps.cat(*np.meshgrid( x_sampled, y_sampled )),
+            0,-1)
 
 ##### this has mostly been implemented in mrcal_project_stereographic() and
 ##### mrcal_unproject_stereographic()
@@ -135,7 +135,7 @@ deltau = (q-cxy) / fxy - uxy
 deltaux,deltauy = nps.mv(deltau, -1,0)
 
 
-gp.plot3d( (nps.transpose(deltauy),
+gp.plot3d( (deltauy,
             dict( _with='lines',
                   using=f'($1*{x_sampled[1]-x_sampled[0]}+{x_sampled[0]}):($2*{y_sampled[1]-y_sampled[0]}+{y_sampled[0]}):3' )),
            (controlpoints_y,
