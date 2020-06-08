@@ -104,14 +104,19 @@ def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
 
     if N != Nref:
 
-        print_red(("FAILED{}: mismatched array sizes: N = {} but Nref = {}. Arrays: \n" +
-                   "x = {}\n" +
-                   "xref = {}").
-                  format((': ' + msg) if msg else '',
-                         N, Nref,
-                         x, xref))
-        NchecksFailed = NchecksFailed + 1
-        return False
+        # Comparing an array to a scalar reference is allowed
+        if Nref == 1:
+            xref = np.ones((N,), dtype=float) * xref
+            Nref = N
+        else:
+            print_red(("FAILED{}: mismatched array sizes: N = {} but Nref = {}. Arrays: \n" +
+                       "x = {}\n" +
+                       "xref = {}").
+                      format((': ' + msg) if msg else '',
+                             N, Nref,
+                             x, xref))
+            NchecksFailed = NchecksFailed + 1
+            return False
 
     if N != 0:
         try:  # I I can subtract, get the error that way
