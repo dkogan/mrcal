@@ -633,6 +633,9 @@ The the bottom-right corner is at [-1,-1,:]:
      sample_imager(...)[gridn_y-1,gridn_x-1,:] =
      (W-1,H-1)
 
+When making plots you probably want to call mrcal.imagergrid_using(). See the
+that docstring for details.
+
 ARGUMENTS
 
 - gridn_x: how many points along the horizontal gridding dimension
@@ -641,7 +644,8 @@ ARGUMENTS
   compute an integer gridn_y to maintain a square-ish grid: gridn_y/gridn_x ~
   height/width
 
-- W,H: the width, height of the imager
+- W,H: the width, height of the imager. With a mrcal.cameramodel object this is
+  *model.imagersize()
 
 RETURNED VALUES
 
@@ -660,11 +664,82 @@ coordinate.
 
 
 def sample_imager_unproject(gridn_x, gridn_y, W, H, lensmodel, intrinsics_data):
-    r'''Reports 3d observation vectors that regularly sample the imager
+    r'''Reports 3D observation vectors that regularly sample the imager
 
-    This is a utility function for the various visualization routines.
-    Broadcasts on the lensmodel and intrinsics_data (if lensmodel is a list or
-    tuple; not a numpy array).
+SYNOPSIS
+
+    import gnuplotlib as gp
+    import mrcal
+
+    ...
+
+    Nwidth  = 60
+    Nheight = 40
+
+    # shape (Nheight,Nwidth,3)
+    v,q = \
+        mrcal.sample_imager_unproject(Nw, Nh,
+                                      *model.imagersize(),
+                                      *model.intrinsics())
+
+    # shape (Nheight,Nwidth)
+    f = interesting_quantity(v)
+
+    gp.plot(f,
+            tuplesize = 3,
+            ascii     = True,
+            using     = mrcal.imagergrid_using(model.imagersize, Nw, Nh),
+            square    = True,
+            _with     = 'image')
+
+This is a utility function used by functions that evalute some interesting
+quantity for various locations across the imager. Grid dimensions and lens
+parameters are passed in, and the grid points and corresponding unprojected
+vectors are returned.
+
+This function has two modes of operation:
+
+- One camera. lensmodel is a string, and intrinsics_data is a 1-dimensions numpy
+  array. With a mrcal.cameramodel object together these are *model.intrinsics().
+  We return (v,q) where v is a shape (Nheight,Nwidth,3) array of observation
+  vectors, and q is a (Nheight,Nwidth,2) array of corresponding pixel
+  coordinates (the grid returned by sample_imager())
+
+- Multiple cameras. lensmodel is a list or tuple of strings; intrinsics_data is
+  an iterable of 1-dimensional numpy arrays (a list/tuple or a 2D array). We
+  return the same q as before (only one camera is gridded), but the unprojected
+  array v has shape (Ncameras,Nheight,Nwidth,3) where Ncameras is the leading
+  dimension of lensmodel. The gridded imager appears in camera0: v[0,...] =
+  unproject(q)
+
+ARGUMENTS
+
+- gridn_x: how many points along the horizontal gridding dimension
+
+- gridn_y: how many points along the vertical gridding dimension. If None, we
+  compute an integer gridn_y to maintain a square-ish grid: gridn_y/gridn_x ~
+  height/width
+
+- W,H: the width, height of the imager. With a mrcal.cameramodel object this is
+  *model.imagersize()
+
+- lensmodel, intrinsics_data: the lens parameters. With a single camera,
+  lensmodel is a string, and intrinsics_data is a 1-dimensions numpy array; with
+  a mrcal.cameramodel object together these are *model.intrinsics(). With
+  multiple cameras, lensmodel is a list/tuple of strings. And intrinsics_data is
+  an iterable of 1-dimensional numpy arrays (a list/tuple or a 2D array).
+
+RETURNED VALUES
+
+We return a tuple:
+
+- v: the unprojected vectors. If we have a single camera this has shape
+  (Nheight,Nwidth,3). With multiple cameras this has shape
+  (Ncameras,Nheight,Nwidth,3)
+
+- q: the imager-sampling grid. This has shape (Nheight,Nwidth,2) regardless of
+  how many cameras were given (we always sample just one camera). This is what
+  sample_imager() returns
 
     '''
 
@@ -906,7 +981,56 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
 
 
 def imagergrid_using(imagersize, gridn_x, gridn_y = None):
-    '''Utility function returns a 'using' expression when plotting a colormap'''
+    '''Get a 'using' expression for imager colormap plots
+
+SYNOPSIS
+
+    import gnuplotlib as gp
+    import mrcal
+
+    ...
+
+    Nwidth  = 60
+    Nheight = 40
+
+    # shape (Nheight,Nwidth,3)
+    v,_ = \
+        mrcal.sample_imager_unproject(Nw, Nh,
+                                      *model.imagersize(),
+                                      *model.intrinsics())
+
+    # shape (Nheight,Nwidth)
+    f = interesting_quantity(v)
+
+    gp.plot(f,
+            tuplesize = 3,
+            ascii     = True,
+            using     = mrcal.imagergrid_using(model.imagersize, Nw, Nh),
+            square    = True,
+            _with     = 'image')
+
+We often want to plot some quantity at every location on the imager (intrinsics
+uncertainties for instance). This is done by gridding the imager, computing the
+quantity at each grid point, and sending this to gnuplot. This involves a few
+non-obvious plotting idioms, with the full usage summarized in the above
+example.
+
+Due to peculiarities of gnuplot, the 'using' expression produced by this
+function can only be used in plots using ascii data commands (i.e. pass
+'ascii=True' to gnuplotlib).
+
+ARGUMENTS
+
+- imagersize: a (width,height) tuple for the size of the imager. With a
+  mrcal.cameramodel object this is model.imagersize()
+
+- gridn_x: how many points along the horizontal gridding dimension
+
+- gridn_y: how many points along the vertical gridding dimension. If omitted or
+  None, we compute an integer gridn_y to maintain a square-ish grid:
+  gridn_y/gridn_x ~ height/width
+
+    '''
 
     W,H = imagersize
     if gridn_y is None:
