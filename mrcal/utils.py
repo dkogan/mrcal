@@ -605,12 +605,12 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
     return plot
 
 
-def _sample_imager(gridn_x, gridn_y, W, H):
+def sample_imager(gridn_x, gridn_y, W, H):
     r'''Returns regularly-sampled, gridded pixels coordinates across the imager
 
 SYNOPSIS
 
-    q = _sample_imager( 60, 40, 640,480 )
+    q = sample_imager( 60, 40, 640,480 )
 
     print(q.shape)
     ===>
@@ -625,12 +625,12 @@ If we ask for gridding dimensions (gridn_x, gridn_y), the output has shape
 
 The top-left corner is at [0,0,:]:
 
-    _sample_imager(...)[0,0] = [0,0]
+    sample_imager(...)[0,0] = [0,0]
 
 The the bottom-right corner is at [-1,-1,:]:
 
-     _sample_imager(...)[       -1,       -1,:] =
-     _sample_imager(...)[gridn_y-1,gridn_x-1,:] =
+     sample_imager(...)[       -1,       -1,:] =
+     sample_imager(...)[gridn_y-1,gridn_x-1,:] =
      (W-1,H-1)
 
 ARGUMENTS
@@ -671,8 +671,8 @@ def sample_imager_unproject(gridn_x, gridn_y, lensmodel, intrinsics_data, W, H):
         return isinstance(l,list) or isinstance(l,tuple)
 
 
-    # shape: Nheight,Nwidth,2
-    grid = _sample_imager(gridn_x, gridn_y, W, H)
+    # shape: (Nheight,Nwidth,2). Contains (x,y) rows
+    grid = sample_imager(gridn_x, gridn_y, W, H)
 
     if is_list_or_tuple(lensmodel):
         # shape: Ncameras,Nwidth,Nheight,3
@@ -1396,7 +1396,7 @@ def report_residual_statistics( obs, err,
     W,H=imagersize
 
     # shape: (Nheight,Nwidth,2). Contains (x,y) rows
-    c = _sample_imager(gridn_x, gridn_y, W, H)
+    c = sample_imager(gridn_x, gridn_y, W, H)
 
     wcell = float(W-1) / (gridn_x-1)
     hcell = float(H-1) / (gridn_y-1)
