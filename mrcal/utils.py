@@ -635,9 +635,11 @@ The the bottom-right corner is at [-1,-1,:]:
 
 ARGUMENTS
 
-- gridn_x, gridn_y: the gridding dimensions. gridn_x defines the number of grid
-  points distributed along the horizontal dimension. gridn_y works similarly for
-  the vertical dimension
+- gridn_x: how many points along the horizontal gridding dimension
+
+- gridn_y: how many points along the vertical gridding dimension. If None, we
+  compute an integer gridn_y to maintain a square-ish grid: gridn_y/gridn_x ~
+  height/width
 
 - W,H: the width, height of the imager
 
@@ -645,7 +647,11 @@ RETURNED VALUES
 
 We return an array of shape (gridn_y,gridn_x,2). Each row is an (x,y) pixel
 coordinate.
+
     '''
+
+    if gridn_y is None:
+        gridn_y = int(round(H/W*gridn_x))
 
     w = np.linspace(0,W-1,gridn_x)
     h = np.linspace(0,H-1,gridn_y)
@@ -904,9 +910,12 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
     return dq_dp - nps.matmult(dq_dv, V, M)
 
 
-def imagergrid_using(imagersize, gridn_x, gridn_y):
+def imagergrid_using(imagersize, gridn_x, gridn_y = None):
     '''Utility function returns a 'using' expression when plotting a colormap'''
+
     W,H = imagersize
+    if gridn_y is None:
+        gridn_y = int(round(H/W*gridn_x))
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
 def compute_intrinsics_uncertainty( model, v,
@@ -1278,7 +1287,7 @@ def compute_intrinsics_uncertainty( model, v,
 def show_intrinsics_uncertainty(model,
                                 outlierness      = False,
                                 gridn_x          = 60,
-                                gridn_y          = 40,
+                                gridn_y          = None,
 
                                 # fit a "reasonable" area in the center by
                                 # default
@@ -1382,7 +1391,7 @@ def show_intrinsics_uncertainty(model,
 def report_residual_statistics( obs, err,
                                 imagersize,
                                 gridn_x = 20,
-                                gridn_y = 10):
+                                gridn_y = None):
     '''Reports statistics about the fit resudial across the imager
 
     If everything fits well, the residual distributions in each area of the
@@ -1394,6 +1403,9 @@ def report_residual_statistics( obs, err,
     '''
 
     W,H=imagersize
+
+    if gridn_y is None:
+        gridn_y = int(round(H/W*gridn_x))
 
     # shape: (Nheight,Nwidth,2). Contains (x,y) rows
     c = sample_imager(gridn_x, gridn_y, W, H)
@@ -1445,7 +1457,7 @@ def show_distortion(model,
                     scale            = 1.,
                     cbmax            = 25.0,
                     gridn_x          = 60,
-                    gridn_y          = 40,
+                    gridn_y          = None,
 
                     extratitle       = None,
                     hardcopy         = None,
@@ -1509,6 +1521,9 @@ def show_distortion(model,
 
 
     W,H = imagersize
+    if gridn_y is None:
+        gridn_y = int(round(H/W*gridn_x))
+
     if not mrcal.getLensModelMeta(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy = intrinsics_data[ :2]
@@ -2265,7 +2280,7 @@ def _densify_polyline(p, spacing):
 
 def show_intrinsics_diff(models,
                          gridn_x          = 60,
-                         gridn_y          = 40,
+                         gridn_y          = None,
 
                          # fit a "reasonable" area in the center by
                          # default
