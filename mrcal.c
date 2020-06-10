@@ -22,47 +22,6 @@ static inline int cvRound(float value)
 
 #include "mrcal.h"
 
-#warning kill this comment?
-/*
-
-calibration and sfm formulations are a little different
-
-- calibration
-
-  cameras stationary, observed objects move
-
-  ref coord system: cam0
-
-  state:
-    for cameras: poses of cameras (except cam0, which is ref)
-    for frame:   poses of cal object
-
-
-  measurements:
-    for cameras:
-      for frame:
-        observations
-
-
-- sfm
-
-  just like calibration, but I have Nframes cameras, sparsely observing one
-  giant calibration object. I have only one frame
-
-  ref coord system: cam0
-
-  state:
-    for frame: maybe 3d positions of points. Not required if only two
-      cameras observe the point.
-    for cameras: poses of cameras (except cam0, which is ref)
-
-  measurements:
-    for cameras:
-      for frame:
-        observations
- */
-
-
 // These are parameter variable scales. They have the units of the parameters
 // themselves, so the optimizer sees x/SCALE_X for each parameter. I.e. as far
 // as the optimizer is concerned, the scale of each variable is 1. This doesn't
@@ -691,7 +650,6 @@ void sample_bspline_surface_quadratic(double* out,
 
 typedef struct
 {
-#warning some of these are almost certainly zero
     double _d_rj_rf[3*3];
     double _d_rj_tf[3*3];
     double _d_rj_rc[3*3];
@@ -4526,7 +4484,6 @@ void optimizerCallback(// input state
                     get_penalty(&penalty, &dpenalty_ddistsq, distsq);
                 else
                 {
-#warning "some lens models support behind-the-camera views, so I don't need to discourage those"
                     get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
                     dpenalty_ddistsq *= -1.;
                 }
