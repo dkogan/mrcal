@@ -176,23 +176,17 @@ void mrcal_R_from_r( // outputs
                     )
 {
     if(R_stride0 > 0) R_stride0 /= sizeof(R[0]);
-    else              R_stride0 =  sizeof(R[0])*3;
-
+    else              R_stride0 =  3;
     if(R_stride1 > 0) R_stride1 /= sizeof(R[0]);
-    else              R_stride1 =  sizeof(R[0]);
-
+    else              R_stride1 =  1;
     if(J_stride0 > 0) J_stride0 /= sizeof(J[0]);
-    else              J_stride0 =  sizeof(J[0])*3*3;
-
+    else              J_stride0 =  3*3;
     if(J_stride1 > 0) J_stride1 /= sizeof(J[0]);
-    else              J_stride1 =  sizeof(J[0])*3;
-
+    else              J_stride1 =  3;
     if(J_stride2 > 0) J_stride2 /= sizeof(J[0]);
-    else              J_stride2 =  sizeof(J[0]);
-
+    else              J_stride2 =  1;
     if(r_stride0 > 0) r_stride0 /= sizeof(r[0]);
-    else              r_stride0 =  sizeof(r[0]);
-
+    else              r_stride0 =  1;
 
     double norm2r = 0.0;
     for(int i=0; i<3; i++)
@@ -290,22 +284,33 @@ void mrcal_R_from_r( // outputs
         }
     }
 }
+
 void mrcal_r_from_R( // output
                     double* r, // (3) vector
+                    int r_stride0, // in bytes. <= 0 means "contiguous"
 
                     // input
-                    const double* R // (3,3) array
+                    const double* R, // (3,3) array
+                    int R_stride0,   // in bytes. <= 0 means "contiguous"
+                    int R_stride1    // in bytes. <= 0 means "contiguous"
                    )
 {
-    double tr    = R[0] + R[4] + R[8];
+    if(R_stride0 > 0) R_stride0 /= sizeof(R[0]);
+    else              R_stride0 =  3;
+    if(R_stride1 > 0) R_stride1 /= sizeof(R[0]);
+    else              R_stride1 =  1;
+    if(r_stride0 > 0) r_stride0 /= sizeof(r[0]);
+    else              r_stride0 =  1;
+
+    double tr    = R[0] + R[1*(R_stride0 + R_stride1)] + R[2*(R_stride0 + R_stride1)];
     double costh = (tr - 1.) / 2.;
 
     double th = acos(costh);
     double axis[3] =
         {
-            R[2*3 + 1] - R[1*3 + 2],
-            R[0*3 + 2] - R[2*3 + 0],
-            R[1*3 + 0] - R[0*3 + 1]
+            R[2*R_stride0 + 1*R_stride1] - R[1*R_stride0 + 2*R_stride1],
+            R[0*R_stride0 + 2*R_stride1] - R[2*R_stride0 + 0*R_stride1],
+            R[1*R_stride0 + 0*R_stride1] - R[0*R_stride0 + 1*R_stride1]
         };
 
     if(th > 1e-10)
@@ -317,7 +322,7 @@ void mrcal_r_from_R( // output
                  axis[1]*axis[1] +
                  axis[2]*axis[2]);
         for(int i=0; i<3; i++)
-            r[i] = axis[i] * mag_axis_recip * th;
+            r[i*r_stride0] = axis[i] * mag_axis_recip * th;
     }
     else
     {
@@ -325,7 +330,7 @@ void mrcal_r_from_R( // output
         //
         // axis / (2 sinth)*th = axis/2 *th/sinth ~ axis/2
         for(int i=0; i<3; i++)
-            r[i] = axis[i] / 2.;
+            r[i*r_stride0] = axis[i] / 2.;
     }
 }
 
@@ -335,13 +340,26 @@ void mrcal_r_from_R( // output
 // directly
 void mrcal_rt_from_Rt( // output
                       double* rt,  // (6) vector
+                      int rt_stride0, // in bytes. <= 0 means "contiguous"
 
                       // input
-                      const double* Rt // (4,3) array
+                      const double* Rt, // (4,3) array
+                      int Rt_stride0,    // in bytes. <= 0 means "contiguous"
+                      int Rt_stride1     // in bytes. <= 0 means "contiguous"
                      )
 {
-    mrcal_r_from_R(rt, Rt);
-    for(int i=0; i<3; i++) rt[i+3] = Rt[i+9];
+    mrcal_r_from_R(rt,rt_stride0,
+                   Rt, Rt_stride0, Rt_stride1);
+
+    if(Rt_stride0 > 0) Rt_stride0 /= sizeof(Rt[0]);
+    else               Rt_stride0 =  3;
+    if(Rt_stride1 > 0) Rt_stride1 /= sizeof(Rt[0]);
+    else               Rt_stride1 =  1;
+    if(rt_stride0 > 0) rt_stride0 /= sizeof(rt[0]);
+    else               rt_stride0 =  1;
+
+    for(int i=0; i<3; i++)
+        rt[(i + 3)*rt_stride0] = Rt[3*Rt_stride0 + i*Rt_stride1];
 }
 
 // Convert a transformation representation from Rt to rt. This is mostly a
@@ -361,8 +379,17 @@ void mrcal_Rt_from_rt( // output
     mrcal_R_from_r(Rt,Rt_stride0,Rt_stride1,
                    NULL,  0,0,0,
                    rt, rt_stride0);
-    for(int i=0; i<3; i++) Rt[i+9] = rt[i+3];
 
+
+    if(Rt_stride0 > 0) Rt_stride0 /= sizeof(Rt[0]);
+    else               Rt_stride0 =  3;
+    if(Rt_stride1 > 0) Rt_stride1 /= sizeof(Rt[0]);
+    else               Rt_stride1 =  1;
+    if(rt_stride0 > 0) rt_stride0 /= sizeof(rt[0]);
+    else               rt_stride0 =  1;
+
+    for(int i=0; i<3; i++)
+        Rt[3*Rt_stride0 + i*Rt_stride1] = rt[(i + 3)*rt_stride0];
 }
 
 // Invert an Rt transformation
@@ -450,5 +477,5 @@ void mrcal_compose_rt( // output
     mrcal_Rt_from_rt(Rt_0,0,0,   rt_0,0);
     mrcal_Rt_from_rt(Rt_1,0,0,   rt_1,0);
     mrcal_compose_Rt(Rt_out, Rt_0, Rt_1);
-    mrcal_rt_from_Rt(rt_out, Rt_out);
+    mrcal_rt_from_Rt(rt_out,0, Rt_out,0,0);
 }

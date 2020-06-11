@@ -65,10 +65,13 @@ void mrcal_transform_point_rt(// output
 // Convert a rotation representation from a matrix to a Rodrigues vector
 void mrcal_r_from_R( // output
                     double* r, // (3) vector
+                    int r_stride0, // in bytes. <= 0 means "contiguous"
 
                     // input
-                    const double* R // (3,3) array
-                   );
+                    const double* R, // (3,3) array
+                    int R_stride0,   // in bytes. <= 0 means "contiguous"
+                    int R_stride1    // in bytes. <= 0 means "contiguous"
+                     );
 
 // Convert a rotation representation from a Rodrigues vector to a matrix
 void mrcal_R_from_r( // outputs
@@ -91,9 +94,12 @@ void mrcal_R_from_r( // outputs
 // directly
 void mrcal_rt_from_Rt( // output
                       double* rt,     // (6) vector
+                      int rt_stride0,    // in bytes. <= 0 means "contiguous"
 
                       // input
-                      const double* Rt
+                      const double* Rt,
+                      int Rt_stride0, // in bytes. <= 0 means "contiguous"
+                      int Rt_stride1  // in bytes. <= 0 means "contiguous"
                      );
 
 // Convert a transformation representation from Rt to rt. This is mostly a

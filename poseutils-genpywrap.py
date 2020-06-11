@@ -280,14 +280,10 @@ m.function( "r_from_R",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_r_from_R( (double*)data_slice__output,
-                    (const double*)data_slice__R );
+    mrcal_r_from_R( (double*)data_slice__output,strides_slice__output[0],
+                    (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
     return true;
-'''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
+'''}
 )
 
 m.function( "_R_from_r",
@@ -304,11 +300,7 @@ m.function( "_R_from_r",
                     NULL,0,0,0,
                     (const double*)data_slice__r, strides_slice__r[0] );
     return true;
-'''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
+'''}
 )
 
 m.function( "_R_from_r_withgrad",
@@ -325,11 +317,7 @@ m.function( "_R_from_r_withgrad",
                     (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
                     (const double*)data_slice__r, strides_slice__r[0] );
     return true;
-'''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
+'''}
 )
 
 m.function( "rt_from_Rt",
@@ -342,14 +330,10 @@ m.function( "rt_from_Rt",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rt_from_Rt( (double*)data_slice__output,
-                      (const double*)data_slice__Rt );
+    mrcal_rt_from_Rt( (double*)data_slice__output,strides_slice__output[0],
+                      (const double*)data_slice__Rt,strides_slice__Rt[0], strides_slice__Rt[1] );
     return true;
-'''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
+'''}
 )
 
 m.function( "Rt_from_rt",
@@ -365,11 +349,7 @@ m.function( "Rt_from_rt",
     mrcal_Rt_from_rt( (double*)data_slice__output, strides_slice__output[0],strides_slice__output[1],
                       (const double*)data_slice__rt, strides_slice__rt[0] );
     return true;
-'''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
+'''}
 )
 
 m.function( "invert_Rt",
