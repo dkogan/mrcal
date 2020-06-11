@@ -22,7 +22,7 @@ CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 CCXXFLAGS += -ffast-math -mtune=native
 
-DIST_INCLUDE += basic_points.h mrcal.h
+DIST_INCLUDE += basic_points.h mrcal.h poseutils.h
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-distortion		\
