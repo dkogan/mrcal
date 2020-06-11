@@ -892,21 +892,22 @@ static void project_opencv( // out
         // Let R = [r0 r1 r2]
         // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
 
-        double _Rj[3*3];
-        CvMat  Rj = cvMat(3,3,CV_64FC1, _Rj);
-        cvRodrigues2(p_rj, &Rj, NULL);
+        double Rj[3*3];
+        mrcal_R_from_r(Rj, 0,0,
+                       NULL,0,0,0,
+                       p_rj->data.db,0);
 
         for(int i_pt = 0;
             i_pt<calibration_object_width_n*calibration_object_height_n;
             i_pt++)
         {
             double d[] =
-                { _dq_dtj[i_pt*2*3 + 3*0 + 0] * _Rj[0*3 + 2] +
-                  _dq_dtj[i_pt*2*3 + 3*0 + 1] * _Rj[1*3 + 2] +
-                  _dq_dtj[i_pt*2*3 + 3*0 + 2] * _Rj[2*3 + 2],
-                  _dq_dtj[i_pt*2*3 + 3*1 + 0] * _Rj[0*3 + 2] +
-                  _dq_dtj[i_pt*2*3 + 3*1 + 1] * _Rj[1*3 + 2] +
-                  _dq_dtj[i_pt*2*3 + 3*1 + 2] * _Rj[2*3 + 2]};
+                { _dq_dtj[i_pt*2*3 + 3*0 + 0] * Rj[0*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*0 + 1] * Rj[1*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*0 + 2] * Rj[2*3 + 2],
+                  _dq_dtj[i_pt*2*3 + 3*1 + 0] * Rj[0*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*1 + 1] * Rj[1*3 + 2] +
+                  _dq_dtj[i_pt*2*3 + 3*1 + 2] * Rj[2*3 + 2]};
 
             dq_dcalobject_warp[i_pt*2 + 0].x = d[0]*dpt_ref2_dwarp[i_pt].x;
             dq_dcalobject_warp[i_pt*2 + 0].y = d[0]*dpt_ref2_dwarp[i_pt].y;
@@ -1847,13 +1848,12 @@ void project( // out
 
     // Not using OpenCV distortions, the distortion and projection are not
     // coupled
-    double _Rj[3*3];
-    CvMat  Rj = cvMat(3,3,CV_64FC1, _Rj);
-    double _d_Rj_rj[9*3];
-    CvMat d_Rj_rj = cvMat(9,3,CV_64F, _d_Rj_rj);
+    double Rj[3*3];
+    double d_Rj_rj[9*3];
 
-    cvRodrigues2(p_rj, &Rj, &d_Rj_rj);
-
+    mrcal_R_from_r(Rj, 0,0,
+                   d_Rj_rj,0,0,0,
+                   p_rj->data.db, 0);
 
     double* p_dq_dfxy                  = NULL;
     double* p_dq_dintrinsics_nocore    = NULL;
@@ -1915,24 +1915,24 @@ void project( // out
 
     point3_t propagate_extrinsics( const point3_t* pt_ref,
                                    const geometric_gradients_t* gg,
-                                   const double* _Rj, const double* _d_Rj_rj,
+                                   const double* Rj, const double* d_Rj_rj,
                                    const double* _tj )
     {
         // Rj * pt + tj -> pt
         point3_t p;
-        mul_vec3_gen33t_vout(pt_ref->xyz, _Rj, p.xyz);
+        mul_vec3_gen33t_vout(pt_ref->xyz, Rj, p.xyz);
         add_vec(3, p.xyz,  _tj);
 
         void propagate_extrinsics_one(double* dp_dparam,
                                       const double* drj_dparam,
                                       const double* dtj_dparam,
-                                      const double* _d_Rj_rj)
+                                      const double* d_Rj_rj)
         {
-            // dRj[row0]/drj is 3x3 matrix at &_d_Rj_rj[0]
+            // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
             for(int i=0; i<3; i++)
             {
-                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rj_rj[9*i], &dp_dparam[3*i] );
+                mul_vec3_gen33_vout( pt_ref->xyz, &d_Rj_rj[9*i], &dp_dparam[3*i] );
                 mul_vec3_gen33     ( &dp_dparam[3*i],   drj_dparam);
                 add_vec(3, &dp_dparam[3*i], &dtj_dparam[3*i] );
             }
@@ -1947,10 +1947,10 @@ void project( // out
         }
         if(gg != NULL)
         {
-            propagate_extrinsics_one(_dp_drc, gg->_d_rj_rc, gg->_d_tj_rc, _d_Rj_rj);
-            propagate_extrinsics_one(_dp_dtc, gg->_d_rj_tc, gg->_d_tj_tc, _d_Rj_rj);
-            propagate_extrinsics_one(_dp_drf, gg->_d_rj_rf, gg->_d_tj_rf, _d_Rj_rj);
-            propagate_extrinsics_one(_dp_dtf, gg->_d_rj_tf, gg->_d_tj_tf, _d_Rj_rj);
+            propagate_extrinsics_one(_dp_drc, gg->_d_rj_rc, gg->_d_tj_rc, d_Rj_rj);
+            propagate_extrinsics_one(_dp_dtc, gg->_d_rj_tc, gg->_d_tj_tc, d_Rj_rj);
+            propagate_extrinsics_one(_dp_drf, gg->_d_rj_rf, gg->_d_tj_rf, d_Rj_rj);
+            propagate_extrinsics_one(_dp_dtf, gg->_d_rj_tf, gg->_d_tj_tf, d_Rj_rj);
             dp_drc = _dp_drc;
             dp_dtc = _dp_dtc;
             dp_drf = _dp_drf;
@@ -1967,7 +1967,7 @@ void project( // out
             // dp/dtc = 0
             // dp/drf = reshape(dRf_drf p_ref)
             // dp/dtf = I
-            propagate_extrinsics_one_cam0(_dp_drf, _d_Rj_rj);
+            propagate_extrinsics_one_cam0(_dp_drf, d_Rj_rj);
 
             dp_drc = NULL;
             dp_dtc = NULL;
@@ -1993,7 +1993,7 @@ void project( // out
                        const point2_t* dpt_ref2_dwarp, int i_pt,
                        // if NULL then the camera is at the reference
                        bool camera_at_identity,
-                       const double* _Rj)
+                       const double* Rj)
     {
         if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
         {
@@ -2074,12 +2074,12 @@ void project( // out
                 assert(0);
             }
             double d[] =
-                { p_dq_dt[0].xyz[0] * _Rj[0*3 + 2] +
-                  p_dq_dt[0].xyz[1] * _Rj[1*3 + 2] +
-                  p_dq_dt[0].xyz[2] * _Rj[2*3 + 2],
-                  p_dq_dt[1].xyz[0] * _Rj[0*3 + 2] +
-                  p_dq_dt[1].xyz[1] * _Rj[1*3 + 2] +
-                  p_dq_dt[1].xyz[2] * _Rj[2*3 + 2]};
+                { p_dq_dt[0].xyz[0] * Rj[0*3 + 2] +
+                  p_dq_dt[0].xyz[1] * Rj[1*3 + 2] +
+                  p_dq_dt[0].xyz[2] * Rj[2*3 + 2],
+                  p_dq_dt[1].xyz[0] * Rj[0*3 + 2] +
+                  p_dq_dt[1].xyz[1] * Rj[1*3 + 2] +
+                  p_dq_dt[1].xyz[2] * Rj[2*3 + 2]};
 
             dq_dcalobject_warp[2*i_pt + 0].x = d[0]*dpt_ref2_dwarp->x;
             dq_dcalobject_warp[2*i_pt + 0].y = d[0]*dpt_ref2_dwarp->y;
@@ -2097,7 +2097,7 @@ void project( // out
         point3_t p =
             propagate_extrinsics( &(point3_t){},
                                   camera_at_identity ? NULL : &gg,
-                                  _Rj, _d_Rj_rj, p_tj->data.db);
+                                  Rj, d_Rj_rj, p_tj->data.db);
         project_point(  q,
                         p_dq_dfxy, p_dq_dintrinsics_nocore,
                         dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, dq_dcalobject_warp,
@@ -2105,7 +2105,7 @@ void project( // out
                         &p,
                         intrinsics, lensmodel,
                         NULL, 0,
-                        camera_at_identity, _Rj);
+                        camera_at_identity, Rj);
     }
     else
     {
@@ -2142,7 +2142,7 @@ void project( // out
                 point3_t p =
                     propagate_extrinsics( &pt_ref,
                                           camera_at_identity ? NULL : &gg,
-                                          _Rj, _d_Rj_rj, p_tj->data.db);
+                                          Rj, d_Rj_rj, p_tj->data.db);
                 project_point(q,
                               p_dq_dfxy, p_dq_dintrinsics_nocore,
                               dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, dq_dcalobject_warp,
@@ -2150,7 +2150,7 @@ void project( // out
                               &p,
                               intrinsics, lensmodel,
                               &dpt_ref2_dwarp, i_pt,
-                              camera_at_identity, _Rj);
+                              camera_at_identity, Rj);
                 i_pt++;
             }
     }
@@ -4462,16 +4462,15 @@ void optimizerCallback(// input state
             {
                 // I need to transform the point. I already computed
                 // this stuff in project()...
-                CvMat rc = cvMat(3,1, CV_64FC1, camera_rt[i_cam_extrinsics].r.xyz);
+                double Rc[3*3];
+                double d_Rc_rc[9*3];
 
-                double _Rc[3*3];
-                CvMat  Rc = cvMat(3,3,CV_64FC1, _Rc);
-                double _d_Rc_rc[9*3];
-                CvMat d_Rc_rc = cvMat(9,3,CV_64F, _d_Rc_rc);
-                cvRodrigues2(&rc, &Rc, &d_Rc_rc);
+                mrcal_R_from_r(Rc,0,0,
+                               d_Rc_rc,0,0,0,
+                               camera_rt[i_cam_extrinsics].r.xyz,0);
 
                 point3_t pcam;
-                mul_vec3_gen33t_vout(point.xyz, _Rc, pcam.xyz);
+                mul_vec3_gen33t_vout(point.xyz, Rc, pcam.xyz);
                 add_vec(3, pcam.xyz, camera_rt[i_cam_extrinsics].t.xyz);
 
                 double distsq =
@@ -4496,13 +4495,13 @@ void optimizerCallback(// input state
                 {
                     // pcam.x       = Rc[row0]*point*SCALE + tc
                     // d(pcam.x)/dr = d(Rc[row0])/drc*point*SCALE
-                    // d(Rc[row0])/drc is 3x3 matrix at &_d_Rc_rc[0]
+                    // d(Rc[row0])/drc is 3x3 matrix at &d_Rc_rc[0]
                     double d_ptcamx_dr[3];
                     double d_ptcamy_dr[3];
                     double d_ptcamz_dr[3];
-                    mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*0], d_ptcamx_dr );
-                    mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*1], d_ptcamy_dr );
-                    mul_vec3_gen33_vout( point.xyz, &_d_Rc_rc[9*2], d_ptcamz_dr );
+                    mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*0], d_ptcamx_dr );
+                    mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*1], d_ptcamy_dr );
+                    mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*2], d_ptcamz_dr );
 
                     STORE_JACOBIAN3( i_var_camera_rt + 0,
                                      SCALE_ROTATION_CAMERA*
@@ -4529,11 +4528,11 @@ void optimizerCallback(// input state
                 if( use_position_from_state )
                     STORE_JACOBIAN3( i_var_point,
                                      SCALE_POSITION_POINT*
-                                     2.0*dpenalty_ddistsq*(pcam.x*_Rc[0] + pcam.y*_Rc[3] + pcam.z*_Rc[6]),
+                                     2.0*dpenalty_ddistsq*(pcam.x*Rc[0] + pcam.y*Rc[3] + pcam.z*Rc[6]),
                                      SCALE_POSITION_POINT*
-                                     2.0*dpenalty_ddistsq*(pcam.x*_Rc[1] + pcam.y*_Rc[4] + pcam.z*_Rc[7]),
+                                     2.0*dpenalty_ddistsq*(pcam.x*Rc[1] + pcam.y*Rc[4] + pcam.z*Rc[7]),
                                      SCALE_POSITION_POINT*
-                                     2.0*dpenalty_ddistsq*(pcam.x*_Rc[2] + pcam.y*_Rc[5] + pcam.z*_Rc[8]) );
+                                     2.0*dpenalty_ddistsq*(pcam.x*Rc[2] + pcam.y*Rc[5] + pcam.z*Rc[8]) );
                 iMeasurement++;
             }
         }
