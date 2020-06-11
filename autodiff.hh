@@ -1,5 +1,10 @@
 #pragma once
 
+/*
+  Automatic differentiation routines. Used in poseutils-uses-autodiff.cc. See
+  that file for usage examples
+ */
+
 #include <math.h>
 #include <string.h>
 

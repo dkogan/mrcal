@@ -7,7 +7,7 @@
 // - Rt is a concatenated (4,3) array: Rt = nps.glue(R,t, axis=-2). The
 //   transformation is R*x+t
 //
-// - rt is a concatenated (6) array: rt = nps.glue(r,t, axis=-1). The
+// - rt is a concatenated (6,) array: rt = nps.glue(r,t, axis=-1). The
 //   transformation is R*x+t where R = R_from_r(r)
 
 // Make an identity rotation or transformation
