@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-r'''Python-wrap the mrcal utility routines
+r'''Python-wrap the mrcal geometry routines
 
 '''
 
@@ -12,9 +12,9 @@ import numpysane as nps
 
 import numpysane_pywrap as npsp
 
-m = npsp.module( MODULE_NAME      = "poseutils",
-                 MODULE_DOCSTRING = "geometry utils",
-                 HEADER           = r'''
+m = npsp.module( name      = "poseutils",
+                 docstring = "geometry utils",
+                 header    = r'''
 #include "poseutils.h"
 #include <string.h>
 ''')
@@ -26,12 +26,12 @@ m.function( "identity_R",
             prototype_input  = (),
             prototype_output = (3,3),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
     for(int i=0; i<3; i++)
         for(int j=0; j<3; j++)
-            *(double*)(data__output + i*strides__output[0] + j*strides__output[1]) =
+            *(double*)(data_slice__output + i*strides_slice__output[0] + j*strides_slice__output[1]) =
                  (i==j) ? 1.0 : 0.0;
     return true;
 '''})
@@ -43,11 +43,11 @@ m.function( "identity_r",
             prototype_input  = (),
             prototype_output = (3,),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
     for(int i=0; i<3; i++)
-        *(double*)(data__output + i*strides__output[0]) = 0.0;
+        *(double*)(data_slice__output + i*strides_slice__output[0]) = 0.0;
     return true;
 '''})
 
@@ -58,15 +58,15 @@ m.function( "identity_Rt",
             prototype_input  = (),
             prototype_output = (4,3),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
     for(int i=0; i<3; i++)
         for(int j=0; j<3; j++)
-            *(double*)(data__output + i*strides__output[0] + j*strides__output[1]) =
+            *(double*)(data_slice__output + i*strides_slice__output[0] + j*strides_slice__output[1]) =
                  (i==j) ? 1.0 : 0.0;
     for(int j=0; j<3; j++)
-        *(double*)(data__output + 3*strides__output[0] + j*strides__output[1]) = 0.0;
+        *(double*)(data_slice__output + 3*strides_slice__output[0] + j*strides_slice__output[1]) = 0.0;
     return true;
 '''})
 
@@ -77,11 +77,11 @@ m.function( "identity_rt",
             prototype_input  = (),
             prototype_output = (6,),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
     for(int i=0; i<6; i++)
-        *(double*)(data__output + i*strides__output[0]) = 0.0;
+        *(double*)(data_slice__output + i*strides_slice__output[0]) = 0.0;
     return true;
 '''})
 
@@ -92,19 +92,19 @@ m.function( "rotate_point_R",
             prototype_input  = ((3,3), (3,)),
             prototype_output = ((3,), (3,3,3), (3,3)),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_R( (double*)data__output0,
-                          (double*)data__output1,
-                          (double*)data__output2,
-                          (const double*)data__R,
-                          (const double*)data__x );
+    mrcal_rotate_point_R( (double*)data_slice__output0,
+                          (double*)data_slice__output1,
+                          (double*)data_slice__output2,
+                          (const double*)data_slice__R,
+                          (const double*)data_slice__x );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -115,19 +115,19 @@ m.function( "rotate_point_r",
             prototype_input  = ((3,), (3,)),
             prototype_output = ((3,), (3,3), (3,3)),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_r( (double*)data__output0,
-                          (double*)data__output1,
-                          (double*)data__output2,
-                          (const double*)data__r,
-                          (const double*)data__x );
+    mrcal_rotate_point_r( (double*)data_slice__output0,
+                          (double*)data_slice__output1,
+                          (double*)data_slice__output2,
+                          (const double*)data_slice__r,
+                          (const double*)data_slice__x );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -138,20 +138,20 @@ m.function( "transform_point_Rt",
             prototype_input  = ((4,3), (3,)),
             prototype_output = ((3,), (3,3,3), (3,3), (3,3)),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_Rt( (double*)data__output0,
-                              (double*)data__output1,
-                              (double*)data__output2,
-                              (double*)data__output3,
-                              (const double*)data__Rt,
-                              (const double*)data__x );
+    mrcal_transform_point_Rt( (double*)data_slice__output0,
+                              (double*)data_slice__output1,
+                              (double*)data_slice__output2,
+                              (double*)data_slice__output3,
+                              (const double*)data_slice__Rt,
+                              (const double*)data_slice__x );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -162,20 +162,20 @@ m.function( "transform_point_rt",
             prototype_input  = ((6,), (3,)),
             prototype_output = ((3,), (3,3), (3,3), (3,3)),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_rt( (double*)data__output0,
-                              (double*)data__output1,
-                              (double*)data__output2,
-                              (double*)data__output3,
-                              (const double*)data__rt,
-                              (const double*)data__x );
+    mrcal_transform_point_rt( (double*)data_slice__output0,
+                              (double*)data_slice__output1,
+                              (double*)data_slice__output2,
+                              (double*)data_slice__output3,
+                              (const double*)data_slice__rt,
+                              (const double*)data_slice__x );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -186,17 +186,17 @@ m.function( "r_from_R",
             prototype_input  = ((3,3),),
             prototype_output = ((3,), (3,3,3)),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_r_from_R( (double*)data__output0,
-                    (double*)data__output1,
-                    (const double*)data__R );
+    mrcal_r_from_R( (double*)data_slice__output0,
+                    (double*)data_slice__output1,
+                    (const double*)data_slice__R );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -207,17 +207,17 @@ m.function( "R_from_r",
             prototype_input  = ((3,),),
             prototype_output = ((3,3), (3,3,3)),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_R_from_r( (double*)data__output0,
-                    (double*)data__output1,
-                    (const double*)data__r );
+    mrcal_R_from_r( (double*)data_slice__output0,
+                    (double*)data_slice__output1,
+                    (const double*)data_slice__r );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -228,16 +228,16 @@ m.function( "rt_from_Rt",
             prototype_input  = ((4,3),),
             prototype_output = (6,),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rt_from_Rt( (double*)data__output,
-                      (const double*)data__Rt );
+    mrcal_rt_from_Rt( (double*)data_slice__output,
+                      (const double*)data_slice__Rt );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -248,16 +248,16 @@ m.function( "Rt_from_rt",
             prototype_input  = ((6,),),
             prototype_output = (4,3),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_Rt_from_rt( (double*)data__output,
-                      (const double*)data__rt );
+    mrcal_Rt_from_rt( (double*)data_slice__output,
+                      (const double*)data_slice__rt );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -268,16 +268,16 @@ m.function( "invert_Rt",
             prototype_input  = ((4,3),),
             prototype_output = (4,3),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_Rt( (double*)data__output,
-                     (const double*)data__Rt );
+    mrcal_invert_Rt( (double*)data_slice__output,
+                     (const double*)data_slice__Rt );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -288,16 +288,16 @@ m.function( "invert_rt",
             prototype_input  = ((6,),),
             prototype_output = (6,),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_rt( (double*)data__output,
-                     (const double*)data__rt );
+    mrcal_invert_rt( (double*)data_slice__output,
+                     (const double*)data_slice__rt );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -308,17 +308,17 @@ m.function( "compose_Rt",
             prototype_input  = ((4,3,), (4,3,)),
             prototype_output = (4,3),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_compose_Rt( (double*)data__output,
-                      (const double*)data__Rt0,
-                      (const double*)data__Rt1 );
+    mrcal_compose_Rt( (double*)data_slice__output,
+                      (const double*)data_slice__Rt0,
+                      (const double*)data_slice__Rt1 );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
@@ -329,17 +329,17 @@ m.function( "compose_rt",
             prototype_input  = ((6,), (6,)),
             prototype_output = (6,),
 
-            FUNCTION__slice_code = \
+            Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_compose_rt( (double*)data__output,
-                      (const double*)data__rt0,
-                      (const double*)data__rt1 );
+    mrcal_compose_rt( (double*)data_slice__output,
+                      (const double*)data_slice__rt0,
+                      (const double*)data_slice__rt1 );
     return true;
 '''},
-            VALIDATE_code = r'''
+            Ccode_validate = r'''
             return \
-              IS_CONTIGUOUS_ALL(true);
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
 '''
 )
 
