@@ -84,22 +84,31 @@ $(DIST_MAN): %.1: %.pod
 	cat footer.pod >> $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
+
+######### python stuff
+poseutils-pywrap-generated.c: poseutils-genpywrap.py
+	python3 $< > $@
+mrcal/_poseutils$(PY_EXT_SUFFIX): poseutils-pywrap-generated.o libmrcal.so
+	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
+EXTRA_CLEAN += poseutils-pywrap-generated.c
+
+mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
+mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal_pywrap.o libmrcal.so
+	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
+
+PYTHON_OBJECTS := poseutils-pywrap-generated.o mrcal_pywrap.o
+
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
 # and the compiler complains. But that's how Python does it! So I tell the
 # compiler to chill
-mrcal_pywrap.o: CFLAGS += -Wno-cast-function-type
-
-mrcal_pywrap.o: CFLAGS += $(PY_MRBUILD_CFLAGS)
-mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
-
-mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal_pywrap.o libmrcal.so
-	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
+$(PYTHON_OBJECTS): CFLAGS += -Wno-cast-function-type
+$(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 
 # The python libraries (compiled ones and ones written in python) all live in
 # mrcal/
 DIST_PY3_MODULES := mrcal
 
-all: mrcal/_mrcal$(PY_EXT_SUFFIX)
+all: mrcal/_mrcal$(PY_EXT_SUFFIX) mrcal/_poseutils$(PY_EXT_SUFFIX)
 EXTRA_CLEAN += mrcal/*.so
 
 # Set up the test suite to be runnable in parallel

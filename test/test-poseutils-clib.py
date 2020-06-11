@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import numpysane as nps
 
-import poseutils
+import mrcal._poseutils as poseutils
 
 from testutils import *
 

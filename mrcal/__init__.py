@@ -11,4 +11,5 @@ from ._mrcal      import *
 from .projections import *
 from .cameramodel import *
 from .poseutils   import *
+from ._poseutils  import *
 from .utils       import *

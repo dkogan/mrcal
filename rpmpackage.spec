@@ -25,7 +25,7 @@ BuildRequires: mrbuild >= 1.4
 BuildRequires: mrbuild-tools >= 1.4
 
 # I need to run the python stuff in order to build the manpages
-BuildRequires: numpysane >= 0.18-2
+BuildRequires: numpysane >= 0.22
 BuildRequires: gnuplotlib >= 0.28-3
 BuildRequires: opencv-python36
 BuildRequires: python36-scipy
