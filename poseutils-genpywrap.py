@@ -85,8 +85,30 @@ m.function( "identity_rt",
     return true;
 '''})
 
-m.function( "rotate_point_R",
+m.function( "_rotate_point_R",
             "Rotate a point using a rotation matrix",
+
+            args_input       = ('R', 'x'),
+            prototype_input  = ((3,3), (3,)),
+            prototype_output = (3,),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_rotate_point_R( (double*)data_slice__output,
+                          NULL,NULL,
+                          (const double*)data_slice__R,
+                          (const double*)data_slice__x );
+    return true;
+'''},
+            Ccode_validate = r'''
+            return \
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
+'''
+)
+
+m.function( "_rotate_point_R_withgrad",
+            "Rotate a point using a rotation matrix; Return (u=R(x),du/dR,du/dx)",
 
             args_input       = ('R', 'x'),
             prototype_input  = ((3,3), (3,)),
@@ -108,8 +130,30 @@ m.function( "rotate_point_R",
 '''
 )
 
-m.function( "rotate_point_r",
+m.function( "_rotate_point_r",
             "Rotate a point using a Rodrigues vector",
+
+            args_input       = ('r', 'x'),
+            prototype_input  = ((3,), (3,)),
+            prototype_output = (3,),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_rotate_point_r( (double*)data_slice__output,
+                          NULL,NULL,
+                          (const double*)data_slice__r,
+                          (const double*)data_slice__x );
+    return true;
+'''},
+            Ccode_validate = r'''
+            return \
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
+'''
+)
+
+m.function( "_rotate_point_r_withgrad",
+            "Rotate a point using a Rodrigues vector; Return (u=r(x),du/dr,du/dx)",
 
             args_input       = ('r', 'x'),
             prototype_input  = ((3,), (3,)),
@@ -131,8 +175,30 @@ m.function( "rotate_point_r",
 '''
 )
 
-m.function( "transform_point_Rt",
+m.function( "_transform_point_Rt",
             "Transform a point using an Rt transformation",
+
+            args_input       = ('Rt', 'x'),
+            prototype_input  = ((4,3), (3,)),
+            prototype_output = (3,),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_transform_point_Rt( (double*)data_slice__output,
+                              NULL,NULL,NULL,
+                              (const double*)data_slice__Rt,
+                              (const double*)data_slice__x );
+    return true;
+'''},
+            Ccode_validate = r'''
+            return \
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
+'''
+)
+
+m.function( "_transform_point_Rt_withgrad",
+            "Transform a point using an Rt transformation; Return (u=Rt(x),du/dR,du/dt,du/dx)",
 
             args_input       = ('Rt', 'x'),
             prototype_input  = ((4,3), (3,)),
@@ -155,8 +221,30 @@ m.function( "transform_point_Rt",
 '''
 )
 
-m.function( "transform_point_rt",
+m.function( "_transform_point_rt",
             "Transform a point using an rt transformation",
+
+            args_input       = ('rt', 'x'),
+            prototype_input  = ((6,), (3,)),
+            prototype_output = (3,),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_transform_point_rt( (double*)data_slice__output,
+                              NULL,NULL,NULL,
+                              (const double*)data_slice__rt,
+                              (const double*)data_slice__x );
+    return true;
+'''},
+            Ccode_validate = r'''
+            return \
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
+'''
+)
+
+m.function( "_transform_point_rt_withgrad",
+            "Transform a point using an rt transformation. Return (u=rt(x),du/dr,du/dt,du/dx)",
 
             args_input       = ('rt', 'x'),
             prototype_input  = ((6,), (3,)),
@@ -180,17 +268,20 @@ m.function( "transform_point_rt",
 )
 
 m.function( "r_from_R",
-            "Compute a Rodrigues vector from a rotation matrix",
+            "Compute a Rodrigues vector from a rotation matrix\n"
+            "\n"
+            "The meaning of a gradient here is ambiguous: how do you treat the constraints\n"
+            "on R? Thus this function has no gradient-reporting flavor\n",
 
             args_input       = ('R',),
             prototype_input  = ((3,3),),
-            prototype_output = ((3,), (3,3,3)),
+            prototype_output = (3,),
 
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_r_from_R( (double*)data_slice__output0,
-                    (double*)data_slice__output1,
+    mrcal_r_from_R( (double*)data_slice__output,
+                    NULL,
                     (const double*)data_slice__R );
     return true;
 '''},
@@ -200,8 +291,29 @@ m.function( "r_from_R",
 '''
 )
 
-m.function( "R_from_r",
+m.function( "_R_from_r",
             "Compute a rotation matrix from a Rodrigues vector",
+
+            args_input       = ('r',),
+            prototype_input  = ((3,),),
+            prototype_output = (3,3),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_R_from_r( (double*)data_slice__output, strides_slice__output[0], strides_slice__output[1],
+                    NULL,0,0,0,
+                    (const double*)data_slice__r, strides_slice__r[0] );
+    return true;
+'''},
+            Ccode_validate = r'''
+            return \
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
+'''
+)
+
+m.function( "_R_from_r_withgrad",
+            "Compute a rotation matrix and a gradient from a Rodrigues vector",
 
             args_input       = ('r',),
             prototype_input  = ((3,),),
@@ -210,9 +322,9 @@ m.function( "R_from_r",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_R_from_r( (double*)data_slice__output0,
-                    (double*)data_slice__output1,
-                    (const double*)data_slice__r );
+    mrcal_R_from_r( (double*)data_slice__output0,strides_slice__output0[0], strides_slice__output0[1],
+                    (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
+                    (const double*)data_slice__r, strides_slice__r[0] );
     return true;
 '''},
             Ccode_validate = r'''
@@ -251,8 +363,8 @@ m.function( "Rt_from_rt",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_Rt_from_rt( (double*)data_slice__output,
-                      (const double*)data_slice__rt );
+    mrcal_Rt_from_rt( (double*)data_slice__output, strides_slice__output[0],strides_slice__output[1],
+                      (const double*)data_slice__rt, strides_slice__rt[0] );
     return true;
 '''},
             Ccode_validate = r'''
@@ -301,8 +413,11 @@ m.function( "invert_rt",
 '''
 )
 
-m.function( "compose_Rt",
-            "compose 2 Rt transformations",
+m.function( "_compose_Rt",
+            "Composes exactly 2 Rt transformations\n"
+            "\n"
+            "Given 2 Rt transformations, returns their composition. This is an internal\n"
+            "function used by mrcal.compose_Rt(), which supports >2 input transformations\n",
 
             args_input       = ('Rt0', 'Rt1'),
             prototype_input  = ((4,3,), (4,3,)),
@@ -314,27 +429,6 @@ m.function( "compose_Rt",
     mrcal_compose_Rt( (double*)data_slice__output,
                       (const double*)data_slice__Rt0,
                       (const double*)data_slice__Rt1 );
-    return true;
-'''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
-)
-
-m.function( "compose_rt",
-            "compose 2 rt transformations",
-
-            args_input       = ('rt0', 'rt1'),
-            prototype_input  = ((6,), (6,)),
-            prototype_output = (6,),
-
-            Ccode_slice_eval = \
-                {np.float64:
-                 r'''
-    mrcal_compose_rt( (double*)data_slice__output,
-                      (const double*)data_slice__rt0,
-                      (const double*)data_slice__rt1 );
     return true;
 '''},
             Ccode_validate = r'''

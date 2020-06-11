@@ -129,9 +129,9 @@ def get_ref_calibration_object(W, H, object_spacing, calobject_warp=None):
     '''
 
     xx,yy       = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
-    full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
-                           np.zeros((H,W,1)),
-                           axis=-1) # shape (H,W,3)
+    full_object = np.ascontiguousarray(nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
+                                                np.zeros((H,W,1)),
+                                                axis=-1)) # shape (H,W,3)
     full_object *= object_spacing
 
     if calobject_warp is not None:
@@ -3721,7 +3721,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                         ("Shared observations matrix:\n{}\n".format(shared_frames)))
 
 
-    return nps.cat(*Rt_0c)
+    return np.ascontiguousarray(nps.cat(*Rt_0c))
 
 
 def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
@@ -3807,7 +3807,7 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
         # transform both to shape = (N*N, 3)
         obj  = nps.clump(obj,  n=2)
         mean = nps.clump(mean, n=2)
-        return mrcal.align3d_procrustes( mean, obj )
+        return np.ascontiguousarray(mrcal.align3d_procrustes( mean, obj ))
 
 
 

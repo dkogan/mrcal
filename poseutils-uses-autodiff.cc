@@ -168,6 +168,8 @@ void mrcal_r_from_R( // output
     }
     else
     {
+        // This path is currently never used: it's not well-defined how to treat
+        // the constraints in R when computing the gradient
         vec_withgrad_t<9, 3> rg;
         vec_withgrad_t<9, 9> Rg(R, 0);
         r_from_R_core<9>(rg.v, Rg.v);

@@ -4,105 +4,30 @@ from __future__ import print_function
 
 import numpy as np
 import numpysane as nps
-import cv2
 
 # for python3
 from functools import reduce
 
+from . import _poseutils
 
-def identity_Rt():
-    r'''Returns an identity Rt transform'''
-    return nps.glue( np.eye(3), np.zeros(3), axis=-2)
+def R_from_r(r, get_gradients=False):
+    r'''Compute a rotation matrix from a Rodrigues vector
 
-def identity_rt():
-    r'''Returns an identity rt transform'''
-    return np.zeros(6, dtype=float)
+    if not get_gradients: return R
+    else:                 return (R,dR/dr)
 
-@nps.broadcast_define( ((3,3),),
-                       (3,), )
-def r_from_R(R):
-    r'''Broadcasting-aware wrapper cvRodrigues
+    dR/dr is a (3,3,3) array where the first two dimensions select the element
+    of R in question, and the last dimension selects the element of r
 
-    This handles the R->r direction, and does not report the gradient
+    This function supports broadcasting fully
 
     '''
+    if get_gradients:
+        return _poseutils._R_from_r_withgrad(r)
+    return _poseutils._R_from_r(r)
 
-    return cv2.Rodrigues(R)[0].ravel()
-
-
-@nps.broadcast_define( ((3,),),
-                       (3,3), )
-def R_from_r(r):
-    r'''Broadcasting-aware wrapper cvRodrigues
-
-    This handles the r->R direction, and does not report the gradient
-
-    '''
-
-    return cv2.Rodrigues(r)[0]
-
-@nps.broadcast_define( ((6,),),
-                       (4,3,), )
-def Rt_from_rt(rt):
-    r'''Convert an rt pose to an Rt pose'''
-
-    r = rt[:3]
-    t = rt[3:]
-    R = cv2.Rodrigues(r.astype(float))[0]
-    return nps.glue( R, t, axis=-2)
-
-@nps.broadcast_define( ((4,3),),
-                       (6,), )
-def rt_from_Rt(Rt):
-    r'''Convert an Rt pose to an rt pose'''
-
-    R = Rt[:3,:]
-    t = Rt[ 3,:]
-    r = cv2.Rodrigues(R.astype(float))[0].ravel()
-    return nps.glue( r, t, axis=-1)
-
-@nps.broadcast_define( ((4,3,),),
-                       (4,3,), )
-def invert_Rt(Rt):
-    r'''Given a (R,t) transformation, return the inverse transformation
-
-    I need to reverse the transformation:
-      b = Ra + t  -> a = R'b - R't
-
-    '''
-
-    R = Rt[:3,:]
-    t = Rt[ 3,:]
-
-    t = -nps.matmult(t, R)
-    R = nps.transpose(R)
-    return nps.glue(R,t, axis=-2)
-
-@nps.broadcast_define( ((6,),),
-                       (6,), )
-def invert_rt(rt):
-    r'''Given a (r,t) transformation, return the inverse transformation
-    '''
-
-    return rt_from_Rt(invert_Rt(Rt_from_rt(rt)))
-
-@nps.broadcast_define( ((4,3),(4,3)),
-                       (4,3,), )
-def _compose_Rt(Rt1, Rt2):
-    r'''Composes exactly 2 Rt transformations
-
-    Given 2 Rt transformations, returns their composition. This is an internal
-    function used by mrcal.compose_Rt(), which supports >2 input transformations
-
-    '''
-    R1 = Rt1[:3,:]
-    t1 = Rt1[ 3,:]
-    R2 = Rt2[:3,:]
-    t2 = Rt2[ 3,:]
-
-    R = nps.matmult(R1,R2)
-    t = nps.matmult(t2, nps.transpose(R1)) + t1
-    return nps.glue(R,t, axis=-2)
+# r_from_R() is defined in C. Gradients aren't supported since it's ambiguous
+# how to treat the constraints on R
 
 def compose_Rt(*args):
     r'''Composes Rt transformations
@@ -111,7 +36,7 @@ def compose_Rt(*args):
     their composition
 
     '''
-    return reduce( _compose_Rt, args, identity_Rt() )
+    return reduce( _poseutils._compose_Rt, args, _poseutils.identity_Rt() )
 
 def compose_rt(*args):
     r'''Composes rt transformations
@@ -121,86 +46,75 @@ def compose_rt(*args):
 
     '''
 
-    return rt_from_Rt( compose_Rt( *[Rt_from_rt(rt) for rt in args] ) )
+    return _poseutils.rt_from_Rt( compose_Rt( *[_poseutils.Rt_from_rt(rt) for rt in args] ) )
 
-@nps.broadcast_define( ((4,3),(3,)),
-                       (3,), )
-def transform_point_Rt(Rt, x):
-    r'''Transforms a given point by a given Rt transformation'''
-    R = Rt[:3,:]
-    t = Rt[ 3,:]
-    return nps.matmult(x, nps.transpose(R)) + t
+def rotate_point_r(r, x, get_gradients=False):
+    r'''Rotates a point by a given Rodrigues rotation
 
-@nps.broadcast_define( ((6,),(3,)),
-                       (3,), )
-def _transform_point_rt(rt, x):
-    r'''Transforms a given point by a given rt transformation'''
-    return transform_point_Rt(Rt_from_rt(rt), x)
-
-@nps.broadcast_define( ((6,),(3,)),
-                       (3,10), )
-def _transform_point_rt_withgradient(rt, x):
-    r'''Transforms a given point by a given rt transformation
-
-    Returns a projection result AND a gradient'''
-
-
-    # Test. I have vref.shape=(16,3) and I have some rt. This prints the
-    # worst-case relative errors. Both should be ~0
-    #
-    #     vfit,dvfit_drt,dvfit_dvref = mrcal.transform_point_rt(rt, vref, get_gradients=True)
-    #     dvref = np.random.random(vref.shape)*1e-5
-    #     drt   = np.random.random(rt.shape)*1e-5
-    #     vfit1 = mrcal.transform_point_rt(rt, vref + dvref)
-    #     dvfit_observed = vfit1-vfit
-    #     dvfit_expected = nps.matmult(dvfit_dvref, nps.dummy(dvref,-1))[...,0]
-    #     print(np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.))))
-    #     vfit1 = mrcal.transform_point_rt(rt + drt, vref)
-    #     dvfit_observed = vfit1-vfit
-    #     dvfit_expected = nps.matmult(dvfit_drt, nps.dummy(drt,-1))[...,0]
-    #     print(np.max(np.abs( (dvfit_expected - dvfit_observed) / ( (np.abs(dvfit_expected) + np.abs(dvfit_observed))/2.))))
-    #     sys.exit()
-
-    R,dRdr = cv2.Rodrigues(rt[:3].astype(float))
-    dRdr = nps.transpose(dRdr) # fix opencv's weirdness. Now shape=(9,3)
-
-    xx = nps.matmult(x, nps.transpose(R)) + rt[3:]
-    d_dx = R
-
-    # d_dr = nps.matmult(dxx_dRflat, dRdr)
-    # where dxx_dRflat =
-    #   ( x0 x1 x2  0  0  0 0  0  0  )
-    #   (  0  0  0 x0 x1 x2 0  0  0  )
-    #   (  0  0  0  0  0  0 x0 x1 x2 )
-    # I don't actually deal with the 0s
-    d_dr = nps.glue(nps.matmult(x, dRdr[0:3,:]),
-                    nps.matmult(x, dRdr[3:6,:]),
-                    nps.matmult(x, dRdr[6:9,:]),
-                    axis = -2)
-    d_dt = np.eye(3)
-    return nps.glue(nps.transpose(xx), d_dx, d_dr, d_dt,
-                    axis = -1)
-
-def transform_point_rt(rt, x, get_gradients=False):
-    r'''Transforms a given point by a given rt transformation
-
-    if get_gradients: return a tuple of (transform_result,d_drt,d_dx)
+    if not get_gradients: return u=r(x)
+    else:                 return (u=r(x),du/dr,du/dx)
 
     This function supports broadcasting fully
 
     '''
     if not get_gradients:
-        return _transform_point_rt(rt,x)
+        return _poseutils._rotate_point_r(r,x)
+    return _poseutils._rotate_point_r_withgrad(r,x)
 
-    # We're getting gradients. The inner broadcastable function returns a single
-    # packed array. I unpack it into components before returning. Note that to
-    # make things line up, the inner function uses a COLUMN vector to store the
-    # projected result, not a ROW vector
-    result = _transform_point_rt_withgradient(rt,x)
-    x      = result[..., 0  ]
-    d_dx   = result[..., 1:4]
-    d_drt  = result[..., 4: ]
-    return x,d_drt,d_dx
+def rotate_point_R(R, x, get_gradients=False):
+    r'''Rotates a point by a given rotation matrix
+
+    if not get_gradients: return u=R(x)
+    else:                 return (u=R(x),du/dR,du/dx)
+
+    du/dR is a (3,3,3) array where the first dimension selects the element of u,
+    and the last 2 dimensions select the element of R
+
+    This function supports broadcasting fully.
+
+    '''
+    if not get_gradients:
+        return _poseutils._rotate_point_R(R,x)
+    return _poseutils._rotate_point_R_withgrad(R,x)
+
+def transform_point_rt(rt, x, get_gradients=False):
+    r'''Transforms a point by a given rt transformation
+
+    if not get_gradients: return u=rt(x)
+    else:                 return (u=rt(x),du/dr,du/dt,du/dx)
+
+    This function supports broadcasting fully
+
+    '''
+
+    # Should do this nicer in the C code. But for the time being, this will do
+    rt = np.ascontiguousarray(rt)
+    x  = np.ascontiguousarray(x)
+
+    if not get_gradients:
+        return _poseutils._transform_point_rt(rt,x)
+    return _poseutils._transform_point_rt_withgrad(rt,x)
+
+def transform_point_Rt(Rt, x, get_gradients=False):
+    r'''Transforms a point by a given Rt transformation
+
+    if not get_gradients: return u=Rt(x)
+    else:                 return (u=Rt(x),du/dR,du/dt,du/dx)
+
+    du/dR is a (3,3,3) array where the first dimension selects the element of u,
+    and the last 2 dimensions select the element of R
+
+    This function supports broadcasting fully.
+
+    '''
+
+    # Should do this nicer in the C code. But for the time being, this will do
+    Rt = np.ascontiguousarray(Rt)
+    x  = np.ascontiguousarray(x)
+
+    if not get_gradients:
+        return _poseutils._transform_point_Rt(Rt,x)
+    return _poseutils._transform_point_Rt_withgrad(Rt,x)
 
 @nps.broadcast_define( ((4,),),
                        (3,3) )

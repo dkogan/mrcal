@@ -117,6 +117,7 @@ TESTS :=					\
   test/test-pylib-projections.py		\
   test/test-poseutils.py			\
   test/test-cameramodel.py			\
+  test/test-poseutils-clib.py			\
   test/test-projections.py			\
   test/test-projections-stereographic.py	\
   test/test-gradients.py			\

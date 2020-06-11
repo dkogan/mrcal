@@ -197,7 +197,7 @@ def _read(s, name):
                                                                     distortions,
                                                                     axis = -1)),
                           valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION'),
-                          extrinsics_Rt_toref = nps.glue(R_toref,t_toref, axis=-2))
+                          extrinsics_Rt_toref = np.ascontiguousarray(nps.glue(R_toref,t_toref, axis=-2)))
     return m
 
 def read(f):

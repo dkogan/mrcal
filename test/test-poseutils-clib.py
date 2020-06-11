@@ -1,13 +1,18 @@
 #!/usr/bin/python3
 
 import sys
-
 import numpy as np
 import numpysane as nps
+import os
+
+testdir = os.path.dirname(os.path.realpath(__file__))
+
+# I import the LOCAL mrcal since that's what I'm testing
+sys.path[:0] = f"{testdir}/..",
+import mrcal
+from testutils import *
 
 import mrcal._poseutils as poseutils
-
-from testutils import *
 
 def normalizeR(R):
     r'''Make a slightly-invalid rotation matrix into a valid one
@@ -186,7 +191,7 @@ confirm_equal( poseutils.identity_rt(),
                np.zeros((6,)),
                msg='identity_rt')
 
-y, J_R, J_x = poseutils.rotate_point_R(R0_ref, x)
+y, J_R, J_x = poseutils._rotate_point_R_withgrad(R0_ref, x)
 J_R_ref = grad(lambda R: nps.matmult(x, nps.transpose(R)),
                R0_ref)
 J_x_ref = R0_ref
@@ -200,7 +205,7 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_R J_x')
 
-y, J_r, J_x = poseutils.rotate_point_r(r0_ref, x)
+y, J_r, J_x = poseutils._rotate_point_r_withgrad(r0_ref, x)
 J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r))),
                r0_ref)
 J_x_ref = grad(lambda x: nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
@@ -215,7 +220,7 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_r J_x')
 
-y, J_R, J_t, J_x = poseutils.transform_point_Rt(Rt0_ref, x)
+y, J_R, J_t, J_x = poseutils._transform_point_Rt_withgrad(Rt0_ref, x)
 J_R_ref = grad(lambda R: nps.matmult(x, nps.transpose(R))+t0_ref,
                R0_ref)
 J_t_ref = np.identity(3)
@@ -233,7 +238,7 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_Rt J_x')
 
-y, J_r, J_t, J_x = poseutils.transform_point_rt(rt0_ref, x)
+y, J_r, J_t, J_x = poseutils._transform_point_rt_withgrad(rt0_ref, x)
 J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r)))+t0_ref,
                r0_ref)
 J_t_ref = np.identity(3)
@@ -252,17 +257,12 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt J_x')
 
-r, J_R = poseutils.r_from_R(R0_ref)
-J_R_ref = grad(r_from_R,
-               R0_ref)
+r = poseutils.r_from_R(R0_ref)
 confirm_equal( r,
                r0_ref,
                msg='r_from_R result')
-confirm_equal( J_R,
-               J_R_ref,
-               msg='r_from_R J_R')
 
-R, J_r = poseutils.R_from_r(r0_ref)
+R, J_r = poseutils._R_from_r_withgrad(r0_ref)
 J_r_ref = grad(R_from_r,
                r0_ref)
 confirm_equal( R,
@@ -292,14 +292,9 @@ confirm_equal( rt,
                invert_rt(rt0_ref),
                msg='invert_rt result')
 
-Rt2 = poseutils.compose_Rt(Rt0_ref, Rt1_ref)
+Rt2 = poseutils._compose_Rt(Rt0_ref, Rt1_ref)
 confirm_equal( Rt2,
                compose_Rt(Rt0_ref, Rt1_ref),
                msg='compose_Rt result')
-
-rt2 = poseutils.compose_rt(rt0_ref, rt1_ref)
-confirm_equal( rt2,
-               compose_rt(rt0_ref, rt1_ref),
-               msg='compose_rt result')
 
 finish()

@@ -74,10 +74,16 @@ void mrcal_r_from_R( // output
 // Convert a rotation representation from a Rodrigues vector to a matrix
 void mrcal_R_from_r( // outputs
                      double* R, // (3,3) array
-                     double* J, // (3,,3) array. Gradient. May be NULL
+                     int R_stride0, // in bytes. <= 0 means "contiguous"
+                     int R_stride1, // in bytes. <= 0 means "contiguous"
+                     double* J, // (3,3,3) array. Gradient. May be NULL
+                     int J_stride0, // in bytes. <= 0 means "contiguous"
+                     int J_stride1, // in bytes. <= 0 means "contiguous"
+                     int J_stride2, // in bytes. <= 0 means "contiguous"
 
                      // input
-                     const double* r // (3) vector
+                     const double* r, // (3) vector
+                     int r_stride0    // in bytes. <= 0 means "contiguous"
                     );
 
 // Convert a transformation representation from Rt to rt. This is mostly a
@@ -85,10 +91,10 @@ void mrcal_R_from_r( // outputs
 // gradients available here. If you need gradients, call mrcal_r_from_R()
 // directly
 void mrcal_rt_from_Rt( // output
-                      double* rt,  // (6) vector
+                      double* rt,     // (6) vector
 
                       // input
-                      const double* Rt // (4,3) array
+                      const double* Rt
                      );
 
 // Convert a transformation representation from Rt to rt. This is mostly a
@@ -96,20 +102,23 @@ void mrcal_rt_from_Rt( // output
 // gradients available here. If you need gradients, call mrcal_R_from_r()
 // directly
 void mrcal_Rt_from_rt( // output
-                      double* Rt, // (4,3) array
+                      double* Rt,     // (4,3) array
+                      int Rt_stride0, // in bytes. <= 0 means "contiguous"
+                      int Rt_stride1, // in bytes. <= 0 means "contiguous"
 
                       // input
-                      const double* rt // (6) vector
+                      const double* rt, // (6) vector
+                      int rt_stride0    // in bytes. <= 0 means "contiguous"
                      );
 
 // Invert an Rt transformation
 //
 // b = Ra + t  -> a = R'b - R't
 void mrcal_invert_Rt( // output
-                     double* Rt_out, // (4,3) array
+                     double* Rt_out,     // (4,3) array
 
                      // input
-                     const double* Rt_in // (4,3) array
+                     const double* Rt_in
                     );
 
 // Invert an rt transformation
