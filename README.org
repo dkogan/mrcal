@@ -31,16 +31,18 @@ supported. The toolkit includes:
   - =mrcal-convert-distortion=: fits one lens model to another
   - =mrcal-show-distortion=: visualize the distortion effects of a specific
     model
+  - =mrcal-show-splined-model-surface=: visualize the surface and knots used in
+    the specification of splined models
   - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
     due to noise in the calibration inputs
   - =mrcal-show-intrinsics-diff=: visualize the difference between the
     intrinsics of a number of models
-  - =mrcal-undistort-image=: Given image(s) and a lens model, produces a
-    new set of images that have removed the distortion
-  - =mrcal-redistort-points=: Given two lens models and a set of points,
+  - =mrcal-reproject-points=: Given two lens models and a set of points,
     maps them from one lens model to the other
-  - =mrcal-redistort-image=: Given two lens models and two images, maps
-    them from one lens model to the other
+  - =mrcal-reproject-image=: Given image(s) and lens model(s), produces a new
+    set of images that observe the same scene but with the other model. Several
+    flavors of functionality are included here, such as undistortion-to-pinhole,
+    re-rotation, and remapping to infinity.
   - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
     the extrinsics of another
   - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
@@ -51,8 +53,13 @@ supported. The toolkit includes:
     format to the =.cameramodel= format. This exists for compatibility only, and
     does not touch the data: the lens distortion may or may not use the CAHVOR
     lens model
-  - =mrcal-show-geometry=: Shows a visual representation of the extrinsics of N
-    cameras
+  - =mrcal-show-calibration-geometry=: Shows a visual representation of the
+    extrinsics of N calibrated cameras
+  - =mrcal-show-valid-intrinsics-regions=: Visualizes the region where a model's
+    intrinsics are valid
+  - =mrcal-is-within-valid-intrinsics-region=: Augments a vnlog of pixel
+    coordinates with a column indicating whether or not each point lies within
+    the valid-intrinsics region
 
 These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
@@ -100,8 +107,8 @@ coordinate system =B= to a representation in coordinate system =A=. =B=
 
 A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
 around an axis in the direction =r=. Converting between =R= and =r= is done via
-the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]. This is implemented in OpenCV Python function
-=cv2.Rodrigues=. For translating /poses/, not just rotations, use
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]. This is done with =mrcal.r_from_R() and
+mrcal.R_from_r()=. For translating /poses/, not just rotations, use
 =mrcal.Rt_from_rt()= and =mrcal.rt_from_Rt()=.
 
 ** Camera model file formats
@@ -127,13 +134,18 @@ and mrcal supports =.cameramodel= files.
 
 ** Lens models
 
-Lens models are specified as elements of =enum lens_model_t= (in C)
-or, as strings that match the entries of that enum (in Python). Currently I
-support all CAHVOR flavors and all models implemented in OpenCV. A limitation is
-that the solver core does not support CAHVORE, so use the OpenCV models if a
-high-distoriton model is required. Currently the supported models are:
+Lens models are specified as elements of =enum lensmodel_t= (in C) or, as
+strings that match the entries of that enum (in Python). Currently I support all
+CAHVOR flavors and all models implemented in OpenCV and a pure stereographic
+model and a /very/ rich splined stereographic model. CAHVORE isn't supported in
+the solver. Some models have configuration parameters defined in the model
+string. These define details of the model, and are not subject to optimization.
+Currently the supported models are:
 
 - =LENSMODEL_PINHOLE=
+- =LENSMODEL_STEREOGRAPHIC=
+- =LENSMODEL_SPLINED_STEREOGRAPHIC_...= (this model has configuration
+  parameters)
 - =LENSMODEL_OPENCV4=
 - =LENSMODEL_OPENCV5=
 - =LENSMODEL_OPENCV8=
@@ -154,14 +166,15 @@ documentation for more details.
 ** mrcal-calibrate-cameras
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-calibrate-cameras - Calibrate some synchronized cameras
+    mrcal-calibrate-cameras - Calibrate some synchronized, stationary
+    cameras
 
 SYNOPSIS
       $ mrcal-calibrate-cameras
           --corners-cache corners.vnl
           --focal 1700 --object-spacing 0.01 --object-width-n 10
           --outdir /tmp
-          --lens-model LENSMODEL_OPENCV8
+          --lensmodel LENSMODEL_OPENCV8
           --observed-pixel-uncertainty 0.5
           --pairs
           'left*.png' 'right*.png'
@@ -172,8 +185,6 @@ SYNOPSIS
         Worst reprojection error: 7.8 pixels
         Noutliers: 319 out of 17100 total points: 1.9% of the data
 
-        Wrote /tmp/camera0-0.cahvor
-        Wrote /tmp/camera0-1.cahvor
         Wrote /tmp/camera0-0.cameramodel
         Wrote /tmp/camera0-1.cameramodel
 
@@ -268,7 +279,7 @@ DESCRIPTION
         --object-spacing 0.1
         --object-width-n 10
         --outdir /tmp
-        --lens-model LENSMODEL_OPENCV8
+        --lensmodel LENSMODEL_OPENCV8
         --observed-pixel-uncertainty 1.0
         --explore
         'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
@@ -284,8 +295,8 @@ DESCRIPTION
     corners with subsequent runs.
 
     '-j 10' says to spread the mrgingham computation across 10 CPU cores.
-    This command controls mrgingham only; if 'corners.vnl' exists, this
-    option does nothing.
+    This command controls mrgingham only; if 'corners.vnl' already exists,
+    this option does nothing.
 
     '--focal 2000' says that the initial estimate for the camera focal
     lengths is 2000 pixels. This doesn't need to be precise at all, but do
@@ -300,7 +311,7 @@ DESCRIPTION
 
     --outdir specifies the directory where the output models will be written
 
-    --lens-model specifies which lens model we're using for the cameras. At
+    --lensmodel specifies which lens model we're using for the cameras. At
     this time all OpenCV lens models are supported, in addition to
     LENSMODEL_CAHVOR. The CAHVOR model is there for legacy compatibility
     only. If you're not going to be using these models in a system that only
@@ -343,15 +354,10 @@ DESCRIPTION
     time computing (usually 10-20 seconds is enough, but this is highly
     dependent on the specific problem, the amount of data, and the
     computational hardware). When finished, it will write the resulting
-    models to disk, and open a REPL (if --explore was given). Models are
-    written in both .cahvor and .cameramodel file formats. Both contain the
-    same information, but .cameramodel is far more sensible. The .cahvor
-    file format exists for legacy compatibility only. Use this one one only
-    if you'll be using these models in some cahvor-only tool; in this case
-    you'll probably want to choose the LENSMODEL_CAHVOR model as well. The
-    resulting filenames are "camera-N.cameramodel" where N is the index of
-    the camera, starting at 0. The models contain the intrinsics and
-    extrinsics, with camera-0 sitting at the reference coordinate system.
+    models to disk, and open a REPL (if --explore was given). The resulting
+    filenames are "camera-N.cameramodel" where N is the index of the camera,
+    starting at 0. The models contain the intrinsics and extrinsics, with
+    camera-0 sitting at the reference coordinate system.
 
     When the solve is completed, you'll see a summary such as this one:
 
@@ -452,112 +458,100 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      images                A glob-per-camera for the images. Include a glob for each
-                            camera. It is assumed that the image filenames in each glob
-                            are of of the form xxxNNNyyy where xxx and yyy are common to
-                            all images in the set, and NNN varies. This NNN is a frame
-                            number, and identical frame numbers across different globs
-                            signify a time-synchronized observation. I.e. you can pass
-                            'left*.jpg' and 'right*.jpg' to find images 'left0.jpg',
-                            'left1.jpg', ..., 'right0.jpg', 'right1.jpg', ...
+      images                A glob-per-camera for the images. Include a glob for
+                            each camera. It is assumed that the image filenames in
+                            each glob are of of the form xxxNNNyyy where xxx and
+                            yyy are common to all images in the set, and NNN
+                            varies. This NNN is a frame number, and identical
+                            frame numbers across different globs signify a time-
+                            synchronized observation. I.e. you can pass
+                            'left*.jpg' and 'right*.jpg' to find images
+                            'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
+                            'right1.jpg', ...
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --focal FOCAL         Initial estimate of the focal length, in pixels. Required
-                            unless --seed is given
+      --focal FOCAL         Initial estimate of the focal length, in pixels.
+                            Required unless --seed is given
       --imagersize IMAGERSIZE IMAGERSIZE
                             Size of the imager. This is only required if we pass
                             --corners-cache AND if none of the image files on disk
-                            actually exist and if we don't have a --seed. If we do have a
-                            --seed, the --imagersize values must match the --seed exactly
+                            actually exist and if we don't have a --seed. If we do
+                            have a --seed, the --imagersize values must match the
+                            --seed exactly
       --outdir OUTDIR       Directory for the output camera models
       --object-spacing OBJECT_SPACING
-                            Width of each square in the calibration board, in meters
+                            Width of each square in the calibration board, in
+                            meters
       --object-width-n OBJECT_WIDTH_N
-                            How many points the calibration board has per side
-      --lens-model LENS_MODEL
-                            Which lens model we're using. This is required unless we have
-                            a --seed
-      --roi ROI ROI ROI ROI
-                            Region of interest of the calibration. This is the area in the
-                            imager we're interested in. Errors in observations outside
-                            this area will be attenuated significantly. If we want to use
-                            all the data evenly, omit this argument. Otherwise pass 4
-                            values for each --roi: (x_center,y_center,x_radius,y_radius).
-                            The region is an axis-aligned ellipsoid. If passing in ANY
-                            roi, you MUST pass in the ROI for EACH camera; a separate '--
-                            roi' for each one.
-      --incremental         THIS IS HIGHLY EXPERIMENTAL; maybe don't use it yet. If
-                            passed, we incrementally increase ROI and lens model
-                            complexity across multiple solves. In this mode the requested
-                            ROI is a target, and the requested distortion model is the
-                            upper bound. If we can get away with a simpler one, we use
-                            that.
-      --seed SEED           A comma-separated whitespace-less list of camera model globs
-                            to use as a seed for the intrinsics and extrinsics. The number
-                            of models must match the number of cameras exactly. Expanded
-                            globs are sorted alphanumerically. This is useful to bootstrap
-                            the solve or to validate an existing set of models, or to
-                            recompute just the extrinsics or just the intrinsics of a
-                            solve. If omitted, we estimate a seed. Exclusive with --focal.
-                            If given, --imagersize is omitted or it must match EXACTLY
-                            with whatever is in the --seed models
-      --num-cross-validation-splits NUM_CROSS_VALIDATION_SPLITS
-                            If passed, we cross-validate the results with this many
-                            splits. This only makes sense as an integer >1. THIS IS
-                            EXPERIMENTAL.
-      --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make. Affects only
-                            the chessboard corner finder. If we are reading a cache file,
-                            this does nothing
+                            How many points the calibration board has per
+                            horizontal side. If omitted we default to 10
+      --object-height-n OBJECT_HEIGHT_N
+                            How many points the calibration board has per vertical
+                            side. If omitted, we assume a square object, setting
+                            height=width
+      --lensmodel LENSMODEL
+                            Which lens model we're using. This is required unless
+                            we have a --seed
+      --seed SEED           A comma-separated whitespace-less list of camera model
+                            globs to use as a seed for the intrinsics and
+                            extrinsics. The number of models must match the number
+                            of cameras exactly. Expanded globs are sorted
+                            alphanumerically. This is useful to bootstrap the
+                            solve or to validate an existing set of models, or to
+                            recompute just the extrinsics or just the intrinsics
+                            of a solve. If omitted, we estimate a seed. Exclusive
+                            with --focal. If given, --imagersize is omitted or it
+                            must match EXACTLY with whatever is in the --seed
+                            models
+      --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make.
+                            Affects only the chessboard corner finder. If we are
+                            reading a cache file, this does nothing
       --corners-cache CORNERS_CACHE
-                            Path to read corner-finder data from or (if path does not
-                            exist) to write data to
-      --pairs               By default, we are calibrating a set of N independent cameras.
-                            If we actually have a number of stereo pairs, pass this
-                            argument. It changes the filename format of the models written
-                            to disk (cameraPAIR-INDEXINPAIR.cameramodel), and will report
-                            some uncertainties about geometry inside each pair.
-                            Consecutive cameras in the given list are paired up, and an
-                            even number of cameras is required
+                            Path to read corner-finder data from or (if path does
+                            not exist) to write data to
+      --pairs               By default, we are calibrating a set of N independent
+                            cameras. If we actually have a number of stereo pairs,
+                            pass this argument. It changes the filename format of
+                            the models written to disk (cameraPAIR-
+                            INDEXINPAIR.cameramodel), and will report some
+                            uncertainties about geometry inside each pair.
+                            Consecutive cameras in the given list are paired up,
+                            and an even number of cameras is required
       --skip-regularization
-                            By default we apply regularization to the solver. This option
-                            turns that off
+                            By default we apply regularization to the solver. This
+                            option turns that off
       --skip-outlier-rejection
-                            By default we throw out outliers. This option turns that off
+                            By default we throw out outliers. This option turns
+                            that off
       --skip-extrinsics-solve
-                            Keep the seeded extrinsics, if given. Allowed only if --seed
+                            Keep the seeded extrinsics, if given. Allowed only if
+                            --seed
       --skip-intrinsics-solve
-                            Keep the seeded intrinsics, if given. Allowed only if --seed
-      --unweighted-corners  By default we weight each corner error contribution using
-                            information from mrgingham. If we want to ignore this
-                            information, and weigh them all the same, pass --unweighted-
-                            corners.
-      --verbose-solver      By default the final stage of the solver doesn't say much.
-                            This option turns on verbosity to get lots of diagnostics.
+                            Keep the seeded intrinsics, if given. Allowed only if
+                            --seed
+      --unweighted-corners  By default we weight each corner error contribution
+                            using the uncertainty from the corner detector. If we
+                            want to ignore this information, and weigh them all
+                            equally, pass --unweighted-corners.
+      --verbose-solver      By default the final stage of the solver doesn't say
+                            much. This option turns on verbosity to get lots of
+                            diagnostics.
       --optimize-calobject-warp
-                            By default we assume the calibration target is flat. If it
-                            isn't and we want to compute it, pass this option.
-      --explore             After the solve open an interactive shell to examine the
-                            solution
+                            By default we assume the calibration target is flat.
+                            If it isn't and we want to compute it, pass this
+                            option.
+      --explore             After the solve open an interactive shell to examine
+                            the solution
       --observed-pixel-uncertainty OBSERVED_PIXEL_UNCERTAINTY
-                            The standard deviation of x and y pixel coordinates of the
-                            input observations. The distribution of the inputs is assumed
-                            to be gaussian, with the standard deviation specified by this
-                            argument. Note: this is the x and y standard deviation,
-                            treated independently. If each of these is s, then the LENGTH
-                            of the deviation of each pixel is a Rayleigh distribution with
-                            expected value s*sqrt(pi/2) ~ s*1.25
-      --cull-points-left-of CULL_POINTS_LEFT_OF
-                            For testing. Throw out all observations with x < the given
-                            value
-      --cull-points-rad-off-center CULL_POINTS_RAD_OFF_CENTER
-                            For testing. Throw out all observations with dist_from_center
-                            > the given value
-      --cull-random-observations-ratio CULL_RANDOM_OBSERVATIONS_RATIO
-                            For testing. Throw out a random number of board observations.
-                            The ratio of observations is given as the argument. 1.0 =
-                            throw out ALL the observations; 0.0 = throw out NONE of the
-                            observations
+                            The standard deviation of x and y pixel coordinates of
+                            the input observations. The distribution of the inputs
+                            is assumed to be gaussian, with the standard deviation
+                            specified by this argument. Note: this is the x and y
+                            standard deviation, treated independently. If each of
+                            these is s, then the LENGTH of the deviation of each
+                            pixel is a Rayleigh distribution with expected value
+                            s*sqrt(pi/2) ~ s*1.25
 
 
 #+END_EXAMPLE
@@ -621,9 +615,8 @@ DESCRIPTION
 OPTIONS
   POSITIONAL ARGUMENTS
       to                   The target lens model
-      model                Input camera model. Assumed to be mrcal native, Unless
-                           the name is xxx.cahvor, in which case the cahvor format
-                           is assumed. If "-' is given, we read standard input
+      model                Input camera model. If "-' is given, we read standard
+                           input
 
   OPTIONAL ARGUMENTS
       -h, --help           show this help message and exit
@@ -641,8 +634,6 @@ OPTIONS
                            abs(radius). This is valid ONLY if we're focusing at
                            the center of the imager. By default I ignore a large-
                            ish chunk area at the corners.
-      --writecahvor        If given, we write the output using the cahvor file
-                           format
 
 
 #+END_EXAMPLE
@@ -668,9 +659,7 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model                 Input camera model. Assumed to be mrcal native, Unless
-                            the name is xxx.cahvor, in which case the cahvor
-                            format is assumed. If "-' is given, we read standard
+      model                 Input camera model. If "-' is given, we read standard
                             input
 
   OPTIONAL ARGUMENTS
@@ -695,6 +684,50 @@ OPTIONS
 
 
 #+END_EXAMPLE
+** mrcal-show-splined-model-surface
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-show-splined-model-surface - Visualizes the surface represented in
+    a splined lens model
+
+SYNOPSIS
+      $ mrcal-show-splined-model-surface cam.cameramodel 0
+      ... a plot pops up showing the surface
+
+DESCRIPTION
+    Splined models are built with a splined surface that we index to compute
+    the projection. The meaning of what indexes the surface and the values
+    of the surface varies by model, but in all cases, visualizing the
+    surface is useful.
+
+    This tool can produce a plot in the imager domain (the default) or in
+    the spline index domain (normalized stereographic coordinates, usually).
+    Both are useful. Pass --spline-index-domain to choose that domain
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model                 Input camera model. If "-' is given, we read standard
+                            input
+      {0,1}                 Whether we're looking at the x surface (0) or the y
+                            surface (1)
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --extratitle EXTRATITLE
+                            Extra title string for the plot
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
+      --spline-index-domain
+                            By default this produces a visualization in the domain
+                            of the imager. Sometimes it's more informative to look
+                            at this in the domain of the spline-index (normalized
+                            stereographic coordinates). This can be selected by
+                            this option
+
+
+#+END_EXAMPLE
 ** mrcal-show-intrinsics-uncertainty
 #+BEGIN_EXAMPLE
 NAME
@@ -716,81 +749,38 @@ DESCRIPTION
     Areas with a high expected projection error are unreliable for further
     work.
 
-    Only mrcal-native .cameramodel files are supported because .cahvor files
-    don't store the data used in these computations.
-
     See mrcal.compute_intrinsics_uncertainty() for a full description of the
     computation performed here
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model              Input camera model.
-                         Assumed to be mrcal
-                         native, Unless the
-                         name is xxx.cahvor,
-                         in which case the
-                         cahvor format is
-                         assumed. If "-' is
-                         given, we read
-                         standard input
+      model                 Input camera model. If "-' is given, we read standard
+                            input
 
   OPTIONAL ARGUMENTS
-      -h, --help         show this help
-                         message and exit
-      --gridn GRIDN GRIDN
-                         How densely we
-                         should sample the
-                         imager. By default
-                         we report a 60x40
-                         grid
-      --where WHERE WHERE
-                         Center of the region
-                         of interest.
-                         Uncertainty is a
-                         relative concept, so
-                         I focus on a
-                         particular area. I
-                         compute an implied
-                         rotation to make
-                         that area as certain
-                         as possible. The
-                         center of this focus
-                         area is given by
-                         this argument. If
-                         omitted, we will
-                         focus on the center
-                         of the imager
-      --radius RADIUS    Radius of the region
-                         of interest. If ==0,
-                         we do NOT fit an
-                         implied rotation at
-                         all. If omitted or
-                         <0, we use a
-                         "reasonable value:
-                         min(width,height)/6.
-                         To fit with data
-                         across the WHOLE
-                         imager: pass in a
-                         very large radius
-      --outlierness      Report an
-                         outlierness-based
-                         uncertainty, not an
-                         input-noise-based
-                         one
-      --cbmax CBMAX      Maximum range of the
-                         colorbar
+      -h, --help            show this help message and exit
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            report a 60x40 grid
+      --where WHERE WHERE   Center of the region of interest. Uncertainty is a
+                            relative concept, so I focus on a particular area. I
+                            compute an implied rotation to make that area as
+                            certain as possible. The center of this focus area is
+                            given by this argument. If omitted, we will focus on
+                            the center of the imager
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
+                            fit an implied rotation at all. If omitted or <0, we
+                            use a "reasonable value: min(width,height)/6. To fit
+                            with data across the WHOLE imager: pass in a very
+                            large radius
+      --outlierness         Report an outlierness-based uncertainty, not an input-
+                            noise-based one
+      --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
-                         Extra title string
-                         for the plot
-      --hardcopy HARDCOPY
-                         Write the output to
-                         disk, instead of an
-                         interactive plot
-      --extraset EXTRASET
-                         Extra 'set'
-                         directives to
-                         gnuplot. Can be
-                         given multiple times
+                            Extra title string for the plot
+      --hardcopy HARDCOPY   Write the output to disk, instead of an interactive
+                            plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
 
 
 #+END_EXAMPLE
@@ -842,517 +832,297 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      models             Camera models to
-                         diff
+      models                Camera models to diff
 
   OPTIONAL ARGUMENTS
-      -h, --help         show this help
-                         message and exit
-      --gridn GRIDN GRIDN
-                         How densely we
-                         should sample the
-                         imager. By default
-                         we report a 60x40
-                         grid
-      --where WHERE WHERE
-                         Center of the region
-                         of interest for this
-                         diff. It is usually
-                         impossible for the
-                         models to match
-                         everywhere, but
-                         focusing on a
-                         particular area can
-                         work better. The
-                         implied rotation
-                         will be fit to match
-                         as large as possible
-                         an area centered on
-                         this argument. If
-                         omitted, we will
-                         focus on the center
-                         of the imager
-      --radius RADIUS    Radius of the region
-                         of interest. If ==0,
-                         we do NOT fit an
-                         implied rotation at
-                         all. If omitted or
-                         <0, we use a
-                         "reasonable value:
-                         min(width,height)/6.
-                         To fit with data
-                         across the WHOLE
-                         imager: pass in a
-                         very large radius
-      --cbmax CBMAX      Maximum range of the
-                         colorbar
+      -h, --help            show this help message and exit
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            report a 60x40 grid
+      --where WHERE WHERE   Center of the region of interest for this diff. It is
+                            usually impossible for the models to match everywhere,
+                            but focusing on a particular area can work better. The
+                            implied rotation will be fit to match as large as
+                            possible an area centered on this argument. If
+                            omitted, we will focus on the center of the imager
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
+                            fit an implied rotation at all. If omitted or <0, we
+                            use a "reasonable value: min(width,height)/6. To fit
+                            with data across the WHOLE imager: pass in a very
+                            large radius
+      --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
-                         Extra title string
-                         for the plot
-      --vectorfield      Plot the diff as a
-                         vector field instead
-                         of as a heat map.
-                         The vector field
-                         contains more
-                         information
-                         (magnitude AND
-                         direction), but is
-                         less clear at a
-                         glance
+                            Extra title string for the plot
+      --vectorfield         Plot the diff as a vector field instead of as a heat
+                            map. The vector field contains more information
+                            (magnitude AND direction), but is less clear at a
+                            glance
       --vectorscale VECTORSCALE
-                         If plotting a
-                         vectorfield, scale
-                         all the vectors by
-                         this factor. Useful
-                         to improve
-                         legibility if the
-                         vectors are too
-                         small to see
-      --hardcopy HARDCOPY
-                         Write the output to
-                         disk, instead of
-                         making an
-                         interactive plot
-      --extraset EXTRASET
-                         Extra 'set'
-                         directives to
-                         gnuplot. Can be
-                         given multiple times
+                            If plotting a vectorfield, scale all the vectors by
+                            this factor. Useful to improve legibility if the
+                            vectors are too small to see
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given
+                            multiple times
 
 
 #+END_EXAMPLE
-** mrcal-undistort-image
+** mrcal-reproject-points
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-undistort-image - Un-distorts image(s)
-
-SYNOPSIS
-      $ mrcal-undistort-image left.cameramodel im1.png im2.png
-      ... corresponding pinhole mrcal-native model
-      Wrote im1-undistorted.png
-      Wrote im2-undistorted.png
-
-DESCRIPTION
-    Given a single camera model (cahvor or mrcal-native) and some number of
-    images, this tool un-distorts each image and writes the result to disk.
-    For each image named xxxx.yyy, the new image filename is
-    xxxx-undistorted.yyy. This tool refuses to overwrite anything, and will
-    barf if a target file already exists. A corresponding pinhole camera
-    model is also generated, and written to stdout.
-
-    Note that currently the corresponding pinhole model uses the same focal
-    length, center pixel values as the original, but no distortions. Thus
-    the undistorted images might cut out chunks of the original, or leave
-    empty borders on the edges.
-
-    The output goes into the same directory as the input image, with a
-    slightly different filename: image.png -> image-undistorted.png This
-    tool will refuse to overwrite any existing files unless --force.
-
-OPTIONS
-  POSITIONAL ARGUMENTS
-      model              Input camera model.
-                         Assumed to be mrcal
-                         native, Unless the
-                         name is xxx.cahvor,
-                         in which case the
-                         cahvor format is
-                         assumed
-      image              Images to undistort
-
-  OPTIONAL ARGUMENTS
-      -h, --help         show this help
-                         message and exit
-      --fit FIT          If given, we'll
-                         scale the focal
-                         length of the
-                         pinhole model to fit
-                         some of the original
-                         image into the
-                         output. This is a
-                         "zoom" operation. We
-                         compute the focal-
-                         length scaling based
-                         on this argument. If
-                         we KNOW the scaling
-                         we want, that can be
-                         passed-in directly
-                         with --scale-focal
-                         instead. The
-                         argument could be
-                         one of ("corners",
-                         "centers-
-                         horizontal",
-                         "centers-vertical").
-                         Or the argument
-                         could be given as a
-                         list of points x0,y0
-                         ,x1,y1,x2,y2,....
-                         The focal length
-                         scale will be chosen
-                         to zoom in as far as
-                         possible, while
-                         fitting all of these
-                         points. If omitted,
-                         we keep the focal
-                         lengths the same
-      --scale-focal SCALE_FOCAL
-                         If given, we'll
-                         scale the focal
-                         length of the
-                         pinhole model by
-                         this factor. This is
-                         a "zoom" operation.
-                         If we don't know the
-                         scaling, but wish to
-                         compute it based on
-                         fitting some points,
-                         use --fit instead
-      --rotate ROTATE ROTATE ROTATE
-                         If given, the
-                         pinhole camera is
-                         rotated in respect
-                         to the input camera.
-                         This is specified as
-                         a Rodrigues rotation
-                         vector, in degrees:
-                         3 numbers. This is a
-                         unit vector for the
-                         rotation axis scaled
-                         by the rotation
-                         magnitude. This
-                         specifies as the
-                         rotation of the
-                         CAMERA AROUND ITS
-                         OWN AXES. So this is
-                         independent of any
-                         extrinsics already
-                         present in the given
-                         cameramodel.
-                         Example: to yaw the
-                         camera 15 degrees,
-                         we're rotating
-                         around the camera's
-                         y axis, so pass "--
-                         rotate 0 15 0". If
-                         omitted, no rotation
-                         is applied
-      --scale-image SCALE_IMAGE
-                         If given, we scale
-                         the dimensions of
-                         the pinhole image by
-                         this factor. By
-                         default the scale is
-                         1.0, i.e. the
-                         undistorted and
-                         distorted images
-                         have the same size.
-                         This parameter
-                         changes the
-                         RESOLUTION of the
-                         output, unlike
-                         --scale-focal, which
-                         ZOOMS the output
-      --force, -f        By default I don't
-                         overwrite existing
-                         files. Pass --force
-                         to overwrite them
-                         without complaint
-      --jobs JOBS, -j JOBS
-                         parallelize the
-                         processing JOBS-
-                         ways. This is like
-                         GNU make, except
-                         you're required to
-                         explicitly specify a
-                         job count.
-
-
-#+END_EXAMPLE
-** mrcal-redistort-points
-#+BEGIN_EXAMPLE
-NAME
-    mrcal-redistort-points - Converts distorted points from one model to
+    mrcal-reproject-points - Reprojects pixel observations from one model to
     another
 
 SYNOPSIS
-      $ mrcal-redistort-points
+      $ < points-in.vnl
+        mrcal-reproject-points
           from.cameramodel to.cameramodel
-          < input.vnl > output.vnl
+        > points-out.vnl
 
 DESCRIPTION
-    This tool takes a set of pixel observations of world points captured by
-    one camera model, and transforms them into observations of the same
-    points made by another model. This is similar to mrcal-redistort-image,
-    but acts on discrete points, rather than a full image. The two sets of
+    This tool takes a set of pixel observations of points captured by one
+    camera model, and transforms them into observations of the same points
+    captured by another model. This is similar to mrcal-reproject-image, but
+    acts on discrete points, rather than on whole images. The two sets of
     intrinsics are always used. The translation component of the extrinsics
-    is always ignored; the rotation is ignored as well if --ignore-rotation.
+    is always ignored; the rotation is ignored as well if --intrinsics-only.
 
-    This allows you to combine multiple image-processing techniques that
-    expect different images. For instance:
+    This allows one to combine multiple image-processing techniques that
+    expect different projections. For instance, planes projected using a
+    pinhole projection have some nice properties, and we can use those after
+    running this tool.
 
-    1. mrcal-undistort-image --model fisheye.cameramodel input.png This
-    produces an undistorted image and a corresponding pinhole camera model.
-
-    2. Feed the image we just made (input_undistorted.png) to an
-    image-processing tool that expects images from a pinhole camera.
-
-    3. mrcal-redistort-points to convert the pixel coordinates computed in
-    step 2 back into the space of the original image
-
-    The input data comes in on standard input, and the output data goes out
-    on standard output. Both are vnlog data: human-readable text with 2
-    columns: x and y pixel coord. Comments are allowed, and start with the
-    '#' character.
+    The input data comes in on standard input, and the output data is
+    written to standard output. Both are vnlog data: human-readable text
+    with 2 columns: x and y pixel coords. Comments are allowed, and start
+    with the '#' character.
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model-from         Camera model for the
-                         input points.
-                         Assumed to be mrcal
-                         native, Unless the
-                         name is xxx.cahvor,
-                         in which case the
-                         cahvor format is
-                         used.
-      model-to           Camera model for the
-                         output points.
-                         Assumed to be mrcal
-                         native, Unless the
-                         name is xxx.cahvor,
-                         in which case the
-                         cahvor format is
-                         assumed
+      model-from         Camera model for the input points. If "-' is given, we
+                         read standard input
+      model-to           Camera model for the output points. If "-' is given, we
+                         read standard input
 
   OPTIONAL ARGUMENTS
-      -h, --help         show this help
-                         message and exit
-      --ignore-rotation  By default the
-                         relative camera
-                         rotation is used in
-                         the transformation.
-                         If we want to use
-                         the intrinsics ONLY,
-                         pass --ignore-
-                         rotation
+      -h, --help         show this help message and exit
+      --intrinsics-only  By default, the relative camera rotation is used in the
+                         transformation. If we want to use the intrinsics ONLY,
+                         pass --intrinsics-only. Note that relative translation is
+                         ALWAYS ignored
 
 
 #+END_EXAMPLE
-** mrcal-redistort-image
+** mrcal-reproject-image
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-redistort-image - Remaps a captured image into another camera
+    mrcal-reproject-image - Remaps a captured image into another camera
     model
 
 SYNOPSIS
-      $ mrcal-redistort-image
+      ### To "undistort" images to reproject to a pinhole projection
+      $ mrcal-reproject-image --to-pinhole
+          camera0.cameramodel
+          image*.jpg
+      Wrote image0-pinhole.jpg
+      Wrote image1-pinhole.jpg
+      ...
+
+      ### To reproject images from one lens model to another
+      $ mrcal-reproject-image
           camera0.cameramodel camera1.cameramodel
-          image0.png image1.png
-      Wrote image0-undistorted-remapped.png
-      Wrote image1-undistorted.png
+          image*.jpg
+      Wrote image0-reprojected.jpg
+      Wrote image1-reprojected.jpg
+      Wrote image2-reprojected.jpg
+      ...
+
+      ### To reproject two sets of images to a common pihole projection
+      $ mrcal-reproject-image --to-pinhole
+          camera0.cameramodel camera1.cameramodel
+          'image*-cam0.jpg' 'image*-cam1.jpg'
+      Wrote image0-reprojected.jpg
+      Wrote image1-reprojected.jpg
+      Wrote image2-reprojected.jpg
+      ...
 
 DESCRIPTION
-    This tool takes an image of a scene captured by one camera model, and
-    generates an image of the same scene, as it would appear if captured by
-    a different model, taking into account both the different lens
-    parameters and geometries. This is similar to mrcal-redistort-points,
-    but acts on a full image, rather than a discrete set of points.
+    This tool takes image(s) of a scene captured by one camera model, and
+    produces image(s) of the same scene, as it would appear if captured by a
+    different model, taking into account both the different lens parameters
+    and geometries. This is similar to mrcal-reproject-points, but acts on a
+    full image, rather than a discrete set of points.
 
-    We have 3 modes of operation, selected with --mode:
+    There are several modes of operation, depending on how many camera
+    models are given, and whether --to-pinhole is given, and whether
+    --plane-n,--plane-d are given.
 
-    - 'distortion' projects the same scene, only changing the distortion
-    parameters from one camera to another. This ignores all extrinsics, from
-    both cameras
+    To "undistort" (remap to a pinhole projection) a set of images captured
+    using a particular camera model, invoke this tool like this:
 
-    - 'infinity' projects the same scene, applying the different distortion
-    parameters and relative rotation between the two cameras. This ignores
-    the translation components of the extrinsics. If the intrinsics and the
-    rotation were correct, infinitely-far-away objects in the remapped
-    camera0 image appear in the same exact location as the same objects in
-    the camera1 image. This is thus a good validation function. This is the
-    default mode.
+      mrcal-reproject-image
+        --to-pinhole
+        model0.cameramodel image*.jpg
 
-    - 'plane' maps observations of a given plane in camera0 coordinates to
-    where this plane would be observed in camera1 coordinates. This uses ALL
-    the intrinsics, extrinsics and the plane representation. If all of these
-    are correct, the observations of this plane would line up exactly in the
+    Each of the given images will be reprojected, and written to disk as
+    "image....-reprojected.jpg". The pinhole model used for the reprojection
+    will be written to standard output.
+
+    To remap images of a scene captured by model0 to images of the same
+    scene captured by model1, do this:
+
+      mrcal-reproject-image
+        model0.cameramodel model1.cameramodel image*.jpg
+
+    Each of the given images will be reprojected, and written to disk as
+    "image....-reprojected.jpg". Nothing will be written to standard output.
+    By default, the rotation component of the relative extrinsics between
+    the two models is used in the reprojection. To ignore it, pass
+    --intrinsics-only. Relative translation is always ignored. The usual use
+    case is to validate the relative intrinsics and extrinsics in two
+    models. If you have a pair of models and a pair of observed images, you
+    can compute the reprojection, and compare the reprojection-to-model1 to
+    images that were actually captured by model1. If the intrinsics and
+    extrinsics were correct, then the two images would line up exactly for
+    objects at infinity (where the translation=0 assumption is correct).
+    Computing this reprojection map is often very slow. But if the use case
+    is comparing two sets of captured images, the next, much faster
+    invocation method can be used.
+
+    To remap images of a scene captured by model0 and images of the same
+    scene captured by model1 to a common pinhole projection, do this:
+
+      mrcal-reproject-image
+        --to-pinhole
+        model0.cameramodel model1.cameramodel 'image*-cam0.jpg' 'image*-cam1.jpg'
+
+    A pinhole model is constructed that has the same extrinsics as model1,
+    and both sets of images are reprojected to this model. This is similar
+    to the previous mode, but since we're projection to a pinhole mode, this
+    computes much faster. The generated pinhole model is written to standard
+    output.
+
+    Finally instead of reprojecting to match up images of objects at
+    infinity, it is possible to reproject to match up images of arbitrary
+    planes. This can be done by a command like this:
+
+      mrcal-reproject-image
+        --to-pinhole
+        --plane-n 1.1 2.2 3.3
+        --plane-d 4.4
+        model0.cameramodel model1.cameramodel 'image*-cam0.jpg' 'image*-cam1.jpg'
+
+    This maps observations of a given plane in camera0 coordinates to where
+    this plane would be observed in camera1 coordinates. This uses ALL the
+    intrinsics, extrinsics and the plane representation. If all of these are
+    correct, the observations of this plane would line up exactly in the
     remapped-camera0 image and the camera1 image. The plane is represented
     in camera0 coordinates by a normal vector given by --plane-n, and the
     distance to the normal given by plane-d. The plane is all points p such
     that inner(p,planen) = planed. planen does not need to be normalized.
 
-    One way in which this is useful is using the 'infinity' mode for
-    validation of the rotation and the intrinsics: if these are correct,
-    then observations of infinitely-far-away objects in the remapped image
-    would match the observations made by the second camera.
+    If 2 camera models are given, we use the rotation component of the
+    extrinsics, unless --intrinsics-only. The translation is always ignored.
 
-    The tool takes in the two camera models, the image from the first
-    camera, and optionally, the image from the second camera as well. If the
-    second image is omitted, the first image is remapped into the second
-    camera's coordinates, and this remapped image can then be compared to
-    the second image directly. This is what is normally desired, but it
-    requires an "undistort" remapping, which could be very slow,
-    computationally. As a workaround, you can pass in the second image as
-    well. Then both images will be remapped into a common undistorted
-    coordinate system. As before, these two remapped images can be compared,
-    and their view of infinitely-far-away objects will line up if the
-    rotations and intrinsics are correct.
+    If --to-pinhole, then we generate a pinhole model, that is written to
+    standard output. By default, the focal length of this pinhole model is
+    the same as that of the input model. The "zoom" level of this pinhole
+    model can be adjusted by passing --scale-focal SCALE, or more precisely
+    by passing --fit. --fit takes an argument that is one of
+
+    - "corners": make sure all of the corners of the original image remain
+    in-bounds of the pinhole projection
+
+    - "centers-horizontal": make sure the extreme left-center and
+    right-center points in the original image remain in-bounds of the
+    pinhole projection
+
+    - "centers-vertical": make sure the extreme top-center and bottom-center
+    points in the original image remain in-bounds of the pinhole projection
+
+    - A list of pixel coordinates x0,y0,x1,y1,x2,y2,.... The focal-length
+    will be chosen to fit all of the given points
+
+    By default, the resolution of the generated pinhole model is the same as
+    the resolution of the input model. This can be adjusted by passing
+    --scale-image. For instance, passing "--scale-image 0.5" will generate a
+    pinhole model and images that are half the size of the input images, in
+    both the width and height.
 
     The output image(s) are written into the same directory as the input
     image(s), with annotations in the filename. This tool will refuse to
     overwrite any existing files unless --force is given.
 
+    It is often desired to apply transformations to lots of images in bulk.
+    To make this go faster, this tool supports the -j JOBS option. This
+    works just like in Make: the work will be parallelized amoung JOBS
+    simultaneous processes. Unlike make, the JOBS value must be specified.
+
 OPTIONS
   POSITIONAL ARGUMENTS
-      model-from         Camera model for the
-                         FROM image. Assumed
-                         to be mrcal native,
-                         Unless the name is
-                         xxx.cahvor, in which
-                         case the cahvor
-                         format is used.
-      model-to           Camera model for the
-                         TO image. Assumed to
-                         be mrcal native,
-                         Unless the name is
-                         xxx.cahvor, in which
-                         case the cahvor
-                         format is assumed
-      image-from         Image to undistort,
-                         remap, and redistort
-                         (unless IMAGE-TO is
-                         omitted)
-      image-to           By default I remap
-                         image0 into the
-                         distorted
-                         coordinates of
-                         image1. This is very
-                         slow, so a much
-                         faster option is to
-                         undistort both
-                         images. Pass the
-                         second image here to
-                         do that
+      model-from            Camera model for the FROM image(s). If "-' is given,
+                            we read standard input
+      model-to-and-image-globs
+                            Optionally, the camera model for the TO image.
+                            Followed, by the from/to image globs. See the mrcal-
+                            reproject-image documentation for the details.
 
   OPTIONAL ARGUMENTS
-      -h, --help         show this help
-                         message and exit
-      --force, -f        By default I don't
-                         overwrite existing
-                         files. Pass --force
-                         to overwrite them
-                         without complaint
-      --fit FIT          If IMAGE-TO is
-                         given, we undistort
-                         both images. This
-                         can be done with any
-                         set of pinhole
-                         intrinsics. This
-                         argument allows us
-                         to select how this
-                         is done. If given,
-                         we'll scale the
-                         focal length of the
-                         pinhole model to fit
-                         some of the original
-                         image into the
-                         output. This is one
-                         of "corners",
-                         "centers-
-                         horizontal",
-                         "centers-vertical".
-                         If omitted, we keep
-                         the focal lengths
-                         the same. If we KNOW
-                         the scaling we want,
-                         that can be passed-
-                         in directly with
-                         --scale-focal
-                         instead.
+      -h, --help            show this help message and exit
+      --to-pinhole          If given, we reproject the images to a pinhole model
+                            that's generated off the MODEL-FROM and --fit,
+                            --scale-focal, --scale-image. The generated pinhole
+                            model is written to the standard output
+      --intrinsics-only     If two camera models are given, then by default the
+                            relative camera rotation is used in the
+                            transformation. If we want to use the intrinsics ONLY,
+                            pass --intrinsics-only. Note that relative translation
+                            is ALWAYS ignored
+      --fit FIT             If we generate a target pinhole model (if --to-pinhole
+                            is given) then we can choose the focal length of the
+                            target model. This is a "zoom" operation. By default
+                            just use whatever value model-from has. Or we scale it
+                            by the value given in --scale-focal. Or we use --fit
+                            to scale the focal length intelligently. The --fit
+                            argument could be one of ("corners", "centers-
+                            horizontal", "centers-vertical"), or the argument
+                            could be given as a list of points
+                            x0,y0,x1,y1,x2,y2,.... The focal length scale woudl
+                            then be chosen to zoom in as far as possible, while
+                            fitting all of these points
       --scale-focal SCALE_FOCAL
-                         Used if IMAGE-TO is
-                         given: we'll scale
-                         the focal length of
-                         the pinhole models
-                         by this factor. This
-                         is a "zoom"
-                         operation. If we
-                         don't know the
-                         scaling, but wish to
-                         compute it based on
-                         fitting some points,
-                         use --fit instead
+                            If we generate a target pinhole model (if --to-pinhole
+                            is given) then we can choose the focal length of the
+                            target model. This is a "zoom" operation. By default
+                            just use whatever value model-from has. Or we scale it
+                            by the value given in --scale-focal. Or we use --fit
+                            to scale the focal length intelligently.
       --scale-image SCALE_IMAGE
-                         Used if IMAGE-TO is
-                         given: we'll scale
-                         the dimensions of
-                         the pinhole images
-                         by this factor. By
-                         default the scale is
-                         1.0, i.e. the
-                         undistorted and
-                         distorted images
-                         have the same size.
-                         This parameter
-                         changes the
-                         RESOLUTION of the
-                         output, unlike
-                         --scale-focal, which
-                         ZOOMS the output
-      --mode {distortion,infinity,plane}
-                         Specifies the mode
-                         of operation. The
-                         'distortion' mode
-                         only switches to a
-                         different lens
-                         model, ignoring
-                         extrinsics. The
-                         'infinity' mode
-                         switches to a
-                         different distortion
-                         model, and applies
-                         the relative
-                         rotation:
-                         infinitely-far away
-                         objects end up
-                         remapping to the
-                         same place, we
-                         ignore translations.
-                         The 'plane' mode
-                         maps a plane
-                         (specified by
-                         --plane-n and
-                         --plane-d) to the
-                         same place; we use
-                         all intrinsics and
-                         extrinsics
+                            If we generate a target pinhole model (if --to-pinhole
+                            is given) then we can choose the dimensions of the
+                            output image. By default we use the dimensions of
+                            model-from. If --scale-image is given, we use this
+                            value to scale the imager dimensions of model-from.
+                            This parameter changes the RESOLUTION of the output,
+                            unlike --scale-focal, which ZOOMS the output
       --plane-n PLANE_N PLANE_N PLANE_N
-                         If "--mode plane"
-                         this specifies the
-                         normal vector to the
-                         plane, in from-
-                         camera coordinates.
-                         The normal does not
-                         need to be
-                         normalized; any
-                         scaling is
-                         compensated in
-                         planed. The plane is
-                         all points p such
-                         that inner(p,planen)
-                         = planed. Unused in
-                         any other mode
-      --plane-d PLANE_D  If "--mode plane"
-                         this specifies the
-                         distance-along-the-
-                         normal to the plane,
-                         in from-camera
-                         coordinates. The
-                         plane is all points
-                         p such that
-                         inner(p,planen) =
-                         planed. Unused in
-                         any other mode
+                            We're reprojecting a plane. The normal vector to this
+                            plane is given here, in from-camera coordinates. The
+                            normal does not need to be normalized; any scaling is
+                            compensated in planed. The plane is all points p such
+                            that inner(p,planen) = planed
+      --plane-d PLANE_D     We're reprojecting a plane. The distance-along-the-
+                            normal to the plane, in from-camera coordinates is
+                            given here. The plane is all points p such that
+                            inner(p,planen) = planed
+      --outdir OUTDIR       Directory to write the output images into. If omitted,
+                            we write the output images to the same directory as
+                            the input images
+      --force, -f           By default existing files are not overwritten. Pass
+                            --force to overwrite them without complaint
+      --jobs JOBS, -j JOBS  parallelize the processing JOBS-ways. This is like
+                            Make, except you're required to explicitly specify a
+                            job count.
 
 
 #+END_EXAMPLE
@@ -1377,25 +1147,13 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      intrinsics  Input camera model for the
-                  intrinsics. Assumed to be
-                  mrcal native, Unless the
-                  name is xxx.cahvor, in
-                  which case the cahvor
-                  format is assumed
-      extrinsics  Input camera model for the
-                  extrinsics. Assumed to be
-                  mrcal native, Unless the
-                  name is xxx.cahvor, in
-                  which case the cahvor
-                  format is assumed
+      intrinsics  Input camera model for the intrinsics. If "-' is given, we read
+                  standard input
+      extrinsics  Input camera model for the extrinsics. If "-' is given, we read
+                  standard input
 
   OPTIONAL ARGUMENTS
-      -h, --help  show this help message and
-                  exit
-      --cahvor    If given, we write the
-                  output using the cahvor
-                  file format
+      -h, --help  show this help message and exit
 
 
 #+END_EXAMPLE
@@ -1405,8 +1163,9 @@ NAME
     mrcal-to-cahvor - Converts model to the cahvor file format
 
 SYNOPSIS
-      $ mrcal-to-cahvor model.cameramodel
-      Wrote model.cahvor
+      $ mrcal-to-cahvor model1.cameramodel model2.cameramodel
+      Wrote model1.cahvor
+      Wrote model2.cahvor
 
 DESCRIPTION
     This tool converts a given model to the cahvor file format. No changes
@@ -1416,11 +1175,15 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model       Input camera model
+      model            Input camera model
 
   OPTIONAL ARGUMENTS
-      -h, --help  show this help message and
-                  exit
+      -h, --help       show this help message and exit
+      --force, -f      By default existing files are not overwritten. Pass --force
+                       to overwrite them without complaint
+      --outdir OUTDIR  Directory to write the output models into. If omitted, we
+                       write the output models to the same directory as the input
+                       models
 
 
 #+END_EXAMPLE
@@ -1430,8 +1193,9 @@ NAME
     mrcal-to-cameramodel - Converts model to the cameramodel file format
 
 SYNOPSIS
-      $ mrcal-to-cameramodel model.cahvor
-      Wrote model.cameramodel
+      $ mrcal-to-cameramodel model1.cahvor model2.cahvor
+      Wrote model1.cameramodel
+      Wrote model2.cameramodel
 
 DESCRIPTION
     This tool converts a given model to the cameramodel file format. No
@@ -1441,22 +1205,26 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model       Input camera model
+      model            Input camera model
 
   OPTIONAL ARGUMENTS
-      -h, --help  show this help message and
-                  exit
+      -h, --help       show this help message and exit
+      --force, -f      By default existing files are not overwritten. Pass --force
+                       to overwrite them without complaint
+      --outdir OUTDIR  Directory to write the output models into. If omitted, we
+                       write the output models to the same directory as the input
+                       models
 
 
 #+END_EXAMPLE
-** mrcal-show-geometry
+** mrcal-show-calibration-geometry
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-geometry - Shows the geometry defined by the camera
-    extrinsics
+    mrcal-show-calibration-geometry - Shows the calibration geometry defined
+    by the camera extrinsics
 
 SYNOPSIS
-      $ mrcal-show-geometry *.cameramodel
+      $ mrcal-show-calibration-geometry *.cameramodel
       ... a plot pops up showing the camera arrangement
 
 DESCRIPTION
@@ -1465,37 +1233,177 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      models             Camera models to
-                         visualize. Any N
-                         cameras can be given
+      models                Camera models to visualize. Any N cameras can be given
 
   OPTIONAL ARGUMENTS
-      -h, --help         show this help
-                         message and exit
+      -h, --help            show this help message and exit
       --scale-axes SCALE_AXES
-                         Scale for the camera
-                         axes. By default
-                         these are 1.0m long
-      --title TITLE      Title string for the
-                         plot
-      --hardcopy HARDCOPY
-                         Write the output to
-                         disk, instead of
-                         making an
-                         interactive plot
+                            Scale for the camera axes. By default these are 1.0m
+                            long
+      --title TITLE         Title string for the plot
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
       --transforms TRANSFORMS
-                         Optional
-                         transforms.txt. This
-                         is a legacy file
-                         representing an
-                         extra transformation
-                         for each camera.
-                         Most usages will
-                         omit this
+                            Optional transforms.txt. This is a legacy file
+                            representing an extra transformation for each camera.
+                            Most usages will omit this
 
 
 #+END_EXAMPLE
+** mrcal-show-valid-intrinsics-region
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-show-valid-intrinsics-region - Visualize the valid-intrinsics
+    region
 
+SYNOPSIS
+      $ mrcal-show-valid-intrinsics-region --writeimage --image image.png left.cameramodel
+      Wrote image-valid-intrinsics-region.png
+
+DESCRIPTION
+    Given a camera model, this tool renders the valid-intrinsics region. If
+    an image is given, the region is rendered overlaid onto the image.
+
+    Without --writeimage we make a plot with gnuplot. If --points then we
+    also read x,y points from STDIN, and plot those.
+
+    With --writeimage, the output is another IMAGE instead of a plot. We
+    don't plot points from STDIN in this case
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model                Input camera model(s)
+
+  OPTIONAL ARGUMENTS
+      -h, --help           show this help message and exit
+      --writeimage         By default I make a plot. If --writeimage is given, I
+                           output an annotated image instead
+      --points             If given, I read a set of xy points from STDIN, and
+                           include them in the plot. This applies ONLY if not
+                           --writeimage
+      --title TITLE        Extra title string for the plot
+      --hardcopy HARDCOPY  Write the output to disk, instead of making an
+                           interactive plot
+      --extraset EXTRASET  Extra 'set' directives to gnuplot. Can be given
+                           multiple times
+      --image IMAGE        Image to annotate
+
+
+#+END_EXAMPLE
+** mrcal-is-within-valid-intrinsics-region
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-is-within-valid-intrinsics-region - Reports which input points lie
+    within the valid-intrinsics region
+
+SYNOPSIS
+      $ < points-in.vnl
+        mrcal-is-within-valid-intrinsics-region --cols-xy x y
+          camera.cameramodel
+        > points-annotated.vnl
+
+DESCRIPTION
+    mrcal camera models may have an estimate of the region of the imager
+    where the intrinsics are trustworthy (originally computed with a
+    low-enough error and uncertainty). When using a model, we may want to
+    process points that fall outside of this region differently from points
+    that fall within this region. This tool augments an incoming vnlog with
+    a new column, indicating whether each point does or does not fall within
+    the region.
+
+    The input data comes in on standard input, and the output data is
+    written to standard output. Both are vnlog data: a human-readable table
+    of ascii text. The names of the x and y columns in the input are given
+    in the required --cols-xy argument. The output contains all the columns
+    from the input, with an extra column appended at the end, containing the
+    results. The name of this column can be specified with --col-output, but
+    this can be omitted if the default 'is-within-valid-intrinsics-region'
+    is acceptable.
+
+OPTIONS
+  POSITIONAL ARGUMENTS
+      model                 Camera model
+
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --cols-xy COLS_XY COLS_XY
+                            The names of the columns in the input containing the x
+                            and y pixel coordinates respectively. This is required
+      --col-output COL_OUTPUT
+                            The name of the column to append in the output. This
+                            is optional; a reasonable default will be used if
+                            omitted
+
+
+#+END_EXAMPLE
+** mrcal-cull-corners
+#+BEGIN_EXAMPLE
+NAME
+    mrcal-cull-corners - Filters a corners.vnl on stdin to cut out some
+    points
+
+SYNOPSIS
+      $ < corners.vnl mrcal-cull-corners --cull-left-of 1000 > corners.culled.vnl
+
+DESCRIPTION
+    This tool reads a set of corner detections on stdin, throws some of them
+    out, and writes the result to stdout. This is useful for testing and
+    evaluating the performance of the mrcal calibration tools.
+
+    The specific operation of this tool is defined on which --cull-...
+    option is given. Exactly one is required:
+
+      --cull-left-of X: throw away all corner observations to the left of the given
+        X coordinate
+
+      --cull-rad-off-center D: throw away all corner observations further than D
+        away from the imager center. --imagersize must be given also so that we know
+        where the imager center is
+
+      --cull-random-observations-ratio R: throws away a ratio R object observations
+        at random. To throw out half of all object observations, pass R = 0.5.
+        --object-width-n and --object-height-n are then required to make the parsing
+        work
+
+    --cull-left-of X and --cull-rad-off-center throw out individual points.
+    This is done by keeping the point in the output data strem, but setting
+    its decimation level to '-'. The downstream tools then know to ignore
+    those points
+
+    --cull-random-observations-ratio throws out whole object observations,
+    not just individual points. These removed observations do not appear in
+    the output data stream at all
+
+OPTIONS
+  OPTIONAL ARGUMENTS
+      -h, --help            show this help message and exit
+      --object-width-n OBJECT_WIDTH_N
+                            How many points the calibration board has per
+                            horizontal side. This is required if --cull-random-
+                            observation-ratio
+      --object-height-n OBJECT_HEIGHT_N
+                            How many points the calibration board has per vertical
+                            side. If omitted, I assume a square object and use the
+                            same value as --object-width-n
+      --imagersize IMAGERSIZE IMAGERSIZE
+                            Size of the imager. This is required if --cull-rad-
+                            off-center
+      --cull-left-of CULL_LEFT_OF
+                            Throw out all observations with x < the given value.
+                            Exclusive with the other --cull-... options
+      --cull-rad-off-center CULL_RAD_OFF_CENTER
+                            Throw out all observations with dist_from_center > the
+                            given value. Exclusive with the other --cull-...
+                            options
+      --cull-random-observations-ratio CULL_RANDOM_OBSERVATIONS_RATIO
+                            Throw out a random number of board observations. The
+                            ratio of observations is given as the argument. 1.0 =
+                            throw out ALL the observations; 0.0 = throw out NONE
+                            of the observations. Exclusive with the other
+                            --cull-... options
+
+
+#+END_EXAMPLE
 
 * REPOSITORY
 
