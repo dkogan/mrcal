@@ -70,7 +70,7 @@ void mrcal_rotate_point_R( // output
 
 
 // mrcal_rotate_point_r() uses auto-differentiation, so it's implemented in C++
-// in poseutils-hasgrad.cc
+// in poseutils-uses-autodiff.cc
 
 
 // Apply a transformation to a point

@@ -15,7 +15,7 @@ import numpysane_pywrap as npsp
 m = npsp.module( name      = "poseutils",
                  docstring = "geometry utils",
                  header    = r'''
-#include "poseutils.h"
+#include "../poseutils.h"
 #include <string.h>
 ''')
 

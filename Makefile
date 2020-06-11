@@ -6,7 +6,8 @@ PROJECT_NAME := mrcal
 ABI_VERSION  := 0
 TAIL_VERSION := 0
 
-LIB_SOURCES += mrcal.c
+LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc
+
 BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
 
 CXXFLAGS_CV := $(shell pkg-config --cflags opencv)

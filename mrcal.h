@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "basic_points.h"
+#include "poseutils.h"
 
 
 // unconstrained 6DOF pose containing a rodrigues rotation and a translation
