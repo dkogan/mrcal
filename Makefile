@@ -92,6 +92,9 @@ mrcal/_poseutils$(PY_EXT_SUFFIX): poseutils-pywrap-generated.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 EXTRA_CLEAN += poseutils-pywrap-generated.c
 
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95635
+poseutils-pywrap-generated.o: CFLAGS += -Wno-array-bounds
+
 mrcal_pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal_pywrap.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
