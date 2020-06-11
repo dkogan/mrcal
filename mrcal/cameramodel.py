@@ -628,7 +628,7 @@ class cameramodel(object):
 
           r = rt[:3]
           t = rt[3:]
-          R = cv2.Rodrigues(r)[0]
+          R = mrcal.R_from_r(r)
 
         The transformation is b <-- R*a + t:
 
@@ -670,7 +670,7 @@ class cameramodel(object):
 
           r = rt[:3]
           t = rt[3:]
-          R = cv2.Rodrigues(r)[0]
+          R = mrcal.R_from_r(r)
 
         The transformation is b <-- R*a + t:
 
@@ -695,7 +695,7 @@ class cameramodel(object):
 
           r = rt[:3]
           t = rt[3:]
-          R = cv2.Rodrigues(r)[0]
+          R = mrcal.R_from_r(r)
 
         The transformation is b <-- R*a + t:
 

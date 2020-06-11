@@ -107,8 +107,8 @@ coordinate system =B= to a representation in coordinate system =A=. =B=
 
 A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
 around an axis in the direction =r=. Converting between =R= and =r= is done via
-the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]. This is implemented in OpenCV Python function
-=cv2.Rodrigues=. For translating /poses/, not just rotations, use
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]. This is done with =mrcal.r_from_R() and
+mrcal.R_from_r()=. For translating /poses/, not just rotations, use
 =mrcal.Rt_from_rt()= and =mrcal.rt_from_Rt()=.
 
 ** Camera model file formats

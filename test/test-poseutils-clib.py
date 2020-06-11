@@ -4,12 +4,12 @@ import sys
 import numpy as np
 import numpysane as nps
 import os
-
 testdir = os.path.dirname(os.path.realpath(__file__))
 
 # I import the LOCAL mrcal since that's what I'm testing
 sys.path[:0] = f"{testdir}/..",
 import mrcal
+import cv2
 from testutils import *
 
 import mrcal._poseutils as poseutils
@@ -271,6 +271,18 @@ confirm_equal( R,
 confirm_equal( J_r,
                J_r_ref,
                msg='R_from_r J_r')
+
+# Do it again, actually calling opencv. This is both a test, and shows how to
+# migrate old code
+Rref,J_r_ref = cv2.Rodrigues(r0_ref)
+J_r_ref = nps.transpose(J_r_ref) # fix opencv's weirdness. Now shape=(9,3)
+J_r_ref = J_r_ref.reshape(3,3,3)
+confirm_equal( R,
+               Rref,
+               msg='R_from_r result, comparing with cv2.Rodrigues')
+confirm_equal( J_r,
+               J_r_ref,
+               msg='R_from_r J_r, comparing with cv2.Rodrigues')
 
 rt = poseutils.rt_from_Rt(Rt0_ref)
 confirm_equal( rt,

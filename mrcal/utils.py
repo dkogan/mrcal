@@ -2250,16 +2250,16 @@ def compute_Rcompensating(q0, v0, v1,
         return 1 - nps.inner(nps.matmult(v0,R), v1)
 
     def residual_jacobian(r):
-        R,dRdr = cv2.Rodrigues(r)
-        dRdr = nps.transpose(dRdr) # fix opencv's weirdness. Now shape=(9,3)
+        R,dRdr = mrcal.R_from_r(r, get_gradients=True)
+        # dRdr has shape (3,3,3). First 2 for R, last 1 for r
 
         x = angle_err_sq(V0fit, V1fit, R)
 
         # dx/dr = d(1-c)/dr = - V1ct dV0R/dr
         dV0R_dr = \
-            nps.dummy(V0fit[..., (0,)], axis=-1) * dRdr[0:3,:] + \
-            nps.dummy(V0fit[..., (1,)], axis=-1) * dRdr[3:6,:] + \
-            nps.dummy(V0fit[..., (2,)], axis=-1) * dRdr[6:9,:]
+            nps.dummy(V0fit[..., (0,)], axis=-1) * dRdr[0,:,:] + \
+            nps.dummy(V0fit[..., (1,)], axis=-1) * dRdr[1,:,:] + \
+            nps.dummy(V0fit[..., (2,)], axis=-1) * dRdr[2,:,:]
 
         J = -nps.matmult(nps.dummy(V1fit, -2), dV0R_dr)[..., 0, :]
         return x,J
@@ -2313,7 +2313,7 @@ def compute_Rcompensating(q0, v0, v1,
     # I compute a procrustes fit using ONLY data in the region of interest.
     # This is used to seed the nonlinear optimizer
     R_procrustes = align3d_procrustes( V0cut, V1cut, vectors=True)
-    r_procrustes,_ = cv2.Rodrigues(R_procrustes)
+    r_procrustes = mrcal.r_from_R(R_procrustes)
     r_procrustes = r_procrustes.ravel()
 
     esq = angle_err_sq(v0,v1,R_procrustes)
@@ -2355,12 +2355,12 @@ def compute_Rcompensating(q0, v0, v1,
                                        args=(cache,),
                                        verbose=0)
     r_fit = res.x
-    R_fit,_ = cv2.Rodrigues(r_fit)
+    R_fit = mrcal.R_from_r(r_fit)
 
     # # A simpler routine to JUST move pitch/yaw to align the optical axes
-    # r,_ = cv2.Rodrigues(R)
+    # r = mrcal.r_from_R(R)
     # r[2] = 0
-    # R,_ = cv2.Rodrigues(r)
+    # R = mrcal.R_from_r(r)
     # dth_x = \
     #     np.arctan2( intrinsics_data[i,2] - imagersizes[i,0],
     #                 intrinsics_data[i,0] ) - \
@@ -2372,7 +2372,7 @@ def compute_Rcompensating(q0, v0, v1,
     #     np.arctan2( intrinsics_data[0,3] - imagersizes[1,1],
     #                 intrinsics_data[0,1] )
     # r = np.array((-dth_y, dth_x, 0))
-    # R,_ = cv2.Rodrigues(r)
+    # R = mrcal.R_from_r(r)
 
     return R_fit
 
