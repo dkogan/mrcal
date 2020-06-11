@@ -65,7 +65,6 @@ void mrcal_transform_point_rt(// output
 // Convert a rotation representation from a matrix to a Rodrigues vector
 void mrcal_r_from_R( // output
                     double* r, // (3) vector
-                    double* J, // (3,3,3) array. Gradient. May be NULL
 
                     // input
                     const double* R // (3,3) array

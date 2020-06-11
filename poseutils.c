@@ -290,6 +290,44 @@ void mrcal_R_from_r( // outputs
         }
     }
 }
+void mrcal_r_from_R( // output
+                    double* r, // (3) vector
+
+                    // input
+                    const double* R // (3,3) array
+                   )
+{
+    double tr    = R[0] + R[4] + R[8];
+    double costh = (tr - 1.) / 2.;
+
+    double th = acos(costh);
+    double axis[3] =
+        {
+            R[2*3 + 1] - R[1*3 + 2],
+            R[0*3 + 2] - R[2*3 + 0],
+            R[1*3 + 0] - R[0*3 + 1]
+        };
+
+    if(th > 1e-10)
+    {
+        // normal path
+        double mag_axis_recip =
+            1. /
+            sqrt(axis[0]*axis[0] +
+                 axis[1]*axis[1] +
+                 axis[2]*axis[2]);
+        for(int i=0; i<3; i++)
+            r[i] = axis[i] * mag_axis_recip * th;
+    }
+    else
+    {
+        // small th. Can't divide by it. But I can look at the limit.
+        //
+        // axis / (2 sinth)*th = axis/2 *th/sinth ~ axis/2
+        for(int i=0; i<3; i++)
+            r[i] = axis[i] / 2.;
+    }
+}
 
 // Convert a transformation representation from Rt to rt. This is mostly a
 // convenience functions since 99% of the work is done by mrcal_r_from_R(). No
@@ -302,7 +340,7 @@ void mrcal_rt_from_Rt( // output
                       const double* Rt // (4,3) array
                      )
 {
-    mrcal_r_from_R(rt, NULL, Rt);
+    mrcal_r_from_R(rt, Rt);
     for(int i=0; i<3; i++) rt[i+3] = Rt[i+9];
 }
 

@@ -281,7 +281,6 @@ m.function( "r_from_R",
                 {np.float64:
                  r'''
     mrcal_r_from_R( (double*)data_slice__output,
-                    NULL,
                     (const double*)data_slice__R );
     return true;
 '''},
