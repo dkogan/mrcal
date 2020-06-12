@@ -1851,7 +1851,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         }
 
         double* c_covariance_extrinsics = NULL;
-        if(Ncameras_extrinsics > 1 &&
+        if(Ncameras_extrinsics >= 1 &&
            get_covariances && PyObject_IsTrue(get_covariances))
         {
             covariance_extrinsics =
