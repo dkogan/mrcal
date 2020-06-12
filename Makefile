@@ -131,15 +131,8 @@ TESTS :=					\
   test/test-calibration.py			\
   test/test-lensmodel-string-manipulation
 
-TESTS_RUN := $(addsuffix .RUN,$(TESTS))
-test check: $(TESTS_RUN)
-	@echo "All tests in the test suite passed!"
-$(TESTS_RUN): all
+test check: all
+	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $t || SOMEFAILED=1; ) test -z "$$SOMEFAILED"
 .PHONY: test check
-
-%.RUN: %
-	@echo "Running test 'make $@'"
-	@$<
-
 
 include /usr/include/mrbuild/Makefile.common.footer
