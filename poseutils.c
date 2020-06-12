@@ -393,7 +393,7 @@ void mrcal_invert_rt( // output
 
 // Compose two Rt transformations
 //   R0*(R1*x + t1) + t0 =
-//   R0*R1*x + R0*t1+t0
+//   (R0*R1)*x + R0*t1+t0
 void mrcal_compose_Rt( // output
                       double* Rt_out, // (4,3) array
 
@@ -413,9 +413,17 @@ void mrcal_compose_Rt( // output
     add_vec(3, &Rt_out[9], &Rt_0[9]);
 }
 
-// Compose two rt transformations
+// Compose two rt transformations. It is assumed that we're getting no gradients
+// at all or we're getting ALL the gradients: only dr_r0 is checked for NULL
+//
+// dt_dr1 is not returned: it is always 0
+// dt_dt0 is not returned: it is always the identity matrix
 void mrcal_compose_rt( // output
                       double* rt_out, // (6) array
+                      double* dr_r0,  // (3,3) array; may be NULL
+                      double* dr_r1,  // (3,3) array; may be NULL
+                      double* dt_r0,  // (3,3) array; may be NULL
+                      double* dt_t1,  // (3,3) array; may be NULL
 
                       // input
                       const double* rt_0, // (6) array
@@ -423,11 +431,93 @@ void mrcal_compose_rt( // output
                      )
 {
     // I convert this to Rt to get the composition, and then convert back
-    double Rt_out[12];
-    double Rt_0  [12];
-    double Rt_1  [12];
-    mrcal_Rt_from_rt(Rt_0,   rt_0);
-    mrcal_Rt_from_rt(Rt_1,   rt_1);
-    mrcal_compose_Rt(Rt_out, Rt_0, Rt_1);
-    mrcal_rt_from_Rt(rt_out, Rt_out);
+    if(dr_r0 == NULL)
+    {
+        // no gradients
+        double Rt_out[4*3];
+        double Rt_0  [4*3];
+        double Rt_1  [4*3];
+        mrcal_Rt_from_rt(Rt_0,   rt_0);
+        mrcal_Rt_from_rt(Rt_1,   rt_1);
+        mrcal_compose_Rt(Rt_out, Rt_0, Rt_1);
+        mrcal_rt_from_Rt(rt_out, Rt_out);
+        return;
+    }
+
+    // Alright. gradients!
+    // I have (R0*R1)*x + R0*t1+t0
+    //   r = r_from_R(R0*R1)
+    //   t = R0*t1+t0
+
+    double* R0 = dt_t1; // this one is easy!
+
+    double dR0_dr0[3*3*3];
+    mrcal_R_from_r( R0, dR0_dr0, rt_0 );
+
+    double R1[3*3];
+    double dR1_dr1[3*3*3];
+    mrcal_R_from_r( R1, dR1_dr1, rt_1 );
+
+    double R[3*3];
+    mul_genN3_gen33_vout(3, R0, R1,  R);
+
+    double dr_dR[3*3*3];
+    mrcal_r_from_R( rt_out, dr_dR, R);
+
+    mul_vec3_gen33t_vout( &rt_1[3], R0, &rt_out[3]);
+    add_vec(3, &rt_out[3], &rt_0[3]);
+
+    // dr/dvecr0 = dr/dvecR dvecR/dvecR0 dvecR0/dvecr0
+    // R = R0*R1
+    // vecR = [ inner(R0[0:3], R1t[0:3]),inner(R0[0:3], R1t[4:6]),inner(R0[0:3], R1t[7:9]),
+    //          inner(R0[4:6], R1t[0:3]),inner(R0[4:6], R1t[4:6]),inner(R0[4:6], R1t[7:9]),
+    //          inner(R0[7:9], R1t[0:3]),inner(R0[7:9], R1t[4:6]),inner(R0[7:9], R1t[7:9]), ]
+    //      = [ R1t * R0[0:3]t ]
+    //      = [ R1t * R0[3:6]t ]
+    //      = [ R1t * R0[6:9]t ]
+    //                     [R1t]
+    // dvecR/dvecR0[0:3] = [ 0 ]
+    //                     [ 0 ]
+    //                     [R1t]
+    // dvecR/dvecR0[3:6] = [ 0 ]
+    //                     [ 0 ]
+    // ... -> dvecR/dvecR0 = blockdiag(R1t,R1t,R1t) ->
+    //                         [D]                         [D]
+    // -> [A B C] dvecR/dvecR0 [E] = [A R1t  B R1t  C R1t] [E] =
+    //                         [F]                         [F]
+    //
+    // = A R1t D + B R1t E + C R1t F
+    memset(dr_r0, 0, 3*3*sizeof(dr_r0[0]));
+    for(int i=0; i<3; i++)
+    {
+        // compute dr_dR R1t dR0_dr0 for submatrix i
+        double dr_dR_R1t[3*3];
+        for(int j=0; j<3; j++)
+            for(int k=0; k<3; k++)
+                dr_dR_R1t[j*3+k] = dot_vec( 3, &dr_dR[3*i + j*9], &R1[3*k] );
+
+        mul_genN3_gen33_vaccum(3, dr_dR_R1t, &dR0_dr0[9*i], dr_r0);
+    }
+
+    // dr/dvecr1 = dr/dvecR dvecR/dvecR1 dvecR1/dvecr1
+    // R = R0*R1
+    // dvecR/dvecR1 = [ R0_00 I   R0_01 I   R0_02 I]
+    //              = [ R0_10 I   R0_11 I   R0_12 I]
+    //              = [ R0_20 I   R0_21 I   R0_22 I]
+    //                         [D]
+    // -> [A B C] dvecR/dvecR1 [E] =
+    //                         [F]
+    // = AD R0_00 + AE R0_01 + AF R0_02 + ...
+    memset(dr_r1, 0, 3*3*sizeof(dr_r1[0]));
+    for(int i=0; i<3; i++)
+        for(int j=0; j<3; j++)
+            for(int k=0; k<3; k++)
+                mul_vec3_gen33_vaccum_scaled(&dr_dR[i*3 + 9*k], &dR1_dr1[9*j], &dr_r1[3*k], R0[i*3+j]);
+
+
+    // t = R0*t1+t0
+    // t[0] = inner(R0[0:3], t1)
+    // -> dt[0]/dr0 = t1t dR0[0:3]/dr0
+    for(int i=0; i<3; i++)
+        mul_vec3_gen33_vout(&rt_1[3], &dR0_dr0[9*i], &dt_r0[i*3]);
 }

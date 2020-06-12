@@ -437,4 +437,36 @@ m.function( "_compose_Rt",
 '''
 )
 
+m.function( "_compose_rt_withgrad",
+            "Compose 2 rt transformations; Return (rt,dr/dr0,dr/dr1,dt/dr0,dt/dt1)\n"
+            "\n"
+            "Given 2 Rt transformations, return their composition. This is an internal\n"
+            "function used by mrcal.compose_rt(), which supports >2 input transformations.\n"
+            "THIS path is used from Python only if we need gradients"
+            "\n"
+            "dt_dr1 is not returned: it is always 0\n"
+            "dt_dt0 is not returned: it is always the identity matrix\n",
+
+            args_input       = ('rt0', 'rt1'),
+            prototype_input  = ((6,), (6,)),
+            prototype_output = ((6,), (3,3),(3,3),(3,3),(3,3)),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_rt( (double*)data_slice__output0,
+                      (double*)data_slice__output1,
+                      (double*)data_slice__output2,
+                      (double*)data_slice__output3,
+                      (double*)data_slice__output4,
+                      (const double*)data_slice__rt0,
+                      (const double*)data_slice__rt1 );
+    return true;
+'''},
+            Ccode_validate = r'''
+            return \
+              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
+'''
+)
+
 m.write()

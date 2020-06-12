@@ -52,13 +52,19 @@ def compose_Rt(*args):
     '''
     return reduce( _poseutils._compose_Rt, args, _poseutils.identity_Rt() )
 
-def compose_rt(*args):
+def compose_rt(*args, get_gradients=False):
     r'''Composes rt transformations
 
-    Given some number (2 or more, presumably) of rt transformations, returns
-    their composition
-
+    Given some number of rt transformations, returns their composition. If
+    exactly 2 transformations and a get_gradients=True kwargs is given, we
+    return a tuple (rt,dr/dr0,dr/dr1,dt/dr0,dt/dt0,dt/dr1,dt/dt1). Gradients are
+    only available if we're composing exactly 2 transformations
     '''
+
+    if get_gradients:
+        if len(args) != 2:
+            raise Exception("compose_rt(get_gradients=True) is supported only if exactly 2 inputs are given")
+        return _poseutils._compose_rt_withgrad(*args)
 
     return _poseutils.rt_from_Rt( compose_Rt( *[_poseutils.Rt_from_rt(rt) for rt in args] ) )
 

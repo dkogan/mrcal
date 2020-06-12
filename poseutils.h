@@ -157,9 +157,17 @@ void mrcal_compose_Rt( // output
                       const double* Rt_0, // (4,3) array
                       const double* Rt_1  // (4,3) array
                      );
-// Compose two rt transformations
+// Compose two rt transformations. It is assumed that we're getting no gradients
+// at all or we're getting ALL the gradients: only dr_r0 is checked for NULL
+//
+// dt_dr1 is not returned: it is always 0
+// dt_dt0 is not returned: it is always the identity matrix
 void mrcal_compose_rt( // output
                       double* rt_out, // (6) array
+                      double* dr_r0,  // (3,3) array; may be NULL
+                      double* dr_r1,  // (3,3) array; may be NULL
+                      double* dt_r0,  // (3,3) array; may be NULL
+                      double* dt_t1,  // (3,3) array; may be NULL
 
                       // input
                       const double* rt_0, // (6) array

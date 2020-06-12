@@ -350,4 +350,24 @@ confirm_equal( Rt2,
                compose_Rt(Rt0_ref, Rt1_ref),
                msg='compose_Rt result')
 
+rt2,dr2_dr0,dr2_dr1,dt2_dr0,dt2_dt1 = poseutils._compose_rt_withgrad(rt0_ref, rt1_ref)
+dr2_dr0_ref = grad(lambda r0: compose_rt( nps.glue(r0,rt0_ref[3:], axis=-1), rt1_ref)[:3], rt0_ref[:3])
+dr2_dr1_ref = grad(lambda r1: compose_rt( rt0_ref, nps.glue(r1,rt1_ref[3:], axis=-1))[:3], rt1_ref[:3])
+dt2_dr0_ref = grad(lambda r0: compose_rt( nps.glue(r0,rt0_ref[3:], axis=-1), rt1_ref)[3:], rt0_ref[:3])
+dt2_dt1_ref = grad(lambda t1: compose_rt( rt0_ref, nps.glue(rt1_ref[:3],t1, axis=-1))[3:], rt0_ref[3:])
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt result')
+confirm_equal( dr2_dr0,
+               dr2_dr0_ref,
+               msg='compose_rt dr2_dr0')
+confirm_equal( dr2_dr1,
+               dr2_dr1_ref,
+               msg='compose_rt dr2_dr1')
+confirm_equal( dt2_dr0,
+               dt2_dr0_ref,
+               msg='compose_rt dt2_dr0')
+confirm_equal( dt2_dt1,
+               dt2_dt1_ref,
+               msg='compose_rt dt2_dt1')
 finish()
