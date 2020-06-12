@@ -488,7 +488,7 @@ def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
 
 def calobservations_project(lensmodel, intrinsics, extrinsics, frames,
                             object_spacing,
-                            object_width_n,
+                            object_width_n, object_height_n,
                             calobject_warp):
     r'''Takes in the same arguments as mrcal.optimize(), and returns all
     the projections. Output has shape (Nframes,Ncameras,object_height_n,object_width_n,2)
