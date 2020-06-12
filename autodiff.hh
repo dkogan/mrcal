@@ -153,30 +153,54 @@ struct vec_withgrad_t
     val_withgrad_t<NGRAD> v[NVEC];
 
     vec_withgrad_t() {}
-    vec_withgrad_t(const double* x, int i_gradvec0 = -1)
+
+    void init_vars(const double* x_in, int ivar0, int Nvars, int i_gradvec0 = -1,
+
+                   // stride of the input, in the number of elements. Note: THIS
+                   // IS DIFFERENT FROM THE USER-FACING FUNCTIONS THAT USE
+                   // STRIDES IN BYTES
+                   int stride = 1)
     {
-        // x[] is a vector of length NVEC. It represents consecutive gradient
-        // variables starting at i_gradvec0. It's very possible that NGRAD >
-        // NVEC. Initially the subset of the gradient array corresponding to
-        // variables i_gradvec0..i_gradvec0+NVEC-1 is an identity, with the rest
-        // being 0
-        memset(v, 0, sizeof(v));
-        for(int i=0; i<NVEC; i++)
+        // Initializes vector entries ivar0..ivar0+Nvars-1 inclusive using the
+        // data in x_in[]. x_in[0] corresponds to vector entry ivar0. If
+        // i_gradvec0 >= 0 then vector ivar0 corresponds to gradient index
+        // i_gradvec0, with all subsequent entries being filled-in
+        // consecutively. It's very possible that NGRAD > Nvars. Initially the
+        // subset of the gradient array corresponding to variables
+        // i_gradvec0..i_gradvec0+Nvars-1 is an identity, with the rest being 0
+        memset((char*)&v[ivar0], 0, Nvars*sizeof(v[0]));
+        for(int i=ivar0; i<ivar0+Nvars; i++)
         {
-            v[i].x = x[i];
-            if(i_gradvec0 >= 0) v[i].j[i_gradvec0+i] = 1.0;
+            v[i].x = x_in[ (i-ivar0)*stride ];
+            if(i_gradvec0 >= 0)
+                v[i].j[i_gradvec0+i-ivar0] = 1.0;
         }
     }
 
-    void extract_value(double* out) const
+    vec_withgrad_t(const double* x_in, int i_gradvec0 = -1)
     {
-        for(int i=0; i<NVEC; i++)
-            out[i] = v[i].x;
+        init_vars(x_in, 0, NVEC, i_gradvec0);
     }
-    void extract_grad(double* J, int i_gradvec0, int N_gradout) const
+
+    void extract_value(double* out,
+                       // stride, in the number of elements. Note: THIS
+                       // IS DIFFERENT FROM THE USER-FACING FUNCTIONS THAT USE
+                       // STRIDES IN BYTES
+                       int stride = 1,
+                       int ivar0 = 0, int Nvars = NVEC) const
     {
-        for(int i=0; i<NVEC; i++)
+        for(int i=ivar0; i<ivar0+Nvars; i++)
+            out[(i-ivar0)*stride] = v[i].x;
+    }
+    void extract_grad(double* J,
+                      int i_gradvec0, int N_gradout,
+                      int ivar0 = 0, int Nvars = NVEC,
+                      int stride_var = -1, int stride_grad = 1) const
+    {
+        if(stride_var <= 0) stride_var = N_gradout;
+
+        for(int i=ivar0; i<ivar0+Nvars; i++)
             for(int j=0; j<N_gradout; j++)
-                J[N_gradout*i + j] = v[i].j[i_gradvec0+j];
+                J[(i-ivar0)*stride_var + j*stride_grad] = v[i].j[i_gradvec0+j];
     }
 };

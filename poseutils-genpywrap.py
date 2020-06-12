@@ -267,11 +267,8 @@ m.function( "_transform_point_rt_withgrad",
 '''
 )
 
-m.function( "r_from_R",
-            "Compute a Rodrigues vector from a rotation matrix\n"
-            "\n"
-            "The meaning of a gradient here is ambiguous: how do you treat the constraints\n"
-            "on R? Thus this function has no gradient-reporting flavor\n",
+m.function( "_r_from_R",
+            "Compute a Rodrigues vector from a rotation matrix",
 
             args_input       = ('R',),
             prototype_input  = ((3,3),),
@@ -283,6 +280,24 @@ m.function( "r_from_R",
     mrcal_r_from_R_noncontiguous(
                  (double*)data_slice__output,strides_slice__output[0],
                  NULL,0,0,0,
+                 (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
+    return true;
+'''}
+)
+
+m.function( "_r_from_R_withgrad",
+            "Compute a Rodrigues vector and a gradient from a rotation matrix",
+
+            args_input       = ('R',),
+            prototype_input  = ((3,3),),
+            prototype_output = ((3,),(3,3,3)),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_r_from_R_noncontiguous(
+                 (double*)data_slice__output0,strides_slice__output0[0],
+                 (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
                  (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
     return true;
 '''}

@@ -150,7 +150,6 @@ void mrcal_rotate_point_r( // output
     }
 }
 
-#include <assert.h>
 extern "C"
 void mrcal_r_from_R_noncontiguous( // output
                     double* r,     // (3,) vector
@@ -166,30 +165,46 @@ void mrcal_r_from_R_noncontiguous( // output
                     int R_stride1    // in bytes. <= 0 means "contiguous"
                    )
 {
-    if(r_stride0 > 0 ||
-       J_stride0 > 0 ||
-       J_stride1 > 0 ||
-       J_stride2 > 0 ||
-       R_stride0 > 0 ||
-       R_stride1 > 0)
-    {
-        // not implemented yet
-        assert(0);
-    }
+    if(R_stride0 > 0) R_stride0 /= sizeof(R[0]);
+    else              R_stride0 =  3;
+    if(R_stride1 > 0) R_stride1 /= sizeof(R[0]);
+    else              R_stride1 =  1;
+    if(J_stride0 > 0) J_stride0 /= sizeof(J[0]);
+    else              J_stride0 =  3*3;
+    if(J_stride1 > 0) J_stride1 /= sizeof(J[0]);
+    else              J_stride1 =  3;
+    if(J_stride2 > 0) J_stride2 /= sizeof(J[0]);
+    else              J_stride2 =  1;
+    if(r_stride0 > 0) r_stride0 /= sizeof(r[0]);
+    else              r_stride0 =  1;
 
     if(J == NULL)
     {
         vec_withgrad_t<0, 3> rg;
-        vec_withgrad_t<0, 9> Rg(R);
+        vec_withgrad_t<0, 9> Rg;
+        Rg.init_vars(&R[0*R_stride0], 0,3, -1, R_stride1);
+        Rg.init_vars(&R[1*R_stride0], 3,3, -1, R_stride1);
+        Rg.init_vars(&R[2*R_stride0], 6,3, -1, R_stride1);
+
         r_from_R_core<0>(rg.v, Rg.v);
-        rg.extract_value(r);
+        rg.extract_value(r, r_stride0);
     }
     else
     {
         vec_withgrad_t<9, 3> rg;
-        vec_withgrad_t<9, 9> Rg(R, 0);
+        vec_withgrad_t<9, 9> Rg;
+        Rg.init_vars(&R[0*R_stride0], 0,3, 0, R_stride1);
+        Rg.init_vars(&R[1*R_stride0], 3,3, 3, R_stride1);
+        Rg.init_vars(&R[2*R_stride0], 6,3, 6, R_stride1);
+
         r_from_R_core<9>(rg.v, Rg.v);
-        rg.extract_value(r);
-        rg.extract_grad(J, 0, 9);
+        rg.extract_value(r, r_stride0);
+
+        // J is dr/dR of shape (3,3,3). autodiff.h has a gradient of shape
+        // (3,9): the /dR part is flattened. I pull it out in 3 chunks that scan
+        // the middle dimension. So I fill in J[:,0,:] then J[:,1,:] then J[:,2,:]
+        rg.extract_grad(&J[0*J_stride1], 0,3, 0,3,J_stride0,J_stride2);
+        rg.extract_grad(&J[1*J_stride1], 3,3, 0,3,J_stride0,J_stride2);
+        rg.extract_grad(&J[2*J_stride1], 6,3, 0,3,J_stride0,J_stride2);
     }
 }

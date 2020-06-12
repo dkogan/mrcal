@@ -10,6 +10,22 @@ from functools import reduce
 
 from . import _poseutils
 
+def r_from_R(R, get_gradients=False):
+    r'''Compute a Rodrigues vector from a rotation matrix
+
+    if not get_gradients: return r
+    else:                 return (r,dr/dR)
+
+    dr/dR is a (3,3,3) array where the first dimension selects the element of r
+    in question, and the last 2 dimensions selects the element of R
+
+    This function supports broadcasting fully
+
+    '''
+    if get_gradients:
+        return _poseutils._r_from_R_withgrad(R)
+    return _poseutils._r_from_R(R)
+
 def R_from_r(r, get_gradients=False):
     r'''Compute a rotation matrix from a Rodrigues vector
 
@@ -26,8 +42,6 @@ def R_from_r(r, get_gradients=False):
         return _poseutils._R_from_r_withgrad(r)
     return _poseutils._R_from_r(r)
 
-# r_from_R() is defined in C. Gradients aren't supported since it's ambiguous
-# how to treat the constraints on R
 
 def compose_Rt(*args):
     r'''Composes Rt transformations

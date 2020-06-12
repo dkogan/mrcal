@@ -245,10 +245,47 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt J_x')
 
-r = poseutils.r_from_R(R0_ref)
+
+
+r, J_R = poseutils._r_from_R_withgrad(R0_ref)
+J_R_ref = grad(r_from_R,
+               R0_ref)
 confirm_equal( r,
                r0_ref,
                msg='r_from_R result')
+confirm_equal( J_R,
+               J_R_ref,
+               msg='r_from_R J_R')
+
+r   = np.eye(3, dtype=float)[:,0]
+J_R = np.zeros((3,3,3), dtype=float).transpose()
+R1_ref_noncontiguous = nps.glue(R1_ref, np.ones((3,1), dtype=float), axis=-1)[:,:3]
+poseutils._r_from_R_withgrad(R1_ref_noncontiguous, out=(r,J_R))
+J_R_ref = grad(r_from_R,
+               R1_ref)
+confirm_equal( r,
+               r1_ref,
+               msg='r_from_R non-contiguous result')
+confirm_equal( J_R,
+               J_R_ref,
+               msg='r_from_R non-contiguous J_R')
+
+# Do it again, actually calling opencv. This is both a test, and shows how to
+# migrate old code
+r, J_R = poseutils._r_from_R_withgrad(R0_ref)
+rref,J_R_ref = cv2.Rodrigues(R0_ref)
+
+J_R_ref = nps.transpose(J_R_ref) # fix opencv's weirdness. Now shape=(3,9)
+J_R_ref = J_R_ref.reshape(3,3,3)
+confirm_equal( r,
+               rref,
+               msg='r_from_R result, comparing with cv2.Rodrigues')
+confirm_equal( J_R,
+               J_R_ref,
+               msg='r_from_R J_R, comparing with cv2.Rodrigues')
+
+
+
 
 R, J_r = poseutils._R_from_r_withgrad(r0_ref)
 J_r_ref = grad(R_from_r,
@@ -260,8 +297,22 @@ confirm_equal( J_r,
                J_r_ref,
                msg='R_from_r J_r')
 
+R   = np.zeros((3,3),   dtype=float).transpose()
+J_r = np.zeros((3,3,3), dtype=float).transpose()
+r1_ref_noncontiguous = nps.outer(r1_ref,np.ones((3,),dtype=float)).transpose()[0,:]
+poseutils._R_from_r_withgrad(r1_ref_noncontiguous, out=(R,J_r))
+J_r_ref = grad(R_from_r,
+               r1_ref)
+confirm_equal( R,
+               R1_ref,
+               msg='R_from_r non-contiguous result')
+confirm_equal( J_r,
+               J_r_ref,
+               msg='R_from_r non-contiguous J_r')
+
 # Do it again, actually calling opencv. This is both a test, and shows how to
 # migrate old code
+R, J_r = poseutils._R_from_r_withgrad(r0_ref)
 Rref,J_r_ref = cv2.Rodrigues(r0_ref)
 J_r_ref = nps.transpose(J_r_ref) # fix opencv's weirdness. Now shape=(9,3)
 J_r_ref = J_r_ref.reshape(3,3,3)
@@ -271,6 +322,8 @@ confirm_equal( R,
 confirm_equal( J_r,
                J_r_ref,
                msg='R_from_r J_r, comparing with cv2.Rodrigues')
+
+
 
 rt = poseutils.rt_from_Rt(Rt0_ref)
 confirm_equal( rt,
