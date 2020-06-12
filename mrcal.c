@@ -651,13 +651,15 @@ void sample_bspline_surface_quadratic(double* out,
 typedef struct
 {
     double _d_rj_rf[3*3];
-    double _d_rj_tf[3*3];
     double _d_rj_rc[3*3];
-    double _d_rj_tc[3*3];
-    double _d_tj_rf[3*3];
     double _d_tj_tf[3*3];
     double _d_tj_rc[3*3];
-    double _d_tj_tc[3*3];
+
+    // _d_tj_tc is always identity
+    // _d_tj_rf is always 0
+    // _d_rj_tf is always 0
+    // _d_rj_tc is always 0
+
 } geometric_gradients_t;
 
 static void project_opencv( // out
@@ -698,10 +700,12 @@ static void project_opencv( // out
 
                            // if NULL then the camera is at the reference
                            const geometric_gradients_t* gg,
-                           CvMat* p_rj,
-                           CvMat* p_tj)
+                           double* rt_joint)
 
 {
+    CvMat rj = cvMat(3,1, CV_64FC1, &rt_joint[0]);
+    CvMat tj = cvMat(3,1, CV_64FC1, &rt_joint[3]);
+
     const int Npoints =
         calibration_object_width_n ?
         calibration_object_width_n*calibration_object_height_n : 1;
@@ -782,7 +786,7 @@ static void project_opencv( // out
     if( dq_dfxy == NULL )
     {
         cvProjectPoints2(&object_points,
-                         p_rj, p_tj,
+                         &rj, &tj,
                          &camera_matrix,
                          &_distortions,
                          &image_points,
@@ -802,7 +806,7 @@ static void project_opencv( // out
         CvMat dpdf = cvMat(2*Npoints,2, CV_64FC1, _dpdf);
 
         cvProjectPoints2(&object_points,
-                         p_rj, p_tj,
+                         &rj, &tj,
                          &camera_matrix,
                          &_distortions,
                          &image_points,
@@ -848,11 +852,40 @@ static void project_opencv( // out
                     mul_genN3_gen33_vout  (2, &_dq_drj[i_pt*2*3], _d_rj_dparam, dq_dparam[i_pt*2].xyz);
                     mul_genN3_gen33_vaccum(2, &_dq_dtj[i_pt*2*3], _d_tj_dparam, dq_dparam[i_pt*2].xyz);
                 }
+                void propagate_dtjzero(// out
+                                       point3_t* dq_dparam,
 
-                propagate( dq_drcamera, gg->_d_rj_rc, gg->_d_tj_rc );
-                propagate( dq_dtcamera, gg->_d_rj_tc, gg->_d_tj_tc );
-                propagate( dq_dtframe , gg->_d_rj_tf, gg->_d_tj_tf );
-                propagate( dq_drframe , gg->_d_rj_rf, gg->_d_tj_rf );
+                                       // in
+                                       const double* _d_rj_dparam)
+                {
+                    if( dq_dparam == NULL ) return;
+                    mul_genN3_gen33_vout  (2, &_dq_drj[i_pt*2*3], _d_rj_dparam, dq_dparam[i_pt*2].xyz);
+                }
+                void propagate_drjzero_dtjidentity(// out
+                                                   point3_t* dq_dparam)
+                {
+                    if( dq_dparam == NULL ) return;
+                    memcpy(dq_dparam[i_pt*2].xyz, &_dq_dtj[i_pt*2*3], 2*3*sizeof(double));
+                }
+                void propagate_drjzero(// out
+                               point3_t* dq_dparam,
+
+                               // in
+                               const double* _d_tj_dparam)
+                {
+                    if( dq_dparam == NULL ) return;
+
+                    // I have dproj/drj and dproj/dtj
+                    // I want dproj/drc, dproj/dtc, dproj/drf, dprof/dtf
+                    //
+                    // dproj_drc = dproj/drj drj_drc + dproj/dtj dtj_drc
+                    mul_genN3_gen33_vout(2, &_dq_dtj[i_pt*2*3], _d_tj_dparam, dq_dparam[i_pt*2].xyz);
+                }
+
+                propagate                     ( dq_drcamera, gg->_d_rj_rc, gg->_d_tj_rc );
+                propagate_drjzero_dtjidentity ( dq_dtcamera                             );
+                propagate_drjzero             ( dq_dtframe,                gg->_d_tj_tf );
+                propagate_dtjzero             ( dq_drframe,  gg->_d_rj_rf               );
             }
             else
             {
@@ -895,7 +928,7 @@ static void project_opencv( // out
         double Rj[3*3];
         mrcal_R_from_r(Rj,
                        NULL,
-                       p_rj->data.db);
+                       rt_joint);
 
         for(int i_pt = 0;
             i_pt<calibration_object_width_n*calibration_object_height_n;
@@ -1751,49 +1784,33 @@ void project( // out
     // [Rc tc] [Rf tf] = [Rc*Rf  Rc*tf + tc]
     // [0  1 ] [0  1 ]   [0      1         ]
     //
-    // This transformation (and its gradients) is handled by cvComposeRT() I
-    // refer to the camera*frame transform as the "joint" transform, or the
+    // This transformation (and its gradients) is handled by mrcal_compose_rt()
+    // I refer to the camera*frame transform as the "joint" transform, or the
     // letter j
     geometric_gradients_t gg;
 
     CvMat d_rj_rf = cvMat(3,3, CV_64FC1, gg._d_rj_rf);
-    CvMat d_rj_tf = cvMat(3,3, CV_64FC1, gg._d_rj_tf);
     CvMat d_rj_rc = cvMat(3,3, CV_64FC1, gg._d_rj_rc);
-    CvMat d_rj_tc = cvMat(3,3, CV_64FC1, gg._d_rj_tc);
-    CvMat d_tj_rf = cvMat(3,3, CV_64FC1, gg._d_tj_rf);
     CvMat d_tj_tf = cvMat(3,3, CV_64FC1, gg._d_tj_tf);
     CvMat d_tj_rc = cvMat(3,3, CV_64FC1, gg._d_tj_rc);
-    CvMat d_tj_tc = cvMat(3,3, CV_64FC1, gg._d_tj_tc);
 
-    double _rj[3];
-    CvMat  rj = cvMat(3,1,CV_64FC1, _rj);
-    double _tj[3];
-    CvMat  tj = cvMat(3,1,CV_64FC1, _tj);
-    CvMat* p_rj;
-    CvMat* p_tj;
+    double _joint_rt[6];
+    double* joint_rt;
 
-    const double zero3[3] = {};
-    // removing const, but that's just because OpenCV's API is incomplete. It IS
-    // const
-    CvMat rf = cvMat(3,1, CV_64FC1, (double*)(calibration_object_width_n ? frame_rt->r.xyz : zero3));
-    CvMat tf = cvMat(3,1, CV_64FC1, (double*)frame_rt->t.xyz);
+    pose_t frame_rt_validr = {.t = frame_rt->t};
+    if(calibration_object_width_n) frame_rt_validr.r = frame_rt->r;
 
     if(!camera_at_identity)
     {
-        // removing const here, but that's just because OpenCV's API is
-        // incomplete. It IS const
-        CvMat rc = cvMat(3,1, CV_64FC1, (double*)camera_rt->r.xyz);
-        CvMat tc = cvMat(3,1, CV_64FC1, (double*)camera_rt->t.xyz);
-
-        cvComposeRT( &rf,      &tf,
-                     &rc,      &tc,
-                     &rj,      &tj,
-                     &d_rj_rf, &d_rj_tf,
-                     &d_rj_rc, &d_rj_tc,
-                     &d_tj_rf, &d_tj_tf,
-                     &d_tj_rc, &d_tj_tc );
-        p_rj = &rj;
-        p_tj = &tj;
+        // make sure I can pass pose_t.r as an rt[] transformation
+        static_assert( offsetof(pose_t, r) == 0,                   "pose_t has expected structure");
+        static_assert( offsetof(pose_t, t) == 3*sizeof(double),    "pose_t has expected structure");
+        mrcal_compose_rt( _joint_rt,
+                          gg._d_rj_rc, gg._d_rj_rf,
+                          gg._d_tj_rc, gg._d_tj_tf,
+                          camera_rt     ->r.xyz,
+                          frame_rt_validr.r.xyz);
+        joint_rt = _joint_rt;
     }
     else
     {
@@ -1803,8 +1820,7 @@ void project( // out
         // exist in the parameter vector
 
         // Here the "joint" transform is just the "frame" transform
-        p_rj = &rf;
-        p_tj = &tf;
+        joint_rt = frame_rt_validr.r.xyz;
     }
 
     if( LENSMODEL_IS_OPENCV(lensmodel.type) )
@@ -1841,7 +1857,7 @@ void project( // out
 
                         Nintrinsics-4,
                         camera_at_identity ? NULL : &gg,
-                        p_rj, p_tj);
+                        joint_rt);
         return;
     }
 
@@ -1851,9 +1867,7 @@ void project( // out
     double Rj[3*3];
     double d_Rj_rj[9*3];
 
-    mrcal_R_from_r(Rj,
-                   d_Rj_rj,
-                   p_rj->data.db);
+    mrcal_R_from_r(Rj, d_Rj_rj, joint_rt);
 
     double* p_dq_dfxy                  = NULL;
     double* p_dq_dintrinsics_nocore    = NULL;
@@ -1937,6 +1951,40 @@ void project( // out
                 add_vec(3, &dp_dparam[3*i], &dtj_dparam[3*i] );
             }
         }
+        void propagate_extrinsics_one_rzero(double* dp_dparam,
+                                            const double* dtj_dparam,
+                                            const double* d_Rj_rj)
+        {
+            // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
+            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+            memcpy(dp_dparam, dtj_dparam, 9*sizeof(double));
+        }
+        void propagate_extrinsics_one_tzero(double* dp_dparam,
+                                            const double* drj_dparam,
+                                            const double* d_Rj_rj)
+        {
+            // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
+            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+            for(int i=0; i<3; i++)
+            {
+                mul_vec3_gen33_vout( pt_ref->xyz, &d_Rj_rj[9*i], &dp_dparam[3*i] );
+                mul_vec3_gen33     ( &dp_dparam[3*i],   drj_dparam);
+            }
+        }
+        void propagate_extrinsics_one_rzero_tidentity(double* dp_dparam,
+                                                      const double* d_Rj_rj)
+        {
+            dp_dparam[0] = 1.0;
+            dp_dparam[1] = 0.0;
+            dp_dparam[2] = 0.0;
+            dp_dparam[3] = 0.0;
+            dp_dparam[4] = 1.0;
+            dp_dparam[5] = 0.0;
+            dp_dparam[6] = 0.0;
+            dp_dparam[7] = 0.0;
+            dp_dparam[8] = 1.0;
+        }
+
         void propagate_extrinsics_one_cam0(double* dp_rf,
                                            const double* _d_Rf_rf)
         {
@@ -1947,10 +1995,10 @@ void project( // out
         }
         if(gg != NULL)
         {
-            propagate_extrinsics_one(_dp_drc, gg->_d_rj_rc, gg->_d_tj_rc, d_Rj_rj);
-            propagate_extrinsics_one(_dp_dtc, gg->_d_rj_tc, gg->_d_tj_tc, d_Rj_rj);
-            propagate_extrinsics_one(_dp_drf, gg->_d_rj_rf, gg->_d_tj_rf, d_Rj_rj);
-            propagate_extrinsics_one(_dp_dtf, gg->_d_rj_tf, gg->_d_tj_tf, d_Rj_rj);
+            propagate_extrinsics_one(                _dp_drc, gg->_d_rj_rc, gg->_d_tj_rc, d_Rj_rj);
+            propagate_extrinsics_one_rzero_tidentity(_dp_dtc,                             d_Rj_rj);
+            propagate_extrinsics_one_tzero(          _dp_drf, gg->_d_rj_rf,               d_Rj_rj);
+            propagate_extrinsics_one_rzero(          _dp_dtf,               gg->_d_tj_tf, d_Rj_rj);
             dp_drc = _dp_drc;
             dp_dtc = _dp_dtc;
             dp_drf = _dp_drf;
@@ -2097,7 +2145,7 @@ void project( // out
         point3_t p =
             propagate_extrinsics( &(point3_t){},
                                   camera_at_identity ? NULL : &gg,
-                                  Rj, d_Rj_rj, p_tj->data.db);
+                                  Rj, d_Rj_rj, &joint_rt[3]);
         project_point(  q,
                         p_dq_dfxy, p_dq_dintrinsics_nocore,
                         dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, dq_dcalobject_warp,
@@ -2142,7 +2190,7 @@ void project( // out
                 point3_t p =
                     propagate_extrinsics( &pt_ref,
                                           camera_at_identity ? NULL : &gg,
-                                          Rj, d_Rj_rj, p_tj->data.db);
+                                          Rj, d_Rj_rj, &joint_rt[3]);
                 project_point(q,
                               p_dq_dfxy, p_dq_dintrinsics_nocore,
                               dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, dq_dcalobject_warp,
@@ -2856,10 +2904,8 @@ void mrcal_pack_solver_state_vector( // out, in
                                              lensmodel, problem_details,
                                              Ncameras_intrinsics );
 
-    static_assert( offsetof(pose_t, r) == 0,
-                   "pose_t has expected structure");
-    static_assert( offsetof(pose_t, t) == 3*sizeof(double),
-                   "pose_t has expected structure");
+    static_assert( offsetof(pose_t, r) == 0,                   "pose_t has expected structure");
+    static_assert( offsetof(pose_t, t) == 3*sizeof(double),    "pose_t has expected structure");
     if( problem_details.do_optimize_extrinsics )
         for(int i_cam_extrinsics=0; i_cam_extrinsics < Ncameras_extrinsics; i_cam_extrinsics++)
         {
