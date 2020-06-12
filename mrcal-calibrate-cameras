@@ -914,8 +914,8 @@ if args.pairs:
             baseline = np.sqrt(nps.norm2(Rt_10[3,:]))
 
             # I only care about the rotation components of these transformations
-            R_0r, dR_0r__dr_0r = mrcal.R_from_r(rt_0r[:3])
-            R_1r, dR_1r__dr_1r = mrcal.R_from_r(rt_1r[:3])
+            R_0r, dR_0r__dr_0r = mrcal.R_from_r(rt_0r[:3], get_gradients=True)
+            R_1r, dR_1r__dr_1r = mrcal.R_from_r(rt_1r[:3], get_gradients=True)
 
             R_r0 = nps.transpose(R_0r)
             dR_r0__dr_0r = nps.xchg(dR_0r__dr_0r,
