@@ -285,55 +285,6 @@ void mrcal_R_from_r_noncontiguous( // outputs
     }
 }
 
-void mrcal_r_from_R_noncontiguous( // output
-                    double* r, // (3) vector
-                    int r_stride0, // in bytes. <= 0 means "contiguous"
-
-                    // input
-                    const double* R, // (3,3) array
-                    int R_stride0,   // in bytes. <= 0 means "contiguous"
-                    int R_stride1    // in bytes. <= 0 means "contiguous"
-                   )
-{
-    if(R_stride0 > 0) R_stride0 /= sizeof(R[0]);
-    else              R_stride0 =  3;
-    if(R_stride1 > 0) R_stride1 /= sizeof(R[0]);
-    else              R_stride1 =  1;
-    if(r_stride0 > 0) r_stride0 /= sizeof(r[0]);
-    else              r_stride0 =  1;
-
-    double tr    = R[0] + R[1*(R_stride0 + R_stride1)] + R[2*(R_stride0 + R_stride1)];
-    double costh = (tr - 1.) / 2.;
-
-    double th = acos(costh);
-    double axis[3] =
-        {
-            R[2*R_stride0 + 1*R_stride1] - R[1*R_stride0 + 2*R_stride1],
-            R[0*R_stride0 + 2*R_stride1] - R[2*R_stride0 + 0*R_stride1],
-            R[1*R_stride0 + 0*R_stride1] - R[0*R_stride0 + 1*R_stride1]
-        };
-
-    if(th > 1e-10)
-    {
-        // normal path
-        double mag_axis_recip =
-            1. /
-            sqrt(axis[0]*axis[0] +
-                 axis[1]*axis[1] +
-                 axis[2]*axis[2]);
-        for(int i=0; i<3; i++)
-            r[i*r_stride0] = axis[i] * mag_axis_recip * th;
-    }
-    else
-    {
-        // small th. Can't divide by it. But I can look at the limit.
-        //
-        // axis / (2 sinth)*th = axis/2 *th/sinth ~ axis/2
-        for(int i=0; i<3; i++)
-            r[i*r_stride0] = axis[i] / 2.;
-    }
-}
-
 // Convert a transformation representation from Rt to rt. This is mostly a
 // convenience functions since 99% of the work is done by mrcal_r_from_R(). No
 // gradients available here. If you need gradients, call mrcal_r_from_R()
@@ -349,7 +300,8 @@ void mrcal_rt_from_Rt_noncontiguous( // output
                      )
 {
     mrcal_r_from_R_noncontiguous(rt,rt_stride0,
-                   Rt, Rt_stride0, Rt_stride1);
+                                 NULL,0,0,0,
+                                 Rt, Rt_stride0, Rt_stride1);
 
     if(Rt_stride0 > 0) Rt_stride0 /= sizeof(Rt[0]);
     else               Rt_stride0 =  3;

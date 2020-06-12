@@ -282,6 +282,7 @@ m.function( "r_from_R",
                  r'''
     mrcal_r_from_R_noncontiguous(
                  (double*)data_slice__output,strides_slice__output[0],
+                 NULL,0,0,0,
                  (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
     return true;
 '''}

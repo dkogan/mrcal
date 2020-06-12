@@ -65,10 +65,14 @@ void mrcal_transform_point_rt(// output
                               );
 
 // Convert a rotation representation from a matrix to a Rodrigues vector
-#define mrcal_r_from_R(r,R) mrcal_r_from_R_noncontiguous(r,0,R,0,0)
+#define mrcal_r_from_R(r,J,R) mrcal_r_from_R_noncontiguous(r,0,J,0,0,0,R,0,0)
 void mrcal_r_from_R_noncontiguous( // output
                     double* r, // (3) vector
                     int r_stride0, // in bytes. <= 0 means "contiguous"
+                    double* J, // (3,3,3) array. Gradient. May be NULL
+                    int J_stride0, // in bytes. <= 0 means "contiguous"
+                    int J_stride1, // in bytes. <= 0 means "contiguous"
+                    int J_stride2, // in bytes. <= 0 means "contiguous"
 
                     // input
                     const double* R, // (3,3) array
