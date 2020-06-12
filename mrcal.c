@@ -893,9 +893,9 @@ static void project_opencv( // out
         // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
 
         double Rj[3*3];
-        mrcal_R_from_r(Rj, 0,0,
-                       NULL,0,0,0,
-                       p_rj->data.db,0);
+        mrcal_R_from_r(Rj,
+                       NULL,
+                       p_rj->data.db);
 
         for(int i_pt = 0;
             i_pt<calibration_object_width_n*calibration_object_height_n;
@@ -1851,9 +1851,9 @@ void project( // out
     double Rj[3*3];
     double d_Rj_rj[9*3];
 
-    mrcal_R_from_r(Rj, 0,0,
-                   d_Rj_rj,0,0,0,
-                   p_rj->data.db, 0);
+    mrcal_R_from_r(Rj,
+                   d_Rj_rj,
+                   p_rj->data.db);
 
     double* p_dq_dfxy                  = NULL;
     double* p_dq_dintrinsics_nocore    = NULL;
@@ -4465,9 +4465,9 @@ void optimizerCallback(// input state
                 double Rc[3*3];
                 double d_Rc_rc[9*3];
 
-                mrcal_R_from_r(Rc,0,0,
-                               d_Rc_rc,0,0,0,
-                               camera_rt[i_cam_extrinsics].r.xyz,0);
+                mrcal_R_from_r(Rc,
+                               d_Rc_rc,
+                               camera_rt[i_cam_extrinsics].r.xyz);
 
                 point3_t pcam;
                 mul_vec3_gen33t_vout(point.xyz, Rc, pcam.xyz);

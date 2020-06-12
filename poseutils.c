@@ -161,7 +161,7 @@ void mrcal_transform_point_rt(// output
 // loss of use, data, or profits; or business interruption) however caused
 // and on any theory of liability, whether in contract, strict liability,
 // or tort (including negligence or otherwise) arising in any way out of
-void mrcal_R_from_r( // outputs
+void mrcal_R_from_r_noncontiguous( // outputs
                      double* R,     // (3,3) array
                      int R_stride0, // in bytes. <= 0 means "contiguous"
                      int R_stride1, // in bytes. <= 0 means "contiguous"
@@ -285,7 +285,7 @@ void mrcal_R_from_r( // outputs
     }
 }
 
-void mrcal_r_from_R( // output
+void mrcal_r_from_R_noncontiguous( // output
                     double* r, // (3) vector
                     int r_stride0, // in bytes. <= 0 means "contiguous"
 
@@ -338,7 +338,7 @@ void mrcal_r_from_R( // output
 // convenience functions since 99% of the work is done by mrcal_r_from_R(). No
 // gradients available here. If you need gradients, call mrcal_r_from_R()
 // directly
-void mrcal_rt_from_Rt( // output
+void mrcal_rt_from_Rt_noncontiguous( // output
                       double* rt,  // (6) vector
                       int rt_stride0, // in bytes. <= 0 means "contiguous"
 
@@ -348,7 +348,7 @@ void mrcal_rt_from_Rt( // output
                       int Rt_stride1     // in bytes. <= 0 means "contiguous"
                      )
 {
-    mrcal_r_from_R(rt,rt_stride0,
+    mrcal_r_from_R_noncontiguous(rt,rt_stride0,
                    Rt, Rt_stride0, Rt_stride1);
 
     if(Rt_stride0 > 0) Rt_stride0 /= sizeof(Rt[0]);
@@ -366,7 +366,7 @@ void mrcal_rt_from_Rt( // output
 // convenience functions since 99% of the work is done by mrcal_R_from_r(). No
 // gradients available here. If you need gradients, call mrcal_R_from_r()
 // directly
-void mrcal_Rt_from_rt( // output
+void mrcal_Rt_from_rt_noncontiguous( // output
                       double* Rt, // (4,3) array
                       int Rt_stride0, // in bytes. <= 0 means "contiguous"
                       int Rt_stride1, // in bytes. <= 0 means "contiguous"
@@ -376,7 +376,7 @@ void mrcal_Rt_from_rt( // output
                       int rt_stride0    // in bytes. <= 0 means "contiguous"
                      )
 {
-    mrcal_R_from_r(Rt,Rt_stride0,Rt_stride1,
+    mrcal_R_from_r_noncontiguous(Rt,Rt_stride0,Rt_stride1,
                    NULL,  0,0,0,
                    rt, rt_stride0);
 
@@ -474,8 +474,8 @@ void mrcal_compose_rt( // output
     double Rt_out[12];
     double Rt_0  [12];
     double Rt_1  [12];
-    mrcal_Rt_from_rt(Rt_0,0,0,   rt_0,0);
-    mrcal_Rt_from_rt(Rt_1,0,0,   rt_1,0);
+    mrcal_Rt_from_rt(Rt_0,   rt_0);
+    mrcal_Rt_from_rt(Rt_1,   rt_1);
     mrcal_compose_Rt(Rt_out, Rt_0, Rt_1);
-    mrcal_rt_from_Rt(rt_out,0, Rt_out,0,0);
+    mrcal_rt_from_Rt(rt_out, Rt_out);
 }

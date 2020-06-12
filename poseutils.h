@@ -1,6 +1,8 @@
 #pragma once
 
-// All arrays stored in contiguous matrices in row-major order
+// Unless specified all arrays stored in contiguous matrices in row-major order.
+// The mrcal_..._noncontiguous() functions support a noncontiguous memory
+// arrangement
 //
 // I have two different representations of pose transformations:
 //
@@ -63,7 +65,8 @@ void mrcal_transform_point_rt(// output
                               );
 
 // Convert a rotation representation from a matrix to a Rodrigues vector
-void mrcal_r_from_R( // output
+#define mrcal_r_from_R(r,R) mrcal_r_from_R_noncontiguous(r,0,R,0,0)
+void mrcal_r_from_R_noncontiguous( // output
                     double* r, // (3) vector
                     int r_stride0, // in bytes. <= 0 means "contiguous"
 
@@ -74,7 +77,8 @@ void mrcal_r_from_R( // output
                      );
 
 // Convert a rotation representation from a Rodrigues vector to a matrix
-void mrcal_R_from_r( // outputs
+#define mrcal_R_from_r(R,J,r) mrcal_R_from_r_noncontiguous(R,0,0,J,0,0,0,r,0)
+void mrcal_R_from_r_noncontiguous( // outputs
                      double* R, // (3,3) array
                      int R_stride0, // in bytes. <= 0 means "contiguous"
                      int R_stride1, // in bytes. <= 0 means "contiguous"
@@ -92,7 +96,8 @@ void mrcal_R_from_r( // outputs
 // convenience functions since 99% of the work is done by mrcal_r_from_R(). No
 // gradients available here. If you need gradients, call mrcal_r_from_R()
 // directly
-void mrcal_rt_from_Rt( // output
+#define mrcal_rt_from_Rt(rt,Rt) mrcal_rt_from_Rt_noncontiguous(rt,0,Rt,0,0)
+void mrcal_rt_from_Rt_noncontiguous( // output
                       double* rt,     // (6) vector
                       int rt_stride0,    // in bytes. <= 0 means "contiguous"
 
@@ -106,7 +111,8 @@ void mrcal_rt_from_Rt( // output
 // convenience functions since 99% of the work is done by mrcal_R_from_r(). No
 // gradients available here. If you need gradients, call mrcal_R_from_r()
 // directly
-void mrcal_Rt_from_rt( // output
+#define mrcal_Rt_from_rt(Rt,rt) mrcal_Rt_from_rt_noncontiguous(Rt,0,0,rt,0)
+void mrcal_Rt_from_rt_noncontiguous( // output
                       double* Rt,     // (4,3) array
                       int Rt_stride0, // in bytes. <= 0 means "contiguous"
                       int Rt_stride1, // in bytes. <= 0 means "contiguous"
@@ -139,7 +145,7 @@ void mrcal_invert_rt( // output
 
 // Compose two Rt transformations
 //   R0*(R1*x + t1) + t0 =
-//   R0*R1*x + R0*t1+t0
+//   (R0*R1)*x + R0*t1+t0
 void mrcal_compose_Rt( // output
                       double* Rt_out, // (4,3) array
 

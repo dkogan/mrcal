@@ -280,8 +280,9 @@ m.function( "r_from_R",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_r_from_R( (double*)data_slice__output,strides_slice__output[0],
-                    (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
+    mrcal_r_from_R_noncontiguous(
+                 (double*)data_slice__output,strides_slice__output[0],
+                 (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
     return true;
 '''}
 )
@@ -296,9 +297,10 @@ m.function( "_R_from_r",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_R_from_r( (double*)data_slice__output, strides_slice__output[0], strides_slice__output[1],
-                    NULL,0,0,0,
-                    (const double*)data_slice__r, strides_slice__r[0] );
+    mrcal_R_from_r_noncontiguous(
+                 (double*)data_slice__output, strides_slice__output[0], strides_slice__output[1],
+                 NULL,0,0,0,
+                 (const double*)data_slice__r, strides_slice__r[0] );
     return true;
 '''}
 )
@@ -313,9 +315,10 @@ m.function( "_R_from_r_withgrad",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_R_from_r( (double*)data_slice__output0,strides_slice__output0[0], strides_slice__output0[1],
-                    (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
-                    (const double*)data_slice__r, strides_slice__r[0] );
+    mrcal_R_from_r_noncontiguous(
+                 (double*)data_slice__output0,strides_slice__output0[0], strides_slice__output0[1],
+                 (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
+                 (const double*)data_slice__r, strides_slice__r[0] );
     return true;
 '''}
 )
@@ -330,8 +333,9 @@ m.function( "rt_from_Rt",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rt_from_Rt( (double*)data_slice__output,strides_slice__output[0],
-                      (const double*)data_slice__Rt,strides_slice__Rt[0], strides_slice__Rt[1] );
+    mrcal_rt_from_Rt_noncontiguous(
+                 (double*)data_slice__output,strides_slice__output[0],
+                 (const double*)data_slice__Rt,strides_slice__Rt[0], strides_slice__Rt[1] );
     return true;
 '''}
 )
@@ -346,8 +350,9 @@ m.function( "Rt_from_rt",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_Rt_from_rt( (double*)data_slice__output, strides_slice__output[0],strides_slice__output[1],
-                      (const double*)data_slice__rt, strides_slice__rt[0] );
+    mrcal_Rt_from_rt_noncontiguous(
+                 (double*)data_slice__output, strides_slice__output[0],strides_slice__output[1],
+                 (const double*)data_slice__rt, strides_slice__rt[0] );
     return true;
 '''}
 )
