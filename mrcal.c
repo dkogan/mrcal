@@ -1789,11 +1789,6 @@ void project( // out
     // letter j
     geometric_gradients_t gg;
 
-    CvMat d_rj_rf = cvMat(3,3, CV_64FC1, gg._d_rj_rf);
-    CvMat d_rj_rc = cvMat(3,3, CV_64FC1, gg._d_rj_rc);
-    CvMat d_tj_tf = cvMat(3,3, CV_64FC1, gg._d_tj_tf);
-    CvMat d_tj_rc = cvMat(3,3, CV_64FC1, gg._d_tj_rc);
-
     double _joint_rt[6];
     double* joint_rt;
 
