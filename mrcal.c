@@ -2469,15 +2469,16 @@ bool mrcal_project( // out
     mrcal_projection_precomputed_t precomputed;
     precompute_lensmodel_data(&precomputed, lensmodel);
 
-    for(int i=0; i<N; i++)
+    if( dq_dintrinsics == NULL )
     {
-        pose_t frame = {.r = {},
-                        .t = p[i]};
+        for(int i=0; i<N; i++)
+        {
+            pose_t frame = {.r = {},
+                            .t = p[i]};
 
-        // simple non-intrinsics-gradient path. dp_dp is handled entirely in
-        // project()
-        if( dq_dintrinsics == NULL )
-            project( q,
+            // simple non-intrinsics-gradient path. dp_dp is handled entirely in
+            // project()
+            project( &q[i],
                      NULL, NULL, NULL, NULL, NULL,
                      NULL, NULL, NULL, dq_dp, NULL,
 
@@ -2485,87 +2486,92 @@ bool mrcal_project( // out
                      intrinsics, NULL, &frame, NULL, true,
                      lensmodel, &precomputed,
                      0.0, 0,0);
-        else
+        }
+        return true;
+    }
+
+    for(int i=0; i<N; i++)
+    {
+        pose_t frame = {.r = {},
+                        .t = p[i]};
+
+        // simple non-intrinsics-gradient path. dp_dp is handled entirely in
+        // project()
+        double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
+        int    dq_dintrinsics_pool_int   [1];
+        double* dq_dfxy               = NULL;
+        double* dq_dintrinsics_nocore = NULL;
+        gradient_sparse_meta_t gradient_sparse_meta = {}; // init to pacify compiler warning
+
+        project( &q[i],
+
+                 dq_dintrinsics_pool_double,
+                 dq_dintrinsics_pool_int,
+                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
+
+                 NULL, NULL, NULL, dq_dp, NULL,
+
+                 // in
+                 intrinsics, NULL, &frame, NULL, true,
+                 lensmodel, &precomputed,
+                 0.0, 0,0);
+
+        int Ncore = 0;
+        if(dq_dfxy != NULL)
         {
-            double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
-            int    dq_dintrinsics_pool_int   [1];
-            double* dq_dfxy               = NULL;
-            double* dq_dintrinsics_nocore = NULL;
-            gradient_sparse_meta_t gradient_sparse_meta = {}; // init to pacify compiler warning
+            Ncore = 4;
 
-            project( q,
+            // fxy. off-diagonal elements are 0
+            dq_dintrinsics[0*Nintrinsics + 0] = dq_dfxy[0];
+            dq_dintrinsics[0*Nintrinsics + 1] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 0] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 1] = dq_dfxy[1];
 
-                     dq_dintrinsics_pool_double,
-                     dq_dintrinsics_pool_int,
-                     &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
+            // cxy. Identity
+            dq_dintrinsics[0*Nintrinsics + 2] = 1.0;
+            dq_dintrinsics[0*Nintrinsics + 3] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 2] = 0.0;
+            dq_dintrinsics[1*Nintrinsics + 3] = 1.0;
+        }
+        if( dq_dintrinsics_nocore != NULL )
+        {
+            for(int i_xy=0; i_xy<2; i_xy++)
+                memcpy(&dq_dintrinsics[i_xy*Nintrinsics + Ncore],
+                       &dq_dintrinsics_nocore[i_xy*(Nintrinsics-Ncore)],
+                       (Nintrinsics-Ncore)*sizeof(double));
+        }
+        if(gradient_sparse_meta.pool != NULL)
+        {
+            // u = stereographic(p)
+            // q = (u + deltau(u)) * f + c
+            //
+            // Intrinsics:
+            //   dq/diii = f ddeltau/diii
+            //
+            // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
 
-                     NULL, NULL, NULL, dq_dp, NULL,
+            const int     ivar0 = dq_dintrinsics_pool_int[0];
+            const int     len   = gradient_sparse_meta.run_side_length;
 
-                     // in
-                     intrinsics, NULL, &frame, NULL, true,
-                     lensmodel, &precomputed,
-                     0.0, 0,0);
+            const double* ABCDx = &gradient_sparse_meta.pool[0];
+            const double* ABCDy = &gradient_sparse_meta.pool[len];
 
-            int Ncore = 0;
-            if(dq_dfxy != NULL)
-            {
-                Ncore = 4;
-
-                // fxy. off-diagonal elements are 0
-                dq_dintrinsics[0*Nintrinsics + 0] = dq_dfxy[0];
-                dq_dintrinsics[0*Nintrinsics + 1] = 0.0;
-                dq_dintrinsics[1*Nintrinsics + 0] = 0.0;
-                dq_dintrinsics[1*Nintrinsics + 1] = dq_dfxy[1];
-
-                // cxy. Identity
-                dq_dintrinsics[0*Nintrinsics + 2] = 1.0;
-                dq_dintrinsics[0*Nintrinsics + 3] = 0.0;
-                dq_dintrinsics[1*Nintrinsics + 2] = 0.0;
-                dq_dintrinsics[1*Nintrinsics + 3] = 1.0;
-            }
-            if( dq_dintrinsics_nocore != NULL )
-            {
-                for(int i_xy=0; i_xy<2; i_xy++)
-                    memcpy(&dq_dintrinsics[i_xy*Nintrinsics + Ncore],
-                           &dq_dintrinsics_nocore[i_xy*(Nintrinsics-Ncore)],
-                           (Nintrinsics-Ncore)*sizeof(double));
-            }
-            if(gradient_sparse_meta.pool != NULL)
-            {
-                // u = stereographic(p)
-                // q = (u + deltau(u)) * f + c
-                //
-                // Intrinsics:
-                //   dq/diii = f ddeltau/diii
-                //
-                // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
-
-                const int     ivar0 = dq_dintrinsics_pool_int[0];
-                const int     len   = gradient_sparse_meta.run_side_length;
-
-                const double* ABCDx = &gradient_sparse_meta.pool[0];
-                const double* ABCDy = &gradient_sparse_meta.pool[len];
-
-                const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
-                const double* fxy = &intrinsics[0];
-                for(int i_xy=0; i_xy<2; i_xy++)
-                    for(int iy=0; iy<len; iy++)
-                        for(int ix=0; ix<len; ix++)
-                        {
-                            int ivar = ivar0 + ivar_stridey*iy + ix*2 + i_xy;
-                            dq_dintrinsics[ivar + i_xy*Nintrinsics] =
-                                ABCDx[ix]*ABCDy[iy]*fxy[i_xy];
-                        }
-            }
-
-            // advance
-            dq_dintrinsics = &dq_dintrinsics[2*Nintrinsics];
-            if(dq_dp != NULL)
-                dq_dp = &dq_dp[2];
+            const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
+            const double* fxy = &intrinsics[0];
+            for(int i_xy=0; i_xy<2; i_xy++)
+                for(int iy=0; iy<len; iy++)
+                    for(int ix=0; ix<len; ix++)
+                    {
+                        int ivar = ivar0 + ivar_stridey*iy + ix*2 + i_xy;
+                        dq_dintrinsics[ivar + i_xy*Nintrinsics] =
+                            ABCDx[ix]*ABCDy[iy]*fxy[i_xy];
+                    }
         }
 
-        // advance to the next point
-        q = &q[1];
+        // advance
+        dq_dintrinsics = &dq_dintrinsics[2*Nintrinsics];
+        if(dq_dp != NULL)
+            dq_dp = &dq_dp[2];
     }
     return true;
 }
