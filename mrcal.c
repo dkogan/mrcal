@@ -1888,7 +1888,7 @@ void project( // out
         if(has_dense_intrinsics_grad)
         {
             *dq_dintrinsics_nocore = p_dq_dintrinsics_nocore = &dq_dintrinsics_pool_double[ivar_pool];
-            ivar_pool += Npoints*2 * Nintrinsics;
+            ivar_pool += Npoints*2 * (Nintrinsics-4);
         }
         if(has_sparse_intrinsics_grad)
         {
