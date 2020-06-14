@@ -10,12 +10,6 @@ LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc
 
 BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
 
-CXXFLAGS_CV := $(shell pkg-config --cflags opencv)
-LDLIBS_CV   := $(shell pkg-config --libs   opencv)
-
-CCXXFLAGS += $(CXXFLAGS_CV)
-LDLIBS    += $(LDLIBS_CV)
-
 LDLIBS    += -ldogleg
 
 CFLAGS    += --std=gnu99

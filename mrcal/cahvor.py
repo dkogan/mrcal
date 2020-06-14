@@ -94,7 +94,6 @@ def _read(s, name):
               'LENSMODEL_OPENCV5',
               'LENSMODEL_OPENCV8',
               'LENSMODEL_OPENCV12',
-              'LENSMODEL_OPENCV14',
               'VALID_INTRINSICS_REGION'):
         if i in x:
             # Any data that's composed only of digits and whitespaces (no "."),
@@ -111,10 +110,7 @@ def _read(s, name):
 
 
     is_cahvor_or_cahvore = False
-    if   'LENSMODEL_OPENCV14' in x:
-        distortions = x["LENSMODEL_OPENCV14"]
-        lens_model = 'LENSMODEL_OPENCV14'
-    elif 'LENSMODEL_OPENCV12' in x:
+    if 'LENSMODEL_OPENCV12' in x:
         distortions = x["LENSMODEL_OPENCV12"]
         lens_model = 'LENSMODEL_OPENCV12'
     elif 'LENSMODEL_OPENCV8' in x:

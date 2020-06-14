@@ -65,7 +65,6 @@ typedef struct
     _(LENSMODEL_OPENCV5, 9)                                           \
     _(LENSMODEL_OPENCV8, 12)                                          \
     _(LENSMODEL_OPENCV12,16)   /* available in OpenCV >= 3.0.0) */    \
-    _(LENSMODEL_OPENCV14,18)   /* available in OpenCV >= 3.1.0) */    \
     _(LENSMODEL_CAHVOR,  9)                                           \
     _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */
 #define LENSMODEL_WITHCONFIG_LIST(_)                                  \
@@ -81,7 +80,6 @@ typedef struct {} LENSMODEL_OPENCV4__config_t;
 typedef struct {} LENSMODEL_OPENCV5__config_t;
 typedef struct {} LENSMODEL_OPENCV8__config_t;
 typedef struct {} LENSMODEL_OPENCV12__config_t;
-typedef struct {} LENSMODEL_OPENCV14__config_t;
 typedef struct {} LENSMODEL_CAHVOR__config_t;
 typedef struct {} LENSMODEL_CAHVORE__config_t;
 
@@ -91,7 +89,6 @@ typedef struct {} LENSMODEL_OPENCV4__precomputed_t;
 typedef struct {} LENSMODEL_OPENCV5__precomputed_t;
 typedef struct {} LENSMODEL_OPENCV8__precomputed_t;
 typedef struct {} LENSMODEL_OPENCV12__precomputed_t;
-typedef struct {} LENSMODEL_OPENCV14__precomputed_t;
 typedef struct {} LENSMODEL_CAHVOR__precomputed_t;
 typedef struct {} LENSMODEL_CAHVORE__precomputed_t;
 
@@ -127,7 +124,7 @@ typedef struct
 } LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t;
 
 #define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
-#define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV14
+#define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV12
 #define LENSMODEL_IS_OPENCV(d) (LENSMODEL_OPENCV_FIRST <= (d) && (d) <= LENSMODEL_OPENCV_LAST)
 
 
