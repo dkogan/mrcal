@@ -17,7 +17,6 @@ BuildRequires: python2-numpy
 # For the non-global parameters
 BuildRequires: libdogleg-devel >= 0.15.3
 BuildRequires: lapack-devel
-BuildRequires: opencv-devel >= 3.2
 BuildRequires: python36-devel
 BuildRequires: python36-libs
 BuildRequires: libminimath-devel
