@@ -3452,7 +3452,8 @@ static bool computeUncertaintyMatrices(// out
 #undef X
 }
 
-// Doing this myself instead of hooking into the logic in libdogleg
+// Doing this myself instead of hooking into the logic in libdogleg for now.
+// Bring back the fancy libdogleg logic once everything stabilizes
 static
 bool markOutliers(// output, input
                   struct dogleg_outliers_t* markedOutliers,
@@ -3468,14 +3469,19 @@ bool markOutliers(// output, input
                   int calibration_object_height_n,
 
                   const double* x_measurements,
-                  double expected_xy_stdev,
+                  double observed_pixel_uncertainty,
                   bool verbose)
 {
-    // I define an outlier as a feature that's > k stdevs past the mean. The
-    // threshold stdev is the worse of
-    // - The stdev of my data set
-    // - The expected stdev of my noise (calibrate-cameras
-    //   --observed-pixel-uncertainty)
+    // I define an outlier as a feature that's > k stdevs past the mean. I make
+    // a broad assumption that the error distribution is normally-distributed,
+    // with mean 0. This is reasonable because this function is applied after
+    // running the optimization.
+    //
+    // The threshold stdev is the larger of
+    //
+    // - The stdev of my observed residuals
+    // - The expected stdev of my noise passed-in as the
+    //   observed_pixel_uncertainty
     //
     // The rationale:
     //
@@ -3486,12 +3492,18 @@ bool markOutliers(// output, input
     // - If the solve isn't great, my errors may exceed the expected-noise stdev
     //   (if my model doesn't fit very well, say). In that case I want to use
     //   the stdev from the data
+    //
+    // This assumes that the given obsered_pixel_uncertainty isn't very
+    // well-known
+    //
+    // I have two separate thresholds. If any measurements are worse than the
+    // higher threshold, then I will need to reoptimize, so I throw out some
+    // extra points: all points worse than the lower threshold. This serves to
+    // reduce the required re-optimizations
 
     // threshold. +- 3sigma includes 99.7% of the data in a normal distribution
-    const double k = 3.0;
-
-#warning "think about this. here I'm looking at the deviations off mean error. That sounds wrong. Do I care about mean error? I want error to be 0, so maybe looking at absolute error is the thing to do instead"
-
+    const double k0 = 3.0;
+    const double k1 = 3.5;
     *Noutliers = 0;
 
     int i_pt,i_feature;
@@ -3517,44 +3529,26 @@ bool markOutliers(// output, input
     }}
 
 
-    // I loop through my data 3 times: 2 times to compute the stdev, and then
-    // once more to use that value to identify the outliers
-
-    double sum_mean   = 0.0;
     double sum_weight = 0.0;
-    LOOP_FEATURE_BEGIN()
-    {
-        if(markedOutliers[i_feature].marked)
-        {
-          (*Noutliers)++;
-          continue;
-        }
-
-        sum_mean +=
-            weight *
-            (x_measurements[2*i_feature + 0] +
-             x_measurements[2*i_feature + 1]);
-        sum_weight += weight;
-    }
-    LOOP_FEATURE_END();
-    sum_mean /= (2. * sum_weight);
-
     double var = 0.0;
     LOOP_FEATURE_BEGIN()
     {
         if(markedOutliers[i_feature].marked)
-          continue;
+        {
+            (*Noutliers)++;
+            continue;
+        }
 
-        double dx = (x_measurements[2*i_feature + 0] - sum_mean);
-        double dy = (x_measurements[2*i_feature + 1] - sum_mean);
+        double dx = x_measurements[2*i_feature + 0];
+        double dy = x_measurements[2*i_feature + 1];
 
         var += weight*(dx*dx + dy*dy);
+        sum_weight += weight;
     }
     LOOP_FEATURE_END();
     var /= (2.*sum_weight);
 
-    if(var < expected_xy_stdev*expected_xy_stdev)
-        var = expected_xy_stdev*expected_xy_stdev;
+    var = fmax(var, observed_pixel_uncertainty*observed_pixel_uncertainty);
 
     bool markedAny = false;
     LOOP_FEATURE_BEGIN()
@@ -3562,9 +3556,10 @@ bool markOutliers(// output, input
         if(markedOutliers[i_feature].marked)
           continue;
 
-        double dx = (x_measurements[2*i_feature + 0] - sum_mean);
-        double dy = (x_measurements[2*i_feature + 1] - sum_mean);
-        if(dx*dx > k*k*var || dy*dy > k*k*var )
+        double dx = x_measurements[2*i_feature + 0];
+        double dy = x_measurements[2*i_feature + 1];
+        if(dx*dx > k1*k1*var ||
+           dy*dy > k1*k1*var )
         {
             markedOutliers[i_feature].marked = true;
             markedAny                        = true;
@@ -3577,7 +3572,32 @@ bool markOutliers(// output, input
     }
     LOOP_FEATURE_END();
 
-    return markedAny;
+    if(!markedAny)
+        return false;
+
+    // Some measurements were past the worse threshold, so I throw out a bit
+    // extra to leave some margin so that the next re-optimization would be the
+    // last. Hopefully
+    LOOP_FEATURE_BEGIN()
+    {
+        if(markedOutliers[i_feature].marked)
+          continue;
+
+        double dx = x_measurements[2*i_feature + 0];
+        double dy = x_measurements[2*i_feature + 1];
+        if(dx*dx > k0*k0*var ||
+           dy*dy > k0*k0*var )
+        {
+            markedOutliers[i_feature].marked = true;
+            (*Noutliers)++;
+
+            // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
+            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k0);
+
+        }
+    }
+    LOOP_FEATURE_END();
+    return true;
 
 #undef LOOP_FEATURE_BEGIN
 #undef LOOP_FEATURE_END
