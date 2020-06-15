@@ -53,8 +53,8 @@ adjoining black squares will no longer touch each other in the image, and there
 would be no corner to detect. Conversely, if the image is badly underexposed,
 the black squares will bleed into each other, which would also destroy the
 corner. mrgingham tries to handle a variety of lighting conditions, including
-varying illuination across the image, but the corners must exist in the image in
-some form. A fundamental design decision in mrgingham is to only output
+varying illumination across the image, but the corners must exist in the image
+in some form. A fundamental design decision in mrgingham is to only output
 chessboards that we are very confident in, and a consequence of this is that
 mrgingham requires the WHOLE chessboard to be visible in order to produce any
 results. Thus it requires a bit of effort to produce any data at the edges and
@@ -64,7 +64,7 @@ preview of the calibration images being gathered is thus essential to aid the
 user in obtaining good data. Another requirement due to the design of mrgingham
 is that the board should be held with a flat edge parallel to the camera xz
 plane (parallel to the ground, usually). mrgingham looks for vertical and
-horizontal sequences of corners, but if the board is rotated in this way, then
+horizontal sequences of corners, but if the board is rotated diagonally, then
 none of these sequences are "horizontal" or "vertical", but they're all
 "diagonal", which isn't what mrgingham is looking for.
 
@@ -145,7 +145,7 @@ you're not going to be using these models in a system that only supports CAHVOR,
 there's little reason to use it. If you use a model that is too lean
 (LENSMODEL_PINHOLE or LENSMODEL_OPENCV4 maybe), the model will not fit the data,
 especially at the edges; the tool will tell you this. If you use a model that is
-too rich (something crazy like LENSMODEL_OPENCV14), then you will need much
+too rich (something crazy like LENSMODEL_OPENCV12), then you will need much
 more data than you normally would. Most lenses I've seen work well with
 LENSMODEL_OPENCV4 or LENSMODEL_OPENCV5 or LENSMODEL_OPENCV8; wider lenses
 need richer models.
