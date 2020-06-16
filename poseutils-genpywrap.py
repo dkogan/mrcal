@@ -20,7 +20,16 @@ m = npsp.module( name      = "_poseutils",
 ''')
 
 m.function( "identity_R",
-            "Returns an identity rotation matrix",
+            """Return an identity rotation matrix
+
+SYNOPSIS
+
+    print( mrcal.identity_R() )
+    ===>
+    [[1. 0. 0.]
+     [0. 1. 0.]
+     [0. 0. 1.]]
+""",
 
             args_input       = (),
             prototype_input  = (),
@@ -37,7 +46,14 @@ m.function( "identity_R",
 '''})
 
 m.function( "identity_r",
-            "Returns an identity rotation Rodrigues vector",
+            """Return an identity Rodrigues vector
+
+SYNOPSIS
+
+    print( mrcal.identity_r() )
+    ===>
+    [0. 0. 0.]
+""",
 
             args_input       = (),
             prototype_input  = (),
@@ -52,7 +68,17 @@ m.function( "identity_r",
 '''})
 
 m.function( "identity_Rt",
-            "Returns an identity Rt transformation",
+            """Return an identity Rt transformation
+
+SYNOPSIS
+
+    print( mrcal.identity_Rt() )
+    ===>
+    [[1. 0. 0.]
+     [0. 1. 0.]
+     [0. 0. 1.]
+     [0. 0. 0.]]
+""",
 
             args_input       = (),
             prototype_input  = (),
@@ -71,7 +97,14 @@ m.function( "identity_Rt",
 '''})
 
 m.function( "identity_rt",
-            "Returns an identity rt transformation",
+            """Return an identity rt transformation
+
+SYNOPSIS
+
+    print( mrcal.identity_rt() )
+    ===>
+    [0. 0. 0. 0. 0. 0.]
+""",
 
             args_input       = (),
             prototype_input  = (),
@@ -86,8 +119,48 @@ m.function( "identity_rt",
 '''})
 
 m.function( "_rotate_point_R",
-            "Rotate a point using a rotation matrix",
+            """Rotate a point using a rotation matrix
 
+SYNOPSIS
+
+    print(R.shape)
+    ===>
+    (3,3)
+
+    print(x.shape)
+    ===>
+    (10,3)
+
+    print( mrcal._rotate_point_R(R, x).shape )
+    ===>
+    (10,3)
+
+This is an internal function. You probably want mrcal.rotate_point_R()
+
+Rotate point(s) by a rotation matrix. This is a matrix multiplication. x is
+stored as a row vector (that's how numpy stores 1-dimensional arrays), but the
+multiplication works as if x was a column vector (to match linear algebra
+conventions):
+
+_rotate_point_R(R,x) = transpose( matmult(R, transpose(x))) =
+                     = matmult(x, transpose(R))
+
+This function supports broadcasting fully, so we can rotate lots of points at
+the same time and/or apply lots of rotations at the same time
+
+ARGUMENTS
+
+- R: array of shape (3,3). This matrix defines the rotation. It is assumed that
+  this is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
+  is not checked
+
+- x: array of shape (3,). The point being rotated
+
+RETURNED VALUE
+
+The rotated point(s). Each broadcasted slice has shape (3,)
+
+""",
             args_input       = ('R', 'x'),
             prototype_input  = ((3,3), (3,)),
             prototype_output = (3,),
@@ -108,7 +181,59 @@ m.function( "_rotate_point_R",
 )
 
 m.function( "_rotate_point_R_withgrad",
-            "Rotate a point using a rotation matrix; Return (u=R(x),du/dR,du/dx)",
+            """Rotate a point using a rotation matrix; report the result and gradients
+
+SYNOPSIS
+
+    print(R.shape)
+    ===>
+    (3,3)
+
+    print(x.shape)
+    ===>
+    (10,3)
+
+    print( [arr.shape for arr in mrcal._rotate_point_R_withgrad(R, x)] )
+    ===>
+    [(10,3), (10,3,3,3), (10,3,3)]
+
+This is an internal function. You probably want mrcal.rotate_point_R()
+
+Rotate point(s) by a rotation matrix. Unlike _rotate_point_R(), this returns a
+tuple of the result and the gradients: (u=R(x),du/dR,du/dx).
+
+This is a matrix multiplication. x is stored as a row vector (that's how numpy
+stores 1-dimensional arrays), but the multiplication works as if x was a column
+vector (to match linear algebra conventions):
+
+_rotate_point_R(R,x) = transpose( matmult(R, transpose(x))) =
+                     = matmult(x, transpose(R))
+
+This function supports broadcasting fully, so we can rotate lots of points at
+the same time and/or apply lots of rotations at the same time
+
+ARGUMENTS
+
+- R: array of shape (3,3). This matrix defines the rotation. It is assumed that
+  this is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
+  is not checked
+
+- x: array of shape (3,). The point being rotated
+
+RETURNED VALUE
+
+A tuple (u=R(x),du/dR,du/dx):
+
+1. The rotated point(s). Each broadcasted slice has shape (3,)
+
+2. The gradient du/dR. Each broadcasted slice has shape (3,3,3,). The first
+   dimension selects the element of u, and the last 2 dimensions select the
+   element of R
+
+3. The gradient du/dx. Each broadcasted slice has shape (3,3). The first
+   dimension selects the element of u, and the last dimension select the element
+   of x
+""",
 
             args_input       = ('R', 'x'),
             prototype_input  = ((3,3), (3,)),
