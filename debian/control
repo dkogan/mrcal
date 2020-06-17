@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 9), mrbuild (>= 1.4), dh-python,
  libpython3-all-dev,
  python3-gnuplotlib (>= 0.31), python3-numpysane (>= 0.22),
  python3, python3-opencv, python3-numpy, python3-scipy,
- python-numpy
+ python-numpy, python3-numpysane (>= 0.24-1)
 Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
 Standards-Version: 3.9.8
 Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
@@ -32,7 +32,7 @@ Package: mrcal
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          python3-mrcal (= ${binary:Version}), python,
-         python3-gnuplotlib (>= 0.24-1), python3-numpysane (>= 0.16-1),
+         python3-gnuplotlib (>= 0.24-1), python3-numpysane ,
          python3-scipy,  python3-ipython,
          python3-opencv, python3,
          mrgingham (>= 1.5)
@@ -61,7 +61,7 @@ Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          ${python3:Depends},
-         python3-gnuplotlib, python3-numpysane (>= 0.16-1),
+         python3-gnuplotlib, python3-numpysane ,
          python3-scipy,  python3-ipython, python3-shapely
 Provides: ${python3:Provides}
 Description: Calibration and SFM library

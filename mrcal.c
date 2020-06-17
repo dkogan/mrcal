@@ -651,7 +651,7 @@ typedef struct
 
 } geometric_gradients_t;
 
-// The implementation of project_opencv_notransform is based on opencv. The
+// The implementation of _mrcal_project_internal_opencv is based on opencv. The
 // sources have been heavily modified, but the opencv logic remains. This
 // function is a cut-down cvProjectPoints2Internal() to keep only the
 // functionality I want and to use my interfaces. Putting this here allows me to
@@ -686,17 +686,19 @@ typedef struct
 // loss of use, data, or profits; or business interruption) however caused
 // and on any theory of liability, whether in contract, strict liability,
 // or tort (including negligence or otherwise) arising in any way out of
-static
-void project_opencv_notransform( // outputs
-                                point2_t* q,
-                                point3_t* dq_dp,               // may be NULL
-                                double* dq_dintrinsics_nocore, // may be NULL
 
-                                // inputs
-                                const point3_t* p,
-                                int N,
-                                const double* intrinsics,
-                                int Nintrinsics)
+// NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
+// only
+void _mrcal_project_internal_opencv( // outputs
+                                    point2_t* q,
+                                    point3_t* dq_dp,               // may be NULL
+                                    double* dq_dintrinsics_nocore, // may be NULL
+
+                                    // inputs
+                                    const point3_t* p,
+                                    int N,
+                                    const double* intrinsics,
+                                    int Nintrinsics)
 {
     const double fx = intrinsics[0];
     const double fy = intrinsics[1];
@@ -848,9 +850,9 @@ void _project_point_parametric( // outputs
         else
         {
             int Nintrinsics = mrcal_getNlensParams(lensmodel);
-            project_opencv_notransform( q, dq_dp,
-                                        dq_dintrinsics_nocore,
-                                        p, 1, intrinsics, Nintrinsics);
+            _mrcal_project_internal_opencv( q, dq_dp,
+                                            dq_dintrinsics_nocore,
+                                            p, 1, intrinsics, Nintrinsics);
         }
 
         // dq/deee = dq/dp dp/deee
@@ -1202,7 +1204,7 @@ void mrcal_unproject_stereographic( // output
     }
 }
 
-static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
+static void _mrcal_precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
   ( // output
     LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed,
 
@@ -1250,12 +1252,15 @@ static void precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
     double u_edge_x      = tan(th_fov_x_edge / 2.) * 2;
     precomputed->segments_per_u = (config->Nx - 1 - NextraIntervals) / (u_edge_x*2.);
 }
-static void precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
+
+// NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
+// only
+void _mrcal_precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
                                       lensmodel_t lensmodel)
 {
     // currently only this model has anything
     if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
-        precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
+        _mrcal_precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
             ( &precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed,
               &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config );
     precomputed->ready = true;
@@ -1275,7 +1280,7 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
     }
 
     mrcal_projection_precomputed_t precomputed_all;
-    precompute_lensmodel_data(&precomputed_all, lensmodel);
+    _mrcal_precompute_lensmodel_data(&precomputed_all, lensmodel);
 
     LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
         &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
@@ -1997,16 +2002,17 @@ void project( // out
     }
 }
 
-static
-bool _project_cahvore( // out
-                      point2_t* out,
+// NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
+// only
+bool _mrcal_project_internal_cahvore( // out
+                                     point2_t* out,
 
-                      // in
-                      const point3_t* v,
-                      int N,
+                                     // in
+                                     const point3_t* v,
+                                     int N,
 
-                      // core, distortions concatenated
-                      const double* intrinsics)
+                                     // core, distortions concatenated
+                                     const double* intrinsics)
 {
     // Apply a CAHVORE warp to an un-distorted point
 
@@ -2168,68 +2174,33 @@ bool _project_cahvore( // out
     return true;
 }
 
-// External interface to the internal project() function. The internal function
-// is more general (supports geometric transformations prior to projection, and
-// supports chessboards). dq_dintrinsics and/or dq_dp are allowed to be NULL if
-// we're not interested in gradients.
-//
-// This function supports CAHVORE distortions if we don't ask for gradients
-bool mrcal_project( // out
-                   point2_t* q,
 
-                   // Stored as a row-first array of shape (N,2,3). Each
-                   // trailing ,3 dimension element is a point3_t
-                   point3_t* dq_dp,
-                   // core, distortions concatenated. Stored as a row-first
-                   // array of shape (N,2,Nintrinsics). This is a DENSE array.
-                   // High-parameter-count lens models have very sparse
-                   // gradients here, and the internal project() function
-                   // returns those sparsely. For now THIS function densifies
-                   // all of these
-                   double*   dq_dintrinsics,
+// NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
+// only
+bool _mrcal_project_internal( // out
+                             point2_t* q,
 
-                   // in
-                   const point3_t* p,
-                   int N,
-                   lensmodel_t lensmodel,
-                   // core, distortions concatenated
-                   const double* intrinsics)
+                             // Stored as a row-first array of shape (N,2,3). Each
+                             // trailing ,3 dimension element is a point3_t
+                             point3_t* dq_dp,
+                             // core, distortions concatenated. Stored as a row-first
+                             // array of shape (N,2,Nintrinsics). This is a DENSE array.
+                             // High-parameter-count lens models have very sparse
+                             // gradients here, and the internal project() function
+                             // returns those sparsely. For now THIS function densifies
+                             // all of these
+                             double*   dq_dintrinsics,
+
+                             // in
+                             const point3_t* p,
+                             int N,
+                             lensmodel_t lensmodel,
+                             // core, distortions concatenated
+                             const double* intrinsics,
+
+                             int Nintrinsics,
+                             const mrcal_projection_precomputed_t* precomputed)
 {
-    // project() doesn't handle cahvore, so I special-case it here
-    if( lensmodel.type == LENSMODEL_CAHVORE )
-    {
-        if(dq_dintrinsics != NULL || dq_dp != NULL)
-        {
-            fprintf(stderr, "mrcal_project(LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients\n");
-            return false;
-        }
-        return _project_cahvore(q, p, N, intrinsics);
-    }
-
-    int Nintrinsics = mrcal_getNlensParams(lensmodel);
-
-    // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
-    // project() have a lot of overhead apparently, and calling either in a loop
-    // is very slow. I can call it once, and use its fast internal loop,
-    // however. This special case does the same thing, but much faster.
-    if(dq_dintrinsics == NULL && dq_dp == NULL &&
-       (LENSMODEL_IS_OPENCV(lensmodel.type) ||
-        lensmodel.type == LENSMODEL_PINHOLE))
-    {
-        project_opencv_notransform( q, NULL,NULL,
-                                    p, N, intrinsics, Nintrinsics);
-        return true;
-    }
-
-
-    // Some models have sparse gradients, but I'm returning a dense array here.
-    // So I init everything at 0
-    if(dq_dintrinsics != NULL)
-        memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
-
-    mrcal_projection_precomputed_t precomputed;
-    precompute_lensmodel_data(&precomputed, lensmodel);
-
     if( dq_dintrinsics == NULL )
     {
         for(int i=0; i<N; i++)
@@ -2245,7 +2216,7 @@ bool mrcal_project( // out
 
                      // in
                      intrinsics, NULL, &frame, NULL, true,
-                     lensmodel, &precomputed,
+                     lensmodel, precomputed,
                      0.0, 0,0);
         }
         return true;
@@ -2274,7 +2245,7 @@ bool mrcal_project( // out
 
                  // in
                  intrinsics, NULL, &frame, NULL, true,
-                 lensmodel, &precomputed,
+                 lensmodel, precomputed,
                  0.0, 0,0);
 
         int Ncore = 0;
@@ -2337,6 +2308,78 @@ bool mrcal_project( // out
     return true;
 }
 
+// External interface to the internal project() function. The internal function
+// is more general (supports geometric transformations prior to projection, and
+// supports chessboards). dq_dintrinsics and/or dq_dp are allowed to be NULL if
+// we're not interested in gradients.
+//
+// This function supports CAHVORE distortions if we don't ask for gradients
+bool mrcal_project( // out
+                   point2_t* q,
+
+                   // Stored as a row-first array of shape (N,2,3). Each
+                   // trailing ,3 dimension element is a point3_t
+                   point3_t* dq_dp,
+                   // core, distortions concatenated. Stored as a row-first
+                   // array of shape (N,2,Nintrinsics). This is a DENSE array.
+                   // High-parameter-count lens models have very sparse
+                   // gradients here, and the internal project() function
+                   // returns those sparsely. For now THIS function densifies
+                   // all of these
+                   double*   dq_dintrinsics,
+
+                   // in
+                   const point3_t* p,
+                   int N,
+                   lensmodel_t lensmodel,
+                   // core, distortions concatenated
+                   const double* intrinsics)
+{
+    // The outer logic (outside the loop-over-N-points) is duplicated in
+    // mrcal_project() and in the python wrapper definition in _project() and
+    // _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
+
+    // project() doesn't handle cahvore, so I special-case it here
+    if( lensmodel.type == LENSMODEL_CAHVORE )
+    {
+        if(dq_dintrinsics != NULL || dq_dp != NULL)
+        {
+            fprintf(stderr, "mrcal_project(LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients\n");
+            return false;
+        }
+        return _mrcal_project_internal_cahvore(q, p, N, intrinsics);
+    }
+
+    int Nintrinsics = mrcal_getNlensParams(lensmodel);
+
+    // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
+    // project() have a lot of overhead apparently, and calling either in a loop
+    // is very slow. I can call it once, and use its fast internal loop,
+    // however. This special case does the same thing, but much faster.
+    if(dq_dintrinsics == NULL && dq_dp == NULL &&
+       (LENSMODEL_IS_OPENCV(lensmodel.type) ||
+        lensmodel.type == LENSMODEL_PINHOLE))
+    {
+        _mrcal_project_internal_opencv( q, NULL,NULL,
+                                        p, N, intrinsics, Nintrinsics);
+        return true;
+    }
+
+    // Some models have sparse gradients, but I'm returning a dense array here.
+    // So I init everything at 0
+    if(dq_dintrinsics != NULL)
+        memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
+
+    mrcal_projection_precomputed_t precomputed;
+    _mrcal_precompute_lensmodel_data(&precomputed, lensmodel);
+
+    return
+        _mrcal_project_internal(q, dq_dp, dq_dintrinsics,
+                                p, N, lensmodel, intrinsics,
+                                Nintrinsics, &precomputed);
+}
+
+
 // Maps a set of distorted 2D imager points q to a 3d vector in camera
 // coordinates that produced these pixel observations. The 3d vector is defined
 // up-to-length, so the vectors reported here will all have z = 1.
@@ -2364,25 +2407,14 @@ bool mrcal_unproject( // out
         return false;
     }
 
-    double fx,fy,cx,cy;
-    if(modelHasCore_fxfycxcy(lensmodel))
-    {
-        fx = intrinsics[0];
-        fy = intrinsics[1];
-        cx = intrinsics[2];
-        cy = intrinsics[3];
-    }
-    else
-    {
-        MSG("Unhandled lens model: %d (%s)",
-            lensmodel.type,
-            mrcal_lensmodel_name(lensmodel));
-        assert(0);
-    }
-
     // easy special-cases
     if( lensmodel.type == LENSMODEL_PINHOLE )
     {
+        double fx = intrinsics[0];
+        double fy = intrinsics[1];
+        double cx = intrinsics[2];
+        double cy = intrinsics[3];
+
         for(int i=0; i<N; i++)
         {
             out->x = (q[i].x - cx) / fx;
@@ -2396,13 +2428,39 @@ bool mrcal_unproject( // out
     }
     if( lensmodel.type == LENSMODEL_STEREOGRAPHIC )
     {
+        double fx = intrinsics[0];
+        double fy = intrinsics[1];
+        double cx = intrinsics[2];
+        double cy = intrinsics[3];
+
         mrcal_unproject_stereographic(out, NULL, q, N, fx,fy,cx,cy);
         return true;
     }
 
 
     mrcal_projection_precomputed_t precomputed;
-    precompute_lensmodel_data(&precomputed, lensmodel);
+    _mrcal_precompute_lensmodel_data(&precomputed, lensmodel);
+
+    return _mrcal_unproject_internal(out, q, N, lensmodel, intrinsics, &precomputed);
+}
+
+// NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
+// only
+bool _mrcal_unproject_internal( // out
+                               point3_t* out,
+
+                               // in
+                               const point2_t* q,
+                               int N,
+                               lensmodel_t lensmodel,
+                               // core, distortions concatenated
+                               const double* intrinsics,
+                               const mrcal_projection_precomputed_t* precomputed)
+{
+    double fx = intrinsics[0];
+    double fy = intrinsics[1];
+    double cx = intrinsics[2];
+    double cy = intrinsics[3];
 
     // I optimize in the space of the stereographic projection. This is a 2D
     // space with a direct mapping to/from observation vectors with a single
@@ -2437,7 +2495,7 @@ bool mrcal_unproject( // out
                      &frame,
                      NULL,
                      true,
-                     lensmodel, &precomputed,
+                     lensmodel, precomputed,
                      0.0, 0,0);
             x[0] = q_hypothesis.x - q[i].x;
             x[1] = q_hypothesis.y - q[i].y;
@@ -4081,9 +4139,9 @@ void optimizerCallback(// input state
 
         double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics)];
         int    dq_dintrinsics_pool_int   [1];
-        double* dq_dfxy;
-        double* dq_dintrinsics_nocore;
-        gradient_sparse_meta_t gradient_sparse_meta;
+        double* dq_dfxy                             = NULL;
+        double* dq_dintrinsics_nocore               = NULL;
+        gradient_sparse_meta_t gradient_sparse_meta = {};
 
         point3_t dq_drcamera[2];
         point3_t dq_dtcamera[2];
@@ -4738,7 +4796,7 @@ void mrcal_optimizerCallback(// output measurements
         .N_j_nonzero                = N_j_nonzero,
         .Nintrinsics                = Nintrinsics,
         .markedOutliers             = markedOutliers};
-    precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
+    _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
     const int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
                                        Nframes, Npoints-Npoints_fixed,
@@ -4919,7 +4977,7 @@ mrcal_optimize( // out
         .Nintrinsics                = mrcal_getNlensParams(lensmodel),
 
         .markedOutliers = markedOutliers};
-    precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
+    _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
 
     dogleg_solverContext_t*  solver_context = NULL;

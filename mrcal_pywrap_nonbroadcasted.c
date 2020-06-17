@@ -806,227 +806,6 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 }
 
 
-// project(), and unproject() have very similar arguments and operation, so the
-// logic is consolidated as much as possible in these functions. The first arg
-// is called "points" in both cases, but is 2d in one case, and 3d in the other
-
-#define PROJECT_ARGUMENTS_REQUIRED(_)                                   \
-    _(points,     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,     NPY_DOUBLE, {} ) \
-    _(lensmodel,  PyObject*,      NULL,    STRING_OBJECT,                         , NULL,       -1,         {} ) \
-    _(intrinsics, PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics, NPY_DOUBLE, {} ) \
-
-#define PROJECT_ARGUMENTS_OPTIONAL(_) \
-    _(get_gradients,    PyObject*,  Py_False,    "O",                                   , NULL,      -1, {})
-
-#define UNPROJECT_ARGUMENTS_REQUIRED(_) PROJECT_ARGUMENTS_REQUIRED(_)
-#define UNPROJECT_ARGUMENTS_OPTIONAL(_)
-
-static bool _un_project_validate_args( // out
-                                      lensmodel_t* lensmodel_type,
-
-                                      // in
-                                      int dim_points_in, // 3 for project(), 2 for unproject()
-                                      PROJECT_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
-                                      PROJECT_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
-                                      void* dummy __attribute__((unused)))
-{
-    if( PyArray_NDIM(intrinsics) != 1 )
-    {
-        BARF("'intrinsics' must have exactly 1 dim");
-        return false;
-    }
-
-    if( PyArray_NDIM(points) < 1 )
-    {
-        BARF("'points' must have ndims >= 1");
-        return false;
-    }
-    if( dim_points_in != PyArray_DIMS(points)[ PyArray_NDIM(points)-1 ] )
-    {
-        BARF("points.shape[-1] MUST be %d. Instead got %ld",
-                     dim_points_in,
-                     PyArray_DIMS(points)[PyArray_NDIM(points)-1] );
-        return false;
-    }
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    PROJECT_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
-    PROJECT_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-#pragma GCC diagnostic pop
-
-    if(!parse_lensmodel_from_arg(lensmodel_type, lensmodel))
-        return false;
-
-    int NlensParams = mrcal_getNlensParams(*lensmodel_type);
-    if( NlensParams != PyArray_DIMS(intrinsics)[0] )
-    {
-        BARF("intrinsics.shape[0] MUST be %d. Instead got %ld",
-                     NlensParams,
-                     PyArray_DIMS(intrinsics)[0] );
-        return false;
-    }
-
-    return true;
-}
-
-#define _UN_PROJECT_PREAMBLE(ARGUMENTS_REQUIRED,ARGUMENTS_OPTIONAL,ARGUMENTS_OPTIONAL_VALIDATE,dim_points_in,dim_points_out) \
-    PyObject*      result          = NULL;                              \
-                                                                        \
-    SET_SIGINT();                                                       \
-    PyArrayObject* out             = NULL;                              \
-    __attribute__((unused)) PyArrayObject* dq_dintrinsics = NULL;       \
-    __attribute__((unused)) PyArrayObject* dq_dp          = NULL;       \
-                                                                        \
-    ARGUMENTS_REQUIRED(ARG_DEFINE);                                     \
-    ARGUMENTS_OPTIONAL(ARG_DEFINE);                                     \
-                                                                        \
-    char* keywords[] = { ARGUMENTS_REQUIRED(NAMELIST)                   \
-                         ARGUMENTS_OPTIONAL(NAMELIST)                   \
-                         NULL};                                         \
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,                      \
-                                     ARGUMENTS_REQUIRED(PARSECODE) "|"  \
-                                     ARGUMENTS_OPTIONAL(PARSECODE),     \
-                                                                        \
-                                     keywords,                          \
-                                                                        \
-                                     ARGUMENTS_REQUIRED(PARSEARG)       \
-                                     ARGUMENTS_OPTIONAL(PARSEARG) NULL)) \
-        goto done;                                                      \
-                                                                        \
-    /* if the input points array is degenerate, return a degenerate thing */ \
-    if( IS_NULL(points) )                                               \
-    {                                                                   \
-        result = Py_None;                                               \
-        Py_INCREF(result);                                              \
-        goto done;                                                      \
-    }                                                                   \
-                                                                        \
-    lensmodel_t lensmodel_type;                                         \
-    if(!_un_project_validate_args( &lensmodel_type,                     \
-                                   dim_points_in,                       \
-                                   ARGUMENTS_REQUIRED(ARG_LIST_CALL)    \
-                                   ARGUMENTS_OPTIONAL_VALIDATE(ARG_LIST_CALL) \
-                                   NULL))                               \
-        goto done;                                                      \
-                                                                        \
-    int Nintrinsics = PyArray_DIMS(intrinsics)[0];                      \
-                                                                        \
-    /* poor man's broadcasting of the inputs. I compute the total number of */ \
-    /* points by multiplying the extra broadcasted dimensions. And I set up the */ \
-    /* outputs to have the appropriate broadcasted dimensions        */ \
-    const npy_intp* leading_dims  = PyArray_DIMS(points);               \
-    int             Nleading_dims = PyArray_NDIM(points)-1;             \
-    int Npoints = PyArray_SIZE(points) / leading_dims[Nleading_dims];   \
-    bool get_gradients_bool = IS_TRUE(get_gradients);                   \
-                                                                        \
-    {                                                                   \
-        npy_intp dims[Nleading_dims+2]; /* one extra for the gradients */ \
-        memcpy(dims, leading_dims, Nleading_dims*sizeof(dims[0]));      \
-                                                                        \
-        dims[Nleading_dims + 0] =  dim_points_out;                      \
-        out = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+1,        \
-                                                dims,                   \
-                                                NPY_DOUBLE);            \
-        if( get_gradients_bool )                                        \
-        {                                                               \
-            dims[Nleading_dims + 0] = 2;                                \
-            dims[Nleading_dims + 1] = Nintrinsics;                      \
-            dq_dintrinsics = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
-                                                               dims,    \
-                                                               NPY_DOUBLE); \
-                                                                        \
-            dims[Nleading_dims + 0] = 2;                                \
-            dims[Nleading_dims + 1] = dim_points_in;                    \
-            dq_dp          = (PyArrayObject*)PyArray_SimpleNew(Nleading_dims+2, \
-                                                               dims,    \
-                                                               NPY_DOUBLE); \
-        }                                                               \
-    }
-
-
-static PyObject* project(PyObject* NPY_UNUSED(self),
-                         PyObject* args,
-                         PyObject* kwargs)
-{
-    _UN_PROJECT_PREAMBLE(PROJECT_ARGUMENTS_REQUIRED,
-                         PROJECT_ARGUMENTS_OPTIONAL,
-                         PROJECT_ARGUMENTS_OPTIONAL,
-                         3, 2);
-
-    bool mrcal_result =
-        mrcal_project((point2_t*)PyArray_DATA(out),
-                      get_gradients_bool ? (point3_t*)PyArray_DATA(dq_dp)  : NULL,
-                      get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
-
-                      (const point3_t*)PyArray_DATA(points),
-                      Npoints,
-                      lensmodel_type,
-                      // core, distortions concatenated
-                      (const double*)PyArray_DATA(intrinsics));
-
-
-    if(!mrcal_result)
-    {
-        BARF("mrcal_project() failed!");
-        Py_DECREF((PyObject*)out);
-        goto done;
-    }
-
-    if( get_gradients_bool )
-    {
-        result = PyTuple_Pack(3, out, dq_dp, dq_dintrinsics);
-        Py_DECREF(out);
-        Py_DECREF(dq_dp);
-        Py_DECREF(dq_dintrinsics);
-    }
-    else
-        result = (PyObject*)out;
-
- done:
-    PROJECT_ARGUMENTS_REQUIRED(FREE_PYARRAY);
-    PROJECT_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
-    RESET_SIGINT();
-    return result;
-}
-
-static PyObject* _unproject(PyObject* NPY_UNUSED(self),
-                            PyObject* args,
-                            PyObject* kwargs)
-{
-    // unproject() has the same arguments as project(), except no gradient
-    // reporting. The first arg is called "points" in both cases, but is 2d in
-    // one case, and 3d in the other
-    PyObject* get_gradients = NULL;
-
-    _UN_PROJECT_PREAMBLE(UNPROJECT_ARGUMENTS_REQUIRED,
-                         UNPROJECT_ARGUMENTS_OPTIONAL,
-                         PROJECT_ARGUMENTS_OPTIONAL,
-                         2, 3);
-    bool mrcal_result =
-        mrcal_unproject((point3_t*)PyArray_DATA(out),
-
-                        (const point2_t*)PyArray_DATA(points),
-                        Npoints,
-                        lensmodel_type,
-                        /* core, distortions concatenated */
-                        (const double*)PyArray_DATA(intrinsics));
-    if(!mrcal_result)
-    {
-        BARF("mrcal_unproject() failed!");
-        Py_DECREF((PyObject*)out);
-        goto done;
-    }
-
-    result = (PyObject*)out;
-
- done:
-    UNPROJECT_ARGUMENTS_REQUIRED(FREE_PYARRAY);
-    UNPROJECT_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
-    RESET_SIGINT();
-    return result;
-}
-
 // project_stereographic(), and unproject_stereographic() have very similar
 // arguments and operation, so the logic is consolidated as much as possible in
 // these functions. The first arg is called "points" in both cases, but is 2d in
@@ -2142,12 +1921,6 @@ static const char getSupportedLensModels_docstring[] =
 static const char getKnotsForSplinedModels_docstring[] =
 #include "getKnotsForSplinedModels.docstring.h"
     ;
-static const char project_docstring[] =
-#include "project.docstring.h"
-    ;
-static const char _unproject_docstring[] =
-#include "_unproject.docstring.h"
-    ;
 static const char project_stereographic_docstring[] =
 #include "project_stereographic.docstring.h"
     ;
@@ -2161,8 +1934,6 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
       PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
       PYMETHODDEF_ENTRY(,getKnotsForSplinedModels, METH_VARARGS),
-      PYMETHODDEF_ENTRY(,project,                  METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,_unproject,               METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,project_stereographic,    METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,unproject_stereographic,  METH_VARARGS | METH_KEYWORDS),
       {}
@@ -2184,7 +1955,7 @@ PyMODINIT_FUNC init_mrcal_nonbroadcasted(void)
 
     PyObject* module =
         Py_InitModule3("_mrcal_nonbroadcasted", methods,
-                       "Calibration and SFM routines");
+                       "Internal python wrappers for non-broadcasting functions");
     _init_mrcal_common(module);
     import_array();
 }
@@ -2195,7 +1966,7 @@ static struct PyModuleDef module_def =
     {
      PyModuleDef_HEAD_INIT,
      "_mrcal_nonbroadcasted",
-     "Calibration and SFM routines",
+     "Internal python wrappers for non-broadcasting functions",
      -1,
      methods
     };

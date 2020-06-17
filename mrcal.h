@@ -160,7 +160,8 @@ typedef struct
     };
 } mrcal_projection_precomputed_t;
 
-bool mrcal_lensmodel_type_is_valid(lensmodel_type_t t)
+__attribute__((unused))
+static bool mrcal_lensmodel_type_is_valid(lensmodel_type_t t)
 {
     return t >= 0;
 }
@@ -220,7 +221,8 @@ bool               mrcal_lensmodel_name_full             ( char* out, int size, 
 // parses the model name AND the configuration into a lensmodel_t structure.
 // Strings with valid model names but missing or unparseable configuration
 // return {.type = LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
-// {.type = LENSMODEL_INVALID}
+// invalid lensmodel.type, which can be checked with
+// mrcal_lensmodel_type_is_valid(lensmodel->type)
 lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
 
 // parses the model name only. The configuration is ignored. Even if it's
@@ -539,3 +541,62 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras_intrinsics, int Ncameras_extrinsics,
                                        int Nframes, int NpointsVariable);
+
+
+
+// THESE ARE NOT A PART OF THE EXTERNAL API. Exported for the mrcal python
+// wrapper only
+void _mrcal_project_internal_opencv( // outputs
+                                    point2_t* q,
+                                    point3_t* dq_dp,               // may be NULL
+                                    double* dq_dintrinsics_nocore, // may be NULL
+
+                                    // inputs
+                                    const point3_t* p,
+                                    int N,
+                                    const double* intrinsics,
+                                    int Nintrinsics);
+bool _mrcal_project_internal_cahvore( // out
+                                     point2_t* out,
+
+                                     // in
+                                     const point3_t* v,
+                                     int N,
+
+                                     // core, distortions concatenated
+                                     const double* intrinsics);
+bool _mrcal_project_internal( // out
+                             point2_t* q,
+
+                             // Stored as a row-first array of shape (N,2,3). Each
+                             // trailing ,3 dimension element is a point3_t
+                             point3_t* dq_dp,
+                             // core, distortions concatenated. Stored as a row-first
+                             // array of shape (N,2,Nintrinsics). This is a DENSE array.
+                             // High-parameter-count lens models have very sparse
+                             // gradients here, and the internal project() function
+                             // returns those sparsely. For now THIS function densifies
+                             // all of these
+                             double*   dq_dintrinsics,
+
+                             // in
+                             const point3_t* p,
+                             int N,
+                             lensmodel_t lensmodel,
+                             // core, distortions concatenated
+                             const double* intrinsics,
+
+                             int Nintrinsics,
+                             const mrcal_projection_precomputed_t* precomputed);
+void _mrcal_precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
+                                      lensmodel_t lensmodel);
+bool _mrcal_unproject_internal( // out
+                               point3_t* out,
+
+                               // in
+                               const point2_t* q,
+                               int N,
+                               lensmodel_t lensmodel,
+                               // core, distortions concatenated
+                               const double* intrinsics,
+                               const mrcal_projection_precomputed_t* precomputed);

@@ -12,23 +12,82 @@ import scipy.optimize
 import mrcal
 
 
-def unproject(q, lensmodel, intrinsics_data):
-    r'''Removes distortion from pixel observations
+def project(v, lensmodel, intrinsics_data,
+            get_gradients = False):
+    r'''Projects a set of 3D camera-frame points to the imager
 
 SYNOPSIS
 
-    v = mrcal.unproject( # (N,2) array of pixel observations
+    points = mrcal.project( # (...,3) array of 3d points we're projecting
+                            v,
+
+                            lensmodel, intrinsics_data)
+
+    # points is a (...,2) array of pixel coordinates
+
+Given a shape-(...,3) array of points in the camera frame (x,y aligned with the
+imager coords, z 'forward') and an intrinsic model, this function computes the
+projection, optionally with gradients.
+
+Broadcasting is fully supported across v and intrinsics_data
+
+ARGUMENTS
+
+- points: array of dims (...,3); the points we're projecting
+
+- lensmodel: a string such as
+
+  LENSMODEL_PINHOLE
+  LENSMODEL_OPENCV4
+  LENSMODEL_CAHVOR
+  LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=16_Ny=12_fov_x_deg=100
+
+- intrinsics: array of dims (Nintrinsics):
+
+    (focal_x, focal_y, center_pixel_x, center_pixel_y, distortion0, distortion1,
+    ...)
+
+  The focal lengths are given in pixels.
+
+- get_gradients: optional boolean that defaults to False. Whether we should
+  compute and report the gradients. This affects what we return
+
+RETURNED VALUE
+
+if not get_gradients:
+
+  we return an (...,2) array of projected pixel coordinates
+
+if get_gradients: we return a tuple:
+
+  - (...,2) array of projected pixel coordinates
+  - (...,2,3) array of the gradients of the pixel coordinates in respect to
+    the input 3D point positions
+  - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
+    respect to the intrinsics
+
+The unprojected observation vector of shape (..., 3).
+    '''
+
+    # Internal function must have a different argument order so
+    # that all the broadcasting stuff is in the leading arguments
+    if not get_gradients:
+        return mrcal._mrcal_broadcasted._project(v, intrinsics_data, lensmodel=lensmodel)
+    return mrcal._mrcal_broadcasted._project_withgrad(v, intrinsics_data, lensmodel=lensmodel)
+
+
+def unproject(q, lensmodel, intrinsics_data):
+    r'''Unprojects pixel coordinates to observation vectors
+
+SYNOPSIS
+
+    v = mrcal.unproject( # (...,2) array of pixel observations
                          q,
                          lensmodel, intrinsics_data )
 
-This is the python wrapper to the internal written-in-C
-_mrcal_nonbroadcasted._unproject(). This wrapper that has a slow path to handle
-CAHVORE. Otherwise, the it just calls _mrcal_nonbroadcasted._unproject(), which
-does NOT support CAHVORE
-
 Maps a set of 2D imager points q to a 3d vector in camera coordinates that
-produced these pixel observations. The 3d vector is unique only up-to-length.
-The returned vectors aren't normalized.
+produced these pixel observations. The 3d vector is unique only up-to-length,
+and the returned vectors aren't normalized.
 
 This is the "reverse" direction, so an iterative nonlinear optimization is
 performed internally to compute this result. This is much slower than
@@ -36,13 +95,11 @@ mrcal_project. For OpenCV distortions specifically, OpenCV has
 cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
 https://github.com/opencv/opencv/issues/8811
 
-This function does NOT support CAHVORE.
+Broadcasting is fully supported across q and intrinsics_data
 
 ARGUMENTS
 
-- q: array of dims (...,2); the pixel coordinates we're unprojecting. This
-  supports broadcasting fully, and any leading dimensions are allowed, including
-  none
+- q: array of dims (...,2); the pixel coordinates we're unprojecting
 
 - lensmodel: a string such as
 
@@ -53,15 +110,21 @@ ARGUMENTS
 
 - intrinsics_data: array of dims (Nintrinsics):
 
-    (focal_x, focal_y, center_pixel_x, center_pixel_y, distorion0, distortion1,
+    (focal_x, focal_y, center_pixel_x, center_pixel_y, distortion0, distortion1,
     ...)
 
   The focal lengths are given in pixels.
 
+RETURNED VALUE
+
+The unprojected observation vector of shape (..., 3).
+
     '''
 
     if lensmodel != 'LENSMODEL_CAHVORE':
-        return mrcal._mrcal_nonbroadcasted._unproject(q, lensmodel, intrinsics_data)
+        # Main path. Internal function must have a different argument order so
+        # that all the broadcasting stuff is in the leading arguments
+        return mrcal._mrcal_broadcasted._unproject(q, intrinsics_data, lensmodel=lensmodel)
 
     # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
     # and here for legacy compatibility only
