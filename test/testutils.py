@@ -133,24 +133,19 @@ def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
                 err  = np.sqrt(nps.norm2(diff) / len(diff))
 
             if not np.all(np.isfinite(err)):
-                print_red("FAILED{}: Some comparison results are NaN or Inf. "
-                          "{} error = {}. x = {}, xref = {}".format(
-                              (': ' + msg) if msg else '', what, err, x, xref))
+                print_red(f"FAILED{(': ' + msg) if msg else ''}: Some comparison results are NaN or Inf. {what}. error_x_xref =\n{nps.cat(err,x,xref)}")
                 NchecksFailed = NchecksFailed + 1
                 return False
             if err > eps:
-                print_red("FAILED{}: {} error = {}.\nx = {}\nxref = {}\nerr = {}".format(
-                    (': ' + msg) if msg else '', what, err,
-                    x,xref,diff))
+                print_red(f"FAILED{(': ' + msg) if msg else ''}: {what} error = {err}. x_xref_err =\n{nps.cat(x,xref,diff)}")
                 NchecksFailed = NchecksFailed + 1
                 return False
         except:  # Can't subtract. Do == instead
             if not np.array_equal(x, xref):
-                print_red("FAILED{}: x =\n'{}', xref =\n'{}'".format(
-                    (': ' + msg) if msg else '', x, xref))
+                print_red(f"FAILED{(': ' + msg) if msg else ''}: x_xref =\n{nps.cat(x,xref)}")
                 NchecksFailed = NchecksFailed + 1
                 return False
-    print_green("OK{}".format((': ' + msg) if msg else ''))
+    print_green("OK" + (': ' + msg) if msg else '')
     return True
 
 
