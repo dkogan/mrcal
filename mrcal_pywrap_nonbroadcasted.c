@@ -2177,13 +2177,13 @@ static void _init_mrcal_common(PyObject* module)
 
 #if PY_MAJOR_VERSION == 2
 
-PyMODINIT_FUNC init_mrcal(void)
+PyMODINIT_FUNC init_mrcal_nonbroadcasted(void)
 {
     if (PyType_Ready(&SolverContextType) < 0)
         return;
 
     PyObject* module =
-        Py_InitModule3("_mrcal", methods,
+        Py_InitModule3("_mrcal_nonbroadcasted", methods,
                        "Calibration and SFM routines");
     _init_mrcal_common(module);
     import_array();
@@ -2194,13 +2194,13 @@ PyMODINIT_FUNC init_mrcal(void)
 static struct PyModuleDef module_def =
     {
      PyModuleDef_HEAD_INIT,
-     "_mrcal",
+     "_mrcal_nonbroadcasted",
      "Calibration and SFM routines",
      -1,
      methods
     };
 
-PyMODINIT_FUNC PyInit__mrcal(void)
+PyMODINIT_FUNC PyInit__mrcal_nonbroadcasted(void)
 {
     if (PyType_Ready(&SolverContextType) < 0)
         return NULL;
