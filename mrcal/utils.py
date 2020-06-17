@@ -1037,13 +1037,13 @@ ARGUMENTS
         gridn_y = int(round(H/W*gridn_x))
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
 
-def compute_intrinsics_uncertainty( model, v,
-                                    outlierness  = False,
+def compute_projection_stdev( model, v,
+                              outlierness  = False,
 
-                                    # fit a "reasonable" area in the center by
-                                    # default
-                                    focus_center = None,
-                                    focus_radius = -1.):
+                              # fit a "reasonable" area in the center by
+                              # default
+                              focus_center = None,
+                              focus_radius = -1.):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Given a (broadcastable) 3D vector, and the covariance matrix for the
@@ -1425,7 +1425,7 @@ def show_intrinsics_uncertainty(model,
     - outlierness-based (selected with outlierness=True)
 
     This routine uses the covariance of observed inputs. See
-    compute_intrinsics_uncertainty() for a description of both routines and of
+    compute_projection_stdev() for a description of both routines and of
     the arguments
 
     '''
@@ -1440,7 +1440,7 @@ def show_intrinsics_uncertainty(model,
     v,_ =sample_imager_unproject(gridn_x, gridn_y,
                                  *imagersize,
                                  lensmodel, intrinsics_data)
-    err = compute_intrinsics_uncertainty(model, v,
+    err = compute_projection_stdev(model, v,
                                          outlierness,
                                          focus_center = focus_center,
                                          focus_radius = focus_radius)

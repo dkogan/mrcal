@@ -2995,7 +2995,7 @@ int mrcal_state_index_calobject_warp(int NpointsVariable,
 // be very sensitive: measurement noise doesn't affect the solution very much.
 //
 // A detailed derivation appears in the docstring for
-// compute_intrinsics_uncertainty() in utils.py. Everything is double-checked in
+// compute_projection_stdev() in utils.py. Everything is double-checked in
 // test-calibration.py
 //
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I

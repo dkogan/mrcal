@@ -885,7 +885,7 @@ if calobject_warp is not None:
     report += "calobject_warp = {}\n".format(calobject_warp)
 
 if args.pairs:
-    # Most of this derivation is described in compute_intrinsics_uncertainty():
+    # Most of this derivation is described in compute_projection_stdev():
     #
     # I have dp = M dqref
     #
@@ -1060,7 +1060,7 @@ def get_valid_intrinsics_region(i_camera,
                                         *imagersizes[i_camera],
                                         intrinsics[0], intrinsics[1][i_camera,:])
 
-    err = mrcal.compute_intrinsics_uncertainty(model, v,
+    err = mrcal.compute_projection_stdev(model, v,
                                                focus_center = focus_center,
                                                focus_radius = focus_radius)
 

@@ -280,7 +280,7 @@ for icam in range(len(models)):
 ############# Basic checks all done. Now I look at uncertainties
 
 # The uncertainty computation is documented in the docstring for
-# compute_intrinsics_uncertainty(). The math and the implementation are tricky,
+# compute_projection_stdev(). The math and the implementation are tricky,
 # so I empirically confirm that the thing being computed is correct, both in
 # implementation and intent.
 #
@@ -343,7 +343,7 @@ testutils.confirm_equal( dE_predicted, dE,
 
 ###########################################################################
 # Fine. Let's make sure the noise propagation works as it should. First off, is
-# the implementation correct? Derivation in compute_intrinsics_uncertainty()
+# the implementation correct? Derivation in compute_projection_stdev()
 # says intrinsics covariance:
 #
 #   Var(intrinsics) = (inv(JtJ)[intrinsicsrows] Jobservationst)
@@ -520,7 +520,7 @@ testutils.confirm_equal( dp_predicted[slice_frames],
 #     err_1sigma_observed_isotropic   = np.sqrt( np.trace(Var) / 2. )
 
 #     err_1sigma_predicted_isotropic = \
-#         mrcal.compute_intrinsics_uncertainty(models_solved[icam], v0,
+#         mrcal.compute_projection_stdev(models_solved[icam], v0,
 #                                              focus_radius = 0) \
 #         / models_solved[icam].observed_pixel_uncertainty() * stdev
 

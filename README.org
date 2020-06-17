@@ -749,7 +749,7 @@ DESCRIPTION
     Areas with a high expected projection error are unreliable for further
     work.
 
-    See mrcal.compute_intrinsics_uncertainty() for a full description of the
+    See mrcal.compute_projection_stdev() for a full description of the
     computation performed here
 
 OPTIONS
