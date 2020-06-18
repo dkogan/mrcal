@@ -5,7 +5,12 @@
 *.docstring.h
 cscope*
 *.pyc
+*.orig
+*.i
+*.rej
 
+*generated*
+*GENERATED*
 core*
 
 debian/*.log
@@ -17,6 +22,8 @@ debian/*/
 
 *.pickle
 test-gradients
+test/test-lensmodel-string-manipulation
+test/test-cahvor
 
 *.pod
 *GENERATED.*
