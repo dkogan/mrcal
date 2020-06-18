@@ -956,8 +956,8 @@ static PyObject* project(PyObject* NPY_UNUSED(self),
 
     bool mrcal_result =
         mrcal_project((point2_t*)PyArray_DATA(out),
-                      get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
                       get_gradients_bool ? (point3_t*)PyArray_DATA(dq_dp)  : NULL,
+                      get_gradients_bool ? (double*)PyArray_DATA(dq_dintrinsics) : NULL,
 
                       (const point3_t*)PyArray_DATA(points),
                       Npoints,

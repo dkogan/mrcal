@@ -248,12 +248,12 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
 bool mrcal_project( // out
                    point2_t* q,
 
-                   // core, distortions concatenated. Stored as a row-first
-                   // array of shape (N,2,Nintrinsics)
-                   double*   dq_dintrinsics,
                    // Stored as a row-first array of shape (N,2,3). Each
                    // trailing ,3 dimension element is a point3_t
                    point3_t* dq_dp,
+                   // core, distortions concatenated. Stored as a row-first
+                   // array of shape (N,2,Nintrinsics)
+                   double*   dq_dintrinsics,
 
                    // in
                    const point3_t* p,

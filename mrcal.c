@@ -2177,6 +2177,9 @@ bool _project_cahvore( // out
 bool mrcal_project( // out
                    point2_t* q,
 
+                   // Stored as a row-first array of shape (N,2,3). Each
+                   // trailing ,3 dimension element is a point3_t
+                   point3_t* dq_dp,
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics). This is a DENSE array.
                    // High-parameter-count lens models have very sparse
@@ -2184,9 +2187,6 @@ bool mrcal_project( // out
                    // returns those sparsely. For now THIS function densifies
                    // all of these
                    double*   dq_dintrinsics,
-                   // Stored as a row-first array of shape (N,2,3). Each
-                   // trailing ,3 dimension element is a point3_t
-                   point3_t* dq_dp,
 
                    // in
                    const point3_t* p,
