@@ -102,10 +102,11 @@ index 666f48e..2a4edff 100644
                   if(cookie->lensmodel.type == LENSMODEL_CAHVORE)
                       return _mrcal_project_internal_cahvore(
 """
-# I see 0.9 sec with the code as is, and 0.8 sec with the patch. As it stands,
-# the patch is not committable. It assumes contiguous memory, and it'll produce
-# incorrect output shapes if we try to broadcast on intrinsics_data. These are
-# all fixable, and I'm moving on for now
+# I see 0.9 sec with the code as is, and 0.8 sec with the patch. Or before I
+# moved on to this whole npsp thing in 482728c. As it stands, the patch is not
+# committable. It assumes contiguous memory, and it'll produce incorrect output
+# shapes if we try to broadcast on intrinsics_data. These are all fixable, and
+# I'm moving on for now
 m.function( "_project",
             """Internal point-projection routine
 
