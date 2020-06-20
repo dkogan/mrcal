@@ -25,65 +25,64 @@ np.random.seed(0)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-models = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-           mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-           mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
-           mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
+models_ref = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+               mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+               mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
+               mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
 
-imagersizes = nps.cat( *[m.imagersize() for m in models] )
-lensmodel   = models[0].intrinsics()[0]
-# I have opencv8 models, but let me truncate to opencv4 models to keep this
+imagersizes = nps.cat( *[m.imagersize() for m in models_ref] )
+lensmodel   = models_ref[0].intrinsics()[0]
+# I have opencv8 models_ref, but let me truncate to opencv4 models_ref to keep this
 # simple and fast
 lensmodel = 'LENSMODEL_OPENCV4'
-for m in models:
-    m.intrinsics( imagersize=imagersizes[0],
-                  intrinsics = (lensmodel, m.intrinsics()[1][:8]))
+for m in models_ref:
+    m.intrinsics( intrinsics = (lensmodel, m.intrinsics()[1][:8]))
 
-Ncameras = len(models)
+Ncameras = len(models_ref)
 Nframes  = 50
 
-models[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
-models[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
-models[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
-models[3].extrinsics_rt_fromref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
+models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+models_ref[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
+models_ref[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
+models_ref[3].extrinsics_rt_fromref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
 
 
-pixel_uncertainty  = 1.5
-object_spacing     = 0.1
-object_width_n     = 10
-object_height_n    = 9
-calobject_warp_ref = np.array((0.002, -0.005))
+pixel_uncertainty_stdev = 1.5
+object_spacing          = 0.1
+object_width_n          = 10
+object_height_n         = 9
+calobject_warp_ref      = np.array((0.002, -0.005))
 
 # shapes (Nframes, Ncameras, Nh, Nw, 2),
 #        (Nframes, 4,3)
-q,Rt_cam0_boardref = \
-    mrcal.make_synthetic_board_observations(models,
+q_ref,Rt_cam0_board_ref = \
+    mrcal.make_synthetic_board_observations(models_ref,
                                             object_width_n, object_height_n, object_spacing,
                                             calobject_warp_ref,
                                             np.array((0,   0,   5.0,  0.,  0.,  0.)),
                                             np.array((1.5, 1.5, 1.0,  40., 30., 30.)),
                                             Nframes)
 
-############# I have perfect observations. I corrupt them by noise
+############# I have perfect observations in q_ref. I corrupt them by noise
 # weight has shape (Nframes, Ncameras, Nh, Nw),
-weight01 = (np.random.rand(*q.shape[:-1]) + 1.) / 2. # in [0,1]
+weight01 = (np.random.rand(*q_ref.shape[:-1]) + 1.) / 2. # in [0,1]
 weight0 = 0.2
 weight1 = 1.0
 weight = weight0 + (weight1-weight0)*weight01
 
 # I want observations of shape (Nframes*Ncameras, Nh, Nw, 3) where each row is
 # (x,y,weight)
-observations = nps.clump( nps.glue(q,
+observations = nps.clump( nps.glue(q_ref,
                                    nps.dummy(weight,-1),
                                    axis=-1),
                           n=2)
 
 def sample_dqref():
     weight  = observations[...,-1]
-    q_noise = np.random.randn(*observations.shape[:-1], 2) * pixel_uncertainty / nps.mv(nps.cat(weight,weight),0,-1)
+    q_noise = np.random.randn(*observations.shape[:-1], 2) * pixel_uncertainty_stdev / nps.mv(nps.cat(weight,weight),0,-1)
     return q_noise
 
-q_noise = sample_dqref()
+q_noise               = sample_dqref()
 observations[...,:2] += q_noise
 
 
@@ -106,7 +105,7 @@ indices_frame_camintrinsics_camextrinsics = \
              indices_frame_camera[:,(1,)]-1,
              axis=-1)
 
-intrinsics_data,extrinsics,frames = \
+intrinsics_data,extrinsics_solved,frames_solved = \
     mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
                                   focal_estimate       = 1500,
                                   Ncameras             = Ncameras,
@@ -118,13 +117,14 @@ intrinsics_data,extrinsics,frames = \
 
 # I have a pinhole intrinsics estimate. Mount it into a full distortiony model,
 # seeded with random numbers
-intrinsics = nps.cat(*[m.intrinsics()[1] for m in models])
-intrinsics[:,:4] = intrinsics_data
-intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
+intrinsics_solved = nps.cat(*[m.intrinsics()[1] for m in models_ref])
+intrinsics_solved[:,:4] = intrinsics_data
+intrinsics_solved[:,4:] = np.random.random( (Ncameras, intrinsics_solved.shape[1]-4) ) * 1e-6
 
-args = ( intrinsics,
-         extrinsics,
-         frames, None,
+args = ( intrinsics_solved,
+         extrinsics_solved,
+         frames_solved,
+         None,
          observations, indices_frame_camintrinsics_camextrinsics,
          None, None,
          lensmodel)
@@ -138,7 +138,7 @@ kwargs_callback = \
           verbose                           = False )
 
 kwargs_optimize = dict(kwargs_callback,
-                       observed_pixel_uncertainty = pixel_uncertainty,
+                       observed_pixel_uncertainty = pixel_uncertainty_stdev,
                        skip_outlier_rejection     = True)
 
 # Simpler pre-solves
@@ -154,7 +154,7 @@ stats = mrcal.optimize( *args, **kwargs_optimize,
                         do_optimize_extrinsics            = True)
 
 # Complete final solve
-calobject_warp = np.array((0.001, 0.001))
+calobject_warp_solved = np.array((0.001, 0.001))
 solver_context = mrcal.SolverContext()
 stats = mrcal.optimize( *args, **kwargs_optimize,
                         do_optimize_frames                = True,
@@ -163,7 +163,7 @@ stats = mrcal.optimize( *args, **kwargs_optimize,
                         do_optimize_extrinsics            = True,
 
                         do_optimize_calobject_warp        = True,
-                        calobject_warp                    = calobject_warp,
+                        calobject_warp                    = calobject_warp_solved,
                         get_covariances                   = True,
                         solver_context                    = solver_context)
 
@@ -174,26 +174,26 @@ covariance_intrinsics = stats.get('covariance_intrinsics')
 covariance_extrinsics = stats.get('covariance_extrinsics')
 
 models_solved = \
-    [ mrcal.cameramodel( imagersize            = imagersizes[0],
-                         intrinsics            = (lensmodel, intrinsics[i,:]),
-                         covariance_intrinsics = covariance_intrinsics[i],
-                         observed_pixel_uncertainty = pixel_uncertainty) \
+    [ mrcal.cameramodel( imagersize                 = imagersizes[i],
+                         intrinsics                 = (lensmodel, intrinsics_solved[i,:]),
+                         covariance_intrinsics      = covariance_intrinsics[i],
+                         observed_pixel_uncertainty = pixel_uncertainty_stdev) \
       for i in range(Ncameras)]
 for i in range(1,Ncameras):
-    models_solved[i].extrinsics_rt_fromref( extrinsics[i-1,:] )
+    models_solved[i].extrinsics_rt_fromref( extrinsics_solved[i-1,:] )
 
 testutils.confirm_equal(stats['rms_reproj_error__pixels'], 0,
                         eps = 2.5,
                         msg = "Converged to a low RMS error")
 
-testutils.confirm_equal( calobject_warp,
+testutils.confirm_equal( calobject_warp_solved,
                          calobject_warp_ref,
                          eps = 2e-3,
                          msg = "Recovered the calibration object shape" )
 
 testutils.confirm_equal( np.std(stats['x']),
-                         pixel_uncertainty,
-                         eps = pixel_uncertainty*0.1,
+                         pixel_uncertainty_stdev,
+                         eps = pixel_uncertainty_stdev*0.1,
                          msg = "Residual have the expected distribution" )
 
 # Checking the extrinsics. These aren't defined absolutely: each solve is free
@@ -202,11 +202,11 @@ testutils.confirm_equal( np.std(stats['x']),
 # relative transformations between cameras, which would cancel out any extra
 # rotations. AND since camera0 is fixed at the identity transformation, I can
 # simply look at each extrinsics transformation.
-for icam in range(1,len(models)):
+for icam in range(1,len(models_ref)):
 
     Rt_extrinsics_err = \
         mrcal.compose_Rt( models_solved[icam].extrinsics_Rt_fromref(),
-                          models       [icam].extrinsics_Rt_toref() )
+                          models_ref       [icam].extrinsics_Rt_toref() )
 
     testutils.confirm_equal( nps.mag(Rt_extrinsics_err[3,:]),
                              0.0,
@@ -219,8 +219,8 @@ for icam in range(1,len(models)):
                              msg = f"Recovered extrinsic rotation for camera {icam}")
 
 Rt_frame_err = \
-    mrcal.compose_Rt( mrcal.Rt_from_rt(frames),
-                      mrcal.invert_Rt(Rt_cam0_boardref) )
+    mrcal.compose_Rt( mrcal.Rt_from_rt(frames_solved),
+                      mrcal.invert_Rt(Rt_cam0_board_ref) )
 
 testutils.confirm_equal( np.max(nps.mag(Rt_frame_err[..., 3,:])),
                          0.0,
@@ -237,9 +237,9 @@ testutils.confirm_equal( np.min( (nps.trace(Rt_frame_err[..., :3,:]) - 1)/2. ),
 # comparisons. I make sure that within some distance of the pixel center, the
 # projections match up to within some number of pixels
 Nw = 60
-def projection_diff(models, max_dist_from_center, fit_Rcompensating = True):
-    lensmodels      = [model.intrinsics()[0] for model in models]
-    intrinsics_data = [model.intrinsics()[1] for model in models]
+def projection_diff(models_ref, max_dist_from_center, fit_Rcompensating = True):
+    lensmodels      = [model.intrinsics()[0] for model in models_ref]
+    intrinsics_data = [model.intrinsics()[1] for model in models_ref]
 
     # shape (..., Nh,Nw, ...)
     v,q0 = \
@@ -267,8 +267,8 @@ def projection_diff(models, max_dist_from_center, fit_Rcompensating = True):
     return diff
 
 
-for icam in range(len(models)):
-    diff = projection_diff( (models[icam], models_solved[icam]), 800, True)
+for icam in range(len(models_ref)):
+    diff = projection_diff( (models_ref[icam], models_solved[icam]), 800, True)
 
     testutils.confirm_equal(diff, 0,
                             worstcase = True,
@@ -289,13 +289,13 @@ for icam in range(len(models)):
 # sparse implementations of the main library
 def callback(intrinsics_data):
     x,Joptimizer = \
-        mrcal.optimizerCallback(intrinsics_data,extrinsics,frames, None,
+        mrcal.optimizerCallback(intrinsics_data,extrinsics_solved,frames_solved, None,
                                 observations, indices_frame_camintrinsics_camextrinsics,
                                 None, None,
                                 lensmodel,
                                 **kwargs_callback,
                                 do_optimize_calobject_warp        = True,
-                                calobject_warp                    = calobject_warp,
+                                calobject_warp                    = calobject_warp_solved,
                                 do_optimize_intrinsic_core        = True,
                                 do_optimize_intrinsic_distortions = True,
                                 do_optimize_extrinsics            = True)
@@ -308,7 +308,7 @@ def callback(intrinsics_data):
 
 # State and measurements at the optimal operating point
 p_packed0 = solver_context.p().copy()
-x0,J0,J_packed0 = callback(intrinsics)
+x0,J0,J_packed0 = callback(intrinsics_solved)
 
 ###########################################################################
 # First a very basic gradient check. Looking at an arbitrary camera's
@@ -318,7 +318,7 @@ Nintrinsics = mrcal.getNlensParams(lensmodel)
 delta       = np.random.randn(Nintrinsics) * 1e-6
 ivar        = solver_context.state_index_intrinsics(icam)
 J0_slice    = J0[:,ivar:ivar+Nintrinsics]
-intrinsics_perturbed = intrinsics.copy()
+intrinsics_perturbed = intrinsics_solved.copy()
 intrinsics_perturbed[icam] += delta
 x1                   = callback(intrinsics_perturbed)[0]
 dx                   = x1 - x0
@@ -362,7 +362,7 @@ for icam in range(Ncameras):
     ivar0 = Nintrinsics*icam
     ivar1 = Nintrinsics*icam + Nintrinsics
     covariance_intrinsics_predicted = \
-        pixel_uncertainty*pixel_uncertainty * \
+        pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
         nps.matmult( invJtJ[ivar0:ivar1,:],
                      nps.transpose(J0observations),
                      J0observations,
@@ -381,7 +381,7 @@ ivar0 = Nintrinsics*Ncameras
 ivar1 = Nintrinsics*Ncameras + 6*(Ncameras-1)
 
 covariance_extrinsics_predicted = \
-    pixel_uncertainty*pixel_uncertainty * \
+    pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
     nps.matmult( invJtJ[ ivar0:ivar1, :],
                  nps.transpose(J0observations),
                  J0observations,
@@ -399,10 +399,10 @@ testutils.confirm_equal( covariance_extrinsics_predicted,
 # Where M = inv(JtJ) Jobservationst W
 def optimize_perturbed_observations(dqref):
 
-    intrinsics_data_resolved = intrinsics.copy()
-    extrinsics_resolved      = extrinsics.copy()
-    frames_resolved          = frames.copy()
-    calobject_warp_resolved  = None if calobject_warp is None else calobject_warp.copy()
+    intrinsics_data_resolved = intrinsics_solved.copy()
+    extrinsics_resolved      = extrinsics_solved.copy()
+    frames_resolved          = frames_solved.copy()
+    calobject_warp_resolved  = None if calobject_warp_solved is None else calobject_warp_solved.copy()
 
     observations_perturbed = observations.copy()
     observations_perturbed[..., :2] += dqref
@@ -458,87 +458,111 @@ testutils.confirm_equal( dp_predicted[slice_frames],
                          eps = 0.5,
                          msg = f"Predicted dp from dqref: frames")
 
-# # import gnuplotlib as gp
-# # plot_dp = gp.gnuplotlib(title='Parameter shift due to input observations shift')
-# # plot_dp.plot(nps.cat(dp, dp_predicted), legend=np.array(('dp_reoptimized', 'dp_reoptimized_predicted')))
+# To see the expected and observed shift in the optimal parameters
+#
+# import gnuplotlib as gp
+# plot_dp = gp.gnuplotlib(title='Parameter shift due to input observations shift',
+#                         xlabel='Parameter',
+#                         ylabel='Deviation')
+# plot_dp.plot(nps.cat(dp, dp_predicted), legend=np.array(('dp_reoptimized', 'dp_reoptimized_predicted')))
 
 
+###########################################################################
+# Now I do a bigger, statistical thing. I compute many random perturbations of
+# the input, reoptimize for each, and look at how that affects a stuff. I have
+# predictions on the distribution of resulting perturbations that I can check
+print("Simulating input noise. This takes a little while...")
 
-###############################
-######### DISABLE THIS FOR NOW.
-#########
-######### I'm looking at how reoptimization affects projection, but this ignores
-######### the effects of compensating rotations. It still look ok, actually, but
-######### I should revisit this properly. Later.
-
-# ###########################################################################
-# # Now I do a bigger, statistical thing. I compute many random perturbations
-# # of the input, reoptimize for each, and look at how that affects a
-# # particular projection point. I have a prediction on the variance that I
-# # can check
-
-# # where I'm evaluating the projection. I look at 1/3 (w,h). I'd like to be
-# # in the center-ish, but not AT the center
-# v0 = mrcal.unproject(imagersizes[0] / 3,
-#                      lensmodel, intrinsics[0])
-
-# #########3 what is this?
-# stdev = 1e-4
-# Nsamples = 100
-# q_sampled = np.zeros((Nsamples,Ncameras,2), dtype=float)
-# Nintrinsics = intrinsics.shape[-1]
-
-# for isample in range(Nsamples):
-#     dqref = sample_dqref()
-#     p = optimize_perturbed_observations( dqref )
-#     solver_context.unpack(p)
-
-#     for icam in range(Ncameras):
-#         q_sampled[isample,icam] = \
-#             mrcal.project(v0, lensmodel,
-#                           p[Nintrinsics*icam:Nintrinsics*(icam+1)])
-
-# plot_distribution = [None] * Ncameras
-# for icam in range(Ncameras):
-#     dq = q_sampled[:, icam, ...] - mrcal.project(v0, lensmodel, intrinsics[icam])
-
-#     dq_mean0 = dq - np.mean(dq,axis=-2)
-#     C = nps.matmult(nps.transpose(dq_mean0), dq_mean0)
-#     l,V = np.linalg.eig(C)
-#     l0 = l[0]
-#     l1 = l[1]
-#     V0 = V[:,0]
-#     V1 = V[:,1]
-#     if l0 < l1:
-#         l1,l0 = l0,l1
-#         V1,V0 = V0,V1
-
-#     Var = np.mean( nps.outer(dq_mean0,dq_mean0), axis=-3 )
-#     err_1sigma_observed_major       = np.sqrt(l0/q_sampled.shape[0])
-#     err_1sigma_observed_minor       = np.sqrt(l1/q_sampled.shape[0])
-#     err_1sigma_observed_anisotropic = np.diag(np.sqrt( Var ))
-#     err_1sigma_observed_isotropic   = np.sqrt( np.trace(Var) / 2. )
-
-#     err_1sigma_predicted_isotropic = \
-#         mrcal.compute_projection_stdev(models_solved[icam], v0,
-#                                              focus_radius = 0) \
-#         / models_solved[icam].observed_pixel_uncertainty() * stdev
+Nsamples = 100
+Nintrinsics = intrinsics_solved.shape[-1]
+parameters_sampled = np.zeros((Nsamples,len(p_packed0)), dtype=float)
+for isample in range(Nsamples):
+    dqref = sample_dqref()
+    parameters_sampled[isample] = optimize_perturbed_observations( dqref )
+    solver_context.unpack(parameters_sampled[isample])
 
 
-#     print("Noisy input, recalibration produced RMS reprojection error {:.2g} pixels. Predicted {:.2g} pixels". \
-#           format(err_1sigma_observed_isotropic,
-#                  err_1sigma_predicted_isotropic))
-#     plot_distribution[icam] = gp.gnuplotlib(square=1, title='Uncertainty reprojection distribution for camera {}'.format(icam))
-#     plot_distribution[icam]. \
-#         plot( (dq[:,0], dq[:,1], dict(_with='points pt 7 ps 2')),
-#               (0,0, 2*err_1sigma_observed_major, 2*err_1sigma_observed_minor, 180./np.pi*np.arctan2(V0[1],V0[0]),
-#                dict(_with='ellipses lw 2', tuplesize=5, legend='Observed 1-sigma, full covariance')),
-#               (0,0, 2*err_1sigma_observed_anisotropic[0], 2*err_1sigma_observed_anisotropic[1],
-#                dict(_with='ellipses lw 2', tuplesize=4, legend='Observed 1-sigma, independent x,y')),
-#               (0,0, err_1sigma_observed_isotropic,
-#                dict(_with='circles lw 2', tuplesize=3, legend='Observed 1-sigma; isotropic')),
-#               (0,0, err_1sigma_predicted_isotropic,
-#                dict(_with='circles lw 2', tuplesize=3, legend='Predicted 1-sigma; isotropic')))
+# Alright, I simulated lots of noisy solves. What's the distribution of the
+# intrinsics? Note that this looks at the raw numbers in the intrinsics vector.
+# I propagate this to projection later. I look at the diagonal of the covariance
+# matrix only. The off-diagonal is more noise-prone
 
+# shape (Nsamples, Ncameras, Nintrinsics)
+intrinsics_sampled_resolved = \
+    parameters_sampled[:,:Nintrinsics*Ncameras]. \
+    reshape(Nsamples,Ncameras,Nintrinsics)
+for icam in range(Ncameras):
+    p   = intrinsics_sampled_resolved[:,icam,:]
+    p0  = p - np.mean(p, axis=-2)
+    covariance_intrinsics_observed = \
+        np.mean( nps.outer(p0,p0), axis=-3 )
+
+    # I accept up to 40% error. This is quite high, but that's what I see.
+    # Fundamentally this isn't what I care about, anyway: I care about the
+    # uncertainty of projection, which I check later
+    testutils.confirm_equal(np.diag(covariance_intrinsics_observed),
+                            np.diag(covariance_intrinsics[icam]),
+                            eps = 0.4,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"diag(covariance_extrinsics) matches prediction for camera {icam}")
+
+# I evaluate the projection uncertainty of this vector. In each camera. I'd like
+# it to be center-ish, but not AT the center. So I look at 1/3 (w,h).
+v0_all = mrcal.unproject(imagersizes / 3,
+                         lensmodel, intrinsics_solved)
+# shape (Nsamples, Ncameras, 2)
+dq_all = \
+    mrcal.project(v0_all, lensmodel, intrinsics_sampled_resolved ) - \
+    mrcal.project(v0_all, lensmodel, intrinsics_solved)
+dq_mean0 = dq_all - np.mean(dq_all,axis=-3)
+
+# shape (Ncameras, 2,2)
+var_all = np.mean( nps.outer(dq_mean0,dq_mean0), axis=0 )
+
+# shape (Ncameras,2) and (Ncameras,2,2)
+eigl_all,eigv_all = np.linalg.eig(var_all)
+
+plot_distribution = [None] * Ncameras
+for icam in range(Ncameras):
+
+    v0 = v0_all[icam]
+    dq = dq_all[:,icam,:]
+
+    eigl0 = eigl_all[icam,    0]
+    eigl1 = eigl_all[icam,    1]
+    eigv0 = eigv_all[icam, :, 0]
+    eigv1 = eigv_all[icam, :, 1]
+    if eigl0 < eigl1:
+        eigl1,eigl0 = eigl0,eigl1
+        eigv1,eigv0 = eigv0,eigv1
+
+    err_1sigma_observed_major       = np.sqrt(eigl0)
+    err_1sigma_observed_minor       = np.sqrt(eigl1)
+    err_1sigma_observed_anisotropic = np.sqrt(np.diag(var_all[icam]))
+    err_1sigma_observed_isotropic   = np.sqrt( np.trace(var_all[icam]) / 2. )
+
+    err_1sigma_predicted_isotropic = \
+        mrcal.compute_projection_stdev(models_solved[icam], v0,
+                                       focus_radius = 0)
+
+    testutils.confirm_equal(err_1sigma_predicted_isotropic,
+                            err_1sigma_observed_isotropic,
+                            eps = 0.1,
+                            relative  = True,
+                            msg = f"Projection uncertainty estimated correctly for camera {icam}")
+
+    # import gnuplotlib as gp
+    # plot_distribution[icam] = gp.gnuplotlib(square=1, title='Uncertainty reprojection distribution for camera {}'.format(icam))
+    # plot_distribution[icam]. \
+    #     plot( (dq[:,0], dq[:,1], dict(_with='points pt 7 ps 2')),
+    #           (0,0, 2*err_1sigma_observed_major, 2*err_1sigma_observed_minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
+    #            dict(_with='ellipses lw 2', tuplesize=5, legend='Observed 1-sigma, full covariance')),
+    #           (0,0, 2*err_1sigma_observed_anisotropic[0], 2*err_1sigma_observed_anisotropic[1],
+    #            dict(_with='ellipses lw 2', tuplesize=4, legend='Observed 1-sigma, independent x,y')),
+    #           (0,0, err_1sigma_observed_isotropic,
+    #            dict(_with='circles lw 2', tuplesize=3, legend='Observed 1-sigma; isotropic')),
+    #           (0,0, err_1sigma_predicted_isotropic,
+    #            dict(_with='circles lw 2', tuplesize=3, legend='Predicted 1-sigma; isotropic')))
 
 testutils.finish()
