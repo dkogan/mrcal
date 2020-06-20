@@ -605,7 +605,7 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
     return plot
 
 
-def sample_imager(gridn_x, gridn_y, W, H):
+def sample_imager(gridn_width, gridn_height, imager_width, imager_height):
     r'''Returns regularly-sampled, gridded pixels coordinates across the imager
 
 SYNOPSIS
@@ -618,10 +618,11 @@ SYNOPSIS
 
 Note that the arguments are given in width,height order, as is customary when
 generally talking about images and indexing. However, the output is in
-height,width order, as is customary when talking about matrices and numpy arrays.
+height,width order, as is customary when talking about matrices and numpy
+arrays.
 
-If we ask for gridding dimensions (gridn_x, gridn_y), the output has shape
-(gridn_y,gridn_x,2) where each row is an (x,y) pixel coordinate.
+If we ask for gridding dimensions (gridn_width, gridn_height), the output has
+shape (gridn_height,gridn_width,2) where each row is an (x,y) pixel coordinate.
 
 The top-left corner is at [0,0,:]:
 
@@ -629,41 +630,43 @@ The top-left corner is at [0,0,:]:
 
 The the bottom-right corner is at [-1,-1,:]:
 
-     sample_imager(...)[       -1,       -1,:] =
-     sample_imager(...)[gridn_y-1,gridn_x-1,:] =
-     (W-1,H-1)
+     sample_imager(...)[            -1,           -1,:] =
+     sample_imager(...)[gridn_height-1,gridn_width-1,:] =
+     (imager_width-1,imager_height-1)
 
 When making plots you probably want to call mrcal.imagergrid_using(). See the
 that docstring for details.
 
 ARGUMENTS
 
-- gridn_x: how many points along the horizontal gridding dimension
+- gridn_width: how many points along the horizontal gridding dimension
 
-- gridn_y: how many points along the vertical gridding dimension. If None, we
-  compute an integer gridn_y to maintain a square-ish grid: gridn_y/gridn_x ~
-  height/width
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
 
-- W,H: the width, height of the imager. With a mrcal.cameramodel object this is
-  *model.imagersize()
+- imager_width,imager_height: the width, height of the imager. With a
+  mrcal.cameramodel object this is *model.imagersize()
 
 RETURNED VALUES
 
-We return an array of shape (gridn_y,gridn_x,2). Each row is an (x,y) pixel
-coordinate.
+We return an array of shape (gridn_height,gridn_width,2). Each row is an (x,y)
+pixel coordinate.
 
     '''
 
-    if gridn_y is None:
-        gridn_y = int(round(H/W*gridn_x))
+    if gridn_height is None:
+        gridn_height = int(round(imager_height/imager_width*gridn_width))
 
-    w = np.linspace(0,W-1,gridn_x)
-    h = np.linspace(0,H-1,gridn_y)
+    w = np.linspace(0,imager_width -1,gridn_width)
+    h = np.linspace(0,imager_height-1,gridn_height)
     return nps.mv(nps.cat(*np.meshgrid(w,h)),
                   0,-1)
 
 
-def sample_imager_unproject(gridn_x, gridn_y, W, H, lensmodel, intrinsics_data):
+def sample_imager_unproject(gridn_width,  gridn_height,
+                            imager_width, imager_height,
+                            lensmodel, intrinsics_data):
     r'''Reports 3D observation vectors that regularly sample the imager
 
 SYNOPSIS
@@ -714,14 +717,14 @@ This function has two modes of operation:
 
 ARGUMENTS
 
-- gridn_x: how many points along the horizontal gridding dimension
+- gridn_width: how many points along the horizontal gridding dimension
 
-- gridn_y: how many points along the vertical gridding dimension. If None, we
-  compute an integer gridn_y to maintain a square-ish grid: gridn_y/gridn_x ~
-  height/width
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
 
-- W,H: the width, height of the imager. With a mrcal.cameramodel object this is
-  *model.imagersize()
+- imager_width,imager_height: the width, height of the imager. With a
+  mrcal.cameramodel object this is *model.imagersize()
 
 - lensmodel, intrinsics_data: the lens parameters. With a single camera,
   lensmodel is a string, and intrinsics_data is a 1-dimensions numpy array; with
@@ -748,7 +751,7 @@ We return a tuple:
 
 
     # shape: (Nheight,Nwidth,2). Contains (x,y) rows
-    grid = sample_imager(gridn_x, gridn_y, W, H)
+    grid = sample_imager(gridn_width, gridn_height, imager_width, imager_height)
 
     if is_list_or_tuple(lensmodel):
         # shape: Ncameras,Nwidth,Nheight,3
@@ -980,7 +983,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
     return dq_dp - nps.matmult(dq_dv, V, M)
 
 
-def imagergrid_using(imagersize, gridn_x, gridn_y = None):
+def imagergrid_using(imagersize, gridn_width, gridn_height = None):
     '''Get a 'using' expression for imager colormap plots
 
 SYNOPSIS
@@ -1024,18 +1027,18 @@ ARGUMENTS
 - imagersize: a (width,height) tuple for the size of the imager. With a
   mrcal.cameramodel object this is model.imagersize()
 
-- gridn_x: how many points along the horizontal gridding dimension
+- gridn_width: how many points along the horizontal gridding dimension
 
-- gridn_y: how many points along the vertical gridding dimension. If omitted or
-  None, we compute an integer gridn_y to maintain a square-ish grid:
-  gridn_y/gridn_x ~ height/width
+- gridn_height: how many points along the vertical gridding dimension. If
+  omitted or None, we compute an integer gridn_height to maintain a square-ish
+  grid: gridn_height/gridn_width ~ imager_height/imager_width
 
     '''
 
     W,H = imagersize
-    if gridn_y is None:
-        gridn_y = int(round(H/W*gridn_x))
-    return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_x-1), float(H-1)/(gridn_y-1))
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
+    return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_width-1), float(H-1)/(gridn_height-1))
 
 def compute_projection_stdev( model, v,
                               outlierness  = False,
@@ -1403,10 +1406,12 @@ def compute_projection_stdev( model, v,
                                      n = -2),
                            axis = -1) \
                     / 2.)
+
+
 def show_intrinsics_uncertainty(model,
-                                outlierness      = False,
-                                gridn_x          = 60,
-                                gridn_y          = None,
+                                outlierness  = False,
+                                gridn_width  = 60,
+                                gridn_height = None,
 
                                 # fit a "reasonable" area in the center by
                                 # default
@@ -1437,7 +1442,7 @@ def show_intrinsics_uncertainty(model,
 
     lensmodel, intrinsics_data = model.intrinsics()
     imagersize                 = model.imagersize()
-    v,_ =sample_imager_unproject(gridn_x, gridn_y,
+    v,_ =sample_imager_unproject(gridn_width, gridn_height,
                                  *imagersize,
                                  lensmodel, intrinsics_data)
     err = compute_projection_stdev(model, v,
@@ -1478,7 +1483,7 @@ def show_intrinsics_uncertainty(model,
     plot_data_args = [(err,
                        dict( tuplesize=3,
                              legend = "", # needed to force contour labels
-                             using = imagergrid_using(model.imagersize(), gridn_x, gridn_y),
+                             using = imagergrid_using(model.imagersize(), gridn_width, gridn_height),
 
                              # Currently "with image" can't produce contours. I work around this, by
                              # plotting the data a second time. Yuck.
@@ -1509,8 +1514,8 @@ def show_intrinsics_uncertainty(model,
 
 def report_residual_statistics( obs, err,
                                 imagersize,
-                                gridn_x = 20,
-                                gridn_y = None):
+                                gridn_width  = 20,
+                                gridn_height = None):
     '''Reports statistics about the fit resudial across the imager
 
     If everything fits well, the residual distributions in each area of the
@@ -1523,14 +1528,14 @@ def report_residual_statistics( obs, err,
 
     W,H=imagersize
 
-    if gridn_y is None:
-        gridn_y = int(round(H/W*gridn_x))
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
 
     # shape: (Nheight,Nwidth,2). Contains (x,y) rows
-    c = sample_imager(gridn_x, gridn_y, W, H)
+    c = sample_imager(gridn_width, gridn_height, W, H)
 
-    wcell = float(W-1) / (gridn_x-1)
-    hcell = float(H-1) / (gridn_y-1)
+    wcell = float(W-1) / (gridn_width -1)
+    hcell = float(H-1) / (gridn_height-1)
     rcell = np.array((wcell,hcell), dtype=float) / 2.
 
     @nps.broadcast_define( (('N',2), ('N',), (2,)),
@@ -1568,15 +1573,15 @@ def report_residual_statistics( obs, err,
     # Each has shape (2,Nheight,Nwidth)
     mean,stdev,count = nps.mv( residual_stats(obsflat, errflat, c),
                                -1, 0)
-    return mean,stdev,count,imagergrid_using(imagersize, gridn_x, gridn_y)
+    return mean,stdev,count,imagergrid_using(imagersize, gridn_width, gridn_height)
 
 
 def show_distortion(model,
                     mode,
-                    scale            = 1.,
-                    cbmax            = 25.0,
-                    gridn_x          = 60,
-                    gridn_y          = None,
+                    scale        = 1.,
+                    cbmax        = 25.0,
+                    gridn_width  = 60,
+                    gridn_height = None,
 
                     extratitle       = None,
                     hardcopy         = None,
@@ -1595,11 +1600,11 @@ def show_distortion(model,
     This function has 3 modes of operation, specified as a string in the 'mode'
     argument:
 
-      'heatmap': the imager is gridded, as specified by the gridn_x,gridn_y
-      arguments. For each point in the grid, we evaluate the difference in
-      projection between the given model, and a pinhole model with the same core
-      intrinsics (focal lengths, center pixel coords). This difference is
-      color-coded and a heat map is displayed
+      'heatmap': the imager is gridded, as specified by the
+      gridn_width,gridn_height arguments. For each point in the grid, we
+      evaluate the difference in projection between the given model, and a
+      pinhole model with the same core intrinsics (focal lengths, center pixel
+      coords). This difference is color-coded and a heat map is displayed
 
       'vectorfield': this is the same as 'heatmap', except we display a vector
       for each point, intead of a color-coded cell. If legibility requires the
@@ -1640,8 +1645,8 @@ def show_distortion(model,
 
 
     W,H = imagersize
-    if gridn_y is None:
-        gridn_y = int(round(H/W*gridn_x))
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
 
     if not mrcal.getLensModelMeta(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
@@ -1763,8 +1768,8 @@ def show_distortion(model,
 
 
     # shape: (Nheight,Nwidth,2). Contains (x,y) rows
-    grid  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(np.linspace(0,W-1,gridn_x),
-                                                             np.linspace(0,H-1,gridn_y))),
+    grid  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(np.linspace(0,W-1,gridn_width),
+                                                             np.linspace(0,H-1,gridn_height))),
                                         0,-1),
                                  dtype = float)
 
@@ -1787,7 +1792,7 @@ def show_distortion(model,
         delta = dgrid-grid
         delta *= scale
 
-        # shape: gridn_y,gridn_x. Because numpy (and thus gnuplotlib) want it that
+        # shape: gridn_height,gridn_width. Because numpy (and thus gnuplotlib) want it that
         # way
         distortion = nps.mag(delta)
 
@@ -1806,13 +1811,13 @@ def show_distortion(model,
                   tuplesize=3,
                   _with=np.array(('image','lines nosurface'),),
                   legend = "", # needed to force contour labels
-                  using = imagergrid_using(imagersize, gridn_x, gridn_y))
+                  using = imagergrid_using(imagersize, gridn_width, gridn_height))
         return plot
 
     else:
         # vectorfield
 
-        # shape: gridn_y*gridn_x,2
+        # shape: gridn_height*gridn_width,2
         grid  = nps.clump(grid,  n=2)
         dgrid = nps.clump(dgrid, n=2)
 
@@ -2404,8 +2409,8 @@ def _densify_polyline(p, spacing):
 
 
 def show_intrinsics_diff(models,
-                         gridn_x          = 60,
-                         gridn_y          = None,
+                         gridn_width  = 60,
+                         gridn_height = None,
 
                          # fit a "reasonable" area in the center by
                          # default
@@ -2476,7 +2481,7 @@ def show_intrinsics_diff(models,
 
 
     # shape (...,Nheight,Nwidth,...)
-    v,q0 = sample_imager_unproject(gridn_x, gridn_y,
+    v,q0 = sample_imager_unproject(gridn_width, gridn_height,
                                    W, H,
                                    lensmodels, intrinsics_data)
 
@@ -2610,7 +2615,7 @@ def show_intrinsics_diff(models,
                             dict( tuplesize=3,
                                   _with=np.array(('image','lines nosurface'),),
                                   legend = "", # needed to force contour labels
-                                  using = imagergrid_using(imagersizes[0], gridn_x, gridn_y)
+                                  using = imagergrid_using(imagersizes[0], gridn_width, gridn_height)
                             )) ]
 
     valid_region0 = models[0].valid_intrinsics_region()
