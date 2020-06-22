@@ -768,12 +768,16 @@ We return a tuple:
             grid
 
 
-def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
-                                      imagersize,
+def compute_Rcorrected_dq_dintrinsics( # The gridded points used to compute the R correction
+                                       q_grid, v_grid, dqgrid_dp, dqgrid_dv,
 
-                                      # fit everywhere by default
-                                      focus_center = None,
-                                      focus_radius = -1.):
+                                       # The query points. We return the gradient for thes
+                                       v, dq_dp, dq_dv,
+                                       imagersize,
+
+                                       # fit everywhere by default
+                                       focus_center = None,
+                                       focus_radius = -1.):
     '''Returns dq/dintrinsics with a compensating rotation applied
 
     When we evaluate the uncertainty of a solution, we want to see what would
@@ -853,7 +857,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
     these v project to some coordinates q in the imager. I perturb the
     intrinsics of the camera, which moves where these v are projected to. I find
     a rotation R that minimizes these differences in projection as much as
-    possible. For any single vector v I have and error
+    possible. For any single vector v I have an error
 
       e = proj(Rv, intrinsics+dintrinsics) - proj(v, intrinsics)
 
@@ -932,7 +936,7 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
         return np.array(((   0,  -v[2],  v[1]),
                          ( v[2],    0,  -v[0]),
                          (-v[1],  v[0],    0)))
-    V = skew_symmetric(v)
+    V_grid = skew_symmetric(v_grid)
 
     W,H = imagersize
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
@@ -948,38 +952,40 @@ def compute_Rcorrected_dq_dintrinsics(q, v, dq_dp, dq_dv,
 
 
     # everything by default
-    V_c     = clump_leading_dims(V)
-    dq_dp_c = clump_leading_dims(dq_dp)
-    dq_dv_c = clump_leading_dims(dq_dv)
+    V_c_grid = clump_leading_dims(V_grid)
+    dqgrid_dp_c  = clump_leading_dims(dqgrid_dp)
+    dqgrid_dv_c  = clump_leading_dims(dqgrid_dv)
 
     if focus_radius < 2*(W+H):
-        delta_q = nps.clump(q, n=2) - focus_center
+        delta_q = nps.clump(q_grid, n=2) - focus_center
         i = nps.norm2(delta_q) < focus_radius*focus_radius
         if np.count_nonzero(i)<3:
             warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
         else:
-            V_c     = V_c    [i, ...]
-            dq_dv_c = dq_dv_c[i, ...]
-            dq_dp_c = dq_dp_c[i, ...]
+            V_c_grid     = V_c_grid   [i, ...]
+            dqgrid_dv_c  = dqgrid_dv_c[i, ...]
+            dqgrid_dp_c  = dqgrid_dp_c[i, ...]
 
     # shape (3,Nintrinsics)
-    C_Vvp  = np.sum(nps.matmult( V_c,
-                                 nps.transpose(dq_dv_c),
-                                 dq_dp_c ),
+    C_Vvp  = np.sum(nps.matmult( V_c_grid,
+                                 nps.transpose(dqgrid_dv_c),
+                                 dqgrid_dp_c ),
                     axis=0)
 
     # shape (3,3)
-    C_VvvV  = np.sum(nps.matmult( V_c,
-                                  nps.transpose(dq_dv_c),
-                                  dq_dv_c,
-                                  V_c ),
+    C_VvvV  = np.sum(nps.matmult( V_c_grid,
+                                  nps.transpose(dqgrid_dv_c),
+                                  dqgrid_dv_c,
+                                  V_c_grid ),
                      axis=0)
 
     # shape (3,Nintrinsics)
     M = np.linalg.solve(C_VvvV, C_Vvp)
 
-    # I have M. M is a constant. Used for ALL the samples v. I return the
-    # correction; this uses the M, but also a different V for each sample
+    # I have M. M is a constant. Used for ALL the samples v. I now apply this
+    # correction to the query points in dq_dp, dq_dv; these may not be the same
+    # points as the gridded ones used to compute the correction M.
+    V = skew_symmetric(v)
     return dq_dp - nps.matmult(dq_dv, V, M)
 
 
@@ -1040,8 +1046,11 @@ ARGUMENTS
         gridn_height = int(round(H/W*gridn_width))
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_width-1), float(H-1)/(gridn_height-1))
 
-def compute_projection_stdev( model, v,
+def compute_projection_stdev( model,
+                              v            = None,
                               outlierness  = False,
+                              gridn_width  = None,
+                              gridn_height = None,
 
                               # fit a "reasonable" area in the center by
                               # default
@@ -1323,18 +1332,21 @@ def compute_projection_stdev( model, v,
     *** extrinsics uncertainty
 
       How do I compute the uncertainty in my extrinsics? This is similar to the
-      intrinsics procedures above, but it's simpler: the uncertainty in the
-      parameters themselves is meaningful, I don't need to propagate that to
-      projection. From before, I perturb my input observation vector qref by
-      dqref, and the resulting effect on the parameters is dp = M dqref
+      intrinsics procedures above, but it's simpler on some level: the
+      uncertainty in the parameters themselves is meaningful, I don't need to
+      propagate that to projection. The derivation works exactly the same way as
+      before, and
 
-        where M = inv(JtJ) Jobservationst W
+      -> Var(extrinsics) = (inv(JtJ)[extrinsicsrows] Jobservationst)
+                           (inv(JtJ)[extrinsicsrows] Jobservationst)t
+                           s^2
 
-      Unlike with the intrinsics, I'm going to want to look at the extrinsics
-      uncertainties of some cameras in respect to other cameras; this also
-      allows me to have some uncertainty in the pose of any cameras that are at
-      the coordinate-system reference. As an example of what I might want to do:
-      let's say I have 4 cameras, with camera0 at the reference (3 sets of
+      The frame poses aren't known, however, so the extrinsics aren't defined
+      globally and I'm going to want to look at the extrinsics uncertainties of
+      some cameras in respect to other cameras. If I don't do this then any
+      camera at the coordinate-system reference has infinitely-confident
+      extrinsics; which is wrong. An example of what I might want to do: let's
+      say I have 4 cameras, with camera0 at the reference (3 sets of
       extrinsics). How do I compute Var(yaw between cameras 2,3)? For simplicity
       let's assume the cameras have relative transformation ~ identity, so yaw ~
       rodrigues[1]. I have relative extrinsics for my cameras: rt20, rt30 ->
@@ -1353,8 +1365,37 @@ def compute_projection_stdev( model, v,
 
     '''
 
+    if (gridn_width is     None and gridn_height is not None) or \
+       (gridn_width is not None and gridn_height is     None):
+        raise Exception("gridn_width,gridn_height must both be None or neither may be None")
+    if gridn_width is None and v is None:
+        raise Exception("gridn_width,gridn_height may not both be None")
+
     lensmodel, intrinsics_data = model.intrinsics()
     imagersize                 = model.imagersize()
+    W,H = imagersize
+    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+    if focus_radius < 0:     focus_radius = min(W,H)/6.
+
+    if gridn_width is not None:
+        v_grid,_ = \
+            mrcal.sample_imager_unproject(gridn_width, gridn_height,
+                                          *imagersize, lensmodel, intrinsics_data)
+    else:
+        # Don't have the grid parameters. Assume my v is already gridded
+        v_grid = v
+    if v is None:
+        # Don't have v. Use the grid for that
+        v = v_grid
+
+    q,dq_dv,dq_dp = \
+        mrcal.project(v, lensmodel, intrinsics_data, get_gradients=True)
+    if v_grid is v:
+        q_grid,dqgrid_dv,dqgrid_dp = \
+            q,dq_dv,dq_dp
+    else:
+        q_grid,dqgrid_dv,dqgrid_dp = \
+            mrcal.project(v_grid, lensmodel, intrinsics_data, get_gradients=True)
 
     if outlierness:
         intrinsics_covariance = model.covariance_intrinsics_full()
@@ -1365,15 +1406,9 @@ def compute_projection_stdev( model, v,
         if intrinsics_covariance is None:
             raise Exception("The given camera model doesn't have the intrinsics covariance. Can't compute uncertainty.")
 
-    W,H = imagersize
-    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
-    if focus_radius < 0:     focus_radius = min(W,H)/6.
-
-    q,dq_dv,dq_dp = \
-        mrcal.project(v, lensmodel, intrinsics_data, get_gradients=True)
-
     dq_dp_corrected = \
-        compute_Rcorrected_dq_dintrinsics(q, v, dq_dp,dq_dv,
+        compute_Rcorrected_dq_dintrinsics(q_grid, v_grid, dqgrid_dp,dqgrid_dv,
+                                          v, dq_dp,dq_dv,
                                           imagersize,
                                           focus_center, focus_radius)
 
@@ -1442,13 +1477,12 @@ def show_intrinsics_uncertainty(model,
 
     lensmodel, intrinsics_data = model.intrinsics()
     imagersize                 = model.imagersize()
-    v,_ =sample_imager_unproject(gridn_width, gridn_height,
-                                 *imagersize,
-                                 lensmodel, intrinsics_data)
-    err = compute_projection_stdev(model, v,
-                                         outlierness,
-                                         focus_center = focus_center,
-                                         focus_radius = focus_radius)
+    err = compute_projection_stdev(model,
+                                   outlierness  = outlierness,
+                                   gridn_width  = gridn_width,
+                                   gridn_height = gridn_height,
+                                   focus_center = focus_center,
+                                   focus_radius = focus_radius)
 
     if 'title' not in kwargs:
         if focus_radius < 0:

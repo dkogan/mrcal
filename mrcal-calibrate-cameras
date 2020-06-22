@@ -1056,13 +1056,11 @@ def get_valid_intrinsics_region(i_camera,
                            imagersize                 = imagersizes[i_camera],
                            observed_pixel_uncertainty = args.observed_pixel_uncertainty,
                            covariance_intrinsics      = covariance_intrinsics_here)
-    v,_ = mrcal.sample_imager_unproject(gridn_width, gridn_height,
-                                        *imagersizes[i_camera],
-                                        intrinsics[0], intrinsics[1][i_camera,:])
-
-    err = mrcal.compute_projection_stdev(model, v,
-                                               focus_center = focus_center,
-                                               focus_radius = focus_radius)
+    err = mrcal.compute_projection_stdev(model,
+                                         gridn_width  = gridn_width,
+                                         gridn_height = gridn_height,
+                                         focus_center = focus_center,
+                                         focus_radius = focus_radius)
 
     try:
 
