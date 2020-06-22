@@ -309,7 +309,7 @@ def Rt_from_pq(pq):
 
     p = pq[..., :3]
     q = pq[..., 3:]
-    R = mrcal.poseutils.R_from_quat(q)
+    R = mrcal.R_from_quat(q)
     return nps.glue(R,
                     nps.dummy(p,-2),
                     axis=-2)
@@ -327,7 +327,7 @@ def pq_from_Rt(Rt):
 
     R = Rt[:3,:]
     t = Rt[ 3,:]
-    q = mrcal.poseutils.quat_from_R(R)
+    q = mrcal.quat_from_R(R)
     return nps.glue(t,q, axis=-1)
 
 def read_transforms(f):

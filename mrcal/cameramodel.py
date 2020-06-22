@@ -235,7 +235,7 @@ class cameramodel(object):
     #
     # You probably want covariance_intrinsics. These are used primarily for the
     # outlierness-based uncertainty evaluation. See the docstring of
-    # mrcal.utils.compute_projection_stdev() for a full description of what this
+    # mrcal.compute_projection_stdev() for a full description of what this
     # is.
     #
     # The intrinsics are represented as a probabilistic quantity: the parameters are
@@ -255,7 +255,7 @@ class cameramodel(object):
     #
     # This is the covariance of the intrinsics vector that comes from the measurement
     # noise in the calibration process that generated this model. See the docstring of
-    # mrcal.utils.compute_projection_stdev() for a full description of what this
+    # mrcal.compute_projection_stdev() for a full description of what this
     # is.
     #
     # The intrinsics are represented as a probabilistic quantity: the parameters are
@@ -830,7 +830,7 @@ class cameramodel(object):
 
         You probably want covariance_intrinsics(). These are used primarily for
         the outlierness-based uncertainty evaluation. See the docstring of
-        mrcal.utils.compute_projection_stdev() for a full description of
+        mrcal.compute_projection_stdev() for a full description of
         what this is.
 
         The intrinsics are represented as a probabilistic quantity: the
@@ -853,7 +853,7 @@ class cameramodel(object):
 
         This is the covariance of the intrinsics vector that comes from the
         measurement noise in the calibration process that generated this model.
-        See the docstring of mrcal.utils.compute_projection_stdev() for a
+        See the docstring of mrcal.compute_projection_stdev() for a
         full description of what this is.
 
         The intrinsics are represented as a probabilistic quantity: the
