@@ -542,18 +542,28 @@ for icam in range(Ncameras):
     err_1sigma_observed_anisotropic = np.sqrt(np.diag(var_all[icam]))
     err_1sigma_observed_isotropic   = np.sqrt( np.trace(var_all[icam]) / 2. )
 
-    err_1sigma_predicted_isotropic = \
+    err_1sigma_predicted_isotropic_noRcompensating = \
         mrcal.compute_projection_stdev(models_solved[icam], v0,
+                                       gridn_width  = 30,
+                                       gridn_height = 20,
                                        focus_radius = 0)
+    err_1sigma_predicted_isotropic_stdRcompensating = \
+        mrcal.compute_projection_stdev(models_solved[icam], v0,
+                                       gridn_width  = 30,
+                                       gridn_height = 20,
+                                       focus_radius = -1)
 
-    testutils.confirm_equal(err_1sigma_predicted_isotropic,
+    testutils.confirm_equal(err_1sigma_predicted_isotropic_noRcompensating,
                             err_1sigma_observed_isotropic,
                             eps = 0.1,
                             relative  = True,
                             msg = f"Projection uncertainty estimated correctly for camera {icam}")
 
     # import gnuplotlib as gp
-    # plot_distribution[icam] = gp.gnuplotlib(square=1, title='Uncertainty reprojection distribution for camera {}'.format(icam))
+    # plot_distribution[icam] = \
+    #     gp.gnuplotlib(square=1,
+    #                   title=f'Uncertainty reprojection distribution for camera {icam}',
+    #                   wait = True)
     # plot_distribution[icam]. \
     #     plot( (dq[:,0], dq[:,1], dict(_with='points pt 7 ps 2')),
     #           (0,0, 2*err_1sigma_observed_major, 2*err_1sigma_observed_minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
@@ -562,7 +572,9 @@ for icam in range(Ncameras):
     #            dict(_with='ellipses lw 2', tuplesize=4, legend='Observed 1-sigma, independent x,y')),
     #           (0,0, err_1sigma_observed_isotropic,
     #            dict(_with='circles lw 2', tuplesize=3, legend='Observed 1-sigma; isotropic')),
-    #           (0,0, err_1sigma_predicted_isotropic,
-    #            dict(_with='circles lw 2', tuplesize=3, legend='Predicted 1-sigma; isotropic')))
+    #           (0,0, err_1sigma_predicted_isotropic_noRcompensating,
+    #            dict(_with='circles lw 2', tuplesize=3, legend='Predicted 1-sigma (no compensating rotation); isotropic')),
+    #           (0,0, err_1sigma_predicted_isotropic_stdRcompensating,
+    #            dict(_with='circles lw 2', tuplesize=3, legend='Predicted 1-sigma (standard compensating rotation); isotropic')))
 
 testutils.finish()
