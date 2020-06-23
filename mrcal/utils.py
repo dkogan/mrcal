@@ -358,12 +358,12 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               frames                      = None,
                               points                      = None,
 
-                              axis_scale = 1.0,
-                              object_spacing = 0,
-                              object_width_n  = 10,
-                              object_height_n = 10,
-                              i_camera_highlight=None,
-                              point_labels=None,
+                              axis_scale         = 1.0,
+                              object_spacing     = 0,
+                              object_width_n     = None,
+                              object_height_n    = None,
+                              i_camera_highlight = None,
+                              point_labels       = None,
 
                               **kwargs):
 
@@ -386,6 +386,8 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
 
     models_or_extrinsics_rt_fromref is an iterable of cameramodel or (6,) rt
     arrays. An (N,6) array works
+
+    need to check for object_width_n is None
 
     '''
 
