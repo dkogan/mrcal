@@ -296,7 +296,7 @@ the same time and/or apply lots of different rotations at the same time
 ARGUMENTS
 
 - r: array of shape (3,). The Rodriges vector that defines the rotation. This is
-  a rotation axis scaled by the rotation magnitude, in radians
+  a unit rotation axis scaled by the rotation magnitude, in radians
 
 - x: array of shape (3,). The point being rotated
 
@@ -361,7 +361,7 @@ the same time and/or apply lots of different rotations at the same time
 ARGUMENTS
 
 - r: array of shape (3,). The Rodriges vector that defines the rotation. This is
-  a rotation axis scaled by the rotation magnitude, in radians
+  a unit rotation axis scaled by the rotation magnitude, in radians
 
 - x: array of shape (3,). The point being rotated
 
@@ -714,8 +714,36 @@ A tuple (u=Rt(x),du/dR,du/dt,du/dx)
 )
 
 m.function( "_r_from_R",
-            "Compute a Rodrigues vector from a rotation matrix",
+            """Compute a Rodrigues vector from a rotation matrix
 
+SYNOPSIS
+
+    r = mrcal._r_from_R(R)
+
+    rotation_magnitude = nps.mag(r)
+    rotation_axis      = r / rotation_magnitude
+
+This is an internal function. You probably want mrcal.r_from_R()
+
+Given a rotation specified as a (3,3) rotation matrix, converts it to a
+Rodrigues vector, a unit rotation axis scaled by the rotation magnitude, in
+radians.
+
+This function does not report gradients. The gradient-reporting analogue is
+_r_from_R_withgrad().
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- R: array of shape (3,3). This matrix defines the rotation. It is assumed that
+  this is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
+  is not checked
+
+RETURNED VALUE
+
+The Rodrigues vector. Each broadcasted slice has shape (3,)
+""",
             args_input       = ('R',),
             prototype_input  = ((3,3),),
             prototype_output = (3,),
@@ -732,8 +760,42 @@ m.function( "_r_from_R",
 )
 
 m.function( "_r_from_R_withgrad",
-            "Compute a Rodrigues vector and a gradient from a rotation matrix",
+            """Compute a Rodrigues vector from a rotation matrix
 
+SYNOPSIS
+
+    r,dr_dR = mrcal._r_from_R_withgrad(R)
+
+    rotation_magnitude = nps.mag(r)
+    rotation_axis      = r / rotation_magnitude
+
+This is an internal function. You probably want mrcal.r_from_R()
+
+Given a rotation specified as a (3,3) rotation matrix, converts it to a
+Rodrigues vector, a unit rotation axis scaled by the rotation magnitude, in
+radians.
+
+Unlike _r_from_R(), this returns a tuple of the result and the gradients: (r,
+dr/dR)
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- R: array of shape (3,3). This matrix defines the rotation. It is assumed that
+  this is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
+  is not checked
+
+RETURNED VALUE
+
+A tuple (r, dr/dR)
+
+1. The Rodrigues vector. Each broadcasted slice has shape (3,)
+
+2. The gradient dr/dR. Each broadcasted slice has shape (3,3,3). The first
+   dimension selects the element of r, and the last two dimensions select the
+   element of R
+""",
             args_input       = ('R',),
             prototype_input  = ((3,3),),
             prototype_output = ((3,),(3,3,3)),
@@ -750,8 +812,34 @@ m.function( "_r_from_R_withgrad",
 )
 
 m.function( "_R_from_r",
-            "Compute a rotation matrix from a Rodrigues vector",
+            """Compute a rotation matrix from a Rodrigues vector
 
+SYNOPSIS
+
+    r  = rotation_axis * rotation_magnitude
+
+    R = mrcal._R_from_r(r)
+
+This is an internal function. You probably want mrcal.R_from_r()
+
+Given a rotation specified as a Rodrigues vector (a unit rotation axis scaled by
+the rotation magnitude, in radians.), converts it to a rotation matrix.
+
+This function does not report gradients. The gradient-reporting analogue is
+_R_from_r_withgrad().
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- r: array of shape (3,). The Rodriges vector that defines the rotation. This is
+  a unit rotation axis scaled by the rotation magnitude, in radians
+
+RETURNED VALUE
+
+The rotation matrix in an array of shape (3,3). This is a valid rotation:
+matmult(R,transpose(R)) = I, det(R) = 1
+""",
             args_input       = ('r',),
             prototype_input  = ((3,),),
             prototype_output = (3,3),
@@ -768,8 +856,41 @@ m.function( "_R_from_r",
 )
 
 m.function( "_R_from_r_withgrad",
-            "Compute a rotation matrix and a gradient from a Rodrigues vector",
+            """Compute a rotation matrix from a Rodrigues vector
 
+SYNOPSIS
+
+    r  = rotation_axis * rotation_magnitude
+
+    R,dR_dr = mrcal._R_from_r(r)
+
+This is an internal function. You probably want mrcal.R_from_r()
+
+Given a rotation specified as a Rodrigues vector (a unit rotation axis scaled by
+the rotation magnitude, in radians.), converts it to a rotation matrix.
+
+Unlike _R_from_r(), this returns a tuple of the result and the gradients: (R,
+dR/dr).
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- r: array of shape (3,). The Rodriges vector that defines the rotation. This is
+  a unit rotation axis scaled by the rotation magnitude, in radians
+
+RETURNED VALUE
+
+A tuple (R, dR/dr)
+
+1. The rotation matrix. Each broadcasted slice has shape (3,3). This is a valid
+   rotation: matmult(R,transpose(R)) = I, det(R) = 1
+
+2. The gradient dR/dr. Each broadcasted slice has shape (3,3,3). The first two
+   dimensions select the element of R, and the last dimension selects the
+   element of r
+
+""",
             args_input       = ('r',),
             prototype_input  = ((3,),),
             prototype_output = ((3,3), (3,3,3)),
