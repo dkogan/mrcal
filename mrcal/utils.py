@@ -384,6 +384,9 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
     object_spacing may be omitted ONLY if we are not observing any calibration
     boards
 
+    models_or_extrinsics_rt_fromref is an iterable of cameramodel or (6,) rt
+    arrays. An (N,6) array works
+
     '''
 
     import gnuplotlib as gp
@@ -392,12 +395,15 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
         raise Exception("This isn't done yet. Sorry")
 
 
-    if isinstance(models_or_extrinsics_rt_fromref, mrcal.cameramodel):
-        extrinsics_Rt_toref = \
-            nps.cat(*[m.extrinsics_Rt_toref() for m in models_or_extrinsics_rt_fromref])
-    else:
-        extrinsics_Rt_toref = \
-            mrcal.invert_Rt(mrcal.Rt_from_rt(models_or_extrinsics_rt_fromref))
+    def get_extrinsics_Rt_toref_one(m):
+        if isinstance(m, mrcal.cameramodel):
+            return m.extrinsics_Rt_toref()
+        else:
+            return mrcal.invert_Rt(mrcal.Rt_from_rt(m))
+
+    extrinsics_Rt_toref = \
+        nps.cat(*[get_extrinsics_Rt_toref_one(m) \
+                  for m in models_or_extrinsics_rt_fromref])
     extrinsics_Rt_toref = nps.atleast_dims(extrinsics_Rt_toref, -3)
 
     if frames is not None: frames = nps.atleast_dims(frames, -2)
