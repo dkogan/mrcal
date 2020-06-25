@@ -160,6 +160,8 @@ void mrcal_compose_Rt( // output
 // Compose two rt transformations. It is assumed that we're getting no gradients
 // at all or we're getting ALL the gradients: only dr_r0 is checked for NULL
 //
+// dr_dt0 is not returned: it is always 0
+// dr_dt1 is not returned: it is always 0
 // dt_dr1 is not returned: it is always 0
 // dt_dt0 is not returned: it is always the identity matrix
 void mrcal_compose_rt( // output
