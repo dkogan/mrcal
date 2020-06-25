@@ -1209,6 +1209,18 @@ def compute_projection_stdev( model,
 
       stdev(q) ~ sqrt( trace(Var(q))/2 )
 
+      I can also look at the full ellipse defined by the variance, and take the
+      worst-case defiation: the major axis:
+
+      eig (a b) --> (a-l)*(c-l)-b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
+          (b c)
+
+      --> l = (a+c +- sqrt( a^2+2ac+c^2 - 4ac + 4b^2)) / 2 =
+            = (a+c +- sqrt( a^2-2ac+c^2 + 4b^2)) / 2 =
+            = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
+
+      So the worst-case stdev(q) is sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
+
       tr(AB) = tr(BA) ->
       trace(Var(q)) = tr( Var(intrinsics) dproj/dintrinsicst dproj/dintrinsics )
                     = sum(elementwise_product(Var(intrinsics),
