@@ -624,10 +624,26 @@ gradients (u=Rt(x),du/dR,du/dt,du/dx):
 @nps.broadcast_define( ((4,),),
                        (3,3) )
 def R_from_quat(q):
-    r"""Rotation matrix from a unit quaternion
+    r"""Convert a rotation defined as a unit quaternion rotation to a rotation matrix
 
-    This is mostly for compatibility with some old stuff. I don't really use
-    quaternions
+SYNOPSIS
+
+    s    = np.sin(rotation_magnitude/2.)
+    c    = np.cos(rotation_magnitude/2.)
+    quat = nps.glue( c, s*rotation_axis, axis = -1)
+
+    print(quat.shape)
+    ===>
+    (4,)
+
+    R = mrcal.R_from_quat(quat)
+
+    print(R.shape)
+    ===>
+    (3,3)
+
+This is mostly for compatibility with some old stuff. mrcal doesn't use
+quaternions anywhere. Test this thoroughly before using.
 
     """
 
@@ -649,49 +665,70 @@ def R_from_quat(q):
                      (   2*(ik-jr),   2*(jk+ir), 1-2*(ii+jj))))
 
 def quat_from_R(R):
-    r"""Unit quaternion from a rotation matrix
+    r"""Convert a rotation defined as a rotation matrix to a unit quaternion
 
-    This is mostly for compatibility with some old stuff. I don't really use
-    quaternions
+SYNOPSIS
 
-    This comes directly from the scipy project, the from_dcm() function in
+    print(R.shape)
+    ===>
+    (3,3)
 
-      https://github.com/scipy/scipy/blob/master/scipy/spatial/transform/rotation.py
+    quat = mrcal.quat_from_R(R)
 
-    Commit: 1169d27ad47a29abafa8a3d2cb5b67ff0df80a8f
+    print(quat.shape)
+    ===>
+    (4,)
 
-    License:
+    c = quat[0]
+    s = nps.mag(quat[1:])
 
-    Copyright (c) 2001-2002 Enthought, Inc.  2003-2019, SciPy Developers.
-    All rights reserved.
+    rotation_magnitude = 2. * np.arctan2(s,c)
 
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions
-    are met:
+    rotation_axis = quat[1:] / s
 
-    1. Redistributions of source code must retain the above copyright
-       notice, this list of conditions and the following disclaimer.
+This is mostly for compatibility with some old stuff. mrcal doesn't use
+quaternions anywhere. Test this thoroughly before using.
 
-    2. Redistributions in binary form must reproduce the above
-       copyright notice, this list of conditions and the following
-       disclaimer in the documentation and/or other materials provided
-       with the distribution.
+The implementation comes directly from the scipy project, the from_dcm()
+function in
 
-    3. Neither the name of the copyright holder nor the names of its
-       contributors may be used to endorse or promote products derived
-       from this software without specific prior written permission.
+  https://github.com/scipy/scipy/blob/master/scipy/spatial/transform/rotation.py
 
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-    OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-    LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Commit: 1169d27ad47a29abafa8a3d2cb5b67ff0df80a8f
+
+License:
+
+Copyright (c) 2001-2002 Enthought, Inc.  2003-2019, SciPy Developers.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above
+   copyright notice, this list of conditions and the following
+   disclaimer in the documentation and/or other materials provided
+   with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived
+   from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
     """
 
     R = nps.dummy(R, 0)
