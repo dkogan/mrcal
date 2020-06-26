@@ -76,7 +76,8 @@ The unprojected observation vector of shape (..., 3).
     return mrcal._mrcal_broadcasted._project_withgrad(v, intrinsics_data, lensmodel=lensmodel)
 
 
-def unproject(q, lensmodel, intrinsics_data):
+def unproject(q, lensmodel, intrinsics_data,
+              normalize = False):
     r'''Unprojects pixel coordinates to observation vectors
 
 SYNOPSIS
@@ -87,7 +88,8 @@ SYNOPSIS
 
 Maps a set of 2D imager points q to a 3d vector in camera coordinates that
 produced these pixel observations. The 3d vector is unique only up-to-length,
-and the returned vectors aren't normalized.
+and the returned vectors aren't normalized by default. If we want them to be
+normalized, pass normalize=True.
 
 This is the "reverse" direction, so an iterative nonlinear optimization is
 performed internally to compute this result. This is much slower than
@@ -115,16 +117,23 @@ ARGUMENTS
 
   The focal lengths are given in pixels.
 
+- normalize: optional boolean defaults to False. If True: normalize the output
+  vectors
+
 RETURNED VALUE
 
-The unprojected observation vector of shape (..., 3).
+The unprojected observation vector of shape (..., 3). These are NOT normalized
+by default. To get normalized vectors, pass normalize=True
 
     '''
 
     if lensmodel != 'LENSMODEL_CAHVORE':
         # Main path. Internal function must have a different argument order so
         # that all the broadcasting stuff is in the leading arguments
-        return mrcal._mrcal_broadcasted._unproject(q, intrinsics_data, lensmodel=lensmodel)
+        v = mrcal._mrcal_broadcasted._unproject(q, intrinsics_data, lensmodel=lensmodel)
+        if normalize:
+            v /= nps.dummy(nps.mag(v), -1)
+        return v
 
     # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
     # and here for legacy compatibility only
@@ -174,7 +183,10 @@ The unprojected observation vector of shape (..., 3).
     vxy = undistort_this(q)
 
     # I append a 1. shape = (..., 3)
-    return  nps.glue(vxy, np.ones( vxy.shape[:-1] + (1,) ), axis=-1)
+    v = nps.glue(vxy, np.ones( vxy.shape[:-1] + (1,) ), axis=-1)
+    if normalize:
+        v /= nps.dummy(nps.mag(v), -1)
+    return v
 
 
 def compute_scale_f_pinhole_for_fit(model, fit):

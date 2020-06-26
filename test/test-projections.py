@@ -35,8 +35,13 @@ def check(intrinsics, p_ref, q_ref, unproject = True):
     if not unproject:
         return
 
-    p_unprojected = mrcal.unproject(q_projected, *intrinsics)
-    cos = nps.inner(p_unprojected, p_ref) / (nps.mag(p_ref)*nps.mag(p_unprojected))
+    v_unprojected = mrcal.unproject(q_projected, *intrinsics,
+                                    normalize = True)
+    testutils.confirm_equal( nps.norm2(v_unprojected),
+                             np.ones((p_ref.shape[0],), dtype=float),
+                             msg = f"Unprojected v are normalized",
+                             eps = 1e-6)
+    cos = nps.inner(v_unprojected, p_ref) / nps.mag(p_ref)
     cos = np.clip(cos, -1, 1)
     testutils.confirm_equal( np.arccos(cos),
                              np.zeros((p_ref.shape[0],), dtype=float),
