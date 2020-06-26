@@ -17,21 +17,20 @@ def _align3d_procrustes_points(A, B):
     A = nps.transpose(A)
     B = nps.transpose(B)
 
-    M = nps.matmult(               B - np.mean(B, axis=-1)[..., np.newaxis],
-                     nps.transpose(A - np.mean(A, axis=-1)[..., np.newaxis]) )
-    U,S,Vt = np.linalg.svd(M)
+    # I process Mt instead of M to not need to transpose anything later, and to
+    # end up with contiguous-memory results
+    Mt = nps.matmult(               A - np.mean(A, axis=-1)[..., np.newaxis],
+                      nps.transpose(B - np.mean(B, axis=-1)[..., np.newaxis]))
+    V,S,Ut = np.linalg.svd(Mt)
 
-    R = nps.matmult(U, Vt)
+    R = nps.matmult(V, Ut)
 
     # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
     # is not a physical rotation. I compensate by negating the least-important
     # pair of singular vectors
     if np.linalg.det(R) < 0:
-        U[:,2] *= -1
-        R = nps.matmult(U, Vt)
-
-    # I wanted V Ut, not U Vt
-    R = nps.transpose(R)
+        V[:,2] *= -1
+        R = nps.matmult(V, Ut)
 
     # Now that I have my optimal R, I compute the optimal t. From before:
     #
@@ -47,20 +46,21 @@ def _align3d_procrustes_vectors(A, B):
     A = nps.transpose(A)
     B = nps.transpose(B)
 
-    M = nps.matmult( B, nps.transpose(A) )
-    U,S,Vt = np.linalg.svd(M)
+    # I process Mt instead of M to not need to transpose anything later, and to
+    # end up with contiguous-memory results
+    Mt = nps.matmult( A, nps.transpose(B) )
+    V,S,Ut = np.linalg.svd(Mt)
 
-    R = nps.matmult(U, Vt)
+    R = nps.matmult(V, Ut)
 
     # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
     # is not a physical rotation. I compensate by negating the least-important
     # pair of singular vectors
     if np.linalg.det(R) < 0:
-        U[:,2] *= -1
-        R = nps.matmult(U, Vt)
+        V[:,2] *= -1
+        R = nps.matmult(V, Ut)
 
-    # I wanted V Ut, not U Vt
-    return nps.transpose(R)
+    return R
 
 
 # I use _align3d_procrustes_...() to do the work. Those are separate functions
