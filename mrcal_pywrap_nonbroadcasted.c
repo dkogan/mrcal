@@ -1687,7 +1687,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
             mrcal_stats_t stats =
                 mrcal_optimize( c_x_final,
-                                NULL,
                                 c_covariance_intrinsics,
                                 c_covariance_extrinsics,
                                 c_outlier_indices_final,

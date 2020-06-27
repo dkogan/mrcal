@@ -3072,7 +3072,6 @@ int mrcal_state_index_calobject_warp(int NpointsVariable,
 // The returned matrices are symmetric, but I return both halves for now
 static bool computeUncertaintyMatrices(// out
                                        // dimensions (Ncameras_intrinsics,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                       double* covariance_intrinsics_full,
                                        double* covariance_intrinsics,
                                        // dimensions (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
                                        double* covariance_extrinsics,
@@ -3113,9 +3112,6 @@ static bool computeUncertaintyMatrices(// out
                Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
     // this one isn't strictly necessary (the computation isn't incremental), but
     // it keeps the logic simple
-    if(covariance_intrinsics_full)
-        memset(covariance_intrinsics_full, 0,
-               Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
     if(covariance_extrinsics)
         memset(covariance_extrinsics, 0,
                6*Ncameras_extrinsics * 6*Ncameras_extrinsics * sizeof(double));
@@ -3128,8 +3124,7 @@ static bool computeUncertaintyMatrices(// out
         return true;
     }
 
-    if( !(covariance_intrinsics_full ||
-          covariance_intrinsics ||
+    if( !(covariance_intrinsics ||
           covariance_extrinsics))
     {
         // no buffers to fill in
@@ -3142,12 +3137,12 @@ static bool computeUncertaintyMatrices(// out
         covariance_extrinsics = NULL;
     }
 
-    if( covariance_intrinsics_full || covariance_intrinsics)
+    if( covariance_intrinsics)
     {
         if( !problem_details.do_optimize_intrinsic_core        &&
             !problem_details.do_optimize_intrinsic_distortions )
         {
-            covariance_intrinsics_full = covariance_intrinsics = NULL;
+            covariance_intrinsics = NULL;
         }
         else if( (!problem_details.do_optimize_intrinsic_core        &&
                    problem_details.do_optimize_intrinsic_distortions ) ||
@@ -3201,165 +3196,6 @@ static bool computeUncertaintyMatrices(// out
     // at the measurements that pertain to the input observations directly. In
     // mrcal, this is the leading ones, before the range errors and the
     // regularization
-
-    // Compute covariance_intrinsics_full. This is the intrinsics-per-camera
-    // diagonal block inv(JtJ) for each camera separately
-    if(covariance_intrinsics_full)
-    {
-        // Enables a testing branch that uses more or CHOLDMOD functions to
-        // perform this computation. In theory it should produce the same
-        // results, but relying on the library more, thus being faster (maybe)
-        // and more likely to do the right thing now and in the future
-        // (probably). Disabled by default. Could be a model for the other
-        // covariance computations. USE GPL CODE. DO NOT RE-ENABLE PERMANENTLY
-        // WITHOUT ADDRESSING THAT
-#define COVARIANCE_FULL_COMPUTE_WITH_CHOLMOD 0
-
-#if defined COVARIANCE_FULL_COMPUTE_WITH_CHOLMOD && COVARIANCE_FULL_COMPUTE_WITH_CHOLMOD
-        cholmod_sparse* I_stacked = cholmod_allocate_sparse
-            ( Nstate, Nintrinsics_per_camera_state, Nintrinsics_per_camera_state,
-              1, // sorted
-              1, // packed
-              0, // stype
-              CHOLMOD_REAL,
-              &solverCtx->common ) ;
-
-        for(int i=0; i<Nintrinsics_per_camera_state; i++)
-        {
-            ((int*)I_stacked->p)[i] = i;
-            ((double*)I_stacked->x)[i] = 1.0;
-            // will fill this in later, for each camera
-            // ((int   *)I_stacked->i)[i] = istate0 + i;
-        }
-        ((int*)I_stacked->p)[Nintrinsics_per_camera_state] = Nintrinsics_per_camera_state;
-        for(int icam = 0; icam < Ncameras_intrinsics; icam++)
-        {
-            const int istate0 = Nintrinsics_per_camera_state * icam;
-            for(int i=0; i<Nintrinsics_per_camera_state; i++)
-                ((int*)I_stacked->i)[i] = istate0 + i;
-
-            cholmod_sparse* var_stacked = cholmod_spsolve
-                ( CHOLMOD_A, solverCtx->factorization, I_stacked,
-                  &solverCtx->common);
-
-            // I now have a matrix with Nstate rows and
-            // Nintrinsics_per_camera_state cols. The variance is in a subset of
-            // the rows, which I pull out
-            int rset[Nintrinsics_per_camera_state];
-            int cset[Nintrinsics_per_camera_state];
-            for(int i=0; i<Nintrinsics_per_camera_state; i++)
-            {
-                rset[i] = i + istate0;
-                cset[i] = i;
-            }
-            // USE ONLY FOR TESTING. LICENSED UNDER THE GPL
-            cholmod_sparse* var = cholmod_submatrix
-                (
-                 var_stacked,
-                 rset, Nintrinsics_per_camera_state,
-                 cset, Nintrinsics_per_camera_state,
-                 1, 1,
-                 &solverCtx->common ) ;
-            MSG("new-way var-full matrix has a total %d elements. Sparse representation: %d elements",
-                var->ncol*var->nrow,
-                ((int*)var->p)[var->ncol]);
-
-            // The J are unitless. I need to scale them to get real units
-            double scale[Nintrinsics_per_camera_state];
-            for(int i=0; i<Nintrinsics_per_camera_state; i++)
-                scale[i] =
-                    get_scale_solver_state_intrinsics_onecamera(i,
-                                                                Nintrinsics_per_camera_state,
-                                                                problem_details);
-            for(int i_col=0; i_col<Nintrinsics_per_camera_state; i_col++)
-            {
-                for(int i_value = ((int*)var->p)[i_col];
-                    i_value < ((int*)var->p)[i_col+1];
-                    i_value++)
-                {
-                    // If I haven't grabbed the subset yet
-                    //   int i_row = ((int*)var_stacked->i)[i_value] - istate0;
-                    //   if(i_row < 0) continue;
-                    //   if(i_row >= Nintrinsics_per_camera_state) break;
-
-                    int i_row = ((int*)var->i)[i_value];
-                    ((double*)var->x)[i_value] *= (scale[i_row]*scale[i_col]);
-                }
-            }
-
-            cholmod_dense* var_dense = cholmod_sparse_to_dense
-                ( var, &solverCtx->common);
-
-            // MSG("new-way var-full:");
-            // for(int i_row=0; i_row<(int)var_dense->nrow; i_row++)
-            // {
-            //     for(int i_col=0; i_col<(int)var_dense->ncol; i_col++)
-            //         fprintf(stderr, "%10g ", ((double*)var_dense->x)[var_dense->d*i_col + i_row]);
-            //     fprintf(stderr, "\n");
-            // }
-
-            cholmod_free_sparse(&var_stacked, &solverCtx->common);
-            cholmod_free_sparse(&var,         &solverCtx->common);
-        }
-        cholmod_free_sparse(&I_stacked, &solverCtx->common);
-#else
-        for(int icam = 0; icam < Ncameras_intrinsics; icam++)
-        {
-            // Here I want the diagonal blocks of inv(JtJ) for each camera's
-            // intrinsics. I get them by doing solve(JtJ, [0; I; 0])
-            void compute_invJtJ_block(double* invJtJ, const int istate0, int N)
-            {
-                // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
-                // dense. cholmod doesn't have functions for this exact case. so I use
-                // the dense-sparse-dense function, and densify the input. Instead of
-                // sparse-sparse-sparse and the densifying the output. This feels like
-                // it'd be more efficient
-
-                int istate = istate0;
-
-                // I can do chunk_size cols at a time
-                while(1)
-                {
-                    int Ncols = N < chunk_size ? N : chunk_size;
-                    Jt_slice->ncol = Ncols;
-                    memset( Jt_slice->x, 0, Jt_slice->nrow*Ncols*sizeof(double) );
-                    for(int icol=0; icol<Ncols; icol++)
-                        // The J are unitless. I need to scale them to get real units
-                        ((double*)Jt_slice->x)[ istate + icol + icol*Jt_slice->nrow] =
-                            get_scale_solver_state_intrinsics_onecamera(istate + icol - istate0,
-                                                                        Nintrinsics_per_camera_state,
-                                                                        problem_details);
-
-                    cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
-                                                      Jt_slice,
-                                                      &solverCtx->common);
-
-                    // The cols/rows I want are in M. I pull them out, and apply
-                    // scaling (because my J are unitless, and I want full-unit
-                    // data)
-                    for(int icol=0; icol<Ncols; icol++)
-                        unpack_solver_state_intrinsics_onecamera( (intrinsics_core_t*)&invJtJ[icol*Nintrinsics_per_camera_state],
-                                                                  lensmodel,
-                                                                  &invJtJ[icol*Nintrinsics_per_camera_state + 4],
-
-                                                                  &((double*)(M->x))[icol*M->nrow + istate0],
-                                                                  Nintrinsics_per_camera_state,
-                                                                  problem_details );
-                    cholmod_free_dense (&M, &solverCtx->common);
-
-                    N -= Ncols;
-                    if(N <= 0) break;
-                    istate += Ncols;
-                    invJtJ = &invJtJ[Ncols*Nintrinsics_per_camera_state];
-                }
-            }
-            const int istate0 = Nintrinsics_per_camera_state * icam;
-            double* invJtJ_thiscam = &covariance_intrinsics_full[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
-            compute_invJtJ_block( invJtJ_thiscam, istate0, Nintrinsics_per_camera_state );
-        }
-#endif
-    }
-
 
     // Compute covariance_intrinsics. This is the
     // intrinsics-per-camera diagonal block
@@ -3492,11 +3328,6 @@ static bool computeUncertaintyMatrices(// out
             i<Ncameras_intrinsics*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all;
             i++)
             covariance_intrinsics[i] *= s;
-    if(covariance_intrinsics_full)
-        for(int i=0;
-            i<Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all;
-            i++)
-            covariance_intrinsics_full[i] *= s;
     if(covariance_extrinsics)
         for(int i=0;
             i<6*Ncameras_extrinsics * 6*Ncameras_extrinsics;
@@ -4826,7 +4657,6 @@ mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
                 // caller
                 double* x_final,
-                double* covariance_intrinsics_full,
                 double* covariance_intrinsics,
                 double* covariance_extrinsics,
 
@@ -5141,15 +4971,13 @@ mrcal_optimize( // out
     if(x_final)
         memcpy(x_final, solver_context->beforeStep->x, ctx.Nmeasurements*sizeof(double));
 
-    if( covariance_intrinsics_full ||
-        covariance_intrinsics ||
+    if( covariance_intrinsics ||
         covariance_extrinsics )
     {
         int Nintrinsics_per_camera = mrcal_getNlensParams(lensmodel);
         bool result =
             computeUncertaintyMatrices(// out
                                        // dimensions (Ncameras_intrinsics,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                       covariance_intrinsics_full,
                                        covariance_intrinsics,
                                        // dimensions (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
                                        covariance_extrinsics,
@@ -5170,12 +4998,6 @@ mrcal_optimize( // out
         {
             MSG("Failed to compute covariance_...");
             double nan = strtod("NAN", NULL);
-            if(covariance_intrinsics_full)
-                for(int i=0; i<Ncameras_intrinsics*Nintrinsics_per_camera*Nintrinsics_per_camera; i++)
-                {
-                    covariance_intrinsics_full[i] = nan;
-                    covariance_intrinsics[i]      = nan;
-                }
             if(covariance_extrinsics)
                 for(int i=0; i<Ncameras_extrinsics*6 * Ncameras_extrinsics*6; i++)
                     covariance_extrinsics[i] = nan;

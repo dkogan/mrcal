@@ -334,7 +334,6 @@ mrcal_optimize( // out
                 // These may be NULL. They're for diagnostic reporting to the
                 // caller
                 double* x_final,
-                double* covariance_intrinsics_full,
                 double* covariance_intrinsics,
                 double* covariance_extrinsics,
 

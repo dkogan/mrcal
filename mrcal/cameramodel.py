@@ -44,7 +44,6 @@ class BadValidIntrinsicsRegion_Exception(Exception):
     pass
 def _validateIntrinsics(imagersize,
                         i,
-                        covariance_intrinsics_full,
                         covariance_intrinsics,
                         valid_intrinsics_region):
     r'''Raises an exception if given components of the intrinsics is invalid'''
@@ -118,7 +117,6 @@ def _validateIntrinsics(imagersize,
             raise BadCovariance_Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't positive-semi-definite; smallest eigenvalue: {}".format(eigenvalue_smallest))
 
 
-    _check_covariance(covariance_intrinsics_full)
     _check_covariance(covariance_intrinsics)
 
     if valid_intrinsics_region is not None:
@@ -199,7 +197,6 @@ class cameramodel(object):
 
         _validateIntrinsics(self._imagersize,
                             self._intrinsics,
-                            self._covariance_intrinsics_full,
                             self._covariance_intrinsics,
                             self._valid_intrinsics_region)
 
@@ -217,26 +214,6 @@ class cameramodel(object):
         f.write(("    'intrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._intrinsics[1]))
         f.write("\n")
 
-        if self._covariance_intrinsics_full is not None:
-            lens_model = self._intrinsics[0]
-            Nintrinsics = mrcal.getNlensParams(lens_model)
-            f.write( r'''    # The FULL intrinsics covariance of this model
-    #
-    # You probably want covariance_intrinsics. These are used primarily for the
-    # outlierness-based uncertainty evaluation. See the docstring of
-    # mrcal.compute_projection_stdev() for a full description of what this
-    # is.
-    #
-    # The intrinsics are represented as a probabilistic quantity: the parameters are
-    # all gaussian, with mean at the given values, and with some covariance. The
-    # flavor of the covariance returned by this function comes from JtJ in the
-    # optimization: this is the block of inv(JtJ) corresponding to the intrinsics of
-    # this camera.
-''')
-            f.write("    'covariance_intrinsics_full': [\n")
-            for row in self._covariance_intrinsics_full:
-                f.write(("    [" + (" {:.10g}," * Nintrinsics) + "],\n").format(*row))
-            f.write("],\n\n")
         if self._covariance_intrinsics is not None:
             lens_model = self._intrinsics[0]
             Nintrinsics = mrcal.getNlensParams(lens_model)
@@ -318,10 +295,7 @@ class cameramodel(object):
             raise Exception("Model must have at least these keys: '{}'. Instead I got '{}'". \
                             format(keys_required, keys_received))
 
-        covariance_intrinsics_full = None
         covariance_intrinsics      = None
-        if 'covariance_intrinsics_full' in model:
-            covariance_intrinsics_full = np.array(model['covariance_intrinsics_full'], dtype=float)
         if 'covariance_intrinsics' in model:
             covariance_intrinsics = np.array(model['covariance_intrinsics'], dtype=float)
 
@@ -334,12 +308,10 @@ class cameramodel(object):
         try:
             _validateIntrinsics(model['imagersize'],
                                 intrinsics,
-                                covariance_intrinsics_full,
                                 covariance_intrinsics,
                                 valid_intrinsics_region)
         except BadCovariance_Exception as e:
             warnings.warn("Invalid covariance; skipping covariance_intrinsics and valid_intrinsics_region: '{}'".format(e))
-            covariance_intrinsics_full = None
             covariance_intrinsics      = None
             valid_intrinsics_region    = None
         except BadValidIntrinsicsRegion_Exception as e:
@@ -348,7 +320,6 @@ class cameramodel(object):
         _validateExtrinsics(model['extrinsics'])
 
         self._intrinsics                 = intrinsics
-        self._covariance_intrinsics_full = covariance_intrinsics_full
         self._covariance_intrinsics      = covariance_intrinsics
         self._valid_intrinsics_region    = mrcal.close_contour(valid_intrinsics_region)
         self._extrinsics                 = np.array(model['extrinsics'], dtype=float)
@@ -375,7 +346,6 @@ class cameramodel(object):
           - 'extrinsics_rt_toref'
           - 'extrinsics_rt_fromref'
         - 'imagersize': REQUIRED iterable for the (width,height) of the imager
-        - 'covariance_intrinsics_full': OPTIONAL
         - 'covariance_intrinsics'     : OPTIONAL
         - 'valid_intrinsics_region'   : OPTIONAL
 
@@ -390,7 +360,6 @@ class cameramodel(object):
                 self._imagersize                 = copy.deepcopy(file_or_model._imagersize)
                 self._extrinsics                 = copy.deepcopy(file_or_model._extrinsics)
                 self._intrinsics                 = copy.deepcopy(file_or_model._intrinsics)
-                self._covariance_intrinsics_full = copy.deepcopy(file_or_model._covariance_intrinsics_full)
                 self._covariance_intrinsics      = copy.deepcopy(file_or_model._covariance_intrinsics)
                 self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(file_or_model._valid_intrinsics_region))
 
@@ -460,15 +429,13 @@ class cameramodel(object):
                                 format(extrinsics_keys, extrinsics_got))
             keys_remaining -= extrinsics_keys
 
-            keys_remaining -= set(('covariance_intrinsics_full',
-                                   'covariance_intrinsics',
+            keys_remaining -= set(('covariance_intrinsics',
                                    'valid_intrinsics_region'),)
             if keys_remaining:
                 raise Exception("We were given some unknown parameters: {}".format(keys_remaining))
 
             self.intrinsics(kwargs['intrinsics'],
                             kwargs['imagersize'],
-                            kwargs.get('covariance_intrinsics_full'),
                             kwargs.get('covariance_intrinsics'),
                             kwargs.get('valid_intrinsics_region'))
 
@@ -490,7 +457,6 @@ class cameramodel(object):
         funcs = (self.imagersize,
                  self.intrinsics,
                  self.extrinsics_rt_fromref,
-                 self.covariance_intrinsics_full,
                  self.covariance_intrinsics,
                  self.valid_intrinsics_region)
 
@@ -529,7 +495,6 @@ class cameramodel(object):
     def intrinsics(self,
                    intrinsics                 = None,
                    imagersize                 = None,
-                   covariance_intrinsics_full = None,
                    covariance_intrinsics      = None,
                    valid_intrinsics_region    = None):
         r'''Get or set the intrinsics in this model
@@ -560,7 +525,6 @@ class cameramodel(object):
         if \
            imagersize                 is None and \
            intrinsics                 is None and \
-           covariance_intrinsics_full is None and \
            covariance_intrinsics      is None and \
            valid_intrinsics_region    is None:
             return copy.deepcopy(self._intrinsics)
@@ -569,12 +533,10 @@ class cameramodel(object):
         try:
             _validateIntrinsics(imagersize,
                                 intrinsics,
-                                covariance_intrinsics_full,
                                 covariance_intrinsics,
                                 valid_intrinsics_region)
         except BadCovariance_Exception as e:
             warnings.warn("Invalid covariance_intrinsics; skipping covariance_intrinsics and valid_intrinsics_region: '{}'".format(e))
-            covariance_intrinsics_full = None
             covariance_intrinsics      = None
             valid_intrinsics_region    = None
         except BadValidIntrinsicsRegion_Exception as e:
@@ -582,7 +544,6 @@ class cameramodel(object):
 
         self._imagersize                 = copy.deepcopy(imagersize)
         self._intrinsics                 = copy.deepcopy(intrinsics)
-        self._covariance_intrinsics_full = copy.deepcopy(covariance_intrinsics_full)
         self._covariance_intrinsics      = copy.deepcopy(covariance_intrinsics)
         self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(valid_intrinsics_region))
 
@@ -780,29 +741,6 @@ class cameramodel(object):
             raise Exception("imagersize() is NOT a setter. Please use intrinsics() to set them all together")
 
         return copy.deepcopy(self._imagersize)
-
-    def covariance_intrinsics_full(self, *args, **kwargs):
-        r'''Get the FULL intrinsics covariance for this model
-
-        You probably want covariance_intrinsics(). These are used primarily for
-        the outlierness-based uncertainty evaluation. See the docstring of
-        mrcal.compute_projection_stdev() for a full description of
-        what this is.
-
-        The intrinsics are represented as a probabilistic quantity: the
-        parameters are all gaussian, with mean at the given values, and with
-        some covariance. The flavor of the covariance returned by this function
-        comes from JtJ in the optimization: this is the block of inv(JtJ)
-        corresponding to the intrinsics of this camera.
-
-        This function is NOT a setter. Use intrinsics() to set all the
-        intrinsics together
-
-        '''
-
-        if len(args) or len(kwargs):
-            raise Exception("covariance_intrinsics_full() is NOT a setter. Please use intrinsics() to set them all together")
-        return copy.deepcopy(self._covariance_intrinsics_full)
 
     def covariance_intrinsics(self, *args, **kwargs):
         r'''Get the intrinsics covariance for this model
