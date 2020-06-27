@@ -508,7 +508,6 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
 
 
 def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
-                     observed_pixel_uncertainty,
                      covariance_intrinsics,
                      valid_intrinsics_region = None):
     r'''Assemble one cameramodel from a completed calibration
@@ -533,12 +532,10 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
     return mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
                               extrinsics_Rt_toref        = Rt_rx,
                               imagersize                 = imagersizes[i_camera],
-                              observed_pixel_uncertainty = observed_pixel_uncertainty,
                               covariance_intrinsics      = covariance_intrinsics,
                               valid_intrinsics_region    = valid_intrinsics_region)
 
 def make_cameramodels(intrinsics, extrinsics, imagersizes,
-                      observed_pixel_uncertainty,
                       covariance_intrinsics,
                       valid_intrinsics_region = None):
     r'''Assemble cameramodels from a completed calibration
@@ -550,7 +547,6 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
     '''
     return [ make_cameramodel(i_camera,
                               intrinsics, extrinsics, imagersizes,
-                              observed_pixel_uncertainty,
                               covariance_intrinsics,
                               valid_intrinsics_region) for i_camera in range(len(intrinsics[1])) ]
 
@@ -1054,7 +1050,6 @@ def get_valid_intrinsics_region(i_camera,
         mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
                            extrinsics_rt_toref        = np.zeros(6,dtype=float),
                            imagersize                 = imagersizes[i_camera],
-                           observed_pixel_uncertainty = args.observed_pixel_uncertainty,
                            covariance_intrinsics      = covariance_intrinsics_here)
     err = mrcal.compute_projection_stdev(model,
                                          gridn_width  = gridn_width,
@@ -1098,10 +1093,8 @@ valid_intrinsics_region = [get_valid_intrinsics_region(i) for i in range(Ncamera
 
 
 
-
 # Write the output models
 models = make_cameramodels(intrinsics, extrinsics, imagersizes,
-                           args.observed_pixel_uncertainty,
                            covariance_intrinsics,
                            valid_intrinsics_region)
 # The note says how we ran this, and contains the commented-out report

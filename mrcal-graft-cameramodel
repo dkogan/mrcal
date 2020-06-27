@@ -61,7 +61,6 @@ joint = mrcal.cameramodel( intrinsics                          = intrinsics.intr
                            imagersize                          = intrinsics.imagersize(),
                            covariance_intrinsics_full          = intrinsics.covariance_intrinsics_full(),
                            covariance_intrinsics               = intrinsics.covariance_intrinsics(),
-                           observed_pixel_uncertainty          = intrinsics.observed_pixel_uncertainty(),
                            valid_intrinsics_region             = intrinsics.valid_intrinsics_region())
 
 note = \

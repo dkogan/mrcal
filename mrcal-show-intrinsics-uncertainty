@@ -93,9 +93,6 @@ if args.extraset is not None:
 
 model = mrcal.cameramodel(args.model)
 
-if model.observed_pixel_uncertainty() is None:
-    raise Exception("The given camera model doesn't have 'observed_pixel_uncertainty'. This is required to visualize the intrinsics.")
-
 plot = mrcal.show_intrinsics_uncertainty(model,
                                          args.gridn[0], args.gridn[1],
                                          focus_center = args.where,
