@@ -54,9 +54,6 @@ def parse_args():
                         at all. If omitted or <0, we use a "reasonable value:
                         min(width,height)/6. To fit with data across the WHOLE
                         imager: pass in a very large radius''')
-    parser.add_argument('--outlierness',
-                        action='store_true',
-                        help='''Report an outlierness-based uncertainty, not an input-noise-based one''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=3,
@@ -100,7 +97,6 @@ if model.observed_pixel_uncertainty() is None:
     raise Exception("The given camera model doesn't have 'observed_pixel_uncertainty'. This is required to visualize the intrinsics.")
 
 plot = mrcal.show_intrinsics_uncertainty(model,
-                                         args.outlierness,
                                          args.gridn[0], args.gridn[1],
                                          focus_center = args.where,
                                          focus_radius = args.radius,

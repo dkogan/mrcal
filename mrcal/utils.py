@@ -1056,7 +1056,6 @@ ARGUMENTS
 
 def compute_projection_stdev( model,
                               v            = None,
-                              outlierness  = False,
                               gridn_width  = None,
                               gridn_height = None,
 
@@ -1405,54 +1404,26 @@ def compute_projection_stdev( model,
         q_grid,dqgrid_dv,dqgrid_dp = \
             mrcal.project(v_grid, lensmodel, intrinsics_data, get_gradients=True)
 
-    if outlierness:
-        intrinsics_covariance = model.covariance_intrinsics_full()
-        if intrinsics_covariance is None:
-            raise Exception("The given camera model doesn't have the FULL intrinsics covariance. Can't compute outlier-based uncertainty.")
-    else:
-        intrinsics_covariance = model.covariance_intrinsics()
-        if intrinsics_covariance is None:
-            raise Exception("The given camera model doesn't have the intrinsics covariance. Can't compute uncertainty.")
+    intrinsics_covariance = model.covariance_intrinsics()
+    if intrinsics_covariance is None:
+        raise Exception("The given camera model doesn't have the intrinsics covariance. Can't compute uncertainty.")
 
     dq_dp_corrected = \
         compute_Rcorrected_dq_dintrinsics(q_grid, v_grid, dqgrid_dp,dqgrid_dv,
                                           v, dq_dp,dq_dv,
                                           imagersize,
                                           focus_center, focus_radius)
-
-    s = model.observed_pixel_uncertainty()
-    if outlierness:
-
-        A  = nps.matmult( dq_dp_corrected, intrinsics_covariance, nps.transpose(dq_dp_corrected)) / (s*s)
-        B  = np.linalg.inv(A + np.eye(2))
-
-        # tr(B*B) = sum_all_elements( product_elementwise(B,B) ), so
-        # I can do this:
-        #
-        #   tr = nps.trace(np.eye(2) - nps.matmult(B,B))
-        #
-        # which is equivalent to ...
-        tr = 2 - np.sum( nps.clump(B*B, n=-2),
-                         axis = -1)
-
-        # I'm going to pretend that sqrt(E0) - sqrt(E1) = sqrt(E0 - E1). This is
-        # true if E0 ~ E1, which maybe is OK here
-        return s * np.sqrt(tr)
-
-    else:
-
-        dqdpt_dqdp = \
-            nps.matmult(nps.transpose(dq_dp_corrected),
-                        dq_dp_corrected)
-        return \
-            np.sqrt(np.sum(nps.clump(intrinsics_covariance * dqdpt_dqdp,
-                                     n = -2),
-                           axis = -1) \
-                    / 2.)
+    dqdpt_dqdp = \
+        nps.matmult(nps.transpose(dq_dp_corrected),
+                    dq_dp_corrected)
+    return \
+        np.sqrt(np.sum(nps.clump(intrinsics_covariance * dqdpt_dqdp,
+                                 n = -2),
+                       axis = -1) \
+                / 2.)
 
 
 def show_intrinsics_uncertainty(model,
-                                outlierness  = False,
                                 gridn_width  = 60,
                                 gridn_height = None,
 
@@ -1467,14 +1438,9 @@ def show_intrinsics_uncertainty(model,
                                 kwargs           = None):
     r'''Visualizes the uncertainty in the intrinsics of a camera
 
-    There are two distinct methods supported by this function:
-
-    - input-noise-based (default; selected with outlierness=False)
-    - outlierness-based (selected with outlierness=True)
-
     This routine uses the covariance of observed inputs. See
-    compute_projection_stdev() for a description of both routines and of
-    the arguments
+    compute_projection_stdev() for a description of both routines and of the
+    arguments
 
     '''
 
@@ -1486,7 +1452,6 @@ def show_intrinsics_uncertainty(model,
     lensmodel, intrinsics_data = model.intrinsics()
     imagersize                 = model.imagersize()
     err = compute_projection_stdev(model,
-                                   outlierness  = outlierness,
                                    gridn_width  = gridn_width,
                                    gridn_height = gridn_height,
                                    focus_center = focus_center,
@@ -1504,7 +1469,7 @@ def show_intrinsics_uncertainty(model,
             where = "implied rotation fit looking at {} with radius {}". \
                 format('the imager center' if focus_center is None else focus_center,
                        focus_radius)
-        title = "Projection uncertainty (in pixels) based on {}; {}".format("outlierness" if outlierness else "calibration input noise", where)
+        title = f"Projection uncertainty (in pixels) based on calibration input noise; {where}"
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title

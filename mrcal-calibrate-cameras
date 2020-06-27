@@ -1691,7 +1691,7 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
 
 
 plots_intrinsics_uncertainty = [None] * Ncameras
-def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_width = 60, gridn_height = 40, **kwargs):
+def show_intrinsics_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     if covariance_intrinsics is None:
         print("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_covariances = True) for this to work")
@@ -1703,7 +1703,6 @@ def show_intrinsics_uncertainty(i_camera = None, outlierness = False, gridn_widt
     for i_camera in i_camera_all:
         plots_intrinsics_uncertainty[i_camera] = \
             mrcal.show_intrinsics_uncertainty(models[i_camera],
-                                              outlierness,
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_width  = gridn_width,
                                               gridn_height = gridn_height,
