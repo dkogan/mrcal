@@ -531,7 +531,7 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
 
 
         # I don't bother with calobject_warp here. It'll look close-enough
-        calobject_ref = get_ref_calibration_object(object_height_n, object_width_n,
+        calobject_ref = get_ref_calibration_object(object_width_n, object_height_n,
                                                    object_spacing)
 
         Rf = mrcal.R_from_r(frames[..., :3])
