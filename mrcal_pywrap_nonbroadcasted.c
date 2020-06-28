@@ -1200,13 +1200,13 @@ static bool optimize_validate_args( // out
         // And then I check monotonicity
         if(i_frame == i_frame_last)
         {
-            if( i_cam_intrinsics <= i_cam_intrinsics_last )
+            if( i_cam_intrinsics < i_cam_intrinsics_last )
             {
                 BARF("i_cam_intrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
                              i_observation, i_frame, i_cam_intrinsics, i_cam_intrinsics_last);
                 return false;
             }
-            if( i_cam_extrinsics <= i_cam_extrinsics_last )
+            if( i_cam_extrinsics < i_cam_extrinsics_last )
             {
                 BARF("i_cam_extrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
                              i_observation, i_frame, i_cam_extrinsics, i_cam_extrinsics_last);
