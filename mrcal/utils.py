@@ -674,7 +674,8 @@ pixel coordinate.
 
 def sample_imager_unproject(gridn_width,  gridn_height,
                             imager_width, imager_height,
-                            lensmodel, intrinsics_data):
+                            lensmodel, intrinsics_data,
+                            normalize = False):
     r'''Reports 3D observation vectors that regularly sample the imager
 
 SYNOPSIS
@@ -706,7 +707,9 @@ SYNOPSIS
 This is a utility function used by functions that evalute some interesting
 quantity for various locations across the imager. Grid dimensions and lens
 parameters are passed in, and the grid points and corresponding unprojected
-vectors are returned.
+vectors are returned. The unprojected vectors are unique only up-to-length, and
+the returned vectors aren't normalized by default. If we want them to be
+normalized, pass normalize=True.
 
 This function has two modes of operation:
 
@@ -740,13 +743,17 @@ ARGUMENTS
   multiple cameras, lensmodel is a list/tuple of strings. And intrinsics_data is
   an iterable of 1-dimensional numpy arrays (a list/tuple or a 2D array).
 
+- normalize: optional boolean defaults to False. If True: normalize the output
+  vectors
+
 RETURNED VALUES
 
 We return a tuple:
 
 - v: the unprojected vectors. If we have a single camera this has shape
   (Nheight,Nwidth,3). With multiple cameras this has shape
-  (Ncameras,Nheight,Nwidth,3)
+  (Ncameras,Nheight,Nwidth,3). These are NOT normalized by default. To get
+  normalized vectors, pass normalize=True
 
 - q: the imager-sampling grid. This has shape (Nheight,Nwidth,2) regardless of
   how many cameras were given (we always sample just one camera). This is what
