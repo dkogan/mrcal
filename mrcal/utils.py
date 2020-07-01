@@ -1061,6 +1061,7 @@ ARGUMENTS
         gridn_height = int(round(H/W*gridn_width))
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_width-1), float(H-1)/(gridn_height-1))
 
+
 def compute_projection_stdev( model,
                               v            = None,
                               gridn_width  = None,
