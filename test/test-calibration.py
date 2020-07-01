@@ -514,7 +514,16 @@ testutils.confirm_equal( dp_predicted[slice_frames],
 ###########################################################################
 # Now I do a bigger, statistical thing. I compute many random perturbations of
 # the input, reoptimize for each, and look at how that affects a stuff. I have
-# predictions on the distribution of resulting perturbations that I can check
+# predictions on the distribution of resulting perturbations that I can check.
+#
+# NOTE: THIS TEST IS OVERLY-SIMPLISTIC. It ignores the effects of implied
+# rotations built into the intrinsics arrays, and it ignores the effects of the
+# camera motion. So here I look at the distribution of projected points IN THE
+# CAMERA COORDINATE SYSTEM. Since each sampled calibration moves the extrinsics,
+# each such point lies at a different spot in the world, so this distribution
+# isn't a useful thing to quantify. But it's easy to implement (I can look at
+# just the covariance of the intrinsics), so it is useful for a test. Look at
+# the other test-calibration... scripts for more in-depth tests.
 Nsamples = 100
 Nintrinsics = intrinsics.shape[-1]
 
