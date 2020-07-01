@@ -1460,6 +1460,8 @@ def show_intrinsics_uncertainty(model,
 
     import gnuplotlib as gp
     W,H=model.imagersize()
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
 
     lensmodel, intrinsics_data = model.intrinsics()
     imagersize                 = model.imagersize()
