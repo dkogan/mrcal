@@ -668,8 +668,8 @@ pixel coordinate.
 
     w = np.linspace(0,imager_width -1,gridn_width)
     h = np.linspace(0,imager_height-1,gridn_height)
-    return nps.mv(nps.cat(*np.meshgrid(w,h)),
-                  0,-1)
+    return np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(w,h)),
+                                       0,-1))
 
 
 def sample_imager_unproject(gridn_width,  gridn_height,
