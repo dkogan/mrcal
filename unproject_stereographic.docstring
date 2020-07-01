@@ -40,3 +40,7 @@ ARGUMENTS
     - (...,3) array of unprojected observation vectors
     - (...,3,2) array of the gradients of the observation vectors in respect to
       the input 2D pixel coordinates
+
+RETURNED VALUE
+
+The unprojected observation vector of shape (..., 3). These are NOT normalized.
