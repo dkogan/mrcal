@@ -1442,6 +1442,195 @@ def compute_projection_stdev( model,
                        axis = -1) \
                 / 2.)
 
+def compute_projection_covariance_from_solve( q, distance,
+                                              icam_intrinsics, icam_extrinsics,
+                                              lensmodel, intrinsics_data, extrinsics, frames,
+                                              solver_context,
+                                              pixel_uncertainty_stdev,
+
+                                              cachelist_invJtJ_JobstJobs = None):
+    r'''Computes the uncertainty in a projection of a 3D point
+
+    Unlike compute_projection_stdev(), does take into account the variances of
+    the extrinsics and of the frames, i.e. it uses the full jacobian. This data
+    isn't available in the .cameramodel, so this has to be called right after we
+    optimized a new model.
+
+    No compensating rotations need to be computed: the extra bit of geometry is
+    provided by the extrinsics and frames variances.
+
+    Computed off the Jacobian returned by the solver. The C layer does no
+    computation here. It would be faster if it did, though
+
+    Currently this function more or less assumes a vanilla calibration problem:
+    lots of stationary cameras are observing a moving chessboard, no point
+    observations, camera0 defines the reference coordinate system
+
+    everything we care about broadcasts: q, intrinsics_data, extrinsics, distance
+    except you have to pass in nonstandard broadcasting dimensions
+
+    document cachelist_invJtJ_JobstJobs
+
+
+    #   pref = ( transform( frames[0], p0_frames[0] ) +
+    #            transform( frames[1], p0_frames[1] ) +
+    #            ... ) / Nframes
+    #   pcam = transform(extrinsics, pref)
+    #   q    = project( pcam, intrinsics_data )
+
+    # q depends on the intrinsics and on the extrinsics and on the frames
+
+    #  dq/di comes from project()
+    #  dq/de = dq/dpcam dpcam/de
+    #  dq/df = dq/dpcam dpcam/dpref (dpref/dframes0 dpref/dframes1 ...) / Nframes
+
+    # Linearization: dq ~ dq/dief dief ->
+    # -> Var(dq) = dq/dief Var(dief) transpose(dq/dief)
+
+    # What is Var(die)? Derivation in docstring for compute_projection_stdev()
+
+    '''
+
+    Nintrinsics = intrinsics_data.shape[-1]
+    Nframes     = len(frames)
+
+    def get_var_ief():
+        if cachelist_invJtJ_JobstJobs is not None and cachelist_invJtJ_JobstJobs[0] is not None:
+            invJtJ,JobstJobs = cachelist_invJtJ_JobstJobs
+        else:
+            J      = solver_context.J().toarray()
+            solver_context.pack(J)
+            invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J), J))
+
+            if solver_context.num_measurements_dict()['points'] > 0:
+                raise Exception("This has been thought about with board observations only. I use the board frames to define the global coord system. Think about what points mean here")
+            Nboard_measurements = solver_context.num_measurements_dict()['boards']
+
+            imeas0 = 0
+            imeas1 = Nboard_measurements
+            Jobservations = J[imeas0:imeas1, :]
+            JobstJobs = nps.matmult(nps.transpose(Jobservations),Jobservations)
+
+            if cachelist_invJtJ_JobstJobs is not None:
+                cachelist_invJtJ_JobstJobs[0] = invJtJ
+                cachelist_invJtJ_JobstJobs[1] = JobstJobs
+
+        if extrinsics is None:
+
+            invJtJ_i  = invJtJ[solver_context.state_index_intrinsics(icam_intrinsics ):
+                               solver_context.state_index_intrinsics(icam_intrinsics) + Nintrinsics,
+                               :]
+            invJtJ_f  = invJtJ[solver_context.state_index_frame_rt(0):
+                               solver_context.state_index_frame_rt(0) + 6*Nframes,
+                               :]
+            invJtJ_if = nps.glue(invJtJ_i, invJtJ_f, axis=-2)
+
+            Var_ief = \
+                pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
+                nps.matmult( invJtJ_if,
+                             JobstJobs,
+                             nps.transpose(invJtJ_if))
+        else:
+            invJtJ_i  = invJtJ[solver_context.state_index_intrinsics(icam_intrinsics ):
+                               solver_context.state_index_intrinsics(icam_intrinsics) + Nintrinsics,
+                               :]
+            invJtJ_e  = invJtJ[solver_context.state_index_camera_rt (icam_extrinsics):
+                               solver_context.state_index_camera_rt (icam_extrinsics) + 6,
+                               :]
+            invJtJ_f  = invJtJ[solver_context.state_index_frame_rt(0):
+                               solver_context.state_index_frame_rt(0) + 6*Nframes,
+                               :]
+            invJtJ_ief = nps.glue(invJtJ_i, invJtJ_e, invJtJ_f, axis=-2)
+
+            Var_ief = \
+                pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
+                nps.matmult( invJtJ_ief,
+                             JobstJobs,
+                             nps.transpose(invJtJ_ief))
+        return Var_ief
+
+
+    # I have pixel coordinates q. I unproject and transform to the frames'
+    # coordinate system. Then I transform and project back to the same q, but
+    # keeping track of the gradients. Which I then use to compute the
+    # sensitivities
+    v_cam = mrcal.unproject(q, lensmodel, intrinsics_data,
+                            normalize = True)
+    p_cam = v_cam*distance
+
+    if extrinsics is not None:
+        p_ref = \
+            mrcal.transform_point_rt( mrcal.invert_rt(extrinsics),
+                                      p_cam )
+    else:
+        p_ref = p_cam
+
+    # The point in the coord system of all the frames. I index the frames on
+    # axis -2
+    p_frames = mrcal.transform_point_rt( mrcal.invert_rt(frames),
+                                         nps.dummy(p_ref,-2) )
+
+
+    # I now have the observed point represented in the coordinate system of the
+    # frames. This is indendent of any intrinsics-implied rotation, or anything
+    # of the sort. I project this point back to pixels, through noisy estimates
+    # of the frames, extrinsics and intrinsics.
+    #
+    # I transform each frame-represented point back to the reference coordinate
+    # system, and I average out each estimate to get the one p_ref I will use. I
+    # already have p_ref, so I don't actually need to compute the value; I just
+    # need the gradients
+
+    _, \
+    dprefallframes_dframesr, \
+    dprefallframes_dframest, \
+    _ = mrcal.transform_point_rt( frames, p_frames,
+                                  get_gradients = True)
+
+    # shape (..., Nframes,3,6)
+    dprefallframes_dframes = nps.glue(dprefallframes_dframesr,
+                                      dprefallframes_dframest,
+                                      axis=-1)
+    # shape (..., 3,6*Nframes)
+    # /Nframes because I compute the mean over all the frames
+    dpref_dframes = nps.clump( nps.mv(dprefallframes_dframes, -3, -2),
+                               n = -2 ) / Nframes
+
+    _, dq_dpcam, dq_dintrinsics = \
+        mrcal.project( p_cam, lensmodel, intrinsics_data,
+                       get_gradients = True)
+
+    Var_ief = get_var_ief()
+
+    if extrinsics is not None:
+        _, dpcam_dr, dpcam_dt, dpcam_dpref = \
+            mrcal.transform_point_rt(extrinsics, p_ref,
+                                     get_gradients = True)
+        dq_dframes = nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
+
+        dq_dr = nps.matmult(dq_dpcam, dpcam_dr)
+        dq_dt = nps.matmult(dq_dpcam, dpcam_dt)
+        dq_dief = nps.glue(dq_dintrinsics,
+                           dq_dr,
+                           dq_dt,
+                           dq_dframes,
+                           axis=-1)
+        return \
+            nps.matmult(dq_dief,
+                        Var_ief,
+                        nps.transpose(dq_dief))
+    else:
+        dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
+
+        dq_dif = nps.glue(dq_dintrinsics,
+                          dq_dframes,
+                          axis=-1)
+
+        return \
+            nps.matmult(dq_dif,
+                        Var_ief,
+                        nps.transpose(dq_dif))
+
 
 def show_intrinsics_uncertainty(model,
                                 gridn_width  = 60,
