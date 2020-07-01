@@ -1462,12 +1462,14 @@ def compute_projection_stdev( model,
                        axis = -1) \
                 / 2.)
 
+
 def compute_projection_covariance_from_solve( q, distance,
                                               icam_intrinsics, icam_extrinsics,
                                               lensmodel, intrinsics_data, extrinsics, frames,
                                               solver_context,
                                               pixel_uncertainty_stdev,
 
+                                              what                       = 'variance',
                                               cachelist_invJtJ_JobstJobs = None):
     r'''Computes the uncertainty in a projection of a 3D point
 
@@ -1539,6 +1541,45 @@ def compute_projection_covariance_from_solve( q, distance,
     # What is Var(die)? Derivation in docstring for compute_projection_stdev()
 
     '''
+
+    def worst_case_stdev(V):
+        r'''Returns the worst-case standard deviation from a variance matrix
+
+        A variance describes a distribution of a random variable. The corresponding
+        1-sigma contour is an ellipse with semi-major, semi-minor axes corresponding
+        to sqrt(l1), sqrt(l2) where l1,l2 are the eigenvalues of the variance.
+
+        I report the worst-case stdev: the larger of sqrt(l1), sqrt(l2)
+
+        Let V = (a b)
+                (b c)
+
+        eig (a b) --> (a-l)*(c-l)-b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
+            (b c)
+
+        --> l = (a+c +- sqrt( a^2+2ac+c^2 - 4ac + 4b^2)) / 2 =
+              = (a+c +- sqrt( a^2-2ac+c^2 + 4b^2)) / 2 =
+              = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
+
+        So the worst-case stdev(V) is sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
+
+        '''
+
+        a = V[..., 0,0]
+        b = V[..., 1,0]
+        c = V[..., 1,1]
+        return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
+
+    def make_output(var, what):
+        if what == 'variance':        return var
+        if what == 'worstcase-stdev': return worst_case_stdev(var)
+        if what == 'mean-stdev':      return np.sqrt(nps.trace(var)/2.)
+        else: raise Exception("Shouldn't have gotten here. There's a bug")
+
+
+    what_known = set(('variance', 'worstcase-stdev', 'mean-stdev'))
+    if not what in what_known:
+        raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
     Nintrinsics = intrinsics_data.shape[-1]
     Nframes     = len(frames)
@@ -1678,9 +1719,10 @@ def compute_projection_covariance_from_solve( q, distance,
                                dq_dframes,
                                axis=-1)
             return \
-                nps.matmult(dq_dief,
-                            Var_ief,
-                            nps.transpose(dq_dief))
+                make_output( nps.matmult(dq_dief,
+                                         Var_ief,
+                                         nps.transpose(dq_dief)),
+                             what )
         else:
             dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
 
@@ -1689,9 +1731,10 @@ def compute_projection_covariance_from_solve( q, distance,
                               axis=-1)
 
             return \
-                nps.matmult(dq_dif,
-                            Var_ief,
-                            nps.transpose(dq_dif))
+                make_output( nps.matmult(dq_dif,
+                                         Var_ief,
+                                         nps.transpose(dq_dif)),
+                             what )
 
     else:
 
@@ -1747,9 +1790,10 @@ def compute_projection_covariance_from_solve( q, distance,
                                dq_dframes,
                                axis=-1)
             return \
-                nps.matmult(dq_dief,
-                            Var_ief,
-                            nps.transpose(dq_dief))
+                make_output( nps.matmult(dq_dief,
+                                         Var_ief,
+                                         nps.transpose(dq_dief)),
+                             what )
         else:
             dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
 
@@ -1758,9 +1802,10 @@ def compute_projection_covariance_from_solve( q, distance,
                               axis=-1)
 
             return \
-                nps.matmult(dq_dif,
-                            Var_ief,
-                            nps.transpose(dq_dif))
+                make_output( nps.matmult(dq_dif,
+                                         Var_ief,
+                                         nps.transpose(dq_dif)),
+                             what )
 
 
 def show_intrinsics_uncertainty(model,
