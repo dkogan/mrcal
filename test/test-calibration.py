@@ -61,9 +61,10 @@ q_ref,Rt_cam0_board_ref = \
     mrcal.make_synthetic_board_observations(models_ref,
                                             object_width_n, object_height_n, object_spacing,
                                             calobject_warp_ref,
-                                            np.array((0,   0,   5.0,  0.,  0.,  0.)),
-                                            np.array((1.5, 1.5, 1.0,  40., 30., 30.)),
+                                            np.array((-2,   0,  4.0,  0.,  0.,  0.)),
+                                            np.array((2.5, 2.5, 2.0, 40., 30., 30.)),
                                             Nframes)
+frames_ref = mrcal.rt_from_Rt(Rt_cam0_board_ref)
 
 ############# I have perfect observations in q_ref. I corrupt them by noise
 # weight has shape (Nframes, Ncameras, Nh, Nw),
@@ -112,6 +113,7 @@ def optimize( intrinsics,
               extrinsics,
               frames,
               observations,
+              indices_frame_camintrinsics_camextrinsics,
 
               calobject_warp                    = None,
               do_optimize_intrinsic_core        = False,
@@ -128,7 +130,6 @@ def optimize( intrinsics,
     Some global variables are used to provide input: these never change
     throughout this whole program:
 
-    - indices_frame_camintrinsics_camextrinsics
     - lensmodel
     - imagersizes
     - object_spacing, object_width_n, object_height_n
@@ -200,6 +201,7 @@ p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
     optimize(intrinsics, extrinsics, frames, observations,
+             indices_frame_camintrinsics_camextrinsics,
              do_optimize_extrinsics            = True,
              do_optimize_frames                = True)
 intrinsics, extrinsics, frames, calobject_warp, \
@@ -207,6 +209,7 @@ p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
     optimize(intrinsics, extrinsics, frames, observations,
+             indices_frame_camintrinsics_camextrinsics,
              do_optimize_intrinsic_core        = True,
              do_optimize_extrinsics            = True,
              do_optimize_frames                = True)
@@ -218,6 +221,7 @@ p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
     optimize(intrinsics, extrinsics, frames, observations,
+             indices_frame_camintrinsics_camextrinsics,
              calobject_warp                    = calobject_warp,
              do_optimize_intrinsic_core        = True,
              do_optimize_intrinsic_distortions = True,
@@ -230,9 +234,9 @@ solver_context =                                \
 ############# Calibration computed. Now I see how well I did
 
 models_solved = \
-    [ mrcal.cameramodel( imagersize                 = imagersizes[i],
-                         intrinsics                 = (lensmodel, intrinsics[i,:]),
-                         covariance_intrinsics      = covariance_intrinsics[i]) \
+    [ mrcal.cameramodel( imagersize            = imagersizes[i],
+                         intrinsics            = (lensmodel, intrinsics[i,:]),
+                         covariance_intrinsics = covariance_intrinsics[i]) \
       for i in range(Ncameras)]
 for i in range(1,Ncameras):
     models_solved[i].extrinsics_rt_fromref( extrinsics[i-1,:] )
@@ -261,7 +265,7 @@ for icam in range(1,len(models_ref)):
 
     Rt_extrinsics_err = \
         mrcal.compose_Rt( models_solved[icam].extrinsics_Rt_fromref(),
-                          models_ref       [icam].extrinsics_Rt_toref() )
+                          models_ref   [icam].extrinsics_Rt_toref() )
 
     testutils.confirm_equal( nps.mag(Rt_extrinsics_err[3,:]),
                              0.0,
@@ -462,6 +466,7 @@ p_packed1, _, _, \
 _,_,             \
 solver_context = \
     optimize(intrinsics, extrinsics, frames, observations_perturbed,
+             indices_frame_camintrinsics_camextrinsics,
              calobject_warp                    = calobject_warp,
              do_optimize_intrinsic_core        = True,
              do_optimize_intrinsic_distortions = True,
@@ -522,6 +527,7 @@ for isample in range(Nsamples):
     _,_,                                \
     solver_context =                    \
         optimize(intrinsics, extrinsics, frames, observations_perturbed,
+                 indices_frame_camintrinsics_camextrinsics,
                  calobject_warp                    = calobject_warp,
                  do_optimize_intrinsic_core        = True,
                  do_optimize_intrinsic_distortions = True,
