@@ -1129,7 +1129,7 @@ def compute_projection_stdev( model,
 
     *** input-noise-based method
 
-      The below derivation is double-checked in test-calibration.py
+      The below derivation is double-checked in test-calibration-....py
 
       The pixel observations input to the calibration method are noisy. I assume
       they are zero-mean, independent and gaussian. I treat the x and y

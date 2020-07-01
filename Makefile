@@ -127,7 +127,7 @@ TESTS :=					\
   test/test-cahvor                              \
   test/test-optimizer-callback.py		\
   test/test-basic-sfm.py			\
-  test/test-calibration.py			\
+  test/test-calibration-basic.py		\
   test/test-lensmodel-string-manipulation
 
 test check: all

@@ -523,7 +523,7 @@ testutils.confirm_equal( dp_predicted[slice_frames],
 # each such point lies at a different spot in the world, so this distribution
 # isn't a useful thing to quantify. But it's easy to implement (I can look at
 # just the covariance of the intrinsics), so it is useful for a test. Look at
-# the other test-calibration... scripts for more in-depth tests.
+# the other test-calibration-... scripts for more in-depth tests.
 Nsamples = 100
 Nintrinsics = intrinsics.shape[-1]
 

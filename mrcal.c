@@ -3054,7 +3054,7 @@ int mrcal_state_index_calobject_warp(int NpointsVariable,
 //
 // A detailed derivation appears in the docstring for
 // compute_projection_stdev() in utils.py. Everything is double-checked in
-// test-calibration.py
+// test-calibration-....py
 //
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I
 // need here, and return these densely to the upper levels (python). These
