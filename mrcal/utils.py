@@ -66,45 +66,65 @@ def _align3d_procrustes_vectors(A, B):
 # I use _align3d_procrustes_...() to do the work. Those are separate functions
 # with separate broadcasting prototypes
 def align3d_procrustes(A, B, vectors=False):
-    r"""Computes an optimal (R,t) to match points in B to points in A
+    r"""Compute a transformation to align sets of points in different coordinate systems
 
-    Given two sets of 3d points in numpy arrays of shape (N,3), find the optimal
-    rotation, translation to align these sets of points. Returns array of shape
-    (4,3): [ R ]
-           [ t ]
+SYNOPSIS
 
-    We minimize
+    print(points0)
+    ===>
+    (100,3)
 
-      E = sum( norm2( a_i - (R b_i + t)))
+    print(points1)
+    ===>
+    (100,3)
 
-    We can expand this to get
+    Rt10 = mrcal.align3d_procrustes(points1, points0)
 
-      E = sum( norm2(a_i) - 2 inner(a_i, R b_i + t ) + norm2(b_i) + 2 inner(R b_i,t) + norm2(t) )
-
-    ignoring factors not depending on the optimization variables (R,t)
-
-      E ~ sum( - 2 inner(a_i, R b_i + t ) + 2 inner(R b_i,t) + norm2(t) )
-
-      dE/dt = sum( - 2 a_i + 2 R b_i + 2 t ) = 0
-      -> sum(a_i) = R sum(b_i) + N t -> t = mean(a) - R mean(b)
-
-    I can shift my a_i and b_i so that they have 0-mean. In this case, the
-    optimal t = 0 and
-
-      E ~ sum( inner(a_i, R b_i )  )
-
-    This is the classic procrustes problem
-
-      E = tr( At R B ) = tr( R B At ) = tr( R U S Vt ) = tr( Vt R U S )
-
-    So the critical points are at Vt R U = I and R = V Ut, modulo a tweak to
-    make sure that R is in SO(3) not just in SE(3)
+    print( np.sum(nps.norm2(mrcal.transform_point_Rt(Rt10, points0) -
+                            points1)) )
+    ===>
+    [The fit error from applying the optimal transformation. If the two point
+     clouds match up, this will be small]
 
 
-    This can ALSO be used to find the optimal rotation to align a set of unit
-    vectors. The math is exactly the same, but subtracting the mean should be
-    skipped. And returning t is non-sensical, so in this case we just return R. To
-    do this, pass vectors=True as a kwarg
+Given two sets of 3D points in numpy arrays of shape (N,3), we find the optimal
+rotation, translation to align these sets of points. This is done with a
+well-known direct method. See:
+
+- https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem
+- https://en.wikipedia.org/wiki/Kabsch_algorithm
+
+We return a transformation that minimizes the sum 2-norm of the misalignment:
+
+    cost = sum( norm2( a[i] - transform(b[i]) ))
+
+By default we are aligning sets of POINTS, and we return an Rt transformation (a
+(4,3) array formed by nps.glue(R,t, axis=-2) where R is a (3,3) rotation matrix
+and t is a (3,) translation vector).
+
+We can also align a set of UNIT VECTORS to compute an optimal rotation matrix R
+by passing vectors=True. The input vectors MUST be normalized
+
+Broadcasting is fully supported by this function.
+
+ARGUMENTS
+
+- A: an array of shape (..., N, 3). Each row is a point (or vector) in the
+  coordinate system we're transforming TO
+
+- B: an array of shape (..., N, 3). Each row is a point (or vector) in the
+  coordinate system we're transforming FROM
+
+- vectors: optional boolean. By default (vectors=False) we're aligning POINTS
+  and we return an Rt transformation. If vectors: we align VECTORS and we return
+  a rotation matrix
+
+RETURNED VALUES
+
+We return the optimal transformation to align the given point (or vector)
+clouds. The transformation maps points TO coord system A FROM coord system B. If
+not vectors (the default) we return an Rt transformation in a (4,3) array. If
+vectors: we return a rotation matrix in a (3,3) array
 
     """
     if vectors: return _align3d_procrustes_vectors(A,B)
