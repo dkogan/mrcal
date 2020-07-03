@@ -1463,6 +1463,75 @@ def compute_projection_stdev( model,
                 / 2.)
 
 
+def worst_direction_stdev(cov):
+    r'''Compute the worst-direction standard deviation from a 2x2 covariance matrix
+
+SYNOPSIS
+
+    # A covariance matrix
+    print(cov)
+    ===>
+    [[ 1.  -0.4]
+     [-0.4  0.5]]
+
+    # Sample 1000 0-mean points using this covariance
+    x = np.random.multivariate_normal(mean = np.array((0,0)),
+                                      cov  = cov,
+                                      size = (1000,))
+
+    # Compute the worst-direction standard deviation of the sampled data
+    print(np.sqrt(np.max(np.linalg.eig(np.mean(nps.outer(x,x),axis=0))[0])))
+    ===>
+    1.1102510878087053
+
+    # The predicted worst-direction standard deviation
+    print(mrcal.worst_direction_stdev(cov))
+    ===> 1.105304960905736
+
+The covariance of a (2,) random variable can be described by a (2,2)
+positive-definite symmetric matrix. The 1-sigma contour of this random variable
+is described by an ellipse with its axes aligned with the eigenvectors of the
+covariance, and the semi-major and semi-minor axis lengths specified as the sqrt
+of the corresponding eigenvalues. This function returns the worst-case standard
+deviation of the given covariance: the sqrt of the larger of the two
+eigenvalues.
+
+This function supports broadcasting fully.
+
+DERIVATION
+
+Let cov = (a b). If l is an eigenvalue of the covariance then
+          (b c)
+
+    (a-l)*(c-l) - b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
+
+    --> l = (a+c +- sqrt( a^2 + 2ac + c^2 - 4ac + 4b^2)) / 2 =
+          = (a+c +- sqrt( a^2 - 2ac + c^2 + 4b^2)) / 2 =
+          = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
+
+So the worst-direction standard deviation is
+
+    sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
+
+ARGUMENTS
+
+- cov: the covariance matrices given as a (..., 2,2) array. Valid covariances
+  are positive-semi-definite (symmetric with eigenvalues >= 0), but this is not
+  checked
+
+RETURNED VALUES
+
+The worst-direction standard deviation. This is a scalar or an array, if we're
+broadcasting
+
+    '''
+
+    a = cov[..., 0,0]
+    b = cov[..., 1,0]
+    c = cov[..., 1,1]
+    return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
+
+
 def compute_projection_covariance_from_solve( q, distance,
                                               icam_intrinsics, icam_extrinsics,
                                               lensmodel, intrinsics_data, extrinsics, frames,
@@ -1542,42 +1611,14 @@ def compute_projection_covariance_from_solve( q, distance,
 
     '''
 
-    def worst_case_stdev(V):
-        r'''Returns the worst-case standard deviation from a variance matrix
-
-        A variance describes a distribution of a random variable. The corresponding
-        1-sigma contour is an ellipse with semi-major, semi-minor axes corresponding
-        to sqrt(l1), sqrt(l2) where l1,l2 are the eigenvalues of the variance.
-
-        I report the worst-case stdev: the larger of sqrt(l1), sqrt(l2)
-
-        Let V = (a b)
-                (b c)
-
-        eig (a b) --> (a-l)*(c-l)-b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
-            (b c)
-
-        --> l = (a+c +- sqrt( a^2+2ac+c^2 - 4ac + 4b^2)) / 2 =
-              = (a+c +- sqrt( a^2-2ac+c^2 + 4b^2)) / 2 =
-              = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
-
-        So the worst-case stdev(V) is sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
-
-        '''
-
-        a = V[..., 0,0]
-        b = V[..., 1,0]
-        c = V[..., 1,1]
-        return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
-
     def make_output(var, what):
         if what == 'variance':        return var
-        if what == 'worstcase-stdev': return worst_case_stdev(var)
+        if what == 'worstdirection-stdev': return worst_direction_stdev(var)
         if what == 'mean-stdev':      return np.sqrt(nps.trace(var)/2.)
         else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
-    what_known = set(('variance', 'worstcase-stdev', 'mean-stdev'))
+    what_known = set(('variance', 'worstdirection-stdev', 'mean-stdev'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
