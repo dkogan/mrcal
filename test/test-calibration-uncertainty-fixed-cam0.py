@@ -501,49 +501,50 @@ if 'study' in args:
     # shape (Ncameras, gridn_height, gridn_width)
     worst_direction_stdev_infinity = mrcal.worst_direction_stdev(Var_dq_infinity)
 
+def get_cov_plot_args(q, Var, what):
+
+    l,v = np.linalg.eig(Var)
+    l0 = l[   0]
+    l1 = l[   1]
+    v0 = v[:, 0]
+    v1 = v[:, 1]
+    if l0 < l1:
+        l1,l0 = l0,l1
+        v1,v0 = v0,v1
+
+    major       = np.sqrt(l0)
+    minor       = np.sqrt(l1)
+    isotropic   = np.sqrt( np.trace(Var) / 2. )
+
+    return \
+      ((q[0], q[1], 2*major, 2*minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
+        dict(_with='ellipses', tuplesize=5, legend=f'{what} 1-sigma, full covariance')),
+       (q[0], q[1], 2.*isotropic, 2.*isotropic,
+        dict(_with='ellipses dt 2', tuplesize=4, legend=f'{what} 1-sigma; isotropic')))
+
+def get_point_cov_plot_args(q, what):
+    q_mean  = np.mean(q,axis=-2)
+    q_mean0 = q - q_mean
+    Var     = np.mean( nps.outer(q_mean0,q_mean0), axis=0 )
+    return get_cov_plot_args(q_mean,Var, what)
+
+def make_plot(icam, **kwargs):
+    p = gp.gnuplotlib(square=1,
+                      _xrange=(q0[0]-2,q0[0]+2),
+                      _yrange=(q0[1]-2,q0[1]+2),
+                      title=f'Uncertainty reprojection distribution for camera {icam}',
+                      **kwargs)
+    p.plot( (q_sampled[:,icam,0], q_sampled[:,icam,1],
+             dict(_with = 'points pt 7 ps 2',
+                  tuplesize = 2)),
+            *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed"),
+            *get_cov_plot_args( q0, Var_dq[icam], "Propagating intrinsics, extrinsics uncertainties"))
+    return p
+
 if 'show-distribution' in args:
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
-
-        def get_cov_plot_args(q, Var, what):
-
-            l,v = np.linalg.eig(Var)
-            l0 = l[   0]
-            l1 = l[   1]
-            v0 = v[:, 0]
-            v1 = v[:, 1]
-            if l0 < l1:
-                l1,l0 = l0,l1
-                v1,v0 = v0,v1
-
-            major       = np.sqrt(l0)
-            minor       = np.sqrt(l1)
-            isotropic   = np.sqrt( np.trace(Var) / 2. )
-
-            return \
-              ((q[0], q[1], 2*major, 2*minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
-                dict(_with='ellipses lw 2', tuplesize=5, legend=f'{what} 1-sigma, full covariance')),
-               (q[0], q[1], 2.*isotropic, 2.*isotropic,
-                dict(_with='ellipses lw 2', tuplesize=4, legend=f'{what} 1-sigma; isotropic')))
-
-        def get_point_cov_plot_args(q, what):
-            q_mean  = np.mean(q,axis=-2)
-            q_mean0 = q - q_mean
-            Var     = np.mean( nps.outer(q_mean0,q_mean0), axis=0 )
-            return get_cov_plot_args(q_mean,Var, what)
-
-
-        plot_distribution[icam] = \
-            gp.gnuplotlib(square=1,
-                          _xrange=(q0[0]-2,q0[0]+2),
-                          _yrange=(q0[1]-2,q0[1]+2),
-                          title=f'Uncertainty reprojection distribution for camera {icam}')
-        plot_distribution[icam]. \
-            plot( (q_sampled[:,icam,0], q_sampled[:,icam,1],
-                   dict(_with = 'points pt 7 ps 2',
-                        tuplesize = 2)),
-                  *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed"),
-                  *get_cov_plot_args( q0, Var_dq[icam], "Propagating intrinsics, extrinsics uncertainties"))
+        plot_distribution[icam] = make_plot(icam)
 
 if len(args):
     import IPython
