@@ -128,6 +128,7 @@ TESTS :=					\
   test/test-optimizer-callback.py		\
   test/test-basic-sfm.py			\
   test/test-calibration-basic.py		\
+  test/test-calibration-uncertainty-fixed-cam0.py \
   test/test-lensmodel-string-manipulation
 
 test check: all
