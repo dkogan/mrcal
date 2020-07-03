@@ -406,7 +406,7 @@ if len(args) == 0:
 import gnuplotlib as gp
 
 
-def show_uncertainty_map(uncertainty):
+def show_uncertainty_map(uncertainty, **kwargs):
     r'''Render the uncertainty map
 
     Do something like this:
@@ -429,7 +429,8 @@ def show_uncertainty_map(uncertainty):
             unset     = 'grid',
             _3d       = True,
             _set      = ('view equal xy','view map','contour surface','cntrparam levels incremental 10,-0.5,0','key box opaque'),
-            cbrange   = [0,15])
+            cbrange   = [0,15],
+            **kwargs)
 
 if 'study' in args:
     gridn_width  = 16
