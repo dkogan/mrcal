@@ -237,12 +237,15 @@ Nsamples = 90
 # sys.exit()
 
 
-def sample_reoptimized_parameters(do_optimize_frames):
+def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs):
     global solver_context
-    dqref, observations_perturbed = sample_dqref(observations_ref)
+    if apply_noise:
+        _, observations_perturbed = sample_dqref(observations_ref)
+    else:
+        observations_perturbed = observations_ref
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
     _,  _, _,                  \
-    _,_,                       \
+    covariance_intrinsics,_,   \
     solver_context =           \
         optimize(intrinsics_ref, extrinsics_ref, frames_ref, observations_perturbed,
                  indices_frame_camintrinsics_camextrinsics,
@@ -251,14 +254,15 @@ def sample_reoptimized_parameters(do_optimize_frames):
                  do_optimize_intrinsic_distortions = True,
                  do_optimize_extrinsics            = True,
                  do_optimize_frames                = do_optimize_frames,
-                 do_optimize_calobject_warp        = True)
+                 do_optimize_calobject_warp        = True,
+                 **kwargs)
 
-    return intrinsics_solved,extrinsics_solved,frames_solved
+    return intrinsics_solved,extrinsics_solved,frames_solved,covariance_intrinsics
 
 
 
 print("Simulating input noise. This takes a little while...")
-iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes) for isample in range(Nsamples)]
+iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3] for isample in range(Nsamples)]
 intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
 extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
 frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
@@ -546,6 +550,16 @@ if 'show-distribution' in args:
     for icam in range(Ncameras):
         plot_distribution[icam] = make_plot(icam)
 
-if len(args):
-    import IPython
-    IPython.embed()
+covariance_intrinsics = sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
+                                                      apply_noise        = False,
+                                                      get_covariances    = True)[-1]
+
+models = [ mrcal.cameramodel( imagersize            = imagersizes[i],
+                              intrinsics            = (lensmodel, intrinsics_ref[i,:]),
+                              extrinsics_rt_fromref = extrinsics_ref_mounted[i,:],
+                              covariance_intrinsics = covariance_intrinsics[i]) \
+      for i in range(Ncameras)]
+
+
+import IPython
+IPython.embed()
