@@ -132,7 +132,7 @@ TESTS :=					\
   test/test-lensmodel-string-manipulation
 
 test check: all
-	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $t || SOMEFAILED=1; ) test -z "$$SOMEFAILED"
+	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $t || SOMEFAILED=1; ) test -z "$$SOMEFAILED" || echo "SOME TEST SETS FAILED!"; test -z "$$SOMEFAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: test check
 
 include /usr/include/mrbuild/Makefile.common.footer
