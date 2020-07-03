@@ -518,14 +518,11 @@ if 'show-distribution' in args:
 
             major       = np.sqrt(l0)
             minor       = np.sqrt(l1)
-            anisotropic = np.sqrt(np.diag(Var))
             isotropic   = np.sqrt( np.trace(Var) / 2. )
 
             return \
               ((q[0], q[1], 2*major, 2*minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
                 dict(_with='ellipses lw 2', tuplesize=5, legend=f'{what} 1-sigma, full covariance')),
-               (q[0], q[1], 2*anisotropic[0], 2*anisotropic[1],
-                dict(_with='ellipses lw 2', tuplesize=4, legend=f'{what} 1-sigma, independent x,y')),
                (q[0], q[1], 2.*isotropic, 2.*isotropic,
                 dict(_with='ellipses lw 2', tuplesize=4, legend=f'{what} 1-sigma; isotropic')))
 
