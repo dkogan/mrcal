@@ -237,11 +237,6 @@ Nsamples = 90
 # sys.exit()
 
 
-print("Simulating input noise. This takes a little while...")
-
-
-
-
 def sample_reoptimized_parameters(do_optimize_frames):
     global solver_context
     dqref, observations_perturbed = sample_dqref(observations_ref)
@@ -262,8 +257,12 @@ def sample_reoptimized_parameters(do_optimize_frames):
 
 
 
+print("Simulating input noise. This takes a little while...")
+iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes) for isample in range(Nsamples)]
+intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
+extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
+frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
 
-distance = 5.0
 
 # I want to treat the extrinsics arrays as if all the camera transformations are
 # stored there
@@ -284,110 +283,121 @@ else:
 q0 = imagersizes[0]/3.
 
 
-# I come up with ONE global point per camera. And I project that one point for
-# each sample
-# shape (Ncameras, 3)
-v0_cam = mrcal.unproject(q0, lensmodel, intrinsics_ref,
-                         normalize = True)
-
-# shape (Ncameras, 3). In the ref coord system
-p0_ref = \
-    mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_ref_mounted),
-                              v0_cam * distance )
-
-if fixedframes:
-    p0_frames = p0_ref
-else:
-    # shape (Nframes, Ncameras, 3)
-    # The point in the coord system of all the frames
-    p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_ref),-2),
-                                          p0_ref)
-
-
-###############################################################################
-# Now I have the projected point in the coordinate system of the frames. I
-# project that back to each sampled camera, and gather the projection statistics
-
-iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes) for isample in range(Nsamples)]
-intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
-extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
-frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
-
-if fixedframes:
-    extrinsics_sampled_mounted = extrinsics_sampled
-    p0_sampleref               = p0_ref
-else:
-    # I want to treat the extrinsics arrays as if all the camera transformations are
-    # stored there
-    extrinsics_sampled_mounted = \
-        nps.glue( np.zeros((Nsamples,1,6), dtype=float),
-                  extrinsics_sampled,
-                  axis = -2)
-
-    # shape (Nsamples, Nframes, Ncameras, 3)
-    p0_sampleref_allframes = mrcal.transform_point_rt( nps.dummy(frames_sampled, -2),
-                                                       p0_frames )
-    # shape (Nsamples, Ncameras, 3)
-    p0_sampleref = np.mean(p0_sampleref_allframes, axis=-3)
-
-
-# shape (Nsamples, Ncameras, 2)
-q_sampled = \
-    mrcal.project( \
-        mrcal.transform_point_rt(extrinsics_sampled_mounted,
-                                 p0_sampleref),
-        lensmodel,
-        intrinsics_sampled )
-
-
-# shape (Ncameras, 2)
-q_sampled_mean = np.mean(q_sampled, axis=-3)
-cov = np.mean( nps.outer(q_sampled-q_sampled_mean,
-                         q_sampled-q_sampled_mean), axis=-4 )
-worst_direction_stdev_observed = mrcal.worst_direction_stdev(cov)
-
 cachelist_invJtJ_JobstJobs = [None,None]
-if fixedframes:
-    Var_dq = \
-        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-            q0,
-            distance,
-            icam, icam,
-            lensmodel, intrinsics_ref[icam],
-            extrinsics_ref[icam],
-            None,
-            solver_context,
-            pixel_uncertainty_stdev,
-            cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
-                   for icam in range(Ncameras) ])
-else:
-    Var_dq = \
-        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-            q0,
-            distance,
-            icam, icam-1,
-            lensmodel, intrinsics_ref[icam],
-            extrinsics_ref[icam-1] if icam>0 else None,
-            frames_ref,
-            solver_context,
-            pixel_uncertainty_stdev,
-            cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
-                   for icam in range(Ncameras) ])
-worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
+def check_uncertainties_at(q0, distance):
 
-testutils.confirm_equal(q_sampled_mean,
-                        nps.matmult(np.ones((Ncameras,1)), q0),
-                        eps = 0.5,
-                        msg = "Sampled projections cluster around the sample point")
+    # distance of "None" means I'll simulate a large distance, but compare
+    # against a special-case distance of "infinity"
+    if distance is None:
+        distance    = 1e4
+        atinfinity  = True
+        distancestr = "infinity"
+    else:
+        atinfinity  = False
+        distancestr = str(distance)
 
-# I accept 20% error. This is plenty good-enough. And I can get tighter matches
-# if I grab more samples
-testutils.confirm_equal(worst_direction_stdev_observed,
-                        worst_direction_stdev_predicted,
-                        eps = 0.2,
-                        worstcase = True,
-                        relative  = True,
-                        msg = "Predicted worst-case projections match sampled observations")
+    # I come up with ONE global point per camera. And I project that one point for
+    # each sample
+    # shape (Ncameras, 3)
+    v0_cam = mrcal.unproject(q0, lensmodel, intrinsics_ref,
+                             normalize = True)
+
+    # shape (Ncameras, 3). In the ref coord system
+    p0_ref = \
+        mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_ref_mounted),
+                                  v0_cam * distance )
+
+    if fixedframes:
+        p0_frames = p0_ref
+    else:
+        # shape (Nframes, Ncameras, 3)
+        # The point in the coord system of all the frames
+        p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_ref),-2),
+                                              p0_ref)
+
+
+    ###############################################################################
+    # Now I have the projected point in the coordinate system of the frames. I
+    # project that back to each sampled camera, and gather the projection statistics
+    if fixedframes:
+        extrinsics_sampled_mounted = extrinsics_sampled
+        p0_sampleref               = p0_ref
+    else:
+        # I want to treat the extrinsics arrays as if all the camera transformations are
+        # stored there
+        extrinsics_sampled_mounted = \
+            nps.glue( np.zeros((Nsamples,1,6), dtype=float),
+                      extrinsics_sampled,
+                      axis = -2)
+
+        # shape (Nsamples, Nframes, Ncameras, 3)
+        p0_sampleref_allframes = mrcal.transform_point_rt( nps.dummy(frames_sampled, -2),
+                                                           p0_frames )
+        # shape (Nsamples, Ncameras, 3)
+        p0_sampleref = np.mean(p0_sampleref_allframes, axis=-3)
+
+
+    # shape (Nsamples, Ncameras, 2)
+    q_sampled = \
+        mrcal.project( \
+            mrcal.transform_point_rt(extrinsics_sampled_mounted,
+                                     p0_sampleref),
+            lensmodel,
+            intrinsics_sampled )
+
+
+    # shape (Ncameras, 2)
+    q_sampled_mean = np.mean(q_sampled, axis=-3)
+    cov = np.mean( nps.outer(q_sampled-q_sampled_mean,
+                             q_sampled-q_sampled_mean), axis=-4 )
+    worst_direction_stdev_observed = mrcal.worst_direction_stdev(cov)
+
+    if fixedframes:
+        Var_dq = \
+            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+                q0,
+                distance if not atinfinity else None,
+                icam, icam,
+                lensmodel, intrinsics_ref[icam],
+                extrinsics_ref[icam],
+                None,
+                solver_context,
+                pixel_uncertainty_stdev,
+                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                       for icam in range(Ncameras) ])
+    else:
+        Var_dq = \
+            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+                q0,
+                distance if not atinfinity else None,
+                icam, icam-1,
+                lensmodel, intrinsics_ref[icam],
+                extrinsics_ref[icam-1] if icam>0 else None,
+                frames_ref,
+                solver_context,
+                pixel_uncertainty_stdev,
+                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                       for icam in range(Ncameras) ])
+    worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
+
+    testutils.confirm_equal(q_sampled_mean,
+                            nps.matmult(np.ones((Ncameras,1)), q0),
+                            eps = 0.5,
+                            msg = f"Sampled projections cluster around the sample point at distance = {distancestr}")
+
+    # I accept 20% error. This is plenty good-enough. And I can get tighter matches
+    # if I grab more samples
+    testutils.confirm_equal(worst_direction_stdev_observed,
+                            worst_direction_stdev_predicted,
+                            eps = 0.2,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"Predicted worst-case projections match sampled observations at distance = {distancestr}")
+    return q_sampled,Var_dq
+
+
+q_sampled,Var_dq = check_uncertainties_at(q0, 5.)
+check_uncertainties_at(q0, None)
 
 if len(args) == 0:
     testutils.finish()
