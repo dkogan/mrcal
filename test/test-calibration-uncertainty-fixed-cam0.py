@@ -1,17 +1,31 @@
 #!/usr/bin/python3
 
-r'''Uncertainty-quantification test: camera0 sets the reference coord system
+r'''Uncertainty-quantification test
 
 I run a number of synthetic-data camera calibrations, applying some noise to the
 observed inputs each time. I then look at the distribution of projected world
 points, and compare that distribution with theoretical predictions.
 
-This test places camera0 at the reference coordinate system. So camera0 may not
-move, and has no associated extrinsics vector. The other cameras and the frames
-move. When evaluating at projection uncertainty I pick a point referenced off
-the frames. As the frames move around, so does the point I'm projecting. But
-together, the motion of the frames and the extrinsics and the intrinsics should
-map it to the same pixel in the end.
+This test checks two different types of calibrations:
+
+- fixed-cam0: we place camera0 at the reference coordinate system. So camera0
+  may not move, and has no associated extrinsics vector. The other cameras and
+  the frames move. When evaluating at projection uncertainty I pick a point
+  referenced off the frames. As the frames move around, so does the point I'm
+  projecting. But together, the motion of the frames and the extrinsics and the
+  intrinsics should map it to the same pixel in the end.
+
+- fixed-frames: the reference coordinate system is attached to the frames, which
+  may not move. All cameras may move around and all cameras have an associated
+  extrinsics vector. When evaluating at projection uncertainty I also pick a
+  point referenced off the frames, but here any point in the reference coord
+  system will do. As the cameras move around, so does the point I'm projecting.
+  But together, the motion of the extrinsics and the intrinsics should map it to
+  the same pixel in the end.
+
+The calibration type is selected by the filename of the script we run. The
+expectation is that we have symlinks pointing to this script, and the
+calibration type can be chosen by running the correct symlink
 
 ARGUMENTS
 
@@ -42,6 +56,12 @@ import copy
 import testutils
 
 args = set(sys.argv[1:])
+
+import re
+if   re.search("fixed-cam0",   sys.argv[0]): fixedframes = False
+elif re.search("fixed-frames", sys.argv[0]): fixedframes = True
+else:
+    raise Exception("This script should contain either 'fixed-cam0' or 'fixed-frames' in the filename")
 
 # I want the RNG to be deterministic
 np.random.seed(0)
@@ -102,7 +122,10 @@ observations_ref = nps.clump( nps.glue(q_ref,
 
 # These are perfect
 intrinsics_ref = nps.cat( *[m.intrinsics()[1]         for m in models_ref] )
-extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref[1:]] )
+if fixedframes:
+    extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref] )
+else:
+    extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref[1:]] )
 frames_ref     = mrcal.rt_from_Rt(Rt_cam0_board_ref)
 
 
@@ -128,8 +151,10 @@ indices_camera.setfield(nps.outer(np.ones((Nframes,), dtype=np.int32),
 
 indices_frame_camintrinsics_camextrinsics = \
     nps.glue(indices_frame_camera,
-             indices_frame_camera[:,(1,)]-1,
+             indices_frame_camera[:,(1,)],
              axis=-1)
+if not fixedframes:
+    indices_frame_camintrinsics_camextrinsics[:,2] -= 1
 
 def optimize( intrinsics,
               extrinsics,
@@ -217,7 +242,7 @@ print("Simulating input noise. This takes a little while...")
 
 
 
-def sample_reoptimized_parameters():
+def sample_reoptimized_parameters(do_optimize_frames):
     global solver_context
     dqref, observations_perturbed = sample_dqref(observations_ref)
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
@@ -230,7 +255,7 @@ def sample_reoptimized_parameters():
                  do_optimize_intrinsic_core        = True,
                  do_optimize_intrinsic_distortions = True,
                  do_optimize_extrinsics            = True,
-                 do_optimize_frames                = True,
+                 do_optimize_frames                = do_optimize_frames,
                  do_optimize_calobject_warp        = True)
 
     return intrinsics_solved,extrinsics_solved,frames_solved
@@ -242,11 +267,13 @@ distance = 5.0
 
 # I want to treat the extrinsics arrays as if all the camera transformations are
 # stored there
-extrinsics_ref_mounted = \
-    nps.glue( np.zeros((6,), dtype=float),
-              extrinsics_ref,
-              axis = -2)
-
+if fixedframes:
+    extrinsics_ref_mounted = extrinsics_ref
+else:
+    extrinsics_ref_mounted = \
+        nps.glue( np.zeros((6,), dtype=float),
+                  extrinsics_ref,
+                  axis = -2)
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
@@ -268,33 +295,41 @@ p0_ref = \
     mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_ref_mounted),
                               v0_cam * distance )
 
-# shape (Nframes, Ncameras, 3)
-# The point in the coord system of all the frames
-p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_ref),-2),
-                                      p0_ref)
+if fixedframes:
+    p0_frames = p0_ref
+else:
+    # shape (Nframes, Ncameras, 3)
+    # The point in the coord system of all the frames
+    p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_ref),-2),
+                                          p0_ref)
+
 
 ###############################################################################
 # Now I have the projected point in the coordinate system of the frames. I
 # project that back to each sampled camera, and gather the projection statistics
 
-iieeff = [sample_reoptimized_parameters() for isample in range(Nsamples)]
+iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes) for isample in range(Nsamples)]
 intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
 extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
 frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
 
-# I want to treat the extrinsics arrays as if all the camera transformations are
-# stored there
-extrinsics_sampled_mounted = \
-    nps.glue( np.zeros((Nsamples,1,6), dtype=float),
-              extrinsics_sampled,
-              axis = -2)
+if fixedframes:
+    extrinsics_sampled_mounted = extrinsics_sampled
+    p0_sampleref               = p0_ref
+else:
+    # I want to treat the extrinsics arrays as if all the camera transformations are
+    # stored there
+    extrinsics_sampled_mounted = \
+        nps.glue( np.zeros((Nsamples,1,6), dtype=float),
+                  extrinsics_sampled,
+                  axis = -2)
 
-# shape (Nsamples, Nframes, Ncameras, 3)
-p0_sampleref_allframes = mrcal.transform_point_rt( nps.dummy(frames_sampled, -2),
-                                                   p0_frames )
+    # shape (Nsamples, Nframes, Ncameras, 3)
+    p0_sampleref_allframes = mrcal.transform_point_rt( nps.dummy(frames_sampled, -2),
+                                                       p0_frames )
+    # shape (Nsamples, Ncameras, 3)
+    p0_sampleref = np.mean(p0_sampleref_allframes, axis=-3)
 
-# shape (Nsamples, Ncameras, 3)
-p0_sampleref = np.mean(p0_sampleref_allframes, axis=-3)
 
 # shape (Nsamples, Ncameras, 2)
 q_sampled = \
@@ -312,18 +347,32 @@ cov = np.mean( nps.outer(q_sampled-q_sampled_mean,
 worst_direction_stdev_observed = mrcal.worst_direction_stdev(cov)
 
 cachelist_invJtJ_JobstJobs = [None,None]
-Var_dq = \
-    nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-        q0,
-        distance,
-        icam, icam-1,
-        lensmodel, intrinsics_ref[icam],
-        extrinsics_ref[icam-1] if icam>0 else None,
-        frames_ref,
-        solver_context,
-        pixel_uncertainty_stdev,
-        cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
-               for icam in range(Ncameras) ])
+if fixedframes:
+    Var_dq = \
+        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+            q0,
+            distance,
+            icam, icam,
+            lensmodel, intrinsics_ref[icam],
+            extrinsics_ref[icam],
+            None,
+            solver_context,
+            pixel_uncertainty_stdev,
+            cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                   for icam in range(Ncameras) ])
+else:
+    Var_dq = \
+        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+            q0,
+            distance,
+            icam, icam-1,
+            lensmodel, intrinsics_ref[icam],
+            extrinsics_ref[icam-1] if icam>0 else None,
+            frames_ref,
+            solver_context,
+            pixel_uncertainty_stdev,
+            cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                   for icam in range(Ncameras) ])
 worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
 testutils.confirm_equal(q_sampled_mean,
@@ -381,34 +430,63 @@ if 'study' in args:
     ranges = np.linspace(1,30,10)
 
     # shape (Ncameras, gridn_height, gridn_width, Nranges, 2,2)
-    Var_dq_grid = \
-        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-            nps.dummy(qxy,-2),
-            nps.dummy(ranges,-1),
-            icam, icam-1,
-            lensmodel, intrinsics_ref[icam],
-            extrinsics_ref[icam-1] if icam>0 else None,
-            frames_ref,
-            solver_context,
-            pixel_uncertainty_stdev,
-            cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
-                   for icam in range(Ncameras) ])
+    if fixedframes:
+        Var_dq_grid = \
+            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+                nps.dummy(qxy,-2),
+                nps.dummy(ranges,-1),
+                icam, icam,
+                lensmodel, intrinsics_ref[icam],
+                extrinsics_ref[icam],
+                None,
+                solver_context,
+                pixel_uncertainty_stdev,
+                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                       for icam in range(Ncameras) ])
+    else:
+        Var_dq_grid = \
+            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+                nps.dummy(qxy,-2),
+                nps.dummy(ranges,-1),
+                icam, icam-1,
+                lensmodel, intrinsics_ref[icam],
+                extrinsics_ref[icam-1] if icam>0 else None,
+                frames_ref,
+                solver_context,
+                pixel_uncertainty_stdev,
+                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                       for icam in range(Ncameras) ])
     # shape (Ncameras, gridn_height, gridn_width, Nranges)
     worst_direction_stdev_grid = mrcal.worst_direction_stdev(Var_dq_grid)
 
     # shape (Ncameras, gridn_height, gridn_width, 2,2)
-    Var_dq_infinity = \
-        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-            nps.dummy(qxy,-2),
-            None,
-            icam, icam-1,
-            lensmodel, intrinsics_ref[icam],
-            extrinsics_ref[icam-1] if icam>0 else None,
-            frames_ref,
-            solver_context,
-            pixel_uncertainty_stdev,
-            cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
-                   for icam in range(Ncameras) ])
+    if fixedframes:
+        Var_dq_infinity = \
+            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+                nps.dummy(qxy,-2),
+                None,
+                icam, icam,
+                lensmodel, intrinsics_ref[icam],
+                extrinsics_ref[icam],
+                None,
+                solver_context,
+                pixel_uncertainty_stdev,
+                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                       for icam in range(Ncameras) ])
+    else:
+        Var_dq_infinity = \
+            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+                nps.dummy(qxy,-2),
+                None,
+                icam, icam-1,
+                lensmodel, intrinsics_ref[icam],
+                extrinsics_ref[icam-1] if icam>0 else None,
+                frames_ref,
+                solver_context,
+                pixel_uncertainty_stdev,
+                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                       for icam in range(Ncameras) ])
+
     # shape (Ncameras, gridn_height, gridn_width)
     worst_direction_stdev_infinity = mrcal.worst_direction_stdev(Var_dq_infinity)
 
