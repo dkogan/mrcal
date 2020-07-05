@@ -305,7 +305,7 @@ ARGUMENTS
 
 RETURNED VALUES
 
-wE return a tuple:
+We return a tuple:
 
 - The point observations p:
   array of shape (Nframes, Ncameras, object_height, object_width, 2)
@@ -2119,17 +2119,82 @@ def show_intrinsics_uncertainty(model,
     plot.plot(*plot_data_args)
     return plot
 
-def report_residual_statistics( obs, err,
+
+def report_residual_statistics( observations, reprojection_error,
                                 imagersize,
                                 gridn_width  = 20,
                                 gridn_height = None):
-    '''Reports statistics about the fit resudial across the imager
 
-    If everything fits well, the residual distributions in each area of the
-    imager should be identical. If the model doesn't fit well, the statistics
-    will not be consistent. This function returns a tuple
-    (mean,stdev,count,imagergrid_using). imagergrid_using is a "using" keyword
-    for plotting this data in a heatmap
+    r'''Reports fit statistics for regions across the imager
+
+SYNOPSIS
+
+    print( observations.shape )
+    ===> (100, 2)
+
+    print( reprojection_error.shape )
+    ===> (100,)
+
+    mean, stdev, count, using = \
+        mrcal.report_residual_statistics(observations,
+                                         reprojection_error,
+                                         imagersize,
+                                         gridn_width = 30)
+
+    import gnuplotlib as gp
+    W,H = imagersize
+    gp.plot( np.abs(mean),
+             tuplesize = 3,
+             _with     = 'image',
+             ascii     = True,
+             square    = True,
+             using     = using)
+
+The mrcal solver optimizes reprojection errors for ALL the observations in ALL
+cameras at the same time. It is useful to evaluate the optimal solution by
+examining reprojection errors in subregions of the imager, which is accomplished
+by this function. All the observations and reprojection errors and subregion
+gridding are given. The mean and standard derivation of the reprojection errors
+and a point count are returned for each subregion cell. A "using" expression for
+plotting is reported as well.
+
+After a problem-free solve, the error distributions in each area of the imager
+should be similar, and should match the error distribution of the pixel
+observations. If the lens model doesn't fit the data, the statistics will not be
+consistent across the region: the residuals would be heteroscedastic.
+
+ARGUMENTS
+
+- observations: an array of shape (..., 2) of observed points. Each row is an
+  (x,y) pixel coordinate. This is an input to the optimization
+
+- reprojection_error: an array of reprojection error values corresponding to
+  each row in the "observations". This is an output from the optimization
+
+- imagersize: a len-2 iterable: width,height of the imager. With a
+  mrcal.cameramodel object this is model.imagersize()
+
+- gridn_width: how many points along the horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+RETURNED VALUES
+
+This function returns a tuple
+
+- mean: an array of shape (gridn_height,gridn_width). Contains the mean of
+  reprojection errors in the corresponding cell
+
+- stdev: an array of shape (gridn_height,gridn_width). Contains the standard
+  deviation of reprojection errors in the corresponding cell
+
+- count: an array of shape (gridn_height,gridn_width). Contains the count of
+  observations in the corresponding cell
+
+- using: is a "using" keyword for plotting the output matrices with gnuplotlib.
+  See the docstring for imagergrid_using() for details
 
     '''
 
@@ -2172,10 +2237,11 @@ def report_residual_statistics( obs, err,
         return np.array((mean,stdev,z.shape[0]))
 
 
-    # obs,err each have shape (N,2): each slice is xy. I have 2N
-    # measurements, so I flatten the errors, and double-up the observations
-    errflat = err.ravel()
-    obsflat = nps.clump(nps.mv(nps.cat(obs,obs), -3, -2), n=2)
+    # observations,reprojection_error each have shape (N,2): each slice is xy. I
+    # have 2N measurements, so I flatten the errors, and double-up the
+    # observations
+    errflat = reprojection_error.ravel()
+    obsflat = nps.clump(nps.mv(nps.cat(observations,observations), -3, -2), n=2)
 
     # Each has shape (2,Nheight,Nwidth)
     mean,stdev,count = nps.mv( residual_stats(obsflat, errflat, c),
