@@ -132,19 +132,89 @@ vectors: we return a rotation matrix in a (3,3) array
 
 
 def get_ref_calibration_object(W, H, object_spacing, calobject_warp=None):
-    r'''Returns the geometry of the calibration object in its own coordinate frame
+    r'''Return the geometry of the calibration object
 
-    Shape is (H,W,3). The corner of the board is at the origin, so
-    get_ref_calibration_object(...)[0,0,:] will be a vector of 0
+SYNOPSIS
 
-    By default the calibration object is flat: z = 0 for all points. If we want
-    to add bowing to the board, pass a length-2 iterable in calobject_warp.
-    These describe additive flex along the x axis and along the y axis, in that
-    order. In each direction the flex is a parabola, with the parameter k
-    describing the max deflection at the center. If the ends are at +- 1 I have
-    d = k*(1 - x^2). If the ends are at (0,N-1) the equivalent expression is: d
-    = k*( 1 - 4*x^2/(N-1)^2 + 4*x/(N-1) - 1 ) = d = 4*k*(x/(N-1) - x^2/(N-1)^2)
-    = d = 4.*k*x*r(1. - x*r)
+    import gnuplotlib as gp
+    import numpysane as nps
+
+    obj = mrcal.get_ref_calibration_object( 10,6, 0.1 )
+
+    print(obj.shape)
+    ===> (6, 10, 3)
+
+    gp.plot( nps.clump( obj[...,:2], n=2),
+             tuplesize = -2,
+             _with     = 'points',
+             _xrange   = (-0.1,1.0),
+             _yrange   = (-0.1,0.6),
+             unset     = 'grid',
+             square    = True,
+             terminal  = 'dumb 74,45')
+
+     0.6 +---------------------------------------------------------------+
+         |     +          +           +           +          +           |
+         |                                                               |
+     0.5 |-+   A     A    A     A     A     A     A     A    A     A   +-|
+         |                                                               |
+         |                                                               |
+     0.4 |-+   A     A    A     A     A     A     A     A    A     A   +-|
+         |                                                               |
+         |                                                               |
+     0.3 |-+   A     A    A     A     A     A     A     A    A     A   +-|
+         |                                                               |
+         |                                                               |
+     0.2 |-+   A     A    A     A     A     A     A     A    A     A   +-|
+         |                                                               |
+         |                                                               |
+     0.1 |-+   A     A    A     A     A     A     A     A    A     A   +-|
+         |                                                               |
+         |                                                               |
+       0 |-+   A     A    A     A     A     A     A     A    A     A   +-|
+         |                                                               |
+         |     +          +           +           +          +           |
+    -0.1 +---------------------------------------------------------------+
+               0         0.2         0.4         0.6        0.8          1
+
+Returns the geometry of a calibration object in its own reference coordinate
+system in a (H,W,3) array. Only a grid-of-points calibration object is
+supported, possibly with some bowing (i.e. what the internal mrcal solver
+supports). Each row of the output is an (x,y,z) point. The origin is at the
+corner of the grid, so get_ref_calibration_object(...)[0,0,:] is
+np.array((0,0,0)). The grid spans x and y, with z representing the depth: z=0
+for a flat calibration object.
+
+A simple parabolic board warping model is supported by passing a (2,) array in
+calobject_warp. These 2 values describe additive flex along the x axis and along
+the y axis, in that order. In each direction the flex is a parabola, with the
+parameter k describing the max deflection at the center. If the edges were at
++-1 we'd have
+
+    z = k*(1 - x^2)
+
+The edges we DO have are at (0,N-1), so the equivalent expression is
+
+    xr = x / (N-1)
+    z = k*( 1 - 4*xr^2 + 4*xr - 1 ) =
+        4*k*(xr - xr^2) =
+
+ARGUMENTS
+
+- W: how many corners we have in the horizontal direction
+
+- H: how many corners we have in the vertical direction
+
+- object_spacing: the distance between adjacent corners
+
+- calobject_warp: optional array of shape (2,) defaults to None. Describes the
+  warping of the calibration object. If None, the object is flat. If an array is
+  given, the values describe the maximum additive deflection along the x and y
+  axes
+
+RETURNED VALUES
+
+The calibration object geometry in a (H,W,3) array
 
     '''
 
@@ -206,13 +276,7 @@ coordinate system, with each pose perturbed uniformly with radius
 noiseradius_xyz_rpydeg. I'd like control over roll,pitch,yaw, so this isn't a
 normal rt transformation.
 
-Returns a tuple:
-
-- The point observations p:
-  array of shape (Nframes, Ncameras, object_height, object_width, 2)
-- The pose of the chessboards Rt_cam0_boardref:
-  array of shape (Nframes, Ncameras, 4,3). This transforms an object returned by
-  make_synthetic_board_observations() to the pose that was projected
+Returns the point observations and the poses of the chessboards
 
 ARGUMENTS
 
@@ -238,6 +302,16 @@ ARGUMENTS
   meaning as at_xyz_rpydeg
 
 - Nframes: how many frames of observations to return
+
+RETURNED VALUES
+
+wE return a tuple:
+
+- The point observations p:
+  array of shape (Nframes, Ncameras, object_height, object_width, 2)
+- The pose of the chessboards Rt_cam0_boardref:
+  array of shape (Nframes, Ncameras, 4,3). This transforms an object returned by
+  make_synthetic_board_observations() to the pose that was projected
 
     '''
 
@@ -383,40 +457,99 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               object_width_n     = None,
                               object_height_n    = None,
                               calobject_warp     = None,
-                              i_camera_highlight = None,
                               point_labels       = None,
 
                               **kwargs):
 
-    r'''Plot what a hypothetical 3d calibrated world looks like
+    r'''Visualize the world resulting from a calibration run
 
-    Can be used to visualize the output (or input) of mrcal.optimize(). Not
-    coindicentally, the geometric parameters are all identical to those
-    mrcal.optimize() takes.
+SYNOPSIS
 
-    If we don't have any observed calibration boards, frames should be None
+    # Visualize the geometry from some models on disk
+    models = [mrcal.cameramodel(m) for m in model_filenames]
+    plot1 = mrcal.show_calibration_geometry(models)
 
-    If we don't have any observed points, points should be None
+    # Solve a calibration problem. Visualize the resulting geometry AND the
+    # observed calibration objects and points
+    ...
+    mrcal.optimize(intrinsics, extrinsics_rt_fromref, frames, points, ...)
+    plot2 = mrcal.show_calibration_geometry(extrinsics_rt_fromref,
+                                            frames = frames,
+                                            points = points)
 
-    point_labels is a dict from a point index to a name string. Points in this
-    dict are plotted with this legend; all other points are plotted under a
-    generic "points" legend. This can be omitted to plot all points together
+This function can visualize the world described by a set of camera models on
+disk. It can also be used to visualize the output (or input) of
+mrcal.optimize(); the relevant parameters are all identical to those
+mrcal.optimize() takes. Cameras are always rendered. If given, the observed
+calibration objects and/or the observed points are rendered as well.
 
-    object_spacing may be omitted ONLY if we are not observing any calibration
-    boards
+This function does all the work for the mrcal-show-calibration-geometry tool.
 
-    models_or_extrinsics_rt_fromref is an iterable of cameramodel or (6,) rt
-    arrays. An (N,6) array works
+All arguments except models_or_extrinsics_rt_fromref are optional.
 
-    need to check for object_width_n is None
+ARGUMENTS
+
+- models_or_extrinsics_rt_fromref: an iterable of mrcal.cameramodel objects or
+  (6,) rt arrays. A array of shape (N,6) works to represent N cameras
+
+- cameranames: optional array of strings of labels for the cameras. If omitted,
+  we use generic labels. If given, the array must have the same length as
+  models_or_extrinsics_rt_fromref
+
+- cameras_Rt_plot_ref: optional transformation(s). If omitted, we plot
+  everything in the camera reference coordinate system. If given, we use a
+  "plot" coordinate system with the transformation TO plot coordinates FROM the
+  reference coordinates given in this argument. This argument can be given as an
+  iterable of Rt transformations to use a different one for each camera (None
+  means "identity"). Or a single Rt transformation can be given to use that one
+  for ALL the cameras
+
+- frames: optional array of shape (N,6). If omitted, we don't plot the
+  calibration objects. If given, each row of shape (6,) is an rt transformation
+  representing the transformation TO the reference coordinate system FROM the
+  calibration object coordinate system. If given, the calibration object MUST be
+  defined by passing in valid object_width_n, object_height_n, object_spacing
+  parameters
+
+- object_width_n: the number of horizontal points in the calibration object
+  grid. Required only if frames is not None
+
+- object_height_n: the number of vertical points in the calibration object grid.
+  Required only if frames is not None
+
+- object_spacing: the distance between adjacent points in the calibration object
+  grid. Required only if frames is not None
+
+- calobject_warp: optional (2,) array describing the calibration board warping.
+  None means "no warping": the object is flat. Used only if frames is not None.
+  See the docs for get_ref_calibration_object() for a description.
+
+- points: optional array of shape (N,3). If omitted, we don't plot the observed
+  points. If given, each row of shape (3,) is a point in the reference
+  coordinate system.
+
+- point_labels: optional dict from a point index to a string describing it.
+  Points in this dict are plotted with this legend; all other points are plotted
+  under a generic "points" legend. As many or as few of the points may be
+  labelled in this way. If omitted, none of the points will be labelled
+  specially. This is used only if points is not None
+
+- axis_scale: optional scale factor for the size of the axes used to represent
+  the cameras. Can be omitted to use some reasonable default size, but for very
+  large or very small problems, this may be required to make the plot look right
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+    Useful to make hardcopies, set the plot title, etc.
+
+RETURNED VALUES
+
+The gnuplotlib plot object. The plot disappears when this object is destroyed
+(by the garbage collection, for instance), so do save this returned plot object
+into a variable, even if you're not going to be doing anything with this object
 
     '''
 
     import gnuplotlib as gp
-
-    if i_camera_highlight is not None:
-        raise Exception("This isn't done yet. Sorry")
-
 
     def get_extrinsics_Rt_toref_one(m):
         if isinstance(m, mrcal.cameramodel):
@@ -432,6 +565,15 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
     if frames is not None: frames = nps.atleast_dims(frames, -2)
     if points is not None: points = nps.atleast_dims(points, -2)
 
+
+    try:
+        if cameras_Rt_plot_ref.shape == (4,3):
+            cameras_Rt_plot_ref = \
+                np.repeat(nps.atleast_dims(cameras_Rt_plot_ref,-3),
+                          len(extrinsics_Rt_toref),
+                          axis=-3)
+    except:
+        pass
 
     def extend_axes_for_plotting(axes):
         r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
@@ -532,8 +674,10 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
         if frames is None or len(frames) == 0:
             return []
 
-        if object_spacing <= 0:
-            raise Exception("We're observing calibration boards, but their spacing is 0: please pass a valid object_spacing")
+        if object_spacing <= 0     or \
+           object_width_n  is None or \
+           object_height_n is None:
+            raise Exception("We're observing calibration boards, so object_spacing and object_width_n and object_height_n must be valid")
 
         # if observations_board              is None or \
         #    indices_frame_camera_board      is None or \
@@ -1073,6 +1217,10 @@ ARGUMENTS
 - gridn_height: how many points along the vertical gridding dimension. If
   omitted or None, we compute an integer gridn_height to maintain a square-ish
   grid: gridn_height/gridn_width ~ imager_height/imager_width
+
+RETURNED VALUE
+
+The 'using' string.
 
     '''
 
