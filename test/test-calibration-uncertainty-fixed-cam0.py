@@ -198,7 +198,7 @@ def optimize( intrinsics,
                             calibration_object_spacing  = object_spacing,
                             calibration_object_width_n  = object_width_n,
                             calibration_object_height_n = object_height_n,
-                            skip_regularization         = False,
+                            skip_regularization         = True,
                             verbose                     = False,
 
                             observed_pixel_uncertainty  = pixel_uncertainty_stdev,
