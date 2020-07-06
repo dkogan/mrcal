@@ -2609,14 +2609,51 @@ An array of shape (N,2) containing a contour representing the projection domain.
 
 
 def polygon_difference(positive, negative):
-    r'''Returns the difference of two closed polygons
+    r'''Return the difference of two closed polygons
 
-    The polygons are represented as (.,2) arrays.
+SYNOPSIS
 
-    The result is represented as a list of (.,2) arrays, to be interpreted as a
-    union. Each of the constituent resulting arrays is guaranteed to not have
-    holes. If any holes are found when computing the difference, we cut apart
-    the resulting shape until no holes remain.
+    import numpy as np
+    import numpysane as nps
+    import gnuplotlib as gp
+
+    A = np.array(((-1,-1),( 1,-1),( 1, 1),(-1, 1),(-1,-1)))
+    B = np.array(((-.1,-1.1),( .1,-1.1),( .1, 1.1),(-.1, 1.1),(-.1,-1.1)))
+
+    diff = mrcal.polygon_difference(A, B)
+
+    gp.plot( (A, dict(legend = 'A', _with = 'lines')),
+             (B, dict(legend = 'B', _with = 'lines')),
+             *[ ( r, dict( _with     = 'filledcurves closed fillcolor "red"',
+                           legend    = 'difference'))
+                for r in diff],
+             tuplesize = -2,
+             square    = True,
+             wait      = True)
+
+Given two polygons specified as a point sequence in arrays of shape (N,2) this
+function computes the topological difference: all the regions contained in the
+positive polygon, but missing in the negative polygon. The result could be
+empty, or it could contain any number of disconnected polygons, so a list of
+polygons is returned. Each of the constituent resulting polygons is guaranteed
+to not have holes. If any holes are found when computing the difference, we cut
+apart the resulting shape until no holes remain.
+
+ARGUMENTS
+
+- positive: a polygon specified by a sequence of points in an array of shape
+  (N,2). The resulting difference describes regions contained inside the
+  positive polygon
+
+- negative: a polygon specified by a sequence of points in an array of shape
+  (N,2). The resulting difference describes regions outside the negative polygon
+
+RETURNED VALUE
+
+A list of arrays of shape (N,2). Each array in the list describes a hole-free
+polygon as a sequence of points. The difference is a union of all these
+constituent polygons. This list could have 0 elements (empty difference) or N
+element (difference consists of N separate polygons)
 
     '''
 
