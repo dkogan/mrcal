@@ -17,8 +17,11 @@ SYNOPSIS
 
 This is a tool to convert a given camera model from one lens model to
 another. The input and output models have identical extrinsics and an identical
-intrinsic core (focal lengths, center pixel coords). The ONLY differing part is
-the distortion coefficients.
+intrinsic core (focal lengths, center pixel coords).
+
+
+this isn't actually very useful. I should change ALL the intrinsics; core and all
+The ONLY differing part is the distortion coefficients.
 
 While the lens models all exist to solve the same problem, the different
 representations don't map to one another perfectly, so this tool seeks to find

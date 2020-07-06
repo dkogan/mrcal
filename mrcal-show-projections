@@ -115,9 +115,9 @@ plot = mrcal.show_projections(model,
                               args.cbmax,
                               args.gridn[0], args.gridn[1],
 
-                              hardcopy     = args.hardcopy,
                               extratitle   = args.extratitle,
-                              kwargs       = plotkwargs)
+                              hardcopy     = args.hardcopy,
+                              **plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()

@@ -4,7 +4,7 @@ SYNOPSIS
 
     stats = mrcal.optimize( intrinsics_data,
                             extrinsics_rt_fromref,
-                            frames, points
+                            frames, points,
                             observations_board, indices_frame_camintrinsics_camextrinsics,
                             observations_point, indices_point_camintrinsics_camextrinsics,
 

@@ -2249,46 +2249,79 @@ This function returns a tuple
     return mean,stdev,count,imagergrid_using(imagersize, gridn_width, gridn_height)
 
 
-def show_distortion(model,
-                    mode,
-                    scale        = 1.,
-                    cbmax        = 25.0,
-                    gridn_width  = 60,
-                    gridn_height = None,
+def show_projections(model,
+                     mode,
+                     scale        = 1.,
+                     cbmax        = 25.0,
+                     gridn_width  = 60,
+                     gridn_height = None,
+                     extratitle   = None,
+                     hardcopy     = None,
+                     **kwargs):
 
-                    extratitle       = None,
-                    hardcopy         = None,
-                    kwargs           = None):
-    r'''Visualizes the distortion of a lens
+    r'''Visualize the behavior of a lens
 
-    "Distortion" means "deviation from some norm". This function takes the
-    "norm" to be a pinhole lens. So wide lenses will have a lot of reported
-    distortion.
+SYNOPSIS
 
-    For lens models based on corrections to a pinhole projection (those that
-    have an intrinsic core), the baseline pinhole model is used as the
-    reference. For models not based on an intrinsic we either estimate the
-    pinhole model at the center, or we simply do not support this function.
+    model = mrcal.cameramodel(model_filename)
 
-    This function has 3 modes of operation, specified as a string in the 'mode'
-    argument:
+    mrcal.show_projections( model, 'heatmap' )
 
-      'heatmap': the imager is gridded, as specified by the
-      gridn_width,gridn_height arguments. For each point in the grid, we
-      evaluate the difference in projection between the given model, and a
-      pinhole model with the same core intrinsics (focal lengths, center pixel
-      coords). This difference is color-coded and a heat map is displayed
+    ... A plot pops up displaying how much this model deviates from a pinhole
+    ... model across the imager
 
-      'vectorfield': this is the same as 'heatmap', except we display a vector
-      for each point, intead of a color-coded cell. If legibility requires the
-      vectors being larger or smaller, pass an appropriate value in the 'scale'
-      argument
+This function treats a pinhole projection as a baseline, and visualizes
+deviations from this baseline. So wide lenses will have a lot of reported
+"distortion".
 
-      'radial': Looks at radial distortion only. Plots a curve showing the
-      magnitude of the radial distortion as a function of the distance to the
-      center
+This function has 3 modes of operation, specified as a string in the 'mode'
+argument.
 
-    This function creates a plot and returns the corresponding gnuplotlib object
+ARGUMENTS
+
+- model: a mrcal.cameramodel object being evaluated
+
+- mode: this function can produce several kinds of visualizations, with the
+  specific mode selected as a string in this argument. Known values:
+
+  - 'heatmap': the imager is gridded, as specified by the
+    gridn_width,gridn_height arguments. For each point in the grid, we evaluate
+    the difference in projection between the given model, and a pinhole model
+    with the same core intrinsics (focal lengths, center pixel coords). This
+    difference is color-coded and a heat map is displayed.
+
+  - 'vectorfield': this is the same as 'heatmap', except we display a vector for
+    each point, intead of a color-coded cell. If legibility requires the vectors
+    being larger or smaller, pass an appropriate value in the 'scale' argument
+
+  - 'radial': Looks at radial distortion only. Plots a curve showing the
+    magnitude of the radial distortion as a function of the distance to the
+    center
+
+- scale: optional value, defaulting to 1.0. Used to scale the rendered vectors
+  if mode=='vectorfield'
+
+- cbmax: optional value, defaulting to 25.0. Sets the maximum range of the color
+  map and of the contours if mode=='heatmap'
+
+- gridn_width: how many points along the horizontal gridding dimension. Used if
+  mode=='vectorfield' or mode=='heatmap'
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width. Used if
+  mode=='vectorfield' or mode=='heatmap'
+
+- extratitle: optional string to include in the title of the resulting plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+    Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+The gnuplotlib plot object. The plot disappears when this object is destroyed
+(by the garbage collection, for instance), so do save this returned plot object
+into a variable, even if you're not going to be doing anything with this object
 
     '''
 
@@ -2297,16 +2330,12 @@ def show_distortion(model,
     lensmodel, intrinsics_data = model.intrinsics()
     imagersize                  = model.imagersize()
 
-    if kwargs is None: kwargs = {}
     if 'title' not in kwargs:
 
-        title = "Distortion of {}".format(lensmodel)
+        title = "Effects of {}".format(lensmodel)
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
 
     if 'set' not in kwargs:
         kwargs['set'] = []
@@ -2463,7 +2492,6 @@ def show_distortion(model,
                                'cntrparam levels incremental {},-1,0'.format(cbmax)])
 
         delta = dgrid-grid
-        delta *= scale
 
         # shape: gridn_height,gridn_width. Because numpy (and thus gnuplotlib) want it that
         # way
@@ -2849,6 +2877,10 @@ ARGUMENTS
 - q: an array of shape (..., 2) of pixel coordinates
 
 - model: the model we're interrogating
+
+RETURNED VALUE
+
+The mask that indicates whether each point is within the region
 
     '''
 
