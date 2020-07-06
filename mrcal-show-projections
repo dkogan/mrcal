@@ -5,16 +5,19 @@ r'''Visualize the behavior or a lens model
 SYNOPSIS
 
   $ mrcal-show-projections --vectorfield left.cameramodel
-  ... a plot pops up showing the distortion vector field
 
-This allows us to visually see what a lens model does. Depending on the
-model, the vectors could be very large or very small, and we can scale them by
-passing '--scale s'. By default we sample in a 60x40 grid, but this spacing can
-be controlled by passing '--gridn w h'.
+  ... a plot pops up showing the vector field of the difference from a pinhole
+  projection
 
-By default we render a heat map of the distortion. We can also see the
+This tool is used to examine how a lens model behaves. Depending on the model,
+the vectors could be very large or very small, and we can scale them by passing
+'--scale s'. By default we sample in a 60x40 grid, but this spacing can be
+controlled by passing '--gridn w h'.
+
+By default we render a heat map of the lens effects. We can also see the
 vectorfield by passing in --vectorfield. Or we can see the radial distortion
 curve by passing --radial
+
 '''
 
 from __future__ import print_function
