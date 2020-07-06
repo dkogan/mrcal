@@ -2707,9 +2707,8 @@ element (difference consists of N separate polygons)
 
 
 def show_splined_model_surface(model, ixy,
-                               imager_domain    = True,
-                               extratitle       = None,
-                               hardcopy         = None,
+                               imager_domain = True,
+                               extratitle    = None,
                                **kwargs):
 
     r'''Visualizes the surface represented in a splined model
@@ -2752,9 +2751,6 @@ def show_splined_model_surface(model, ixy,
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
 
     if 'set' not in kwargs:
         kwargs['set'] = []

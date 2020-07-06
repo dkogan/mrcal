@@ -88,8 +88,8 @@ if args.extraset is not None:
 plot = mrcal.show_splined_model_surface(model, args.ixy,
 
                                         imager_domain = not args.spline_index_domain,
-                                        hardcopy      = args.hardcopy,
                                         extratitle    = args.extratitle,
+                                        hardcopy      = args.hardcopy,
                                         **plotkwargs)
 
 if args.hardcopy is None:
