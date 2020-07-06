@@ -539,7 +539,7 @@ ARGUMENTS
   large or very small problems, this may be required to make the plot look right
 
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
-    Useful to make hardcopies, set the plot title, etc.
+  Useful to make hardcopies, set the plot title, etc.
 
 RETURNED VALUES
 
@@ -2279,7 +2279,7 @@ argument.
 
 ARGUMENTS
 
-- model: a mrcal.cameramodel object being evaluated
+- model: the mrcal.cameramodel object being evaluated
 
 - mode: this function can produce several kinds of visualizations, with the
   specific mode selected as a string in this argument. Known values:
@@ -2315,9 +2315,9 @@ ARGUMENTS
 - extratitle: optional string to include in the title of the resulting plot
 
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
-    Useful to make hardcopies, etc
+  Useful to make hardcopies, etc
 
-RETURNED VALUES
+RETURNED VALUE
 
 The gnuplotlib plot object. The plot disappears when this object is destroyed
 (by the garbage collection, for instance), so do save this returned plot object
@@ -2711,28 +2711,64 @@ def show_splined_model_surface(model, ixy,
                                extratitle    = None,
                                **kwargs):
 
-    r'''Visualizes the surface represented in a splined model
+    r'''Visualize the surface represented by a splined model
 
-    Splined models are built with a splined surface that we index to compute the
-    projection. The meaning of what indexes the surface and the values of the
-    surface varies by model, but in all cases, visualizing the surface is useful.
+SYNOPSIS
 
-    The surface is defined by control points. The value of the control points is
-    set in the intrinsics vector, but their locations (called "knots") are
-    fixed, as defined by the model configuration. The configuration selects the
-    control point density AND the expected field of view of the lens. This field
-    of view should roughly match the actual lens+camera we're using, and this
-    fit can be visualized with this tool.
+    model = mrcal.cameramodel(model_filename)
 
-    If the field of view is too small, some parts of the imager will lie outside
-    of the region that the splined surface covers. This tool throws a warning in
-    that case, and displays the offending regions.
+    mrcal.show_splined_model_surface( model, 0 )
 
-    This function can produce a plot in the imager domain or in the spline index
-    domain. Both are useful, and this is controlled by the imager_domain
-    argument; the default is True.
+    ... A plot pops up displaying the spline knots, the spline surface (for the
+    ... "x" coordinate), the spline domain and the imager boundary
 
-    This function creates a plot and returns the corresponding gnuplotlib object
+Splined models are built with a splined surface that we index to compute the
+projection. The meaning of what indexes the surface and the values of the
+surface varies by model, but in all cases, visualizing the surface is useful.
+
+The surface is defined by control points. The value of the control points is
+set in the intrinsics vector, but their locations (called "knots") are
+fixed, as defined by the model configuration. The configuration selects the
+control point density AND the expected field of view of the lens. This field
+of view should roughly match the actual lens+camera we're using, and this
+fit can be visualized with this tool.
+
+If the field of view is too small, some parts of the imager will lie outside
+of the region that the splined surface covers. This tool throws a warning in
+that case, and displays the offending regions.
+
+This function can produce a plot in the imager domain or in the spline index
+domain. Both are useful, and this is controlled by the imager_domain argument
+(the default is True). The spline is defined in the stereographic projection
+domain, so in the imager domain the knot grid and the domain boundary become
+skewed. At this time the spline representation can cross itself, which is
+visible as a kink in the domain boundary.
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object being evaluated
+
+- ixy: an integer 0 or 1: selects the surface we're looking at. We have a
+  separate surface for the x and y coordinates, with the two sharing the knot
+  positions
+
+- imager_domain: optional boolean defaults to True. If False: we plot everything
+  against normalized stereographic coordinates; in this representation the knots
+  form a regular grid, and the surface domain is a rectangle, but the imager
+  boundary is curved. If True: we plot everything against the rendered pixel
+  coordinates; the imager boundary is a rectangle, while the knots and domain
+  become curved
+
+- extratitle: optional string to include in the title of the resulting plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+The gnuplotlib plot object. The plot disappears when this object is destroyed
+(by the garbage collection, for instance), so do save this returned plot object
+into a variable, even if you're not going to be doing anything with this object
 
     '''
 
@@ -2844,7 +2880,7 @@ def show_splined_model_surface(model, ixy,
                                0, -1),
                         n = 2)
     if imager_domain:
-        valid_region_contour = \
+        domain_contour = \
             mrcal.project(
                 mrcal.unproject_stereographic( domain_contour_u),
                 lensmodel, intrinsics_data)
@@ -2853,14 +2889,14 @@ def show_splined_model_surface(model, ixy,
                 mrcal.unproject_stereographic( np.ascontiguousarray(knots_u)),
                 lensmodel, intrinsics_data)
     else:
-        valid_region_contour = domain_contour_u
+        domain_contour = domain_contour_u
         knots = knots_u
 
     data.extend( [ ( imager_boundary,
                      dict(_with     = 'lines lw 2',
                           tuplesize = -2,
                           legend    = 'imager boundary')),
-                   ( valid_region_contour,
+                   ( domain_contour,
                      dict(_with     = 'lines lw 1',
                           tuplesize = -2,
                           legend    = 'Valid projection region')),
@@ -2879,9 +2915,9 @@ def show_splined_model_surface(model, ixy,
 
     try:
         invalid_regions = polygon_difference(imager_boundary_nonan,
-                                             valid_region_contour)
+                                             domain_contour)
     except Exception as e:
-        # sometimes the valid_region_contour self-intersects, and this makes us
+        # sometimes the domain_contour self-intersects, and this makes us
         # barf
         print(f"WARNING: Couldn't compute invalid projection region. Exception: {e}")
         invalid_regions = []
