@@ -2547,15 +2547,27 @@ into a variable, even if you're not going to be doing anything with this object
         return plot
 
 
-def splined_stereographic_valid_region(lensmodel):
-    '''Return the bounds of the valid region for these models
+def _splined_stereographic_domain(lensmodel):
+    '''Return the stereographic domain for splined-stereographic lens models
 
-    Splined stereographic models are defined by a splined surface. This
-    surface has some finite domain, beyond which it carries no information.
-    This function reports a piecewise linear contour reporting this region.
+SYNOPSIS
 
-    We return the contour in whatever domain is being used to index the surface.
-    At this time this is the stereographic projection uxy.
+    model = mrcal.cameramodel(model_filename)
+
+    lensmodel = model.intrinsics()[0]
+
+    domain_contour = mrcal._splined_stereographic_domain(lensmodel)
+
+Splined stereographic models are defined by a splined surface. This surface is
+indexed by normalized stereographic-projected points. This surface is defined in
+some finite area, and this function reports a piecewise linear contour reporting
+this region.
+
+This function only makes sense for splined stereographic models.
+
+RETURNED VALUE
+
+An array of shape (N,2) containing a contour representing the projection domain.
 
     '''
 
@@ -2794,21 +2806,21 @@ def show_splined_model_surface(model, ixy,
     data = [ ( deltau[..., ixy],
                surface_curveoptions ) ]
 
-    valid_region_contour_u = splined_stereographic_valid_region(lensmodel)
+    domain_contour_u = _splined_stereographic_domain(lensmodel)
     knots_u = nps.clump(nps.mv(nps.cat(*np.meshgrid(ux_knots,uy_knots)),
                                0, -1),
                         n = 2)
     if imager_domain:
         valid_region_contour = \
             mrcal.project(
-                mrcal.unproject_stereographic( valid_region_contour_u),
+                mrcal.unproject_stereographic( domain_contour_u),
                 lensmodel, intrinsics_data)
         knots = \
             mrcal.project(
                 mrcal.unproject_stereographic( np.ascontiguousarray(knots_u)),
                 lensmodel, intrinsics_data)
     else:
-        valid_region_contour = valid_region_contour_u
+        valid_region_contour = domain_contour_u
         knots = knots_u
 
     data.extend( [ ( imager_boundary,
