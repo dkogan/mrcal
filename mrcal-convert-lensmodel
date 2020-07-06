@@ -5,7 +5,7 @@ r'''Converts a camera model from one lens model to another
 
 SYNOPSIS
 
-  $ mrcal-convert-distortion
+  $ mrcal-convert-lensmodel
       --viz LENSMODEL_OPENCV4 left.cameramodel
       > left.opencv4.cameramodel
 

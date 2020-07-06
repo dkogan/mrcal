@@ -1132,16 +1132,16 @@ Potential things to look at:
     show_residuals_observation(i_observation, vectorscale=20)
     show_intrinsics_uncertainty(i_camera)
     show_valid_intrinsics_region(i_camera)
-    show_residuals_vectorfield(   i_camera, show_all_reproj_errors=True)
-    show_residuals_heatmap(       i_camera)
-    show_residuals_directions(    i_camera)
-    show_residuals_histogram(     i_camera)
-    show_residuals_radial(        i_camera)
-    show_residuals_regional(      i_camera)
-    show_distortion('heatmap',    i_camera)
-    show_distortion('vectorfield',i_camera)
-    show_distortion('radial',     i_camera)
-    show_splined_model_surface(   i_camera, i_xy)
+    show_residuals_vectorfield(    i_camera, show_all_reproj_errors=True)
+    show_residuals_heatmap(        i_camera)
+    show_residuals_directions(     i_camera)
+    show_residuals_histogram(      i_camera)
+    show_residuals_radial(         i_camera)
+    show_residuals_regional(       i_camera)
+    show_projections('heatmap',    i_camera)
+    show_projections('vectorfield',i_camera)
+    show_projections('radial',     i_camera)
+    show_splined_model_surface(    i_camera, i_xy)
     stats
     i_observations_worst
     rms_reproj_err_including_outliers_perobservation
@@ -1710,14 +1710,14 @@ def show_valid_intrinsics_region(i_camera = None, **kwargs):
                                                title = "Valid-intrinsics region for camera {}".format(i_camera),
                                                **kwargs)
 
-plots_distortion = [None] * Ncameras
-def show_distortion(mode, i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
+plots_projections = [None] * Ncameras
+def show_projections(mode, i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
-    global plots_distortion
+    global plots_projections
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
-        plots_distortion[i_camera] = \
-            mrcal.show_distortion(models[i_camera],
+        plots_projections[i_camera] = \
+            mrcal.show_projections(models[i_camera],
                                   mode,
                                   extratitle = "camera {}".format(i_camera),
                                   gridn_width  = gridn_width,

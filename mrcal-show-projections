@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 
-r'''Renders a vector field to visualize the effect of a model
+r'''Visualize the behavior or a lens model
 
 SYNOPSIS
 
-  $ mrcal-show-distortion --vectorfield left.cameramodel
+  $ mrcal-show-projections --vectorfield left.cameramodel
   ... a plot pops up showing the distortion vector field
 
 This allows us to visually see what a lens model does. Depending on the
@@ -106,15 +106,15 @@ plotkwargs = {}
 if args.extraset is not None:
     plotkwargs['set'] = args.extraset
 
-plot = mrcal.show_distortion(model,
-                             mode,
-                             args.scale,
-                             args.cbmax,
-                             args.gridn[0], args.gridn[1],
+plot = mrcal.show_projections(model,
+                              mode,
+                              args.scale,
+                              args.cbmax,
+                              args.gridn[0], args.gridn[1],
 
-                             hardcopy     = args.hardcopy,
-                             extratitle   = args.extratitle,
-                             kwargs       = plotkwargs)
+                              hardcopy     = args.hardcopy,
+                              extratitle   = args.extratitle,
+                              kwargs       = plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()
