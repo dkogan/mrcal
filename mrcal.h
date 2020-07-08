@@ -331,11 +331,42 @@ typedef struct
 
 mrcal_stats_t
 mrcal_optimize( // out
-                // These may be NULL. They're for diagnostic reporting to the
-                // caller
+                // Each one of these output pointers may be NULL
+                // Shape (Nmeasurements,)
                 double* x_final,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_x_final,
+
+                // Shape (Ncameras_intrinsics * Nintrinsics_state*Nintrinsics_state)
                 double* covariance_intrinsics,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariance_intrinsics,
+
+                // Shape (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
                 double* covariance_extrinsics,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariance_extrinsics,
+
+                // Shape (Ncameras_intrinsics * (Nintrinsics_state+6+6*Nframes)^2)
+                //   Any variable we're not optimizing is omitted. If some
+                //   camera sits at the reference coordinate system, it doesn't
+                //   have extrinsics, and we write 0 in those entries of the
+                //   covariance
+                double* covariances_ief,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariances_ief,
+
+                // Shape (Ncameras_intrinsics * (Nintrinsics_state+3+3*Nframes)^2)
+                //   Just like covariances_ief, but look only at the rotations
+                //   when evaluating the frames, extrinsics
+                double* covariances_ief_rotationonly,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariances_ief_rotationonly,
 
                 // Buffer should be at least Nfeatures long. stats->Noutliers
                 // elements will be filled in

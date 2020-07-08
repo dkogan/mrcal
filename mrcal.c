@@ -2800,28 +2800,6 @@ static int unpack_solver_state_intrinsics_onecamera( // out
     return i_state;
 }
 
-static double get_scale_solver_state_intrinsics_onecamera( int i_state, // relative to the start of vars for THIS camera
-                                                           int Nintrinsics_per_camera,
-                                                           mrcal_problem_details_t problem_details )
-{
-    if( problem_details.do_optimize_intrinsic_core )
-    {
-        if( i_state < 4)
-        {
-            if( i_state < 2 ) return SCALE_INTRINSICS_FOCAL_LENGTH;
-            return SCALE_INTRINSICS_CENTER_PIXEL;
-        }
-
-        i_state -= 4;
-    }
-
-    if( problem_details.do_optimize_intrinsic_distortions )
-        if( i_state < Nintrinsics_per_camera-4)
-            return SCALE_DISTORTION;
-
-    fprintf(stderr, "ERROR! %s() was asked about an out-of-bounds state\n", __func__);
-    return -1.0;
-}
 
 static int unpack_solver_state_intrinsics( // out
                                            double* intrinsics, // Ncameras_intrinsics of
@@ -3057,45 +3035,70 @@ int mrcal_state_index_calobject_warp(int NpointsVariable,
 // test-calibration-....py
 //
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I
-// need here, and return these densely to the upper levels (python). These
-// callers will then use these dense matrices to finish the computation
-//
-//   M Mt = sum(outer(col(M), col(M)))
-//   col(M) = solve(JtJ, row(J))
+// need here, and return these densely to the upper levels (python).
 //
 // Note that libdogleg sees everything in the unitless space of scaled
 // parameters, and I want this scaling business to be contained in the C code,
 // and to not leak out to python. Let's say I have parameters p and their
-// unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. So when
-// talking to the upper level, I need to report M = DM*.
-//
+// unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. So I need
+// to be sure to pre- and post-multiply by D before returning stuff to the upper
+// level
+
+
 // The returned matrices are symmetric, but I return both halves for now
-static bool computeUncertaintyMatrices(// out
-                                       // dimensions (Ncameras_intrinsics,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                       double* covariance_intrinsics,
-                                       // dimensions (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
-                                       double* covariance_extrinsics,
+static bool compute_uncertainty_matrices(// out
 
-                                       // in
-                                       double observed_pixel_uncertainty,
-                                       lensmodel_t lensmodel,
-                                       mrcal_problem_details_t problem_details,
-                                       int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                       int NobservationsBoard,
-                                       int NobservationsPoint,
-                                       int Nframes, int NpointsVariable,
-                                       int calibration_object_width_n,
-                                       int calibration_object_height_n,
+                                         // Shape (Ncameras_intrinsics * Nintrinsics_state*Nintrinsics_state)
+                                         double* covariance_intrinsics,
+                                         int     buffer_size_covariance_intrinsics,
+                                         // Shape (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
+                                         double* covariance_extrinsics,
+                                         int     buffer_size_covariance_extrinsics,
+                                         // Shape (Ncameras_intrinsics * (Nintrinsics_state+6+6*Nframes)^2)
+                                         //   Any variable we're not optimizing
+                                         //   is omitted. If some camera sits at
+                                         //   the reference coordinate system,
+                                         //   it doesn't have extrinsics, and we
+                                         //   write 0 in those entries of the
+                                         //   covariance
+                                         double* covariances_ief,
+                                         int     buffer_size_covariances_ief,
 
-                                       dogleg_solverContext_t* solverCtx)
+                                         // Shape (Ncameras_intrinsics * (Nintrinsics_state+3+3*Nframes)^2)
+                                         //   Just like covariances_ief, but look
+                                         //   only at the rotations when
+                                         //   evaluating the frames, extrinsics
+                                         double* covariances_ief_rotationonly,
+                                         int     buffer_size_covariances_ief_rotationonly,
+
+                                         // in
+                                         double observed_pixel_uncertainty,
+                                         const observation_board_t* observations_board,
+                                         lensmodel_t lensmodel,
+                                         mrcal_problem_details_t problem_details,
+                                         int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                         int NobservationsBoard,
+                                         int NobservationsPoint,
+                                         int Nframes, int NpointsVariable,
+                                         int calibration_object_width_n,
+                                         int calibration_object_height_n,
+
+                                         dogleg_solverContext_t* solverCtx)
 {
+    bool result = false;
+    cholmod_dense* Jt_slice = NULL;
+    int icam_map_to_extrinsics[Ncameras_intrinsics];
+    int icam_map_to_intrinsics[Ncameras_extrinsics+1];
+
+
     // for reading cholmod_sparse
 #define P(A, index) ((unsigned int*)((A)->p))[index]
 #define I(A, index) ((unsigned int*)((A)->i))[index]
 #define X(A, index) ((double*      )((A)->x))[index]
 
     if(NobservationsBoard <= 0)
-        return false;
+        goto done;
+
 
     //Nintrinsics_per_camera_state can be < Nintrinsics_per_camera_all, if we're
     //locking down some variables with problem_details
@@ -3107,6 +3110,20 @@ static bool computeUncertaintyMatrices(// out
                                                                calibration_object_width_n,
                                                                calibration_object_height_n);
 
+    if(buffer_size_covariance_intrinsics != Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*(int)sizeof(double))
+    {
+        MSG("Buffer for covariance_intrinsics has the wrong size. Expected exactly %d bytes, but the given buffer has %d bytes",
+            Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*(int)sizeof(double),
+            buffer_size_covariance_intrinsics);
+        goto done;
+    }
+    if(buffer_size_covariance_extrinsics != 6*Ncameras_extrinsics * 6*Ncameras_extrinsics * (int)sizeof(double))
+    {
+        MSG("Buffer for covariance_extrinsics has the wrong size. Expected exactly %d bytes, but the given buffer has %d bytes",
+            6*Ncameras_extrinsics * 6*Ncameras_extrinsics * (int)sizeof(double),
+            buffer_size_covariance_extrinsics);
+        goto done;
+    }
     if(covariance_intrinsics)
         memset(covariance_intrinsics, 0,
                Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
@@ -3121,14 +3138,18 @@ static bool computeUncertaintyMatrices(// out
           problem_details.do_optimize_extrinsics) )
     {
         // We're not optimizing anything I care about here
-        return true;
+        result = true;
+        goto done;
     }
 
     if( !(covariance_intrinsics ||
-          covariance_extrinsics))
+          covariance_extrinsics ||
+          covariances_ief        ||
+          covariances_ief_rotationonly))
     {
         // no buffers to fill in
-        return true;
+        result = true;
+        goto done;
     }
 
     if( !problem_details.do_optimize_extrinsics &&
@@ -3150,9 +3171,8 @@ static bool computeUncertaintyMatrices(// out
                   !problem_details.do_optimize_intrinsic_distortions ) )
         {
             MSG("Can't compute any covariance_intrinsics_... if we aren't optimizing the WHOLE intrinsics: core and distortions");
-            return false;
+            goto done;
         }
-
     }
 
     cholmod_sparse* Jt     = solverCtx->beforeStep->Jt;
@@ -3169,14 +3189,14 @@ static bool computeUncertaintyMatrices(// out
         {
             solverCtx->factorization = cholmod_analyze(Jt, &solverCtx->common);
             MSG("Couldn't factor JtJ");
-            return false;
+            goto done;
         }
 
         assert( cholmod_factorize(Jt, solverCtx->factorization, &solverCtx->common) );
         if(solverCtx->factorization->minor != solverCtx->factorization->n)
         {
             MSG("Got singular JtJ!");
-            return false;
+            goto done;
         }
     }
 
@@ -3185,17 +3205,297 @@ static bool computeUncertaintyMatrices(// out
     // using views into Jt. So I copy the Jt structure and use that
     const int chunk_size = 4;
 
-    cholmod_dense* Jt_slice =
+    // (Nstate, chunk_size) array
+    Jt_slice =
         cholmod_allocate_dense( Jt->nrow,
                                 chunk_size,
                                 Jt->nrow,
                                 CHOLMOD_REAL,
                                 &solverCtx->common );
 
-    // As described above, I'm looking at what input noise does, so I only look
-    // at the measurements that pertain to the input observations directly. In
-    // mrcal, this is the leading ones, before the range errors and the
-    // regularization
+
+    if( covariances_ief != NULL || covariances_ief_rotationonly != NULL)
+    {
+        for(int i=0; i<Ncameras_intrinsics;   i++) icam_map_to_extrinsics[i] = -100;
+        for(int i=0; i<Ncameras_extrinsics+1; i++) icam_map_to_intrinsics[i] = -100;
+
+        for(int i=0; i<NobservationsBoard; i++)
+        {
+            int i_cam_intrinsics = observations_board[i].i_cam_intrinsics;
+            int i_cam_extrinsics = observations_board[i].i_cam_extrinsics;
+            if(i_cam_extrinsics < 0) i_cam_extrinsics = -1;
+
+            if(icam_map_to_intrinsics[i_cam_extrinsics+1] == -100)
+                icam_map_to_intrinsics[i_cam_extrinsics+1] = i_cam_intrinsics;
+            else if(icam_map_to_intrinsics[i_cam_extrinsics+1] != i_cam_intrinsics)
+            {
+                MSG("At this time, covariances_ief can only be computed for stationary cameras. observation %d has i_cam_intrinsics,i_cam_extrinsics %d,%d while I saw %d,%d previously",
+                    i,
+                    icam_map_to_intrinsics[i_cam_extrinsics+1], i_cam_extrinsics,
+                    i_cam_intrinsics, i_cam_extrinsics);
+                goto done;
+            }
+
+            if(icam_map_to_extrinsics[i_cam_intrinsics] == -100)
+                icam_map_to_extrinsics[i_cam_intrinsics] = i_cam_extrinsics;
+            else if(icam_map_to_extrinsics[i_cam_intrinsics] != i_cam_extrinsics)
+            {
+                MSG("At this time, covariances_ief can only be computed for stationary cameras. observation %d has i_cam_intrinsics,i_cam_extrinsics %d,%d while I saw %d,%d previously",
+                    i,
+                    i_cam_intrinsics, icam_map_to_extrinsics[i_cam_intrinsics],
+                    i_cam_intrinsics, i_cam_extrinsics);
+                goto done;
+            }
+        }
+
+        if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
+              Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
+        {
+            MSG("At this time, covariances_ief can only be computed for stationary cameras. Saw inconsistent Ncameras_intrinsics,Ncameras_extrinsics");
+            goto done;
+        }
+        if(!problem_details.do_skip_regularization)
+            MSG("WARNING: computing intrinsic uncertainty with regularization enabled: this will cause a bias. Continuing anyway");
+    }
+
+    bool get_covariances_ief( double* out,
+                              int     buffer_size,
+                              const char* what,
+
+                              bool rotation_only )
+    {
+        if(out == NULL) return true;
+
+        // Computing the one-cam-intrinsics-one-cam-extrinsics-all-frames
+        // covariance for each camera. This will be used to compute the
+        // projection uncertainty. We will do that only for final solves; these
+        // should be as accurate as possible, so preferably we should have no
+        // regularization enabled: regularization causes a bias in the final
+        // solution. Without regularization all elements of the measurement
+        // vector come from observations so Var(ief) = inv(JtJ)[ief,ief]
+
+        int Nvars_pose = rotation_only ? 3 : 6;
+        int Nvars_ief = Nintrinsics_per_camera_state;
+        if(problem_details.do_optimize_extrinsics) Nvars_ief += Nvars_pose;
+        if(problem_details.do_optimize_frames)     Nvars_ief += Nvars_pose*Nframes;
+
+        if(buffer_size != Ncameras_intrinsics * Nvars_ief*Nvars_ief * (int)sizeof(double))
+        {
+            MSG("Buffer for %s has the wrong size. Expected exactly %d bytes, but the given buffer has %d bytes",
+                what,
+                Ncameras_intrinsics * Nvars_ief*Nvars_ief * (int)sizeof(double),
+                buffer_size);
+            return false;
+        }
+        memset( out, 0, Ncameras_intrinsics * Nvars_ief*Nvars_ief * (int)sizeof(double));
+
+
+
+        typedef struct
+        {
+            int istate0, N; // N vars beginning at istate0
+
+            // I have N_at_each_scale at scale0 then N_at_each_scale at scale1,
+            // then back to scale0, etc. This is meant for alternating r,t in a
+            // pose. This must be a multiple of N. If I have a single scale, set
+            // N_at_each_scale = N
+            int N_at_each_scale;
+            double scale[2];
+        } block_t;
+
+        for(int icam_intrinsics = 0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
+        {
+            // Here I want the diagonal blocks of inv(JtJ) for the intrinsics,
+            // extrinsics, frames
+            //                                [0]
+            // I get them by doing solve(JtJ, [I])
+            //                                [0]
+            //
+            // As stated before, I'm going to want to return D Var(dp*) D.
+            // Var(dp*) = inv(JtJ). So I apply D to the right-hand-side in the
+            // solve() and again to the output of the solve
+            //
+            // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends
+            // up dense. cholmod doesn't have functions for this exact case. so
+            // I use the dense-sparse-dense function, and densify the input.
+            // Instead of sparse-sparse-sparse and the densifying the output.
+            // This feels like it'd be more efficient. There's a sparse
+            // implementation in version control, that was removed in 750f1ee. I
+            // doubt it is more efficient
+
+            // The blocks describe the sets of variables that I care about
+            int istate0_intrinsics = mrcal_state_index_intrinsics(icam_intrinsics,
+                                                                  problem_details, lensmodel);
+            int istate0_extrinsics = mrcal_state_index_camera_rt(icam_map_to_extrinsics[icam_intrinsics],
+                                                                 Ncameras_intrinsics,
+                                                                 problem_details, lensmodel);
+            int istate0_frames     = mrcal_state_index_frame_rt(0,
+                                                                Ncameras_intrinsics, Ncameras_extrinsics,
+                                                                problem_details, lensmodel);
+            block_t blocks[] =
+                {
+                    // intrinsics_core
+                    { .istate0         = istate0_intrinsics,
+                      .N               = 4,
+                      .N_at_each_scale = 2,
+                      .scale           = {SCALE_INTRINSICS_FOCAL_LENGTH,
+                                          SCALE_INTRINSICS_CENTER_PIXEL} },
+                    // intrinsics_distortions
+                    { .istate0         = istate0_intrinsics +
+                      (problem_details.do_optimize_intrinsic_core ? 4 : 0),
+                      .N               = Nintrinsics_per_camera_all-4,
+                      .N_at_each_scale = Nintrinsics_per_camera_all-4,
+                      .scale           = {SCALE_DISTORTION} },
+                    // extrinsics
+                    { .istate0         = istate0_extrinsics,
+                      .N               = Nvars_pose,
+                      .N_at_each_scale = 3,
+                      .scale           = {SCALE_ROTATION_CAMERA,
+                                          SCALE_TRANSLATION_CAMERA} },
+                    // frames
+                    { .istate0         = istate0_frames,
+                      .N               = 6*Nframes,
+                      .N_at_each_scale = 3,
+                      .scale           = {SCALE_ROTATION_FRAME,
+                                          rotation_only ? 0 : SCALE_TRANSLATION_FRAME} }
+                };
+
+            // mask out any variable blocks that I'm not actually optimizing
+            if(!problem_details.do_optimize_intrinsic_core)        blocks[0].istate0 = -1;
+            if(!problem_details.do_optimize_intrinsic_distortions) blocks[1].istate0 = -1;
+            if(!problem_details.do_optimize_extrinsics)            blocks[2].istate0 = -1;
+            if(!problem_details.do_optimize_frames)                blocks[3].istate0 = -1;
+
+            int Nblocks = (int)(sizeof(blocks)/sizeof(blocks[0]));
+
+            // I'm computing a subset of inv(JtJ). I select my subset with a
+            // matrix S = [0 I 0], so I compute S*invJtJ*St. I loop through cols
+            // of St (chunk_size at a time). For each col-subset of St s I solve
+            // for x: JtJ*x = s. Then I pick the row-subset of x (to implement)
+            // the left multiplication S*...
+            void compute_invJtJ_chunk_constant_scale_right(double* invJtJ, int istate0, int Nvars, double scale_right, int ifinal)
+            {
+                while(Nvars)
+                {
+                    int Nvars_here = Nvars <= chunk_size ? Nvars : chunk_size;
+
+                    Jt_slice->ncol = Nvars_here;
+                    memset( Jt_slice->x, 0, Jt_slice->nrow*Nvars_here*sizeof(double) );
+                    for(int icol=0; icol<Nvars_here; icol++)
+                    {
+                        // cholmod stores its matrices col-first so I index by [irow + icol*nrow]
+                        ((double*)Jt_slice->x)[istate0+icol + icol*Jt_slice->nrow] =
+                            scale_right;
+                    }
+
+                    cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+                                                      Jt_slice,
+                                                      &solverCtx->common);
+
+                    // I applied the scaling to the right-hand-side. Now I apply
+                    // it to the left-hand side
+                    int jfinal = 0;
+                    for(int jblock=0; jblock<Nblocks; jblock++)
+                    {
+                        const block_t* b = &blocks[jblock];
+                        if(b->istate0 < 0) continue;
+
+                        if(jblock == 2 &&
+                           icam_map_to_extrinsics[icam_intrinsics] < 0)
+                        {
+                            // THIS camera has no extrinsics. I store 0. The buffer has
+                            // already been zeroed-out, so I don't need to do anything
+                            jfinal += Nvars_pose;
+                            continue;
+                        }
+
+
+                        int j_start_this_scale = 0;
+                        int jscale             = 0;
+                        while(j_start_this_scale<b->N)
+                        {
+                            double scale_left = b->scale[jscale];
+                            if(scale_left > 0) // will have scale <= 0 only if
+                                               // rotation_only and looking at
+                                               // frames
+                            {
+                                for(int j=0; j<b->N_at_each_scale; j++ )
+                                {
+                                    for(int icol=0; icol<Nvars_here; icol++)
+                                        invJtJ[(ifinal+icol)*Nvars_ief + jfinal] =
+                                            ((double*)(M->x))[icol*M->nrow + b->istate0+j_start_this_scale + j] *
+                                            scale_left *
+                                            observed_pixel_uncertainty*observed_pixel_uncertainty;
+                                    jfinal++;
+                                }
+                            }
+                            j_start_this_scale += b->N_at_each_scale;
+                            jscale ^= 1;
+                        }
+                    }
+
+                    cholmod_free_dense (&M, &solverCtx->common);
+
+                    istate0 += Nvars_here;
+                    Nvars   -= Nvars_here;
+                }
+            }
+
+            void compute_invJtJ_block(double* invJtJ, const int iblock, int* ifinal)
+            {
+                const block_t* b      = &blocks[iblock];
+                int            i      = 0;
+                int            iscale = 0;
+                while(i<b->N)
+                {
+                    double scale_right = b->scale[iscale];
+                    if(scale_right > 0) // will have scale <= 0 only if
+                                        // rotation_only and looking at frames
+                    {
+                        compute_invJtJ_chunk_constant_scale_right(invJtJ, b->istate0+i,
+                                                                  b->N_at_each_scale,
+                                                                  scale_right,
+                                                                  *ifinal);
+                        *ifinal += b->N_at_each_scale;
+                    }
+                    iscale ^= 1;
+                    i      += b->N_at_each_scale;
+                }
+            }
+
+            // process each of the blocks on the right
+            int ifinal = 0;
+            for(int iblock=0; iblock<Nblocks; iblock++)
+            {
+                if(blocks[iblock].istate0 < 0) continue;
+
+                if(iblock == 2 &&
+                   icam_map_to_extrinsics[icam_intrinsics] < 0)
+                {
+                    // THIS camera has no extrinsics. I store 0. The buffer has
+                    // already been zeroed-out, so I don't need to do anything
+                    ifinal += Nvars_pose;
+                    continue;
+                }
+
+                compute_invJtJ_block(&out[icam_intrinsics*Nvars_ief*Nvars_ief], iblock, &ifinal);
+            }
+        }
+        Jt_slice->ncol = chunk_size;
+        return true;
+    }
+
+    if(! get_covariances_ief(covariances_ief,
+                            buffer_size_covariances_ief,
+                            "covariances_ief",
+                            false) )
+        goto done;
+    if(! get_covariances_ief(covariances_ief_rotationonly,
+                            buffer_size_covariances_ief_rotationonly,
+                            "covariances_ief_rotationonly",
+                            true) )
+        goto done;
+
 
     // Compute covariance_intrinsics. This is the
     // intrinsics-per-camera diagonal block
@@ -3317,10 +3617,6 @@ static bool computeUncertaintyMatrices(// out
         }
     }
 
-    Jt_slice->ncol = chunk_size; // I manually reset this earlier; put it back
-    cholmod_free_dense(&Jt_slice, &solverCtx->common);
-
-
     // I computed inv(JtJ). I now scale it to form a covariance
     double s = observed_pixel_uncertainty*observed_pixel_uncertainty;
     if(covariance_intrinsics)
@@ -3334,7 +3630,17 @@ static bool computeUncertaintyMatrices(// out
             i++)
             covariance_extrinsics[i] *= s;
 
-    return true;
+    result = true;
+ done:
+
+    if(Jt_slice != NULL)
+    {
+        // I manually reset this earlier; put it back, in case cholmod_free_dense()
+        // uses it
+        Jt_slice->ncol = chunk_size;
+        cholmod_free_dense(&Jt_slice, &solverCtx->common);
+    }
+    return result;
 
 #undef P
 #undef I
@@ -4654,13 +4960,44 @@ void mrcal_optimizerCallback(// output measurements
 
 mrcal_stats_t
 mrcal_optimize( // out
-                // These may be NULL. They're for diagnostic reporting to the
-                // caller
+                // Each one of these output pointers may be NULL
+                // Shape (Nmeasurements,)
                 double* x_final,
-                double* covariance_intrinsics,
-                double* covariance_extrinsics,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_x_final,
 
-                // Buffer should be at least Npoints long. stats->Noutliers
+                // Shape (Ncameras_intrinsics * Nintrinsics_state*Nintrinsics_state)
+                double* covariance_intrinsics,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariance_intrinsics,
+
+                // Shape (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
+                double* covariance_extrinsics,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariance_extrinsics,
+
+                // Shape (Ncameras_intrinsics * (Nintrinsics_state+6+6*Nframes)^2)
+                //   Any variable we're not optimizing is omitted. If some
+                //   camera sits at the reference coordinate system, it doesn't
+                //   have extrinsics, and we write 0 in those entries of the
+                //   covariance
+                double* covariances_ief,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariances_ief,
+
+                // Shape (Ncameras_intrinsics * (Nintrinsics_state+3+3*Nframes)^2)
+                //   Just like covariances_ief, but look only at the rotations
+                //   when evaluating the frames, extrinsics
+                double* covariances_ief_rotationonly,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_covariances_ief_rotationonly,
+
+                // Buffer should be at least Nfeatures long. stats->Noutliers
                 // elements will be filled in
                 int*    outlier_indices_final,
 
@@ -4808,6 +5145,14 @@ mrcal_optimize( // out
 
         .markedOutliers = markedOutliers};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
+
+    if( x_final != NULL &&
+        buffer_size_x_final != ctx.Nmeasurements*(int)sizeof(double) )
+    {
+        MSG("The buffer passed to fill-in x_final has the wrong size. Needed exactly %d bytes, but got %d bytes",
+            ctx.Nmeasurements*(int)sizeof(double),buffer_size_x_final);
+        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
 
 
     dogleg_solverContext_t*  solver_context = NULL;
@@ -4972,28 +5317,35 @@ mrcal_optimize( // out
         memcpy(x_final, solver_context->beforeStep->x, ctx.Nmeasurements*sizeof(double));
 
     if( covariance_intrinsics ||
-        covariance_extrinsics )
+        covariance_extrinsics ||
+        covariances_ief       ||
+        covariances_ief_rotationonly)
     {
         int Nintrinsics_per_camera = mrcal_getNlensParams(lensmodel);
         bool result =
-            computeUncertaintyMatrices(// out
-                                       // dimensions (Ncameras_intrinsics,Nintrinsics_per_camera,Nintrinsics_per_camera)
-                                       covariance_intrinsics,
-                                       // dimensions (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
-                                       covariance_extrinsics,
-                                       observed_pixel_uncertainty,
+            compute_uncertainty_matrices(// out
+                                         covariance_intrinsics,
+                                         buffer_size_covariance_intrinsics,
+                                         covariance_extrinsics,
+                                         buffer_size_covariance_extrinsics,
+                                         covariances_ief,
+                                         buffer_size_covariances_ief,
+                                         covariances_ief_rotationonly,
+                                         buffer_size_covariances_ief_rotationonly,
 
-                                       // in
-                                       lensmodel,
-                                       problem_details,
-                                       Ncameras_intrinsics, Ncameras_extrinsics,
-                                       NobservationsBoard,
-                                       NobservationsPoint,
-                                       Nframes, Npoints-Npoints_fixed,
-                                       calibration_object_width_n,
-                                       calibration_object_height_n,
+                                         // in
+                                         observed_pixel_uncertainty,
+                                         observations_board,
+                                         lensmodel,
+                                         problem_details,
+                                         Ncameras_intrinsics, Ncameras_extrinsics,
+                                         NobservationsBoard,
+                                         NobservationsPoint,
+                                         Nframes, Npoints-Npoints_fixed,
+                                         calibration_object_width_n,
+                                         calibration_object_height_n,
 
-                                       solver_context);
+                                         solver_context);
         if(!result)
         {
             MSG("Failed to compute covariance_...");

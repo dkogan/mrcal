@@ -212,16 +212,110 @@ def optimize( intrinsics,
                             get_covariances                   = get_covariances,
                             solver_context                    = solver_context)
 
-    covariance_intrinsics = stats.get('covariance_intrinsics')
-    covariance_extrinsics = stats.get('covariance_extrinsics')
+    covariance_intrinsics        = stats.get('covariance_intrinsics')
+    covariance_extrinsics        = stats.get('covariance_extrinsics')
+    covariances_ief              = stats.get('covariances_ief')
+    covariances_ief_rotationonly = stats.get('covariances_ief_rotationonly')
+
     p_packed = solver_context.p().copy()
 
     return \
         intrinsics, extrinsics, frames, calobject_warp,   \
         p_packed, stats['x'], stats['rms_reproj_error__pixels'], \
-        covariance_intrinsics, covariance_extrinsics,     \
+        covariance_intrinsics, covariance_extrinsics, covariances_ief, covariances_ief_rotationonly, \
         solver_context
 
+
+def get_var_ief(icam_intrinsics, icam_extrinsics,
+                did_optimize_extrinsics, did_optimize_frames,
+                Nstate_intrinsics_onecam, Nframes,
+                pixel_uncertainty_stdev,
+                rotation_only, solver_context,
+                cache_invJtJ):
+    r'''Computes Var(intrinsics,extrinsics,frames)
+
+    This is returned by the C code, but I reimplement it here in Python to
+    compare. This returns the same kind of arrays that the C code returns. I
+    particular, if we're optimizing extrinsics, BUT some camera is sitting at
+    the reference, I include the rows, columns for the extrinsics arrays, but I
+    set them to 0
+
+    '''
+
+    def apply_slice(arr, i):
+        if isinstance(i, int):
+            return np.zeros( (i,arr.shape[-1]), dtype=arr.dtype)
+        return arr[i]
+
+    def apply_slices(invJtJ, slices):
+        r'''Use the slices[] to cut along both dimensions'''
+
+        cut_vert  = nps.glue( *[apply_slice(invJtJ,                  s) \
+                                for s in slices], axis=-2 )
+        cut_horiz = nps.glue( *[apply_slice(nps.transpose(cut_vert), s) \
+                                for s in slices], axis=-2 )
+        return cut_horiz
+
+
+
+    if cache_invJtJ is not None and cache_invJtJ[0] is not None:
+        invJtJ = cache_invJtJ[0]
+    else:
+        J = solver_context.J().toarray()
+        solver_context.pack(J)
+        invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J), J))
+
+        if cache_invJtJ is not None:
+            cache_invJtJ[0] = invJtJ
+
+    if not did_optimize_extrinsics:
+
+        slices = [ slice(solver_context.state_index_intrinsics(icam_intrinsics ),
+                         solver_context.state_index_intrinsics(icam_intrinsics) + Nstate_intrinsics_onecam) ]
+
+        if did_optimize_frames:
+            if not rotation_only:
+                slices.append( slice(solver_context.state_index_frame_rt(0),
+                                     solver_context.state_index_frame_rt(0) + 6*Nframes) )
+            else:
+                # just the rotation
+                for i in range(Nframes):
+                    slices.append( slice(solver_context.state_index_frame_rt(i),
+                                         solver_context.state_index_frame_rt(i)+3) )
+
+    else:
+        slices = [ slice(solver_context.state_index_intrinsics(icam_intrinsics ),
+                         solver_context.state_index_intrinsics(icam_intrinsics) + Nstate_intrinsics_onecam) ]
+        if not rotation_only:
+            if icam_extrinsics >= 0:
+                slices.append( slice(solver_context.state_index_camera_rt (icam_extrinsics),
+                                     solver_context.state_index_camera_rt (icam_extrinsics) + 6) )
+            else:
+                # this camera is at the reference. A slice of int(x) means "fill
+                # in with x 0s"
+                slices.append(6)
+        else:
+            # just the rotation
+            if icam_extrinsics >= 0:
+                slices.append( slice(solver_context.state_index_camera_rt (icam_extrinsics),
+                                     solver_context.state_index_camera_rt (icam_extrinsics) + 3) )
+            else:
+                # this camera is at the reference. A slice of int(x) means "fill
+                # in with x 0s"
+                slices.append(3)
+
+        if did_optimize_frames:
+            if not rotation_only:
+                slices.append( slice(solver_context.state_index_frame_rt(0),
+                                     solver_context.state_index_frame_rt(0) + 6*Nframes) )
+            else:
+                # just the rotation
+                for i in range(Nframes):
+                    slices.append( slice(solver_context.state_index_frame_rt(i),
+                                         solver_context.state_index_frame_rt(i)+3) )
+    return \
+        pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
+        apply_slices(invJtJ, slices)
 
 
 ###########################################################################
@@ -245,7 +339,7 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
         observations_perturbed = observations_ref
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
     _,  _, _,                  \
-    covariance_intrinsics,_,   \
+    covariance_intrinsics,_,covariances_ief, covariances_ief_rotationonly, \
     solver_context =           \
         optimize(intrinsics_ref, extrinsics_ref, frames_ref, observations_perturbed,
                  indices_frame_camintrinsics_camextrinsics,
@@ -257,7 +351,8 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
                  do_optimize_calobject_warp        = True,
                  **kwargs)
 
-    return intrinsics_solved,extrinsics_solved,frames_solved,covariance_intrinsics
+    return intrinsics_solved,extrinsics_solved,frames_solved, \
+        covariance_intrinsics, covariances_ief, covariances_ief_rotationonly
 
 
 
@@ -267,6 +362,50 @@ intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
 extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
 frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
 
+covariances_ief,covariances_ief_rotationonly = \
+    sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
+                                  apply_noise        = False,
+                                  get_covariances    = True)[-2:]
+
+cache_invJtJ = [None]
+
+covariances_ief_ref_rt = \
+    [ get_var_ief(icam_intrinsics          = icam_intrinsics,
+                  icam_extrinsics          = icam_intrinsics - (0 if fixedframes else 1),
+                  did_optimize_extrinsics  = True,
+                  did_optimize_frames      = not fixedframes,
+                  Nstate_intrinsics_onecam = Nintrinsics,
+                  Nframes                  = Nframes,
+                  pixel_uncertainty_stdev  = pixel_uncertainty_stdev,
+                  rotation_only            = False,
+                  solver_context           = solver_context,
+                  cache_invJtJ             = cache_invJtJ) for icam_intrinsics in range(Ncameras) ]
+
+covariances_ief_ref_r = \
+    [ get_var_ief(icam_intrinsics          = icam_intrinsics,
+                  icam_extrinsics          = icam_intrinsics - (0 if fixedframes else 1),
+                  did_optimize_extrinsics  = True,
+                  did_optimize_frames      = not fixedframes,
+                  Nstate_intrinsics_onecam = Nintrinsics,
+                  Nframes                  = Nframes,
+                  pixel_uncertainty_stdev  = pixel_uncertainty_stdev,
+                  rotation_only            = True,
+                  solver_context           = solver_context,
+                  cache_invJtJ             = cache_invJtJ) for icam_intrinsics in range(Ncameras) ]
+
+for i in range(Ncameras):
+    testutils.confirm_equal(covariances_ief[i], covariances_ief_ref_rt[i],
+                            eps = 0.001,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"covariances_ief with full rt matches for camera {i}")
+
+for i in range(Ncameras):
+    testutils.confirm_equal(covariances_ief_rotationonly[i], covariances_ief_ref_r[i],
+                            eps = 0.001,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"covariances_ief with rotation-only matches for camera {i}")
 
 # I want to treat the extrinsics arrays as if all the camera transformations are
 # stored there
@@ -550,9 +689,10 @@ if 'show-distribution' in args:
     for icam in range(Ncameras):
         plot_distribution[icam] = make_plot(icam)
 
-covariance_intrinsics = sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
-                                                      apply_noise        = False,
-                                                      get_covariances    = True)[-1]
+covariance_intrinsics = \
+    sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
+                                  apply_noise        = False,
+                                  get_covariances    = True)[-3]
 
 models = [ mrcal.cameramodel( imagersize            = imagersizes[i],
                               intrinsics            = (lensmodel, intrinsics_ref[i,:]),
