@@ -2744,6 +2744,12 @@ domain, so in the imager domain the knot grid and the domain boundary become
 skewed. At this time the spline representation can cross itself, which is
 visible as a kink in the domain boundary.
 
+One use for this function is to check that the field-of-view we're using for
+this model is reasonable. We'd like the field of view to be wide-enough to cover
+the whole imager, but not much wider, since representing invisible areas isn't
+useful. Ideally the surface domain boundary (that this tool displays) is just
+wider than the imager edges (which this tool also displays).
+
 ARGUMENTS
 
 - model: the mrcal.cameramodel object being evaluated

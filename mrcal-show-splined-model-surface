@@ -14,6 +14,13 @@ surface varies by model, but in all cases, visualizing the surface is useful.
 This tool can produce a plot in the imager domain (the default) or in the spline
 index domain (normalized stereographic coordinates, usually). Both are useful.
 Pass --spline-index-domain to choose that domain
+
+One use for this tool is to check that the field-of-view we're using for this
+model is reasonable. We'd like the field of view to be wide-enough to cover the
+whole imager, but not much wider, since representing invisible areas isn't
+useful. Ideally the surface domain boundary (that this tool displays) is just
+wider than the imager edges (which this tool also displays).
+
 '''
 
 from __future__ import print_function
