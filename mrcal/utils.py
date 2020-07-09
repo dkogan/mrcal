@@ -1681,13 +1681,10 @@ broadcasting
 
 
 def compute_projection_covariance_from_solve( q, distance,
-                                              icam_intrinsics, icam_extrinsics,
                                               lensmodel, intrinsics_data, extrinsics, frames,
-                                              solver_context,
-                                              pixel_uncertainty_stdev,
+                                              Var_ief,
 
-                                              what                       = 'variance',
-                                              cachelist_invJtJ_JobstJobs = None):
+                                              what = 'variance'):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Unlike compute_projection_stdev(), does take into account the variances of
@@ -1707,8 +1704,6 @@ def compute_projection_covariance_from_solve( q, distance,
 
     everything we care about broadcasts: q, intrinsics_data, extrinsics, distance
     except you have to pass in nonstandard broadcasting dimensions
-
-    document cachelist_invJtJ_JobstJobs
 
     todo:
 
@@ -1773,78 +1768,6 @@ def compute_projection_covariance_from_solve( q, distance,
     Nintrinsics = intrinsics_data.shape[-1]
     if frames is not None: Nframes = len(frames)
 
-    def get_var_ief(rotation_only):
-        if cachelist_invJtJ_JobstJobs is not None and cachelist_invJtJ_JobstJobs[0] is not None:
-            invJtJ,JobstJobs = cachelist_invJtJ_JobstJobs
-        else:
-            J      = solver_context.J().toarray()
-            solver_context.pack(J)
-            invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J), J))
-
-            if solver_context.num_measurements_dict()['points'] > 0:
-                raise Exception("This has been thought about with board observations only. I use the board frames to define the global coord system. Think about what points mean here")
-            Nboard_measurements = solver_context.num_measurements_dict()['boards']
-
-            imeas0 = 0
-            imeas1 = Nboard_measurements
-            Jobservations = J[imeas0:imeas1, :]
-            JobstJobs = nps.matmult(nps.transpose(Jobservations),Jobservations)
-
-            if cachelist_invJtJ_JobstJobs is not None:
-                cachelist_invJtJ_JobstJobs[0] = invJtJ
-                cachelist_invJtJ_JobstJobs[1] = JobstJobs
-
-        if extrinsics is None:
-
-            invJtJ_i  = invJtJ[solver_context.state_index_intrinsics(icam_intrinsics ):
-                               solver_context.state_index_intrinsics(icam_intrinsics) + Nintrinsics,
-                               :]
-
-            if frames is not None:
-                invJtJ_f  = invJtJ[solver_context.state_index_frame_rt(0):
-                                   solver_context.state_index_frame_rt(0) + 6*Nframes,
-                                   :]
-                if rotation_only:
-                    # pull out just the rotation terms
-                    invJtJ_f = invJtJ_f.reshape(Nframes,2,3,len(invJtJ))[:,0,:,:].reshape(Nframes*3,len(invJtJ))
-
-                invJtJ_if = nps.glue(invJtJ_i, invJtJ_f, axis=-2)
-            else:
-                invJtJ_if = invJtJ_i
-            Var_ief = \
-                pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
-                nps.matmult( invJtJ_if,
-                             JobstJobs,
-                             nps.transpose(invJtJ_if))
-
-        else:
-            invJtJ_i  = invJtJ[solver_context.state_index_intrinsics(icam_intrinsics ):
-                               solver_context.state_index_intrinsics(icam_intrinsics) + Nintrinsics,
-                               :]
-            invJtJ_e  = invJtJ[solver_context.state_index_camera_rt (icam_extrinsics):
-                               solver_context.state_index_camera_rt (icam_extrinsics) + 6,
-                               :]
-            if rotation_only:
-                # pull out just the rotation terms
-                invJtJ_e = invJtJ_e[:3,:]
-            if frames is not None:
-                invJtJ_f  = invJtJ[solver_context.state_index_frame_rt(0):
-                                   solver_context.state_index_frame_rt(0) + 6*Nframes,
-                                   :]
-                if rotation_only:
-                    # pull out just the rotation terms
-                    invJtJ_f = invJtJ_f.reshape(Nframes,2,3,len(invJtJ))[:,0,:,:].reshape(Nframes*3,len(invJtJ))
-                invJtJ_ief = nps.glue(invJtJ_i, invJtJ_e, invJtJ_f, axis=-2)
-            else:
-                invJtJ_ief = nps.glue(invJtJ_i, invJtJ_e,           axis=-2)
-            Var_ief = \
-                pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
-                nps.matmult( invJtJ_ief,
-                             JobstJobs,
-                             nps.transpose(invJtJ_ief))
-        return Var_ief
-
-
     # I have pixel coordinates q. I unproject and transform to the frames'
     # coordinate system. Then I transform and project back to the same q, but
     # keeping track of the gradients. Which I then use to compute the
@@ -1901,8 +1824,6 @@ def compute_projection_covariance_from_solve( q, distance,
             mrcal.project( p_cam, lensmodel, intrinsics_data,
                            get_gradients = True)
 
-        Var_ief = get_var_ief(rotation_only = False)
-
         if extrinsics is not None:
             _, dpcam_dr, dpcam_dt, dpcam_dpref = \
                 mrcal.transform_point_rt(extrinsics, p_ref,
@@ -1928,19 +1849,28 @@ def compute_projection_covariance_from_solve( q, distance,
                                          nps.transpose(dq_dief)),
                              what )
         else:
+
+            # I cut out the empty "extrinsics" rows, cols from the variance, so
+            # I just compute the chunks of nps.matmult(dq_dif, Var_ief,
+            # nps.transpose(dq_dif)) manually
             if frames is not None:
                 dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
-                dq_dif = nps.glue(dq_dintrinsics,
-                                  dq_dframes,
-                                  axis=-1)
-            else:
-                dq_dif = dq_dintrinsics
-            return \
-                make_output( nps.matmult(dq_dif,
-                                         Var_ief,
-                                         nps.transpose(dq_dif)),
-                             what )
 
+                return make_output( nps.matmult(dq_dintrinsics,
+                                                Var_ief[:Nintrinsics,:Nintrinsics],
+                                                nps.transpose(dq_dintrinsics)) + \
+                                    nps.matmult(dq_dintrinsics,
+                                                Var_ief[:Nintrinsics,Nintrinsics+6:],
+                                                nps.transpose(dq_dframes)) * 2. + \
+                                    nps.matmult(dq_dframes,
+                                                Var_ief[Nintrinsics+6:,Nintrinsics+6:],
+                                                nps.transpose(dq_dframes)),
+                                    what )
+            else:
+                return make_output( nps.matmult(dq_dintrinsics,
+                                                Var_ief[:Nintrinsics,:Nintrinsics],
+                                                nps.transpose(dq_dintrinsics)),
+                                    what )
     else:
 
         # distance is None. I'm looking at infinity. Ignore all translations
@@ -1982,8 +1912,6 @@ def compute_projection_covariance_from_solve( q, distance,
             mrcal.project( p_cam, lensmodel, intrinsics_data,
                            get_gradients = True)
 
-        Var_ief = get_var_ief(rotation_only = True)
-
         if extrinsics is not None:
             _, dpcam_dr, dpcam_dpref = \
                 mrcal.rotate_point_r(extrinsics[...,:3], p_ref,
@@ -2007,18 +1935,27 @@ def compute_projection_covariance_from_solve( q, distance,
                                          nps.transpose(dq_dief)),
                              what )
         else:
+            # I cut out the empty "extrinsics" rows, cols from the variance, so
+            # I just compute the chunks of nps.matmult(dq_dif, Var_ief,
+            # nps.transpose(dq_dif)) manually
             if frames is not None:
                 dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
-                dq_dif = nps.glue(dq_dintrinsics,
-                                  dq_dframes,
-                                  axis=-1)
+
+                return make_output( nps.matmult(dq_dintrinsics,
+                                                Var_ief[:Nintrinsics,:Nintrinsics],
+                                                nps.transpose(dq_dintrinsics)) + \
+                                    nps.matmult(dq_dintrinsics,
+                                                Var_ief[:Nintrinsics,Nintrinsics+3:],
+                                                nps.transpose(dq_dframes)) * 2. + \
+                                    nps.matmult(dq_dframes,
+                                                Var_ief[Nintrinsics+3:,Nintrinsics+3:],
+                                                nps.transpose(dq_dframes)),
+                                    what )
             else:
-                dq_dif = dq_dintrinsics
-            return \
-                make_output( nps.matmult(dq_dif,
-                                         Var_ief,
-                                         nps.transpose(dq_dif)),
-                             what )
+                return make_output( nps.matmult(dq_dintrinsics,
+                                                Var_ief[:Nintrinsics,:Nintrinsics],
+                                                nps.transpose(dq_dintrinsics)),
+                                    what )
 
 
 def show_intrinsics_uncertainty(model,

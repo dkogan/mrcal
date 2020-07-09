@@ -426,7 +426,6 @@ else:
 q0 = imagersizes[0]/3.
 
 
-cachelist_invJtJ_JobstJobs = [None,None]
 def check_uncertainties_at(q0, distance):
 
     # distance of "None" means I'll simulate a large distance, but compare
@@ -500,26 +499,20 @@ def check_uncertainties_at(q0, distance):
             nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
                 q0,
                 distance if not atinfinity else None,
-                icam, icam,
                 lensmodel, intrinsics_ref[icam],
                 extrinsics_ref[icam],
                 None,
-                solver_context,
-                pixel_uncertainty_stdev,
-                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                covariances_ief_rotationonly[icam] if atinfinity else covariances_ief[icam]) \
                        for icam in range(Ncameras) ])
     else:
         Var_dq = \
             nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
                 q0,
                 distance if not atinfinity else None,
-                icam, icam-1,
                 lensmodel, intrinsics_ref[icam],
                 extrinsics_ref[icam-1] if icam>0 else None,
                 frames_ref,
-                solver_context,
-                pixel_uncertainty_stdev,
-                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                covariances_ief_rotationonly[icam] if atinfinity else covariances_ief[icam]) \
                        for icam in range(Ncameras) ])
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
@@ -589,26 +582,20 @@ if 'study' in args:
             nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
                 nps.dummy(qxy,-2),
                 nps.dummy(ranges,-1),
-                icam, icam,
                 lensmodel, intrinsics_ref[icam],
                 extrinsics_ref[icam],
                 None,
-                solver_context,
-                pixel_uncertainty_stdev,
-                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                covariances_ief[icam]) \
                        for icam in range(Ncameras) ])
     else:
         Var_dq_grid = \
             nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
                 nps.dummy(qxy,-2),
                 nps.dummy(ranges,-1),
-                icam, icam-1,
                 lensmodel, intrinsics_ref[icam],
                 extrinsics_ref[icam-1] if icam>0 else None,
                 frames_ref,
-                solver_context,
-                pixel_uncertainty_stdev,
-                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                covariances_ief[icam]) \
                        for icam in range(Ncameras) ])
     # shape (Ncameras, gridn_height, gridn_width, Nranges)
     worst_direction_stdev_grid = mrcal.worst_direction_stdev(Var_dq_grid)
@@ -619,26 +606,20 @@ if 'study' in args:
             nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
                 nps.dummy(qxy,-2),
                 None,
-                icam, icam,
                 lensmodel, intrinsics_ref[icam],
                 extrinsics_ref[icam],
                 None,
-                solver_context,
-                pixel_uncertainty_stdev,
-                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                covariances_ief_rotationonly[icam]) \
                        for icam in range(Ncameras) ])
     else:
         Var_dq_infinity = \
             nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
                 nps.dummy(qxy,-2),
                 None,
-                icam, icam-1,
                 lensmodel, intrinsics_ref[icam],
                 extrinsics_ref[icam-1] if icam>0 else None,
                 frames_ref,
-                solver_context,
-                pixel_uncertainty_stdev,
-                cachelist_invJtJ_JobstJobs = cachelist_invJtJ_JobstJobs) \
+                covariances_ief_rotationonly[icam]) \
                        for icam in range(Ncameras) ])
 
     # shape (Ncameras, gridn_height, gridn_width)
