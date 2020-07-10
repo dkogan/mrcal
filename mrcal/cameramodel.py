@@ -104,7 +104,7 @@ def _validateIntrinsics(imagersize,
             raise BadCovariance_Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix")
 
         if not np.allclose(covariance, covariance.transpose()):
-            raise BadCovariance_Exception("A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't even symmetric")
+            raise BadCovariance_Exception(f"A valid covariance is an (Nintrinsics,Nintrinsics) positive-semi-definite matrix; this one isn't even symmetric. Shape: {covariance.shape}")
 
         # surely computing ALL the eigenvalues is overkill for just figuring out if
         # this thing is positive-semi-definite or not?
