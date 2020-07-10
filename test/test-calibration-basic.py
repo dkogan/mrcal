@@ -110,8 +110,8 @@ indices_frame_camintrinsics_camextrinsics = \
              axis=-1)
 
 def optimize( intrinsics,
-              extrinsics,
-              frames,
+              extrinsics_rt_fromref,
+              frames_rt_toref,
               observations,
               indices_frame_camintrinsics_camextrinsics,
 
@@ -137,13 +137,13 @@ def optimize( intrinsics,
 
     '''
 
-    intrinsics     = copy.deepcopy(intrinsics)
-    extrinsics     = copy.deepcopy(extrinsics)
-    frames         = copy.deepcopy(frames)
-    calobject_warp = copy.deepcopy(calobject_warp)
+    intrinsics            = copy.deepcopy(intrinsics)
+    extrinsics_rt_fromref = copy.deepcopy(extrinsics_rt_fromref)
+    frames_rt_toref       = copy.deepcopy(frames_rt_toref)
+    calobject_warp        = copy.deepcopy(calobject_warp)
 
     solver_context = mrcal.SolverContext()
-    stats = mrcal.optimize( intrinsics, extrinsics, frames, None,
+    stats = mrcal.optimize( intrinsics, extrinsics_rt_fromref, frames_rt_toref, None,
                             observations, indices_frame_camintrinsics_camextrinsics,
                             None, None, lensmodel,
                             calobject_warp              = calobject_warp,
@@ -170,7 +170,7 @@ def optimize( intrinsics,
     p_packed = solver_context.p().copy()
 
     return \
-        intrinsics, extrinsics, frames, calobject_warp,   \
+        intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp,   \
         p_packed, stats['x'], stats['rms_reproj_error__pixels'], \
         covariance_intrinsics, covariance_extrinsics,     \
         solver_context
@@ -179,7 +179,7 @@ def optimize( intrinsics,
 
 
 
-intrinsics_data,extrinsics,frames = \
+intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
     mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
                                   focal_estimate       = 1500,
                                   Ncameras             = Ncameras,
@@ -196,19 +196,19 @@ intrinsics[:,:4] = intrinsics_data
 intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 
 # Simpler pre-solves
-intrinsics, extrinsics, frames, calobject_warp, \
+intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
-    optimize(intrinsics, extrinsics, frames, observations,
+    optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              do_optimize_extrinsics            = True,
              do_optimize_frames                = True)
-intrinsics, extrinsics, frames, calobject_warp, \
+intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
-    optimize(intrinsics, extrinsics, frames, observations,
+    optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              do_optimize_intrinsic_core        = True,
              do_optimize_extrinsics            = True,
@@ -216,11 +216,11 @@ solver_context =                                \
 
 # Complete final solve
 calobject_warp = np.array((0.001, 0.001))
-intrinsics, extrinsics, frames, calobject_warp, \
+intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
-    optimize(intrinsics, extrinsics, frames, observations,
+    optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              calobject_warp                    = calobject_warp,
              do_optimize_intrinsic_core        = True,
@@ -238,7 +238,7 @@ models_solved = \
                          intrinsics            = (lensmodel, intrinsics[i,:])) \
       for i in range(Ncameras)]
 for i in range(1,Ncameras):
-    models_solved[i].extrinsics_rt_fromref( extrinsics[i-1,:] )
+    models_solved[i].extrinsics_rt_fromref( extrinsics_rt_fromref[i-1,:] )
 
 testutils.confirm_equal(rmserr, 0,
                         eps = 2.5,
@@ -277,7 +277,7 @@ for icam in range(1,len(models_ref)):
                              msg = f"Recovered extrinsic rotation for camera {icam}")
 
 Rt_frame_err = \
-    mrcal.compose_Rt( mrcal.Rt_from_rt(frames),
+    mrcal.compose_Rt( mrcal.Rt_from_rt(frames_rt_toref),
                       mrcal.invert_Rt(Rt_cam0_board_ref) )
 
 testutils.confirm_equal( np.max(nps.mag(Rt_frame_err[..., 3,:])),
@@ -346,7 +346,7 @@ for icam in range(len(models_ref)):
 # sparse implementations of the main library
 def callback_tweaked_intrinsics(intrinsics_data):
     x,Joptimizer = \
-        mrcal.optimizerCallback(intrinsics_data,extrinsics,frames, None,
+        mrcal.optimizerCallback(intrinsics_data,extrinsics_rt_fromref,frames_rt_toref, None,
                                 observations, indices_frame_camintrinsics_camextrinsics,
                                 None, None,
                                 lensmodel,
@@ -464,7 +464,7 @@ _,_,_,_,         \
 p_packed1, _, _, \
 _,_,             \
 solver_context = \
-    optimize(intrinsics, extrinsics, frames, observations_perturbed,
+    optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations_perturbed,
              indices_frame_camintrinsics_camextrinsics,
              calobject_warp                    = calobject_warp,
              do_optimize_intrinsic_core        = True,
@@ -534,7 +534,7 @@ for isample in range(Nsamples):
     parameters_sampled[isample],  _, _, \
     _,_,                                \
     solver_context =                    \
-        optimize(intrinsics, extrinsics, frames, observations_perturbed,
+        optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations_perturbed,
                  indices_frame_camintrinsics_camextrinsics,
                  calobject_warp                    = calobject_warp,
                  do_optimize_intrinsic_core        = True,

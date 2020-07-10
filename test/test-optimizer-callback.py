@@ -55,8 +55,8 @@ imagersizes = nps.cat(models[0].imagersize(),
                       models[1].imagersize())
 # I now have the "right" camera parameters. I don't have the frames or points,
 # but it's fine to just make them up. This is a regression test.
-frames = linspace_shaped(3,6)
-frames[:,5] += 5 # push them back
+frames_rt_toref = linspace_shaped(3,6)
+frames_rt_toref[:,5] += 5 # push them back
 
 indices_point_camintrinsics_camextrinsics = \
     np.array(((0,1,-1),
@@ -122,7 +122,7 @@ itest = 0
 for kwargs in all_test_kwargs:
     x,Jt = mrcal.optimizerCallback( intrinsics_data,
                                     nps.atleast_dims(extrinsics_rt_fromref, -2),
-                                    frames, points,
+                                    frames_rt_toref, points,
                                     observations,       indices_frame_camintrinsics_camextrinsics,
                                     observations_point,
                                     indices_point_camintrinsics_camextrinsics,

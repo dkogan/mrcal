@@ -972,14 +972,14 @@ static PyObject* unproject_stereographic(PyObject* self,
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
-    _(extrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics,                  NPY_DOUBLE, {-1 COMMA  6       } ) \
-    _(frames,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames,                      NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(extrinsics_rt_fromref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics_rt_fromref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(frames_rt_toref,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames_rt_toref,             NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,                      NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA 3 } ) \
     _(indices_frame_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camintrinsics_camextrinsics,  NPY_INT,    {-1 COMMA  3       } ) \
-    _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,                   NPY_DOUBLE, {-1 COMMA  3       } ) \
+    _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(indices_point_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camintrinsics_camextrinsics, NPY_INT,    {-1 COMMA  3       } ) \
-    _(lensmodel,                         PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
+    _(lensmodel,                          PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
@@ -1041,7 +1041,7 @@ static bool optimize_validate_args( // out
 #pragma GCC diagnostic pop
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
-    int Ncameras_extrinsics = PyArray_DIMS(extrinsics)[0];
+    int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
     if( PyArray_DIMS(imagersizes)[0] != Ncameras_intrinsics )
     {
         BARF("Inconsistent Ncameras: 'intrinsics' says %ld, 'imagersizes' says %ld",
@@ -1167,7 +1167,7 @@ static bool optimize_validate_args( // out
 
     // make sure the indices arrays are valid: the data is monotonic and
     // in-range
-    int Nframes = PyArray_DIMS(frames)[0];
+    int Nframes = PyArray_DIMS(frames_rt_toref)[0];
     int i_frame_last  = -1;
     int i_cam_intrinsics_last = -1;
     int i_cam_extrinsics_last = -1;
@@ -1390,9 +1390,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         }                                                               \
     })
 
-    SET_SIZE0_IF_NONE(extrinsics,                 NPY_DOUBLE, 0,6);
+    SET_SIZE0_IF_NONE(extrinsics_rt_fromref,      NPY_DOUBLE, 0,6);
 
-    SET_SIZE0_IF_NONE(frames,                     NPY_DOUBLE, 0,6);
+    SET_SIZE0_IF_NONE(frames_rt_toref,            NPY_DOUBLE, 0,6);
     SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
     SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics, NPY_INT,    0,3);
 
@@ -1416,15 +1416,15 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
     {
         int Ncameras_intrinsics= PyArray_DIMS(intrinsics)[0];
-        int Ncameras_extrinsics= PyArray_DIMS(extrinsics)[0];
-        int Nframes            = PyArray_DIMS(frames)[0];
+        int Ncameras_extrinsics= PyArray_DIMS(extrinsics_rt_fromref)[0];
+        int Nframes            = PyArray_DIMS(frames_rt_toref)[0];
         int Npoints            = PyArray_DIMS(points)[0];
         int NobservationsBoard = PyArray_DIMS(observations_board)[0];
 
         // The checks in optimize_validate_args() make sure these casts are kosher
         double*       c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
-        pose_t*       c_extrinsics     = (pose_t*)  PyArray_DATA(extrinsics);
-        pose_t*       c_frames         = (pose_t*)  PyArray_DATA(frames);
+        pose_t*       c_extrinsics     = (pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
+        pose_t*       c_frames         = (pose_t*)  PyArray_DATA(frames_rt_toref);
         point3_t*     c_points         = (point3_t*)PyArray_DATA(points);
         point2_t*     c_calobject_warp =
             IS_NULL(calobject_warp) ?

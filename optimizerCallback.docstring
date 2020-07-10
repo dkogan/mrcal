@@ -4,7 +4,7 @@ SYNOPSIS
 
     x,Jt = mrcal.optimizerCallback( intrinsics_data,
                                     extrinsics_rt_fromref,
-                                    frames, points
+                                    frames_rt_toref, points
                                     observations_board, indices_frame_camintrinsics_camextrinsics,
                                     observations_point, indices_point_camintrinsics_camextrinsics_flags,
 

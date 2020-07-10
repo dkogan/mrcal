@@ -157,8 +157,8 @@ if not fixedframes:
     indices_frame_camintrinsics_camextrinsics[:,2] -= 1
 
 def optimize( intrinsics,
-              extrinsics,
-              frames,
+              extrinsics_rt_fromref,
+              frames_rt_toref,
               observations,
               indices_frame_camintrinsics_camextrinsics,
 
@@ -184,13 +184,13 @@ def optimize( intrinsics,
 
     '''
 
-    intrinsics     = copy.deepcopy(intrinsics)
-    extrinsics     = copy.deepcopy(extrinsics)
-    frames         = copy.deepcopy(frames)
-    calobject_warp = copy.deepcopy(calobject_warp)
+    intrinsics            = copy.deepcopy(intrinsics)
+    extrinsics_rt_fromref = copy.deepcopy(extrinsics_rt_fromref)
+    frames_rt_toref       = copy.deepcopy(frames_rt_toref)
+    calobject_warp        = copy.deepcopy(calobject_warp)
 
     solver_context = mrcal.SolverContext()
-    stats = mrcal.optimize( intrinsics, extrinsics, frames, None,
+    stats = mrcal.optimize( intrinsics, extrinsics_rt_fromref, frames_rt_toref, None,
                             observations, indices_frame_camintrinsics_camextrinsics,
                             None, None, lensmodel,
                             calobject_warp              = calobject_warp,
@@ -220,7 +220,7 @@ def optimize( intrinsics,
     p_packed = solver_context.p().copy()
 
     return \
-        intrinsics, extrinsics, frames, calobject_warp,   \
+        intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp,   \
         p_packed, stats['x'], stats['rms_reproj_error__pixels'], \
         covariance_intrinsics, covariance_extrinsics, covariances_ief, covariances_ief_rotationonly, \
         solver_context

@@ -392,9 +392,9 @@ mrcal_optimize( // out
                 // core and the distortion params. The specific distortion
                 // parameters may vary, depending on lensmodel, so
                 // this is a variable-length structure
-                double*       camera_intrinsics,  // Ncameras_intrinsics * NlensParams
-                pose_t*       camera_extrinsics,  // Ncameras_extrinsics of these. Transform FROM reference frame
-                pose_t*       frames,             // Nframes of these.    Transform TO reference frame
+                double*       intrinsics,         // Ncameras_intrinsics * NlensParams
+                pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
+                pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
                 point3_t*     points,             // Npoints of these.    In the reference frame
                 point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
@@ -451,9 +451,9 @@ void mrcal_optimizerCallback(// output measurements
                              // and the distortion params. The specific distortion
                              // parameters may vary, depending on lensmodel, so
                              // this is a variable-length structure
-                             const double*       intrinsics, // Ncameras_intrinsics * NlensParams
-                             const pose_t*       extrinsics, // Ncameras_extrinsics of these. Transform FROM reference frame
-                             const pose_t*       frames,     // Nframes of these.    Transform TO reference frame
+                             const double*       intrinsics,         // Ncameras_intrinsics * NlensParams
+                             const pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
+                             const pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
                              const point3_t*     points,     // Npoints of these.    In the reference frame
                              const point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
