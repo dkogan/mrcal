@@ -677,8 +677,7 @@ covariance_intrinsics = \
 
 models = [ mrcal.cameramodel( imagersize            = imagersizes[i],
                               intrinsics            = (lensmodel, intrinsics_ref[i,:]),
-                              extrinsics_rt_fromref = extrinsics_ref_mounted[i,:],
-                              covariance_intrinsics = covariance_intrinsics[i]) \
+                              extrinsics_rt_fromref = extrinsics_ref_mounted[i,:]) \
       for i in range(Ncameras)]
 
 

@@ -508,7 +508,6 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
 
 
 def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
-                     covariance_intrinsics,
                      valid_intrinsics_region = None):
     r'''Assemble one cameramodel from a completed calibration
 
@@ -524,19 +523,15 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
         rt_x0 = np.zeros(6)
     Rt_rx = mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0))
 
-    if covariance_intrinsics is not None:
-        covariance_intrinsics = covariance_intrinsics[i_camera, ...]
     if valid_intrinsics_region is not None:
         valid_intrinsics_region = valid_intrinsics_region[i_camera]
 
     return mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
                               extrinsics_Rt_toref        = Rt_rx,
                               imagersize                 = imagersizes[i_camera],
-                              covariance_intrinsics      = covariance_intrinsics,
                               valid_intrinsics_region    = valid_intrinsics_region)
 
 def make_cameramodels(intrinsics, extrinsics, imagersizes,
-                      covariance_intrinsics,
                       valid_intrinsics_region = None):
     r'''Assemble cameramodels from a completed calibration
 
@@ -547,7 +542,6 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
     '''
     return [ make_cameramodel(i_camera,
                               intrinsics, extrinsics, imagersizes,
-                              covariance_intrinsics,
                               valid_intrinsics_region) for i_camera in range(len(intrinsics[1])) ]
 
 
@@ -829,7 +823,7 @@ if args.optimize_calobject_warp:
 else:
     calobject_warp = None
 
-print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, covariance_intrinsics",
+print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, covariances",
       file=sys.stderr)
 stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                        observations, indices_frame_camintrinsics_camextrinsics,
@@ -853,10 +847,6 @@ stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 intrinsics = (args.lensmodel, intrinsics_data)
 
-if args.skip_intrinsics_solve:
-    covariance_intrinsics      = None
-else:
-    covariance_intrinsics      = stats.get('covariance_intrinsics')
 if args.skip_extrinsics_solve:
     covariance_extrinsics      = None
 else:
@@ -1040,17 +1030,10 @@ def get_valid_intrinsics_region(i_camera,
                                          gridn_width  = gridn_width,
                                          gridn_height = gridn_height)
 
-    if covariance_intrinsics is None:
-        raise Exception("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_covariance_intrinsics = True) for this to work")
-
-    covariance_intrinsics_here = None
-    if covariance_intrinsics is not None:
-        covariance_intrinsics_here = covariance_intrinsics[i_camera, ...]
     model = \
         mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
                            extrinsics_rt_toref        = np.zeros(6,dtype=float),
-                           imagersize                 = imagersizes[i_camera],
-                           covariance_intrinsics      = covariance_intrinsics_here)
+                           imagersize                 = imagersizes[i_camera])
     err = mrcal.compute_projection_stdev(model,
                                          gridn_width  = gridn_width,
                                          gridn_height = gridn_height,
@@ -1095,7 +1078,6 @@ valid_intrinsics_region = [get_valid_intrinsics_region(i) for i in range(Ncamera
 
 # Write the output models
 models = make_cameramodels(intrinsics, extrinsics, imagersizes,
-                           covariance_intrinsics,
                            valid_intrinsics_region)
 # The note says how we ran this, and contains the commented-out report
 note = \
