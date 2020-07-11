@@ -3083,7 +3083,7 @@ static bool compute_uncertainty_matrices(// out
                                          int calibration_object_width_n,
                                          int calibration_object_height_n,
 
-                                         dogleg_solverContext_t* solverCtx)
+                                         dogleg_solverContext_t* solver_context)
 {
     bool result = false;
     cholmod_dense* Jt_slice = NULL;
@@ -3175,7 +3175,7 @@ static bool compute_uncertainty_matrices(// out
         }
     }
 
-    cholmod_sparse* Jt     = solverCtx->beforeStep->Jt;
+    cholmod_sparse* Jt     = solver_context->beforeStep->Jt;
     int             Nstate = Jt->nrow;
     int             Nmeas  = Jt->ncol;
 
@@ -3185,15 +3185,15 @@ static bool compute_uncertainty_matrices(// out
     // analysis and factorization are almost certainly already done. But just in
     // case...
     {
-        if(solverCtx->factorization == NULL)
+        if(solver_context->factorization == NULL)
         {
-            solverCtx->factorization = cholmod_analyze(Jt, &solverCtx->common);
+            solver_context->factorization = cholmod_analyze(Jt, &solver_context->common);
             MSG("Couldn't factor JtJ");
             goto done;
         }
 
-        assert( cholmod_factorize(Jt, solverCtx->factorization, &solverCtx->common) );
-        if(solverCtx->factorization->minor != solverCtx->factorization->n)
+        assert( cholmod_factorize(Jt, solver_context->factorization, &solver_context->common) );
+        if(solver_context->factorization->minor != solver_context->factorization->n)
         {
             MSG("Got singular JtJ!");
             goto done;
@@ -3211,7 +3211,7 @@ static bool compute_uncertainty_matrices(// out
                                 chunk_size,
                                 Jt->nrow,
                                 CHOLMOD_REAL,
-                                &solverCtx->common );
+                                &solver_context->common );
 
 
     if( covariances_ief != NULL || covariances_ief_rotationonly != NULL)
@@ -3388,9 +3388,9 @@ static bool compute_uncertainty_matrices(// out
                             scale_right;
                     }
 
-                    cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+                    cholmod_dense* M = cholmod_solve( CHOLMOD_A, solver_context->factorization,
                                                       Jt_slice,
-                                                      &solverCtx->common);
+                                                      &solver_context->common);
 
                     // I applied the scaling to the right-hand-side. Now I apply
                     // it to the left-hand side
@@ -3434,7 +3434,7 @@ static bool compute_uncertainty_matrices(// out
                         }
                     }
 
-                    cholmod_free_dense (&M, &solverCtx->common);
+                    cholmod_free_dense (&M, &solver_context->common);
 
                     istate0 += Nvars_here;
                     Nvars   -= Nvars_here;
@@ -3540,9 +3540,9 @@ static bool compute_uncertainty_matrices(// out
             // the dense-sparse-dense function, and densify the input. Instead of
             // sparse-sparse-sparse and the densifying the output. This feels like
             // it'd be more efficient
-            cholmod_dense* M = cholmod_solve( CHOLMOD_A, solverCtx->factorization,
+            cholmod_dense* M = cholmod_solve( CHOLMOD_A, solver_context->factorization,
                                               Jt_slice,
-                                              &solverCtx->common);
+                                              &solver_context->common);
 
             // I now have chunk_size columns of M. I accumulate sum of the outer
             // products. This is symmetric, but I store both halves; for now
@@ -3613,7 +3613,7 @@ static bool compute_uncertainty_matrices(// out
 
             }
 
-            cholmod_free_dense (&M, &solverCtx->common);
+            cholmod_free_dense (&M, &solver_context->common);
         }
     }
 
@@ -3638,7 +3638,7 @@ static bool compute_uncertainty_matrices(// out
         // I manually reset this earlier; put it back, in case cholmod_free_dense()
         // uses it
         Jt_slice->ncol = chunk_size;
-        cholmod_free_dense(&Jt_slice, &solverCtx->common);
+        cholmod_free_dense(&Jt_slice, &solver_context->common);
     }
     return result;
 
