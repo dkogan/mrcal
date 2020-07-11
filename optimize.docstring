@@ -220,13 +220,6 @@ OPTIONAL ARGUMENTS
   measurements for ranged points (x,y,range). Normally this is None: no outliers
   at the start. This is honored regardless of skip_outlier_rejection.
 
-- roi: A region of interest. This is the area in the imager we're interested in.
-  Errors in observations outside this area will be attenuated significantly. If
-  we want to use all the data evenly, this should be None. Otherwise this is a
-  numpy array of shape (Ncameras_intrinsics,4) where each camera's slice is
-  (x_center, y_center, x_radius, y_radius). The region is an axis-aligned
-  ellipsoid
-
 - get_covariances: defaults to False. If True, I compute the covariance matrices
   for intrinsics and extrinsics, and include them in the dict I return. These
   are needed only for the uncertainty computations. If we're performing an
