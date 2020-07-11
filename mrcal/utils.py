@@ -449,7 +449,7 @@ We return a tuple:
 def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               cameranames                 = None,
                               cameras_Rt_plot_ref         = None,
-                              frames                      = None,
+                              frames_rt_toref             = None,
                               points                      = None,
 
                               axis_scale         = 1.0,
@@ -504,7 +504,7 @@ ARGUMENTS
   means "identity"). Or a single Rt transformation can be given to use that one
   for ALL the cameras
 
-- frames: optional array of shape (N,6). If omitted, we don't plot the
+- frames_rt_toref: optional array of shape (N,6). If omitted, we don't plot the
   calibration objects. If given, each row of shape (6,) is an rt transformation
   representing the transformation TO the reference coordinate system FROM the
   calibration object coordinate system. If given, the calibration object MUST be
@@ -512,17 +512,17 @@ ARGUMENTS
   parameters
 
 - object_width_n: the number of horizontal points in the calibration object
-  grid. Required only if frames is not None
+  grid. Required only if frames_rt_toref is not None
 
 - object_height_n: the number of vertical points in the calibration object grid.
-  Required only if frames is not None
+  Required only if frames_rt_toref is not None
 
 - object_spacing: the distance between adjacent points in the calibration object
-  grid. Required only if frames is not None
+  grid. Required only if frames_rt_toref is not None
 
 - calobject_warp: optional (2,) array describing the calibration board warping.
-  None means "no warping": the object is flat. Used only if frames is not None.
-  See the docs for get_ref_calibration_object() for a description.
+  None means "no warping": the object is flat. Used only if frames_rt_toref is
+  not None. See the docs for get_ref_calibration_object() for a description.
 
 - points: optional array of shape (N,3). If omitted, we don't plot the observed
   points. If given, each row of shape (3,) is a point in the reference
@@ -562,9 +562,11 @@ into a variable, even if you're not going to be doing anything with this object
                   for m in models_or_extrinsics_rt_fromref])
     extrinsics_Rt_toref = nps.atleast_dims(extrinsics_Rt_toref, -3)
 
-    if frames is not None: frames = nps.atleast_dims(frames, -2)
-    if points is not None: points = nps.atleast_dims(points, -2)
 
+    if frames_rt_toref is not None:
+        frames_rt_toref = nps.atleast_dims(frames_rt_toref, -2)
+    if points          is not None:
+        points          = nps.atleast_dims(points,          -2)
 
     try:
         if cameras_Rt_plot_ref.shape == (4,3):
@@ -671,7 +673,7 @@ into a variable, even if you're not going to be doing anything with this object
 
     def gen_curves_calobjects():
 
-        if frames is None or len(frames) == 0:
+        if frames_rt_toref is None or len(frames_rt_toref) == 0:
             return []
 
         if object_spacing <= 0     or \
@@ -692,15 +694,15 @@ into a variable, even if you're not going to be doing anything with this object
         #                              if indices_frame_camera_board[i_observation,1] == i_camera_highlight]
 
         #     i_observations, i_frames = nps.transpose(np.array(i_observations_frames))
-        #     frames = frames[i_frames, ...]
+        #     frames_rt_toref = frames_rt_toref[i_frames, ...]
 
 
         calobject_ref = get_ref_calibration_object(object_width_n, object_height_n,
                                                    object_spacing, calobject_warp)
 
-        Rf = mrcal.R_from_r(frames[..., :3])
-        Rf = nps.mv(Rf,              0, -4)
-        tf = nps.mv(frames[..., 3:], 0, -4)
+        Rf = mrcal.R_from_r(frames_rt_toref[..., :3])
+        Rf = nps.mv(Rf,                       0, -4)
+        tf = nps.mv(frames_rt_toref[..., 3:], 0, -4)
 
         # object in the cam0 coord system. shape=(Nframes, object_height_n, object_width_n, 3)
         calobject_cam0 = nps.matmult( calobject_ref, nps.transpose(Rf)) + tf
