@@ -10,6 +10,7 @@ SYNOPSIS
 
                                     lensmodel,
                                     imagersizes                       = imagersizes,
+                                    observed_pixel_uncertainty        = observed_pixel_uncertainty,
                                     do_optimize_intrinsic_core        = True,
                                     do_optimize_intrinsic_distortions = True,
                                     calibration_object_spacing        = object_spacing,
@@ -18,18 +19,27 @@ SYNOPSIS
                                     point_min_range                   = 0.1,
                                     point_max_range                   = 100.0,
                                     skip_regularization               = False,
+                                    get_covariances                   = False,
                                     verbose                           = False)
 
-This exists for debugging. The main optimization routine in mrcal.optimize()
+This exists for diagnostics. The main optimization routine in mrcal.optimize()
 calls a function repeatedly to find a set of parameters that minimize the errors
-norm2(x). For debugging, this function is available by itself here. The
-arguments are largely the same as those to mrcal.optimize(), but the inputs are
-all read-only. The only output is returned in the return tuple:
+norm2(x). This function is available by itself here. The arguments are largely
+the same as those to mrcal.optimize(), but the inputs are all read-only. The
+output is returned in a tuple:
 
 - x: a vector of measurements
 
 - J: a sparse matrix of gradients of the measurements in respect to the
   parameters
+
+If get_covariances then we ALSO return covariances:
+
+- covariances_ief: the intrinsics-extrinsics-frames covariances
+
+- covariances_ief_rotationonly: the intrinsics-extrinsics-frames covariances at
+  infinity: only the rotation components of the extrinsics and frames are
+  considered
 
 Note that the optimizer uses some weights on the measurements, and some scaling
 on the parameters. The values returned here are the optimizer-internal values.

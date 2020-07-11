@@ -983,6 +983,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT,    {-1 COMMA 2        } )
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
+    _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp,              NPY_DOUBLE, {2}                  ) \
     _(Npoints_fixed,                      int,            0,       "i",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
@@ -998,6 +999,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
+    _(get_covariances,                    PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
 
@@ -1007,9 +1009,7 @@ static PyObject* unproject_stereographic(PyObject* self,
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
-    _(get_covariances,                    PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
 
 #define OPTIMIZE_ARGUMENTS_ALL(_) \
@@ -1290,15 +1290,14 @@ static bool optimize_validate_args( // out
         i_cam_extrinsics_last = i_cam_extrinsics;
     }
 
-    if(skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection) )
+    if( (skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection) ) &&
+       !(get_covariances        && PyObject_IsTrue(get_covariances) ))
     {
-        // skipping outlier rejection. The pixel uncertainty isn't used and
-        // doesn't matter
+        // The pixel uncertainty isn't used and doesn't matter
     }
     else
     {
-        // not skipping outlier rejection. The pixel uncertainty is used and
-        // must be valid
+        // The pixel uncertainty is used and must be valid
         if( observed_pixel_uncertainty <= 0.0 )
         {
             BARF("observed_pixel_uncertainty MUST be a valid float > 0");
@@ -1620,45 +1619,44 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         int Nintrinsics_state = mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel_type);
 
-        double* c_covariance_intrinsics = NULL;
-        if(Nintrinsics_state != 0 &&
-           get_covariances && PyObject_IsTrue(get_covariances))
-        {
-            covariance_intrinsics =
-                (PyArrayObject*)PyArray_SimpleNew(3,
-                                                  ((npy_intp[]){Ncameras_intrinsics,
-                                                                Nintrinsics_state,Nintrinsics_state}), NPY_DOUBLE);
-            c_covariance_intrinsics = PyArray_DATA(covariance_intrinsics);
-        }
-
-        double* c_covariance_extrinsics = NULL;
-        if(Ncameras_extrinsics >= 1 &&
-           get_covariances && PyObject_IsTrue(get_covariances))
-        {
-            covariance_extrinsics =
-                (PyArrayObject*)PyArray_SimpleNew(2,
-                                                  ((npy_intp[]){Ncameras_extrinsics*6,Ncameras_extrinsics*6}), NPY_DOUBLE);
-            c_covariance_extrinsics = PyArray_DATA(covariance_extrinsics);
-        }
-
-        double* c_covariances_ief = NULL;
-        int Nvars_ief = Nintrinsics_state;
-        if(problem_details.do_optimize_extrinsics) Nvars_ief += 6;
-        if(problem_details.do_optimize_frames)     Nvars_ief += 6*Nframes;
+        double* c_covariance_intrinsics        = NULL;
+        double* c_covariance_extrinsics        = NULL;
+        double* c_covariances_ief              = NULL;
+        double* c_covariances_ief_rotationonly = NULL;
+        int     Nvars_ief                      = -1;
+        int     Nvars_ief_rotationonly         = -1;
         if(get_covariances && PyObject_IsTrue(get_covariances))
         {
+            if(is_optimize)
+            {
+                if(Nintrinsics_state != 0)
+                {
+                    covariance_intrinsics =
+                        (PyArrayObject*)PyArray_SimpleNew(3,
+                                                          ((npy_intp[]){Ncameras_intrinsics,
+                                                               Nintrinsics_state,Nintrinsics_state}), NPY_DOUBLE);
+                    c_covariance_intrinsics = PyArray_DATA(covariance_intrinsics);
+                }
+                if(Ncameras_extrinsics >= 1)
+                {
+                    covariance_extrinsics =
+                        (PyArrayObject*)PyArray_SimpleNew(2,
+                                                          ((npy_intp[]){Ncameras_extrinsics*6,Ncameras_extrinsics*6}), NPY_DOUBLE);
+                    c_covariance_extrinsics = PyArray_DATA(covariance_extrinsics);
+                }
+            }
+
+            Nvars_ief = Nintrinsics_state;
+            if(problem_details.do_optimize_extrinsics) Nvars_ief += 6;
+            if(problem_details.do_optimize_frames)     Nvars_ief += 6*Nframes;
             covariances_ief =
                 (PyArrayObject*)PyArray_SimpleNew(3,
                                                   ((npy_intp[]){Ncameras_intrinsics,Nvars_ief,Nvars_ief}), NPY_DOUBLE);
             c_covariances_ief = PyArray_DATA(covariances_ief);
-        }
 
-        double* c_covariances_ief_rotationonly = NULL;
-        int Nvars_ief_rotationonly = Nintrinsics_state;
-        if(problem_details.do_optimize_extrinsics) Nvars_ief_rotationonly += 3;
-        if(problem_details.do_optimize_frames)     Nvars_ief_rotationonly += 3*Nframes;
-        if(get_covariances && PyObject_IsTrue(get_covariances))
-        {
+            Nvars_ief_rotationonly = Nintrinsics_state;
+            if(problem_details.do_optimize_extrinsics) Nvars_ief_rotationonly += 3;
+            if(problem_details.do_optimize_frames)     Nvars_ief_rotationonly += 3*Nframes;
             covariances_ief_rotationonly =
                 (PyArrayObject*)PyArray_SimpleNew(3,
                                                   ((npy_intp[]){Ncameras_intrinsics,Nvars_ief_rotationonly,Nvars_ief_rotationonly}), NPY_DOUBLE);
@@ -1874,40 +1872,62 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 .i = PyArray_DATA(I),
                 .x = PyArray_DATA(X) };
 
-            mrcal_optimizerCallback( c_x_final,
-                                     &Jt,
+            if(!mrcal_optimizerCallback( c_x_final,
+                                         &Jt,
+                                         c_covariances_ief,
+                                         Ncameras_intrinsics*Nvars_ief*Nvars_ief*sizeof(double),
+                                         c_covariances_ief_rotationonly,
+                                         Ncameras_intrinsics*Nvars_ief_rotationonly*Nvars_ief_rotationonly*sizeof(double),
 
-                                     c_intrinsics,
-                                     c_extrinsics,
-                                     c_frames,
-                                     c_points,
-                                     c_calobject_warp,
+                                         c_intrinsics,
+                                         c_extrinsics,
+                                         c_frames,
+                                         c_points,
+                                         c_calobject_warp,
 
-                                     Ncameras_intrinsics, Ncameras_extrinsics,
-                                     Nframes, Npoints, Npoints_fixed,
+                                         Ncameras_intrinsics, Ncameras_extrinsics,
+                                         Nframes, Npoints, Npoints_fixed,
 
-                                     c_observations_board,
-                                     c_observations_board_pool,
-                                     NobservationsBoard,
-                                     c_observations_point,
-                                     NobservationsPoint,
+                                         c_observations_board,
+                                         c_observations_board_pool,
+                                         NobservationsBoard,
+                                         c_observations_point,
+                                         NobservationsPoint,
 
-                                     Noutlier_indices,
-                                     c_outlier_indices,
-                                     verbose && PyObject_IsTrue(verbose),
-                                     lensmodel_type,
-                                     c_imagersizes,
-                                     problem_details, &problem_constants,
+                                         Noutlier_indices,
+                                         c_outlier_indices,
+                                         verbose && PyObject_IsTrue(verbose),
+                                         lensmodel_type,
+                                         observed_pixel_uncertainty,
+                                         c_imagersizes,
+                                         problem_details, &problem_constants,
 
-                                     calibration_object_spacing,
-                                     calibration_object_width_n,
-                                     calibration_object_height_n,
-                                     Nintrinsics, Nmeasurements, N_j_nonzero);
+                                         calibration_object_spacing,
+                                         calibration_object_width_n,
+                                         calibration_object_height_n,
+                                         Nintrinsics, Nmeasurements, N_j_nonzero) )
+            {
+                BARF("mrcal_optimizerCallback() failed!'");
+                goto done;
+            }
 
-            result = PyTuple_Pack(2, x_final, csr_from_cholmod_sparse(&Jt,
-                                                                      (PyObject*)P,
-                                                                      (PyObject*)I,
-                                                                      (PyObject*)X));
+            result = PyTuple_New(2 + (covariances_ief ? 2 : 0));
+            int i=0;
+            PyTuple_SET_ITEM(result, 0, (PyObject*)x_final);
+            PyTuple_SET_ITEM(result, 1,
+                             csr_from_cholmod_sparse(&Jt,
+                                                     (PyObject*)P,
+                                                     (PyObject*)I,
+                                                     (PyObject*)X));
+            Py_INCREF(x_final);
+            if(covariances_ief)
+            {
+                PyTuple_SET_ITEM(result, 2, (PyObject*)covariances_ief);
+                PyTuple_SET_ITEM(result, 3, (PyObject*)covariances_ief_rotationonly);
+            }
+
+            for(int i=0; i<PyTuple_Size(result); i++)
+                Py_INCREF(PyTuple_GET_ITEM(result,i));
             Py_DECREF(P);
             Py_DECREF(I);
             Py_DECREF(X);
@@ -1921,17 +1941,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
-    if(x_final)               Py_DECREF(x_final);
-    if(covariance_intrinsics)
-        Py_DECREF(covariance_intrinsics);
-    if(covariance_extrinsics)
-        Py_DECREF(covariance_extrinsics);
-    if(covariances_ief)
-        Py_DECREF(covariances_ief);
-    if(covariances_ief_rotationonly)
-        Py_DECREF(covariances_ief_rotationonly);
-    if(outlier_indices_final) Py_DECREF(outlier_indices_final);
-    if(pystats)               Py_DECREF(pystats);
+    if(x_final)                      Py_DECREF(x_final);
+    if(covariance_intrinsics)        Py_DECREF(covariance_intrinsics);
+    if(covariance_extrinsics)        Py_DECREF(covariance_extrinsics);
+    if(covariances_ief)              Py_DECREF(covariances_ief);
+    if(covariances_ief_rotationonly) Py_DECREF(covariances_ief_rotationonly);
+    if(outlier_indices_final)        Py_DECREF(outlier_indices_final);
+    if(pystats)                      Py_DECREF(pystats);
 
     RESET_SIGINT();
     return result;

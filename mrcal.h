@@ -440,11 +440,31 @@ mrcal_optimize( // out
 
 struct cholmod_sparse_struct;
 // callback function. This is primarily for debugging
-void mrcal_optimizerCallback(// output measurements
+bool mrcal_optimizerCallback(// output measurements
                              double*         x,
 
                              // output Jacobian. May be NULL if we don't need it.
                              struct cholmod_sparse_struct* Jt,
+
+                             // May be NULL
+                             // Shape (Ncameras_intrinsics * (Nintrinsics_state+6+6*Nframes)^2)
+                             //   Any variable we're not optimizing is omitted. If some
+                             //   camera sits at the reference coordinate system, it doesn't
+                             //   have extrinsics, and we write 0 in those entries of the
+                             //   covariance
+                             double* covariances_ief,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_covariances_ief,
+
+                             // May be NULL
+                             // Shape (Ncameras_intrinsics * (Nintrinsics_state+3+3*Nframes)^2)
+                             //   Just like covariances_ief, but look only at the rotations
+                             //   when evaluating the frames, extrinsics
+                             double* covariances_ief_rotationonly,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_covariances_ief_rotationonly,
 
                              // in
                              // intrinsics is a concatenation of the intrinsics core
@@ -480,6 +500,7 @@ void mrcal_optimizerCallback(// output measurements
                              bool verbose,
 
                              lensmodel_t lensmodel,
+                             double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
                              mrcal_problem_details_t          problem_details,
