@@ -235,13 +235,14 @@ OPTIONAL ARGUMENTS
 - skip_regularization: if True, don't include regularization terms in the
   solver. Defaults to False
 
-- observed_pixel_uncertainty: Required ONLY if !skip_outlier_rejection. The
-  standard deviation of x and y pixel coordinates of the input observations. The
-  distribution of the inputs is assumed to be gaussian, with the standard
-  deviation specified by this argument. Note: this is the x and y standard
-  deviation, treated independently. If each of these is s, then the LENGTH of
-  the deviation of each pixel is a Rayleigh distribution with expected value
-  s*sqrt(pi/2) ~ s*1.25. This is used to set the outlier rejection threshold
+- observed_pixel_uncertainty: Required if !skip_outlier_rejection or
+  get_covariances. The standard deviation of x and y pixel coordinates of the
+  input observations. The distribution of the inputs is assumed to be gaussian,
+  with the standard deviation specified by this argument. Note: this is the x
+  and y standard deviation, treated independently. If each of these is s, then
+  the LENGTH of the deviation of each pixel is a Rayleigh distribution with
+  expected value s*sqrt(pi/2) ~ s*1.25. This is used to set the outlier
+  rejection threshold
 
 - point_min_range, point_max_range: Required ONLY if point observations are
   given. These are lower, upper bounds for the distance of a point observation
