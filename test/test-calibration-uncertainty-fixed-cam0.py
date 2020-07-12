@@ -355,17 +355,56 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
         covariance_intrinsics, covariances_ief, covariances_ief_rotationonly
 
 
-
-print("Simulating input noise. This takes a little while...")
-iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3] for isample in range(Nsamples)]
-intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
-extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
-frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
-
 covariances_ief,covariances_ief_rotationonly = \
     sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
                                   apply_noise        = False,
                                   get_covariances    = True)[-2:]
+
+optimize_kwargs = \
+    dict( intrinsics                                = intrinsics_ref,
+          extrinsics_rt_fromref                     = extrinsics_ref,
+          frames_rt_toref                           = frames_ref,
+          points                                    = None,
+          observations_board                        = observations_ref,
+          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+          observations_point                        = None,
+          indices_point_camintrinsics_camextrinsics = None,
+          lensmodel                                 = lensmodel,
+          imagersizes                               = imagersizes,
+          calobject_warp                            = calobject_warp_ref,
+          do_optimize_intrinsic_core                = True,
+          do_optimize_intrinsic_distortions         = True,
+          do_optimize_extrinsics                    = True,
+          do_optimize_frames                        = not fixedframes,
+          do_optimize_calobject_warp                = True,
+          skipped_observations_board                = None,
+          skipped_observations_point                = None,
+          calibration_object_spacing                = object_spacing,
+          calibration_object_width_n                = object_width_n,
+          calibration_object_height_n               = object_height_n,
+          outlier_indices                           = None,
+          skip_regularization                       = True,
+          observed_pixel_uncertainty                = pixel_uncertainty_stdev)
+
+# I want to treat the extrinsics arrays as if all the camera transformations are
+# stored there
+if fixedframes:
+    extrinsics_ref_mounted = extrinsics_ref
+else:
+    extrinsics_ref_mounted = \
+        nps.glue( np.zeros((6,), dtype=float),
+                  extrinsics_ref,
+                  axis = -2)
+
+# rebuild models_ref. Same data as before, but with optimization_inputs
+models_ref = \
+    [ mrcal.cameramodel( imagersize            = imagersizes[i],
+                         intrinsics            = (lensmodel, intrinsics_ref[i,:]),
+                         extrinsics_rt_fromref = extrinsics_ref_mounted[i,:],
+                         optimization_inputs   = dict(optimize_kwargs,
+                                                      icam_intrinsics_covariances_ief = i)) \
+      for i in range(Ncameras) ]
+
 
 cache_invJtJ = [None]
 
@@ -407,16 +446,6 @@ for i in range(Ncameras):
                             relative  = True,
                             msg = f"covariances_ief with rotation-only matches for camera {i}")
 
-# I want to treat the extrinsics arrays as if all the camera transformations are
-# stored there
-if fixedframes:
-    extrinsics_ref_mounted = extrinsics_ref
-else:
-    extrinsics_ref_mounted = \
-        nps.glue( np.zeros((6,), dtype=float),
-                  extrinsics_ref,
-                  axis = -2)
-
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
 # this to represent a point in a globally-consistent coordinate system. Here I
@@ -424,6 +453,13 @@ else:
 # consistency. Note that I look at q0 for each camera separately, so I'm going
 # to evaluate a different world point for each camera
 q0 = imagersizes[0]/3.
+
+
+print("Simulating input noise. This takes a little while...")
+iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3] for isample in range(Nsamples)]
+intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
+extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
+frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
 
 
 def check_uncertainties_at(q0, distance):
@@ -494,27 +530,13 @@ def check_uncertainties_at(q0, distance):
                              q_sampled-q_sampled_mean), axis=-4 )
     worst_direction_stdev_observed = mrcal.worst_direction_stdev(cov)
 
-    if fixedframes:
-        Var_dq = \
-            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-                q0,
-                distance if not atinfinity else None,
-                lensmodel, intrinsics_ref[icam],
-                extrinsics_ref[icam],
-                None,
-                covariances_ief_rotationonly[icam] if atinfinity else covariances_ief[icam]) \
-                       for icam in range(Ncameras) ])
-    else:
-        Var_dq = \
-            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-                q0,
-                distance if not atinfinity else None,
-                lensmodel, intrinsics_ref[icam],
-                extrinsics_ref[icam-1] if icam>0 else None,
-                frames_ref,
-                covariances_ief_rotationonly[icam] if atinfinity else covariances_ief[icam]) \
-                       for icam in range(Ncameras) ])
+    Var_dq = \
+        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+            q0, distance if not atinfinity else None,
+            model = models_ref[icam]) \
+                   for icam in range(Ncameras) ])
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
+
 
     testutils.confirm_equal(q_sampled_mean,
                             nps.matmult(np.ones((Ncameras,1)), q0),
@@ -577,50 +599,22 @@ if 'study' in args:
     ranges = np.linspace(1,30,10)
 
     # shape (Ncameras, gridn_height, gridn_width, Nranges, 2,2)
-    if fixedframes:
-        Var_dq_grid = \
-            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-                nps.dummy(qxy,-2),
-                nps.dummy(ranges,-1),
-                lensmodel, intrinsics_ref[icam],
-                extrinsics_ref[icam],
-                None,
-                covariances_ief[icam]) \
-                       for icam in range(Ncameras) ])
-    else:
-        Var_dq_grid = \
-            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-                nps.dummy(qxy,-2),
-                nps.dummy(ranges,-1),
-                lensmodel, intrinsics_ref[icam],
-                extrinsics_ref[icam-1] if icam>0 else None,
-                frames_ref,
-                covariances_ief[icam]) \
-                       for icam in range(Ncameras) ])
+    Var_dq_grid = \
+        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+            nps.dummy(qxy,-2),
+            nps.dummy(ranges,-1),
+            model = models_ref[icam] ) \
+                   for icam in range(Ncameras) ])
     # shape (Ncameras, gridn_height, gridn_width, Nranges)
     worst_direction_stdev_grid = mrcal.worst_direction_stdev(Var_dq_grid)
 
     # shape (Ncameras, gridn_height, gridn_width, 2,2)
-    if fixedframes:
-        Var_dq_infinity = \
-            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-                nps.dummy(qxy,-2),
-                None,
-                lensmodel, intrinsics_ref[icam],
-                extrinsics_ref[icam],
-                None,
-                covariances_ief_rotationonly[icam]) \
-                       for icam in range(Ncameras) ])
-    else:
-        Var_dq_infinity = \
-            nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-                nps.dummy(qxy,-2),
-                None,
-                lensmodel, intrinsics_ref[icam],
-                extrinsics_ref[icam-1] if icam>0 else None,
-                frames_ref,
-                covariances_ief_rotationonly[icam]) \
-                       for icam in range(Ncameras) ])
+    Var_dq_infinity = \
+        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
+            nps.dummy(qxy,-2),
+            None,
+            model = models_ref[icam] ) \
+                   for icam in range(Ncameras) ])
 
     # shape (Ncameras, gridn_height, gridn_width)
     worst_direction_stdev_infinity = mrcal.worst_direction_stdev(Var_dq_infinity)
@@ -674,12 +668,6 @@ covariance_intrinsics = \
     sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
                                   apply_noise        = False,
                                   get_covariances    = True)[-3]
-
-models = [ mrcal.cameramodel( imagersize            = imagersizes[i],
-                              intrinsics            = (lensmodel, intrinsics_ref[i,:]),
-                              extrinsics_rt_fromref = extrinsics_ref_mounted[i,:]) \
-      for i in range(Ncameras)]
-
 
 import IPython
 IPython.embed()
