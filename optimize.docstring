@@ -225,6 +225,10 @@ OPTIONAL ARGUMENTS
   are needed only for the uncertainty computations. If we're performing an
   incremental solve, only the final optimize() call needs to compute these.
 
+- icam_intrinsics_covariances_ief: defaults to -1. If <0 then I return
+  covariance_intrinsics, covariance_ief... for ALL the cameras. If >= 0 then I
+  return those for just that camera
+
 - verbose: if True, write out all sorts of diagnostic data to STDERR. Defaults
   to False
 

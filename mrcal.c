@@ -3088,6 +3088,14 @@ static bool compute_uncertainty_matrices(// out
                                          double* covariances_ief_rotationonly,
                                          int     buffer_size_covariances_ief_rotationonly,
 
+                                         // Which camera we're querying for
+                                         // covariance_intrinsics and
+                                         // covariances_ief... Does NOT apply to
+                                         // covariance_extrinsics. If <0 then I
+                                         // return the covariances for ALL the
+                                         // cameras
+                                         int icam_intrinsics_covariances_ief,
+
                                          // in
                                          double observed_pixel_uncertainty,
                                          const observation_board_t* observations_board,
@@ -3165,17 +3173,18 @@ static bool compute_uncertainty_matrices(// out
                                                                calibration_object_width_n,
                                                                calibration_object_height_n);
 
+    int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
     if(covariance_intrinsics)
     {
-        if(buffer_size_covariance_intrinsics != Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*(int)sizeof(double))
+        if(buffer_size_covariance_intrinsics != Ncameras_intrinsics_returning*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*(int)sizeof(double))
         {
             MSG("Buffer for covariance_intrinsics has the wrong size. Expected exactly %d bytes, but the given buffer has %d bytes",
-                Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*(int)sizeof(double),
+                Ncameras_intrinsics_returning*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*(int)sizeof(double),
                 buffer_size_covariance_intrinsics);
             goto done;
         }
         memset(covariance_intrinsics, 0,
-               Ncameras_intrinsics*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
+               Ncameras_intrinsics_returning*Nintrinsics_per_camera_all* Nintrinsics_per_camera_all*sizeof(double));
 
         if( !problem_details.do_optimize_intrinsic_core        &&
             !problem_details.do_optimize_intrinsic_distortions )
@@ -3336,15 +3345,15 @@ static bool compute_uncertainty_matrices(// out
         if(problem_details.do_optimize_extrinsics) Nvars_ief += Nvars_pose;
         if(problem_details.do_optimize_frames)     Nvars_ief += Nvars_pose*Nframes;
 
-        if(buffer_size != Ncameras_intrinsics * Nvars_ief*Nvars_ief * (int)sizeof(double))
+        if(buffer_size != Ncameras_intrinsics_returning * Nvars_ief*Nvars_ief * (int)sizeof(double))
         {
             MSG("Buffer for %s has the wrong size. Expected exactly %d bytes, but the given buffer has %d bytes",
                 what,
-                Ncameras_intrinsics * Nvars_ief*Nvars_ief * (int)sizeof(double),
+                Ncameras_intrinsics_returning * Nvars_ief*Nvars_ief * (int)sizeof(double),
                 buffer_size);
             return false;
         }
-        memset( out, 0, Ncameras_intrinsics * Nvars_ief*Nvars_ief * (int)sizeof(double));
+        memset( out, 0, Ncameras_intrinsics_returning * Nvars_ief*Nvars_ief * (int)sizeof(double));
 
 
 
@@ -3360,7 +3369,7 @@ static bool compute_uncertainty_matrices(// out
             double scale[2];
         } block_t;
 
-        for(int icam_intrinsics = 0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
+        void accum(int icam_out, int icam_state)
         {
             // Here I want the diagonal blocks of inv(JtJ) for the intrinsics,
             // extrinsics, frames
@@ -3381,9 +3390,9 @@ static bool compute_uncertainty_matrices(// out
             // doubt it is more efficient
 
             // The blocks describe the sets of variables that I care about
-            int istate0_intrinsics = mrcal_state_index_intrinsics(icam_intrinsics,
+            int istate0_intrinsics = mrcal_state_index_intrinsics(icam_state,
                                                                   problem_details, lensmodel);
-            int istate0_extrinsics = mrcal_state_index_camera_rt(icam_map_to_extrinsics[icam_intrinsics],
+            int istate0_extrinsics = mrcal_state_index_camera_rt(icam_map_to_extrinsics[icam_state],
                                                                  Ncameras_intrinsics,
                                                                  problem_details, lensmodel);
             int istate0_frames     = mrcal_state_index_frame_rt(0,
@@ -3458,7 +3467,7 @@ static bool compute_uncertainty_matrices(// out
                         if(b->istate0 < 0) continue;
 
                         if(jblock == 2 &&
-                           icam_map_to_extrinsics[icam_intrinsics] < 0)
+                           icam_map_to_extrinsics[icam_state] < 0)
                         {
                             // THIS camera has no extrinsics. I store 0. The buffer has
                             // already been zeroed-out, so I don't need to do anything
@@ -3527,7 +3536,7 @@ static bool compute_uncertainty_matrices(// out
                 if(blocks[iblock].istate0 < 0) continue;
 
                 if(iblock == 2 &&
-                   icam_map_to_extrinsics[icam_intrinsics] < 0)
+                   icam_map_to_extrinsics[icam_state] < 0)
                 {
                     // THIS camera has no extrinsics. I store 0. The buffer has
                     // already been zeroed-out, so I don't need to do anything
@@ -3535,9 +3544,16 @@ static bool compute_uncertainty_matrices(// out
                     continue;
                 }
 
-                compute_invJtJ_block(&out[icam_intrinsics*Nvars_ief*Nvars_ief], iblock, &ifinal);
+                compute_invJtJ_block(&out[icam_out*Nvars_ief*Nvars_ief], iblock, &ifinal);
             }
         }
+
+        if(icam_intrinsics_covariances_ief < 0)
+            for(int icam=0; icam<Ncameras_intrinsics; icam++)
+                accum(icam, icam);
+        else
+            accum(0, icam_intrinsics_covariances_ief);
+
         Jt_slice->ncol = chunk_size;
         return true;
     }
@@ -3653,14 +3669,21 @@ static bool compute_uncertainty_matrices(// out
 
                 // Intrinsics. Each camera into a separate inv(JtJ) block
                 if(covariance_intrinsics)
-                    for(int icam=0; icam<Ncameras_intrinsics; icam++)
+                {
+                    void accum(int icam_out, int icam_state)
                     {
                         double* invJtJ_thiscam =
-                            &covariance_intrinsics[icam*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
+                            &covariance_intrinsics[icam_out*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all];
                         accumulate_invJtJ(invJtJ_thiscam,
-                                          istate_intrinsics0 + icam * Nintrinsics_per_camera_state,
+                                          istate_intrinsics0 + icam_state * Nintrinsics_per_camera_state,
                                           Nintrinsics_per_camera_state);
                     }
+                    if(icam_intrinsics_covariances_ief < 0)
+                        for(int icam=0; icam<Ncameras_intrinsics; icam++)
+                            accum(icam, icam);
+                    else
+                        accum(0, icam_intrinsics_covariances_ief);
+                }
 
                 // Extrinsics. Everything into one big inv(JtJ) block
                 if(covariance_extrinsics)
@@ -3678,7 +3701,7 @@ static bool compute_uncertainty_matrices(// out
     double s = observed_pixel_uncertainty*observed_pixel_uncertainty;
     if(covariance_intrinsics)
         for(int i=0;
-            i<Ncameras_intrinsics*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all;
+            i<Ncameras_intrinsics_returning*Nintrinsics_per_camera_all*Nintrinsics_per_camera_all;
             i++)
             covariance_intrinsics[i] *= s;
     if(covariance_extrinsics)
@@ -4896,7 +4919,9 @@ bool mrcal_optimizerCallback(// output measurements
                              cholmod_sparse* Jt,
 
                              // May be NULL
-                             // Shape (Ncameras_intrinsics * (Nintrinsics_state+6+6*Nframes)^2)
+                             // Shape (N * (Nintrinsics_state+6+6*Nframes)^2)
+                             //   N is 1 (if icam_intrinsics_covariances_ief >=
+                             //   0) or Ncameras_intrinsics otherwise.
                              //   Any variable we're not optimizing is omitted. If some
                              //   camera sits at the reference coordinate system, it doesn't
                              //   have extrinsics, and we write 0 in those entries of the
@@ -4907,13 +4932,20 @@ bool mrcal_optimizerCallback(// output measurements
                              int buffer_size_covariances_ief,
 
                              // May be NULL
-                             // Shape (Ncameras_intrinsics * (Nintrinsics_state+3+3*Nframes)^2)
+                             // Shape (N * (Nintrinsics_state+3+3*Nframes)^2)
+                             //   N is 1 (if icam_intrinsics_covariances_ief >=
+                             //   0) or Ncameras_intrinsics otherwise.
                              //   Just like covariances_ief, but look only at the rotations
                              //   when evaluating the frames, extrinsics
                              double* covariances_ief_rotationonly,
                              // used only to confirm that the user passed-in the buffer they
                              // should have passed-in. The size must match exactly
                              int buffer_size_covariances_ief_rotationonly,
+
+                             // Which camera we're querying for
+                             // covariances_ief... If <0 then I return the
+                             // covariances for ALL the cameras
+                             int icam_intrinsics_covariances_ief,
 
                              // in
                              // intrinsics is a concatenation of the intrinsics core
@@ -5050,6 +5082,7 @@ bool mrcal_optimizerCallback(// output measurements
                                          buffer_size_covariances_ief,
                                          covariances_ief_rotationonly,
                                          buffer_size_covariances_ief_rotationonly,
+                                         icam_intrinsics_covariances_ief,
 
                                          // in
                                          observed_pixel_uncertainty,
@@ -5086,7 +5119,9 @@ mrcal_optimize( // out
                 // should have passed-in. The size must match exactly
                 int buffer_size_x_final,
 
-                // Shape (Ncameras_intrinsics * Nintrinsics_state*Nintrinsics_state)
+                // Shape (N * Nintrinsics_state*Nintrinsics_state)
+                //   N is 1 (if icam_intrinsics_covariances_ief >=
+                //   0) or Ncameras_intrinsics otherwise.
                 double* covariance_intrinsics,
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
@@ -5098,7 +5133,10 @@ mrcal_optimize( // out
                 // should have passed-in. The size must match exactly
                 int buffer_size_covariance_extrinsics,
 
-                // Shape (Ncameras_intrinsics * (Nintrinsics_state+6+6*Nframes)^2)
+                // May be NULL
+                // Shape (N * (Nintrinsics_state+6+6*Nframes)^2)
+                //   N is 1 (if icam_intrinsics_covariances_ief >=
+                //   0) or Ncameras_intrinsics otherwise.
                 //   Any variable we're not optimizing is omitted. If some
                 //   camera sits at the reference coordinate system, it doesn't
                 //   have extrinsics, and we write 0 in those entries of the
@@ -5108,13 +5146,21 @@ mrcal_optimize( // out
                 // should have passed-in. The size must match exactly
                 int buffer_size_covariances_ief,
 
-                // Shape (Ncameras_intrinsics * (Nintrinsics_state+3+3*Nframes)^2)
+                // May be NULL
+                // Shape (N * (Nintrinsics_state+3+3*Nframes)^2)
+                //   N is 1 (if icam_intrinsics_covariances_ief >=
+                //   0) or Ncameras_intrinsics otherwise.
                 //   Just like covariances_ief, but look only at the rotations
                 //   when evaluating the frames, extrinsics
                 double* covariances_ief_rotationonly,
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
                 int buffer_size_covariances_ief_rotationonly,
+
+                // Which camera we're querying for covariance_intrinsics and
+                // covariances_ief... If <0 then I return the covariances for
+                // ALL the cameras
+                int icam_intrinsics_covariances_ief,
 
                 // Buffer should be at least Nfeatures long. stats->Noutliers
                 // elements will be filled in
@@ -5451,6 +5497,7 @@ mrcal_optimize( // out
                                          buffer_size_covariances_ief,
                                          covariances_ief_rotationonly,
                                          buffer_size_covariances_ief_rotationonly,
+                                         icam_intrinsics_covariances_ief,
 
                                          // in
                                          observed_pixel_uncertainty,
