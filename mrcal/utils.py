@@ -1727,10 +1727,19 @@ broadcasting
 
 
 def compute_projection_covariance_from_solve( q, distance,
-                                              lensmodel, intrinsics_data, extrinsics, frames,
-                                              Var_ief,
 
-                                              what = 'variance'):
+                                              # must pass all of these
+                                              lensmodel             = None,
+                                              intrinsics_data       = None,
+                                              extrinsics_rt_fromref = None,
+                                              frames_rt_toref       = None,
+                                              Var_ief               = None,
+
+                                              # or this
+                                              model                 = None,
+
+                                              # what we're reporting
+                                              what                  = 'variance'):
     r'''Computes the uncertainty in a projection of a 3D point
 
     Unlike compute_projection_stdev(), does take into account the variances of
@@ -1748,7 +1757,7 @@ def compute_projection_covariance_from_solve( q, distance,
     lots of stationary cameras are observing a moving chessboard, no point
     observations, camera0 defines the reference coordinate system
 
-    everything we care about broadcasts: q, intrinsics_data, extrinsics, distance
+    everything we care about broadcasts: q, intrinsics_data, extrinsics_rt_fromref, distance
     except you have to pass in nonstandard broadcasting dimensions
 
     todo:
@@ -1777,14 +1786,14 @@ def compute_projection_covariance_from_solve( q, distance,
     - Documentation!
 
 
-    if frames is None: the frames are assumed fixed, ALL cameras have extrinsics
+    if frames_rt_toref is None: the frames_rt_toref are assumed fixed, ALL cameras have extrinsics
     and we use the reference coord system for the query point
 
 
-    #   pref = ( transform( frames[0], p0_frames[0] ) +
-    #            transform( frames[1], p0_frames[1] ) +
+    #   pref = ( transform( frames_rt_toref[0], p0_frames[0] ) +
+    #            transform( frames_rt_toref[1], p0_frames[1] ) +
     #            ... ) / Nframes
-    #   pcam = transform(extrinsics, pref)
+    #   pcam = transform(extrinsics_rt_fromref, pref)
     #   q    = project( pcam, intrinsics_data )
 
     # q depends on the intrinsics and on the extrinsics and on the frames
@@ -1800,10 +1809,46 @@ def compute_projection_covariance_from_solve( q, distance,
 
     '''
 
+    # must pass either the model OR all the constituent things I need
+    if model is None:
+        if \
+           lensmodel             is None or \
+           intrinsics_data       is None or \
+           extrinsics_rt_fromref is None or \
+           frames_rt_toref       is None or \
+           Var_ief               is None:
+            raise Exception("Must have been given a model xor all the components; instead got no model and some constituent is missing")
+
+    else:
+        if \
+           lensmodel             is not None or \
+           intrinsics_data       is not None or \
+           extrinsics_rt_fromref is not None or \
+           frames_rt_toref       is not None or \
+           Var_ief               is not None:
+            raise Exception("Must have been given a model xor all the components; instead got a model and some constituent is given too")
+
+        lensmodel, intrinsics_data = model.intrinsics()
+        extrinsics_rt_fromref      = model.extrinsics_rt_fromref()
+
+        try:
+            optimization_inputs = model.optimization_inputs()
+            Var_ief,Var_ief_rotationonly = \
+                mrcal.optimizerCallback( **optimization_inputs,
+                                         get_covariances = True )[2:4]
+            if distance is None:
+                Var_ief = Var_ief_rotationonly
+            frames_rt_toref = None
+            if optimization_inputs.get('do_optimize_frames'):
+                frames_rt_toref = optimization_inputs.get('frames_rt_toref')
+        except:
+            raise Exception("Couldn't get covariances_ief, frames_rt_toref from the model")
+
+
     def make_output(var, what):
-        if what == 'variance':        return var
+        if what == 'variance':             return var
         if what == 'worstdirection-stdev': return worst_direction_stdev(var)
-        if what == 'mean-stdev':      return np.sqrt(nps.trace(var)/2.)
+        if what == 'mean-stdev':           return np.sqrt(nps.trace(var)/2.)
         else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
@@ -1812,7 +1857,7 @@ def compute_projection_covariance_from_solve( q, distance,
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
     Nintrinsics = intrinsics_data.shape[-1]
-    if frames is not None: Nframes = len(frames)
+    if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
 
     # I have pixel coordinates q. I unproject and transform to the frames'
     # coordinate system. Then I transform and project back to the same q, but
@@ -1828,17 +1873,17 @@ def compute_projection_covariance_from_solve( q, distance,
     if distance is not None:
         p_cam = v_cam*distance
 
-        if extrinsics is not None:
+        if extrinsics_rt_fromref is not None:
             p_ref = \
-                mrcal.transform_point_rt( mrcal.invert_rt(extrinsics),
+                mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_rt_fromref),
                                           p_cam )
         else:
             p_ref = p_cam
 
-        if frames is not None:
+        if frames_rt_toref is not None:
             # The point in the coord system of all the frames. I index the frames on
             # axis -2
-            p_frames = mrcal.transform_point_rt( mrcal.invert_rt(frames),
+            p_frames = mrcal.transform_point_rt( mrcal.invert_rt(frames_rt_toref),
                                                  nps.dummy(p_ref,-2) )
 
             # I now have the observed point represented in the coordinate system of the
@@ -1854,7 +1899,7 @@ def compute_projection_covariance_from_solve( q, distance,
             _, \
             dprefallframes_dframesr, \
             dprefallframes_dframest, \
-            _ = mrcal.transform_point_rt( frames, p_frames,
+            _ = mrcal.transform_point_rt( frames_rt_toref, p_frames,
                                           get_gradients = True)
 
             # shape (..., Nframes,3,6)
@@ -1870,14 +1915,14 @@ def compute_projection_covariance_from_solve( q, distance,
             mrcal.project( p_cam, lensmodel, intrinsics_data,
                            get_gradients = True)
 
-        if extrinsics is not None:
+        if extrinsics_rt_fromref is not None:
             _, dpcam_dr, dpcam_dt, dpcam_dpref = \
-                mrcal.transform_point_rt(extrinsics, p_ref,
+                mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                          get_gradients = True)
             dq_dr = nps.matmult(dq_dpcam, dpcam_dr)
             dq_dt = nps.matmult(dq_dpcam, dpcam_dt)
 
-            if frames is not None:
+            if frames_rt_toref is not None:
                 dq_dframes = nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
                 dq_dief = nps.glue(dq_dintrinsics,
                                    dq_dr,
@@ -1899,7 +1944,7 @@ def compute_projection_covariance_from_solve( q, distance,
             # I cut out the empty "extrinsics" rows, cols from the variance, so
             # I just compute the chunks of nps.matmult(dq_dif, Var_ief,
             # nps.transpose(dq_dif)) manually
-            if frames is not None:
+            if frames_rt_toref is not None:
                 dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
 
                 return make_output( nps.matmult(dq_dintrinsics,
@@ -1922,16 +1967,16 @@ def compute_projection_covariance_from_solve( q, distance,
         # distance is None. I'm looking at infinity. Ignore all translations
         p_cam = v_cam
 
-        if extrinsics is not None:
+        if extrinsics_rt_fromref is not None:
             p_ref = \
-                mrcal.rotate_point_r( -extrinsics[..., :3], p_cam )
+                mrcal.rotate_point_r( -extrinsics_rt_fromref[..., :3], p_cam )
         else:
             p_ref = p_cam
 
-        if frames is not None:
+        if frames_rt_toref is not None:
             # The point in the coord system of all the frames. I index the frames on
             # axis -2
-            p_frames = mrcal.rotate_point_r( -frames[...,:3],
+            p_frames = mrcal.rotate_point_r( -frames_rt_toref[...,:3],
                                              nps.dummy(p_ref,-2) )
 
             # I now have the observed point represented in the coordinate system of the
@@ -1946,7 +1991,7 @@ def compute_projection_covariance_from_solve( q, distance,
 
             _, \
             dprefallframes_dframesr, \
-            _ = mrcal.rotate_point_r( frames[...,:3], p_frames,
+            _ = mrcal.rotate_point_r( frames_rt_toref[...,:3], p_frames,
                                       get_gradients = True)
 
             # shape (..., 3,3*Nframes)
@@ -1958,13 +2003,13 @@ def compute_projection_covariance_from_solve( q, distance,
             mrcal.project( p_cam, lensmodel, intrinsics_data,
                            get_gradients = True)
 
-        if extrinsics is not None:
+        if extrinsics_rt_fromref is not None:
             _, dpcam_dr, dpcam_dpref = \
-                mrcal.rotate_point_r(extrinsics[...,:3], p_ref,
+                mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
                                      get_gradients = True)
             dq_dr = nps.matmult(dq_dpcam, dpcam_dr)
 
-            if frames is not None:
+            if frames_rt_toref is not None:
 
                 dq_dframes = nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
                 dq_dief = nps.glue(dq_dintrinsics,
@@ -1984,7 +2029,7 @@ def compute_projection_covariance_from_solve( q, distance,
             # I cut out the empty "extrinsics" rows, cols from the variance, so
             # I just compute the chunks of nps.matmult(dq_dif, Var_ief,
             # nps.transpose(dq_dif)) manually
-            if frames is not None:
+            if frames_rt_toref is not None:
                 dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
 
                 return make_output( nps.matmult(dq_dintrinsics,
