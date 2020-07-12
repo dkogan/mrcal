@@ -472,10 +472,15 @@ SYNOPSIS
     # Solve a calibration problem. Visualize the resulting geometry AND the
     # observed calibration objects and points
     ...
-    mrcal.optimize(intrinsics, extrinsics_rt_fromref, frames, points, ...)
-    plot2 = mrcal.show_calibration_geometry(extrinsics_rt_fromref,
-                                            frames = frames,
-                                            points = points)
+    mrcal.optimize(intrinsics,
+                   extrinsics_rt_fromref,
+                   frames_rt_toref,
+                   points,
+                   ...)
+    plot2 = \
+      mrcal.show_calibration_geometry(extrinsics_rt_fromref,
+                                      frames_rt_toref = frames_rt_toref,
+                                      points          = points)
 
 This function can visualize the world described by a set of camera models on
 disk. It can also be used to visualize the output (or input) of
@@ -504,12 +509,16 @@ ARGUMENTS
   means "identity"). Or a single Rt transformation can be given to use that one
   for ALL the cameras
 
-- frames_rt_toref: optional array of shape (N,6). If omitted, we don't plot the
-  calibration objects. If given, each row of shape (6,) is an rt transformation
-  representing the transformation TO the reference coordinate system FROM the
-  calibration object coordinate system. If given, the calibration object MUST be
-  defined by passing in valid object_width_n, object_height_n, object_spacing
-  parameters
+- frames_rt_toref: optional array of shape (N,6). If given, each row of shape
+  (6,) is an rt transformation representing the transformation TO the reference
+  coordinate system FROM the calibration object coordinate system. The
+  calibration object then MUST be defined by passing in valid object_width_n,
+  object_height_n, object_spacing parameters. If frames_rt_toref is omitted or
+  None, we look for this data in the given camera models. I look at the given
+  models in order, and grab the frames from the first model that has them. If
+  none of the models have this data and frames_rt_toref is omitted or NULL, then
+  I don't plot any frames at all
+
 
 - object_width_n: the number of horizontal points in the calibration object
   grid. Required only if frames_rt_toref is not None
@@ -562,6 +571,41 @@ into a variable, even if you're not going to be doing anything with this object
                   for m in models_or_extrinsics_rt_fromref])
     extrinsics_Rt_toref = nps.atleast_dims(extrinsics_Rt_toref, -3)
 
+    if frames_rt_toref is None:
+        # No frames were given. I grab them from the first .cameramodel that has
+        # them. If none of the models have this data, I don't plot any frames at
+        # all
+        for m in models_or_extrinsics_rt_fromref:
+            _frames_rt_toref = None
+            _object_spacing  = None
+            _object_width_n  = None
+            _object_height_n = None
+            _calobject_warp  = None
+            if not isinstance(m, mrcal.cameramodel):
+                continue
+            try:
+                optimization_inputs = m.optimization_inputs()
+                _frames_rt_toref = optimization_inputs['frames_rt_toref']
+                _object_spacing  = optimization_inputs['calibration_object_spacing']
+                _object_width_n  = optimization_inputs['calibration_object_width_n']
+                _object_height_n = optimization_inputs['calibration_object_height_n']
+                _calobject_warp  = optimization_inputs['calobject_warp']
+            except:
+                _frames_rt_toref = None
+                _object_spacing  = None
+                _object_width_n  = None
+                _object_height_n = None
+                _calobject_warp  = None
+                continue
+            break
+
+        # Use the data from the model if everything I need was valid
+        if _frames_rt_toref is not None:
+            frames_rt_toref = _frames_rt_toref
+            object_spacing  = _object_spacing
+            object_width_n  = _object_width_n
+            object_height_n = _object_height_n
+            calobject_warp  = _calobject_warp
 
     if frames_rt_toref is not None:
         frames_rt_toref = nps.atleast_dims(frames_rt_toref, -2)
