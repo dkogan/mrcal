@@ -16,6 +16,7 @@ import re
 import warnings
 import io
 import copy
+import base64
 
 import mrcal
 
@@ -42,7 +43,8 @@ class BadValidIntrinsicsRegion_Exception(Exception):
     pass
 def _validateIntrinsics(imagersize,
                         i,
-                        valid_intrinsics_region):
+                        valid_intrinsics_region,
+                        optimization_inputs = None):
     r'''Raises an exception if given components of the intrinsics is invalid'''
 
     # need two integers in the imager size
@@ -95,27 +97,156 @@ def _validateIntrinsics(imagersize,
             raise BadValidIntrinsicsRegion_Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
                             format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
 
+    if optimization_inputs is not None and \
+       not isinstance(optimization_inputs, dict):
+        raise Exception(f"'optimization_inputs' must be a dict. Instead got type {type(optimization_inputs)}")
+
+
 class CameramodelParseException(Exception):
     pass
 
-class cameramodel(object):
-    r'''A class that encapsulates an extrinsic,intrinsic model of a single camera
 
-    For ONE camera this class represents
+def _serialize_optimization_inputs(optimization_inputs):
+    r'''Convert a optimization-input dict to an ascii string
+
+    I store the optimization inputs as an opaque string in the .cameramodel
+    file. This is a potentially large data blob that has little value in
+    being readable to the user. To serialize I do this:
+
+    - normalize the data in the dict. The numpy.save...() functions have
+      quirks, so I must work around them:
+
+      - All non-numpy-array values are read in as scalar numpy arrays, so I
+        must extract them at reading time
+
+      - Any non-trivial objects are pickled, but pickling is not safe for
+        untrusted data, so I disable pickling, which means that non-trivial
+        objects are not serializable. This includes None. So I store None as
+        ''. This means I can't store '', which I guess is OK
+
+    - np.savez_compressed() to make a compressed binary data stream
+
+    - base64.b85encode() to convert to printable ascii
+
+    This works, but the normalization is ugly, and this thing is
+    inefficient. b85encode() is written in Python for instance. I can
+    replace some of this with tarfile, which doesn't really solve the
+    problems, but it could be a starting point for something better in the
+    future
+
+
+        def write():
+            d = dict( x  = np.arange(1000) + 5,
+                      y  = np.arange(300, dtype=float) / 2,
+                      z  = None,
+                      s  = 'abc',
+                      bt = True,
+                      bf = False)
+
+            f = io.BytesIO()
+            tar = \
+                tarfile.open(name    = None,
+                             mode    = 'w|gz',
+                             fileobj = f)
+
+            for k in d.keys():
+                v = d[k]
+                if v is None: v = ''
+
+                d_bytes = io.BytesIO()
+                np.save(d_bytes, v, allow_pickle = False)
+
+                tarinfo = tarfile.TarInfo(name=k)
+                tarinfo.size = d_bytes.tell()
+                d_bytes.seek(0)
+                tar.addfile( tarinfo,
+                             fileobj = d_bytes )
+            tar.close()
+            sys.stdout.buffer.write(f.getvalue())
+
+        def read():
+            with open("/tmp/tst.tar.gz", "rb") as f:
+                tar = \
+                    tarfile.open(name    = None,
+                                 mode    = 'r|gz',
+                                 fileobj = f)
+
+                for m in tar:
+                    b = tar.extractfile(m).read()
+                    arr = np.load(io.BytesIO(b), allow_pickle=False, encoding='bytes')
+                    if arr.shape == ():
+                        arr = arr.item()
+                    if type(arr) is str and arr == '':
+                        arr = None
+                    print(arr)
+                tar.close()
+    '''
+
+    data_bytes = io.BytesIO()
+
+    optimization_inputs_normalized = dict()
+    for k in optimization_inputs.keys():
+        v = optimization_inputs[k]
+        if v is None: v = ''
+        optimization_inputs_normalized[k] = v
+
+    np.savez_compressed(data_bytes, **optimization_inputs_normalized)
+    return \
+        base64.b85encode(data_bytes.getvalue())
+
+
+def _deserialize_optimization_inputs(data_bytes):
+    r'''Convert an ascii string for the optimization-input to a full dict
+
+    This is the inverse of _serialize_optimization_inputs(). See the
+    docstring of that function for details
+    '''
+
+    optimization_inputs_bytes = io.BytesIO(base64.b85decode(data_bytes))
+
+    _optimization_inputs = np.load(optimization_inputs_bytes, allow_pickle = False)
+
+    # Now I need to post-process my output array. Numpy converts everything
+    # to numpy arrays for some reason, even things that aren't numpy arrays.
+    # So I find everything that's an array of shape (), and convert it to
+    # the actual thing contained in the array
+    optimization_inputs = dict()
+    for k in _optimization_inputs.keys():
+        arr = _optimization_inputs[k]
+        if arr.shape == ():
+            arr = arr.item()
+        if type(arr) is str and arr == '':
+            arr = None
+        optimization_inputs[k] = arr
+
+    return optimization_inputs
+
+
+
+class cameramodel(object):
+    r'''A class that describes the lens parameters and geometry of a single camera
+
+    This class represents
 
     - The intrinsics: parameters internal to this camera. These do not change as
-      the camera moves around in space. These include
+      the camera moves around in space. Usually these contain
 
       - The 4 pinhole-camera parameters: focal lengths, coordinates of the
         center pixel
 
-      - Some representation of the camera distortion. Multiple lens models
-        are supported. mrcal.getSupportedLensModels() returns a
-        list of supported models.
+      - Some representation of the camera projection behavior. This is dependent
+        on the lens model being used. The full list of supported models is
+        returned by mrcal.getSupportedLensModels()
 
-    - The extrinsics: the pose of this camera in respect to SOME reference
-      coordinate system. The meaning of this coordinate system is defined by the
-      user of this class: this class itself does not care
+    - The extrinsics: the pose of this camera in respect to some reference
+      coordinate system. The meaning of this coordinate system is user-defined,
+      and carries no special meaning to the mrcal.cameramodel class
+
+    - The optimization inputs: this is a big blob containing all the data that
+      was used to compute the intrinsics and extrinsics in this model. This can
+      be used to compute the projection uncertainties, visualize the
+      calibration-time frames, and re-solve the calibration problem for
+      diagnostics
 
     This class provides facilities to read/write models, and to get/set the
     various parameters.
@@ -184,7 +315,24 @@ class cameramodel(object):
         f.write("\n")
 
         N = 2
-        f.write(("    'imagersize': [" + (" {:d}," * N) + "]\n").format(*(int(x) for x in self._imagersize)))
+        f.write(("    'imagersize': [" + (" {:d}," * N) + "],\n").format(*(int(x) for x in self._imagersize)))
+        f.write("\n")
+
+        if self._optimization_inputs_string is not None:
+            f.write(r"""    # The optimization inputs contain all the data used to compute this model.
+    # This contains ALL the observations for ALL the cameras in the solve. The uses of
+    # this are to be able to compute projection uncertainties, to visualize the
+    # calibration-time geometry and to re-run the original optimization for
+    # diagnostics. This is a big chunk of data that isn't useful for humans to
+    # interpret, so it's stored in binary, compressed, and encoded to ascii in
+    # base-85. Modifying the intrinsics of the model invalidates the optimization
+    # inputs: the optimum implied by the inputs would no longer match the stored
+    # parameters. Modifying the extrinsics is OK, however: if we move the camera
+    # elsewhere, the original solve can still be used to represent the camera-relative
+    # projection uncertainties
+""")
+            f.write(f"    'optimization_inputs': {self._optimization_inputs_string},\n\n")
+
         f.write("}\n")
 
 
@@ -248,6 +396,13 @@ class cameramodel(object):
         self._extrinsics                 = np.array(model['extrinsics'], dtype=float)
         self._imagersize                 = np.array(model['imagersize'], dtype=np.int32)
 
+        if 'optimization_inputs' in model:
+            if not isinstance(model['optimization_inputs'], bytes):
+                raise CameramodelParseException("'optimization_inputs' is given, but it's not a byte string. type(optimization_inputs)={}". \
+                                                format(type(model['optimization_inputs'])))
+            self._optimization_inputs_string = model['optimization_inputs']
+        else:
+            self._optimization_inputs_string = None
 
     def __init__(self, file_or_model=None, **kwargs):
         r'''Initializes a new camera-model object
@@ -270,6 +425,9 @@ class cameramodel(object):
           - 'extrinsics_rt_fromref'
         - 'imagersize': REQUIRED iterable for the (width,height) of the imager
         - 'valid_intrinsics_region'   : OPTIONAL
+        - 'optimization_inputs': OPTIONAL dict of arguments to mrcal.optimize().
+          These are stored in an opaque ascii-encoded-binary format, and are
+          used by the tools to compute the projection uncertainty
 
         '''
 
@@ -283,7 +441,7 @@ class cameramodel(object):
                 self._extrinsics                 = copy.deepcopy(file_or_model._extrinsics)
                 self._intrinsics                 = copy.deepcopy(file_or_model._intrinsics)
                 self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(file_or_model._valid_intrinsics_region))
-
+                self._optimization_inputs_string = copy.deepcopy(file_or_model._optimization_inputs_string)
 
             elif type(file_or_model) is str:
 
@@ -350,13 +508,15 @@ class cameramodel(object):
                                 format(extrinsics_keys, extrinsics_got))
             keys_remaining -= extrinsics_keys
 
-            keys_remaining -= set(('valid_intrinsics_region',),)
+            keys_remaining -= set(('valid_intrinsics_region','optimization_inputs'))
+
             if keys_remaining:
                 raise Exception("We were given some unknown parameters: {}".format(keys_remaining))
 
             self.intrinsics(kwargs['intrinsics'],
                             kwargs['imagersize'],
-                            kwargs.get('valid_intrinsics_region'))
+                            kwargs.get('valid_intrinsics_region'),
+                            kwargs.get('optimization_inputs'))
 
 
     def __str__(self):
@@ -413,13 +573,13 @@ class cameramodel(object):
     def intrinsics(self,
                    intrinsics                 = None,
                    imagersize                 = None,
-                   valid_intrinsics_region    = None):
+                   valid_intrinsics_region    = None,
+                   optimization_inputs        = None):
         r'''Get or set the intrinsics in this model
 
         if no arguments are given: this is a getter of the INTRINSICS parameters
         only; otherwise this is a setter. As a setter, everything related to the
-        lens is set together (dimensions, distortion parameters, uncertainty,
-        etc).
+        lens is set together (dimensions, lens parameters, uncertainty, etc).
 
         "intrinsics" is a tuple (lens_model, parameters):
 
@@ -439,23 +599,34 @@ class cameramodel(object):
 
         '''
 
+        # This is a getter
         if \
            imagersize                 is None and \
            intrinsics                 is None and \
-           valid_intrinsics_region    is None:
+           valid_intrinsics_region    is None and \
+           optimization_inputs        is None:
             return copy.deepcopy(self._intrinsics)
 
+
+        # This is a setter. The rest of this function does all that work
         if imagersize is None: imagersize = self._imagersize
         try:
             _validateIntrinsics(imagersize,
                                 intrinsics,
-                                valid_intrinsics_region)
+                                valid_intrinsics_region,
+                                optimization_inputs)
         except BadValidIntrinsicsRegion_Exception as e:
             warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
 
         self._imagersize                 = copy.deepcopy(imagersize)
         self._intrinsics                 = copy.deepcopy(intrinsics)
         self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(valid_intrinsics_region))
+
+        if optimization_inputs is not None:
+            self._optimization_inputs_string = \
+                _serialize_optimization_inputs(optimization_inputs)
+        else:
+            self._optimization_inputs_string = None
 
 
     def _extrinsics_rt(self, toref, rt=None):
@@ -668,6 +839,24 @@ class cameramodel(object):
         if len(args) or len(kwargs):
             raise Exception("valid_intrinsics_region() is NOT a setter. Please use intrinsics() to set them all together")
         return copy.deepcopy(self._valid_intrinsics_region)
+
+
+    def optimization_inputs(self, *args, **kwargs):
+        r'''Get the original optimization inputs
+
+        This function is NOT a setter. Use intrinsics() to set this and all the
+        intrinsics together. The optimization inputs aren't a part of the
+        intrinsics per se, but modifying any part of the intrinsics invalidates
+        the optimization inputs, so it only makes sense to set them all together
+
+        '''
+
+        if len(args) or len(kwargs):
+            raise Exception("optimization_inputs() is NOT a setter. Please use intrinsics() to set them all together")
+        if self._optimization_inputs_string is None:
+            return None
+        return _deserialize_optimization_inputs(self._optimization_inputs_string)
+
 
     def set_cookie(self, cookie):
         r'''Store some arbitrary cookie for somebody to use later
