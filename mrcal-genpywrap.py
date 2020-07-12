@@ -64,7 +64,8 @@ bool validate_lensmodel(// out; valid if we returned true
 # NOTE: these projection functions are not as fast as they SHOULD be. In fact
 # using numpysane_pywrap() is currently causing a performance hit of about 10%.
 # This should be improved by speeding up the main broadcasting loop in
-# numpysane_pywrap. I recall it being more complex than it should be. To benchmark this bit of python works:
+# numpysane_pywrap. I recall it being more complex than it should be. This bit
+# of python works to benchmark:
 r"""
 import numpy as np
 import mrcal
