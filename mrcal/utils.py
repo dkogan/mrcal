@@ -1595,24 +1595,100 @@ def show_projection_uncertainty(model,
                                 gridn_width  = 60,
                                 gridn_height = None,
 
-                                # fit a "reasonable" area in the center by
-                                # default
-                                focus_center = None,
-                                focus_radius = -1.,
+                                observations = False,
+                                distance     = None,
+                                isotropic    = False,
+                                extratitle   = None,
+                                cbmax        = 3,
+                                **kwargs):
+    r'''Visualize the uncertainty in camera projection
 
-                                extratitle       = None,
-                                hardcopy         = None,
-                                cbmax            = 3,
-                                kwargs           = None):
-    r'''Visualizes the uncertainty in the intrinsics of a camera
+SYNOPSIS
 
-    This routine uses the covariance of observed inputs. See
-    compute_projection_stdev() for a description of both routines and of the
-    arguments
+    model = mrcal.cameramodel('xxx.cameramodel')
+
+    mrcal.show_projection_uncertainty(model)
+
+    ... A plot pops up displaying the expected projection uncertainty across the
+    ... imager
+
+This function uses the expected noise of the calibration-time observations to
+estimate the uncertainty of projection of the final model. At calibration time we estimate
+
+- The intrinsics (lens paramaters) of a number of cameras
+- The extrinsics (geometry) of a number of cameras in respect to some reference
+  coordinate system
+- The poses of observed chessboards, also in respect to some reference
+  coordinate system
+
+All the coordinate systems move around, and all 3 of these sets of data have
+some uncertainty. This tool takes into account all the uncertainties to report
+an estimated uncertainty metric. See the docstring for projection_uncertainty()
+for a detailed description of the computation.
+
+This function grids the imager, and reports an uncertainty for each point on the
+grid. The resulting plot contains a heatmap of the uncertainties for each cell
+in the grid, and corresponding contours.
+
+Since the projection uncertainty is based on calibration-time observation
+uncertainty, it is sometimes useful to see where the calibration-time
+observations were. Pass observations=True to do that.
+
+Since the projection uncertainty is based partly on the uncertainty of the
+camera pose, points at different distance from the camera will have different
+reported uncertainties EVEN IF THEY PROJECT TO THE SAME PIXEL. The queried
+distance is passed in the distance argument. If distance is None (the default)
+then we look out to infinity.
+
+To see a 3D view showing the calibration-time observations AND uncertainties for
+a set of distances at the same time, call show_projection_uncertainty_xydist()
+instead.
+
+For each cell we compute the covariance matrix of the projected (x,y) coords,
+and by default we report the worst-direction standard deviation. If isotropic:
+we report the mean standard deviation instead.
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object being evaluated
+
+- gridn_width: optional value, defaulting to 60. How many points along the
+  horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+- observations: optional boolean, defaulting to False. If True, we overlay
+  calibration-time observations on top of the heat map and contours we plot
+  normally
+
+- distance: optional value, defaulting to None. The projection uncertainty
+  varies depending on the range to the observed point, with the queried range
+  set in this 'distance' argument. If None (the default) we look out to
+  infinity.
+
+- isotropic: optional boolean, defaulting to False. We compute the full 2x2
+  covariance matrix of the projection. The 1-sigma contour implied by this
+  matrix is an ellipse, and we use the worst-case direction by default. If we
+  want the mean size of the ellipse instead of the worst-direction size, pass
+  isotropic=True.
+
+- extratitle: optional string to include in the title of the resulting plot
+
+- cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
+  map
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUE
+
+The gnuplotlib plot object. The plot disappears when this object is destroyed
+(by the garbage collection, for instance), so do save this returned plot object
+into a variable, even if you're not going to be doing anything with this object
 
     '''
-
-    if kwargs is None: kwargs = {}
 
     import gnuplotlib as gp
     W,H=model.imagersize()
@@ -1620,37 +1696,36 @@ def show_projection_uncertainty(model,
         gridn_height = int(round(H/W*gridn_width))
 
     lensmodel, intrinsics_data = model.intrinsics()
-    imagersize                 = model.imagersize()
-    err = compute_projection_stdev(model,
-                                   gridn_width  = gridn_width,
-                                   gridn_height = gridn_height,
-                                   focus_center = focus_center,
-                                   focus_radius = focus_radius)
 
+    q    = sample_imager( gridn_width, gridn_height, *model.imagersize() )
+    pcam = mrcal.unproject(q, *model.intrinsics(),
+                           normalize = True)
+
+    err = projection_uncertainty(pcam * (distance if distance is not None else 1.0),
+                                 model           = model,
+                                 assume_infinity = distance is None,
+                                 what            = 'mean-stdev' if isotropic else 'worstdirection-stdev')
     if 'title' not in kwargs:
-        if focus_radius < 0:
-            focus_radius = min(W,H)/6.
-
-        if focus_radius == 0:
-            where = "NOT fitting an implied rotation"
-        elif focus_radius > 2*(W+H):
-            where = "implied rotation fitted everywhere"
+        if distance is None:
+            distance_description = ". Looking out to infinity"
         else:
-            where = "implied rotation fit looking at {} with radius {}". \
-                format('the imager center' if focus_center is None else focus_center,
-                       focus_radius)
-        title = f"Projection uncertainty (in pixels) based on calibration input noise; {where}"
+            distance_description = f". Looking out to {distance}m"
+
+        if not isotropic:
+            what_description = "Projection"
+        else:
+            what_description = "Isotropic projection"
+
+        title = f"{what_description} uncertainty (in pixels) based on calibration input noise{distance_description}"
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
 
     if 'set' not in kwargs:
         kwargs['set'] = []
     elif type(kwargs['set']) is not list:
         kwargs['set'] = [kwargs['set']]
+
     kwargs['set'].extend(['view equal xy',
                           'view map',
                           'contour surface',
@@ -1676,6 +1751,15 @@ def show_projection_uncertainty(model,
                                 np.zeros(valid_intrinsics_region.shape[-2]),
                                 dict(_with  = 'lines lw 3 nocontour',
                                      legend = "Valid-intrinsics region")) )
+
+    if observations:
+        p_cam_calobjects = board_observations_at_calibration_time(model)
+        q_cam_calobjects = mrcal.project( p_cam_calobjects, *model.intrinsics() )
+
+        plot_data_args.append( ( q_cam_calobjects[...,0], q_cam_calobjects[...,1], np.zeros(q_cam_calobjects.shape[:-1]),
+                                dict( tuplesize = 3,
+                                      _with = 'points nocontour' )) )
+
     plot = \
         gp.gnuplotlib(_3d=1,
                       unset='grid',
@@ -1688,6 +1772,138 @@ def show_projection_uncertainty(model,
 
     plot.plot(*plot_data_args)
     return plot
+
+
+def show_projection_uncertainty_xydist(model,
+                                       gridn_width  = 15,
+                                       gridn_height = None,
+
+                                       extratitle   = None,
+                                       hardcopy     = None,
+                                       **kwargs):
+    r'''Visualize in 3D the uncertainty in camera projection
+
+SYNOPSIS
+
+    model = mrcal.cameramodel('xxx.cameramodel')
+
+    mrcal.show_projection_uncertainty_xydist(model)
+
+    ... A plot pops up displaying the calibration-time observations and the
+    ... expected projection uncertainty for various ranges and for various
+    ... locations on the imager
+
+This function is similar to show_projection_uncertainty(), but it visualizes the
+uncertainty at multiple ranges at the same time.
+
+This function uses the expected noise of the calibration-time observations to
+estimate the uncertainty of projection of the final model. At calibration time
+we estimate
+
+- The intrinsics (lens paramaters) of a number of cameras
+- The extrinsics (geometry) of a number of cameras in respect to some reference
+  coordinate system
+- The poses of observed chessboards, also in respect to some reference
+  coordinate system
+
+All the coordinate systems move around, and all 3 of these sets of data have
+some uncertainty. This tool takes into account all the uncertainties to report
+an estimated uncertainty metric. See the docstring for projection_uncertainty()
+for a detailed description of the computation.
+
+This function grids the imager and a set of observation distances, and reports
+an uncertainty for each point on the grid. It also plots the calibration-time
+observations. The expectation is that the uncertainty will be low in the areas
+where we had observations at calibration time.
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object being evaluated
+
+- gridn_width: optional value, defaulting to 15. How many points along the
+  horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+- extratitle: optional string to include in the title of the resulting plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUE
+
+The gnuplotlib plot object. The plot disappears when this object is destroyed
+(by the garbage collection, for instance), so do save this returned plot object
+into a variable, even if you're not going to be doing anything with this object
+
+    '''
+
+    import gnuplotlib as gp
+    W,H=model.imagersize()
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
+
+
+    p_cam_calobjects = board_observations_at_calibration_time(model)
+    q_cam_calobjects = mrcal.project( p_cam_calobjects, *model.intrinsics() )
+    dist             = nps.mag(p_cam_calobjects)
+    xydist           = nps.glue(q_cam_calobjects, nps.dummy(dist,-1), axis=-1)
+
+    # shape (gridn_height,gridn_width,2)
+    qxy = mrcal.sample_imager(gridn_width, gridn_height, *model.imagersize())
+
+    ranges = np.linspace(np.min(xydist[...,2])/3.0,
+                         np.max(xydist[...,2])*2.0,
+                         10)
+
+    # shape (gridn_height,gridn_width,Nranges,3)
+    pcam = \
+        nps.dummy(mrcal.unproject( qxy, *model.intrinsics()), -2) * \
+        nps.dummy(ranges, -1)
+
+    # shape (gridn_height, gridn_width, Nranges)
+    worst_direction_stdev_grid = \
+        mrcal.projection_uncertainty( pcam,
+                                      model = model,
+                                      what = 'worstdirection-stdev')
+
+    grid__x_y_ranges = \
+        np.meshgrid(qxy[0,:,0],
+                    qxy[:,0,1],
+                    ranges,
+                    indexing = 'ij')
+
+    if 'title' not in kwargs:
+        title = f"Projection uncertainty (in pixels) based on calibration input noise"
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    if 'set' not in kwargs:
+        kwargs['set'] = []
+    elif type(kwargs['set']) is not list:
+        kwargs['set'] = [kwargs['set']]
+
+    plot = gp.gnuplotlib( _3d      = True,
+                          squarexy = True,
+                          xlabel   = 'Pixel x',
+                          ylabel   = 'Pixel y',
+                          zlabel   = 'Range',
+                          **kwargs )
+
+    plot.plot( ( grid__x_y_ranges[0].ravel(), grid__x_y_ranges[1].ravel(), grid__x_y_ranges[2].ravel(),
+                 nps.xchg(worst_direction_stdev_grid,0,1).ravel() / 2.,
+                 nps.xchg(worst_direction_stdev_grid,0,1).ravel(),
+                 dict(tuplesize = 5,
+                      _with = 'points pt 7 ps variable palette',)),
+               ( xydist,
+                 dict(tuplesize = -3,
+                      _with = 'points')) )
+
+    return plot
+
 
 
 def report_residual_statistics( observations, reprojection_error,

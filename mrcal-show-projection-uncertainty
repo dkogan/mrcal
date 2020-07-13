@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
-r'''Visualize the expected projection error due to uncertainty in the input
+r'''Visualize the expected projection error due to uncertainty in the calibration-time input
 
 SYNOPSIS
 
   $ mrcal-show-projection-uncertainty left.cameramodel
   ... a plot pops up showing the projection uncertainty of the intrinsics in
   ... this model
+
 
 A calibration process produces the best-fitting camera parameters and the
 uncertainty in these parameters. This tool examines the uncertainty in the
@@ -16,8 +17,8 @@ translated to uncertainty in projection. This tool plots the expected value of
 this projection error across the imager. Areas with a high expected projection
 error are unreliable for further work.
 
-See mrcal.compute_projection_stdev() for a full description of the
-computation performed here
+See mrcal.projection_uncertainty() for a full description of the computation
+performed here
 
 '''
 
@@ -34,26 +35,40 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--observations-xydist',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I make a 3D plot of uncertainties and chessboard observations. With
+                        this option I ignore --distance, --isotropic,
+                        --observations, --cbmax. This option makes a 3D
+                        x-y-distance plot instead of the 2D uncertainty contours
+                        we get normally''')
     parser.add_argument('--gridn',
                         type=int,
                         default = (60,40),
                         nargs = 2,
-                        help='''How densely we should sample the imager. By default we report a 60x40 grid''')
-    parser.add_argument('--where',
+                        help='''How densely we should sample the imager. By default we use a 60x40 grid (or a
+                        (15,10) grid if --observations-xydist)''')
+    parser.add_argument('--distance',
                         type=float,
-                        nargs=2,
-                        help='''Center of the region of interest. Uncertainty is a relative concept, so I
-                        focus on a particular area. I compute an implied
-                        rotation to make that area as certain as possible. The
-                        center of this focus area is given by this argument. If
-                        omitted, we will focus on the center of the imager''')
-    parser.add_argument('--radius',
-                        type=float,
-                        default=-1.,
-                        help='''Radius of the region of interest. If ==0, we do NOT fit an implied rotation
-                        at all. If omitted or <0, we use a "reasonable value:
-                        min(width,height)/6. To fit with data across the WHOLE
-                        imager: pass in a very large radius''')
+                        help='''By default we display the projection uncertainty infinitely away from the
+                        camera. If we want to look closer in, the desired
+                        observation distance can be given in this argument''')
+    parser.add_argument('--isotropic',
+                        action='store_true',
+                        default=False,
+                        help='''By default I display the expected value of the projection error in the worst
+                        possible direction of this error. If we want to plot the
+                        mean of the worst and best directions, pass --isotropic.
+                        If we assume the errors will apply evenly in all
+                        directions, then we can use this metric, which is
+                        potentially easier to compute''')
+    parser.add_argument('--observations',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I show where the chessboard corners were observed at calibration
+                        time. This should correspond to the low-uncertainty
+                        regions.''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=3,
@@ -93,14 +108,23 @@ if args.extraset is not None:
 
 model = mrcal.cameramodel(args.model)
 
-plot = mrcal.show_projection_uncertainty(model,
-                                         args.gridn[0], args.gridn[1],
-                                         focus_center = args.where,
-                                         focus_radius = args.radius,
-                                         hardcopy     = args.hardcopy,
-                                         cbmax        = args.cbmax,
-                                         extratitle   = args.extratitle,
-                                         kwargs       = plotkwargs_extra)
+if not args.observations_xydist:
+    plot = mrcal.show_projection_uncertainty(model,
+                                             args.gridn[0], args.gridn[1],
+                                             distance     = args.distance,
+                                             isotropic    = args.isotropic,
+                                             observations = args.observations,
+                                             hardcopy     = args.hardcopy,
+                                             cbmax        = args.cbmax,
+                                             extratitle   = args.extratitle,
+                                             **plotkwargs_extra)
+else:
+    plot = mrcal.show_projection_uncertainty_xydist(model,
+                                                    args.gridn[0] // 4,
+                                                    args.gridn[1] // 4,
+                                                    hardcopy     = args.hardcopy,
+                                                    extratitle   = args.extratitle,
+                                                    **plotkwargs_extra)
 
 if args.hardcopy is None:
     plot.wait()
