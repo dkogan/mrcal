@@ -61,6 +61,13 @@ elif re.search("fixed-frames", sys.argv[0]): fixedframes = True
 else:
     raise Exception("This script should contain either 'fixed-cam0' or 'fixed-frames' in the filename")
 
+args = set(sys.argv[1:])
+
+known_args = set(('show-distribution', 'study'))
+
+if not all(arg in known_args for arg in args):
+    raise Exception(f"Unknown argument given. I know about {known_args}")
+
 import tempfile
 import atexit
 import shutil
@@ -73,9 +80,6 @@ def cleanup():
     except:
         pass
 atexit.register(cleanup)
-
-
-args = set(sys.argv[1:])
 
 
 # I want the RNG to be deterministic
