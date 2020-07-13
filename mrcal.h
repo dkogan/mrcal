@@ -452,11 +452,11 @@ mrcal_optimize( // out
                 int calibration_object_height_n);
 
 struct cholmod_sparse_struct;
-// callback function. This is primarily for debugging
+
 bool mrcal_optimizerCallback(// output measurements
                              double*         x,
 
-                             // output Jacobian. May be NULL if we don't need it.
+                             // output Jacobian. May be NULL if we don't need it
                              struct cholmod_sparse_struct* Jt,
 
                              // May be NULL
@@ -499,7 +499,7 @@ bool mrcal_optimizerCallback(// output measurements
                              const point3_t*     points,     // Npoints of these.    In the reference frame
                              const point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
-                             int Ncameras_intrinsics, int Ncamera_extrinsics, int Nframes,
+                             int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                              int Npoints, int Npoints_fixed, // at the end of points[]
 
                              const observation_board_t* observations_board,
