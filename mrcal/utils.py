@@ -1507,6 +1507,90 @@ def projection_uncertainty( p_cam,
                                                  what)
 
 
+def board_observations_at_calibration_time(model):
+    '''Reports the 3D chessboard points observed by a model at calibration time
+
+SYNOPSIS
+
+    model = mrcal.cameramodel("xxx.cameramodel")
+    pcam  = board_observations_at_calibration_time(model)
+
+    print(pcam.shape)
+    ===> (1234, 3)
+
+Uncertainty is based on calibration-time observations, so it is useful for
+analysis to get an array of those observations. This function returns all
+non-outlier chessboard corner points observed at calibration time, in the CAMERA
+coordinate system. Since I report camera-relative points, the results are
+applicable even if the camera was moved post-calibration, and the extrinsics
+have changed.
+
+ARGUMENTS
+
+- model: a mrcal.cameramodel object being queried. This object MUST contain
+  optimization_inputs since these contain the data we're using
+
+RETURNED VALUE
+
+Returns (N,3) array containing camera-reference-frame 3D points observed at
+calibration time
+
+    '''
+
+    optimization_inputs = model.optimization_inputs()
+    if optimization_inputs is None:
+        return Exception("The given model doesn't contain optimization_inputs, so this function doesn't have any data to work with")
+
+    object_spacing      = optimization_inputs['calibration_object_spacing']
+    object_width_n      = optimization_inputs['calibration_object_width_n']
+    object_height_n     = optimization_inputs['calibration_object_height_n']
+    calobject_warp      = optimization_inputs['calobject_warp']
+    # shape (Nh,Nw,3)
+    full_object         = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing)
+
+    # all the frames, extrinsics at calibration time
+    frames_rt_toref       = optimization_inputs['frames_rt_toref']
+    extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref']
+
+    # which calibration-time camera we're looking at
+    icam_intrinsics = optimization_inputs['icam_intrinsics_covariances_ief']
+
+
+    indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    idx                                       = indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+
+    # which calibration-time extrinsic camera we're looking at. Currently this
+    # whole thing only works with stationary cameras, so my icam_intrinsics is
+    # guaranteed to correspond to a single icam_extrinsics. If somehow this
+    # isn't true, I barf
+    icam_extrinsics = indices_frame_camintrinsics_camextrinsics[idx][...,2][0]
+    if np.max( np.abs( indices_frame_camintrinsics_camextrinsics[idx][...,2] - icam_extrinsics) ) != 0:
+        raise Exception(f"icam_intrinsics MUST correspond to a single icam_extrinsics, but here there're multiples!")
+    # calibration-time extrinsics for THIS camera
+    if icam_extrinsics >= 0:
+        extrinsics_rt_fromref = extrinsics_rt_fromref[icam_extrinsics]
+    else:
+        # calibration-time camera is at the reference
+        extrinsics_rt_fromref = np.zeros((6,), dtype=float)
+
+    # calibration-time frames observed by THIS camera
+    frame_rt_toref = frames_rt_toref[indices_frame_camintrinsics_camextrinsics[idx][...,0]]
+
+    # shape (Nframes, 4,3)
+    # This transformation doesn't refer to the calibration-time reference, so we
+    # can use it even after we moved the cameras post-calibration
+    Rt_cam_frame = mrcal.compose_Rt( mrcal.Rt_from_rt( extrinsics_rt_fromref),
+                                     mrcal.Rt_from_rt( frames_rt_toref ) )
+
+    # shape (Nframes, Nboardpoints, 3)
+    p_cam_calobjects = mrcal.transform_point_Rt( nps.mv(Rt_cam_frame, -3, -4),
+                                                 nps.clump(full_object, n=2) )
+
+    # shape (N,3)
+    return nps.clump(p_cam_calobjects, n=2)
+
+
+
 def show_projection_uncertainty(model,
                                 gridn_width  = 60,
                                 gridn_height = None,
