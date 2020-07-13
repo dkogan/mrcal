@@ -115,7 +115,7 @@ plot = mrcal.show_projection_behavior(model,
                                       args.cbmax,
                                       args.gridn[0], args.gridn[1],
 
-                              extratitle   = args.extratitle,
+                                      extratitle   = args.extratitle,
                                       hardcopy     = args.hardcopy,
                                       **plotkwargs)
 
