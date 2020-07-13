@@ -531,9 +531,10 @@ def check_uncertainties_at(q0, distance):
     worst_direction_stdev_observed = mrcal.worst_direction_stdev(cov)
 
     Var_dq = \
-        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-            q0, distance if not atinfinity else None,
-            model = models_ref[icam]) \
+        nps.cat(*[ mrcal.projection_uncertainty( \
+            v0_cam[icam] * (distance if not atinfinity else 1.0),
+            assume_infinity = atinfinity,
+            model           = models_ref[icam]) \
                    for icam in range(Ncameras) ])
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
@@ -598,11 +599,15 @@ if 'study' in args:
 
     ranges = np.linspace(1,30,10)
 
+    # shape (gridn_height,gridn_width,Nranges,3)
+    pcam = \
+        nps.dummy(nps.cat(*[mrcal.unproject( qxy, *models_ref[icam].intrinsics()) for icam in range(Ncameras)]), -2) * \
+        nps.dummy(ranges, -1)
+
     # shape (Ncameras, gridn_height, gridn_width, Nranges, 2,2)
     Var_dq_grid = \
-        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-            nps.dummy(qxy,-2),
-            nps.dummy(ranges,-1),
+        nps.cat(*[ mrcal.projection_uncertainty( \
+            pcam[icam],
             model = models_ref[icam] ) \
                    for icam in range(Ncameras) ])
     # shape (Ncameras, gridn_height, gridn_width, Nranges)
@@ -610,9 +615,9 @@ if 'study' in args:
 
     # shape (Ncameras, gridn_height, gridn_width, 2,2)
     Var_dq_infinity = \
-        nps.cat(*[ mrcal.compute_projection_covariance_from_solve( \
-            nps.dummy(qxy,-2),
-            None,
+        nps.cat(*[ mrcal.projection_uncertainty( \
+            pcam[icam,:,:,0,:], # any range works here
+            assume_infinity = True,
             model = models_ref[icam] ) \
                    for icam in range(Ncameras) ])
 
