@@ -624,6 +624,44 @@ if 'study' in args:
     # shape (Ncameras, gridn_height, gridn_width)
     worst_direction_stdev_infinity = mrcal.worst_direction_stdev(Var_dq_infinity)
 
+
+    # Can plot like this:
+    if 0:
+        grid__x_y_ranges = \
+            np.meshgrid(qxy[0,:,0],
+                        qxy[:,0,1],
+                        ranges,
+                        indexing = 'ij')
+        grid__x_y = \
+            np.meshgrid(qxy[0,:,0],
+                        qxy[:,0,1],
+                        indexing = 'ij')
+        icam = 0
+
+        gp.plot( *[g.ravel() for g in grid__x_y_ranges],
+                 nps.xchg(worst_direction_stdev_grid[icam],0,1).ravel(),
+                 nps.xchg(worst_direction_stdev_grid[icam],0,1).ravel(),
+                 tuplesize = 5,
+                 _with = 'points pt 7 ps variable palette',
+                 _3d = True,
+                 squarexy = True,
+                 xlabel = 'pixel x',
+                 ylabel = 'pixel y',
+                 zlabel = 'range',
+                 wait = True)
+
+        gp.plot( *[g.ravel() for g in grid__x_y],
+                 nps.xchg(worst_direction_stdev_infinity[icam],0,1).ravel(),
+                 nps.xchg(worst_direction_stdev_infinity[icam],0,1).ravel(),
+                 tuplesize = 4,
+                 _with = 'points pt 7 ps variable palette',
+                 square = True,
+                 yinv   = True,
+                 xlabel = 'pixel x',
+                 ylabel = 'pixel y')
+
+
+
 def get_cov_plot_args(q, Var, what):
 
     l,v = np.linalg.eig(Var)
@@ -668,11 +706,6 @@ if 'show-distribution' in args:
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
         plot_distribution[icam] = make_plot(icam)
-
-covariance_intrinsics = \
-    sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
-                                  apply_noise        = False,
-                                  get_covariances    = True)[-3]
 
 import IPython
 IPython.embed()
