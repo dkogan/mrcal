@@ -2042,14 +2042,13 @@ def show_projection_behavior(model,
                              gridn_width  = 60,
                              gridn_height = None,
                              extratitle   = None,
-                             hardcopy     = None,
                              **kwargs):
 
     r'''Visualize the behavior of a lens
 
 SYNOPSIS
 
-    model = mrcal.cameramodel(model_filename)
+    model = mrcal.cameramodel('xxx.cameramodel')
 
     mrcal.show_projection_behavior( model, 'heatmap' )
 
