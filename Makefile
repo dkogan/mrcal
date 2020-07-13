@@ -22,8 +22,8 @@ DIST_BIN :=					\
 	mrcal-convert-lensmodel			\
 	mrcal-show-projection-behavior		\
 	mrcal-show-splined-model-surface	\
-	mrcal-show-intrinsics-uncertainty	\
-	mrcal-show-intrinsics-diff		\
+	mrcal-show-projection-uncertainty	\
+	mrcal-show-projection-diff		\
 	mrcal-reproject-points			\
 	mrcal-reproject-image			\
 	mrcal-graft-cameramodel			\

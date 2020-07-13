@@ -33,9 +33,9 @@ supported. The toolkit includes:
     model
   - =mrcal-show-splined-model-surface=: visualize the surface and knots used in
     the specification of splined models
-  - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
+  - =mrcal-show-projection-uncertainty=: visualize the uncertainty of intrinsics
     due to noise in the calibration inputs
-  - =mrcal-show-intrinsics-diff=: visualize the difference between the
+  - =mrcal-show-projection-diff=: visualize the difference between the
     intrinsics of a number of models
   - =mrcal-reproject-points=: Given two lens models and a set of points,
     maps them from one lens model to the other
@@ -178,13 +178,13 @@ xxx-manpage-mrcal-show-projection-behavior-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-show-splined-model-surface-xxx
 #+END_EXAMPLE
-** mrcal-show-intrinsics-uncertainty
+** mrcal-show-projection-uncertainty
 #+BEGIN_EXAMPLE
-xxx-manpage-mrcal-show-intrinsics-uncertainty-xxx
+xxx-manpage-mrcal-show-projection-uncertainty-xxx
 #+END_EXAMPLE
-** mrcal-show-intrinsics-diff
+** mrcal-show-projection-diff
 #+BEGIN_EXAMPLE
-xxx-manpage-mrcal-show-intrinsics-diff-xxx
+xxx-manpage-mrcal-show-projection-diff-xxx
 #+END_EXAMPLE
 ** mrcal-reproject-points
 #+BEGIN_EXAMPLE

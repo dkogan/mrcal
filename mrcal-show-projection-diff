@@ -4,7 +4,7 @@ r'''Visualize the difference in projection between some models
 
 SYNOPSIS
 
-  $ mrcal-show-intrinsics-diff before.cameramodel after.cameramodel
+  $ mrcal-show-projection-diff before.cameramodel after.cameramodel
   ... a plot pops up showing how these two models differ in their projections
 
 
@@ -142,7 +142,7 @@ if args.extraset is not None:
 
 models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 
-plot = mrcal.show_intrinsics_diff(models,
+plot = mrcal.show_projection_diff(models,
                                   args.gridn[0], args.gridn[1],
                                   focus_center    = args.where,
                                   focus_radius    = args.radius,

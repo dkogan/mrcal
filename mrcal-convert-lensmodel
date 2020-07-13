@@ -283,7 +283,7 @@ m_to.write(sys.stdout, note=note)
 
 if args.viz:
 
-    plot = mrcal.show_intrinsics_diff( (m, m_to),
+    plot = mrcal.show_projection_diff( (m, m_to),
                                        focus_radius=0, # don't compute an implicit rotation
                                        cbmax=4)
     plot.wait()

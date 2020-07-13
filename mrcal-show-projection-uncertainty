@@ -4,7 +4,7 @@ r'''Visualize the expected projection error due to uncertainty in the input
 
 SYNOPSIS
 
-  $ mrcal-show-intrinsics-uncertainty left.cameramodel
+  $ mrcal-show-projection-uncertainty left.cameramodel
   ... a plot pops up showing the projection uncertainty of the intrinsics in
   ... this model
 
@@ -93,7 +93,7 @@ if args.extraset is not None:
 
 model = mrcal.cameramodel(args.model)
 
-plot = mrcal.show_intrinsics_uncertainty(model,
+plot = mrcal.show_projection_uncertainty(model,
                                          args.gridn[0], args.gridn[1],
                                          focus_center = args.where,
                                          focus_radius = args.radius,

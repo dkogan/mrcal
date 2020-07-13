@@ -253,7 +253,7 @@ errors with a wider distribution towards the edge.
 
 Finally run this:
 
-    show_intrinsics_uncertainty()
+    show_projection_uncertainty()
 
 This will pop up a plot of projection uncertainties for each camera. The
 uncertainties are shown as a color-map along with contours. These are the
@@ -272,7 +272,7 @@ same acceptable uncertainty level. The uncertainties are all determined relative
 to some focus point. If you care about the calibration accuracy in a particular
 area of the imager, do something like this instead:
 
-    show_intrinsics_uncertainty( focus_center = np.array((1000,2000))) )
+    show_projection_uncertainty( focus_center = np.array((1000,2000))) )
 
 '''
 
@@ -1112,7 +1112,7 @@ Potential things to look at:
     show_calibration_geometry()
     show_residuals_observation_worst(i_observation_in_order_from_worst)
     show_residuals_observation(i_observation, vectorscale=20)
-    show_intrinsics_uncertainty(i_camera)
+    show_projection_uncertainty(i_camera)
     show_valid_intrinsics_region(i_camera)
     show_residuals_vectorfield(    i_camera, show_all_reproj_errors=True)
     show_residuals_heatmap(        i_camera)
@@ -1666,7 +1666,7 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
 
 
 plots_intrinsics_uncertainty = [None] * Ncameras
-def show_intrinsics_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
+def show_projection_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     if covariance_intrinsics is None:
         print("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_covariances = True) for this to work")
@@ -1677,7 +1677,7 @@ def show_intrinsics_uncertainty(i_camera = None, gridn_width = 60, gridn_height 
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
         plots_intrinsics_uncertainty[i_camera] = \
-            mrcal.show_intrinsics_uncertainty(models[i_camera],
+            mrcal.show_projection_uncertainty(models[i_camera],
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_width  = gridn_width,
                                               gridn_height = gridn_height,

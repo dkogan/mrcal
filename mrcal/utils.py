@@ -1494,7 +1494,7 @@ def projection_uncertainty( p_cam,
                                                  what)
 
 
-def show_intrinsics_uncertainty(model,
+def show_projection_uncertainty(model,
                                 gridn_width  = 60,
                                 gridn_height = None,
 
@@ -2673,7 +2673,7 @@ def _densify_polyline(p, spacing):
     return p1
 
 
-def show_intrinsics_diff(models,
+def show_projection_diff(models,
                          gridn_width  = 60,
                          gridn_height = None,
 
@@ -2793,7 +2793,7 @@ def show_intrinsics_diff(models,
         # is), but that the cross-validation says is fine.
         #
         # Command:
-        #   dima@fatty:~/src_boats/mrcal/studies/syntheticdata/scans.LENSMODEL_OPENCV4.cull_leftof2000$ ../../../mrcal-show-intrinsics-diff  --cbmax 2 *.cameramodel ../../../analyses/synthetic_data/reference.cameramodel  --where 800 1080
+        #   dima@fatty:~/src_boats/mrcal/studies/syntheticdata/scans.LENSMODEL_OPENCV4.cull_leftof2000$ ../../../mrcal-show-projection-diff  --cbmax 2 *.cameramodel ../../../analyses/synthetic_data/reference.cameramodel  --where 800 1080
         #
         # I plot the projection points for the reference and for each of my
         # models. I can see that the models cluster: things look consistent so
