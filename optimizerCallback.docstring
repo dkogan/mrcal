@@ -41,6 +41,13 @@ If get_covariances then we ALSO return covariances:
   infinity: only the rotation components of the extrinsics and frames are
   considered
 
+- icam_extrinsics_covariances_ief: if icam_intrinsics_covariances_ief is given
+  as >= 0, this is the corresponding icam_extrinsics. If the cameras aren't
+  stationary (no correspondence exists), the function call will fail. If the
+  corresponding camera is at the coordinate system reference,
+  icam_intrinsics_covariances_ief is -1. if icam_intrinsics_covariances_ief
+  doesn't request a specific camera (<0), this is None
+
 Note that the optimizer uses some weights on the measurements, and some scaling
 on the parameters. The values returned here are the optimizer-internal values.
 To bring the jacobian into real units, call solver_context.pack(J)

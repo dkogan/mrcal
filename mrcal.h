@@ -483,12 +483,28 @@ bool mrcal_optimizerCallback(// output measurements
                              // should have passed-in. The size must match exactly
                              int buffer_size_covariances_ief_rotationonly,
 
+                             // May be NULL
+                             // I return this ONLY if
+                             // icam_intrinsics_covariances_ief>=0 and at least
+                             // one of covariances_ief... is requested. The
+                             // icam_extrinsics corresponding to
+                             // icam_intrinsics_covariances_ief is reported
+                             // here. If the given camera is at the reference,
+                             // return <0. If the cameras are moving (mapping
+                             // between icam_intrinsics and icam_extrinsics not
+                             // bijective) and
+                             // icam_extrinsics_covariances_ief!=NULL, this
+                             // function call will return false
+                             int* icam_extrinsics_covariances_ief,
+
+
+                             // in
+
                              // Which camera we're querying for
                              // covariances_ief... If <0 then I return the
                              // covariances for ALL the cameras
                              int icam_intrinsics_covariances_ief,
 
-                             // in
                              // intrinsics is a concatenation of the intrinsics core
                              // and the distortion params. The specific distortion
                              // parameters may vary, depending on lensmodel, so

@@ -3088,6 +3088,23 @@ static bool compute_uncertainty_matrices(// out
                                          double* covariances_ief_rotationonly,
                                          int     buffer_size_covariances_ief_rotationonly,
 
+                                         // May be NULL
+                                         // I return this ONLY if
+                                         // icam_intrinsics_covariances_ief>=0 and at least
+                                         // one of covariances_ief... is requested. The
+                                         // icam_extrinsics corresponding to
+                                         // icam_intrinsics_covariances_ief is reported
+                                         // here. If the given camera is at the reference,
+                                         // return <0. If the cameras are moving (mapping
+                                         // between icam_intrinsics and icam_extrinsics not
+                                         // bijective) and
+                                         // icam_extrinsics_covariances_ief!=NULL, this
+                                         // function call will return false
+                                         int* icam_extrinsics_covariances_ief,
+
+
+                                         // in
+
                                          // Which camera we're querying for
                                          // covariance_intrinsics and
                                          // covariances_ief... Does NOT apply to
@@ -3096,7 +3113,6 @@ static bool compute_uncertainty_matrices(// out
                                          // cameras
                                          int icam_intrinsics_covariances_ief,
 
-                                         // in
                                          double observed_pixel_uncertainty,
                                          const observation_board_t* observations_board,
                                          lensmodel_t lensmodel,
@@ -3282,6 +3298,22 @@ static bool compute_uncertainty_matrices(// out
 
     if( covariances_ief != NULL || covariances_ief_rotationonly != NULL)
     {
+        if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
+              Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
+        {
+            MSG("At this time, covariances_ief can only be computed for stationary cameras. Saw inconsistent Ncameras_intrinsics,Ncameras_extrinsics");
+            goto done;
+        }
+        if(!problem_details.do_skip_regularization)
+            MSG("WARNING: computing intrinsic uncertainty with regularization enabled: this will cause a bias. Continuing anyway");
+
+        if(!problem_details.do_optimize_extrinsics)
+        {
+            MSG("covariances_ief... currently don't work with !do_optimize_extrinsics. It COULD work. What does this do to icam_map_to_extrinsics and icam_intrinsics_covariances_ief?");
+            goto done;
+        }
+
+
         for(int i=0; i<Ncameras_intrinsics;   i++) icam_map_to_extrinsics[i] = -100;
         for(int i=0; i<Ncameras_extrinsics+1; i++) icam_map_to_intrinsics[i] = -100;
 
@@ -3314,14 +3346,8 @@ static bool compute_uncertainty_matrices(// out
             }
         }
 
-        if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
-              Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
-        {
-            MSG("At this time, covariances_ief can only be computed for stationary cameras. Saw inconsistent Ncameras_intrinsics,Ncameras_extrinsics");
-            goto done;
-        }
-        if(!problem_details.do_skip_regularization)
-            MSG("WARNING: computing intrinsic uncertainty with regularization enabled: this will cause a bias. Continuing anyway");
+        if(icam_extrinsics_covariances_ief)
+            *icam_extrinsics_covariances_ief = icam_map_to_extrinsics[icam_intrinsics_covariances_ief];
     }
 
     bool get_covariances_ief( double* out,
@@ -4943,12 +4969,28 @@ bool mrcal_optimizerCallback(// output measurements
                              // should have passed-in. The size must match exactly
                              int buffer_size_covariances_ief_rotationonly,
 
+                             // May be NULL
+                             // I return this ONLY if
+                             // icam_intrinsics_covariances_ief>=0 and at least
+                             // one of covariances_ief... is requested. The
+                             // icam_extrinsics corresponding to
+                             // icam_intrinsics_covariances_ief is reported
+                             // here. If the given camera is at the reference,
+                             // return <0. If the cameras are moving (mapping
+                             // between icam_intrinsics and icam_extrinsics not
+                             // bijective) and
+                             // icam_extrinsics_covariances_ief!=NULL, this
+                             // function call will return false
+                             int* icam_extrinsics_covariances_ief,
+
+
+                             // in
+
                              // Which camera we're querying for
                              // covariances_ief... If <0 then I return the
                              // covariances for ALL the cameras
                              int icam_intrinsics_covariances_ief,
 
-                             // in
                              // intrinsics is a concatenation of the intrinsics core
                              // and the distortion params. The specific distortion
                              // parameters may vary, depending on lensmodel, so
@@ -5091,9 +5133,10 @@ bool mrcal_optimizerCallback(// output measurements
                                          buffer_size_covariances_ief,
                                          covariances_ief_rotationonly,
                                          buffer_size_covariances_ief_rotationonly,
-                                         icam_intrinsics_covariances_ief,
+                                         icam_extrinsics_covariances_ief,
 
                                          // in
+                                         icam_intrinsics_covariances_ief,
                                          observed_pixel_uncertainty,
                                          observations_board,
                                          lensmodel,
@@ -5506,9 +5549,10 @@ mrcal_optimize( // out
                                          buffer_size_covariances_ief,
                                          covariances_ief_rotationonly,
                                          buffer_size_covariances_ief_rotationonly,
-                                         icam_intrinsics_covariances_ief,
+                                         NULL,
 
                                          // in
+                                         icam_intrinsics_covariances_ief,
                                          observed_pixel_uncertainty,
                                          observations_board,
                                          lensmodel,

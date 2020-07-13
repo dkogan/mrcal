@@ -1893,14 +1893,18 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 .x = PyArray_DATA(X) };
 
             int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
-            if(!mrcal_optimizerCallback( c_x_final,
+            int icam_extrinsics_covariances_ief;
+            if(!mrcal_optimizerCallback( // out
+                                         c_x_final,
                                          &Jt,
                                          c_covariances_ief,
                                          Ncameras_intrinsics_returning*Nvars_ief*Nvars_ief*sizeof(double),
                                          c_covariances_ief_rotationonly,
                                          Ncameras_intrinsics_returning*Nvars_ief_rotationonly*Nvars_ief_rotationonly*sizeof(double),
-                                         icam_intrinsics_covariances_ief,
+                                         &icam_extrinsics_covariances_ief,
 
+                                         // in
+                                         icam_intrinsics_covariances_ief,
                                          c_intrinsics,
                                          c_extrinsics,
                                          c_frames,
@@ -1933,7 +1937,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 goto done;
             }
 
-            result = PyTuple_New(2 + (covariances_ief ? 2 : 0));
+            result = PyTuple_New(2 + (covariances_ief ? 3 : 0));
             int i=0;
             PyTuple_SET_ITEM(result, 0, (PyObject*)x_final);
             PyTuple_SET_ITEM(result, 1,
@@ -1946,6 +1950,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             {
                 PyTuple_SET_ITEM(result, 2, (PyObject*)covariances_ief);
                 PyTuple_SET_ITEM(result, 3, (PyObject*)covariances_ief_rotationonly);
+                if(icam_intrinsics_covariances_ief < 0)
+                {
+                    Py_INCREF(Py_None);
+                    PyTuple_SET_ITEM(result, 4, Py_None);
+                }
+                else
+                    PyTuple_SET_ITEM(result, 4, PyLong_FromLong(icam_extrinsics_covariances_ief));
             }
 
             for(int i=0; i<PyTuple_Size(result); i++)
