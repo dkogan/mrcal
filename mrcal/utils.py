@@ -828,7 +828,7 @@ def sample_imager(gridn_width, gridn_height, imager_width, imager_height):
 
 SYNOPSIS
 
-    q = sample_imager( 60, 40, 640,480 )
+    q = sample_imager( 60, 40, *model.imagersize() )
 
     print(q.shape)
     ===>
@@ -1123,7 +1123,9 @@ broadcasting
     c = cov[..., 1,1]
     return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
 
+
 def _projection_uncertainty_make_output(var, what):
+    r'''Helper for projection uncertainty functions'''
     if what == 'covariance':           return var
     if what == 'worstdirection-stdev': return worst_direction_stdev(var)
     if what == 'mean-stdev':           return np.sqrt(nps.trace(var)/2.)
@@ -1135,6 +1137,11 @@ def _projection_uncertainty( p_cam,
                              Var_ief,
                              what):
 
+    r'''Helper for projection_uncertainty()
+
+    This function does all the work when observing points with a finite range
+
+    '''
     Nintrinsics = intrinsics_data.shape[-1]
     if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
 
@@ -1234,6 +1241,12 @@ def _projection_uncertainty_rotationonly( p_cam,
                                           extrinsics_rt_fromref, frames_rt_toref,
                                           Var_ief,
                                           what):
+
+    r'''Helper for projection_uncertainty()
+
+    This function does all the work when observing points at infinity
+
+    '''
 
     Nintrinsics = intrinsics_data.shape[-1]
     if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
