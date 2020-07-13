@@ -55,6 +55,12 @@ import mrcal
 import copy
 import testutils
 
+import re
+if   re.search("fixed-cam0",   sys.argv[0]): fixedframes = False
+elif re.search("fixed-frames", sys.argv[0]): fixedframes = True
+else:
+    raise Exception("This script should contain either 'fixed-cam0' or 'fixed-frames' in the filename")
+
 import tempfile
 import atexit
 import shutil
@@ -71,11 +77,6 @@ atexit.register(cleanup)
 
 args = set(sys.argv[1:])
 
-import re
-if   re.search("fixed-cam0",   sys.argv[0]): fixedframes = False
-elif re.search("fixed-frames", sys.argv[0]): fixedframes = True
-else:
-    raise Exception("This script should contain either 'fixed-cam0' or 'fixed-frames' in the filename")
 
 # I want the RNG to be deterministic
 np.random.seed(0)
