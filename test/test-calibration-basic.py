@@ -337,8 +337,8 @@ for icam in range(len(models_ref)):
 ############# Basic checks all done. Now I look at uncertainties
 
 # The uncertainty computation is documented in the docstring for
-# compute_projection_stdev(). The math and the implementation are tricky,
-# so I empirically confirm that the thing being computed is correct, both in
+# projection_uncertainty(). The math and the implementation are tricky, so I
+# empirically confirm that the thing being computed is correct, both in
 # implementation and intent.
 #
 # I use dense linear algebra to compute the reference arrays. This is
@@ -404,8 +404,8 @@ testutils.confirm_equal( dE_predicted, dE,
 
 ###########################################################################
 # Fine. Let's make sure the noise propagation works as it should. First off, is
-# the implementation correct? Derivation in compute_projection_stdev()
-# says intrinsics covariance:
+# the implementation correct? Derivation in projection_uncertainty() says
+# intrinsics covariance:
 #
 #   Var(intrinsics) = (inv(JtJ)[intrinsicsrows] Jobservationst)
 #                     (inv(JtJ)[intrinsicsrows] Jobservationst)t
