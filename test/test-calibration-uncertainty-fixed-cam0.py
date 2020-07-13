@@ -454,7 +454,8 @@ for icam in (0,3):
                             msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
 
-    pcam = mrcal.unproject( q0, *models_ref[icam].intrinsics())
+    pcam = mrcal.unproject( q0, *models_ref[icam].intrinsics(),
+                            normalize = True)
 
     Var_dq_ref = \
         mrcal.projection_uncertainty( pcam * 1.0,
@@ -683,7 +684,8 @@ if 'study' in args:
 
     # shape (gridn_height,gridn_width,Nranges,3)
     pcam = \
-        nps.dummy(nps.cat(*[mrcal.unproject( qxy, *models_ref[icam].intrinsics()) for icam in range(Ncameras)]), -2) * \
+        nps.dummy(nps.cat(*[mrcal.unproject( qxy, *models_ref[icam].intrinsics(),
+                                             normalize = True) for icam in range(Ncameras)]), -2) * \
         nps.dummy(ranges, -1)
 
     # shape (Ncameras, gridn_height, gridn_width, Nranges, 2,2)
