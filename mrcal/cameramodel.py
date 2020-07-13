@@ -97,16 +97,21 @@ def _validateIntrinsics(imagersize,
             raise BadValidIntrinsicsRegion_Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
                             format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
 
-    if optimization_inputs is not None and \
-       not isinstance(optimization_inputs, dict):
-        raise Exception(f"'optimization_inputs' must be a dict. Instead got type {type(optimization_inputs)}")
+    if optimization_inputs is not None:
+        # Currently this is only checked when we set the optimization_inputs by
+        # calling intrinsics(). We do NOT check this if reading a file from
+        # disk. This is done as an optimization: we store the unprocessed
+        # _optimization_inputs_string bytes and only decode them as needed.
+        # Perhaps I should expand this
+        if not isinstance(optimization_inputs, dict):
+            raise Exception(f"'optimization_inputs' must be a dict. Instead got type {type(optimization_inputs)}")
 
-    if 'icam_intrinsics_covariances_ief' not in optimization_inputs:
-        raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] missing. This must be an int >= 0")
-    if not isinstance(optimization_inputs['icam_intrinsics_covariances_ief'], int):
-        raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] not an int. This must be an int >= 0")
-    if optimization_inputs['icam_intrinsics_covariances_ief'] < 0:
-        raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] < 0. This must be an int >= 0")
+        if 'icam_intrinsics_covariances_ief' not in optimization_inputs:
+            raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] missing. This must be an int >= 0")
+        if not isinstance(optimization_inputs['icam_intrinsics_covariances_ief'], int):
+            raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] not an int. This must be an int >= 0")
+        if optimization_inputs['icam_intrinsics_covariances_ief'] < 0:
+            raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] < 0. This must be an int >= 0")
 
 
 class CameramodelParseException(Exception):
