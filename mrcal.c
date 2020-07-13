@@ -4915,6 +4915,7 @@ void optimizerCallback(// input state
 
 bool mrcal_optimizerCallback(// output measurements
                              double*         x,
+
                              // output Jacobian. May be NULL if we don't need it
                              cholmod_sparse* Jt,
 
@@ -4962,6 +4963,14 @@ bool mrcal_optimizerCallback(// output measurements
                              int Npoints, int Npoints_fixed, // at the end of points[]
 
                              const observation_board_t* observations_board,
+
+                             // All the board pixel observations, in order.
+                             // .x, .y are the pixel observations
+                             // .z is the weight of the observation. Most of the weights are expected to
+                             // be 1.0, which implies that the noise on the observation is gaussian,
+                             // independent on x,y, and has standard deviation of
+                             // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
+                             // with the weight
                              const point3_t* observations_board_pool,
                              int NobservationsBoard,
 
