@@ -2045,9 +2045,9 @@ def projection_uncertainty( p_cam,
             raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
         try:
-            x,_,Var_ief,Var_ief_rotationonly,icam_extrinsics = \
+            Var_ief,Var_ief_rotationonly,icam_extrinsics = \
                 mrcal.optimizerCallback( **optimization_inputs,
-                                         get_covariances = True )
+                                         get_covariances = True )[2:5]
             if assume_infinity:
                 Var_ief = Var_ief_rotationonly
 
