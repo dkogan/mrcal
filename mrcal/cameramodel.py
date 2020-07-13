@@ -101,6 +101,13 @@ def _validateIntrinsics(imagersize,
        not isinstance(optimization_inputs, dict):
         raise Exception(f"'optimization_inputs' must be a dict. Instead got type {type(optimization_inputs)}")
 
+    if 'icam_intrinsics_covariances_ief' not in optimization_inputs:
+        raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] missing. This must be an int >= 0")
+    if not isinstance(optimization_inputs['icam_intrinsics_covariances_ief'], int):
+        raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] not an int. This must be an int >= 0")
+    if optimization_inputs['icam_intrinsics_covariances_ief'] < 0:
+        raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] < 0. This must be an int >= 0")
+
 
 class CameramodelParseException(Exception):
     pass
