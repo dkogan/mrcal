@@ -55,6 +55,20 @@ import mrcal
 import copy
 import testutils
 
+import tempfile
+import atexit
+import shutil
+workdir = tempfile.mkdtemp()
+def cleanup():
+    global workdir
+    try:
+        shutil.rmtree(workdir)
+        workdir = None
+    except:
+        pass
+atexit.register(cleanup)
+
+
 args = set(sys.argv[1:])
 
 import re
@@ -405,6 +419,82 @@ models_ref = \
                                                       icam_intrinsics_covariances_ief = i)) \
       for i in range(Ncameras) ]
 
+# I evaluate the projection uncertainty of this vector. In each camera. I'd like
+# it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
+# this to represent a point in a globally-consistent coordinate system. Here I
+# have fixed frames, so using the reference coordinate system gives me that
+# consistency. Note that I look at q0 for each camera separately, so I'm going
+# to evaluate a different world point for each camera
+q0 = imagersizes[0]/3.
+
+
+# I move the extrinsics of a model, write it to disk, and make sure the same
+# covariances come back
+for icam in (0,3):
+    model_moved = mrcal.cameramodel(models_ref[icam])
+    model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
+    model_moved.write(f'{workdir}/out.cameramodel')
+    model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
+    Var_ief_read,Var_ief_rotationonly_read,icam_extrinsics_read = \
+        mrcal.optimizerCallback( **model_read.optimization_inputs(),
+                                get_covariances = True )[2:5]
+
+    testutils.confirm_equal(covariances_ief[icam], Var_ief_read,
+                            eps = 0.001,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"covariances_ief with full rt matches for camera {icam} after moving, writing to disk, reading from disk")
+    testutils.confirm_equal(covariances_ief_rotationonly[icam], Var_ief_rotationonly_read,
+                            eps = 0.001,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"covariances_ief with rotation-only matches for camera {icam} after moving, writing to disk, reading from disk")
+    testutils.confirm_equal(icam if fixedframes else icam-1,
+                            icam_extrinsics_read,
+                            msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
+
+
+    pcam = mrcal.unproject( q0, *models_ref[icam].intrinsics())
+
+    Var_dq_ref = \
+        mrcal.projection_uncertainty( pcam * 1.0,
+                                      model = models_ref[icam] )
+    Var_dq_moved_written_read = \
+        mrcal.projection_uncertainty( pcam * 1.0,
+                                      model = model_read )
+    testutils.confirm_equal(Var_dq_moved_written_read, Var_dq_ref,
+                            eps = 0.001,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"var(dq) with full rt matches for camera {icam} after moving, writing to disk, reading from disk")
+
+    Var_dq_inf_ref = \
+        mrcal.projection_uncertainty( pcam * 1.0,
+                                      model = models_ref[icam],
+                                      assume_infinity = True )
+    Var_dq_inf_moved_written_read = \
+        mrcal.projection_uncertainty( pcam * 1.0,
+                                      model = model_read,
+                                      assume_infinity = True )
+    testutils.confirm_equal(Var_dq_inf_moved_written_read, Var_dq_inf_ref,
+                            eps = 0.001,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"var(dq) with rotation-only matches for camera {icam} after moving, writing to disk, reading from disk")
+
+    # the at-infinity uncertainty should be invariant to point scalings (the
+    # real scaling used is infinity). The not-at-infinity uncertainty is NOT
+    # invariant, so I don't check that
+    Var_dq_inf_far_ref = \
+        mrcal.projection_uncertainty( pcam * 100.0,
+                                      model = models_ref[icam],
+                                      assume_infinity = True )
+    testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
+                            eps = 0.001,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
+
 
 cache_invJtJ = [None]
 
@@ -445,14 +535,6 @@ for i in range(Ncameras):
                             worstcase = True,
                             relative  = True,
                             msg = f"covariances_ief with rotation-only matches for camera {i}")
-
-# I evaluate the projection uncertainty of this vector. In each camera. I'd like
-# it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
-# this to represent a point in a globally-consistent coordinate system. Here I
-# have fixed frames, so using the reference coordinate system gives me that
-# consistency. Note that I look at q0 for each camera separately, so I'm going
-# to evaluate a different world point for each camera
-q0 = imagersizes[0]/3.
 
 
 print("Simulating input noise. This takes a little while...")
