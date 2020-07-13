@@ -29,7 +29,8 @@ supported. The toolkit includes:
 - Some tools:
   - =mrcal-calibrate-cameras=: calibrates N cameras
   - =mrcal-convert-lensmodel=: fits one lens model to another
-  - =mrcal-show-projections=: visualize the effects of a specific lens model
+  - =mrcal-show-projection-behavior=: visualize the effects of a specific lens
+    model
   - =mrcal-show-splined-model-surface=: visualize the surface and knots used in
     the specification of splined models
   - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
@@ -169,9 +170,9 @@ xxx-manpage-mrcal-calibrate-cameras-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-convert-lensmodel-xxx
 #+END_EXAMPLE
-** mrcal-show-projections
+** mrcal-show-projection-behavior
 #+BEGIN_EXAMPLE
-xxx-manpage-mrcal-show-projections-xxx
+xxx-manpage-mrcal-show-projection-behavior-xxx
 #+END_EXAMPLE
 ** mrcal-show-splined-model-surface
 #+BEGIN_EXAMPLE

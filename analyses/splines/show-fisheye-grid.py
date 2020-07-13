@@ -18,7 +18,7 @@ fisheye projections described at
 
   https://en.wikipedia.org/wiki/Fisheye_lens
 
-mrcal-show-projections --radial also compares a given model with fisheye
+mrcal-show-projection-behavior --radial also compares a given model with fisheye
 projections
 
 '''

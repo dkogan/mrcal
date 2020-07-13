@@ -4,7 +4,7 @@ r'''Visualize the behavior or a lens model
 
 SYNOPSIS
 
-  $ mrcal-show-projections --vectorfield left.cameramodel
+  $ mrcal-show-projection-behavior --vectorfield left.cameramodel
 
   ... a plot pops up showing the vector field of the difference from a pinhole
   projection
@@ -109,15 +109,15 @@ plotkwargs = {}
 if args.extraset is not None:
     plotkwargs['set'] = args.extraset
 
-plot = mrcal.show_projections(model,
-                              mode,
-                              args.scale,
-                              args.cbmax,
-                              args.gridn[0], args.gridn[1],
+plot = mrcal.show_projection_behavior(model,
+                                      mode,
+                                      args.scale,
+                                      args.cbmax,
+                                      args.gridn[0], args.gridn[1],
 
                               extratitle   = args.extratitle,
-                              hardcopy     = args.hardcopy,
-                              **plotkwargs)
+                                      hardcopy     = args.hardcopy,
+                                      **plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()

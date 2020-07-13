@@ -1722,15 +1722,15 @@ This function returns a tuple
     return mean,stdev,count,imagergrid_using(imagersize, gridn_width, gridn_height)
 
 
-def show_projections(model,
-                     mode,
-                     scale        = 1.,
-                     cbmax        = 25.0,
-                     gridn_width  = 60,
-                     gridn_height = None,
-                     extratitle   = None,
-                     hardcopy     = None,
-                     **kwargs):
+def show_projection_behavior(model,
+                             mode,
+                             scale        = 1.,
+                             cbmax        = 25.0,
+                             gridn_width  = 60,
+                             gridn_height = None,
+                             extratitle   = None,
+                             hardcopy     = None,
+                             **kwargs):
 
     r'''Visualize the behavior of a lens
 
@@ -1738,7 +1738,7 @@ SYNOPSIS
 
     model = mrcal.cameramodel(model_filename)
 
-    mrcal.show_projections( model, 'heatmap' )
+    mrcal.show_projection_behavior( model, 'heatmap' )
 
     ... A plot pops up displaying how much this model deviates from a pinhole
     ... model across the imager

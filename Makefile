@@ -20,7 +20,7 @@ DIST_INCLUDE += basic_points.h mrcal.h poseutils.h
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-lensmodel			\
-	mrcal-show-projections			\
+	mrcal-show-projection-behavior		\
 	mrcal-show-splined-model-surface	\
 	mrcal-show-intrinsics-uncertainty	\
 	mrcal-show-intrinsics-diff		\
