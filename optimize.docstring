@@ -216,9 +216,9 @@ OPTIONAL ARGUMENTS
   Can be omitted if we have no board observations, just points
 
 - outlier_indices: Feature indices that are to be considered outliers. Each
-  "feature" is an observed point, meaning either 2 measurements (x,y) or 3
-  measurements for ranged points (x,y,range). Normally this is None: no outliers
-  at the start. This is honored regardless of skip_outlier_rejection.
+  "feature" is an observed point: 2 measurements (x,y). Normally this is None:
+  no outliers at the start. This is honored regardless of
+  skip_outlier_rejection.
 
 - get_covariances: defaults to False. If True, I compute the covariance matrices
   for intrinsics and extrinsics, and include them in the dict I return. These
