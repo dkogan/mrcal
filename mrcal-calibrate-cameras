@@ -1054,7 +1054,7 @@ def get_valid_intrinsics_region(model, i_camera,
         # conterintuitive
         contour = cv2.findContours(im.astype(np.uint8).copy(),
                                    cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_SIMPLE)[1][0][:,0,:].astype(float)
+                                   cv2.CHAIN_APPROX_SIMPLE)[-2][0][:,0,:].astype(float)
         contour = mrcal.close_contour(contour)
         if contour.ndim != 2 or contour.shape[0] < 4:
             # I have a closed contour, so the only way for it to not be
