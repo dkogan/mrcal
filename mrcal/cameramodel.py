@@ -36,11 +36,9 @@ def _validateExtrinsics(e):
 
     return True
 
-class BadValidIntrinsicsRegion_Exception(Exception):
-    pass
+
 def _validateIntrinsics(imagersize,
                         i,
-                        valid_intrinsics_region,
                         optimization_inputs = None):
     r'''Raises an exception if given components of the intrinsics is invalid'''
 
@@ -83,17 +81,6 @@ def _validateIntrinsics(imagersize,
         if not isinstance(x, numbers.Number):
             raise Exception("All intrinsics elements should be numeric, but '{}' isn't".format(x))
 
-    if valid_intrinsics_region is not None:
-        try:
-            # valid intrinsics region is a closed contour, so I need at least 4 points to be valid
-            if valid_intrinsics_region.ndim != 2     or \
-               valid_intrinsics_region.shape[1] != 2 or \
-               valid_intrinsics_region.shape[0] < 4:
-                raise BadValidIntrinsicsRegion_Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4")
-        except:
-            raise BadValidIntrinsicsRegion_Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
-                            format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
-
     if optimization_inputs is not None:
         # Currently this is only checked when we set the optimization_inputs by
         # calling intrinsics(). We do NOT check this if reading a file from
@@ -109,6 +96,25 @@ def _validateIntrinsics(imagersize,
             raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] not an int. This must be an int >= 0")
         if optimization_inputs['icam_intrinsics_covariances_ief'] < 0:
             raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] < 0. This must be an int >= 0")
+
+    return True
+
+
+def _validateValidIntrinsicsRegion(valid_intrinsics_region):
+
+    if valid_intrinsics_region is None:
+        return True
+
+    try:
+        # valid intrinsics region is a closed contour, so I need at least 4 points to be valid
+        if valid_intrinsics_region.ndim != 2     or \
+           valid_intrinsics_region.shape[1] != 2 or \
+           valid_intrinsics_region.shape[0] < 4:
+            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4")
+    except:
+        raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
+                        format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
+    return True
 
 
 class CameramodelParseException(Exception):
@@ -295,9 +301,8 @@ class cameramodel(object):
                 f.write('# ' + l + '\n')
 
         _validateIntrinsics(self._imagersize,
-                            self._intrinsics,
-                            self._valid_intrinsics_region)
-
+                            self._intrinsics)
+        _validateValidIntrinsicsRegion(self._valid_intrinsics_region)
         _validateExtrinsics(self._extrinsics)
 
         # I write this out manually instead of using repr for the whole thing
@@ -391,12 +396,13 @@ class cameramodel(object):
 
         intrinsics = (model['lens_model'], np.array(model['intrinsics'], dtype=float))
 
+        _validateIntrinsics(model['imagersize'],
+                            intrinsics)
         try:
-            _validateIntrinsics(model['imagersize'],
-                                intrinsics,
-                                valid_intrinsics_region)
-        except BadValidIntrinsicsRegion_Exception as e:
+            _validateValidIntrinsicsRegion(valid_intrinsics_region)
+        except Exception as e:
             warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
+            valid_intrinsics_region = None
 
         _validateExtrinsics(model['extrinsics'])
 
@@ -524,8 +530,13 @@ class cameramodel(object):
 
             self.intrinsics(kwargs['intrinsics'],
                             kwargs['imagersize'],
-                            kwargs.get('valid_intrinsics_region'),
                             kwargs.get('optimization_inputs'))
+            # if the following fails, I want None
+            self._valid_intrinsics_region = None
+            try:
+                self.valid_intrinsics_region(kwargs.get('valid_intrinsics_region'))
+            except Exception as e:
+                warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
 
 
     def __str__(self):
@@ -580,10 +591,9 @@ class cameramodel(object):
 
 
     def intrinsics(self,
-                   intrinsics                 = None,
-                   imagersize                 = None,
-                   valid_intrinsics_region    = None,
-                   optimization_inputs        = None):
+                   intrinsics          = None,
+                   imagersize          = None,
+                   optimization_inputs = None):
         r'''Get or set the intrinsics in this model
 
         if no arguments are given: this is a getter of the INTRINSICS parameters
@@ -612,24 +622,18 @@ class cameramodel(object):
         if \
            imagersize                 is None and \
            intrinsics                 is None and \
-           valid_intrinsics_region    is None and \
            optimization_inputs        is None:
             return copy.deepcopy(self._intrinsics)
 
 
         # This is a setter. The rest of this function does all that work
         if imagersize is None: imagersize = self._imagersize
-        try:
-            _validateIntrinsics(imagersize,
-                                intrinsics,
-                                valid_intrinsics_region,
-                                optimization_inputs)
-        except BadValidIntrinsicsRegion_Exception as e:
-            warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
+        _validateIntrinsics(imagersize,
+                            intrinsics,
+                            optimization_inputs)
 
-        self._imagersize                 = copy.deepcopy(imagersize)
-        self._intrinsics                 = copy.deepcopy(intrinsics)
-        self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(valid_intrinsics_region))
+        self._imagersize = copy.deepcopy(imagersize)
+        self._intrinsics = copy.deepcopy(intrinsics)
 
         if optimization_inputs is not None:
             self._optimization_inputs_string = \
@@ -833,21 +837,26 @@ class cameramodel(object):
         return copy.deepcopy(self._imagersize)
 
 
-    def valid_intrinsics_region(self, *args, **kwargs):
-        r'''Get the valid-intrinsics region
-
-        This function is NOT a setter. Use intrinsics() to set all the
-        intrinsics together.
+    def valid_intrinsics_region(self, valid_intrinsics_region=None):
+        r'''Get or set the valid-intrinsics region
 
         The contour is a numpy array of shape (N,2). These are a sequence of
         pixel coordinates describing the shape of the valid region. The first
         and last points will be the same: this is a closed contour
 
-        '''
+        if valid_intrinsics_region is None: this is a getter; otherwise a
+        setter.
 
-        if len(args) or len(kwargs):
-            raise Exception("valid_intrinsics_region() is NOT a setter. Please use intrinsics() to set them all together")
-        return copy.deepcopy(self._valid_intrinsics_region)
+        '''
+        if valid_intrinsics_region is None:
+            # getter
+            return copy.deepcopy(self._valid_intrinsics_region)
+
+        # setter
+        valid_intrinsics_region = mrcal.close_contour(valid_intrinsics_region)
+        _validateValidIntrinsicsRegion(valid_intrinsics_region)
+        self._valid_intrinsics_region = copy.deepcopy(valid_intrinsics_region)
+        return True
 
 
     def optimization_inputs(self, *args, **kwargs):
