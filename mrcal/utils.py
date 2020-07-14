@@ -4679,10 +4679,42 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
 def apply_homography(H, q):
     r'''Apply a homogeneous-coordinate homography to a set of 2d points
 
-    Broadcasting is fully supported
+SYNOPSIS
 
-    The homography is a (...., 3,3) matrix: a homogeneous-coordinate
-    transformation. The point(s) are in a (...., 2) array.
+    print( H.shape )
+    ===> (3,3)
+
+    print( q0.shape )
+    ===> (100, 2)
+
+    q1 = mrcal.apply_homography(H10, q0)
+
+    print( q1.shape )
+    ===> (100, 2)
+
+A homography maps from pixel coordinates observed in one camera to pixel
+coordinates in another. For points represented in homogeneous coordinates ((k*x,
+k*y, k) to represent a pixel (x,y) for any k) a homography is a linear map H.
+Since homogeneous coordinates are unique only up-to-scale, the homography matrix
+H is also unique up to scale.
+
+If two pinhole cameras are observing a planar surface, there exists a homography
+that relates observations of the plane in the two cameras.
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- H: an array of shape (..., 3,3). This is the homography matrix. This is unique
+  up-to-scale, so a homography H is functionally equivalent to k*H for any
+  non-zero scalar k
+
+- q: an array of shape (..., 2). The pixel coordinates we are mapping
+
+RETURNED VALUE
+
+An array of shape (..., 2) containing the pixels q after the homography was
+applied
 
     '''
 
