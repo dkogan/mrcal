@@ -507,8 +507,7 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     return [w,h]
 
 
-def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
-                     valid_intrinsics_region = None):
+def make_cameramodel(optimize_kwargs, i_camera):
     r'''Assemble one cameramodel from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -516,23 +515,21 @@ def make_cameramodel(i_camera, intrinsics, extrinsics, imagersizes,
     structure that can be fed to all the other routines.
 
     '''
+    lensmodel   = optimize_kwargs['lensmodel']
+    intrinsics  = optimize_kwargs['intrinsics']
+    extrinsics  = optimize_kwargs['extrinsics_rt_fromref']
+    imagersizes = optimize_kwargs['imagersizes']
 
-    if i_camera >= 1:
-        rt_x0 = extrinsics[i_camera-1,:].ravel()
-    else:
-        rt_x0 = np.zeros(6)
-    Rt_rx = mrcal.invert_Rt( mrcal.Rt_from_rt(rt_x0))
+    return \
+        mrcal.cameramodel( intrinsics            = (lensmodel, intrinsics[i_camera]),
+                           extrinsics_rt_fromref = extrinsics[i_camera-1] if i_camera >= 1 \
+                                                   else np.zeros(6),
+                           imagersize            = imagersizes[i_camera],
+                           optimization_inputs   = dict(optimize_kwargs,
+                                                        icam_intrinsics_covariances_ief=i_camera))
 
-    if valid_intrinsics_region is not None:
-        valid_intrinsics_region = valid_intrinsics_region[i_camera]
 
-    return mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
-                              extrinsics_Rt_toref        = Rt_rx,
-                              imagersize                 = imagersizes[i_camera],
-                              valid_intrinsics_region    = valid_intrinsics_region)
-
-def make_cameramodels(intrinsics, extrinsics, imagersizes,
-                      valid_intrinsics_region = None):
+def make_cameramodels(optimize_kwargs):
     r'''Assemble cameramodels from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -540,9 +537,8 @@ def make_cameramodels(intrinsics, extrinsics, imagersizes,
     structures that can be fed to all the other routines.
 
     '''
-    return [ make_cameramodel(i_camera,
-                              intrinsics, extrinsics, imagersizes,
-                              valid_intrinsics_region) for i_camera in range(len(intrinsics[1])) ]
+    return [ make_cameramodel(optimize_kwargs, i_camera) \
+             for i_camera in range(len(optimize_kwargs['intrinsics'])) ]
 
 
 def solve_initial(args, seedmodels, imagersizes,
@@ -825,26 +821,38 @@ else:
 
 print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, covariances",
       file=sys.stderr)
-stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
-                       observations, indices_frame_camintrinsics_camextrinsics,
-                       None, None,
-                       args.lensmodel,
-                       imagersizes                       = imagersizes,
-                       do_optimize_calobject_warp        = args.optimize_calobject_warp,
-                       calobject_warp                    = calobject_warp,
-                       observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                       do_optimize_intrinsic_core        = not args.skip_intrinsics_solve,
-                       do_optimize_intrinsic_distortions = not args.skip_intrinsics_solve,
-                       do_optimize_extrinsics            = not args.skip_extrinsics_solve,
-                       calibration_object_spacing        = args.object_spacing,
-                       calibration_object_width_n        = args.object_width_n,
-                       calibration_object_height_n       = args.object_height_n,
-                       skip_outlier_rejection            = False,
-                       skip_regularization               = args.skip_regularization,
-                       outlier_indices                   = stats['outlier_indices'],
-                       get_covariances                   = True,
-                       verbose                           = args.verbose_solver)
+
+optimize_kwargs = \
+    dict( intrinsics                                = intrinsics_data,
+          extrinsics_rt_fromref                     = extrinsics,
+          frames_rt_toref                           = frames,
+          points                                    = None,
+          observations_board                        = observations,
+          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+          observations_point                        = None,
+          indices_point_camintrinsics_camextrinsics = None,
+          lensmodel                                 = args.lensmodel,
+
+          imagersizes                               = imagersizes,
+          calobject_warp                            = calobject_warp,
+          do_optimize_intrinsic_core                = not args.skip_intrinsics_solve,
+          do_optimize_intrinsic_distortions         = not args.skip_intrinsics_solve,
+          do_optimize_extrinsics                    = not args.skip_extrinsics_solve,
+          do_optimize_frames                        = True,
+          do_optimize_calobject_warp                = args.optimize_calobject_warp,
+          calibration_object_spacing                = args.object_spacing,
+          calibration_object_width_n                = args.object_width_n,
+          calibration_object_height_n               = args.object_height_n,
+          outlier_indices                           = stats['outlier_indices'],
+          skip_regularization                       = args.skip_regularization,
+          observed_pixel_uncertainty                = args.observed_pixel_uncertainty)
+stats = mrcal.optimize(skip_outlier_rejection = False,
+                       get_covariances        = True,
+                       verbose                = args.verbose_solver,
+                       **optimize_kwargs)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
+optimize_kwargs['outlier_indices'] = stats['outlier_indices']
+
 intrinsics = (args.lensmodel, intrinsics_data)
 
 if args.skip_extrinsics_solve:
@@ -996,9 +1004,8 @@ reproj_err_including_outliers, reproj_err_0_for_outliers = \
 
 
 
-def get_valid_intrinsics_region(i_camera,
-                                ignore_outliers = True,
-                                focus_center = None, focus_radius = -1):
+def get_valid_intrinsics_region(model, i_camera,
+                                ignore_outliers = True):
 
     '''THIS FUNCTION IS MADE UP. PLEASE FIX'''
 
@@ -1008,17 +1015,14 @@ def get_valid_intrinsics_region(i_camera,
 
     idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
 
-    if i_camera >= 0:
-        idx[indices_frame_camera[:,1] != i_camera, ...] = False
+    idx[indices_frame_camera[:,1] != i_camera, ...] = False
     if ignore_outliers:
         nps.clump(idx, n=3)[stats['outlier_indices']] = False
 
     err = reproj_err_including_outliers[idx, ...]
     obs = observations                 [idx, ..., :2]
 
-    W,H=imagersizes[i_camera]
-    if focus_center is None:
-        focus_center = (imagersizes[i_camera]-1.)/2.
+    W,H = model.imagersize()
 
     gridn_width,gridn_height = 20,10
     # This looks at reprojection errors EVEN FOR POINTS THROWN OUT AS OUTLIERS
@@ -1026,20 +1030,16 @@ def get_valid_intrinsics_region(i_camera,
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
-        mrcal.report_residual_statistics(obs,err, imagersizes[i_camera],
+        mrcal.report_residual_statistics(obs,err, model.imagersize(),
                                          gridn_width  = gridn_width,
                                          gridn_height = gridn_height)
 
-    model = \
-        mrcal.cameramodel( intrinsics                 = (intrinsics[0], intrinsics[1][i_camera,:]),
-                           extrinsics_rt_toref        = np.zeros(6,dtype=float),
-                           imagersize                 = imagersizes[i_camera])
-    err = mrcal.compute_projection_stdev(model,
-                                         gridn_width  = gridn_width,
-                                         gridn_height = gridn_height,
-                                         focus_center = focus_center,
-                                         focus_radius = focus_radius)
-
+    q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
+    pcam = mrcal.unproject(q, *model.intrinsics())
+    err  = mrcal.projection_uncertainty(pcam,
+                                        model           = model,
+                                        assume_infinity = True,
+                                        what            = 'worstdirection-stdev' )
     try:
 
         sys.stderr.write("These thresholds for the valid-intrinsics-region are completely made up\n")
@@ -1072,13 +1072,13 @@ def get_valid_intrinsics_region(i_camera,
         return None
 
 
-valid_intrinsics_region = [get_valid_intrinsics_region(i) for i in range(Ncameras)]
-
-
-
 # Write the output models
-models = make_cameramodels(intrinsics, extrinsics, imagersizes,
-                           valid_intrinsics_region)
+models = make_cameramodels(optimize_kwargs)
+for i in range(Ncameras):
+    models[i].valid_intrinsics_region(get_valid_intrinsics_region(models[i], i))
+
+
+
 # The note says how we ran this, and contains the commented-out report
 note = \
     "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -1283,16 +1283,16 @@ def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_repr
     valid_intrinsics_region_plotarg = None
     if i_camera >= 0:
         valid_intrinsics_region_plotarg_3d = \
-            (valid_intrinsics_region[i_camera][:,0],
-             valid_intrinsics_region[i_camera][:,1],
-             np.zeros(valid_intrinsics_region[i_camera].shape[-2]),
+            (models[i_camera].valid_intrinsics_region()[:,0],
+             models[i_camera].valid_intrinsics_region()[:,1],
+             np.zeros(models[i_camera].valid_intrinsics_region().shape[-2]),
              dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region")) if valid_intrinsics_region[i_camera] is not None else None
+                  legend = "Valid-intrinsics region")) if models[i_camera].valid_intrinsics_region() is not None else None
         valid_intrinsics_region_plotarg_2d = \
-            (valid_intrinsics_region[i_camera][:,0],
-             valid_intrinsics_region[i_camera][:,1],
+            (models[i_camera].valid_intrinsics_region()[:,0],
+             models[i_camera].valid_intrinsics_region()[:,1],
              dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region")) if valid_intrinsics_region[i_camera] is not None else None
+                  legend = "Valid-intrinsics region")) if models[i_camera].valid_intrinsics_region() is not None else None
 
     return i_camera,err,obs,W,H,focus_center,focus_radius,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
 
