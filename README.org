@@ -28,14 +28,14 @@ supported. The toolkit includes:
 
 - Some tools:
   - =mrcal-calibrate-cameras=: calibrates N cameras
-  - =mrcal-convert-distortion=: fits one lens model to another
-  - =mrcal-show-distortion=: visualize the distortion effects of a specific
+  - =mrcal-convert-lensmodel=: fits one lens model to another
+  - =mrcal-show-projection-behavior=: visualize the effects of a specific lens
     model
   - =mrcal-show-splined-model-surface=: visualize the surface and knots used in
     the specification of splined models
-  - =mrcal-show-intrinsics-uncertainty=: visualize the uncertainty of intrinsics
+  - =mrcal-show-projection-uncertainty=: visualize the uncertainty of intrinsics
     due to noise in the calibration inputs
-  - =mrcal-show-intrinsics-diff=: visualize the difference between the
+  - =mrcal-show-projection-diff=: visualize the difference between the
     intrinsics of a number of models
   - =mrcal-reproject-points=: Given two lens models and a set of points,
     maps them from one lens model to the other
@@ -150,7 +150,6 @@ Currently the supported models are:
 - =LENSMODEL_OPENCV5=
 - =LENSMODEL_OPENCV8=
 - =LENSMODEL_OPENCV12= (if we have OpenCV >= 3.0.0)
-- =LENSMODEL_OPENCV14= (if we have OpenCV >= 3.1.0)
 - =LENSMODEL_CAHVOR=
 - =LENSMODEL_CAHVORE=
 
@@ -220,8 +219,8 @@ DESCRIPTION
     the image, and there would be no corner to detect. Conversely, if the
     image is badly underexposed, the black squares will bleed into each
     other, which would also destroy the corner. mrgingham tries to handle a
-    variety of lighting conditions, including varying illuination across the
-    image, but the corners must exist in the image in some form. A
+    variety of lighting conditions, including varying illumination across
+    the image, but the corners must exist in the image in some form. A
     fundamental design decision in mrgingham is to only output chessboards
     that we are very confident in, and a consequence of this is that
     mrgingham requires the WHOLE chessboard to be visible in order to
@@ -233,9 +232,9 @@ DESCRIPTION
     Another requirement due to the design of mrgingham is that the board
     should be held with a flat edge parallel to the camera xz plane
     (parallel to the ground, usually). mrgingham looks for vertical and
-    horizontal sequences of corners, but if the board is rotated in this
-    way, then none of these sequences are "horizontal" or "vertical", but
-    they're all "diagonal", which isn't what mrgingham is looking for.
+    horizontal sequences of corners, but if the board is rotated diagonally,
+    then none of these sequences are "horizontal" or "vertical", but they're
+    all "diagonal", which isn't what mrgingham is looking for.
 
     The most useful observations to gather are
 
@@ -319,7 +318,7 @@ DESCRIPTION
     that is too lean (LENSMODEL_PINHOLE or LENSMODEL_OPENCV4 maybe), the
     model will not fit the data, especially at the edges; the tool will tell
     you this. If you use a model that is too rich (something crazy like
-    LENSMODEL_OPENCV14), then you will need much more data than you normally
+    LENSMODEL_OPENCV12), then you will need much more data than you normally
     would. Most lenses I've seen work well with LENSMODEL_OPENCV4 or
     LENSMODEL_OPENCV5 or LENSMODEL_OPENCV8; wider lenses need richer models.
 
@@ -433,7 +432,7 @@ DESCRIPTION
 
     Finally run this:
 
-        show_intrinsics_uncertainty()
+        show_projection_uncertainty()
 
     This will pop up a plot of projection uncertainties for each camera. The
     uncertainties are shown as a color-map along with contours. These are
@@ -449,12 +448,7 @@ DESCRIPTION
     but the uncertainties will be very high. The more data you gather, the
     lower the uncertainties. A richer lens model lowers the residuals, but
     raises the uncertainties. So with a richer model you need to get more
-    data to get to the same acceptable uncertainty level. The uncertainties
-    are all determined relative to some focus point. If you care about the
-    calibration accuracy in a particular area of the imager, do something
-    like this instead:
-
-        show_intrinsics_uncertainty( focus_center = np.array((1000,2000))) )
+    data to get to the same acceptable uncertainty level.
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -555,14 +549,14 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** mrcal-convert-distortion
+** mrcal-convert-lensmodel
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-convert-distortion - Converts a camera model from one lens model
-    to another
+    mrcal-convert-lensmodel - Converts a camera model from one lens model to
+    another
 
 SYNOPSIS
-      $ mrcal-convert-distortion
+      $ mrcal-convert-lensmodel
           --viz LENSMODEL_OPENCV4 left.cameramodel
           > left.opencv4.cameramodel
 
@@ -575,8 +569,10 @@ SYNOPSIS
 DESCRIPTION
     This is a tool to convert a given camera model from one lens model to
     another. The input and output models have identical extrinsics and an
-    identical intrinsic core (focal lengths, center pixel coords). The ONLY
-    differing part is the distortion coefficients.
+    identical intrinsic core (focal lengths, center pixel coords).
+
+    this isn't actually very useful. I should change ALL the intrinsics;
+    core and all The ONLY differing part is the distortion coefficients.
 
     While the lens models all exist to solve the same problem, the different
     representations don't map to one another perfectly, so this tool seeks
@@ -637,23 +633,24 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** mrcal-show-distortion
+** mrcal-show-projection-behavior
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-distortion - Renders a vector field to visualize the effect
-    of a model
+    mrcal-show-projection-behavior - Visualize the behavior or a lens model
 
 SYNOPSIS
-      $ mrcal-show-distortion --vectorfield left.cameramodel
-      ... a plot pops up showing the distortion vector field
+      $ mrcal-show-projection-behavior --vectorfield left.cameramodel
+
+      ... a plot pops up showing the vector field of the difference from a pinhole
+      projection
 
 DESCRIPTION
-    This allows us to visually see what a lens model does. Depending on the
+    This tool is used to examine how a lens model behaves. Depending on the
     model, the vectors could be very large or very small, and we can scale
     them by passing '--scale s'. By default we sample in a 60x40 grid, but
     this spacing can be controlled by passing '--gridn w h'.
 
-    By default we render a heat map of the distortion. We can also see the
+    By default we render a heat map of the lens effects. We can also see the
     vectorfield by passing in --vectorfield. Or we can see the radial
     distortion curve by passing --radial
 
@@ -704,6 +701,13 @@ DESCRIPTION
     the spline index domain (normalized stereographic coordinates, usually).
     Both are useful. Pass --spline-index-domain to choose that domain
 
+    One use for this tool is to check that the field-of-view we're using for
+    this model is reasonable. We'd like the field of view to be wide-enough
+    to cover the whole imager, but not much wider, since representing
+    invisible areas isn't useful. Ideally the surface domain boundary (that
+    this tool displays) is just wider than the imager edges (which this tool
+    also displays).
+
 OPTIONS
   POSITIONAL ARGUMENTS
       model                 Input camera model. If "-' is given, we read standard
@@ -728,14 +732,14 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** mrcal-show-intrinsics-uncertainty
+** mrcal-show-projection-uncertainty
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-intrinsics-uncertainty - Visualize the expected projection
-    error due to uncertainty in the input
+    mrcal-show-projection-uncertainty - Visualize the expected projection
+    error due to uncertainty in the calibration-time input
 
 SYNOPSIS
-      $ mrcal-show-intrinsics-uncertainty left.cameramodel
+      $ mrcal-show-projection-uncertainty left.cameramodel
       ... a plot pops up showing the projection uncertainty of the intrinsics in
       ... this model
 
@@ -749,7 +753,7 @@ DESCRIPTION
     Areas with a high expected projection error are unreliable for further
     work.
 
-    See mrcal.compute_projection_stdev() for a full description of the
+    See mrcal.projection_uncertainty() for a full description of the
     computation performed here
 
 OPTIONS
@@ -759,21 +763,29 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
+      --observations-xydist
+                            If given, I make a 3D plot of uncertainties and
+                            chessboard observations. With this option I ignore
+                            --distance, --isotropic, --observations, --cbmax. This
+                            option makes a 3D x-y-distance plot instead of the 2D
+                            uncertainty contours we get normally
       --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
-                            report a 60x40 grid
-      --where WHERE WHERE   Center of the region of interest. Uncertainty is a
-                            relative concept, so I focus on a particular area. I
-                            compute an implied rotation to make that area as
-                            certain as possible. The center of this focus area is
-                            given by this argument. If omitted, we will focus on
-                            the center of the imager
-      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
-                            fit an implied rotation at all. If omitted or <0, we
-                            use a "reasonable value: min(width,height)/6. To fit
-                            with data across the WHOLE imager: pass in a very
-                            large radius
-      --outlierness         Report an outlierness-based uncertainty, not an input-
-                            noise-based one
+                            use a 60x40 grid (or a (15,10) grid if --observations-
+                            xydist)
+      --distance DISTANCE   By default we display the projection uncertainty
+                            infinitely away from the camera. If we want to look
+                            closer in, the desired observation distance can be
+                            given in this argument
+      --isotropic           By default I display the expected value of the
+                            projection error in the worst possible direction of
+                            this error. If we want to plot the mean of the worst
+                            and best directions, pass --isotropic. If we assume
+                            the errors will apply evenly in all directions, then
+                            we can use this metric, which is potentially easier to
+                            compute
+      --observations        If given, I show where the chessboard corners were
+                            observed at calibration time. This should correspond
+                            to the low-uncertainty regions.
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
@@ -784,14 +796,14 @@ OPTIONS
 
 
 #+END_EXAMPLE
-** mrcal-show-intrinsics-diff
+** mrcal-show-projection-diff
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-intrinsics-diff - Visualize the difference in projection
+    mrcal-show-projection-diff - Visualize the difference in projection
     between some models
 
 SYNOPSIS
-      $ mrcal-show-intrinsics-diff before.cameramodel after.cameramodel
+      $ mrcal-show-projection-diff before.cameramodel after.cameramodel
       ... a plot pops up showing how these two models differ in their projections
 
 DESCRIPTION
@@ -1229,7 +1241,8 @@ SYNOPSIS
 
 DESCRIPTION
     This allows us to visualize the relative geometry between several
-    cameras
+    cameras and the calibration object poses used in computing the
+    calibration
 
 OPTIONS
   POSITIONAL ARGUMENTS
