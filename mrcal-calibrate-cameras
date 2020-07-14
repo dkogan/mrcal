@@ -871,7 +871,7 @@ if calobject_warp is not None:
     report += "calobject_warp = {}\n".format(calobject_warp)
 
 if args.pairs:
-    # Most of this derivation is described in compute_projection_stdev():
+    # Most of this derivation is described in projection_uncertainty():
     #
     # I have dp = M dqref
     #

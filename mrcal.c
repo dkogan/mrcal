@@ -3047,9 +3047,9 @@ static int cholmod_error_callback(const char* s, ...)
 // the input pixel observations affect our solution. A "good" solution will not
 // be very sensitive: measurement noise doesn't affect the solution very much.
 //
-// A detailed derivation appears in the docstring for
-// compute_projection_stdev() in utils.py. Everything is double-checked in
-// test-calibration-....py
+// A detailed derivation appears in the docstring for projection_uncertainty()
+// in utils.py. Everything is double-checked in
+// test-calibration-uncertainty-fixed-cam0.py
 //
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I
 // need here, and return these densely to the upper levels (python).

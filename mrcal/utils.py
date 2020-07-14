@@ -2782,9 +2782,9 @@ def compute_Rcompensating(q0, v0, v1,
     I sample the imager grid in all my cameras, and compute the rotation that
     maps the vectors to each other as closely as possible. Then I produce a
     difference map by projecting the matched-up vectors. This is very similar in
-    spirit to what compute_Rcorrected_dq_dintrinsics() does, but that function
-    has to work analytically, while this one explicitly computes the rotation by
-    matching up known vectors.
+    spirit to what compute_Rcorrected_dq_dintrinsics() did (removed in commit
+    4240260), but that function worked analytically, while this one explicitly
+    computes the rotation by matching up known vectors.
 
 
     I compute the rotation using a Procrustes fit:
