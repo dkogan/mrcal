@@ -1664,11 +1664,6 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
 plots_intrinsics_uncertainty = [None] * Ncameras
 def show_projection_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
-    if covariance_intrinsics is None:
-        print("No intrinsics uncertainty was computed. You need to call mrcal.optimize(..., get_covariances = True) for this to work")
-        return False
-
-
     global plots_intrinsics_uncertainty
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
