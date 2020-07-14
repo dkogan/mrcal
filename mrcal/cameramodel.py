@@ -1,9 +1,6 @@
 #!/usr/bin/python3
 
-r'''A module that provides a 'cameramodel' class to read/write/manipulate camera
-models.
-
-'''
+'''A 'cameramodel' class to read/write/manipulate camera models'''
 
 from __future__ import print_function
 
