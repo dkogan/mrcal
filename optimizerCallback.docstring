@@ -22,18 +22,39 @@ SYNOPSIS
                                     get_covariances                   = False,
                                     verbose                           = False)
 
-This exists for diagnostics. The main optimization routine in mrcal.optimize()
-calls a function repeatedly to find a set of parameters that minimize the errors
-norm2(x). This function is available by itself here. The arguments are largely
-the same as those to mrcal.optimize(), but the inputs are all read-only. The
-output is returned in a tuple:
+The main optimization routine in mrcal.optimize() searches for optimal
+parameters by repeatedly calling a function to evaluate each hypothethical
+parameter set. This evaluation function is available by itself here, separated
+from the optimization loop. The arguments are largely the same as those to
+mrcal.optimize(), but the inputs are all read-only
 
-- x: a vector of measurements
+ARGUMENTS
 
-- J: a sparse matrix of gradients of the measurements in respect to the
-  parameters
+This function accepts lots of arguments, but they're the same as the arguments
+to mrcal.optimize() so please see that docstring for details
 
-If get_covariances then we ALSO return covariances:
+RETURNED VALUES
+
+The output is returned in a tuple:
+
+- x: a numpy array of shape (Nmeasurements,). This is the error vector. If the
+  optimization routine was running, it would be testing different parameters,
+  trying to find those that minimize norm2(x)
+
+- J: a sparse matrix of shape (Nmeasurements,Nstate). These are the gradients of
+  the measurements in respect to the parameters. This is a SPARSE array of type
+  scipy.sparse.csr_matrix. This object can be converted to a numpy array like this:
+
+    x,Jt_sparse = mrcal.optimizerCallback(...)
+    Jt_numpy    = Jt_sparse.toarray()
+
+  Note that the numpy array is dense, so it is very inefficient for sparse data,
+  and working with it could be very memory-intensive and slow.
+
+  This jacobian matrix comes directly from the optimization callback function,
+  which uses unitless state.
+
+If get_covariances: then the output tuple ALSO contains covariances:
 
 - covariances_ief: the intrinsics-extrinsics-frames covariances
 
@@ -51,5 +72,3 @@ If get_covariances then we ALSO return covariances:
 Note that the optimizer uses some weights on the measurements, and some scaling
 on the parameters. The values returned here are the optimizer-internal values.
 To bring the jacobian into real units, call solver_context.pack(J)
-
-See mrcal.optimize() for a description of the arguments
