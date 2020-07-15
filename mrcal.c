@@ -3759,14 +3759,16 @@ static bool compute_uncertainty_matrices(// out
 // Bring back the fancy libdogleg logic once everything stabilizes
 static
 bool markOutliers(// output, input
-                  struct dogleg_outliers_t* markedOutliers,
+
+                  // the weight stored in each point3_t.z indicates outlierness
+                  // on entry AND on exit. Outliers have weight < 0.0
+                  point3_t* observations_board_pool,
 
                   // output
                   int* Noutliers,
 
                   // input
                   const observation_board_t* observations_board,
-                  const point3_t* observations_board_pool,
                   int NobservationsBoard,
                   int calibration_object_width_n,
                   int calibration_object_height_n,
@@ -3825,7 +3827,7 @@ bool markOutliers(// output, input
             i_pt++, i_feature++)                                        \
         {                                                               \
             const point3_t* pt_observed = &observations_board_pool[i_feature]; \
-            double weight = pt_observed->z;
+            double* weight = &observations_board_pool[i_feature].z;
 
 
 #define LOOP_FEATURE_END() \
@@ -3836,7 +3838,7 @@ bool markOutliers(// output, input
     double var = 0.0;
     LOOP_FEATURE_BEGIN()
     {
-        if(markedOutliers[i_feature].marked)
+        if(*weight < 0.0)
         {
             (*Noutliers)++;
             continue;
@@ -3845,8 +3847,8 @@ bool markOutliers(// output, input
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
 
-        var += weight*(dx*dx + dy*dy);
-        sum_weight += weight;
+        var += *weight * (dx*dx + dy*dy);
+        sum_weight += *weight;
     }
     LOOP_FEATURE_END();
     var /= (2.*sum_weight);
@@ -3856,7 +3858,7 @@ bool markOutliers(// output, input
     bool markedAny = false;
     LOOP_FEATURE_BEGIN()
     {
-        if(markedOutliers[i_feature].marked)
+        if(*weight < 0.0)
           continue;
 
         double dx = x_measurements[2*i_feature + 0];
@@ -3864,8 +3866,8 @@ bool markOutliers(// output, input
         if(dx*dx > k1*k1*var ||
            dy*dy > k1*k1*var )
         {
-            markedOutliers[i_feature].marked = true;
-            markedAny                        = true;
+            *weight   = -1.0;
+            markedAny = true;
             (*Noutliers)++;
 
             // MSG_IF_VERBOSE("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
@@ -3883,7 +3885,7 @@ bool markOutliers(// output, input
     // last. Hopefully
     LOOP_FEATURE_BEGIN()
     {
-        if(markedOutliers[i_feature].marked)
+        if(*weight < 0)
           continue;
 
         double dx = x_measurements[2*i_feature + 0];
@@ -3891,7 +3893,7 @@ bool markOutliers(// output, input
         if(dx*dx > k0*k0*var ||
            dy*dy > k0*k0*var )
         {
-            markedOutliers[i_feature].marked = true;
+            *weight = -1.0;
             (*Noutliers)++;
 
             // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
@@ -3940,7 +3942,6 @@ typedef struct
     int calibration_object_height_n;
 
     const int Nmeasurements, N_j_nonzero, Nintrinsics;
-    struct dogleg_outliers_t* markedOutliers;
     const char* reportFitMsg;
 } callback_context_t;
 
@@ -4150,9 +4151,7 @@ void optimizerCallback(// input state
             const point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
             double weight = pt_observed->z;
 
-            if(// /2 because I look at FEATURES here, not discrete
-               // measurements
-               !ctx->markedOutliers[iMeasurement/2].marked)
+            if(weight >= 0.0)
             {
                 // I have my two measurements (dx, dy). I propagate their
                 // gradient and store them
@@ -4273,6 +4272,8 @@ void optimizerCallback(// input state
             }
             else
             {
+                // Outlier.
+
                 // This is arbitrary. I'm skipping this observation, so I
                 // don't touch the projection results. I need to have SOME
                 // dependency on the frame parameters to ensure a full-rank
@@ -4918,19 +4919,18 @@ bool mrcal_optimizerCallback(// output measurements
 
                              // All the board pixel observations, in order.
                              // .x, .y are the pixel observations
-                             // .z is the weight of the observation. Most of the weights are expected to
-                             // be 1.0, which implies that the noise on the observation is gaussian,
-                             // independent on x,y, and has standard deviation of
-                             // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
-                             // with the weight
+                             // .z is the weight of the observation. Most of the
+                             // weights are expected to be 1.0, which implies
+                             // that the noise on the observation is gaussian,
+                             // independent on x,y, and has standard deviation
+                             // of observed_pixel_uncertainty.
+                             // observed_pixel_uncertainty scales inversely with
+                             // the weight
                              const point3_t* observations_board_pool,
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
                              int NobservationsPoint,
-
-                             int Noutlier_indices_input,
-                             const int* outlier_indices_input,
                              bool verbose,
 
                              lensmodel_t lensmodel,
@@ -4943,12 +4943,9 @@ bool mrcal_optimizerCallback(// output measurements
                              double calibration_object_spacing,
                              int calibration_object_width_n,
                              int calibration_object_height_n,
-
                              int Nintrinsics, int Nmeasurements, int N_j_nonzero)
 {
     bool result = false;
-    struct dogleg_outliers_t* markedOutliers = NULL;
-
 
     if(!modelHasCore_fxfycxcy(lensmodel))
         problem_details.do_optimize_intrinsic_core = false;
@@ -4979,14 +4976,7 @@ bool mrcal_optimizerCallback(// output measurements
         NobservationsBoard *
         calibration_object_width_n*calibration_object_height_n;
 
-#warning "outliers only work with board observations for now. I assume consecutive xy measurements, but points can have xyr sprinkled in there. I should make the range-full points always follow the range-less points. Then this will work"
-    markedOutliers = malloc(Npoints_fromBoards*sizeof(struct dogleg_outliers_t));
-    if(markedOutliers == NULL)
-    {
-        MSG("Failed to allocate markedOutliers!");
-        goto done;
-    }
-    memset(markedOutliers, 0, Npoints_fromBoards*sizeof(markedOutliers[0]));
+#warning "Outliers only work with board observations for now. Point outliers could be implemented without a lot of trouble now"
 
     const callback_context_t ctx = {
         .intrinsics                 = intrinsics,
@@ -5014,8 +5004,7 @@ bool mrcal_optimizerCallback(// output measurements
         .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
         .Nmeasurements              = Nmeasurements,
         .N_j_nonzero                = N_j_nonzero,
-        .Nintrinsics                = Nintrinsics,
-        .markedOutliers             = markedOutliers};
+        .Nintrinsics                = Nintrinsics};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
     pack_solver_state(packed_state,
@@ -5029,9 +5018,6 @@ bool mrcal_optimizerCallback(// output measurements
                       Nframes, Npoints-Npoints_fixed, Nstate);
 
     double norm2_error = -1.0;
-    for(int i=0; i<Noutlier_indices_input; i++)
-        markedOutliers[outlier_indices_input[i]].marked = true;
-
     optimizerCallback(packed_state, x, Jt, &ctx);
 
     if( covariances_ief ||
@@ -5068,7 +5054,6 @@ bool mrcal_optimizerCallback(// output measurements
     result = true;
 
 done:
-    free(markedOutliers);
     return result;
 }
 
@@ -5124,12 +5109,8 @@ mrcal_optimize( // out
                 // ALL the cameras
                 int icam_intrinsics_covariances_ief,
 
-                // Buffer should be at least Nfeatures long. stats->Noutliers
-                // elements will be filled in
-                int*    outlier_indices_final,
-
                 // out, in
-
+                //
                 // if(_solver_context != NULL) then this is a persistent solver
                 // context. The context is NOT freed on exit.
                 // mrcal_free_context() should be called to release it
@@ -5139,41 +5120,49 @@ mrcal_optimize( // out
                 // returned here on exit
                 void** _solver_context,
 
-                // intrinsics is a concatenation of the intrinsics core
-                // and the distortion params. The specific distortion
-                // parameters may vary, depending on lensmodel, so
-                // this is a variable-length structure
-                double*       intrinsics, // Ncameras_intrinsics * NlensParams of these
+                // These are a seed on input, solution on output
+
+                // intrinsics is a concatenation of the intrinsics core and the
+                // distortion params. The specific distortion parameters may
+                // vary, depending on lensmodel, so this is a variable-length
+                // structure
+                double*       intrinsics,         // Ncameras_intrinsics * NlensParams
                 pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                 pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 point3_t*     points,             // Npoints of these.    In the reference frame
                 point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+
+                // All the board pixel observations, in order.
+                // .x, .y are the pixel observations
+                // .z is the weight of the observation. Most of the weights are
+                // expected to be 1.0, which implies that the noise on the
+                // observation has standard deviation of
+                // observed_pixel_uncertainty. observed_pixel_uncertainty scales
+                // inversely with the weight.
+                //
+                // z<0 indicates that this is an outlier. This is respected on
+                // input (even if skip_outlier_rejection). New outliers are
+                // marked with z<0 on output, so this isn't const
+                point3_t* observations_board_pool,
+                int NobservationsBoard,
 
                 // in
                 int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                 int Npoints, int Npoints_fixed, // at the end of points[]
 
                 const observation_board_t* observations_board,
-                const point3_t* observations_board_pool,
-                int NobservationsBoard,
-
                 const observation_point_t* observations_point,
                 int NobservationsPoint,
 
                 bool check_gradient,
-                // input outliers. These are respected regardless of
-                // skip_outlier_rejection.
-                int Noutlier_indices_input,
-                int* outlier_indices_input,
                 bool verbose,
-                // Whether to try to find NEW outliers. These would be added to
-                // the outlier_indices_input, which are respected regardless
+                // Whether to try to find NEW outliers. The outliers given on
+                // input are respected regardless
                 const bool skip_outlier_rejection,
 
                 lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
-
                 mrcal_problem_details_t          problem_details,
                 const mrcal_problem_constants_t* problem_constants,
 
@@ -5220,14 +5209,7 @@ mrcal_optimize( // out
         NobservationsBoard *
         calibration_object_width_n*calibration_object_height_n;
 
-#warning "outliers only work with board observations for now. I assume consecutive xy measurements, but points can have xyr sprinkled in there. I should make the range-full points always follow the range-less points. Then this will work"
-    struct dogleg_outliers_t* markedOutliers = malloc(Npoints_fromBoards*sizeof(struct dogleg_outliers_t));
-    if(markedOutliers == NULL)
-    {
-        MSG("Failed to allocate markedOutliers!");
-        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
-    }
-    memset(markedOutliers, 0, Npoints_fromBoards*sizeof(markedOutliers[0]));
+#warning "outliers only work with board observations for now"
 
     callback_context_t ctx = {
         .intrinsics                 = intrinsics,
@@ -5268,9 +5250,7 @@ mrcal_optimize( // out
                                                            lensmodel,
                                                            calibration_object_width_n,
                                                            calibration_object_height_n),
-        .Nintrinsics                = mrcal_getNlensParams(lensmodel),
-
-        .markedOutliers = markedOutliers};
+        .Nintrinsics                = mrcal_getNlensParams(lensmodel)};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
     if( x_final != NULL &&
@@ -5318,11 +5298,15 @@ mrcal_optimize( // out
     if( !check_gradient )
     {
         stats.Noutliers = 0;
-        for(int i=0; i<Noutlier_indices_input; i++)
-        {
-            markedOutliers[outlier_indices_input[i]].marked = true;
-            stats.Noutliers++;
-        }
+
+#warning "outliers for board observations only"
+        int Nfeatures =
+            NobservationsBoard *
+            calibration_object_width_n *
+            calibration_object_height_n;
+        for(int i=0; i<Nfeatures; i++)
+            if(observations_board_pool[i].z < 0.0)
+                stats.Noutliers++;
 
         if(verbose)
         {
@@ -5361,10 +5345,9 @@ mrcal_optimize( // out
 #endif
 
         } while( !skip_outlier_rejection &&
-                 markOutliers(markedOutliers,
+                 markOutliers(observations_board_pool,
                               &stats.Noutliers,
                               observations_board,
-                              observations_board_pool,
                               NobservationsBoard,
                               calibration_object_width_n,
                               calibration_object_height_n,
@@ -5485,21 +5468,11 @@ mrcal_optimize( // out
                     covariance_extrinsics[i] = nan;
         }
     }
-    if(outlier_indices_final)
-    {
-        int ioutlier = 0;
-        for(int iFeature=0; iFeature<Npoints_fromBoards; iFeature++)
-            if( markedOutliers[iFeature].marked )
-                outlier_indices_final[ioutlier++] = iFeature;
-
-        assert(ioutlier == stats.Noutliers);
-    }
 
  done:
     if(_solver_context == NULL && solver_context)
         dogleg_freeContext(&solver_context);
 
-    free(markedOutliers);
     return stats;
 }
 

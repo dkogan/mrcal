@@ -3617,9 +3617,9 @@ RETURNED VALUES
 
 This function returns a tuple (observations, indices_frame_camera, files_sorted)
 
-- observations: an ordered (N,object-height-n,object-width-n,3) array describing
+- observations: an ordered (N,object_height_n,object_width_n,3) array describing
   N board observations where the board has dimensions
-  (object-height-n,object-width-n) and each point is an (x,y,weight) pixel
+  (object_height_n,object_width_n) and each point is an (x,y,weight) pixel
   observation. A weight<0 means "ignore this point". Incomplete chessboard
   observations can be specified in this way. if keep_level: then the decimation
   level appears in the last column, instead of the weight

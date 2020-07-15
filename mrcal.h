@@ -377,10 +377,6 @@ mrcal_optimize( // out
                 // ALL the cameras
                 int icam_intrinsics_covariances_ief,
 
-                // Buffer should be at least Nfeatures long. stats->Noutliers
-                // elements will be filled in
-                int*    outlier_indices_final,
-
                 // out, in
                 //
                 // This is a dogleg_solverContext_t. I don't want to #include
@@ -397,44 +393,42 @@ mrcal_optimize( // out
 
                 // These are a seed on input, solution on output
 
-                // camera_intrinsics is a concatenation of the intrinsics
-                // core and the distortion params. The specific distortion
-                // parameters may vary, depending on lensmodel, so
-                // this is a variable-length structure
+                // intrinsics is a concatenation of the intrinsics core and the
+                // distortion params. The specific distortion parameters may
+                // vary, depending on lensmodel, so this is a variable-length
+                // structure
                 double*       intrinsics,         // Ncameras_intrinsics * NlensParams
-                pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
-                pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
+                pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
+                pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 point3_t*     points,             // Npoints of these.    In the reference frame
                 point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
+                // All the board pixel observations, in order.
+                // .x, .y are the pixel observations
+                // .z is the weight of the observation. Most of the weights are
+                // expected to be 1.0, which implies that the noise on the
+                // observation has standard deviation of
+                // observed_pixel_uncertainty. observed_pixel_uncertainty scales
+                // inversely with the weight.
+                //
+                // z<0 indicates that this is an outlier. This is respected on
+                // input (even if skip_outlier_rejection). New outliers are
+                // marked with z<0 on output, so this isn't const
+                point3_t* observations_board_pool,
+                int NobservationsBoard,
+
                 // in
-                int Ncameras_intrinsics, int Ncamera_extrinsics, int Nframes,
+                int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                 int Npoints, int Npoints_fixed, // at the end of points[]
 
                 const observation_board_t* observations_board,
-
-                // All the board pixel observations, in order.
-                // .x, .y are the pixel observations
-                // .z is the weight of the observation. Most of the weights are expected to
-                // be 1.0, which implies that the noise on the observation is gaussian,
-                // independent on x,y, and has standard deviation of
-                // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
-                // with the weight
-                const point3_t*            observations_board_pool,
-                int NobservationsBoard,
-
                 const observation_point_t* observations_point,
                 int NobservationsPoint,
 
                 bool check_gradient,
-                // input outliers. These are respected regardless of
-                // skip_outlier_rejection.
-                int Noutlier_indices_input,
-                int* outlier_indices_input,
-
                 bool verbose,
-                // Whether to try to find NEW outliers. These would be added to
-                // the outlier_indices_input, which are respected regardless
+                // Whether to try to find NEW outliers. The outliers given on
+                // input are respected regardless
                 const bool skip_outlier_rejection,
 
                 lensmodel_t lensmodel,
@@ -518,19 +512,19 @@ bool mrcal_optimizerCallback(// output measurements
 
                              // All the board pixel observations, in order.
                              // .x, .y are the pixel observations
-                             // .z is the weight of the observation. Most of the weights are expected to
-                             // be 1.0, which implies that the noise on the observation is gaussian,
-                             // independent on x,y, and has standard deviation of
-                             // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
-                             // with the weight
+                             // .z is the weight of the observation. Most of the
+                             // weights are expected to be 1.0, which implies
+                             // that the noise on the observation has standard
+                             // deviation of observed_pixel_uncertainty.
+                             // observed_pixel_uncertainty scales inversely with
+                             // the weight.
+                             //
+                             // z<0 indicates that this is an outlier
                              const point3_t* observations_board_pool,
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
                              int NobservationsPoint,
-
-                             int Noutlier_indices_input,
-                             const int* outlier_indices_input,
                              bool verbose,
 
                              lensmodel_t lensmodel,

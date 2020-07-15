@@ -601,18 +601,19 @@ def calobservations_project(lensmodel, intrinsics, extrinsics, frames,
                    0,-4)
 
 def calobservations_compute_reproj_error(projected, observations, indices_frame_camera,
-                                         object_width_n, object_height_n,
-                                         outlier_indices = None):
+                                         object_width_n, object_height_n):
     r'''Computes reprojection errors when calibrating with board observations
 
     Given
 
     - projected (shape [Nframes,Ncameras,object_height_n,object_width_n,2])
-    - observations (shape [Nframes,object_height_n,object_width_n,3])
+      These are dense observations I compute. The actual observations are
+      sparse: some cameras don't observe the chessboard in some frames
+
+    - observations (shape [Nobservations,object_height_n,object_width_n,3])
+      observations[....,:] is (x,y,weight). weight<0 == "outlier"
+
     - indices_frame_camera (shape [Nobservations,2])
-    - outlier_indices, a list of point indices that were deemed to be outliers.
-      These are plain integers indexing the flattened observations array, but
-      one per POINT, not (x,y) independently
 
     Return (err_all_points,err_ignoring_outliers). Each is the reprojection
     error for each point: shape
@@ -627,20 +628,20 @@ def calobservations_compute_reproj_error(projected, observations, indices_frame_
 
     '''
 
-    if outlier_indices is None: outlier_indices = np.array(())
-
-    Nframes               = projected.shape[0]
     Nobservations         = indices_frame_camera.shape[0]
     err_all_points        = np.zeros((Nobservations,object_height_n,object_width_n,2))
+    err_ignoring_outliers = np.zeros((Nobservations,object_height_n,object_width_n,2))
 
     for i_observation in range(Nobservations):
         i_frame, i_camera = indices_frame_camera[i_observation]
 
-        err_all_points[i_observation] = projected[i_frame,i_camera] - observations[i_observation, ..., :2]
+        err = projected[i_frame,i_camera] - observations[i_observation, ..., :2]
 
-    err_ignoring_outliers = err_all_points.copy()
-    err_ignoring_outliers.ravel()[outlier_indices*2  ] = 0
-    err_ignoring_outliers.ravel()[outlier_indices*2+1] = 0
+        err_all_points[i_observation] = err
+
+        mask_outliers = (observations[i_observation, ..., 2] < 0.0)
+        err[mask_outliers, :] = 0
+        err_ignoring_outliers[i_observation] = err
 
     return err_all_points,err_ignoring_outliers
 

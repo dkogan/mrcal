@@ -538,9 +538,12 @@ def make_cameramodels(optimize_kwargs):
 
 
 def solve_initial(args, seedmodels, imagersizes,
-                  observations, indices_frame_camera,
-                  outlier_indices):
+                  observations, indices_frame_camera):
     '''Solve an incrementally-expanding optimization problem in several passes
+
+    observations[...,2] start out as the initial outlier set, and are modified
+    by this function to represent the expanded outlier set
+
     '''
 
     Ncameras = len(args.images)
@@ -578,7 +581,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                calibration_object_height_n       = args.object_height_n,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
-                               outlier_indices                   = outlier_indices,
                                get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
@@ -597,7 +599,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                calibration_object_height_n       = args.object_height_n,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
-                               outlier_indices                   = outlier_indices,
                                get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
@@ -695,7 +696,6 @@ def solve_initial(args, seedmodels, imagersizes,
                            calibration_object_height_n       = args.object_height_n,
                            skip_outlier_rejection            = args.skip_outlier_rejection,
                            skip_regularization               = args.skip_regularization,
-                           outlier_indices                   = outlier_indices,
                            get_covariances                   = False,
                            verbose                           = args.verbose_solver)
     return intrinsics_data, extrinsics, frames, stats
@@ -786,14 +786,6 @@ imagersizes = np.array([get_imagersize_one(icamera,
                                            seedmodels) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
-# observation weights <= 0 are to be ignored, so I mark them as outliers
-outlier_indices = np.flatnonzero(observations[...,2] <= 0.0)
-if len(outlier_indices) == 0:
-    outlier_indices = None
-else:
-    outlier_indices = outlier_indices.astype(np.int32)
-
-
 if args.skip_outlier_rejection: print("We are NOT rejecting outliers")
 else:                           print("We ARE rejecting outliers")
 if args.skip_regularization:    print("We are NOT applying regularization in the solver")
@@ -802,8 +794,7 @@ else:                           print("We ARE applying regularization in the sol
 intrinsics_data,extrinsics,frames,stats = \
     solve_initial(args, seedmodels,
                   imagersizes,
-                  observations, indices_frame_camera,
-                  outlier_indices)
+                  observations, indices_frame_camera)
 
 indices_frame_camintrinsics_camextrinsics = \
     nps.glue(indices_frame_camera,
@@ -839,7 +830,6 @@ optimize_kwargs = \
           calibration_object_spacing                = args.object_spacing,
           calibration_object_width_n                = args.object_width_n,
           calibration_object_height_n               = args.object_height_n,
-          outlier_indices                           = stats['outlier_indices'],
           skip_regularization                       = args.skip_regularization,
           observed_pixel_uncertainty                = args.observed_pixel_uncertainty)
 stats = mrcal.optimize(skip_outlier_rejection = False,
@@ -847,7 +837,6 @@ stats = mrcal.optimize(skip_outlier_rejection = False,
                        verbose                = args.verbose_solver,
                        **optimize_kwargs)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
-optimize_kwargs['outlier_indices'] = stats['outlier_indices']
 
 intrinsics = (args.lensmodel, intrinsics_data)
 
@@ -995,8 +984,7 @@ projected = \
 reproj_err_including_outliers, reproj_err_0_for_outliers = \
     mrcal.calobservations_compute_reproj_error(projected, observations,
                                                indices_frame_camera,
-                                               args.object_width_n,args.object_height_n,
-                                               stats['outlier_indices'])
+                                               args.object_width_n,args.object_height_n)
 
 
 
@@ -1010,13 +998,12 @@ def get_valid_intrinsics_region(model, i_camera,
 
 
     idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
-
     idx[indices_frame_camera[:,1] != i_camera, ...] = False
     if ignore_outliers:
-        nps.clump(idx, n=3)[stats['outlier_indices']] = False
+        idx[ observations[...,2] < 0.0 ] = False
 
-    err = reproj_err_including_outliers[idx, ...]
-    obs = observations                 [idx, ..., :2]
+    err = reproj_err_including_outliers[idx, :]
+    obs = observations                 [idx, :2]
 
     W,H = model.imagersize()
 
@@ -1133,7 +1120,7 @@ Potential things to look at:
 non_outlier_mask = np.ones( (Nobservations,
                              args.object_height_n,
                              args.object_width_n), dtype=bool)
-non_outlier_mask.ravel()[stats['outlier_indices']] = False
+non_outlier_mask[observations[...,2] < 0.0] = False
 non_outliers_per_observation = np.sum( nps.clump(non_outlier_mask, n=-2).astype(int),
                                        axis=-1)
 
@@ -1242,20 +1229,15 @@ def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_repr
     # The "for this camera" part is specified in indices_frame_camera. This
     # indexes FRAMES
     #
-    # The "outlier" part is given by stats['outlier_indices']. This indexes
-    # FEATURES (each feature is 2 measurements: x,y).
-    #
     # I construct a feature index map, fill it in with both filters, and use it
     # to pull out the correct data
 
     # all true by default, cutting out the last dimension: x,y
     idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
-
-    if i_camera >= 0:
-        idx[indices_frame_camera[:,1] != i_camera, ...] = False
+    idx[indices_frame_camera[:,1] != i_camera, ...] = False
 
     if not show_all_reproj_errors:
-        nps.clump(idx, n=3)[stats['outlier_indices']] = False
+        idx[ observations[...,2] < 0.0 ] = False
         err = measurements_0_for_outliers[idx, ...]
     else:
         err = reproj_err_including_outliers[idx, ...]

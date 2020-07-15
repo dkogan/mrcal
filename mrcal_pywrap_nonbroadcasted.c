@@ -996,7 +996,6 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(calibration_object_height_n,        int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(outlier_indices,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, outlier_indices,NPY_INT,    {-1} ) \
     _(get_covariances,                    PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(icam_intrinsics_covariances_ief,    int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
@@ -1277,7 +1276,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     PyArrayObject* covariance_extrinsics        = NULL;
     PyArrayObject* covariances_ief              = NULL;
     PyArrayObject* covariances_ief_rotationonly = NULL;
-    PyArrayObject* outlier_indices_final        = NULL;
     PyObject*      pystats                      = NULL;
 
     SET_SIGINT();
@@ -1381,7 +1379,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
 
         observation_board_t c_observations_board[NobservationsBoard];
-        const point3_t* c_observations_board_pool = (point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
+        point3_t* c_observations_board_pool = (point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
 
         for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
         {
@@ -1489,19 +1487,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         }
 
         // input
-        int* c_outlier_indices;
-        int Noutlier_indices;
-        if(IS_NULL(outlier_indices))
-        {
-            c_outlier_indices = NULL;
-            Noutlier_indices  = 0;
-        }
-        else
-        {
-            c_outlier_indices = PyArray_DATA(outlier_indices);
-            Noutlier_indices = PyArray_DIMS(outlier_indices)[0];
-        }
-
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         dogleg_solverContext_t** solver_context_optimizer = NULL;
@@ -1529,10 +1514,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             const int Npoints_fromBoards =
                 NobservationsBoard *
                 calibration_object_width_n*calibration_object_height_n;
-            outlier_indices_final     = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Npoints_fromBoards}), NPY_INT);
-
-            // output
-            int* c_outlier_indices_final     = PyArray_DATA(outlier_indices_final);
 
             int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
             mrcal_stats_t stats =
@@ -1547,7 +1528,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_covariances_ief_rotationonly,
                                 Ncameras_intrinsics_returning*Nvars_ief_rotationonly*Nvars_ief_rotationonly*sizeof(double),
                                 icam_intrinsics_covariances_ief,
-                                c_outlier_indices_final,
                                 (void**)solver_context_optimizer,
                                 c_intrinsics,
                                 c_extrinsics,
@@ -1555,18 +1535,17 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_points,
                                 c_calobject_warp,
 
+                                c_observations_board_pool,
+                                NobservationsBoard,
+
                                 Ncameras_intrinsics, Ncameras_extrinsics,
                                 Nframes, Npoints, Npoints_fixed,
 
                                 c_observations_board,
-                                c_observations_board_pool,
-                                NobservationsBoard,
                                 c_observations_point,
                                 NobservationsPoint,
 
                                 false,
-                                Noutlier_indices,
-                                c_outlier_indices,
                                 verbose &&                PyObject_IsTrue(verbose),
                                 skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection),
                                 lensmodel_type,
@@ -1643,24 +1622,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 BARF("Couldn't add to stats dict 'covariances_ief_rotationonly'");
                 goto done;
             }
-            // The outlier_indices_final numpy array has Nfeatures elements,
-            // but I want to return only the first Noutliers elements
-            if( NULL == PyArray_Resize(outlier_indices_final,
-                                       &(PyArray_Dims){ .ptr = ((npy_intp[]){stats.Noutliers}),
-                                           .len = 1 },
-                                       true,
-                                       NPY_ANYORDER))
-            {
-                BARF("Couldn't resize outlier_indices_final to %d elements",
-                             stats.Noutliers);
-                goto done;
-            }
-            if( 0 != PyDict_SetItemString(pystats, "outlier_indices",
-                                          (PyObject*)outlier_indices_final) )
-            {
-                BARF("Couldn't add to stats dict 'outlier_indices'");
-                goto done;
-            }
 
             result = pystats;
             Py_INCREF(result);
@@ -1727,8 +1688,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                          c_observations_point,
                                          NobservationsPoint,
 
-                                         Noutlier_indices,
-                                         c_outlier_indices,
                                          verbose && PyObject_IsTrue(verbose),
                                          lensmodel_type,
                                          observed_pixel_uncertainty,
@@ -1786,7 +1745,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     if(covariance_extrinsics)        Py_DECREF(covariance_extrinsics);
     if(covariances_ief)              Py_DECREF(covariances_ief);
     if(covariances_ief_rotationonly) Py_DECREF(covariances_ief_rotationonly);
-    if(outlier_indices_final)        Py_DECREF(outlier_indices_final);
     if(pystats)                      Py_DECREF(pystats);
 
     RESET_SIGINT();

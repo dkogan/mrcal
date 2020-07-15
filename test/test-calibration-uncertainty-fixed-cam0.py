@@ -399,7 +399,6 @@ optimize_kwargs = \
           calibration_object_spacing                = object_spacing,
           calibration_object_width_n                = object_width_n,
           calibration_object_height_n               = object_height_n,
-          outlier_indices                           = None,
           skip_regularization                       = True,
           observed_pixel_uncertainty                = pixel_uncertainty_stdev)
 

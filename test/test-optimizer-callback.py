@@ -120,10 +120,20 @@ all_test_kwargs = ( dict(do_optimize_intrinsic_core        = False,
 
 itest = 0
 for kwargs in all_test_kwargs:
+
+    observations_copy = observations.copy()
+
+    if 'outlier_indices' in kwargs:
+        # mark the requested outliers, and delete the old way of specifying
+        # these
+        for i in kwargs['outlier_indices']:
+            nps.clump(observations_copy, n=3)[i,2] = -1.
+        del kwargs['outlier_indices']
+
     x,Jt = mrcal.optimizerCallback( intrinsics_data,
                                     nps.atleast_dims(extrinsics_rt_fromref, -2),
                                     frames_rt_toref, points,
-                                    observations,       indices_frame_camintrinsics_camextrinsics,
+                                    observations_copy, indices_frame_camintrinsics_camextrinsics,
                                     observations_point,
                                     indices_point_camintrinsics_camextrinsics,
 

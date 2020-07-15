@@ -327,24 +327,23 @@ int main(int argc, char* argv[] )
         { .point_min_range =  30.0,
           .point_max_range = 180.0};
 
-    mrcal_optimize( NULL,0, NULL,0, NULL,0, NULL,0, NULL,0, -1, NULL, NULL,
+    mrcal_optimize( NULL,0, NULL,0, NULL,0, NULL,0, NULL,0, -1, NULL,
                     intrinsics,
                     extrinsics,
                     frames,
                     points,
                     &calobject_warp,
-                    Ncameras_intrinsics,Ncameras_extrinsics,
-                    Nframes, Npoints, Npoints_fixed,
 
-                    observations_board,
-                    (const point3_t*)observations_px,
+                    (point3_t*)observations_px,
                     NobservationsBoard,
 
+                    Ncameras_intrinsics,Ncameras_extrinsics,
+                    Nframes, Npoints, Npoints_fixed,
+                    observations_board,
                     observations_point,
                     NobservationsPoint,
 
                     true,
-                    0, NULL,
                     false,
                     true,
                     lensmodel,

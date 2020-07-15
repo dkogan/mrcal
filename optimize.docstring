@@ -130,12 +130,17 @@ REQUIRED ARGUMENTS
   Each slice is an (x,y,weight) tuple where (x,y) are the observed pixel
   coordinates of the corners in the calibration object, and "weight" is the
   relative weight of this point observation. Most of the weights are expected to
-  be 1.0, which implies that the noise on the observation is gaussian,
-  independent on x,y, and has standard deviation of observed_pixel_uncertainty.
-  observed_pixel_uncertainty scales inversely with the weight. Subpixel
-  interpolation is assumed, so these contain 64-bit floating point values, like
-  all the other data. The frame and camera that produced these observations are
-  given in the indices_frame_camintrinsics_camextrinsics
+  be 1.0, which implies that the noise on that observation has standard
+  deviation of observed_pixel_uncertainty (in addition to the overall assumption
+  of gaussian noise, independent on x,y). observed_pixel_uncertainty scales
+  inversely with the weight. weight<0 indicates that this is an outlier. This is
+  respected on input (even if skip_outlier_rejection). New outliers are marked
+  with weight<0 on output. Subpixel interpolation is assumed, so these contain
+  64-bit floating point values, like all the other data. The frame and camera
+  that produced these observations are given in the
+  indices_frame_camintrinsics_camextrinsics
+
+  THIS ARRAY IS MODIFIED BY THIS CALL (to mark outliers)
 
 - indices_frame_camintrinsics_camextrinsics: array of dims (NobservationsBoard,
   3). For each observation these are an
@@ -209,17 +214,6 @@ OPTIONAL ARGUMENTS
   "calibration_object_spacing" argument specifies the dimensions of each square.
   Can be omitted if we have no board observations, just points
 
-- outlier_indices: Feature indices that are to be considered outliers. This is a
-  flat array of integers. Each "feature" is an observed point: 2 measurements
-  (x,y). At this time only board observations (NOT point observations) are
-  considered for outlier rejection, so each outlier_indices element i refers to
-  a row of the observations_board array
-
-    nps.clump( observations_board, n=len(observations_board.shape)-1 )[i]
-
-  Normally outlier_indices is None: no outliers at the start. This is honored
-  regardless of skip_outlier_rejection.
-
 - get_covariances: defaults to False. If True, I compute the covariance matrices
   for intrinsics and extrinsics, and include them in the dict I return. These
   are needed only for the uncertainty computations. If we're performing an
@@ -233,8 +227,8 @@ OPTIONAL ARGUMENTS
   to False
 
 - skip_outlier_rejection: if True, don't bother with detecting or rejecting
-  outliers. The values in outlier_indices are honered regardless. Defaults to
-  False
+  outliers. The outliers we get on input (observations_board[...,2] < 0) are
+  honered regardless. Defaults to False
 
 - skip_regularization: if True, don't include regularization terms in the
   solver. Defaults to False
