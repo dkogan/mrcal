@@ -4853,7 +4853,9 @@ void optimizerCallback(// input state
 bool mrcal_optimizerCallback(// output measurements
                              double*         x,
 
-                             // output Jacobian. May be NULL if we don't need it
+                             // output Jacobian. May be NULL if we don't need
+                             // it. This is the unitless Jacobian, used by the
+                             // internal optimization routines
                              cholmod_sparse* Jt,
 
                              // May be NULL

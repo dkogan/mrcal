@@ -446,7 +446,9 @@ struct cholmod_sparse_struct;
 bool mrcal_optimizerCallback(// output measurements
                              double*         x,
 
-                             // output Jacobian. May be NULL if we don't need it
+                             // output Jacobian. May be NULL if we don't need
+                             // it. This is the unitless Jacobian, used by the
+                             // internal optimization routines
                              struct cholmod_sparse_struct* Jt,
 
                              // May be NULL
