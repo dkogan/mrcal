@@ -18,23 +18,19 @@ typedef struct
 typedef struct
 {
     // indexes the extrinsics array. -1 means "at coordinate system reference"
-    int  i_cam_extrinsics : 32;
+    int  i_cam_extrinsics;
     // indexes the intrinsics array
-    int  i_cam_intrinsics : 31;
-    bool skip_frame       : 1;
-    int  i_frame          : 31;
-    bool skip_observation : 1;
+    int  i_cam_intrinsics;
+    int  i_frame;
 } observation_board_t;
 
 typedef struct
 {
     // indexes the extrinsics array. -1 means "at coordinate system reference"
-    int  i_cam_extrinsics : 32;
+    int  i_cam_extrinsics;
     // indexes the intrinsics array
-    int  i_cam_intrinsics : 30;
-    bool skip_point       : 1;
-    int  i_point          : 31;
-    bool skip_observation : 1;
+    int  i_cam_intrinsics;
+    int  i_point;
 
     // Observed pixel coordinates
     // .x, .y are the pixel observations

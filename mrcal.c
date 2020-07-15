@@ -4150,9 +4150,7 @@ void optimizerCallback(// input state
             const point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
             double weight = pt_observed->z;
 
-            if(!observation->skip_observation &&
-
-               // /2 because I look at FEATURES here, not discrete
+            if(// /2 because I look at FEATURES here, not discrete
                // measurements
                !ctx->markedOutliers[iMeasurement/2].marked)
             {
@@ -4332,13 +4330,12 @@ void optimizerCallback(// input state
 
                     if( ctx->problem_details.do_optimize_frames )
                     {
-                        const double dframe = observation->skip_frame ? 1.0 : 0.0;
                         // Arbitrary differences between the dimensions to keep
                         // my Hessian non-singular. This is 100% arbitrary. I'm
                         // skipping these measurements so these variables
                         // actually don't affect the computation at all
-                        STORE_JACOBIAN3( i_var_frame_rt + 0, dframe*1.1, dframe*1.2, dframe*1.3);
-                        STORE_JACOBIAN3( i_var_frame_rt + 3, dframe*1.4, dframe*1.5, dframe*1.6);
+                        STORE_JACOBIAN3( i_var_frame_rt + 0, 0,0,0);
+                        STORE_JACOBIAN3( i_var_frame_rt + 3, 0,0,0);
                     }
 
                     if( ctx->problem_details.do_optimize_calobject_warp )
@@ -4428,326 +4425,240 @@ void optimizerCallback(// input state
                 0,0,0);
 #pragma GCC diagnostic pop
 
-
-        if(!observation->skip_observation
-#warning "no outlier rejection on points yet; see warning below"
-           )
+        // I have my two measurements (dx, dy). I propagate their
+        // gradient and store them
+        for( int i_xy=0; i_xy<2; i_xy++ )
         {
-            // I have my two measurements (dx, dy). I propagate their
-            // gradient and store them
-            for( int i_xy=0; i_xy<2; i_xy++ )
+            const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy])*weight;
+
+            if(Jt) Jrowptr[iMeasurement] = iJacobian;
+            x[iMeasurement] = err;
+            norm2_error += err*err;
+
+            if( ctx->problem_details.do_optimize_intrinsic_core )
             {
-                const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy])*weight;
+                // fx,fy. x depends on fx only. y depends on fy only
+                STORE_JACOBIAN( i_var_intrinsics + i_xy,
+                                dq_dfxy[i_xy] *
+                                weight * SCALE_INTRINSICS_FOCAL_LENGTH );
 
-                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                x[iMeasurement] = err;
-                norm2_error += err*err;
+                // cx,cy. The gradients here are known to be 1. And x depends on cx only. And y depends on cy only
+                STORE_JACOBIAN( i_var_intrinsics + i_xy+2,
+                                weight * SCALE_INTRINSICS_CENTER_PIXEL );
+            }
 
-                if( ctx->problem_details.do_optimize_intrinsic_core )
+            if( ctx->problem_details.do_optimize_intrinsic_distortions )
+            {
+                if(gradient_sparse_meta.pool != NULL)
                 {
-                    // fx,fy. x depends on fx only. y depends on fy only
-                    STORE_JACOBIAN( i_var_intrinsics + i_xy,
-                                    dq_dfxy[i_xy] *
-                                    weight * SCALE_INTRINSICS_FOCAL_LENGTH );
+                    // u = stereographic(p)
+                    // q = (u + deltau(u)) * f + c
+                    //
+                    // Intrinsics:
+                    //   dq/diii = f ddeltau/diii
+                    //
+                    // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
+                    const int ivar0 = dq_dintrinsics_pool_int[0] -
+                        ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
 
-                    // cx,cy. The gradients here are known to be 1. And x depends on cx only. And y depends on cy only
-                    STORE_JACOBIAN( i_var_intrinsics + i_xy+2,
-                                    weight * SCALE_INTRINSICS_CENTER_PIXEL );
-                }
+                    const int     len   = gradient_sparse_meta.run_side_length;
+                    const double* ABCDx = &gradient_sparse_meta.pool[0];
+                    const double* ABCDy = &gradient_sparse_meta.pool[len];
 
-                if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                {
-                    if(gradient_sparse_meta.pool != NULL)
-                    {
-                        // u = stereographic(p)
-                        // q = (u + deltau(u)) * f + c
-                        //
-                        // Intrinsics:
-                        //   dq/diii = f ddeltau/diii
-                        //
-                        // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
-                        const int ivar0 = dq_dintrinsics_pool_int[0] -
-                            ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
+                    const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
+                    const double* fxy = &intrinsics_all[i_cam_intrinsics][0];
 
-                        const int     len   = gradient_sparse_meta.run_side_length;
-                        const double* ABCDx = &gradient_sparse_meta.pool[0];
-                        const double* ABCDy = &gradient_sparse_meta.pool[len];
-
-                        const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
-                        const double* fxy = &intrinsics_all[i_cam_intrinsics][0];
-
-                        for(int iy=0; iy<len; iy++)
-                            for(int ix=0; ix<len; ix++)
-                            {
-                                STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
-                                                ABCDx[ix]*ABCDy[iy]*fxy[i_xy] *
-                                                weight * SCALE_DISTORTION );
-                            }
-                    }
-                    else
-                    {
-                        for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
-                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
-                                            dq_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
-                                                                   i] *
+                    for(int iy=0; iy<len; iy++)
+                        for(int ix=0; ix<len; ix++)
+                        {
+                            STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
+                                            ABCDx[ix]*ABCDy[iy]*fxy[i_xy] *
                                             weight * SCALE_DISTORTION );
-                    }
+                        }
                 }
-
-                if( ctx->problem_details.do_optimize_extrinsics )
-                    if( i_cam_extrinsics >= 0 )
-                    {
-                        STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                         dq_drcamera[i_xy].xyz[0] *
-                                         weight * SCALE_ROTATION_CAMERA,
-                                         dq_drcamera[i_xy].xyz[1] *
-                                         weight * SCALE_ROTATION_CAMERA,
-                                         dq_drcamera[i_xy].xyz[2] *
-                                         weight * SCALE_ROTATION_CAMERA);
-                        STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                         dq_dtcamera[i_xy].xyz[0] *
-                                         weight * SCALE_TRANSLATION_CAMERA,
-                                         dq_dtcamera[i_xy].xyz[1] *
-                                         weight * SCALE_TRANSLATION_CAMERA,
-                                         dq_dtcamera[i_xy].xyz[2] *
-                                         weight * SCALE_TRANSLATION_CAMERA);
-                    }
-
-                if( use_position_from_state )
-                    STORE_JACOBIAN3( i_var_point,
-                                     dq_dpoint[i_xy].xyz[0] *
-                                     weight * SCALE_POSITION_POINT,
-                                     dq_dpoint[i_xy].xyz[1] *
-                                     weight * SCALE_POSITION_POINT,
-                                     dq_dpoint[i_xy].xyz[2] *
-                                     weight * SCALE_POSITION_POINT);
-
-                iMeasurement++;
-            }
-
-            // Now the range normalization (make sure the range isn't
-            // aphysically high or aphysically low). This code is copied from
-            // project(). PLEASE consolidate
-            void get_penalty(// out
-                             double* penalty, double* dpenalty_ddistsq,
-
-                             // in
-                             // SIGNED distance. <0 means "behind the camera"
-                             const double distsq)
-            {
-                const double scale = 1e0;
-
-                const double maxsq = ctx->problem_constants->point_max_range*ctx->problem_constants->point_max_range;
-                if(distsq > maxsq)
-                {
-                    *penalty = scale * (distsq/maxsq - 1.0);
-                    *dpenalty_ddistsq = scale*(1. / maxsq);
-                    return;
-                }
-
-                const double minsq = ctx->problem_constants->point_min_range*ctx->problem_constants->point_min_range;
-                if(distsq < minsq)
-                {
-                    // too close OR behind the camera
-                    *penalty = scale*(1.0 - distsq/minsq);
-                    *dpenalty_ddistsq = scale*(-1. / minsq);
-                    return;
-                }
-
-                *penalty = *dpenalty_ddistsq = 0.0;
-            }
-
-
-            if(i_cam_extrinsics < 0)
-            {
-                double distsq =
-                    point.x*point.x +
-                    point.y*point.y +
-                    point.z*point.z;
-                double penalty, dpenalty_ddistsq;
-                if(model_supports_projection_behind_camera(ctx->lensmodel) ||
-                   point.z > 0.0)
-                    get_penalty(&penalty, &dpenalty_ddistsq, distsq);
                 else
                 {
-                    get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
-                    dpenalty_ddistsq *= -1.;
+                    for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
+                        STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
+                                        dq_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
+                                                               i] *
+                                        weight * SCALE_DISTORTION );
                 }
-
-                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                x[iMeasurement] = penalty;
-                norm2_error += penalty*penalty;
-
-                if( use_position_from_state )
-                {
-                    double scale = 2.0 * dpenalty_ddistsq * SCALE_POSITION_POINT;
-                    STORE_JACOBIAN3( i_var_point,
-                                     scale*point.x,
-                                     scale*point.y,
-                                     scale*point.z );
-                }
-
-                iMeasurement++;
             }
+
+            if( ctx->problem_details.do_optimize_extrinsics )
+                if( i_cam_extrinsics >= 0 )
+                {
+                    STORE_JACOBIAN3( i_var_camera_rt + 0,
+                                     dq_drcamera[i_xy].xyz[0] *
+                                     weight * SCALE_ROTATION_CAMERA,
+                                     dq_drcamera[i_xy].xyz[1] *
+                                     weight * SCALE_ROTATION_CAMERA,
+                                     dq_drcamera[i_xy].xyz[2] *
+                                     weight * SCALE_ROTATION_CAMERA);
+                    STORE_JACOBIAN3( i_var_camera_rt + 3,
+                                     dq_dtcamera[i_xy].xyz[0] *
+                                     weight * SCALE_TRANSLATION_CAMERA,
+                                     dq_dtcamera[i_xy].xyz[1] *
+                                     weight * SCALE_TRANSLATION_CAMERA,
+                                     dq_dtcamera[i_xy].xyz[2] *
+                                     weight * SCALE_TRANSLATION_CAMERA);
+                }
+
+            if( use_position_from_state )
+                STORE_JACOBIAN3( i_var_point,
+                                 dq_dpoint[i_xy].xyz[0] *
+                                 weight * SCALE_POSITION_POINT,
+                                 dq_dpoint[i_xy].xyz[1] *
+                                 weight * SCALE_POSITION_POINT,
+                                 dq_dpoint[i_xy].xyz[2] *
+                                 weight * SCALE_POSITION_POINT);
+
+            iMeasurement++;
+        }
+
+        // Now the range normalization (make sure the range isn't
+        // aphysically high or aphysically low). This code is copied from
+        // project(). PLEASE consolidate
+        void get_penalty(// out
+                         double* penalty, double* dpenalty_ddistsq,
+
+                         // in
+                         // SIGNED distance. <0 means "behind the camera"
+                         const double distsq)
+        {
+            const double scale = 1e0;
+
+            const double maxsq = ctx->problem_constants->point_max_range*ctx->problem_constants->point_max_range;
+            if(distsq > maxsq)
+            {
+                *penalty = scale * (distsq/maxsq - 1.0);
+                *dpenalty_ddistsq = scale*(1. / maxsq);
+                return;
+            }
+
+            const double minsq = ctx->problem_constants->point_min_range*ctx->problem_constants->point_min_range;
+            if(distsq < minsq)
+            {
+                // too close OR behind the camera
+                *penalty = scale*(1.0 - distsq/minsq);
+                *dpenalty_ddistsq = scale*(-1. / minsq);
+                return;
+            }
+
+            *penalty = *dpenalty_ddistsq = 0.0;
+        }
+
+
+        if(i_cam_extrinsics < 0)
+        {
+            double distsq =
+                point.x*point.x +
+                point.y*point.y +
+                point.z*point.z;
+            double penalty, dpenalty_ddistsq;
+            if(model_supports_projection_behind_camera(ctx->lensmodel) ||
+               point.z > 0.0)
+                get_penalty(&penalty, &dpenalty_ddistsq, distsq);
             else
             {
-                // I need to transform the point. I already computed
-                // this stuff in project()...
-                double Rc[3*3];
-                double d_Rc_rc[9*3];
-
-                mrcal_R_from_r(Rc,
-                               d_Rc_rc,
-                               camera_rt[i_cam_extrinsics].r.xyz);
-
-                point3_t pcam;
-                mul_vec3_gen33t_vout(point.xyz, Rc, pcam.xyz);
-                add_vec(3, pcam.xyz, camera_rt[i_cam_extrinsics].t.xyz);
-
-                double distsq =
-                    pcam.x*pcam.x +
-                    pcam.y*pcam.y +
-                    pcam.z*pcam.z;
-                double penalty, dpenalty_ddistsq;
-                if(model_supports_projection_behind_camera(ctx->lensmodel) ||
-                   pcam.z > 0.0)
-                    get_penalty(&penalty, &dpenalty_ddistsq, distsq);
-                else
-                {
-                    get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
-                    dpenalty_ddistsq *= -1.;
-                }
-
-                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                x[iMeasurement] = penalty;
-                norm2_error += penalty*penalty;
-
-                if( ctx->problem_details.do_optimize_extrinsics )
-                {
-                    // pcam.x       = Rc[row0]*point*SCALE + tc
-                    // d(pcam.x)/dr = d(Rc[row0])/drc*point*SCALE
-                    // d(Rc[row0])/drc is 3x3 matrix at &d_Rc_rc[0]
-                    double d_ptcamx_dr[3];
-                    double d_ptcamy_dr[3];
-                    double d_ptcamz_dr[3];
-                    mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*0], d_ptcamx_dr );
-                    mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*1], d_ptcamy_dr );
-                    mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*2], d_ptcamz_dr );
-
-                    STORE_JACOBIAN3( i_var_camera_rt + 0,
-                                     SCALE_ROTATION_CAMERA*
-                                     2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[0] +
-                                                            pcam.y*d_ptcamy_dr[0] +
-                                                            pcam.z*d_ptcamz_dr[0] ),
-                                     SCALE_ROTATION_CAMERA*
-                                     2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[1] +
-                                                            pcam.y*d_ptcamy_dr[1] +
-                                                            pcam.z*d_ptcamz_dr[1] ),
-                                     SCALE_ROTATION_CAMERA*
-                                     2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[2] +
-                                                            pcam.y*d_ptcamy_dr[2] +
-                                                            pcam.z*d_ptcamz_dr[2] ) );
-                    STORE_JACOBIAN3( i_var_camera_rt + 3,
-                                     SCALE_TRANSLATION_CAMERA*
-                                     2.0*dpenalty_ddistsq*pcam.x,
-                                     SCALE_TRANSLATION_CAMERA*
-                                     2.0*dpenalty_ddistsq*pcam.y,
-                                     SCALE_TRANSLATION_CAMERA*
-                                     2.0*dpenalty_ddistsq*pcam.z );
-                }
-
-                if( use_position_from_state )
-                    STORE_JACOBIAN3( i_var_point,
-                                     SCALE_POSITION_POINT*
-                                     2.0*dpenalty_ddistsq*(pcam.x*Rc[0] + pcam.y*Rc[3] + pcam.z*Rc[6]),
-                                     SCALE_POSITION_POINT*
-                                     2.0*dpenalty_ddistsq*(pcam.x*Rc[1] + pcam.y*Rc[4] + pcam.z*Rc[7]),
-                                     SCALE_POSITION_POINT*
-                                     2.0*dpenalty_ddistsq*(pcam.x*Rc[2] + pcam.y*Rc[5] + pcam.z*Rc[8]) );
-                iMeasurement++;
+                get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
+                dpenalty_ddistsq *= -1.;
             }
+
+            if(Jt) Jrowptr[iMeasurement] = iJacobian;
+            x[iMeasurement] = penalty;
+            norm2_error += penalty*penalty;
+
+            if( use_position_from_state )
+            {
+                double scale = 2.0 * dpenalty_ddistsq * SCALE_POSITION_POINT;
+                STORE_JACOBIAN3( i_var_point,
+                                 scale*point.x,
+                                 scale*point.y,
+                                 scale*point.z );
+            }
+
+            iMeasurement++;
         }
         else
         {
-            // This is arbitrary. I'm skipping this observation, so I
-            // don't touch the projection results. I need to have SOME
-            // dependency on the point parameters to ensure a full-rank
-            // Hessian. So if we're skipping all observations for this
-            // point, I replace this cost contribution with an L2 cost
-            // on the point parameters.
-            for( int i_xy=0; i_xy<2; i_xy++ )
+            // I need to transform the point. I already computed
+            // this stuff in project()...
+            double Rc[3*3];
+            double d_Rc_rc[9*3];
+
+            mrcal_R_from_r(Rc,
+                           d_Rc_rc,
+                           camera_rt[i_cam_extrinsics].r.xyz);
+
+            point3_t pcam;
+            mul_vec3_gen33t_vout(point.xyz, Rc, pcam.xyz);
+            add_vec(3, pcam.xyz, camera_rt[i_cam_extrinsics].t.xyz);
+
+            double distsq =
+                pcam.x*pcam.x +
+                pcam.y*pcam.y +
+                pcam.z*pcam.z;
+            double penalty, dpenalty_ddistsq;
+            if(model_supports_projection_behind_camera(ctx->lensmodel) ||
+               pcam.z > 0.0)
+                get_penalty(&penalty, &dpenalty_ddistsq, distsq);
+            else
             {
-                const double err = 0.0;
-
-                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                x[iMeasurement] = err;
-                norm2_error += err*err;
-
-                if( ctx->problem_details.do_optimize_intrinsic_core )
-                {
-                    STORE_JACOBIAN( i_var_intrinsics + i_xy,   0.0 );
-                    STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0.0 );
-                }
-
-                if( ctx->problem_details.do_optimize_intrinsic_distortions )
-                {
-                    if(gradient_sparse_meta.pool != NULL)
-                    {
-                        const int ivar0 = dq_dintrinsics_pool_int[0] -
-                            ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
-                        const int len          = gradient_sparse_meta.run_side_length;
-                        const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
-                        for(int iy=0; iy<len; iy++)
-                            for(int ix=0; ix<len; ix++)
-                                STORE_JACOBIAN( i_var_intrinsics + ivar0 + iy*ivar_stridey + ix*2 + i_xy,
-                                                0 );
-                    }
-                    else
-                    {
-                        for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
-                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0 );
-                    }
-                }
-
-                if( ctx->problem_details.do_optimize_extrinsics )
-                    if( i_cam_extrinsics >= 0 )
-                    {
-                        STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
-                        STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
-                    }
-
-                if( use_position_from_state )
-                {
-                    const double dpoint = observation->skip_point ? 1.0 : 0.0;
-                    // Arbitrary differences between the dimensions to keep
-                    // my Hessian non-singular. This is 100% arbitrary. I'm
-                    // skipping these measurements so these variables
-                    // actually don't affect the computation at all
-                    STORE_JACOBIAN3( i_var_point + 0, dpoint*1.1, dpoint*1.2, dpoint*1.3);
-                }
-
-                iMeasurement++;
+                get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
+                dpenalty_ddistsq *= -1.;
             }
-
-            const double penalty = 0.0;
 
             if(Jt) Jrowptr[iMeasurement] = iJacobian;
             x[iMeasurement] = penalty;
             norm2_error += penalty*penalty;
 
             if( ctx->problem_details.do_optimize_extrinsics )
-                if(i_cam_extrinsics >= 0)
-                {
-                    STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
-                    STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
-                }
+            {
+                // pcam.x       = Rc[row0]*point*SCALE + tc
+                // d(pcam.x)/dr = d(Rc[row0])/drc*point*SCALE
+                // d(Rc[row0])/drc is 3x3 matrix at &d_Rc_rc[0]
+                double d_ptcamx_dr[3];
+                double d_ptcamy_dr[3];
+                double d_ptcamz_dr[3];
+                mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*0], d_ptcamx_dr );
+                mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*1], d_ptcamy_dr );
+                mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*2], d_ptcamz_dr );
+
+                STORE_JACOBIAN3( i_var_camera_rt + 0,
+                                 SCALE_ROTATION_CAMERA*
+                                 2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[0] +
+                                                        pcam.y*d_ptcamy_dr[0] +
+                                                        pcam.z*d_ptcamz_dr[0] ),
+                                 SCALE_ROTATION_CAMERA*
+                                 2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[1] +
+                                                        pcam.y*d_ptcamy_dr[1] +
+                                                        pcam.z*d_ptcamz_dr[1] ),
+                                 SCALE_ROTATION_CAMERA*
+                                 2.0*dpenalty_ddistsq*( pcam.x*d_ptcamx_dr[2] +
+                                                        pcam.y*d_ptcamy_dr[2] +
+                                                        pcam.z*d_ptcamz_dr[2] ) );
+                STORE_JACOBIAN3( i_var_camera_rt + 3,
+                                 SCALE_TRANSLATION_CAMERA*
+                                 2.0*dpenalty_ddistsq*pcam.x,
+                                 SCALE_TRANSLATION_CAMERA*
+                                 2.0*dpenalty_ddistsq*pcam.y,
+                                 SCALE_TRANSLATION_CAMERA*
+                                 2.0*dpenalty_ddistsq*pcam.z );
+            }
+
             if( use_position_from_state )
-                STORE_JACOBIAN3( i_var_point, 0.0, 0.0, 0.0);
+                STORE_JACOBIAN3( i_var_point,
+                                 SCALE_POSITION_POINT*
+                                 2.0*dpenalty_ddistsq*(pcam.x*Rc[0] + pcam.y*Rc[3] + pcam.z*Rc[6]),
+                                 SCALE_POSITION_POINT*
+                                 2.0*dpenalty_ddistsq*(pcam.x*Rc[1] + pcam.y*Rc[4] + pcam.z*Rc[7]),
+                                 SCALE_POSITION_POINT*
+                                 2.0*dpenalty_ddistsq*(pcam.x*Rc[2] + pcam.y*Rc[5] + pcam.z*Rc[8]) );
             iMeasurement++;
         }
     }
-
-
 
 
     // regularization terms for the intrinsics. I favor smaller distortion
@@ -4806,7 +4717,6 @@ void optimizerCallback(// input state
             });
         double scale_regularization_centerpixel =
             ({
-
                 double normal_centerpixel_offset = 50.0;
 
                 double expected_regularization_centerpixel_error_sq_noscale =

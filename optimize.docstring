@@ -201,12 +201,6 @@ OPTIONAL ARGUMENTS
   is fx,fy,cx,cy. These all default to True so if we specify none of these, we
   will optimize ALL the variables.
 
-- skipped_observations_board: list of integers for the board observations that
-  we don't care about. Defaults to None: don't skip anything
-
-- skipped_observations_point: list of integers for the point observations that
-  we don't care about. Defaults to None: don't skip anything
-
 - calibration_object_spacing: the width of each square in a calibration
   board. Can be omitted if we have no board observations, just points
 

@@ -991,8 +991,6 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_calobject_warp,         PyObject*,      Py_False,"O",  ,                                  NULL,           -1,         {})  \
-    _(skipped_observations_board,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(skipped_observations_point,         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_width_n,         int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_height_n,        int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
@@ -1108,62 +1106,6 @@ static bool optimize_validate_args( // out
                      NlensParams,
                      PyArray_DIMS(intrinsics)[1] );
         return false;
-    }
-
-    if( !IS_NULL(skipped_observations_board) )
-    {
-        if( !PySequence_Check(skipped_observations_board) )
-        {
-            BARF("skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
-            return false;
-        }
-
-        int Nskipped_observations = (int)PySequence_Size(skipped_observations_board);
-        long iskip_last = -1;
-        for(int i=0; i<Nskipped_observations; i++)
-        {
-            PyObject* nextskip = PySequence_GetItem(skipped_observations_board, i);
-            if(!PyInt_Check(nextskip))
-            {
-                BARF("skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
-                return false;
-            }
-            long iskip = PyInt_AsLong(nextskip);
-            if(iskip <= iskip_last)
-            {
-                BARF("skipped_observations_board MUST be None or an iterable of monotonically-increasing integers >= 0");
-                return false;
-            }
-            iskip_last = iskip;
-        }
-    }
-
-    if( !IS_NULL(skipped_observations_point))
-    {
-        if( !PySequence_Check(skipped_observations_point) )
-        {
-            BARF("skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
-            return false;
-        }
-
-        int Nskipped_observations = (int)PySequence_Size(skipped_observations_point);
-        long iskip_last = -1;
-        for(int i=0; i<Nskipped_observations; i++)
-        {
-            PyObject* nextskip = PySequence_GetItem(skipped_observations_point, i);
-            if(!PyInt_Check(nextskip))
-            {
-                BARF("skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
-                return false;
-            }
-            long iskip = PyInt_AsLong(nextskip);
-            if(iskip <= iskip_last)
-            {
-                BARF("skipped_observations_point MUST be None or an iterable of monotonically-increasing integers >= 0");
-                return false;
-            }
-            iskip_last = iskip;
-        }
     }
 
     // make sure the indices arrays are valid: the data is monotonic and
@@ -1441,20 +1383,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         observation_board_t c_observations_board[NobservationsBoard];
         const point3_t* c_observations_board_pool = (point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
 
-        int Nskipped_observations_board =
-            IS_NULL(skipped_observations_board) ?
-            0 :
-            (int)PySequence_Size(skipped_observations_board);
-        int i_skipped_observation_board = 0;
-        int i_observation_board_next_skip = -1;
-        if( i_skipped_observation_board < Nskipped_observations_board )
-        {
-            PyObject* nextskip = PySequence_GetItem(skipped_observations_board, i_skipped_observation_board);
-            i_observation_board_next_skip = (int)PyInt_AsLong(nextskip);
-        }
-
-        int i_frame_current_skipped = -1;
-        int i_frame_last            = -1;
         for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
         {
             int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
@@ -1464,79 +1392,11 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             c_observations_board[i_observation].i_cam_intrinsics = i_cam_intrinsics;
             c_observations_board[i_observation].i_cam_extrinsics = i_cam_extrinsics;
             c_observations_board[i_observation].i_frame          = i_frame;
-
-            // I skip this frame if I skip ALL observations of this frame
-            if( i_frame_current_skipped >= 0 &&
-                i_frame_current_skipped != i_frame )
-            {
-                // Ooh! We moved past the frame where we skipped all
-                // observations. So I need to go back, and mark all of those as
-                // skipping that frame
-                for(int i_observation_skip_frame = i_observation-1;
-                    i_observation_skip_frame >= 0 && c_observations_board[i_observation_skip_frame].i_frame == i_frame_current_skipped;
-                    i_observation_skip_frame--)
-                {
-                    c_observations_board[i_observation_skip_frame].skip_frame = true;
-                }
-            }
-            else
-                c_observations_board[i_observation].skip_frame = false;
-
-            if( i_observation == i_observation_board_next_skip )
-            {
-                if( i_frame_last != i_frame )
-                    i_frame_current_skipped = i_frame;
-
-                c_observations_board[i_observation].skip_observation = true;
-
-                i_skipped_observation_board++;
-                if( i_skipped_observation_board < Nskipped_observations_board )
-                {
-                    PyObject* nextskip = PySequence_GetItem(skipped_observations_board, i_skipped_observation_board);
-                    i_observation_board_next_skip = (int)PyInt_AsLong(nextskip);
-                }
-                else
-                    i_observation_board_next_skip = -1;
-            }
-            else
-            {
-                c_observations_board[i_observation].skip_observation = false;
-                i_frame_current_skipped = -1;
-            }
-
-            i_frame_last = i_frame;
         }
-        // check for frame-skips on the last observation
-        if( i_frame_current_skipped >= 0 )
-        {
-            for(int i_observation_skip_frame = NobservationsBoard - 1;
-                i_observation_skip_frame >= 0 && c_observations_board[i_observation_skip_frame].i_frame == i_frame_current_skipped;
-                i_observation_skip_frame--)
-            {
-                c_observations_board[i_observation_skip_frame].skip_frame = true;
-            }
-        }
-
-
-
 
         int NobservationsPoint = PyArray_DIMS(observations_point)[0];
 
         observation_point_t c_observations_point[NobservationsPoint];
-        int Nskipped_observations_point =
-            IS_NULL(skipped_observations_point) ?
-            0 :
-            (int)PySequence_Size(skipped_observations_point);
-        int i_skipped_observation_point = 0;
-        int i_observation_point_next_skip = -1;
-        if( i_skipped_observation_point < Nskipped_observations_point )
-        {
-            PyObject* nextskip = PySequence_GetItem(skipped_observations_point, i_skipped_observation_point);
-            i_observation_point_next_skip = (int)PyInt_AsLong(nextskip);
-        }
-
-        int i_point_current_skipped = -1;
-        int i_point_last            = -1;
         for(int i_observation=0; i_observation<NobservationsPoint; i_observation++)
         {
             int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
@@ -1548,60 +1408,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             c_observations_point[i_observation].i_point          = i_point;
 
             c_observations_point[i_observation].px = ((point3_t*)PyArray_DATA(observations_point))[i_observation];
-
-
-            // I skip this point if I skip ALL observations of this point
-            if( i_point_current_skipped >= 0 &&
-                i_point_current_skipped != i_point )
-            {
-                // Ooh! We moved past the point where we skipped all
-                // observations. So I need to go back, and mark all of those as
-                // skipping that point
-                for(int i_observation_skip_point = i_observation-1;
-                    i_observation_skip_point >= 0 && c_observations_point[i_observation_skip_point].i_point == i_point_current_skipped;
-                    i_observation_skip_point--)
-                {
-                    c_observations_point[i_observation_skip_point].skip_point = true;
-                }
-            }
-            else
-                c_observations_point[i_observation].skip_point = false;
-
-            if( i_observation == i_observation_point_next_skip )
-            {
-                if( i_point_last != i_point )
-                    i_point_current_skipped = i_point;
-
-                c_observations_point[i_observation].skip_observation = true;
-
-                i_skipped_observation_point++;
-                if( i_skipped_observation_point < Nskipped_observations_point )
-                {
-                    PyObject* nextskip = PySequence_GetItem(skipped_observations_point, i_skipped_observation_point);
-                    i_observation_point_next_skip = (int)PyInt_AsLong(nextskip);
-                }
-                else
-                    i_observation_point_next_skip = -1;
-            }
-            else
-            {
-                c_observations_point[i_observation].skip_observation = false;
-                i_point_current_skipped = -1;
-            }
-
-            i_point_last = i_point;
         }
-        // check for point-skips on the last observation
-        if( i_point_current_skipped >= 0 )
-        {
-            for(int i_observation_skip_point = NobservationsPoint - 1;
-                i_observation_skip_point >= 0 && c_observations_point[i_observation_skip_point].i_point == i_point_current_skipped;
-                i_observation_skip_point--)
-            {
-                c_observations_point[i_observation_skip_point].skip_point = true;
-            }
-        }
-
 
 
 
