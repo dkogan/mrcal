@@ -254,14 +254,45 @@ solver_context =                                \
 observations[idx_outliers, 2] = -1
 
 
+
 ############# Calibration computed. Now I see how well I did
+
+optimize_kwargs = \
+    dict( intrinsics                                = intrinsics,
+          extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+          frames_rt_toref                           = frames_rt_toref,
+          points                                    = None,
+          observations_board                        = observations,
+          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+          observations_point                        = None,
+          indices_point_camintrinsics_camextrinsics = None,
+          lensmodel                                 = lensmodel,
+          imagersizes                               = imagersizes,
+          calobject_warp                            = calobject_warp,
+          do_optimize_intrinsic_core                = True,
+          do_optimize_intrinsic_distortions         = True,
+          do_optimize_extrinsics                    = True,
+          do_optimize_frames                        = True,
+          do_optimize_calobject_warp                = True,
+          calibration_object_spacing                = object_spacing,
+          calibration_object_width_n                = object_width_n,
+          calibration_object_height_n               = object_height_n,
+          skip_regularization                       = False,
+          observed_pixel_uncertainty                = pixel_uncertainty_stdev)
 
 models_solved = \
     [ mrcal.cameramodel( imagersize            = imagersizes[i],
-                         intrinsics            = (lensmodel, intrinsics[i,:])) \
+                         intrinsics            = (lensmodel, intrinsics[i,:]),
+                         optimization_inputs   = dict(optimize_kwargs,
+                                                      icam_intrinsics_covariances_ief = i)) \
       for i in range(Ncameras)]
 for i in range(1,Ncameras):
     models_solved[i].extrinsics_rt_fromref( extrinsics_rt_fromref[i-1,:] )
+
+# if 0:
+#     for i in range(1,Ncameras):
+#         models_solved[i].write(f'/tmp/tst{i}.cameramodel')
+
 
 testutils.confirm_equal(rmserr, 0,
                         eps = 2.5,
