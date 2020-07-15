@@ -4497,11 +4497,56 @@ def make_seed_no_distortion( imagersizes,
 
 
 def close_contour(c):
-    r'''If a given polyline isn't closed, close it
+    r'''Close a polyline, if it isn't already closed
 
-    Takes in a numpy array of shape (N,2): a sequence of 2d points. If the first
-    point and the last point are identical, returns the input. Otherwise returns
-    the same array as the input, except the first point is duplicated at the end
+SYNOPSIS
+
+    print( a.shape )
+    ===>
+    (5, 2)
+
+    print( a[0] )
+    ===>
+    [844 204]
+
+    print( a[-1] )
+    ===>
+    [886 198]
+
+    b = mrcal.close_contour(a)
+
+    print( b.shape )
+    ===>
+    (6, 2)
+
+    print( b[0] )
+    ===>
+    [844 204]
+
+    print( b[-2:] )
+    ===>
+    [[886 198]
+     [844 204]]
+
+This function works with polylines represented as arrays of shape (N,2). The
+polygon represented by such a polyline is "closed" if its first and last points
+sit at the same location. This function ingests a polyline, and returns the
+corresponding, closed polygon. If the first and last points of the input match,
+the input is returned. Otherwise, the first point is appended to the end, and
+this extended polyline is returned.
+
+None is accepted as an empty polygon: we return None.
+
+ARGUMENTS
+
+- c: an array of shape (N,2) representing the polyline to be closed. None is
+  accepted as well
+
+RETURNED VALUE
+
+An array of shape (N,2) representing the closed polygon. None is returned if the
+input was None
+
     '''
     if c is None: return None
     if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
