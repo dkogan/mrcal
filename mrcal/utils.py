@@ -1582,7 +1582,7 @@ Returns a tuple:
         extrinsics_rt_fromref = np.zeros((6,), dtype=float)
 
     # calibration-time frames observed by THIS camera
-    frame_rt_toref = frames_rt_toref[indices_frame_camintrinsics_camextrinsics[idx][...,0]]
+    frames_rt_toref = frames_rt_toref[indices_frame_camintrinsics_camextrinsics[idx][...,0]]
 
     # shape (Nframes, 4,3)
     # This transformation doesn't refer to the calibration-time reference, so we
