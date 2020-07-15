@@ -1513,9 +1513,9 @@ def board_observations_at_calibration_time(model):
 SYNOPSIS
 
     model = mrcal.cameramodel("xxx.cameramodel")
-    pcam  = board_observations_at_calibration_time(model)
+    pcam_inliers, pcam_outliers  = board_observations_at_calibration_time(model)
 
-    print(pcam.shape)
+    print(pcam_inliers.shape)
     ===> (1234, 3)
 
 Uncertainty is based on calibration-time observations, so it is useful for
@@ -1525,6 +1525,8 @@ coordinate system. Since I report camera-relative points, the results are
 applicable even if the camera was moved post-calibration, and the extrinsics
 have changed.
 
+I report the inlier and outlier points separately, in a tuple.
+
 ARGUMENTS
 
 - model: a mrcal.cameramodel object being queried. This object MUST contain
@@ -1532,8 +1534,13 @@ ARGUMENTS
 
 RETURNED VALUE
 
-Returns (N,3) array containing camera-reference-frame 3D points observed at
-calibration time
+Returns a tuple:
+
+- an (N,3) array containing camera-reference-frame 3D points observed at
+  calibration time, and accepted by the solver as inliers
+
+- an (N,3) array containing camera-reference-frame 3D points observed at
+  calibration time, but rejected by the solver as outliers
 
     '''
 
@@ -1556,6 +1563,7 @@ calibration time
     icam_intrinsics = optimization_inputs['icam_intrinsics_covariances_ief']
 
 
+    observations_board                        = optimization_inputs['observations_board']
     indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
     idx                                       = indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
 
@@ -1582,12 +1590,15 @@ calibration time
     Rt_cam_frame = mrcal.compose_Rt( mrcal.Rt_from_rt( extrinsics_rt_fromref),
                                      mrcal.Rt_from_rt( frames_rt_toref ) )
 
+    # shape (Nframes, Nboardpoints)
+    idx_outliers = nps.clump(observations_board[idx,:,:,2] < 0, n=-2)
+
     # shape (Nframes, Nboardpoints, 3)
     p_cam_calobjects = mrcal.transform_point_Rt( nps.mv(Rt_cam_frame, -3, -4),
                                                  nps.clump(full_object, n=2) )
 
-    # shape (N,3)
-    return nps.clump(p_cam_calobjects, n=2)
+    # shape (Ninliers,3), (Noutliers,3)
+    return p_cam_calobjects[~idx_outliers,:], p_cam_calobjects[idx_outliers,:]
 
 
 
@@ -1753,12 +1764,27 @@ into a variable, even if you're not going to be doing anything with this object
                                      legend = "Valid-intrinsics region")) )
 
     if observations:
-        p_cam_calobjects = board_observations_at_calibration_time(model)
-        q_cam_calobjects = mrcal.project( p_cam_calobjects, *model.intrinsics() )
+        p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
+            board_observations_at_calibration_time(model)
+        q_cam_calobjects_inliers = \
+            mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
+        q_cam_calobjects_outliers = \
+            mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
 
-        plot_data_args.append( ( q_cam_calobjects[...,0], q_cam_calobjects[...,1], np.zeros(q_cam_calobjects.shape[:-1]),
-                                dict( tuplesize = 3,
-                                      _with = 'points nocontour' )) )
+        if len(q_cam_calobjects_inliers):
+            plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
+                                     q_cam_calobjects_inliers[...,1],
+                                     np.zeros(q_cam_calobjects_inliers.shape[:-1]),
+                                     dict( tuplesize = 3,
+                                           _with  = 'points nocontour',
+                                           legend = 'inliers')) )
+        if len(q_cam_calobjects_outliers):
+            plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
+                                     q_cam_calobjects_outliers[...,1],
+                                     np.zeros(q_cam_calobjects_outliers.shape[:-1]),
+                                     dict( tuplesize = 3,
+                                           _with  = 'points nocontour',
+                                           legend = 'outliers')) )
 
     plot = \
         gp.gnuplotlib(_3d=1,
@@ -1846,17 +1872,27 @@ into a variable, even if you're not going to be doing anything with this object
         gridn_height = int(round(H/W*gridn_width))
 
 
-    p_cam_calobjects = board_observations_at_calibration_time(model)
-    q_cam_calobjects = mrcal.project( p_cam_calobjects, *model.intrinsics() )
-    dist             = nps.mag(p_cam_calobjects)
-    xydist           = nps.glue(q_cam_calobjects, nps.dummy(dist,-1), axis=-1)
+    p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
+        board_observations_at_calibration_time(model)
+    q_cam_calobjects_inliers = \
+        mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
+    q_cam_calobjects_outliers = \
+        mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
+    dist_inliers     = nps.mag(p_cam_calobjects_inliers)
+    dist_outliers    = nps.mag(p_cam_calobjects_outliers)
+    xydist_inliers   = nps.glue(q_cam_calobjects_inliers,  nps.dummy(dist_inliers, -1), axis=-1)
+    xydist_outliers  = nps.glue(q_cam_calobjects_outliers, nps.dummy(dist_outliers,-1), axis=-1)
 
     # shape (gridn_height,gridn_width,2)
     qxy = mrcal.sample_imager(gridn_width, gridn_height, *model.imagersize())
 
-    ranges = np.linspace(np.min(xydist[...,2])/3.0,
-                         np.max(xydist[...,2])*2.0,
-                         10)
+    ranges = np.linspace( np.min( nps.glue( xydist_inliers [...,2].ravel(),
+                                            xydist_outliers[...,2].ravel(),
+                                            axis=-1) )/3.0,
+                          np.max( nps.glue( xydist_inliers [...,2].ravel(),
+                                            xydist_outliers[...,2].ravel(),
+                                            axis=-1) )*2.0,
+                          10)
 
     # shape (gridn_height,gridn_width,Nranges,3)
     pcam = \
@@ -1893,14 +1929,22 @@ into a variable, even if you're not going to be doing anything with this object
                           zlabel   = 'Range',
                           **kwargs )
 
-    plot.plot( ( grid__x_y_ranges[0].ravel(), grid__x_y_ranges[1].ravel(), grid__x_y_ranges[2].ravel(),
-                 nps.xchg(worst_direction_stdev_grid,0,1).ravel() / 2.,
-                 nps.xchg(worst_direction_stdev_grid,0,1).ravel(),
-                 dict(tuplesize = 5,
-                      _with = 'points pt 7 ps variable palette',)),
-               ( xydist,
-                 dict(tuplesize = -3,
-                      _with = 'points')) )
+    plotargs = [ (grid__x_y_ranges[0].ravel(), grid__x_y_ranges[1].ravel(), grid__x_y_ranges[2].ravel(),
+                  nps.xchg(worst_direction_stdev_grid,0,1).ravel() / 2.,
+                  nps.xchg(worst_direction_stdev_grid,0,1).ravel(),
+                  dict(tuplesize = 5,
+                       _with = 'points pt 7 ps variable palette',))]
+    if len(xydist_inliers):
+        plotargs.append( ( xydist_inliers,
+                           dict(tuplesize = -3,
+                                _with = 'points',
+                                legend = 'inliers')) )
+    if len(xydist_outliers):
+        plotargs.append( ( xydist_outliers,
+                           dict(tuplesize = -3,
+                                _with = 'points',
+                                legend = 'outliers')) )
+    plot.plot( *plotargs )
 
     return plot
 
