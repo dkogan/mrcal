@@ -2286,7 +2286,12 @@ into a variable, even if you're not going to be doing anything with this object
         kwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
         plot = gp.gnuplotlib(equation = equations,
                              _set=sets,
-                             _xrange = [0,np.max(th_corners) * 1.01],
+                             # any of the unprojections could be nan, so I do the best I can
+                             _xrange = [0,np.max(np.nan_to_num(nps.glue(th_corners,
+                                                                        th_centersx,
+                                                                        th_centersy,
+                                                                        axis=-1)))
+                                        * 1.01],
                              xlabel = 'Angle off the projection center (deg)',
                              ylabel = 'Distorted angle off the projection center',
                              **kwargs)
