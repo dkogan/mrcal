@@ -217,7 +217,10 @@ OPTIONAL ARGUMENTS
 - get_covariances: defaults to False. If True, I compute the covariance matrices
   for intrinsics and extrinsics, and include them in the dict I return. These
   are needed only for the uncertainty computations. If we're performing an
-  incremental solve, only the final optimize() call needs to compute these.
+  incremental solve, only the final optimize() call needs to compute these. The
+  covariance matrices are symmetric, but I return both halves for now. I return
+  the FULL-state covariances, NOT using the unitless state internal to the
+  optimizer
 
 - icam_intrinsics_covariances_ief: defaults to -1. If <0 then I return
   covariance_intrinsics, covariance_ief... for ALL the cameras. If >= 0 then I

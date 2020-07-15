@@ -280,6 +280,17 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
     if cache_invJtJ is not None and cache_invJtJ[0] is not None:
         invJtJ = cache_invJtJ[0]
     else:
+
+        # The sensitivity I have is expressed in unitless optimizer-internal
+        # state, but I want it in the full state
+        #
+        # I want Var(p) = Var( D p* ) =
+        #               = D Var(p*) D =
+        #               = D inv(J*t J*) D =
+        #               = D inv( (JD)t JD ) D =
+        #               = D inv(D) inv( JtJ ) inv(D) D =
+        #               = inv(JtJ)
+        # So I make J from J*, and I'm good to go
         J = solver_context.J().toarray()
         solver_context.pack(J)
         invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J), J))

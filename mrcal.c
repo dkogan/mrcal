@@ -3062,7 +3062,9 @@ static int cholmod_error_callback(const char* s, ...)
 // level
 
 
-// The returned matrices are symmetric, but I return both halves for now
+// The returned matrices are symmetric, but I return both halves for now. I
+// return the FULL-state covariances, NOT using the unitless state internal to
+// the optimizer
 static bool compute_uncertainty_matrices(// out
 
                                          // Shape (Ncameras_intrinsics * Nintrinsics_state*Nintrinsics_state)
@@ -3380,8 +3382,6 @@ static bool compute_uncertainty_matrices(// out
             return false;
         }
         memset( out, 0, Ncameras_intrinsics_returning * Nvars_ief*Nvars_ief * (int)sizeof(double));
-
-
 
         typedef struct
         {
@@ -4274,12 +4274,14 @@ void optimizerCallback(// input state
             {
                 // Outlier.
 
-                // This is arbitrary. I'm skipping this observation, so I
-                // don't touch the projection results. I need to have SOME
-                // dependency on the frame parameters to ensure a full-rank
-                // Hessian. So if we're skipping all observations for this
-                // frame, I replace this cost contribution with an L2 cost
-                // on the frame parameters.
+                // This is arbitrary. I'm skipping this observation, so I don't
+                // touch the projection results, and I set the measurement and
+                // all its gradients to 0. I need to have SOME dependency on the
+                // frame parameters to ensure a full-rank Hessian, so if we're
+                // skipping all observations for this frame the system will
+                // become singular. I don't currently handle this. libdogleg
+                // will complain loudly, and add small diagonal L2
+                // regularization terms
                 for( int i_xy=0; i_xy<2; i_xy++ )
                 {
                     const double err = 0.0;
@@ -4850,6 +4852,9 @@ void optimizerCallback(// input state
     }
 }
 
+// The returned covariance matrices are symmetric, but I return both halves for
+// now. I return the FULL-state covariances, NOT using the unitless state
+// internal to the optimizer
 bool mrcal_optimizerCallback(// output measurements
                              double*         x,
 
@@ -5059,6 +5064,9 @@ done:
     return result;
 }
 
+// The returned covariance matrices are symmetric, but I return both halves for
+// now. I return the FULL-state covariances, NOT using the unitless state
+// internal to the optimizer
 mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL

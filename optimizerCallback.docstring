@@ -2,25 +2,26 @@ Call the optimization callback function
 
 SYNOPSIS
 
-    x,Jt = mrcal.optimizerCallback( intrinsics_data,
-                                    extrinsics_rt_fromref,
-                                    frames_rt_toref, points
-                                    observations_board, indices_frame_camintrinsics_camextrinsics,
-                                    observations_point, indices_point_camintrinsics_camextrinsics_flags,
+    x,Jt_unitless = \
+      mrcal.optimizerCallback( intrinsics_data,
+                               extrinsics_rt_fromref,
+                               frames_rt_toref, points
+                               observations_board, indices_frame_camintrinsics_camextrinsics,
+                               observations_point, indices_point_camintrinsics_camextrinsics_flags,
 
-                                    lensmodel,
-                                    imagersizes                       = imagersizes,
-                                    observed_pixel_uncertainty        = observed_pixel_uncertainty,
-                                    do_optimize_intrinsic_core        = True,
-                                    do_optimize_intrinsic_distortions = True,
-                                    calibration_object_spacing        = object_spacing,
-                                    calibration_object_width_n        = 10,
-                                    calibration_object_height_n       = 9,
-                                    point_min_range                   = 0.1,
-                                    point_max_range                   = 100.0,
-                                    skip_regularization               = False,
-                                    get_covariances                   = False,
-                                    verbose                           = False)
+                               lensmodel,
+                               imagersizes                       = imagersizes,
+                               observed_pixel_uncertainty        = observed_pixel_uncertainty,
+                               do_optimize_intrinsic_core        = True,
+                               do_optimize_intrinsic_distortions = True,
+                               calibration_object_spacing        = object_spacing,
+                               calibration_object_width_n        = 10,
+                               calibration_object_height_n       = 9,
+                               point_min_range                   = 0.1,
+                               point_max_range                   = 100.0,
+                               skip_regularization               = False,
+                               get_covariances                   = False,
+                               verbose                           = False)
 
 The main optimization routine in mrcal.optimize() searches for optimal
 parameters by repeatedly calling a function to evaluate each hypothethical
@@ -52,15 +53,25 @@ The output is returned in a tuple:
   and working with it could be very memory-intensive and slow.
 
   This jacobian matrix comes directly from the optimization callback function,
-  which uses unitless state.
+  which uses unitless state. Everything else, including the covariances uses the
+  full state. To convert a densified unitless jacobian to full units, one can do
+  this:
+
+    x,Jt_sparse = mrcal.optimizerCallback(...)
+    Jt_numpy    = Jt_sparse.toarray()
+    solver_context.pack(Jt_numpy)
 
 If get_covariances: then the output tuple ALSO contains covariances:
 
-- covariances_ief: the intrinsics-extrinsics-frames covariances
+- covariances_ief: the intrinsics-extrinsics-frames covariances. These matrices
+  are symmetric, but I return both halves for now. I return the FULL-state
+  covariances, NOT using the unitless state internal to the optimizer
 
 - covariances_ief_rotationonly: the intrinsics-extrinsics-frames covariances at
   infinity: only the rotation components of the extrinsics and frames are
-  considered
+  considered. These matrices are symmetric, but I return both halves for now. I
+  return the FULL-state covariances, NOT using the unitless state internal to
+  the optimizer
 
 - icam_extrinsics_covariances_ief: if icam_intrinsics_covariances_ief is given
   as >= 0, this is the corresponding icam_extrinsics. If the cameras aren't
@@ -68,7 +79,3 @@ If get_covariances: then the output tuple ALSO contains covariances:
   corresponding camera is at the coordinate system reference,
   icam_intrinsics_covariances_ief is -1. if icam_intrinsics_covariances_ief
   doesn't request a specific camera (<0), this is None
-
-Note that the optimizer uses some weights on the measurements, and some scaling
-on the parameters. The values returned here are the optimizer-internal values.
-To bring the jacobian into real units, call solver_context.pack(J)

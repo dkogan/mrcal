@@ -325,6 +325,10 @@ typedef struct
     MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_DEFINE)
 } mrcal_stats_t;
 
+
+// The returned covariance matrices are symmetric, but I return both halves for
+// now. I return the FULL-state covariances, NOT using the unitless state
+// internal to the optimizer
 mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL
@@ -443,6 +447,9 @@ mrcal_optimize( // out
 
 struct cholmod_sparse_struct;
 
+// The returned covariance matrices are symmetric, but I return both halves for
+// now. I return the FULL-state covariances, NOT using the unitless state
+// internal to the optimizer
 bool mrcal_optimizerCallback(// output measurements
                              double*         x,
 
