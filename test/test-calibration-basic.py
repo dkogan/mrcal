@@ -387,6 +387,7 @@ for icam in range(len(models_ref)):
                             eps = 6.,
                             msg = f"Recovered intrinsics for camera {icam}")
 
+print("Should compare sents of outliers. Currently I'm detecting 7x the outliers that are actually there")
 
 ############# Basic checks all done. Now I look at uncertainties
 
