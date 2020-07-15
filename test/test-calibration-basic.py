@@ -80,15 +80,25 @@ observations_ref = nps.clump( nps.glue(q_ref,
                                        axis=-1),
                               n=2)
 
-def sample_dqref(observations):
+NobservedPoints = Nframes*Ncameras*object_width_n*object_height_n
+idx_outliers_ref_flat = \
+    np.random.choice( Nframes*Ncameras*object_width_n*object_height_n,
+                      (NobservedPoints//100,), # 1% outliers
+                      replace = False )
+
+def sample_dqref(observations, make_outliers = False):
     weight  = observations[...,-1]
     q_noise = np.random.randn(*observations.shape[:-1], 2) * pixel_uncertainty_stdev / nps.mv(nps.cat(weight,weight),0,-1)
+
+    if make_outliers:
+        nps.clump(q_noise, n=3)[idx_outliers_ref_flat, :] *= 20
+
     observations_perturbed = observations.copy()
     observations_perturbed[...,:2] += q_noise
     return q_noise, observations_perturbed
 
-q_noise,observations = sample_dqref(observations_ref)
-
+q_noise,observations = sample_dqref(observations_ref,
+                                    make_outliers = True)
 
 ############# Now I pretend that the noisy observations are all I got, and I run
 ############# a calibration from those
@@ -121,7 +131,8 @@ def optimize( intrinsics,
               do_optimize_extrinsics            = False,
               do_optimize_frames                = False,
               do_optimize_calobject_warp        = False,
-              get_covariances                   = False):
+              get_covariances                   = False,
+              **kwargs):
     r'''Run the optimizer
 
     Function arguments are read-only. The optimization results, in various
@@ -141,6 +152,7 @@ def optimize( intrinsics,
     extrinsics_rt_fromref = copy.deepcopy(extrinsics_rt_fromref)
     frames_rt_toref       = copy.deepcopy(frames_rt_toref)
     calobject_warp        = copy.deepcopy(calobject_warp)
+    observations          = copy.deepcopy(observations)
 
     solver_context = mrcal.SolverContext()
     stats = mrcal.optimize( intrinsics, extrinsics_rt_fromref, frames_rt_toref, None,
@@ -155,7 +167,6 @@ def optimize( intrinsics,
                             verbose                     = False,
 
                             observed_pixel_uncertainty  = pixel_uncertainty_stdev,
-                            skip_outlier_rejection      = True,
 
                             do_optimize_frames                = do_optimize_frames,
                             do_optimize_intrinsic_core        = do_optimize_intrinsic_core,
@@ -163,7 +174,8 @@ def optimize( intrinsics,
                             do_optimize_extrinsics            = do_optimize_extrinsics,
                             do_optimize_calobject_warp        = do_optimize_calobject_warp,
                             get_covariances                   = get_covariances,
-                            solver_context                    = solver_context)
+                            solver_context                    = solver_context,
+                            **kwargs)
 
     covariance_intrinsics = stats.get('covariance_intrinsics')
     covariance_extrinsics = stats.get('covariance_extrinsics')
@@ -171,6 +183,7 @@ def optimize( intrinsics,
 
     return \
         intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp,   \
+        observations[...,2] < 0.0, \
         p_packed, stats['x'], stats['rms_reproj_error__pixels'], \
         covariance_intrinsics, covariance_extrinsics,     \
         solver_context
@@ -197,14 +210,19 @@ intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 
 # Simpler pre-solves
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
+idx_outliers, \
 p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              do_optimize_extrinsics            = True,
-             do_optimize_frames                = True)
+             do_optimize_frames                = True,
+             skip_outlier_rejection            = False)
+observations[idx_outliers, 2] = -1
+
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
+idx_outliers, \
 p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
@@ -212,11 +230,14 @@ solver_context =                                \
              indices_frame_camintrinsics_camextrinsics,
              do_optimize_intrinsic_core        = True,
              do_optimize_extrinsics            = True,
-             do_optimize_frames                = True)
+             do_optimize_frames                = True,
+             skip_outlier_rejection            = False)
+observations[idx_outliers, 2] = -1
 
 # Complete final solve
 calobject_warp = np.array((0.001, 0.001))
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
+idx_outliers, \
 p_packed, x, rmserr,                            \
 covariance_intrinsics, covariance_extrinsics,   \
 solver_context =                                \
@@ -228,7 +249,9 @@ solver_context =                                \
              do_optimize_extrinsics            = True,
              do_optimize_frames                = True,
              do_optimize_calobject_warp        = True,
-             get_covariances                   = True)
+             get_covariances                   = True,
+             skip_outlier_rejection            = False)
+observations[idx_outliers, 2] = -1
 
 
 ############# Calibration computed. Now I see how well I did
@@ -330,7 +353,7 @@ for icam in range(len(models_ref)):
 
     testutils.confirm_equal(diff, 0,
                             worstcase = True,
-                            eps = 4.,
+                            eps = 6.,
                             msg = f"Recovered intrinsics for camera {icam}")
 
 
@@ -344,6 +367,8 @@ for icam in range(len(models_ref)):
 # I use dense linear algebra to compute the reference arrays. This is
 # inefficient, but easy to write, and is useful for checking the more complex
 # sparse implementations of the main library
+
+# ingests updated observations, so x,J have the outliers masked out with 0
 def callback_tweaked_intrinsics(intrinsics_data):
     x,Joptimizer = \
         mrcal.optimizerCallback(intrinsics_data,extrinsics_rt_fromref,frames_rt_toref, None,
@@ -459,8 +484,12 @@ testutils.confirm_equal( covariance_extrinsics_predicted,
 # expressions do what they're supposed to do? I perturb my input observation
 # vector qref by dqref. The effect on the parameters should be dp = M dqref.
 # Where M = inv(JtJ) Jobservationst W
+
+# same outlier set as what I computed, but more noise. I don't compute NEW
+# outliers here: skip_outlier_rejection=True
 dqref, observations_perturbed = sample_dqref(observations)
 _,_,_,_,         \
+_,               \
 p_packed1, _, _, \
 _,_,             \
 solver_context = \
@@ -471,7 +500,8 @@ solver_context = \
              do_optimize_intrinsic_distortions = True,
              do_optimize_extrinsics            = True,
              do_optimize_frames                = True,
-             do_optimize_calobject_warp        = True)
+             do_optimize_calobject_warp        = True,
+             skip_outlier_rejection            = True)
 
 dp = p_packed1-p_packed0
 w = observations[..., np.array((2,2))].ravel()
