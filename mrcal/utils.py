@@ -1571,8 +1571,8 @@ Returns a tuple:
     # whole thing only works with stationary cameras, so my icam_intrinsics is
     # guaranteed to correspond to a single icam_extrinsics. If somehow this
     # isn't true, I barf
-    icam_extrinsics = indices_frame_camintrinsics_camextrinsics[idx][...,2][0]
-    if np.max( np.abs( indices_frame_camintrinsics_camextrinsics[idx][...,2] - icam_extrinsics) ) != 0:
+    icam_extrinsics = indices_frame_camintrinsics_camextrinsics[idx,2][0]
+    if np.max( np.abs( indices_frame_camintrinsics_camextrinsics[idx,2] - icam_extrinsics) ) != 0:
         raise Exception(f"icam_intrinsics MUST correspond to a single icam_extrinsics, but here there're multiples!")
     # calibration-time extrinsics for THIS camera
     if icam_extrinsics >= 0:
@@ -1582,7 +1582,7 @@ Returns a tuple:
         extrinsics_rt_fromref = np.zeros((6,), dtype=float)
 
     # calibration-time frames observed by THIS camera
-    frames_rt_toref = frames_rt_toref[indices_frame_camintrinsics_camextrinsics[idx][...,0]]
+    frames_rt_toref = frames_rt_toref[indices_frame_camintrinsics_camextrinsics[idx,0]]
 
     # shape (Nframes, 4,3)
     # This transformation doesn't refer to the calibration-time reference, so we
