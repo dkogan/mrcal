@@ -1096,6 +1096,7 @@ Potential things to look at:
     show_residuals_observation_worst(i_observation_in_order_from_worst)
     show_residuals_observation(i_observation, vectorscale=20)
     show_projection_uncertainty(i_camera)
+    show_projection_uncertainty_xydist(i_camera)
     show_valid_intrinsics_region(i_camera)
     show_residuals_vectorfield(    i_camera, show_all_reproj_errors=True)
     show_residuals_heatmap(        i_camera)
@@ -1643,18 +1644,30 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
     plots_residuals_histogram[i_camera].plot(x, histogram=1, binwidth=binwidth,)
 
 
-plots_intrinsics_uncertainty = [None] * Ncameras
+plots_projection_uncertainty = [None] * Ncameras
 def show_projection_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
-    global plots_intrinsics_uncertainty
+    global plots_projection_uncertainty
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
     for i_camera in i_camera_all:
-        plots_intrinsics_uncertainty[i_camera] = \
+        plots_projection_uncertainty[i_camera] = \
             mrcal.show_projection_uncertainty(models[i_camera],
                                               extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
                                               gridn_width  = gridn_width,
                                               gridn_height = gridn_height,
                                               **kwargs)
+plots_projection_uncertainty_xydist = [None] * Ncameras
+def show_projection_uncertainty_xydist(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
+
+    global plots_projection_uncertainty_xydist
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    for i_camera in i_camera_all:
+        plots_projection_uncertainty_xydist[i_camera] = \
+            mrcal.show_projection_uncertainty_xydist(models[i_camera],
+                                                     extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
+                                                     gridn_width  = gridn_width,
+                                                     gridn_height = gridn_height,
+                                                     **kwargs)
 plots_valid_intrinsics_region = [None] * Ncameras
 def show_valid_intrinsics_region(i_camera = None, **kwargs):
     global plots_valid_intrinsics_region
