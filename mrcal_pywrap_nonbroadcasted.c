@@ -1711,7 +1711,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                      (PyObject*)P,
                                                      (PyObject*)I,
                                                      (PyObject*)X));
-            Py_INCREF(x_final);
             if(covariances_ief)
             {
                 PyTuple_SET_ITEM(result, 2, (PyObject*)covariances_ief);
