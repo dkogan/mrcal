@@ -40,9 +40,9 @@ def parse_args():
                         default=False,
                         help='''If given, I make a 3D plot of uncertainties and chessboard observations. With
                         this option I ignore --distance, --isotropic,
-                        --observations, --cbmax. This option makes a 3D
-                        x-y-distance plot instead of the 2D uncertainty contours
-                        we get normally''')
+                        --observations. This option makes a 3D x-y-distance plot
+                        instead of the 2D uncertainty contours we get
+                        normally''')
     parser.add_argument('--gridn',
                         type=int,
                         default = (60,40),
@@ -123,6 +123,7 @@ else:
                                                     args.gridn[0] // 4,
                                                     args.gridn[1] // 4,
                                                     hardcopy     = args.hardcopy,
+                                                    cbmax        = args.cbmax,
                                                     extratitle   = args.extratitle,
                                                     **plotkwargs_extra)
 
