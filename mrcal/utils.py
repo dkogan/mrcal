@@ -1806,6 +1806,7 @@ def show_projection_uncertainty_xydist(model,
 
                                        extratitle   = None,
                                        hardcopy     = None,
+                                       cbmax        = 3,
                                        **kwargs):
     r'''Visualize in 3D the uncertainty in camera projection
 

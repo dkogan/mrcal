@@ -1670,7 +1670,7 @@ def show_projection_uncertainty(i_camera = None, gridn_width = 60, gridn_height 
                                               gridn_height = gridn_height,
                                               **kwargs)
 plots_projection_uncertainty_xydist = [None] * Ncameras
-def show_projection_uncertainty_xydist(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
+def show_projection_uncertainty_xydist(i_camera = None, gridn_width = 15, gridn_height = 10, **kwargs):
 
     global plots_projection_uncertainty_xydist
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
