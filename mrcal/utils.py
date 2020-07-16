@@ -247,7 +247,8 @@ SYNOPSIS
 
     models = [mrcal.cameramodel("0.cameramodel"),
               mrcal.cameramodel("1.cameramodel"),]
-    p = mrcal.make_synthetic_board_observations(models,
+    p,Rt_cam0_boardref = \
+        mrcal.make_synthetic_board_observations(models,
 
                                                 # board geometry
                                                 10,12,0.1,None,
@@ -262,7 +263,10 @@ SYNOPSIS
                                                 100)
 
     print(p.shape)
-    [100, 2, 12, 10, 2]
+    ===> (100, 2, 12, 10, 2)
+
+    print(Rt_cam0_boardref.shape)
+    ===> (100, 4, 3)
 
 Given a description of a calibration object and of the cameras observing it,
 produces pixel observations of the objects by those cameras. Exactly Nframes
@@ -310,7 +314,7 @@ We return a tuple:
 - The point observations p:
   array of shape (Nframes, Ncameras, object_height, object_width, 2)
 - The pose of the chessboards Rt_cam0_boardref:
-  array of shape (Nframes, Ncameras, 4,3). This transforms an object returned by
+  array of shape (Nframes, 4,3). This transforms an object returned by
   make_synthetic_board_observations() to the pose that was projected
 
     '''
