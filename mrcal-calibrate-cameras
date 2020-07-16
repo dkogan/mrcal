@@ -833,6 +833,18 @@ optimize_kwargs = \
           calibration_object_height_n               = args.object_height_n,
           skip_regularization                       = args.skip_regularization,
           observed_pixel_uncertainty                = args.observed_pixel_uncertainty)
+
+# If we're skipping the regularization step, I do EVERYTHING else before the
+# final regularization-free step. Turning that off allows the solution to
+# wander, and I want to help it as much as possible to not do that
+if optimize_kwargs['skip_regularization']:
+    optimize_kwargs['skip_regularization'] = False
+    stats = mrcal.optimize(skip_outlier_rejection = False,
+                           get_covariances        = False,
+                           verbose                = False,
+                           **optimize_kwargs)
+    optimize_kwargs['skip_regularization'] = True
+
 stats = mrcal.optimize(skip_outlier_rejection = False,
                        get_covariances        = True,
                        verbose                = args.verbose_solver,
