@@ -1930,7 +1930,7 @@ into a variable, even if you're not going to be doing anything with this object
                           **kwargs )
 
     plotargs = [ (grid__x_y_ranges[0].ravel(), grid__x_y_ranges[1].ravel(), grid__x_y_ranges[2].ravel(),
-                  nps.xchg(worst_direction_stdev_grid,0,1).ravel() / 2.,
+                  nps.xchg(worst_direction_stdev_grid,0,1).ravel().clip(max=3),
                   nps.xchg(worst_direction_stdev_grid,0,1).ravel(),
                   dict(tuplesize = 5,
                        _with = 'points pt 7 ps variable palette',))]
