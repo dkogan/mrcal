@@ -365,13 +365,14 @@ def parse_args():
                         report some uncertainties about geometry inside each
                         pair. Consecutive cameras in the given list are paired
                         up, and an even number of cameras is required''')
-
     parser.add_argument('--skip-regularization',
                         action='store_true',
                         required=False,
                         default=False,
-                        help='''By default we apply regularization to the solver. This option turns that
-                        off''')
+                        help='''By default we apply regularization in the solver in the final optimization.
+                        This discourages obviously-wrong solutions, but can
+                        introduce a bias. With this option, regularization isn't
+                        applied''')
     parser.add_argument('--skip-outlier-rejection',
                         action='store_true',
                         required=False,
