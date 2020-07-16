@@ -696,9 +696,9 @@ def solve_initial(args, seedmodels, imagersizes,
                            calibration_object_width_n        = args.object_width_n,
                            calibration_object_height_n       = args.object_height_n,
                            skip_outlier_rejection            = args.skip_outlier_rejection,
-                           skip_regularization               = args.skip_regularization,
+                           skip_regularization               = False,
                            get_covariances                   = False,
-                           verbose                           = args.verbose_solver)
+                           verbose                           = False)
     return intrinsics_data, extrinsics, frames, stats
 
 
