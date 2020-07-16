@@ -482,7 +482,8 @@ for i in range(Ncameras):
 
 
 print("Simulating input noise. This takes a little while...")
-iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3] for isample in range(Nsamples)]
+iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3] \
+          for isample in range(Nsamples)]
 intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
 extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
 frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
