@@ -3529,6 +3529,7 @@ static bool compute_uncertainty_matrices(// out
                     cholmod_free_dense (&M, &solver_context->common);
 
                     istate0 += Nvars_here;
+                    ifinal  += Nvars_here;
                     Nvars   -= Nvars_here;
                 }
             }
