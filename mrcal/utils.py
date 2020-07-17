@@ -1140,7 +1140,6 @@ def _projection_uncertainty( p_cam,
                              extrinsics_rt_fromref, frames_rt_toref,
                              Var_ief,
                              what):
-
     r'''Helper for projection_uncertainty()
 
     This function does all the work when observing points with a finite range
@@ -1245,7 +1244,6 @@ def _projection_uncertainty_rotationonly( p_cam,
                                           extrinsics_rt_fromref, frames_rt_toref,
                                           Var_ief,
                                           what):
-
     r'''Helper for projection_uncertainty()
 
     This function does all the work when observing points at infinity
@@ -1353,78 +1351,312 @@ def projection_uncertainty( p_cam,
 
                             # what we're reporting
                             what = 'covariance'):
-    r'''Computes the uncertainty in a projection of a 3D point
+    r'''Compute the projection uncertainty of a camera-referenced point
 
-    Unlike compute_projection_stdev(), does take into account the variances of
-    the extrinsics and of the frames, i.e. it uses the full jacobian. This data
-    isn't available in the .cameramodel, so this has to be called right after we
-    optimized a new model.
+SYNOPSIS
 
-    No compensating rotations need to be computed: the extra bit of geometry is
-    provided by the extrinsics and frames variances.
+    model = mrcal.cameramodel("xxx.cameramodel")
 
-    Computed off the Jacobian returned by the solver. The C layer does no
-    computation here. It would be faster if it did, though
+    q        = np.array((123., 443.))
+    distance = 10.0
 
-    Currently this function more or less assumes a vanilla calibration problem:
-    lots of stationary cameras are observing a moving chessboard, no point
-    observations, camera0 defines the reference coordinate system
+    pcam = distance * mrcal.unproject(q, *model.intrinsics(), normalize=True)
 
-    q, distance broadcasts
-    except you have to pass in nonstandard broadcasting dimensions
+    print(mrcal.projection_uncertainty(pcam,
+                                       model = model,
+                                       what  = 'worstdirection-stdev'))
+    ===> 0.5
 
-    todo:
+    # So if we have observed a world point at pixel coordinates q, and we know
+    # it's 10m out, then we know that the standard deviation of the noise of the
+    # pixel obsevation is 0.5 pixels, in the worst direction
 
-    - Make this work in the general case. Observed points or moving cameras make
-      this break. Outliers?
+After a camera model is computed via a calibration process, the model is
+ultimately used in projection/unprojection operations to map between world
+coordinates and projected pixel coordinates. We never know the parameters of the
+model perfectly, and it is VERY useful to know the resulting uncertainty of
+projection. This can be used, among other things, to
 
-    - Make this efficient. I'm using dumb, dense linear algebra here, and I'm not
-      taking advantage of matrix symmetries. For small problems and simple, parametric
-      camera models this is ok. A splined model would probably bring this
-      implementation to its knees
+- propagate the projection noise down to whatever is using the observed pixels
+  to do stuff
 
-    - This function transforms points to the coord system of the frames, and back; I
-      do that for the gradients. Do I need to? Can I grab the gradients in one
-      direction, and then not go back?
+- evaluate the quality of calibrations, to know whether a given calibration
+  should be accepted, or rejected
 
-    - Need to support a fixed-frames case. This is simple, but I need to do it
+- evaluate the stability of a computed model
 
-    - Need to write a test
+I quantify uncertainty by propagating expected noise on observed chessboard
+corners through the optimization problem we're solving during calibration time
+to the solved parameters. And then propagating the noise on the parameters
+through projection.
 
-    - Broadcasting works in a funny way here. I'm not using broadcast_define()
-      because all the functions I'm using support broadcasting internally in C. This
-      is great, but it means that the caller must line up the dimensions in a
-      non-standard way
+The below derivation is double-checked via simulated noise in
+test-calibration-uncertainty-fixed-cam0.py
 
-    - Documentation!
+The uncertainties can be visualized with the mrcal-show-projection-uncertainty
+tool.
 
+DERIVATION
 
-    if frames_rt_toref is None: the frames_rt_toref are assumed fixed, ALL cameras have extrinsics
-    and we use the reference coord system for the query point
+The pixel observations seen by the calibration tool are noisy. I assume they are
+zero-mean, independent and gaussian, with some known standard deviation
+observed_pixel_uncertainty. I treat the x and y coordinates of the observations
+as two independent measurements.
 
+I minimize a cost function E = norm2(x) where x is the vector of measurements.
+Some elements of x depend on the pixel observations, and some don't
+(regularization). We care about the measurements that depend on pixel
+observations. These are a weighted reprojection error:
 
-    #   pref = ( transform( frames_rt_toref[0], p0_frames[0] ) +
-    #            transform( frames_rt_toref[1], p0_frames[1] ) +
-    #            ... ) / Nframes
-    #   pcam = transform(extrinsics_rt_fromref, pref)
-    #   q    = project( pcam, intrinsics_data )
+    x[i] = w[i] (q[i] - qref[i])
 
-    # q depends on the intrinsics and on the extrinsics and on the frames
+where w[i] is the weight, q[i] is the predicted x or y projection of point i,
+and qref[i] is the observation. The weight comes from the vision algorithm that
+produced the pixel observation qref[i]. We're minimizing norm2(x), so we're
+trying to get the discrepancies between the predictions and observations to 0.
 
-    #  dq/di comes from project()
-    #  dq/de = dq/dpcam dpcam/de
-    #  dq/df = dq/dpcam dpcam/dpref (dpref/dframes0 dpref/dframes1 ...) / Nframes
+Uncertain measurements (high Var(qref[i])) are weighted less (lower w[i]), so
+the noise on qref[i] (on x and on y separately) is assumed to be mean-0 gaussian
+with stdev observed_pixel_uncertainty/w[i]. Thus the noise on x[i] has stdev
+observed_pixel_uncertainty. I apply a perturbation to the observations,
+reoptimize (assuming everything is linear) and look what happens to the state p.
+I start out at an optimum p*:
 
-    # Linearization: dq ~ dq/dief dief ->
-    # -> Var(dq) = dq/dief Var(dief) transpose(dq/dief)
+    dE/dp (p=p*) = 2 Jt x (p=p*) = 0
 
-    # What is Var(die)? Derivation in docstring for compute_projection_stdev()
+I perturb the inputs:
 
-    if assume_infinity: caller responsible for passing correct var_ief
+    E(x(p+dp, qref+dqref)) = norm2( x + J dp + dx/dqref dqref)
 
-    intrinsics_data, extrinsics_rt_fromref, frames_rt_toref come from the SOLVE.
-    extrinsics could change in the model, and I'll ignore them
+And I reoptimize:
 
+    dE/ddp ~ ( x + J dp + dx/dqref dqref)t J = 0
+
+I started at an optimum, so Jt x = 0, and
+
+    -Jt dx/dqref dqref = JtJ dp
+
+As stated above, for reprojection errors I have
+
+    x[observations] = W ( q - qref)
+
+where W is diag(w), a diagonal matrix of observation weights. Some elements of x
+don't depend on the observations (let's assume these are trailing elements of
+x), so
+
+    dx/dqref = [ -W ]
+               [  0 ]
+
+and
+
+    J[observations]t W dqref = JtJ dp
+
+So if I perturb my input observation vector qref by dqref, the resulting
+effect on the parameters is dp = M dqref. Where
+
+    M = inv(JtJ) J[observations]t W
+
+So
+
+    Var(p) = M Var(qref) Mt
+
+As stated before, I'm assuming independent noise on all observed pixels, with a
+standard deviation inversely proportional to the weight:
+
+    Var(qref) = observed_pixel_uncertainty^2 W^-2
+
+and
+
+    Var(p) = M W^-2 Mt observed_pixel_uncertainty^2 =
+           = inv(JtJ) J[observations]t W W^-2 W J[observations] inv(JtJ) =
+           = inv(JtJ) J[observations]t J[observations] inv(JtJ)
+
+If we have no regularization, and all measurements are pixel errors, then
+J[observations] = J and
+
+    Var(p) = inv(JtJ) J[observations]t J[observations] inv(JtJ)
+           = inv(JtJ) JtJ inv(JtJ)
+           = inv(JtJ)
+
+Remember that this is the variance of the full optimization state p. This
+contains the intrinsics and extrinsics of ALL the cameras. And it contains ALL
+the poses of observed chessboards, and everything else, like the chessboard warp
+terms, for instance.
+
+Ultimately the parameters are used in a projection operation. So given a point
+in camera coordinates pcam, I project it onto the image plane:
+
+    q = project(pcam, intrinsics)
+
+Propagating the uncertainties from this expression is insufficient, however. In
+the real world, the camera is mounted in some rigid housing, and we want to know
+the projection uncertainty of points in respect to that housing. The camera
+coordinate system has its origin somewhere inside, with some more-or-less square
+orientation. But the exact pose of the camera coordinates inside that housing is
+a random quantity, just like the lens parameters. And as the pose of the camera
+coordinates in respect to the camera housing moves, so do the coordinates (in
+the camera coordinate system) of any world point.
+
+Thus I want to look at the uncertainties of projection of a world point, but how
+do I define the "world" coordinate system? All the coordinate systems I have are
+noisy and floating. I use the poses of the observed chessboards in aggregate to
+define the world. These are the most stationary thing I have.
+
+Let pf[frame] represent a point in the coordinate system of ONE chessboard
+observation. My optimization state p contains the pose of each one, so I can map
+this to the reference coordinate system of the optimization:
+
+    pref[frame] = transform( rt_frame[frame], pf[frame] )
+
+I can do this for each frame. And if I'm representing the same world point, I
+can compute the mean for each frame to get
+
+    pref = mean( pref[frame] )
+
+Then I use the camera extrinsics (also in my optimization vector) to map this to
+camera coordinates:
+
+    pcam = transform( rt_camera[icamera], pref )
+
+And NOW I can project
+
+    q = project(pcam, intrinsics)
+
+I computed Var(p) earlier, which contains the variance of ALL the optimization
+parameters together. The noise on the chessboard poses is coupled to the noise
+on the extrinsics and to the noise on the intrinsics. And we can apply all these
+together to propagate the uncertainty.
+
+Let's define some variables:
+
+- p_i: the intrinsics of a camera
+- p_e: the extrinsics of that camera
+- p_f: ALL the chessboard poses
+- p_ief: the concatenation of p_i, p_e and p_f
+
+I have
+
+    dq = q0 + dq/dp_ief dp_ief
+
+    Var(q) = dq/dp_ief Var(p_ief) (dq/dp_ief)t
+
+    Var(p_ief) is a subset of Var(p), computed above.
+
+    dq/dp_ief = [dq/dp_i dq/dp_e dq/dp_f]
+
+    dq/dp_e = dq/dpcam dpcam/dp_e
+
+    dq/dp_f = dq/dpcam dpcam/dpref dpref/dp_f / Nframes
+
+dq/dp_i and all the constituent expressions comes directly from the project()
+and transform calls above. Depending on the details of the optimization problem,
+some of these may not exist. For instance, if we're looking at a camera that is
+sitting at the reference coordinate system, then there is no p_e, and Var_ief is
+smaller: it's just Var_if. If we somehow know the poses of the frames, then
+there's no Var_f. If we want to know the uncertainty at distance=infinity, then
+we ignore all the translation components of p_e and p_f.
+
+And note that this all assumes a vanilla calibration setup: we're calibration a
+number of stationary cameras by observing a moving object. If we're instead
+moving the cameras, then there're multiple extrinsics vectors for each set of
+intrinsics, and it's not clear what projection uncertainty even means.
+
+We're almost done. How do we get pf[frame] to begin with? By transforming and
+unprojecting in reverse from what's described above. If we're starting with a
+pixel observation q, and we want to know how uncertain this measurement was, we
+unproject q to pcam, transform that to pref and then to pf.
+
+Note a surprising consequence of this: projecting k*pcam in camera coordinates
+always maps to the same pixel coordinate q for any non-zero scalar k. The
+uncertainty DOES depend on k, for instance. If a calibration was computed with
+lots of chessboard observations at some distance from the camera, then the
+uncertainty of projections at THAT distance will be much lower than the
+uncertanties of projections at any other distance.
+
+Alright, so we have Var(q). We could claim victory at that point. But it'd be
+nice to convert Var(q) into a single number that describes my projection
+uncertainty at q. Empirically I see that Var(dq) often describes an eccentric
+ellipse, so I want to look at the length of the major axis of the 1-sigma
+ellipse:
+
+    eig (a b) --> (a-l)*(c-l)-b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
+        (b c)
+
+    --> l = (a+c +- sqrt( a^2+2ac+c^2 - 4ac + 4b^2)) / 2 =
+          = (a+c +- sqrt( a^2-2ac+c^2 + 4b^2)) / 2 =
+          = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
+
+So the worst-case stdev(q) is
+
+    sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
+
+ARGUMENTS
+
+This function accepts an array of camera-referenced points p_cam and some
+representation of parameters and uncertainties (either a single
+mrcal.cameramodel object or all of
+(lensmodel,intrinsics_data,extrinsics_rt_fromref,frames_rt_toref,Var_ief)). And
+a few meta-parameters that describe details of the behavior. This function
+broadcasts on p_cam only. We accept
+
+- p_cam: a numpy array of shape (..., 3). This is the set of camera-coordinate
+  points where we're querying uncertainty. if not assume_infinity: then the full
+  3D coordinates of p_cam are significant, even distance to the camera. if
+  assume_infinity: the distance to the camera is ignored.
+
+- model: a mrcal.cameramodel object containing the intrinsics, extrinsics, frame
+  poses and their covariance. If this isn't given, then each of these MUST be
+  given in a separate argument
+
+- lensmodel: a string describing which lens model we're using. This is something
+  like 'LENSMODEL_OPENCV4'. This is required if and only if model is None
+
+- intrinsics_data: a numpy array of shape (Nintrinsics,) where Nintrinsics is
+  the number of parameters in the intrinsics vector for this lens model,
+  returned by mrcal.getNlensParams(lensmodel). This is required if and only if
+  model is None
+
+- extrinsics_rt_fromref: a numpy array of shape (6,) or None. This is an rt
+  transformation from the reference coordinate system to the camera coordinate
+  system. If None: the camera is at the reference coordinate system. Note that
+  these are the extrinsics AT CALIBRATION TIME. If we moved the camera after
+  calibrating, then this is OK, but for the purposes of uncertainty
+  computations, we care about where the camera used to be. This is required if
+  and only if model is None
+
+- frames_rt_toref: a numpy array of shape (Nframes,6). These are rt
+  transformations from the coordinate system of each calibration object coord
+  system to the reference coordinate system. This array represents ALL the
+  observed chessboards in a calibration optimization problem. This is required
+  if and only if model is None
+
+- Var_ief: a square numpy array with the intrinsics, extrinsics, frame
+  covariance. It is the caller's responsibility to make sure that the dimensions
+  match the frame counts and whether extrinsics_rt_fromref is None or not. This
+  is required if and only if model is None
+
+- assume_infinity: optional boolean, defaults to False. If True, we want to know
+  the projection uncertainty, looking at a point infinitely-far away. We
+  propagate all the uncertainties, ignoring the translation components of the
+  poses
+
+- what: optional string, defaults to 'covariance'. This chooses what kind of
+  output we want. Known options are:
+
+  - 'covariance':           return a full (2,2) covariance matrix Var(q) for
+                            each p_cam
+  - 'worstdirection-stdev': return the worst-direction standard deviation for
+                            each p_cam
+
+  - 'rms-stdev':            return the RMS of the worst and best direction
+                            standard deviations
+
+RETURN VALUE
+
+A numpy array of uncertainties. If p_cam has shape (..., 3) then:
+
+if what == 'covariance': we return an array of shape (..., 2,2)
+else:                    we return an array of shape (...)
     '''
 
     what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
