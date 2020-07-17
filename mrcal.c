@@ -3511,15 +3511,14 @@ static bool compute_uncertainty_matrices(// out
                                                // rotation_only and looking at
                                                // frames
                             {
-                                for(int j=0; j<b->N_at_each_scale; j++ )
-                                {
-                                    for(int icol=0; icol<Nvars_here; icol++)
-                                        invJtJ[(ifinal+icol)*Nvars_ief + jfinal] =
+                                for(int icol=0; icol<Nvars_here; icol++)
+                                    for(int j=0; j<b->N_at_each_scale; j++ )
+                                        invJtJ[(ifinal+icol)*Nvars_ief + jfinal+j] =
                                             ((double*)(M->x))[icol*M->nrow + b->istate0+j_start_this_scale + j] *
                                             scale_left *
                                             observed_pixel_uncertainty*observed_pixel_uncertainty;
-                                    jfinal++;
-                                }
+
+                                jfinal += b->N_at_each_scale;
                             }
                             j_start_this_scale += b->N_at_each_scale;
                             jscale ^= 1;
