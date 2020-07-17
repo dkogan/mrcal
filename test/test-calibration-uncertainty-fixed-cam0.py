@@ -415,11 +415,11 @@ for icam in (0,3):
     Var_dq_inf_ref = \
         mrcal.projection_uncertainty( pcam * 1.0,
                                       model = models_ref[icam],
-                                      assume_infinity = True )
+                                      atinfinity = True )
     Var_dq_inf_moved_written_read = \
         mrcal.projection_uncertainty( pcam * 1.0,
                                       model = model_read,
-                                      assume_infinity = True )
+                                      atinfinity = True )
     testutils.confirm_equal(Var_dq_inf_moved_written_read, Var_dq_inf_ref,
                             eps = 0.001,
                             worstcase = True,
@@ -432,7 +432,7 @@ for icam in (0,3):
     Var_dq_inf_far_ref = \
         mrcal.projection_uncertainty( pcam * 100.0,
                                       model = models_ref[icam],
-                                      assume_infinity = True )
+                                      atinfinity = True )
     testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
                             eps = 0.001,
                             worstcase = True,
@@ -573,8 +573,8 @@ def check_uncertainties_at(q0, distance):
     Var_dq = \
         nps.cat(*[ mrcal.projection_uncertainty( \
             v0_cam[icam] * (distance if not atinfinity else 1.0),
-            assume_infinity = atinfinity,
-            model           = models_ref[icam]) \
+            atinfinity = atinfinity,
+            model      = models_ref[icam]) \
                    for icam in range(Ncameras) ])
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
@@ -700,7 +700,7 @@ if 'study' in args:
     Var_dq_infinity = \
         nps.cat(*[ mrcal.projection_uncertainty( \
             pcam[icam,:,:,0,:], # any range works here
-            assume_infinity = True,
+            atinfinity = True,
             model = models_ref[icam] ) \
                    for icam in range(Ncameras) ])
 

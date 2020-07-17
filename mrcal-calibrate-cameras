@@ -1065,9 +1065,9 @@ def get_valid_intrinsics_region(model, i_camera,
     q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
     pcam = mrcal.unproject(q, *model.intrinsics())
     err  = mrcal.projection_uncertainty(pcam,
-                                        model           = model,
-                                        assume_infinity = True,
-                                        what            = 'worstdirection-stdev' )
+                                        model      = model,
+                                        atinfinity = True,
+                                        what       = 'worstdirection-stdev' )
     try:
 
         sys.stderr.write("These thresholds for the valid-intrinsics-region are completely made up\n")

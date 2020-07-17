@@ -1355,7 +1355,7 @@ def projection_uncertainty( p_cam,
                             # or this
                             model                 = None,
 
-                            assume_infinity       = False,
+                            atinfinity            = False,
 
                             # what we're reporting
                             what = 'covariance'):
@@ -1608,9 +1608,9 @@ a few meta-parameters that describe details of the behavior. This function
 broadcasts on p_cam only. We accept
 
 - p_cam: a numpy array of shape (..., 3). This is the set of camera-coordinate
-  points where we're querying uncertainty. if not assume_infinity: then the full
-  3D coordinates of p_cam are significant, even distance to the camera. if
-  assume_infinity: the distance to the camera is ignored.
+  points where we're querying uncertainty. if not atinfinity: then the full 3D
+  coordinates of p_cam are significant, even distance to the camera. if
+  atinfinity: the distance to the camera is ignored.
 
 - model: a mrcal.cameramodel object containing the intrinsics, extrinsics, frame
   poses and their covariance. If this isn't given, then each of these MUST be
@@ -1643,10 +1643,9 @@ broadcasts on p_cam only. We accept
   match the frame counts and whether extrinsics_rt_fromref is None or not. This
   is required if and only if model is None
 
-- assume_infinity: optional boolean, defaults to False. If True, we want to know
-  the projection uncertainty, looking at a point infinitely-far away. We
-  propagate all the uncertainties, ignoring the translation components of the
-  poses
+- atinfinity: optional boolean, defaults to False. If True, we want to know the
+  projection uncertainty, looking at a point infinitely-far away. We propagate
+  all the uncertainties, ignoring the translation components of the poses
 
 - what: optional string, defaults to 'covariance'. This chooses what kind of
   output we want. Known options are:
@@ -1665,6 +1664,7 @@ A numpy array of uncertainties. If p_cam has shape (..., 3) then:
 
 if what == 'covariance': we return an array of shape (..., 2,2)
 else:                    we return an array of shape (...)
+
     '''
 
     what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
@@ -1704,7 +1704,7 @@ else:                    we return an array of shape (...)
             Var_ief,Var_ief_rotationonly,icam_extrinsics = \
                 mrcal.optimizerCallback( **optimization_inputs,
                                          get_covariances = True )[2:5]
-            if assume_infinity:
+            if atinfinity:
                 Var_ief = Var_ief_rotationonly
 
             # The intrinsics,extrinsics,frames MUST come from the solve when
@@ -1735,8 +1735,8 @@ else:                    we return an array of shape (...)
     # to compute the sensitivities
 
     # Two distinct paths here that are very similar, but different-enough to not
-    # share any code. If assume_infinity, I ignore all translations
-    if not assume_infinity:
+    # share any code. If atinfinity, I ignore all translations
+    if not atinfinity:
         return \
             _projection_uncertainty(p_cam,
                                     lensmodel, intrinsics_data,
@@ -1959,7 +1959,7 @@ into a variable, even if you're not going to be doing anything with this object
 
     err = projection_uncertainty(pcam * (distance if distance is not None else 1.0),
                                  model           = model,
-                                 assume_infinity = distance is None,
+                                 atinfinity      = distance is None,
                                  what            = 'rms-stdev' if isotropic else 'worstdirection-stdev')
     if 'title' not in kwargs:
         if distance is None:
