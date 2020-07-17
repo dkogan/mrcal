@@ -1665,10 +1665,11 @@ else:                    we return an array of shape (...)
 
     # must pass either the model OR all the constituent things I need
     if model is None:
+        # "extrinsics_rt_fromref is None" is allowed: cameras is at the
+        # reference
         if \
            lensmodel             is None or \
            intrinsics_data       is None or \
-           extrinsics_rt_fromref is None or \
            frames_rt_toref       is None or \
            Var_ief               is None:
             raise Exception("Must have been given a model xor all the components; instead got no model and some constituent is missing")
