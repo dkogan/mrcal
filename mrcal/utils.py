@@ -1750,7 +1750,7 @@ def board_observations_at_calibration_time(model):
 SYNOPSIS
 
     model = mrcal.cameramodel("xxx.cameramodel")
-    pcam_inliers, pcam_outliers  = board_observations_at_calibration_time(model)
+    pcam_inliers, pcam_outliers = board_observations_at_calibration_time(model)
 
     print(pcam_inliers.shape)
     ===> (1234, 3)
