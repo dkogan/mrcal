@@ -877,7 +877,39 @@ if calobject_warp is not None:
     report += "calobject_warp = {}\n".format(calobject_warp)
 
 if args.pairs:
-    # Most of this derivation is described in projection_uncertainty():
+
+    #   How do I compute the uncertainty in my extrinsics? This is similar to the
+    #   intrinsics procedures above, but it's simpler on some level: the
+    #   uncertainty in the parameters themselves is meaningful, I don't need to
+    #   propagate that to projection. The derivation works exactly the same way as
+    #   before, and
+
+    #   -> Var(extrinsics) = (inv(JtJ)[extrinsicsrows] J[observations]t)
+    #                        (inv(JtJ)[extrinsicsrows] J[observations]t)t
+    #                        s^2
+
+    #   The frame poses aren't known, however, so the extrinsics aren't defined
+    #   globally and I'm going to want to look at the extrinsics uncertainties of
+    #   some cameras in respect to other cameras. If I don't do this then any
+    #   camera at the coordinate-system reference has infinitely-confident
+    #   extrinsics; which is wrong. An example of what I might want to do: let's
+    #   say I have 4 cameras, with camera0 at the reference (3 sets of
+    #   extrinsics). How do I compute Var(yaw between cameras 2,3)? For simplicity
+    #   let's assume the cameras have relative transformation ~ identity, so yaw ~
+    #   rodrigues[1]. I have relative extrinsics for my cameras: rt20, rt30 ->
+    #   rt23[1] = compose(rt20, invert(rt30))[1]. I linearize this, so that
+    #   locally rt23[1] ~ rt23[1](0) + drt23[1]/drt20 drt20 + drt23[1]/drt30 drt30
+    #   = rt23[1](0) + A drt20 + B drt30 ~ AB drt2030
+
+    #   -> Var(rt23[1]) = AB Var(drt2030) ABt =
+    #                   = AB Mrt2030 Var(qref) Mrt2030t ABt =
+    #                   = AB Mrt2030 W^-2 s^2 Mrt2030t ABt =
+    #                   = AB inv(JtJ)_2030 J[observations]t W W^-2 s^2 W Jobservations inv(JtJ)_2030t ABt =
+    #                   = AB inv(JtJ)_2030 J[observations]t s^2 Jobservations inv(JtJ)_2030t ABt
+
+    #   Thus I make available the full covariance of all the extrinsics variables,
+    #   so that all the pairwise relationships can be observed.
+
     #
     # I have dp = M dqref
     #
