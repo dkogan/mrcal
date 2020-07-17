@@ -489,6 +489,18 @@ extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
 frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
 
 
+def eig_sorted(M):
+    '''like np.linalg.eig() but returns sorted eigenvalues'''
+    l,v = np.linalg.eig(M)
+    l0 = l[   0]
+    l1 = l[   1]
+    v0 = v[:, 0]
+    v1 = v[:, 1]
+    if l0 < l1:
+        l1,l0 = l0,l1
+        v1,v0 = v0,v1
+    return l0,v0, l1,v1
+
 def check_uncertainties_at(q0, distance):
 
     # distance of "None" means I'll simulate a large distance, but compare
@@ -553,9 +565,10 @@ def check_uncertainties_at(q0, distance):
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
-    cov = np.mean( nps.outer(q_sampled-q_sampled_mean,
-                             q_sampled-q_sampled_mean), axis=-4 )
-    worst_direction_stdev_observed = mrcal.worst_direction_stdev(cov)
+    Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
+                                         q_sampled-q_sampled_mean), axis=-4 )
+
+    worst_direction_stdev_observed = mrcal.worst_direction_stdev(Var_dq_observed)
 
     Var_dq = \
         nps.cat(*[ mrcal.projection_uncertainty( \
@@ -579,6 +592,48 @@ def check_uncertainties_at(q0, distance):
                             worstcase = True,
                             relative  = True,
                             msg = f"Predicted worst-case projections match sampled observations at distance = {distancestr}")
+
+    # I now compare the variances. The cross terms have lots of apparent error,
+    # but it's more meaningful to compare the eigenvectors and eigenvalues, so I
+    # just do that
+
+    # First, the thing is symmetric, right?
+    testutils.confirm_equal(nps.transpose(Var_dq),
+                            Var_dq,
+                            worstcase = True,
+                            msg = f"Var(dq) is symmetric at distance = {distancestr}")
+
+    for icam in range(Ncameras):
+        l0,v0, l1,v1 = eig_sorted(Var_dq[icam])
+        l_predicted  = np.array((l0,l1))
+        v0_predicted = v0
+
+        l0,v0, l1,v1 = eig_sorted(Var_dq_observed[icam])
+        l_observed   = np.array((l0,l1))
+        v0_observed  = v0
+
+        testutils.confirm_equal(l_observed,
+                                l_predicted,
+                                eps = 0.35, # high error tolerance. Nsamples is too low for better
+                                worstcase = True,
+                                relative  = True,
+                                msg = f"Var(dq) eigenvalues match for camera {icam} at distance = {distancestr}")
+
+        if icam == 3:
+            # I only check the eigenvectors for camera 3. The other cameras have
+            # isotropic covariances, so the eigenvectors aren't well defined. If
+            # one isn't isotropic for some reason, the eigenvalue check will
+            # fail
+            testutils.confirm_equal(np.arcsin(nps.mag(np.cross(v0_observed,v0_predicted))) * 180./np.pi,
+                                    0,
+                                    eps = 15, # high error tolerance. Nsamples is too low for better
+                                    worstcase = True,
+                                    msg = f"Var(dq) eigenvectors match for camera {icam} at distance = {distancestr}")
+
+            # I don't bother checking v1. I already made sure the matrix is
+            # symmetric. Thus the eigenvectors are orthogonal, so any angle offset
+            # in v0 will be exactly the same in v1
+
     return q_sampled,Var_dq
 
 
@@ -689,17 +744,9 @@ if 'study' in args:
                  ylabel = 'pixel y')
 
 
-
 def get_cov_plot_args(q, Var, what):
 
-    l,v = np.linalg.eig(Var)
-    l0 = l[   0]
-    l1 = l[   1]
-    v0 = v[:, 0]
-    v1 = v[:, 1]
-    if l0 < l1:
-        l1,l0 = l0,l1
-        v1,v0 = v0,v1
+    l0,v0, l1,v1 = eig_sorted(Var)
 
     major       = np.sqrt(l0)
     minor       = np.sqrt(l1)

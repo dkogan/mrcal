@@ -1222,16 +1222,20 @@ def _projection_uncertainty( p_cam,
         if frames_rt_toref is not None:
             dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
 
-            return _projection_uncertainty_make_output( nps.matmult(dq_dintrinsics,
-                                            Var_ief[:Nintrinsics,:Nintrinsics],
-                                            nps.transpose(dq_dintrinsics)) + \
-                                nps.matmult(dq_dintrinsics,
-                                            Var_ief[:Nintrinsics,Nintrinsics+6:],
-                                            nps.transpose(dq_dframes)) * 2. + \
-                                nps.matmult(dq_dframes,
-                                            Var_ief[Nintrinsics+6:,Nintrinsics+6:],
-                                            nps.transpose(dq_dframes)),
-                                what )
+            return _projection_uncertainty_make_output(
+                nps.matmult(dq_dintrinsics,
+                            Var_ief[:Nintrinsics,:Nintrinsics],
+                            nps.transpose(dq_dintrinsics)) + \
+                nps.matmult(dq_dframes,
+                            Var_ief[Nintrinsics+6:,:Nintrinsics],
+                            nps.transpose(dq_dintrinsics)) + \
+                nps.matmult(dq_dintrinsics,
+                            Var_ief[:Nintrinsics,Nintrinsics+6:],
+                            nps.transpose(dq_dframes)) + \
+                nps.matmult(dq_dframes,
+                            Var_ief[Nintrinsics+6:,Nintrinsics+6:],
+                            nps.transpose(dq_dframes)),
+                what )
         else:
             return _projection_uncertainty_make_output( nps.matmult(dq_dintrinsics,
                                             Var_ief[:Nintrinsics,:Nintrinsics],
@@ -1318,16 +1322,20 @@ def _projection_uncertainty_rotationonly( p_cam,
         if frames_rt_toref is not None:
             dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
 
-            return _projection_uncertainty_make_output( nps.matmult(dq_dintrinsics,
-                                            Var_ief[:Nintrinsics,:Nintrinsics],
-                                            nps.transpose(dq_dintrinsics)) + \
-                                nps.matmult(dq_dintrinsics,
-                                            Var_ief[:Nintrinsics,Nintrinsics+3:],
-                                            nps.transpose(dq_dframes)) * 2. + \
-                                nps.matmult(dq_dframes,
-                                            Var_ief[Nintrinsics+3:,Nintrinsics+3:],
-                                            nps.transpose(dq_dframes)),
-                                what )
+            return _projection_uncertainty_make_output(
+                nps.matmult(dq_dintrinsics,
+                            Var_ief[:Nintrinsics,:Nintrinsics],
+                            nps.transpose(dq_dintrinsics)) + \
+                nps.matmult(dq_dframes,
+                            Var_ief[Nintrinsics+3:,:Nintrinsics],
+                            nps.transpose(dq_dintrinsics)) + \
+                nps.matmult(dq_dintrinsics,
+                            Var_ief[:Nintrinsics,Nintrinsics+3:],
+                            nps.transpose(dq_dframes)) + \
+                nps.matmult(dq_dframes,
+                            Var_ief[Nintrinsics+3:,Nintrinsics+3:],
+                            nps.transpose(dq_dframes)),
+                what )
         else:
             return _projection_uncertainty_make_output( nps.matmult(dq_dintrinsics,
                                             Var_ief[:Nintrinsics,:Nintrinsics],
