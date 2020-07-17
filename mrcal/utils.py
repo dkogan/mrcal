@@ -1132,7 +1132,7 @@ def _projection_uncertainty_make_output(var, what):
     r'''Helper for projection uncertainty functions'''
     if what == 'covariance':           return var
     if what == 'worstdirection-stdev': return worst_direction_stdev(var)
-    if what == 'mean-stdev':           return np.sqrt(nps.trace(var)/2.)
+    if what == 'rms-stdev':            return np.sqrt(nps.trace(var)/2.)
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 def _projection_uncertainty( p_cam,
@@ -1427,7 +1427,7 @@ def projection_uncertainty( p_cam,
 
     '''
 
-    what_known = set(('covariance', 'worstdirection-stdev', 'mean-stdev'))
+    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
@@ -1661,7 +1661,7 @@ instead.
 
 For each cell we compute the covariance matrix of the projected (x,y) coords,
 and by default we report the worst-direction standard deviation. If isotropic:
-we report the mean standard deviation instead.
+we report the RMS standard deviation instead.
 
 ARGUMENTS
 
@@ -1686,7 +1686,7 @@ ARGUMENTS
 - isotropic: optional boolean, defaulting to False. We compute the full 2x2
   covariance matrix of the projection. The 1-sigma contour implied by this
   matrix is an ellipse, and we use the worst-case direction by default. If we
-  want the mean size of the ellipse instead of the worst-direction size, pass
+  want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
 - extratitle: optional string to include in the title of the resulting plot
@@ -1719,7 +1719,7 @@ into a variable, even if you're not going to be doing anything with this object
     err = projection_uncertainty(pcam * (distance if distance is not None else 1.0),
                                  model           = model,
                                  assume_infinity = distance is None,
-                                 what            = 'mean-stdev' if isotropic else 'worstdirection-stdev')
+                                 what            = 'rms-stdev' if isotropic else 'worstdirection-stdev')
     if 'title' not in kwargs:
         if distance is None:
             distance_description = ". Looking out to infinity"

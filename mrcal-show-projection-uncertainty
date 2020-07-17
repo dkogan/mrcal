@@ -59,7 +59,7 @@ def parse_args():
                         default=False,
                         help='''By default I display the expected value of the projection error in the worst
                         possible direction of this error. If we want to plot the
-                        mean of the worst and best directions, pass --isotropic.
+                        RMS of the worst and best directions, pass --isotropic.
                         If we assume the errors will apply evenly in all
                         directions, then we can use this metric, which is
                         potentially easier to compute''')
