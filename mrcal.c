@@ -3467,6 +3467,7 @@ static bool compute_uncertainty_matrices(// out
             // the left multiplication S*...
             void compute_invJtJ_chunk_constant_scale_right(double* invJtJ, int istate0, int Nvars, double scale_right, int ifinal)
             {
+                // loop through chunk_size sections of variables
                 while(Nvars)
                 {
                     int Nvars_here = Nvars <= chunk_size ? Nvars : chunk_size;
@@ -3538,6 +3539,8 @@ static bool compute_uncertainty_matrices(// out
                 const block_t* b      = &blocks[iblock];
                 int            i      = 0;
                 int            iscale = 0;
+
+                // loop through constant-scale components of each block: fxy,cxy,r,t
                 while(i<b->N)
                 {
                     double scale_right = b->scale[iscale];
@@ -3557,6 +3560,8 @@ static bool compute_uncertainty_matrices(// out
 
             // process each of the blocks on the right
             int ifinal = 0;
+
+            // loop through blocks: intrinsics-core/intrinsics-distortion/extrinsics/frames
             for(int iblock=0; iblock<Nblocks; iblock++)
             {
                 if(blocks[iblock].istate0 < 0) continue;
