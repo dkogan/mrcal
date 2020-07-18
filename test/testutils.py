@@ -55,7 +55,10 @@ def relative_scale(a,b, eps = 1e-8):
 def relative_diff(a,b, eps = 1e-8):
     return (a - b) / relative_scale(a,b, eps)
 
-def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
+def confirm_equal(x, xref, msg='', eps=1e-6,
+                  relative=False,
+                  worstcase=False,
+                  percentile=None):
     r'''If x is equal to xref, report test success.
 
     msg identifies this check. eps sets the RMS equality tolerance. The x,xref
@@ -68,7 +71,9 @@ def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
                  err = a-b
 
     if worstcase: I look at the worst-case error
-                  err = np.max(np.abs(err))
+                  error = np.max(np.abs(err))
+    elif percentile is not None: I look at the given point in the error distribution
+                  error = np.percentile(np.abs(err), percentile)
     else:         RMS error
                   error = np.sqrt(nps.norm2(err) / len(err))
     '''
@@ -134,6 +139,9 @@ def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
             if worstcase:
                 what = 'worst-case'
                 err  = np.max(np.abs(diff))
+            elif percentile is not None:
+                what = f'{percentile}%-percentile'
+                err  = np.percentile(np.abs(diff), percentile, interpolation='higher')
             else:
                 what = 'RMS'
                 err  = np.sqrt(nps.norm2(diff) / len(diff))
