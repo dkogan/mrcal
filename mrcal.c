@@ -3424,39 +3424,39 @@ static bool compute_uncertainty_matrices(// out
             int istate0_frames     = mrcal_state_index_frame_rt(0,
                                                                 Ncameras_intrinsics, Ncameras_extrinsics,
                                                                 problem_details, lensmodel);
+
+            const
             block_t blocks[] =
                 {
                     // intrinsics_core
-                    { .istate0         = istate0_intrinsics,
+                    { .istate0         = problem_details.do_optimize_intrinsic_core ?
+                                         istate0_intrinsics : -1,
                       .N               = 4,
                       .N_at_each_scale = 2,
                       .scale           = {SCALE_INTRINSICS_FOCAL_LENGTH,
                                           SCALE_INTRINSICS_CENTER_PIXEL} },
                     // intrinsics_distortions
-                    { .istate0         = istate0_intrinsics +
-                      (problem_details.do_optimize_intrinsic_core ? 4 : 0),
+                    { .istate0         = problem_details.do_optimize_intrinsic_distortions ?
+                                         (istate0_intrinsics +
+                                          (problem_details.do_optimize_intrinsic_core ? 4 : 0)) : -1,
                       .N               = Nintrinsics_per_camera_all-4,
                       .N_at_each_scale = Nintrinsics_per_camera_all-4,
                       .scale           = {SCALE_DISTORTION} },
                     // extrinsics
-                    { .istate0         = istate0_extrinsics,
+                    { .istate0         = problem_details.do_optimize_extrinsics ?
+                                         istate0_extrinsics : -1,
                       .N               = Nvars_pose,
                       .N_at_each_scale = 3,
                       .scale           = {SCALE_ROTATION_CAMERA,
                                           SCALE_TRANSLATION_CAMERA} },
                     // frames
-                    { .istate0         = istate0_frames,
+                    { .istate0         = problem_details.do_optimize_frames ?
+                                         istate0_frames : -1,
                       .N               = 6*Nframes,
                       .N_at_each_scale = 3,
                       .scale           = {SCALE_ROTATION_FRAME,
                                           rotation_only ? 0 : SCALE_TRANSLATION_FRAME} }
                 };
-
-            // mask out any variable blocks that I'm not actually optimizing
-            if(!problem_details.do_optimize_intrinsic_core)        blocks[0].istate0 = -1;
-            if(!problem_details.do_optimize_intrinsic_distortions) blocks[1].istate0 = -1;
-            if(!problem_details.do_optimize_extrinsics)            blocks[2].istate0 = -1;
-            if(!problem_details.do_optimize_frames)                blocks[3].istate0 = -1;
 
             int Nblocks = (int)(sizeof(blocks)/sizeof(blocks[0]));
 
