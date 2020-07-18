@@ -102,3 +102,105 @@ def sample_dqref(observations,
     observations_perturbed = observations.copy()
     observations_perturbed[...,:2] += q_noise
     return q_noise, observations_perturbed
+
+def get_var_ief(icam_intrinsics, icam_extrinsics,
+                did_optimize_extrinsics, did_optimize_frames,
+                Nstate_intrinsics_onecam, Nframes,
+                pixel_uncertainty_stdev,
+                rotation_only, solver_context,
+                cache_invJtJ):
+    r'''Computes Var(intrinsics,extrinsics,frames)
+
+    This is returned by the C code, but I reimplement it here in Python to
+    compare. This returns the same kind of arrays that the C code returns. I
+    particular, if we're optimizing extrinsics, BUT some camera is sitting at
+    the reference, I include the rows, columns for the extrinsics arrays, but I
+    set them to 0
+
+    '''
+
+    def apply_slice(arr, i):
+        if isinstance(i, int):
+            return np.zeros( (i,arr.shape[-1]), dtype=arr.dtype)
+        return arr[i]
+
+    def apply_slices(invJtJ, slices):
+        r'''Use the slices[] to cut along both dimensions'''
+
+        cut_vert  = nps.glue( *[apply_slice(invJtJ,                  s) \
+                                for s in slices], axis=-2 )
+        cut_horiz = nps.glue( *[apply_slice(nps.transpose(cut_vert), s) \
+                                for s in slices], axis=-2 )
+        return cut_horiz
+
+
+
+    if cache_invJtJ is not None and cache_invJtJ[0] is not None:
+        invJtJ = cache_invJtJ[0]
+    else:
+
+        # The sensitivity I have is expressed in unitless optimizer-internal
+        # state, but I want it in the full state
+        #
+        # I want Var(p) = Var( D p* ) =
+        #               = D Var(p*) D =
+        #               = D inv(J*t J*) D =
+        #               = D inv( (JD)t JD ) D =
+        #               = D inv(D) inv( JtJ ) inv(D) D =
+        #               = inv(JtJ)
+        # So I make J from J*, and I'm good to go
+        J = solver_context.J().toarray()
+        solver_context.pack(J)
+        invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J), J))
+
+        if cache_invJtJ is not None:
+            cache_invJtJ[0] = invJtJ
+
+    if not did_optimize_extrinsics:
+
+        slices = [ slice(solver_context.state_index_intrinsics(icam_intrinsics ),
+                         solver_context.state_index_intrinsics(icam_intrinsics) + Nstate_intrinsics_onecam) ]
+
+        if did_optimize_frames:
+            if not rotation_only:
+                slices.append( slice(solver_context.state_index_frame_rt(0),
+                                     solver_context.state_index_frame_rt(0) + 6*Nframes) )
+            else:
+                # just the rotation
+                for i in range(Nframes):
+                    slices.append( slice(solver_context.state_index_frame_rt(i),
+                                         solver_context.state_index_frame_rt(i)+3) )
+
+    else:
+        slices = [ slice(solver_context.state_index_intrinsics(icam_intrinsics ),
+                         solver_context.state_index_intrinsics(icam_intrinsics) + Nstate_intrinsics_onecam) ]
+        if not rotation_only:
+            if icam_extrinsics >= 0:
+                slices.append( slice(solver_context.state_index_camera_rt (icam_extrinsics),
+                                     solver_context.state_index_camera_rt (icam_extrinsics) + 6) )
+            else:
+                # this camera is at the reference. A slice of int(x) means "fill
+                # in with x 0s"
+                slices.append(6)
+        else:
+            # just the rotation
+            if icam_extrinsics >= 0:
+                slices.append( slice(solver_context.state_index_camera_rt (icam_extrinsics),
+                                     solver_context.state_index_camera_rt (icam_extrinsics) + 3) )
+            else:
+                # this camera is at the reference. A slice of int(x) means "fill
+                # in with x 0s"
+                slices.append(3)
+
+        if did_optimize_frames:
+            if not rotation_only:
+                slices.append( slice(solver_context.state_index_frame_rt(0),
+                                     solver_context.state_index_frame_rt(0) + 6*Nframes) )
+            else:
+                # just the rotation
+                for i in range(Nframes):
+                    slices.append( slice(solver_context.state_index_frame_rt(i),
+                                         solver_context.state_index_frame_rt(i)+3) )
+    return \
+        pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
+        apply_slices(invJtJ, slices)
