@@ -49,6 +49,12 @@ def print_green(x):
     sys.stdout.write("\x1b[32m" + test_location() + ": " + x + "\x1b[0m\n")
 
 
+def relative_scale(a,b, eps = 1e-8):
+    return (np.abs(a) + np.abs(b)) / 2 + eps
+
+def relative_diff(a,b, eps = 1e-8):
+    return (a - b) / relative_scale(a,b, eps)
+
 def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
     r'''If x is equal to xref, report test success.
 
@@ -121,7 +127,7 @@ def confirm_equal(x, xref, msg='', eps=1e-6, relative=False, worstcase=False):
     if N != 0:
         try:  # I I can subtract, get the error that way
             if relative:
-                diff = (x - xref) / ((np.abs(x)+np.abs(xref))/2 + 1e-8)
+                diff = relative_diff(x, xref)
             else:
                 diff = x - xref
 
