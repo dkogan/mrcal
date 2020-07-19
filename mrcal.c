@@ -3460,123 +3460,102 @@ static bool compute_uncertainty_matrices(// out
 
             int Nblocks = (int)(sizeof(blocks)/sizeof(blocks[0]));
 
+#define LOOP_STATE_BEGIN(istate_covariance, ivar_thisscale, Nvars_at_a_time) \
+            int istate_covariance = 0;                                  \
+            for(int iblock=0; iblock<Nblocks; iblock++)                 \
+            {                                                           \
+                const block_t* b = &blocks[iblock];                     \
+                if(b->istate0 < 0) continue;                            \
+                                                                        \
+                if(iblock == 2 &&                                       \
+                   icam_map_to_extrinsics[icam_state] < 0)              \
+                {                                                       \
+                    /* THIS camera has no extrinsics. I store 0. The buffer has */ \
+                    /* already been zeroed-out, so I don't need to do anything */ \
+                    istate_covariance += Nvars_pose;                    \
+                    continue;                                           \
+                }                                                       \
+                                                                        \
+                int iscale = 0;                                         \
+                for(int ivar_thisscale_begin = 0;                       \
+                    ivar_thisscale_begin < b->N;                        \
+                                                                        \
+                    ivar_thisscale_begin += b->N_at_each_scale,         \
+                    iscale ^= 1)                                        \
+                {                                                       \
+                    double scale = b->scale[iscale];                    \
+                    if(scale <= 0) /* will have scale <= 0 only if */   \
+                                   /* rotation_only and looking at */   \
+                                   /* rotations */                      \
+                        continue;                                       \
+                                                                        \
+                    for(int ivar_thisscale=0;                           \
+                        ivar_thisscale<b->N_at_each_scale;              \
+                        ivar_thisscale += Nvars_at_a_time )
+
+#define LOOP_STATE_END(istate_covariance, ivar_thisscale)               \
+                    istate_covariance += b->N_at_each_scale;            \
+                }                                                       \
+            }
+
+
+
             // I'm computing a subset of inv(JtJ). I select my subset with a
             // matrix S = [0 I 0], so I compute S*invJtJ*St. I loop through cols
             // of St (chunk_size at a time). For each col-subset of St s I solve
             // for x: JtJ*x = s. Then I pick the row-subset of x (to implement)
             // the left multiplication S*...
-            void compute_invJtJ_chunk_constant_scale_right(double* invJtJ, int istate0, int Nvars, double scale_right, int ifinal)
+            //
+            // loop through the variables chunk_size at a time
+            LOOP_STATE_BEGIN(istate_covariance_outer, ivar_thisscale_outer, chunk_size)
             {
-                // loop through chunk_size sections of variables
-                while(Nvars)
+                int Nvars_here =
+                    (b->N_at_each_scale-ivar_thisscale_outer >= chunk_size) ?
+                    chunk_size : (b->N_at_each_scale - ivar_thisscale_outer);
+
+                Jt_slice->ncol = Nvars_here;
+                memset( Jt_slice->x, 0, Jt_slice->nrow*Nvars_here*sizeof(double) );
+                for(int icol=0; icol<Nvars_here; icol++)
                 {
-                    int Nvars_here = Nvars <= chunk_size ? Nvars : chunk_size;
+                    // cholmod stores its matrices col-first so I index by [irow + icol*nrow]
+                    ((double*)Jt_slice->x)[ b->istate0 +
+                                            ivar_thisscale_begin +
+                                            ivar_thisscale_outer +
+                                            icol + icol*Jt_slice->nrow] =
+                        scale;
+                }
 
-                    Jt_slice->ncol = Nvars_here;
-                    memset( Jt_slice->x, 0, Jt_slice->nrow*Nvars_here*sizeof(double) );
-                    for(int icol=0; icol<Nvars_here; icol++)
-                    {
-                        // cholmod stores its matrices col-first so I index by [irow + icol*nrow]
-                        ((double*)Jt_slice->x)[istate0+icol + icol*Jt_slice->nrow] =
-                            scale_right;
-                    }
+                cholmod_dense* M = cholmod_solve( CHOLMOD_A, solver_context->factorization,
+                                                  Jt_slice,
+                                                  &solver_context->common);
 
-                    cholmod_dense* M = cholmod_solve( CHOLMOD_A, solver_context->factorization,
-                                                      Jt_slice,
-                                                      &solver_context->common);
-
+                // loop through each variable at this scale. I don't
+                // need to group them by chunk_size here; one-at-a-time
+                // is just fine
+                LOOP_STATE_BEGIN(istate_covariance_inner, ivar_thisscale_inner, 1)
+                {
                     // I applied the scaling to the right-hand-side. Now I apply
                     // it to the left-hand side
-                    int jfinal = 0;
-                    for(int jblock=0; jblock<Nblocks; jblock++)
-                    {
-                        const block_t* b = &blocks[jblock];
-                        if(b->istate0 < 0) continue;
+                    for(int icol=0; icol<Nvars_here; icol++)
+                        out[icam_out*Nvars_ief*Nvars_ief +
+                            (istate_covariance_outer + ivar_thisscale_outer + icol)*Nvars_ief +
+                            istate_covariance_inner  + ivar_thisscale_inner ]  =
 
-                        if(jblock == 2 &&
-                           icam_map_to_extrinsics[icam_state] < 0)
-                        {
-                            // THIS camera has no extrinsics. I store 0. The buffer has
-                            // already been zeroed-out, so I don't need to do anything
-                            jfinal += Nvars_pose;
-                            continue;
-                        }
-
-
-                        int j_start_this_scale = 0;
-                        int jscale             = 0;
-                        while(j_start_this_scale<b->N)
-                        {
-                            double scale_left = b->scale[jscale];
-                            if(scale_left > 0) // will have scale <= 0 only if
-                                               // rotation_only and looking at
-                                               // frames
-                            {
-                                for(int icol=0; icol<Nvars_here; icol++)
-                                    for(int j=0; j<b->N_at_each_scale; j++ )
-                                        invJtJ[(ifinal+icol)*Nvars_ief + jfinal+j] =
-                                            ((double*)(M->x))[icol*M->nrow + b->istate0+j_start_this_scale + j] *
-                                            scale_left *
-                                            observed_pixel_uncertainty*observed_pixel_uncertainty;
-
-                                jfinal += b->N_at_each_scale;
-                            }
-                            j_start_this_scale += b->N_at_each_scale;
-                            jscale ^= 1;
-                        }
-                    }
-
-                    cholmod_free_dense (&M, &solver_context->common);
-
-                    istate0 += Nvars_here;
-                    ifinal  += Nvars_here;
-                    Nvars   -= Nvars_here;
+                            ((double*)(M->x))[icol*M->nrow +
+                                              b->istate0 +
+                                              ivar_thisscale_begin +
+                                              ivar_thisscale_inner] *
+                            scale *
+                            observed_pixel_uncertainty*observed_pixel_uncertainty;
                 }
+                LOOP_STATE_END(istate_covariance_inner, ivar_thisscale_inner);
+
+                cholmod_free_dense (&M, &solver_context->common);
             }
+            LOOP_STATE_END(istate_covariance_outer, ivar_thisscale_outer);
 
-            void compute_invJtJ_block(double* invJtJ, const int iblock, int* ifinal)
-            {
-                const block_t* b      = &blocks[iblock];
-                int            i      = 0;
-                int            iscale = 0;
-
-                // loop through constant-scale components of each block: fxy,cxy,r,t
-                while(i<b->N)
-                {
-                    double scale_right = b->scale[iscale];
-                    if(scale_right > 0) // will have scale <= 0 only if
-                                        // rotation_only and looking at frames
-                    {
-                        compute_invJtJ_chunk_constant_scale_right(invJtJ, b->istate0+i,
-                                                                  b->N_at_each_scale,
-                                                                  scale_right,
-                                                                  *ifinal);
-                        *ifinal += b->N_at_each_scale;
-                    }
-                    iscale ^= 1;
-                    i      += b->N_at_each_scale;
-                }
-            }
-
-            // process each of the blocks on the right
-            int ifinal = 0;
-
-            // loop through blocks: intrinsics-core/intrinsics-distortion/extrinsics/frames
-            for(int iblock=0; iblock<Nblocks; iblock++)
-            {
-                if(blocks[iblock].istate0 < 0) continue;
-
-                if(iblock == 2 &&
-                   icam_map_to_extrinsics[icam_state] < 0)
-                {
-                    // THIS camera has no extrinsics. I store 0. The buffer has
-                    // already been zeroed-out, so I don't need to do anything
-                    ifinal += Nvars_pose;
-                    continue;
-                }
-
-                compute_invJtJ_block(&out[icam_out*Nvars_ief*Nvars_ief], iblock, &ifinal);
-            }
+#undef LOOP_STATE_BEGIN
+#undef LOOP_STATE_END
         }
 
         if(icam_intrinsics_covariances_ief < 0)
