@@ -82,7 +82,6 @@ def optimize( intrinsics,
         covariance_intrinsics, covariance_extrinsics, covariances_ief, covariances_ief_rotationonly, \
         solver_context
 
-
 def sample_dqref(observations,
                  pixel_uncertainty_stdev,
                  make_outliers = False):
@@ -204,3 +203,9 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
     return \
         pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
         apply_slices(invJtJ, slices)
+
+def sorted_eig(C):
+    'like eig(), but the results are sorted by eigenvalue'
+    l,v = np.linalg.eig(covariances_ief[0])
+    i = np.argsort(l)
+    return l[i], v[:,i]
