@@ -2756,7 +2756,10 @@ element (difference consists of N separate polygons)
         if not (p.interiors and len(p.interiors)):
             # No hole. Return the coords, if they exist
             try:
-                return [np.array(p.exterior.coords)]
+                coords = p.exterior.coords
+                if len(coords) == 0:
+                    return []
+                return [np.array(coords)]
             except:
                 return []
 
