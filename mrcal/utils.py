@@ -4176,54 +4176,112 @@ which mrcal.optimize() expects
     return observations, indices_frame_camera, files_sorted
 
 
-def estimate_local_calobject_poses( indices_frame_camera,
-                                    observations,
-                                    object_spacing,
-                                    object_width_n,object_height_n,
-                                    models_or_intrinsics ):
-    r"""Estimates pose of observed object in a single-camera view
+def estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
+                                                 observations,
+                                                 object_spacing,
+                                                 models_or_intrinsics ):
+    r"""Estimate the poses of a calibration object from monocular views
 
-    Given observations, and an estimate of camera intrinsics (focal
-    lengths/imager size/model) computes an estimate of the pose of the
-    calibration object in respect to the camera for each frame. This assumes
-    that all frames are independent and all cameras are independent. This
-    assumes a pinhole camera.
+SYNOPSIS
 
-    This function is a wrapper around the solvePnP() openCV call, which does all
-    the work.
+    print( indices_frame_camera.shape )
+    ===>
+    (123, 2)
 
-    The observations are given in a numpy array with axes:
+    print( observations.shape )
+    ===>
+    (123, 3)
 
-      (iframe, icorner_x, icorner_y, idot2d_xyweight)
+    models = [mrcal.cameramodel(f) for f in ("cam0.cameramodel",
+                                             "cam1.cameramodel")]
 
-    So as an example, the observed pixel coord of the dot (3,4) in frame index 5
-    is the 2-vector observations[5,3,4,:2] with weight observations[5,3,4,2]
+    # Estimated poses of the calibration object from monocular observations
+    Rt_camera_frame = \
+        mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
+                                                           observations,
+                                                           object_spacing,
+                                                           models)
 
-    Missing observations are given as negative pixel coords.
+    print( Rt_camera_frame.shape )
+    ===>
+    (123, 4, 3)
 
-    This function returns an (Nobservations,4,3) array, with the observations
-    aligned with the observations and indices_frame_camera arrays. Each observation
-    slice is (4,3) in glue(R, t, axis=-2)
+    i_observation = 10
+    i_camera = indices_frame_camera[i_observation,1]
 
-    The camera models are given in the "models_or_intrinsics" argument as a list
-    of either:
+    # The calibration object in its reference coordinate system
+    calobject = mrcal.get_ref_calibration_object(object_width_n,
+                                                 object_height_n,
+                                                 object_spacing)
 
-    - cameramodel object
-    - (lensmodel,intrinsics_data) tuple
+    # The estimated location of the calibration object in the observing camera
+    # coordinate system
+    pcam = mrcal.transform_point_Rt( Rt_camera_frame[i_observation],
+                                     calobject )
 
-    Note that this assumes we're solving a calibration problem (stationary
-    cameras) observing a moving object, so uses indices_frame_camera, not
-    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
+    # The pixel observations we would see if the calibration object pose was
+    # where it was estimated to be
+    q = mrcal.project(pcam, *models[i_camera].intrinsics())
+
+    # The reprojection error, comparing these hypothesis pixel observations from
+    # what we actually observed. We estimated the calibration object pose from
+    # the observations, so this should be small
+    err = q - observations[i_observation][:2]
+
+    print( np.linalg.norm(err) )
+    ===>
+    [something small]
+
+mrcal solves camera calibration problems by iteratively optimizing a nonlinear
+least squares problem. This requires an initial "seed", an initial estimate of
+the solution. This function is a part of that computation. Since this is just an
+initial estimate that will be refined, the results of this function do not need
+to be exact.
+
+We have pixel observations of a known calibration object, and we want to
+estimate the pose of this object in space that produced these observations. This
+function ingests a number of such observations, and solves this "PnP problem"
+separately for each one. The observations may come from any lens model;
+everything is reprojected to a pinhole model first. This function is a wrapper
+around the solvePnP() openCV call, which does all the work.
+
+ARGUMENTS
+
+- indices_frame_camera: an array of shape (Nobservations,2) and dtype
+  numpy.int32. Each row (i_frame,i_camera) represents an observation of a
+  calibration object by camera i_camera. i_frame is not used by this function
+
+- observations: an array of shape
+  (Nobservations,object_height_n,object_width_n,3). Each observation corresponds
+  to a row in indices_frame_camera, and contains a row of shape (3,) for each
+  point in the calibration object. Each row is (x,y,weight) where x,y are the
+  observed pixel coordinates. Any point where x<0 or y<0 or weight<0 is ignored.
+  This is the only use of the weight in this function.
+
+- object_spacing: the distance between adjacent points in the calibration
+  object. A square object is assumed, so the vertical and horizontal distances
+  are assumed to be identical. Usually we need the object dimensions in the
+  object_height_n,object_width_n arguments, but here we get those from the shape
+  of the observations array
+
+- models_or_intrinsics: either
+
+  - a list of mrcal.cameramodel objects from which we use the intrinsics
+  - a list of (lensmodel,intrinsics_data) tuples
+
+  These are indexed by i_camera from indices_frame_camera
+
+RETURNED VALUE
+
+An array of shape (Nobservations,4,3). Each slice is an Rt transformation TO the
+camera coordinate system FROM the calibration object coordinate system.
 
     """
-
-    # For now I ignore all the weights
-    observations = observations[..., :2]
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
     lensmodels_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
-    lensmodels     = [di[0] for di in lensmodels_intrinsics_data]
+    lensmodels      = [di[0] for di in lensmodels_intrinsics_data]
     intrinsics_data = [di[1] for di in lensmodels_intrinsics_data]
 
     if not all([mrcal.getLensModelMeta(m)['has_core'] for m in lensmodels]):
@@ -4234,21 +4292,24 @@ def estimate_local_calobject_poses( indices_frame_camera,
     cx = [ i[2] for i in intrinsics_data ]
     cy = [ i[3] for i in intrinsics_data ]
 
+    Nobservations = indices_frame_camera.shape[0]
+
+    # Reproject all the observations to a pinhole model
     observations = observations.copy()
-    for i_observation in range(len(observations)):
+    for i_observation in range(Nobservations):
         i_camera = indices_frame_camera[i_observation,1]
 
-        v = mrcal.unproject(observations[i_observation,...],
+        v = mrcal.unproject(observations[i_observation,...,:2],
                             lensmodels[i_camera], intrinsics_data[i_camera])
-        observations[i_observation,...] = mrcal.project(v, 'LENSMODEL_PINHOLE',
-                                                        intrinsics_data[i_camera][:4])
-
-
-    Nobservations = indices_frame_camera.shape[0]
+        observations[i_observation,...,:2] = \
+            mrcal.project(v, 'LENSMODEL_PINHOLE',
+                          intrinsics_data[i_camera][:4])
 
     # this wastes memory, but makes it easier to keep track of which data goes
     # with what
     Rt_cf_all = np.zeros( (Nobservations, 4, 3), dtype=float)
+
+    object_height_n,object_width_n = observations.shape[1:3]
 
     # No calobject_warp. Good-enough for the seeding
     full_object = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing)
@@ -4259,19 +4320,25 @@ def estimate_local_calobject_poses( indices_frame_camera,
         camera_matrix = np.array((( fx[i_camera], 0,            cx[i_camera]), \
                                   ( 0,            fy[i_camera], cy[i_camera]), \
                                   ( 0,            0,            1.)))
+
+        # shape (Nh,Nw,3)
         d = observations[i_observation, ...]
 
-        d = nps.clump( nps.glue(d, full_object, axis=-1), n=2)
-        # d is (object_height_n*object_width_n,5); each row is an xy pixel observation followed by the xyz
-        # coord of the point in the calibration object. I pick off those rows
-        # where the observations are both >= 0. Result should be (N,5) where N
-        # <= object_height_n*object_width_n
-        i = (d[..., 0] >= 0) * (d[..., 1] >= 0)
+        # shape (Nh,Nw,6); each row is an x,y,weight pixel observation followed
+        # by the xyz coord of the point in the calibration object
+        d = nps.glue(d, full_object, axis=-1)
+
+        # shape (Nh*Nw,6)
+        d = nps.clump( d, n=2)
+
+        # I pick off those rows where the point observation is valid. Result
+        # should be (N,6) where N <= object_height_n*object_width_n
+        i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0)
         d = d[i,:]
 
         # copying because cv2.solvePnP() requires contiguous memory apparently
         observations_local = np.array(d[:,:2][..., np.newaxis])
-        ref_object         = np.array(d[:,2:][..., np.newaxis])
+        ref_object         = np.array(d[:,3:][..., np.newaxis])
         result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
                                         np.array(observations_local),
                                         camera_matrix, None)
@@ -4307,7 +4374,6 @@ def estimate_local_calobject_poses( indices_frame_camera,
         # sys.exit()
 
         Rt_cf_all[i_observation, :, :] = Rt_cf
-
 
     return Rt_cf_all
 
@@ -4727,11 +4793,10 @@ def make_seed_no_distortion( imagersizes,
     intrinsics = [('LENSMODEL_PINHOLE', np.array((focal_estimate,focal_estimate, (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
                   for imagersize in imagersizes]
     calobject_poses_local_Rt_cf = \
-        mrcal.estimate_local_calobject_poses( indices_frame_camera,
-                                              observations,
-                                              object_spacing,
-                                              object_width_n, object_height_n,
-                                              intrinsics)
+        mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
+                                                           observations,
+                                                           object_spacing,
+                                                           intrinsics)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
 

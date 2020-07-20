@@ -634,12 +634,10 @@ def solve_initial(args, seedmodels, imagersizes,
         # monocular observations. This is what mrcal.make_seed_no_distortion()
         # does in the no-seed-available case
         calobject_poses_local_Rt_cf = \
-            mrcal.estimate_local_calobject_poses( indices_frame_camera,
-                                                  observations,
-                                                  args.object_spacing,
-                                                  args.object_width_n,
-                                                  args.object_height_n,
-                                                  seedmodels)
+            mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
+                                                               observations,
+                                                               args.object_spacing,
+                                                               seedmodels)
         frames = \
             mrcal.estimate_frame_poses_from_monocular_views(
                 calobject_poses_local_Rt_cf, extrinsics,
