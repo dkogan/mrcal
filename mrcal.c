@@ -24,12 +24,37 @@
 // order of magnitute. This is important because the dogleg solve treats the
 // trust region as a ball in state space, and this ball is isotrophic, and has a
 // radius that applies in every direction
+//
+// Can be visualized like this:
+//
+//   model = mrcal.cameramodel("xxx.cameramodel")
+//   x,Jpacked = mrcal.optimizerCallback( **model.optimization_inputs() )
+//   Jpacked = Jpacked.toarray()
+//   gp.plotimage(np.abs(Jpacked))
+//
+// This visualized the PACKED jacobian: the active variables should be ~ 1. This
+// is very rough, obviously. But if some set of variables is consistently 100x
+// the magnitude of some others, that should be fixed.
+//
+// The scipy.optimize.least_squares() function claims to be able to estimate
+// these automatically, without requiring these hard-coded values from the user.
+// See the description of the "x_scale" argument:
+//
+//   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
+//
+// Supposedly this paper describes the method:
+//
+//   J. J. More, "The Levenberg-Marquardt Algorithm: Implementation and Theory,"
+//   Numerical Analysis, ed. G. A. Watson, Lecture Notes in Mathematics 630,
+//   Springer Verlag, pp. 105-116, 1977.
+//
+// Please somebody look at this
 #define SCALE_INTRINSICS_FOCAL_LENGTH 500.0
 #define SCALE_INTRINSICS_CENTER_PIXEL 20.0
 #define SCALE_ROTATION_CAMERA         (0.1 * M_PI/180.0)
 #define SCALE_TRANSLATION_CAMERA      1.0
 #define SCALE_ROTATION_FRAME          (15.0 * M_PI/180.0)
-#define SCALE_TRANSLATION_FRAME       100.0
+#define SCALE_TRANSLATION_FRAME       1.0
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 #define SCALE_CALOBJECT_WARP          0.01
 
