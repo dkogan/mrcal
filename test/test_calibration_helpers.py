@@ -138,8 +138,28 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
         invJtJ = cache_invJtJ[0]
     else:
 
-        # The sensitivity I have is expressed in unitless optimizer-internal
-        # state, but I want it in the full state
+        # The docstring of projection_uncertainty() has the full derivation of
+        # the uncertainty expressions:
+        #
+        #   Var(p) = inv(JtJ) J[observations]t J[observations] inv(JtJ)
+        #
+        # In the special case where the measurements consist entirely of
+        # observation discrepancies (i.e. no regularization terms) we can
+        # simplify:
+        #
+        #   Var(p) = inv(JtJ) J[observations]t J[observations] inv(JtJ)
+        #          = inv(JtJ) JtJ inv(JtJ)
+        #          = inv(JtJ)
+        #
+        # These expressions all use unitless optimizer-internal state, but I
+        # want it in the full state. So using * to denote unitless state I
+        # actually have:
+        #
+        #   Var(p*) = inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+        #
+        # or
+        #
+        #   Var(p*) = inv(J*tJ*)
         #
         # I want Var(p) = Var( D p* ) =
         #               = D Var(p*) D =
@@ -147,10 +167,16 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
         #               = D inv( (JD)t JD ) D =
         #               = D inv(D) inv( JtJ ) inv(D) D =
         #               = inv(JtJ)
-        # So I make J from J*, and I'm good to go
-        J = solver_context.J().toarray()
-        solver_context.pack(J)
-        invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J), J))
+        #
+        # Similarly for the more complex with-regularization expression. So I
+        # make J from J*, and I'm good to go
+
+        Jpacked = solver_context.J().toarray()
+        J       = Jpacked.copy()
+        solver_context.pack(J) # pack(), not unpack() because the packed variables are in the denominator
+
+        M = nps.matmult(nps.transpose(J), J)
+        invJtJ = np.linalg.inv(M)
 
         if cache_invJtJ is not None:
             cache_invJtJ[0] = invJtJ
