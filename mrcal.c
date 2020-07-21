@@ -3079,12 +3079,11 @@ static int cholmod_error_callback(const char* s, ...)
 // My matrices are large and sparse. Thus I compute the blocks of M Mt that I
 // need here, and return these densely to the upper levels (python).
 //
-// Note that libdogleg sees everything in the unitless space of scaled
-// parameters, and I want this scaling business to be contained in the C code,
-// and to not leak out to python. Let's say I have parameters p and their
-// unitless scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. So I need
-// to be sure to pre- and post-multiply by D before returning stuff to the upper
-// level
+// The optimizer sees everything in the unitless space of scaled parameters, so
+// we actually have J* and the factorization of J*tJ*. I want to return the
+// full-state covariances. Let's say I have parameters p and their unitless
+// scaled versions p*. dp = D dp*. So Var(dp) = D Var(dp*) D. So I need to be
+// sure to pre- and post-multiply by D before returning stuff to the upper level
 
 
 // The returned matrices are symmetric, but I return both halves for now. I
