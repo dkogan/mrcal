@@ -107,7 +107,7 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
                 Nstate_intrinsics_onecam, Nframes,
                 pixel_uncertainty_stdev,
                 rotation_only, solver_context,
-                cache_invJtJ):
+                cache_var_full):
     r'''Computes Var(intrinsics,extrinsics,frames)
 
     This is returned by the C code, but I reimplement it here in Python to
@@ -123,10 +123,10 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
             return np.zeros( (i,arr.shape[-1]), dtype=arr.dtype)
         return arr[i]
 
-    def apply_slices(invJtJ, slices):
+    def apply_slices(var_full, slices):
         r'''Use the slices[] to cut along both dimensions'''
 
-        cut_vert  = nps.glue( *[apply_slice(invJtJ,                  s) \
+        cut_vert  = nps.glue( *[apply_slice(var_full,                  s) \
                                 for s in slices], axis=-2 )
         cut_horiz = nps.glue( *[apply_slice(nps.transpose(cut_vert), s) \
                                 for s in slices], axis=-2 )
@@ -134,8 +134,8 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
 
 
 
-    if cache_invJtJ is not None and cache_invJtJ[0] is not None:
-        invJtJ = cache_invJtJ[0]
+    if cache_var_full is not None and cache_var_full[0] is not None:
+        var_full = cache_var_full[0]
     else:
 
         # The docstring of projection_uncertainty() has the full derivation of
@@ -176,10 +176,10 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
         solver_context.pack(J) # pack(), not unpack() because the packed variables are in the denominator
 
         M = nps.matmult(nps.transpose(J), J)
-        invJtJ = np.linalg.inv(M)
+        var_full = np.linalg.inv(M)
 
-        if cache_invJtJ is not None:
-            cache_invJtJ[0] = invJtJ
+        if cache_var_full is not None:
+            cache_var_full[0] = var_full
 
     if not did_optimize_extrinsics:
 
@@ -228,7 +228,7 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
                                          solver_context.state_index_frame_rt(i)+3) )
     return \
         pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
-        apply_slices(invJtJ, slices)
+        apply_slices(var_full, slices)
 
 def sorted_eig(C):
     'like eig(), but the results are sorted by eigenvalue'

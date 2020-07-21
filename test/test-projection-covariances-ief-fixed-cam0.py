@@ -187,7 +187,7 @@ else:
                   extrinsics_ref,
                   axis = -2)
 
-cache_invJtJ = [None]
+cache_var_full = [None]
 
 covariances_ief_ref_rt = \
     [ get_var_ief(icam_intrinsics          = icam_intrinsics,
@@ -199,7 +199,7 @@ covariances_ief_ref_rt = \
                   pixel_uncertainty_stdev  = pixel_uncertainty_stdev,
                   rotation_only            = False,
                   solver_context           = solver_context,
-                  cache_invJtJ             = cache_invJtJ) for icam_intrinsics in range(Ncameras) ]
+                  cache_var_full           = cache_var_full) for icam_intrinsics in range(Ncameras) ]
 
 covariances_ief_ref_r = \
     [ get_var_ief(icam_intrinsics          = icam_intrinsics,
@@ -211,7 +211,7 @@ covariances_ief_ref_r = \
                   pixel_uncertainty_stdev  = pixel_uncertainty_stdev,
                   rotation_only            = True,
                   solver_context           = solver_context,
-                  cache_invJtJ             = cache_invJtJ) for icam_intrinsics in range(Ncameras) ]
+                  cache_var_full           = cache_var_full) for icam_intrinsics in range(Ncameras) ]
 
 for i in range(Ncameras):
     testutils.confirm_equal(covariances_ief[i], covariances_ief_ref_rt[i],
