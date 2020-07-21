@@ -640,8 +640,8 @@ def solve_initial(args, seedmodels, imagersizes,
             mrcal.estimate_frame_poses_from_monocular_views(
                 calobject_poses_local_Rt_cf, extrinsics,
                 indices_frame_camera,
-                args.object_spacing,
-                args.object_width_n,args.object_height_n)
+                args.object_width_n,args.object_height_n,
+                args.object_spacing)
 
     def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \

@@ -174,9 +174,9 @@ Nsamples = 90
 
 # p = mrcal.show_calibration_geometry(models_ref,
 #                                     frames          = frames_ref,
-#                                     object_spacing  = object_spacing,
 #                                     object_width_n  = object_width_n,
-#                                     object_height_n = object_height_n)
+#                                     object_height_n = object_height_n,
+#                                     object_spacing  = object_spacing)
 # sys.exit()
 
 

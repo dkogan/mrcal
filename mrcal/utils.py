@@ -457,9 +457,9 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               points                      = None,
 
                               axis_scale         = 1.0,
-                              object_spacing     = 0,
                               object_width_n     = None,
                               object_height_n    = None,
+                              object_spacing     = 0,
                               calobject_warp     = None,
                               point_labels       = None,
 
@@ -606,9 +606,9 @@ into a variable, even if you're not going to be doing anything with this object
         # Use the data from the model if everything I need was valid
         if _frames_rt_toref is not None:
             frames_rt_toref = _frames_rt_toref
-            object_spacing  = _object_spacing
             object_width_n  = _object_width_n
             object_height_n = _object_height_n
+            object_spacing  = _object_spacing
             calobject_warp  = _calobject_warp
 
     if frames_rt_toref is not None:
@@ -1793,9 +1793,9 @@ Returns a tuple:
     if optimization_inputs is None:
         return Exception("The given model doesn't contain optimization_inputs, so this function doesn't have any data to work with")
 
-    object_spacing      = optimization_inputs['calibration_object_spacing']
     object_width_n      = optimization_inputs['calibration_object_width_n']
     object_height_n     = optimization_inputs['calibration_object_height_n']
+    object_spacing      = optimization_inputs['calibration_object_spacing']
     calobject_warp      = optimization_inputs['calobject_warp']
     # shape (Nh,Nw,3)
     full_object         = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing)
@@ -4648,8 +4648,9 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
 def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
                                               extrinsics_rt_fromref,
-                                              indices_frame_camera, object_spacing,
-                                              object_width_n, object_height_n):
+                                              indices_frame_camera,
+                                              object_width_n, object_height_n,
+                                              object_spacing):
     r'''Estimate poses of the calibration object using no extrinsic information
 
     We're given
@@ -4828,8 +4829,8 @@ def make_seed_no_distortion( imagersizes,
         mrcal.estimate_frame_poses_from_monocular_views(
             calobject_poses_local_Rt_cf, extrinsics,
             indices_frame_camera,
-            object_spacing,
-            object_width_n, object_height_n)
+            object_width_n, object_height_n,
+            object_spacing)
 
     return intrinsics_data,extrinsics,frames
 
