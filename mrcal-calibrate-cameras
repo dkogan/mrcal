@@ -611,8 +611,8 @@ def solve_initial(args, seedmodels, imagersizes,
         # I keep the relative camera poses constant, but place camera0 at the
         # origin
         Rt_r0 = seedmodels[0].extrinsics_Rt_toref()
-        extrinsics = \
-            nps.cat( *[ mrcal.rt_from_Rt( mrcal.compose_Rt( m.extrinsics_Rt_fromref(),Rt_r0))
+        extrinsics_Rt = \
+            nps.cat( *[ mrcal.compose_Rt( m.extrinsics_Rt_fromref(),Rt_r0)
                         for m in seedmodels[1:]])
 
         # I have a GOOD extrinsics estimate, so I could compute a GOOD frame
@@ -637,8 +637,8 @@ def solve_initial(args, seedmodels, imagersizes,
                                                                args.object_spacing,
                                                                seedmodels)
         frames = \
-            mrcal.estimate_frame_poses_from_monocular_views(
-                calobject_poses_local_Rt_cf, extrinsics,
+            mrcal.estimate_joint_frame_poses(
+                calobject_poses_local_Rt_cf, extrinsics_Rt,
                 indices_frame_camera,
                 args.object_width_n,args.object_height_n,
                 args.object_spacing)
@@ -678,6 +678,8 @@ def solve_initial(args, seedmodels, imagersizes,
 
     print("=================== optimizing everything{}from seeded intrinsics". \
           format(" except board warp " if args.optimize_calobject_warp else " "))
+
+    extrinsics = mrcal.rt_from_Rt(extrinsics_Rt)
 
     stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
                            observations, indices_frame_camintrinsics_camextrinsics,

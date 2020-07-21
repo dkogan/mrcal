@@ -201,11 +201,13 @@ The edges we DO have are at (0,N-1), so the equivalent expression is
 
 ARGUMENTS
 
-- W: how many corners we have in the horizontal direction
+- W: how many points we have in the horizontal direction
 
-- H: how many corners we have in the vertical direction
+- H: how many points we have in the vertical direction
 
-- object_spacing: the distance between adjacent corners
+- object_spacing: the distance between adjacent points in the calibration
+  object. A square object is assumed, so the vertical and horizontal distances
+  are assumed to be identical.
 
 - calobject_warp: optional array of shape (2,) defaults to None. Describes the
   warping of the calibration object. If None, the object is flat. If an array is
@@ -289,9 +291,11 @@ ARGUMENTS
 
 - object_width_n:  the number of horizontal points in the calibration object grid
 
-- object_height_n: the number of vertical   points in the calibration object grid
+- object_height_n: the number of vertical points in the calibration object grid
 
-- object_spacing: the distance between adjacent points in the calibration object grid
+- object_spacing: the distance between adjacent points in the calibration
+  object. A square object is assumed, so the vertical and horizontal distances
+  are assumed to be identical.
 
 - calobject_warp: a description of the calibration board warping. None means "no
   warping": the object is flat. Otherwise this is an array of shape (2,). See
@@ -530,8 +534,9 @@ ARGUMENTS
 - object_height_n: the number of vertical points in the calibration object grid.
   Required only if frames_rt_toref is not None
 
-- object_spacing: the distance between adjacent points in the calibration object
-  grid. Required only if frames_rt_toref is not None
+- object_spacing: the distance between adjacent points in the calibration
+  object. A square object is assumed, so the vertical and horizontal distances
+  are assumed to be identical. Required only if frames_rt_toref is not None
 
 - calobject_warp: optional (2,) array describing the calibration board warping.
   None means "no warping": the object is flat. Used only if frames_rt_toref is
@@ -4180,7 +4185,7 @@ def estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
                                                  observations,
                                                  object_spacing,
                                                  models_or_intrinsics ):
-    r"""Estimate the poses of a calibration object from monocular views
+    r"""Estimate camera-referenced poses of the calibration object from monocular views
 
 SYNOPSIS
 
@@ -4214,8 +4219,8 @@ SYNOPSIS
                                                  object_height_n,
                                                  object_spacing)
 
-    # The estimated location of the calibration object in the observing camera
-    # coordinate system
+    # The estimated calibration object points in the observing camera coordinate
+    # system
     pcam = mrcal.transform_point_Rt( Rt_camera_frame[i_observation],
                                      calobject )
 
@@ -4233,17 +4238,19 @@ SYNOPSIS
     [something small]
 
 mrcal solves camera calibration problems by iteratively optimizing a nonlinear
-least squares problem. This requires an initial "seed", an initial estimate of
-the solution. This function is a part of that computation. Since this is just an
-initial estimate that will be refined, the results of this function do not need
-to be exact.
+least squares problem to bring the pixel observation predictions inline with
+actual pixel observations. This requires an initial "seed", an initial estimate
+of the solution. This function is a part of that computation. Since this is just
+an initial estimate that will be refined, the results of this function do not
+need to be exact.
 
 We have pixel observations of a known calibration object, and we want to
-estimate the pose of this object in space that produced these observations. This
-function ingests a number of such observations, and solves this "PnP problem"
-separately for each one. The observations may come from any lens model;
-everything is reprojected to a pinhole model first. This function is a wrapper
-around the solvePnP() openCV call, which does all the work.
+estimate the pose of this object in the coordinate system of the camera that
+produced these observations. This function ingests a number of such
+observations, and solves this "PnP problem" separately for each one. The
+observations may come from any lens model; everything is reprojected to a
+pinhole model first. This function is a wrapper around the solvePnP() openCV
+call, which does all the work.
 
 ARGUMENTS
 
@@ -4646,60 +4653,154 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
     return np.ascontiguousarray(nps.cat(*Rt_0c))
 
 
-def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
-                                              extrinsics_rt_fromref,
-                                              indices_frame_camera,
-                                              object_width_n, object_height_n,
-                                              object_spacing):
-    r'''Estimate poses of the calibration object using no extrinsic information
+def estimate_joint_frame_poses(calobject_Rt_camera_frame,
+                               extrinsics_Rt_fromref,
+                               indices_frame_camera,
+                               object_width_n, object_height_n,
+                               object_spacing):
 
-    We're given
+    r'''Estimate world-referenced poses of the calibration object
 
-    calobject_poses_local_Rt_cf:
+SYNOPSIS
 
-      an array of dimensions (Nobservations,4,3) that contains a
-      camera-from-calobject transformation estimate, for each observation of the
-      board
+    print( calobject_Rt_camera_frame.shape )
+    ===>
+    (123, 4,3)
 
-    extrinsics_rt_fromref:
+    print( extrinsics_Rt_fromref.shape )
+    ===>
+    (2, 4,3)
+    # We have 3 cameras. The first one is at the reference coordinate system,
+    # the pose estimates of the other two are in this array
 
-      an array of dimensions (Ncameras-1,6) that contains a camerai-from-camera0
-      transformation estimate. camera0-from-camera0 is the identity, so this isn't
-      stored
+    print( indices_frame_camera.shape )
+    ===>
+    (123, 2)
 
-    indices_frame_camera:
+    frames_rt_toref = \
+        mrcal.estimate_joint_frame_poses(calobject_Rt_camera_frame,
+                                         extrinsics_Rt_fromref,
+                                         indices_frame_camera,
+                                         object_width_n, object_height_n,
+                                         object_spacing)
 
-      an array of shape (Nobservations,2) that indicates which frame and which
-      camera has observed the board
+    print( frames_rt_toref.shape )
+    ===>
+    (87, 6)
 
-    With this data, I return an array of shape (Nframes,6) that contains an
-    estimate of the pose of each frame, in the camera0 coord system. Each row is
-    (r,t) where r is a Rodrigues rotation and t is a translation that map points
-    in the calobject coord system to that of camera 0
+    # We have 123 observations of the calibration object by ANY camera. 87
+    # instances of time when the object was observed. Most of the time it was
+    # observed by multiple cameras simultaneously, hence 123 > 87
 
-    Note that this assumes we're solving a calibration problem (stationary
-    cameras) observing a moving object, so uses indices_frame_camera, not
-    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
+    i_observation = 10
+    i_frame,i_camera = indices_frame_camera[i_observation, :]
+
+    # The calibration object in its reference coordinate system
+    calobject = mrcal.get_ref_calibration_object(object_width_n,
+                                                 object_height_n,
+                                                 object_spacing)
+
+    # The estimated calibration object points in the reference coordinate
+    # system, for this one observation
+    pref = mrcal.transform_point_rt( frames_rt_toref[i_frame],
+                                     calobject )
+
+    # The estimated calibration object points in the camera coord system. Camera
+    # 0 is at the reference
+    if i_camera >= 1:
+        pcam = mrcal.transform_point_Rt( extrinsics_Rt_fromref[i_camera-1],
+                                         pref )
+    else:
+        pcam = pref
+
+    # The pixel observations we would see if the pose estimates were correct
+    q = mrcal.project(pcam, *models[i_camera].intrinsics())
+
+    # The reprojection error, comparing these hypothesis pixel observations from
+    # what we actually observed. This should be small
+    err = q - observations[i_observation][:2]
+
+    print( np.linalg.norm(err) )
+    ===>
+    [something small]
+
+mrcal solves camera calibration problems by iteratively optimizing a nonlinear
+least squares problem to bring the pixel observation predictions inline with
+actual pixel observations. This requires an initial "seed", an initial estimate
+of the solution. This function is a part of that computation. Since this is just
+an initial estimate that will be refined, the results of this function do not
+need to be exact.
+
+This function ingests an estimate of the camera poses in respect to each other,
+and the estimate of the calibration objects in respect to the observing camera.
+Most of the time we have simultaneous calibration object observations from
+multiple cameras, so this function consolidates all this information to produce
+poses of the calibration object in the reference coordinate system, NOT the
+observing-camera coordinate system poses we already have.
+
+By convention, we have a "reference" coordinate system that ties the poses of
+all the frames (calibration objects) and the cameras together. And by
+convention, this "reference" coordinate system is the coordinate system of
+camera 0. Thus the array of camera poses extrinsics_Rt_fromref holds Ncameras-1
+transformations: the first camera has an identity transformation, by definition.
+
+This function assumes we're observing a moving object from stationary cameras
+(i.e. a vanilla camera calibration problem). The mrcal solver is more general,
+and supports moving cameras, hence it uses a more general
+indices_frame_camintrinsics_camextrinsics array instead of the
+indices_frame_camera array used here.
+
+ARGUMENTS
+
+- calobject_Rt_camera_frame: an array of shape (Nobservations,4,3). Each slice
+  is an Rt transformation TO the observing camera coordinate system FROM the
+  calibration object coordinate system. This is returned by
+  estimate_monocular_calobject_poses_Rt_tocam()
+
+- extrinsics_Rt_fromref: an arrya of shape (Ncameras-1,4,3). Each slice is an Rt
+  transformation TO the camera coordinate system FROM the reference coordinate
+  system. By convention camera 0 defines the reference coordinate system, so
+  that camera's extrinsics are the identity, by definition, and we don't store
+  that data in this array
+
+- indices_frame_camera: an array of shape (Nobservations,2) and dtype
+  numpy.int32. Each row (i_frame,i_camera) represents an observation at time
+  instant i_frame of a calibration object by camera i_camera
+
+- object_width_n: number of horizontal points in the calibration object grid
+
+- object_height_n: number of vertical points in the calibration object grid
+
+- object_spacing: the distance between adjacent points in the calibration
+  object. A square object is assumed, so the vertical and horizontal distances
+  are assumed to be identical
+
+RETURNED VALUE
+
+An array of shape (Nframes,6). Each slice represents the pose of the calibration
+object at one instant in time: an rt transformation TO the reference coordinate
+system FROM the calibration object coordinate system.
 
     '''
 
-    Rt_0c = mrcal.invert_Rt( mrcal.Rt_from_rt( extrinsics_rt_fromref ))
+    Rt_ref_cam = mrcal.invert_Rt( extrinsics_Rt_fromref )
 
 
-    def process(i_observation0, i_observation1):
+    def Rt_ref_frame(i_observation0, i_observation1):
         R'''Given a range of observations corresponding to the same frame, estimate the
-        frame pose'''
+        pose of that frame
 
-        def T_camera_board(i_observation):
-            r'''Transform from the board coords to the camera coords'''
+        '''
+
+        def Rt_ref_frame__single_observation(i_observation):
+            r'''Transform from the board coords to the reference coords'''
             i_frame,i_camera = indices_frame_camera[i_observation, ...]
 
-            Rt_cf = calobject_poses_local_Rt_cf[i_observation, :,:]
+            Rt_cam_frame = calobject_Rt_camera_frame[i_observation, :,:]
             if i_camera == 0:
-                return Rt_cf
+                return Rt_cam_frame
 
-            # T_cami_cam0 T_cam0_board = T_cami_board
-            return mrcal.compose_Rt( Rt_0c[i_camera-1, ...], Rt_cf)
+            return mrcal.compose_Rt( Rt_ref_cam[i_camera-1, ...], Rt_cam_frame)
 
 
         # frame poses should map FROM the frame coord system TO the ref coord
@@ -4707,7 +4808,7 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
 
         # special case: if there's a single observation, I just use it
         if i_observation1 - i_observation0 == 1:
-            return T_camera_board(i_observation0)
+            return Rt_ref_frame__single_observation(i_observation0)
 
         # Multiple cameras have observed the object for this frame. I have an
         # estimate of these for each camera. I merge them in a lame way: I
@@ -4720,23 +4821,22 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
 
         sum_obj_unproj = obj*0
         for i_observation in range(i_observation0, i_observation1):
-            Rt = T_camera_board(i_observation)
+            Rt = Rt_ref_frame__single_observation(i_observation)
             sum_obj_unproj += mrcal.transform_point_Rt(Rt, obj)
 
-        mean = sum_obj_unproj / (i_observation1 - i_observation0)
+        mean_obj_ref = sum_obj_unproj / (i_observation1 - i_observation0)
 
         # Got my point cloud. fit
 
         # transform both to shape = (N*N, 3)
-        obj  = nps.clump(obj,  n=2)
-        mean = nps.clump(mean, n=2)
-        return mrcal.align3d_procrustes( mean, obj )
+        obj          = nps.clump(obj,  n=2)
+        mean_obj_ref = nps.clump(mean_obj_ref, n=2)
+        return mrcal.align3d_procrustes( mean_obj_ref, obj )
 
 
 
 
-
-    frame_poses_rt = np.array(())
+    frames_rt_toref = np.array(())
 
     i_frame_current          = -1
     i_observation_framestart = -1;
@@ -4746,17 +4846,23 @@ def estimate_frame_poses_from_monocular_views(calobject_poses_local_Rt_cf,
 
         if i_frame != i_frame_current:
             if i_observation_framestart >= 0:
-                Rt = process(i_observation_framestart, i_observation)
-                frame_poses_rt = nps.glue(frame_poses_rt, mrcal.rt_from_Rt(Rt), axis=-2)
+                Rt = Rt_ref_frame(i_observation_framestart,
+                                  i_observation)
+                frames_rt_toref = nps.glue(frames_rt_toref,
+                                           mrcal.rt_from_Rt(Rt),
+                                           axis=-2)
 
             i_observation_framestart = i_observation
-            i_frame_current = i_frame
+            i_frame_current          = i_frame
 
     if i_observation_framestart >= 0:
-        Rt = process(i_observation_framestart, indices_frame_camera.shape[0])
-        frame_poses_rt = nps.glue(frame_poses_rt, mrcal.rt_from_Rt(Rt), axis=-2)
+        Rt = Rt_ref_frame(i_observation_framestart,
+                          indices_frame_camera.shape[0])
+        frames_rt_toref = nps.glue(frames_rt_toref,
+                                   mrcal.rt_from_Rt(Rt),
+                                   axis=-2)
 
-    return frame_poses_rt
+    return frames_rt_toref
 
 
 def make_seed_no_distortion( imagersizes,
@@ -4801,38 +4907,44 @@ def make_seed_no_distortion( imagersizes,
     # system of this camera
 
     # I now have a rough estimate of calobject poses in the coord system of each
-    # frame. One can think of these as two sets of point clouds, each attached to
-    # their camera. I can move around the two sets of point clouds to try to match
-    # them up, and this will give me an estimate of the relative pose of the two
-    # cameras in respect to each other. I need to set up the correspondences, and
-    # align3d_procrustes() does the rest
+    # camera. One can think of these as two sets of point clouds, each attached
+    # to their camera. I can move around the two sets of point clouds to try to
+    # match them up, and this will give me an estimate of the relative pose of
+    # the two cameras in respect to each other. I need to set up the
+    # correspondences, and align3d_procrustes() does the rest
     #
-    # I get transformations that map points in 1-Nth camera coord system to 0th
+    # I get transformations that map points in camera-cami coord system to 0th
     # camera coord system. Rt have dimensions (N-1,4,3)
-    camera_poses_Rt01 = _estimate_camera_poses( calobject_poses_local_Rt_cf,
-                                                indices_frame_camera,
-                                                observations,
-                                                Ncameras,
-                                                object_spacing)
+    camera_poses_Rt_0_cami = \
+        _estimate_camera_poses( calobject_poses_local_Rt_cf,
+                                indices_frame_camera,
+                                observations,
+                                Ncameras,
+                                object_spacing)
 
-    if len(camera_poses_Rt01):
+    if len(camera_poses_Rt_0_cami):
         # extrinsics should map FROM the ref coord system TO the coord system of the
         # camera in question. This is backwards from what I have
-        extrinsics = nps.atleast_dims( mrcal.rt_from_Rt(mrcal.invert_Rt(camera_poses_Rt01)),
-                                       -2 )
+        extrinsics_Rt_fromref = \
+            nps.atleast_dims( mrcal.invert_Rt(camera_poses_Rt_0_cami),
+                              -3 )
     else:
-        extrinsics = np.zeros((0,6))
+        extrinsics_Rt_fromref = np.zeros((0,4,3))
 
     object_height_n,object_width_n = observations.shape[-3:-1]
 
-    frames = \
-        mrcal.estimate_frame_poses_from_monocular_views(
-            calobject_poses_local_Rt_cf, extrinsics,
+    frames_rt_toref = \
+        mrcal.estimate_joint_frame_poses(
+            calobject_poses_local_Rt_cf,
+            extrinsics_Rt_fromref,
             indices_frame_camera,
             object_width_n, object_height_n,
             object_spacing)
 
-    return intrinsics_data,extrinsics,frames
+    return \
+        intrinsics_data, \
+        nps.atleast_dims(mrcal.rt_from_Rt(extrinsics_Rt_fromref), -2), \
+        frames_rt_toref
 
 
 def close_contour(c):
