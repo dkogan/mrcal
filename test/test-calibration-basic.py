@@ -111,9 +111,7 @@ intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
                                   Ncameras             = Ncameras,
                                   indices_frame_camera = indices_frame_camera,
                                   observations         = observations,
-                                  object_spacing       = object_spacing,
-                                  object_width_n       = object_width_n,
-                                  object_height_n      = object_height_n)
+                                  object_spacing       = object_spacing)
 
 # I have a pinhole intrinsics estimate. Mount it into a full distortiony model,
 # seeded with random numbers

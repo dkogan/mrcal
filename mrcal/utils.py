@@ -4309,7 +4309,7 @@ camera coordinate system FROM the calibration object coordinate system.
     # with what
     Rt_cf_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
-    object_height_n,object_width_n = observations.shape[1:3]
+    object_height_n,object_width_n = observations.shape[-3:-1]
 
     # No calobject_warp. Good-enough for the seeding
     full_object = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing)
@@ -4380,8 +4380,7 @@ camera coordinate system FROM the calibration object coordinate system.
 
 def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                             observations, Ncameras,
-                            object_spacing,
-                            object_width_n, object_height_n):
+                            object_spacing):
     r'''Estimate camera poses in respect to each other
 
     We are given poses of the calibration object in respect to each observing
@@ -4400,6 +4399,8 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
     import heapq
 
+
+    object_height_n,object_width_n = observations.shape[-3:-1]
 
     # I need to compute an estimate of the pose of each camera in the coordinate
     # system of camera0. This is only possible if there're enough overlapping
@@ -4762,9 +4763,7 @@ def make_seed_no_distortion( imagersizes,
                              Ncameras,
                              indices_frame_camera,
                              observations,
-                             object_spacing,
-                             object_width_n,
-                             object_height_n):
+                             object_spacing):
     r'''Generate a solution seed for a given input
 
     Note that this assumes we're solving a calibration problem (stationary
@@ -4813,8 +4812,7 @@ def make_seed_no_distortion( imagersizes,
                                                 indices_frame_camera,
                                                 observations,
                                                 Ncameras,
-                                                object_spacing,
-                                                object_width_n, object_height_n)
+                                                object_spacing)
 
     if len(camera_poses_Rt01):
         # extrinsics should map FROM the ref coord system TO the coord system of the
@@ -4823,6 +4821,8 @@ def make_seed_no_distortion( imagersizes,
                                        -2 )
     else:
         extrinsics = np.zeros((0,6))
+
+    object_height_n,object_width_n = observations.shape[-3:-1]
 
     frames = \
         mrcal.estimate_frame_poses_from_monocular_views(

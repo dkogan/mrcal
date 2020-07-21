@@ -563,9 +563,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                           Ncameras             = Ncameras,
                                           indices_frame_camera = indices_frame_camera,
                                           observations         = observations,
-                                          object_spacing       = args.object_spacing,
-                                          object_width_n       = args.object_width_n,
-                                          object_height_n      = args.object_height_n)
+                                          object_spacing       = args.object_spacing)
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
