@@ -551,7 +551,6 @@ bool mrcal_optimizerCallback(// output measurements
 
 int mrcal_getNmeasurements_all(int Ncameras_intrinsics,
                                int NobservationsBoard,
-                               const observation_point_t* observations_point,
                                int NobservationsPoint,
                                int calibration_object_width_n,
                                int calibration_object_height_n,
@@ -560,8 +559,7 @@ int mrcal_getNmeasurements_all(int Ncameras_intrinsics,
 int mrcal_getNmeasurements_boards(int NobservationsBoard,
                                   int calibration_object_width_n,
                                   int calibration_object_height_n);
-int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
-                                  int NobservationsPoint);
+int mrcal_getNmeasurements_points(int NobservationsPoint);
 int mrcal_getNmeasurements_regularization(int Ncameras_intrinsics,
                                           mrcal_problem_details_t problem_details,
                                           lensmodel_t lensmodel);

@@ -314,7 +314,7 @@ int main(int argc, char* argv[] )
     int Nmeasurements_boards         = mrcal_getNmeasurements_boards(NobservationsBoard,
                                                                      calibration_object_width_n,
                                                                      calibration_object_height_n);
-    int Nmeasurements_points         = mrcal_getNmeasurements_points(observations_point, NobservationsPoint);
+    int Nmeasurements_points         = mrcal_getNmeasurements_points(NobservationsPoint);
     int Nmeasurements_regularization = mrcal_getNmeasurements_regularization(Ncameras_intrinsics, problem_details, lensmodel);
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
            Nmeasurements_boards, 0);

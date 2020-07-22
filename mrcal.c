@@ -395,8 +395,7 @@ int mrcal_getNmeasurements_boards(int NobservationsBoard,
         2;
 }
 
-int mrcal_getNmeasurements_points(const observation_point_t* observations_point,
-                                  int NobservationsPoint)
+int mrcal_getNmeasurements_points(int NobservationsPoint)
 {
     // 3: x,y measurements, range normalization
     return NobservationsPoint * 3;
@@ -413,7 +412,6 @@ int mrcal_getNmeasurements_regularization(int Ncameras_intrinsics,
 
 int mrcal_getNmeasurements_all(int Ncameras_intrinsics,
                                int NobservationsBoard,
-                               const observation_point_t* observations_point,
                                int NobservationsPoint,
                                int calibration_object_width_n,
                                int calibration_object_height_n,
@@ -424,7 +422,7 @@ int mrcal_getNmeasurements_all(int Ncameras_intrinsics,
         mrcal_getNmeasurements_boards( NobservationsBoard,
                                        calibration_object_width_n,
                                        calibration_object_height_n) +
-        mrcal_getNmeasurements_points( observations_point, NobservationsPoint) +
+        mrcal_getNmeasurements_points(NobservationsPoint) +
         mrcal_getNmeasurements_regularization( Ncameras_intrinsics, problem_details, lensmodel);
 }
 
@@ -5255,7 +5253,7 @@ mrcal_optimize( // out
         .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
         .Nmeasurements              = mrcal_getNmeasurements_all(Ncameras_intrinsics,
                                                                  NobservationsBoard,
-                                                                 observations_point, NobservationsPoint,
+                                                                 NobservationsPoint,
                                                                  calibration_object_width_n,
                                                                  calibration_object_height_n,
                                                                  problem_details,

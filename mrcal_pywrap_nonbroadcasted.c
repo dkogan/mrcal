@@ -1423,8 +1423,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             {.point_min_range = point_min_range,
              .point_max_range = point_max_range};
 
-        int Nmeasurements = mrcal_getNmeasurements_all(Ncameras_intrinsics, NobservationsBoard,
-                                                       c_observations_point, NobservationsPoint,
+        int Nmeasurements = mrcal_getNmeasurements_all(Ncameras_intrinsics, NobservationsBoard, NobservationsPoint,
                                                        calibration_object_width_n,
                                                        calibration_object_height_n,
                                                        problem_details,
