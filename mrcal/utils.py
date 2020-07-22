@@ -4238,7 +4238,7 @@ SYNOPSIS
     [something small]
 
 mrcal solves camera calibration problems by iteratively optimizing a nonlinear
-least squares problem to bring the pixel observation predictions inline with
+least squares problem to bring the pixel observation predictions in line with
 actual pixel observations. This requires an initial "seed", an initial estimate
 of the solution. This function is a part of that computation. Since this is just
 an initial estimate that will be refined, the results of this function do not
@@ -4386,7 +4386,7 @@ camera coordinate system FROM the calibration object coordinate system.
 
 
 def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
-                            observations, Ncameras,
+                            observations,
                             object_spacing):
     r'''Estimate camera poses in respect to each other
 
@@ -4408,6 +4408,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
 
     object_height_n,object_width_n = observations.shape[-3:-1]
+    Ncameras = np.max(indices_frame_camera[:,1]) + 1
 
     # I need to compute an estimate of the pose of each camera in the coordinate
     # system of camera0. This is only possible if there're enough overlapping
@@ -4725,7 +4726,7 @@ SYNOPSIS
     [something small]
 
 mrcal solves camera calibration problems by iteratively optimizing a nonlinear
-least squares problem to bring the pixel observation predictions inline with
+least squares problem to bring the pixel observation predictions in line with
 actual pixel observations. This requires an initial "seed", an initial estimate
 of the solution. This function is a part of that computation. Since this is just
 an initial estimate that will be refined, the results of this function do not
@@ -4757,7 +4758,7 @@ ARGUMENTS
   calibration object coordinate system. This is returned by
   estimate_monocular_calobject_poses_Rt_tocam()
 
-- extrinsics_Rt_fromref: an arrya of shape (Ncameras-1,4,3). Each slice is an Rt
+- extrinsics_Rt_fromref: an array of shape (Ncameras-1,4,3). Each slice is an Rt
   transformation TO the camera coordinate system FROM the reference coordinate
   system. By convention camera 0 defines the reference coordinate system, so
   that camera's extrinsics are the identity, by definition, and we don't store
@@ -4867,26 +4868,127 @@ system FROM the calibration object coordinate system.
 
 def make_seed_pinhole( imagersizes,
                        focal_estimate,
-                       Ncameras,
                        indices_frame_camera,
                        observations,
                        object_spacing):
-    r'''Generate a solution seed for a given input
+    r'''Compute an optimization seed for a camera calibration
 
-    Note that this assumes we're solving a calibration problem (stationary
-    cameras) observing a moving object, so uses indices_frame_camera, not
-    indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
+SYNOPSIS
+
+    print( imagersizes.shape )
+    ===>
+    (4, 2)
+
+    print( indices_frame_camera.shape )
+    ===>
+    (123, 2)
+
+    print( observations.shape )
+    ===>
+    (123, 3)
+
+    intrinsics_data,       \
+    extrinsics_rt_fromref, \
+    frames_rt_toref =      \
+        mrcal.make_seed_pinhole(imagersizes          = imagersizes,
+                                focal_estimate       = 1500,
+                                indices_frame_camera = indices_frame_camera,
+                                observations         = observations,
+                                object_spacing       = object_spacing)
+
+    ....
+
+    mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref,
+                   lensmodel = 'LENSMODEL_PINHOLE',
+                   ...)
+
+mrcal solves camera calibration problems by iteratively optimizing a nonlinear
+least squares problem to bring the pixel observation predictions in line with
+actual pixel observations. This requires an initial "seed", an initial estimate
+of the solution. This function computes a usable seed, and its results can be
+fed to mrcal.optimize(). The output of this function is just an initial estimate
+that will be refined, so the results of this function do not need to be exact.
+
+This function assumes we have pinhole lenses, and the returned intrinsics apply
+to LENSMODEL_PINHOLE. This is usually good-enough to serve as a seed. The
+returned intrinsics can be expanded to whatever lens model we actually want to
+use prior to invoking the optimizer.
+
+By convention, we have a "reference" coordinate system that ties the poses of
+all the frames (calibration objects) and the cameras together. And by
+convention, this "reference" coordinate system is the coordinate system of
+camera 0. Thus the array of camera poses extrinsics_rt_fromref holds Ncameras-1
+transformations: the first camera has an identity transformation, by definition.
+
+This function assumes we're observing a moving object from stationary cameras
+(i.e. a vanilla camera calibration problem). The mrcal solver is more general,
+and supports moving cameras, hence it uses a more general
+indices_frame_camintrinsics_camextrinsics array instead of the
+indices_frame_camera array used here.
+
+See test/test-calibration-basic.py and mrcal-calibrate-cameras for usage
+examples.
+
+ARGUMENTS
+
+- imagersizes: an iterable of (imager_width,imager_height) iterables. Defines
+  the imager dimensions for each camera we're calibrating. May be an array of
+  shape (Ncameras,2) or a tuple of tuples or a mix of the two
+
+- focal_estimate: an initial estimate of the focal length of the cameras, in
+  pixels. For the purposes of the initial estimate we use the same focal length
+  value for both the x and y focal length of ALL the cameras
+
+- indices_frame_camera: an array of shape (Nobservations,2) and dtype
+  numpy.int32. Each row (i_frame,i_camera) represents an observation of a
+  calibration object by camera i_camera. i_frame is not used by this function
+
+- observations: an array of shape
+  (Nobservations,object_height_n,object_width_n,3). Each observation corresponds
+  to a row in indices_frame_camera, and contains a row of shape (3,) for each
+  point in the calibration object. Each row is (x,y,weight) where x,y are the
+  observed pixel coordinates. Any point where x<0 or y<0 or weight<0 is ignored.
+  This is the only use of the weight in this function.
+
+- object_spacing: the distance between adjacent points in the calibration
+  object. A square object is assumed, so the vertical and horizontal distances
+  are assumed to be identical. Usually we need the object dimensions in the
+  object_height_n,object_width_n arguments, but here we get those from the shape
+  of the observations array
+
+RETURNED VALUES
+
+We return a tuple:
+
+- intrinsics_data: an array of shape (Ncameras,4). Each slice contains the
+  pinhole intrinsics for the given camera. These intrinsics are
+  (focal_x,focal_y,centerpixel_x,centerpixel_y), and define LENSMODEL_PINHOLE
+  model. mrcal refers to these 4 values as the "intrinsics core". For models
+  that have such a core (currently, ALL supported models), the core is the first
+  4 parameters of the intrinsics vector. So to calibrate some cameras, call
+  make_seed_pinhole(), append to intrinsics_data the proper number of parameters
+  to match whatever lens model we're using, and then invoke the optimizer.
+
+- extrinsics_rt_fromref: an array of shape (Ncameras-1,6). Each slice is an rt
+  transformation TO the camera coordinate system FROM the reference coordinate
+  system. By convention camera 0 defines the reference coordinate system, so
+  that camera's extrinsics are the identity, by definition, and we don't store
+  that data in this array
+
+- frames_rt_toref: an array of shape (Nframes,6). Each slice represents the pose
+  of the calibration object at one instant in time: an rt transformation TO the
+  reference coordinate system FROM the calibration object coordinate system.
+
     '''
 
-
-    def make_intrinsics_vector(i_camera):
-        imager_w,imager_h = imagersizes[i_camera]
+    def make_intrinsics_vector(imagersize):
+        imager_w,imager_h = imagersize
         return np.array( (focal_estimate, focal_estimate,
                           float(imager_w-1)/2.,
                           float(imager_h-1)/2.))
 
-    intrinsics_data = nps.cat( *[make_intrinsics_vector(i_camera) \
-                                 for i_camera in range(Ncameras)] )
+    intrinsics_data = nps.cat( *[make_intrinsics_vector(imagersize) \
+                                 for imagersize in imagersizes] )
 
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame
@@ -4919,7 +5021,6 @@ def make_seed_pinhole( imagersizes,
         _estimate_camera_poses( calobject_poses_local_Rt_cf,
                                 indices_frame_camera,
                                 observations,
-                                Ncameras,
                                 object_spacing)
 
     if len(camera_poses_Rt_0_cami):

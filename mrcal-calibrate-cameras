@@ -560,7 +560,6 @@ def solve_initial(args, seedmodels, imagersizes,
         intrinsics_data,extrinsics,frames = \
             mrcal.make_seed_pinhole(imagersizes          = imagersizes,
                                     focal_estimate       = args.focal,
-                                    Ncameras             = Ncameras,
                                     indices_frame_camera = indices_frame_camera,
                                     observations         = observations,
                                     object_spacing       = args.object_spacing)
