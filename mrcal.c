@@ -3523,6 +3523,9 @@ static bool compute_uncertainty_matrices(// out
             // the left multiplication S*...
             //
             // loop through the variables chunk_size at a time
+            cholmod_dense* M = NULL;
+            cholmod_dense* Y = NULL;
+            cholmod_dense* E = NULL;
             LOOP_STATE_BEGIN(istate_covariance_outer, ivar_thisscale_outer, chunk_size)
             {
                 int Nvars_here =
@@ -3541,9 +3544,10 @@ static bool compute_uncertainty_matrices(// out
                         scale;
                 }
 
-                cholmod_dense* M = cholmod_solve( CHOLMOD_A, solver_context->factorization,
-                                                  Jt_slice,
-                                                  &solver_context->common);
+                cholmod_solve2( CHOLMOD_A, solver_context->factorization,
+                                Jt_slice, NULL,
+                                &M, NULL, &Y, &E,
+                                &solver_context->common);
 
                 // loop through each variable at this scale. I don't
                 // need to group them by chunk_size here; one-at-a-time
@@ -3565,10 +3569,14 @@ static bool compute_uncertainty_matrices(// out
                             observed_pixel_uncertainty*observed_pixel_uncertainty;
                 }
                 LOOP_STATE_END(istate_covariance_inner, ivar_thisscale_inner);
-
-                cholmod_free_dense (&M, &solver_context->common);
             }
             LOOP_STATE_END(istate_covariance_outer, ivar_thisscale_outer);
+
+
+            cholmod_free_dense (&M, &solver_context->common);
+            cholmod_free_dense (&E, &solver_context->common);
+            cholmod_free_dense (&Y, &solver_context->common);
+
 
 #undef LOOP_STATE_BEGIN
 #undef LOOP_STATE_END
