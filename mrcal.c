@@ -3410,16 +3410,49 @@ static bool compute_uncertainty_matrices(// out
 
         void accum(int icam_out, int icam_state)
         {
-            // Here I want the diagonal blocks of inv(JtJ) for the intrinsics,
-            // extrinsics, frames
-            //                                [0]
-            // I get them by doing solve(JtJ, [I])
-            //                                [0]
+            // The docstring of projection_uncertainty() has the derivation that
+            // concludes that
             //
-            // As stated before, I'm going to want to return D Var(dp*) D.
-            // Var(dp*) = inv(JtJ). So I apply D to the right-hand-side in the
-            // solve() and again to the output of the solve
+            //   Var(p*) = inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+            //           = sum(outer( cols(inv(J*tJ*) J*[observations]t),
+            //                        cols(inv(J*tJ*) J*[observations]t) ))
             //
+            // In the special case where all the measurements come from
+            // observations, this simplifies to
+            //
+            //   Var(p*) = inv(J*tJ*)
+            //
+            // Here I'm looking at the packed (scaled, unitless) flavors of J,
+            // and
+            //
+            //   Var(p) = D Var(p*) D
+            //
+            // I want the diagonal blocks of Var(p) for the intrinsics,
+            // extrinsics, frames.
+            //
+            // In the case where Var(p*) = inv(J*tJ*) I have
+            //
+            //   Var(p[ief]) = [0 I 0] D solve(J*tJ*, D [0 I 0]t)
+            //
+            // In the more complex case where I have regularization I get
+            //
+            //   Var(p[ief]) = [0 I 0] D
+            //                 sum(outer( cols(inv(J*tJ*) J*[observations]t),
+            //                            cols(inv(J*tJ*) J*[observations]t) ))
+            //                 D [0 I 0]t
+            //
+            // Let v = some column of inv(J*tJ*) J*[observations]t
+            //
+            //   Var(p[ief]) = [0 I 0] D sum(outer(v,v)) D [0 I 0]t =
+            //               = sum(outer( [0 I 0] D v, ... ))
+            //
+            // [0 I 0] D v is v, with the significant variables rescaled, and
+            // the rest set to 0. I only need to compute the section of v that
+            // isn't going to be thrown away.
+            //
+            // v is an arbitrary col: solve(J*tJ*, j*) for some arbitrary
+            // measurement j, a col of Jt
+
             // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends
             // up dense. cholmod doesn't have functions for this exact case. so
             // I use the dense-sparse-dense function, and densify the input.
@@ -3511,69 +3544,176 @@ static bool compute_uncertainty_matrices(// out
                 }                                                       \
             }
 
-
-
-            // I'm computing a subset of inv(JtJ). I select my subset with a
-            // matrix S = [0 I 0], so I compute S*invJtJ*St. I loop through cols
-            // of St (chunk_size at a time). For each col-subset of St s I solve
-            // for x: JtJ*x = s. Then I pick the row-subset of x (to implement)
-            // the left multiplication S*...
-            //
-            // loop through the variables chunk_size at a time
-            cholmod_dense* M = NULL;
-            cholmod_dense* Y = NULL;
-            cholmod_dense* E = NULL;
-            LOOP_STATE_BEGIN(outer, chunk_size)
+            if(Nmeasurements_observations == (int)Jt->ncol)
             {
-                int Nvars_here =
-                    (b_outer->N_at_each_scale-ivar_thisscale_outer >= chunk_size) ?
-                    chunk_size : (b_outer->N_at_each_scale - ivar_thisscale_outer);
+                // easy case: Var(p*) = inv(J*tJ*)
 
-                Jt_slice->ncol = Nvars_here;
-                memset( Jt_slice->x, 0, Jt_slice->nrow*Nvars_here*sizeof(double) );
-                for(int icol=0; icol<Nvars_here; icol++)
+                // I'm computing a subset of inv(JtJ). I select my subset with a
+                // matrix S = [0 I 0], so I compute S*invJtJ*St. I loop through cols
+                // of St (chunk_size at a time). For each col-subset of St s I solve
+                // for x: JtJ*x = s. Then I pick the row-subset of x (to implement)
+                // the left multiplication S*...
+                //
+                // loop through the variables chunk_size at a time
+
+
+                cholmod_dense* M = NULL;
+                cholmod_dense* Y = NULL;
+                cholmod_dense* E = NULL;
+                LOOP_STATE_BEGIN(outer, chunk_size)
                 {
-                    // cholmod stores its matrices col-first so I index by [irow + icol*nrow]
-                    ((double*)Jt_slice->x)[ b_outer->istate0 +
-                                            ivar_thisscale_begin_outer +
-                                            ivar_thisscale_outer +
-                                            icol + icol*Jt_slice->nrow] =
-                        scale_outer;
-                }
+                    int Nvars_here =
+                        (b_outer->N_at_each_scale-ivar_thisscale_outer >= chunk_size) ?
+                        chunk_size : (b_outer->N_at_each_scale - ivar_thisscale_outer);
 
-                cholmod_solve2( CHOLMOD_A, solver_context->factorization,
-                                Jt_slice, NULL,
-                                &M, NULL, &Y, &E,
-                                &solver_context->common);
-
-                // loop through each variable at this scale. I don't
-                // need to group them by chunk_size here; one-at-a-time
-                // is just fine
-                LOOP_STATE_BEGIN(inner, 1)
-                {
-                    // I applied the scaling to the right-hand-side. Now I apply
-                    // it to the left-hand side
+                    Jt_slice->ncol = Nvars_here;
+                    memset( Jt_slice->x, 0, Jt_slice->nrow*Nvars_here*sizeof(double) );
                     for(int icol=0; icol<Nvars_here; icol++)
-                        out[icam_out*Nvars_ief*Nvars_ief +
-                            (istate_covariance_outer + ivar_thisscale_outer + icol)*Nvars_ief +
-                            istate_covariance_inner  + ivar_thisscale_inner ]  =
+                    {
+                        // cholmod stores its matrices col-first so I index by [irow + icol*nrow]
+                        ((double*)Jt_slice->x)[ b_outer->istate0 +
+                                                ivar_thisscale_begin_outer +
+                                                ivar_thisscale_outer +
+                                                icol + icol*Jt_slice->nrow] =
+                            scale_outer;
+                    }
 
-                            ((double*)(M->x))[icol*M->nrow +
-                                              b_inner->istate0 +
-                                              ivar_thisscale_begin_inner +
-                                              ivar_thisscale_inner] *
-                            scale_inner *
-                            observed_pixel_uncertainty*observed_pixel_uncertainty;
+                    // I can use the Bset arguments to cholmod_solve2() to tell
+                    // cholmod that Jt_slice is actually sparse. This isn't
+                    // obviously worth the effort. If I could ALSO tell it that I
+                    // want a subset of the rows of solve(JtJ, Jt_slice) then maybe
+                    // it'd be worth it
+                    cholmod_solve2( CHOLMOD_A, solver_context->factorization,
+                                    Jt_slice, NULL,
+                                    &M, NULL, &Y, &E,
+                                    &solver_context->common);
+
+                    // loop through each variable at this scale. I don't
+                    // need to group them by chunk_size here; one-at-a-time
+                    // is just fine
+                    LOOP_STATE_BEGIN(inner, 1)
+                    {
+                        // I applied the scaling to the right-hand-side. Now I apply
+                        // it to the left-hand side
+                        for(int icol=0; icol<Nvars_here; icol++)
+                            out[icam_out*Nvars_ief*Nvars_ief +
+                                (istate_covariance_outer + ivar_thisscale_outer + icol)*Nvars_ief +
+                                istate_covariance_inner  + ivar_thisscale_inner ]  =
+
+                                ((double*)(M->x))[icol*M->nrow +
+                                                  b_inner->istate0 +
+                                                  ivar_thisscale_begin_inner +
+                                                  ivar_thisscale_inner] *
+                                scale_inner *
+                                observed_pixel_uncertainty*observed_pixel_uncertainty;
+                    }
+                    LOOP_STATE_END(inner);
                 }
-                LOOP_STATE_END(inner);
+                LOOP_STATE_END(outer);
+
+
+                cholmod_free_dense (&M, &solver_context->common);
+                cholmod_free_dense (&E, &solver_context->common);
+                cholmod_free_dense (&Y, &solver_context->common);
+
             }
-            LOOP_STATE_END(outer);
+            else
+            {
+                // more complicated case:
+                // Var(p*) = inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+                //
+                // I use the leading Nmeasurements_observations rows of J
 
 
-            cholmod_free_dense (&M, &solver_context->common);
-            cholmod_free_dense (&E, &solver_context->common);
-            cholmod_free_dense (&Y, &solver_context->common);
+                //   Var(p[ief]) = [0 I 0] D
+                //                 sum(outer( cols(inv(J*tJ*) J*[observations]t),
+                //                            cols(inv(J*tJ*) J*[observations]t) ))
+                //                 D [0 I 0]t
+                //
+                // Let m = some column of inv(J*tJ*) J*[observations]t
+                //
+                //   Var(p[ief]) = [0 I 0] D sum(outer(m,m)) D [0 I 0]t =
+                //               = sum(outer( [0 I 0] D m, ... ))
+                //
+                // [0 I 0] D m is m, with the significant variables rescaled, and
+                // the rest set to 0. I only need to compute the section of m that
+                // isn't going to be thrown away.
+                //
+                // m is an arbitrary col: solve(J*tJ*, j*) for some arbitrary
+                // measurement j, a col of Jt
 
+
+
+                cholmod_dense* M = NULL;
+                cholmod_dense* Y = NULL;
+                cholmod_dense* E = NULL;
+
+                for(int i_meas=0; i_meas < Nmeasurements_observations; i_meas += chunk_size)
+                {
+                    int Nvars_here =
+                        (Nmeasurements_observations-i_meas >= chunk_size) ?
+                        chunk_size : (Nmeasurements_observations-i_meas);
+
+                    // sparse to dense for a chunk of Jt
+                    memset( Jt_slice->x, 0, Jt_slice->nrow*Nvars_here*sizeof(double) );
+                    Jt_slice->ncol = Nvars_here;
+                    for(int icol=0; icol<Nvars_here; icol++)
+                    {
+                        for(unsigned int i0=P(Jt, icol+i_meas); i0<P(Jt, icol+i_meas+1); i0++)
+                        {
+                            int irow = I(Jt,i0);
+                            double x0 = X(Jt,i0);
+                            ((double*)Jt_slice->x)[irow + icol*Jt_slice->nrow] = x0;
+                        }
+                    }
+
+                    cholmod_solve2( CHOLMOD_A, solver_context->factorization,
+                                    Jt_slice, NULL,
+                                    &M, NULL, &Y, &E,
+                                    &solver_context->common);
+
+                    LOOP_STATE_BEGIN(outer, 1)
+                    {
+                        int ivar0 =
+                            b_outer->istate0 +
+                            ivar_thisscale_begin_outer +
+                            ivar_thisscale_outer;
+
+                        // I should start looping ivar1 from ivar0 to compute
+                        // just one half of the triangle, and to duplicate it
+                        // later. This would be faster. LOOP_STATE_BEGIN()
+                        // doesn't entirely let me do that right now, however
+                        LOOP_STATE_BEGIN(inner, 1)
+                        {
+                            int ivar1 =
+                                b_inner->istate0 +
+                                ivar_thisscale_begin_inner +
+                                ivar_thisscale_inner;
+
+                            for(int icol=0; icol<Nvars_here; icol++)
+                            {
+                                out[icam_out*Nvars_ief*Nvars_ief +
+                                    (istate_covariance_outer  + ivar_thisscale_outer)*Nvars_ief +
+                                    (istate_covariance_inner  + ivar_thisscale_inner) ] +=
+
+                                    ((double*)(M->x))[icol*M->nrow + ivar0] *
+                                    ((double*)(M->x))[icol*M->nrow + ivar1] *
+                                    scale_outer * scale_inner;
+                            }
+                        }
+                        LOOP_STATE_END(inner);
+                    }
+                    LOOP_STATE_END(outer);
+                }
+
+                cholmod_free_dense (&M, &solver_context->common);
+                cholmod_free_dense (&E, &solver_context->common);
+                cholmod_free_dense (&Y, &solver_context->common);
+
+                for(int i=0; i<Nvars_ief*Nvars_ief; i++)
+                    out[icam_out*Nvars_ief*Nvars_ief + i] *=
+                        observed_pixel_uncertainty*observed_pixel_uncertainty;
+            }
 
 #undef LOOP_STATE_BEGIN
 #undef LOOP_STATE_END
