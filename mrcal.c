@@ -3894,7 +3894,10 @@ static bool compute_uncertainty_matrices(// out
         cholmod_free_dense(&Jt_slice, &solver_context->common);
     }
     if(_solver_context == NULL)
+    {
+        cholmod_free_factor(&solver_context->factorization, &solver_context->common);
         cholmod_finish(&solver_context->common);
+    }
     return result;
 
 #undef P
