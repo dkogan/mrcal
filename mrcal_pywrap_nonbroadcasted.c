@@ -7,7 +7,9 @@
 #include <signal.h>
 #include <dogleg.h>
 
-#include <suitesparse/cholmod.h>
+#if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2)))
+#include <suitesparse/cholmod_function.h>
+#endif
 
 #include "mrcal.h"
 
@@ -602,6 +604,434 @@ static PyTypeObject SolverContextType =
     .tp_flags     = Py_TPFLAGS_DEFAULT,
     .tp_doc       = "Opaque solver context used by mrcal",
 };
+
+
+
+
+
+
+
+// A container for a CHOLMOD factorization
+typedef struct {
+    PyObject_HEAD
+
+    // if(inited), the "common" has been initialized
+    // if(factorization), the factorization has been initialized
+    bool            inited;
+    cholmod_common  common;
+    cholmod_factor* factorization;
+
+    // optimizerCallback should return it
+    // and I should have two solve methods:
+} CHOLMOD_factorization;
+
+
+// stolen from libdogleg
+static int cholmod_error_callback(const char* s, ...)
+{
+  va_list ap;
+  va_start(ap, s);
+  int ret = vfprintf(stderr, s, ap);
+  va_end(ap);
+  fprintf(stderr, "\n");
+  return ret;
+}
+
+static int
+CHOLMOD_factorization_init(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    int result = -1;
+
+    char* keywords[] = {"J", NULL};
+    PyObject* Py_J                  = NULL;
+    PyObject* module                = NULL;
+    PyObject* csr_matrix_type       = NULL;
+
+    PyObject* Py_shape              = NULL;
+    PyObject* Py_nnz                = NULL;
+    PyObject* Py_data               = NULL;
+    PyObject* Py_indices            = NULL;
+    PyObject* Py_indptr             = NULL;
+    PyObject* Py_has_sorted_indices = NULL;
+
+    PyObject* Py_h = NULL;
+    PyObject* Py_w = NULL;
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "O", keywords, &Py_J))
+        goto done;
+
+    if(NULL == (module = PyImport_ImportModule("scipy.sparse")))
+    {
+        BARF("Couldn't import scipy.sparse. I need that to represent J");
+        goto done;
+    }
+    if(NULL == (csr_matrix_type = PyObject_GetAttrString(module, "csr_matrix")))
+    {
+        BARF("Couldn't find 'csr_matrix' in scipy.sparse");
+        goto done;
+    }
+    if(!PyObject_IsInstance(Py_J, csr_matrix_type))
+    {
+        BARF("Argument J is must have type scipy.sparse.csr_matrix");
+        goto done;
+    }
+
+#define GETATTR(x)                                              \
+    if(NULL == (Py_ ## x = PyObject_GetAttrString(Py_J, #x)))   \
+    {                                                           \
+        BARF("Couldn't get J." # x);                            \
+        goto done;                                              \
+    }
+
+    GETATTR(shape);
+    GETATTR(nnz);
+    GETATTR(data);
+    GETATTR(indices);
+    GETATTR(indptr);
+    GETATTR(has_sorted_indices);
+
+    if(!PySequence_Check(Py_shape))
+    {
+        BARF("J.shape should be an iterable");
+        goto done;
+    }
+    int lenshape = PySequence_Length(Py_shape);
+    if( lenshape != 2 )
+    {
+        if(lenshape < 0)
+            BARF("Failed to get len(J.shape)");
+        else
+            BARF("len(J.shape) should be exactly 2, but instead got %d", lenshape);
+        goto done;
+    }
+
+    Py_h = PySequence_GetItem(Py_shape, 0);
+    if(Py_h == NULL)
+    {
+        BARF("Error getting J.shape[0]");
+        goto done;
+    }
+    Py_w = PySequence_GetItem(Py_shape, 1);
+    if(Py_w == NULL)
+    {
+        BARF("Error getting J.shape[1]");
+        goto done;
+    }
+
+    long nnz;
+    if(PyLong_Check(Py_nnz)) nnz = PyLong_AsLong(Py_nnz);
+    else
+    {
+        BARF("Error interpreting nnz as an integer");
+        goto done;
+    }
+
+    long h;
+    if(PyLong_Check(Py_h)) h = PyLong_AsLong(Py_h);
+    else
+    {
+        BARF("Error interpreting J.shape[0] as an integer");
+        goto done;
+    }
+    long w;
+    if(PyLong_Check(Py_w)) w = PyLong_AsLong(Py_w);
+    else
+    {
+        BARF("Error interpreting J.shape[1] as an integer");
+        goto done;
+    }
+
+#define CHECK_NUMPY_ARRAY(x, dtype)                                     \
+    if( !PyArray_Check((PyArrayObject*)Py_ ## x) )                      \
+    {                                                                   \
+        BARF("J."#x " must be a numpy array");                          \
+        goto done;                                                      \
+    }                                                                   \
+    if( 1 != PyArray_NDIM((PyArrayObject*)Py_ ## x) )                   \
+    {                                                                   \
+        BARF("J."#x " must be a 1-dimensional numpy array. Instead got %d dimensions", \
+             PyArray_NDIM((PyArrayObject*)Py_ ## x));                   \
+        goto done;                                                      \
+    }                                                                   \
+    if( PyArray_TYPE((PyArrayObject*)Py_ ## x) != dtype )               \
+    {                                                                   \
+        BARF("J."#x " must have dtype: " #dtype);                       \
+        goto done;                                                      \
+    }                                                                   \
+    if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)Py_ ## x) )            \
+    {                                                                   \
+        BARF("J."#x " must live in contiguous memory");                 \
+        goto done;                                                      \
+    }
+
+    CHECK_NUMPY_ARRAY(data,    NPY_FLOAT64);
+    CHECK_NUMPY_ARRAY(indices, NPY_INT32);
+    CHECK_NUMPY_ARRAY(indptr,  NPY_INT32);
+
+    // OK, the input looks good. I guess I can tell CHOLMOD about it
+    if(self->factorization)
+    {
+        cholmod_free_factor(&self->factorization, &self->common);
+        self->factorization = NULL;
+    }
+
+    if( !self->inited )
+    {
+        if( !cholmod_start(&self->common) )
+        {
+            BARF("Error trying to cholmod_start");
+            goto done;
+        }
+        self->inited = true;
+
+        // stolen from libdogleg
+
+        // I want to use LGPL parts of CHOLMOD only, so I turn off the supernodal routines. This gave me a
+        // 25% performance hit in the solver for a particular set of optical calibration data.
+        self->common.supernodal = 0;
+
+        // I want all output to go to STDERR, not STDOUT
+#if (CHOLMOD_VERSION <= (CHOLMOD_VER_CODE(2,2)))
+        self->common.print_function = cholmod_error_callback;
+#else
+        CHOLMOD_FUNCTION_DEFAULTS ;
+        CHOLMOD_FUNCTION_PRINTF(&self->common) = cholmod_error_callback;
+#endif
+    }
+
+    // My convention is to store row-major matrices, but CHOLMOD stores
+    // col-major matrices. So I keep the same data, but tell CHOLMOD that I'm
+    // storing Jt and not J
+    cholmod_sparse Jt = {
+        .nrow   = w,
+        .ncol   = h,
+        .nzmax  = nnz,
+        .p      = PyArray_DATA((PyArrayObject*)Py_indptr),
+        .i      = PyArray_DATA((PyArrayObject*)Py_indices),
+        .x      = PyArray_DATA((PyArrayObject*)Py_data),
+        .stype  = 0,            // not symmetric
+        .itype  = CHOLMOD_INT,
+        .xtype  = CHOLMOD_REAL,
+        .dtype  = CHOLMOD_DOUBLE,
+        .sorted = PyObject_IsTrue(Py_has_sorted_indices),
+        .packed = 1
+    };
+
+    self->factorization = cholmod_analyze(&Jt, &self->common);
+    if(self->factorization == NULL)
+    {
+        BARF("cholmod_analyze() failed");
+        goto done;
+    }
+    if( !cholmod_factorize(&Jt, self->factorization, &self->common) )
+    {
+        BARF("cholmod_factorize() failed");
+        goto done;
+    }
+    if(self->factorization->minor != self->factorization->n)
+    {
+        BARF("Got singular JtJ!");
+        goto done;
+    }
+
+    result = 0;
+
+ done:
+    if(result != 0)
+    {
+        if( self->factorization )
+        {
+            cholmod_free_factor(&self->factorization, &self->common);
+            self->factorization = NULL;
+        }
+        if( self->inited )
+            cholmod_finish(&self->common);
+        self->inited = false;
+    }
+
+    Py_XDECREF(module);
+    Py_XDECREF(csr_matrix_type);
+    Py_XDECREF(Py_shape);
+    Py_XDECREF(Py_nnz);
+    Py_XDECREF(Py_data);
+    Py_XDECREF(Py_indices);
+    Py_XDECREF(Py_indptr);
+    Py_XDECREF(Py_has_sorted_indices);
+    Py_XDECREF(Py_h);
+    Py_XDECREF(Py_w);
+
+    return result;
+
+#undef GETATTR
+#undef CHECK_NUMPY_ARRAY
+}
+
+static void CHOLMOD_factorization_dealloc(CHOLMOD_factorization* self)
+{
+    if( self->factorization )
+        cholmod_free_factor(&self->factorization, &self->common);
+    cholmod_finish(&self->common);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject* CHOLMOD_factorization_str(CHOLMOD_factorization* self)
+{
+    if(!self->inited)
+        return PyString_FromString("Not initialized");
+
+    return PyString_FromFormat("Initialized with a valid factorization. N=%d",
+                               self->factorization->n);
+}
+
+static PyObject*
+CHOLMOD_factorization_solve_JtJ_x_b(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject* result = NULL;
+    PyObject* Py_out = NULL;
+
+    char* keywords[] = {"bt", NULL};
+    PyObject* Py_bt   = NULL;
+
+    if(!self->inited)
+    {
+        BARF("No factorization has been computed");
+        goto done;
+    }
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "O", keywords, &Py_bt))
+        goto done;
+
+    if( Py_bt == NULL || !PyArray_Check((PyArrayObject*)Py_bt) )
+    {
+        BARF("bt must be a numpy array");
+        goto done;
+    }
+    if( 2 != PyArray_NDIM((PyArrayObject*)Py_bt) )
+    {
+        BARF("bt must be a 2-dimensional numpy array. Instead got %d dimensions",
+             PyArray_NDIM((PyArrayObject*)Py_bt));
+        goto done;
+    }
+
+    int Nrhs   = (int)PyArray_DIMS((PyArrayObject*)Py_bt)[0];
+    int Nstate = (int)PyArray_DIMS((PyArrayObject*)Py_bt)[1];
+
+    if( self->factorization->n != (unsigned)Nstate )
+    {
+        BARF("bt must be a 2-dimensional numpy array with %d cols (that's what the factorization has). Instead got %d cols",
+             self->factorization->n,
+             Nstate);
+        goto done;
+    }
+    if( PyArray_TYPE((PyArrayObject*)Py_bt) != NPY_FLOAT64 )
+    {
+        BARF("bt must have dtype=float");
+        goto done;
+    }
+    if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)Py_bt) )
+    {
+        BARF("bt must live in contiguous memory");
+        goto done;
+    }
+
+    // Alright. b looks good-enough to use
+    if( 0 == Nrhs )
+    {
+        // Degenerate input (0 columns). Just return it, and I'm done
+        result = Py_bt;
+        Py_INCREF(result);
+        goto done;
+    }
+
+    cholmod_dense b = {
+        .nrow  = Nstate,
+        .ncol  = Nrhs,
+        .nzmax = Nrhs * Nstate,
+        .d     = Nstate,
+        .x     = PyArray_DATA((PyArrayObject*)Py_bt),
+        .xtype = CHOLMOD_REAL,
+        .dtype = CHOLMOD_DOUBLE };
+
+    Py_out = PyArray_SimpleNew(2,
+                               ((npy_intp[]){Nrhs,Nstate}),
+                               NPY_DOUBLE);
+    if(Py_out == NULL)
+    {
+        BARF("Couldn't allocate Py_out");
+        goto done;
+    }
+
+    cholmod_dense out = {
+        .nrow  = Nstate,
+        .ncol  = Nrhs,
+        .nzmax = Nrhs * Nstate,
+        .d     = Nstate,
+        .x     = PyArray_DATA((PyArrayObject*)Py_out),
+        .xtype = CHOLMOD_REAL,
+        .dtype = CHOLMOD_DOUBLE };
+
+    cholmod_dense* M = &out;
+    cholmod_dense* Y = NULL;
+    cholmod_dense* E = NULL;
+
+    if(!cholmod_solve2( CHOLMOD_A, self->factorization,
+                        &b, NULL,
+                        &M, NULL, &Y, &E,
+                        &self->common))
+    {
+        BARF("cholmod_solve2() failed");
+        goto done;
+    }
+    if( M != &out )
+    {
+        BARF("cholmod_solve2() reallocated out! We leaked memory");
+        goto done;
+    }
+
+    cholmod_free_dense (&E, &self->common);
+    cholmod_free_dense (&Y, &self->common);
+
+    Py_INCREF(Py_out);
+    result = Py_out;
+
+ done:
+    Py_XDECREF(Py_out);
+
+    return result;
+}
+
+static const char CHOLMOD_factorization_docstring[] =
+#include "CHOLMOD_factorization.docstring.h"
+    ;
+static const char CHOLMOD_factorization_solve_JtJ_x_b_docstring[] =
+#include "CHOLMOD_factorization_solve_JtJ_x_b.docstring.h"
+    ;
+
+static PyMethodDef CHOLMOD_factorization_methods[] =
+    {
+        PYMETHODDEF_ENTRY(CHOLMOD_factorization_, solve_JtJ_x_b, METH_VARARGS | METH_KEYWORDS),
+        {}
+    };
+
+
+static PyTypeObject CHOLMOD_factorization_type =
+{
+     PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name      = "mrcal.CHOLMOD_factorization",
+    .tp_basicsize = sizeof(CHOLMOD_factorization),
+    .tp_new       = PyType_GenericNew,
+    .tp_init      = (initproc)CHOLMOD_factorization_init,
+    .tp_dealloc   = (destructor)CHOLMOD_factorization_dealloc,
+    .tp_methods   = CHOLMOD_factorization_methods,
+    .tp_str       = (reprfunc)CHOLMOD_factorization_str,
+    .tp_flags     = Py_TPFLAGS_DEFAULT,
+    .tp_doc       = CHOLMOD_factorization_docstring,
+};
+
 
 static bool parse_lensmodel_from_arg(// output
                                      lensmodel_t* lensmodel,
@@ -1806,6 +2236,10 @@ static void _init_mrcal_common(PyObject* module)
 {
     Py_INCREF(&SolverContextType);
     PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
+
+    Py_INCREF(&CHOLMOD_factorization_type);
+    PyModule_AddObject(module, "CHOLMOD_factorization", (PyObject *)&CHOLMOD_factorization_type);
+
 }
 
 #if PY_MAJOR_VERSION == 2
@@ -1813,6 +2247,8 @@ static void _init_mrcal_common(PyObject* module)
 PyMODINIT_FUNC init_mrcal_nonbroadcasted(void)
 {
     if (PyType_Ready(&SolverContextType) < 0)
+        return;
+    if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
         return;
 
     PyObject* module =
@@ -1836,6 +2272,8 @@ static struct PyModuleDef module_def =
 PyMODINIT_FUNC PyInit__mrcal_nonbroadcasted(void)
 {
     if (PyType_Ready(&SolverContextType) < 0)
+        return NULL;
+    if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
         return NULL;
 
     PyObject* module =

@@ -1,0 +1,73 @@
+Solves the linear system JtJ x = b using CHOLMOD
+
+SYNOPSIS
+
+    from scipy.sparse import csr_matrix
+
+    indptr  = np.array([0, 2, 3, 6, 8])
+    indices = np.array([0, 2, 2, 0, 1, 2, 1, 2])
+    data    = np.array([1, 2, 3, 4, 5, 6, 7, 8], dtype=float)
+
+    Jsparse = csr_matrix((data, indices, indptr))
+    Jdense  = Jsparse.toarray()
+    print(Jdense)
+    ===> [[1. 0. 2.] 
+          [0. 0. 3.] 
+          [4. 5. 6.] 
+          [0. 7. 8.]]
+
+    bt = np.array(((1., 5., 3.), (2., -2., -8)))
+    print(nps.transpose(bt))
+    ===> [[ 1.  2.] 
+          [ 5. -2.] 
+          [ 3. -8.]]
+
+    F  = mrcal.CHOLMOD_factorization(Jsparse)
+    xt = F.solve_JtJ_x_b(bt)
+    print(nps.transpose(xt))
+    ===> [[ 0.02199662  0.33953751] 
+          [ 0.31725888  0.46982516] 
+          [-0.21996616 -0.50648618]]
+
+    print(nps.matmult(nps.transpose(Jdense), Jdense, nps.transpose(xt)))
+    ===> [[ 1.  2.] 
+          [ 5. -2.] 
+          [ 3. -8.]]
+
+The core of the mrcal optimizer is a sparse linear least squares solver using
+CHOLMOD to solve a large, sparse linear system. CHOLMOD is a C library, but it
+is sometimes useful to invoke it from Python.
+
+The CHOLMOD_factorization class factors a matrix JtJ, and the
+CHOLMOD_factorization.JtJ_x_b() method uses that factorization to efficiently
+solve the linear equation JtJ x = b.
+
+numpy and all of mrcal use a row-major convention for matrix storage, while
+CHOLMOD uses a column-major convention. Thus the inputs and outputs of this
+function (b and x) are specified as row-major transposes: we pass in bt and we
+get back xt.
+
+As many vectors b as we'd like may be given at one time. The dimensions of the
+returned array x will match the dimensions of the given array b.
+
+This function carefully checks its input for validity, but makes no effort to be
+flexible: anything that doesn't look right will result in an exception.
+Specifically:
+
+- the array bt must have exactly 2 dimensions. shape = (Nrhs,Nstate)
+
+- bt must be C-contiguous (the normal numpy order)
+
+- bt must contain 64-bit floating-point values (dtype=float)
+
+ARGUMENTS
+
+- bt: a numpy array of shape (Nrhs, Nstate). This array must be C-contiguous and
+  it must have dtype=float. If we have only a single right-hand-side, then we
+  STILL must pass in a 2-dimensional array: shape = (1, Nstate)
+
+RETURNED VALUE
+
+The transpose of the solution array x, in a numpy array of the same shape as the
+input bt
+

@@ -114,25 +114,26 @@ all: mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX) mrcal/_mrcal_broadcasted$(PY_EX
 EXTRA_CLEAN += mrcal/*.so
 
 # Set up the test suite to be runnable in parallel
-TESTS :=					\
-  test/test-pywrap-functions.py			\
-  test/test-pylib-projections.py		\
-  test/test-poseutils.py			\
-  test/test-cameramodel.py			\
-  test/test-poseutils-clib.py			\
-  test/test-projections.py			\
-  test/test-projections-stereographic.py	\
-  test/test-gradients.py			\
-  test/test-py-gradients.py			\
-  test/test-cahvor                              \
-  test/test-optimizer-callback.py		\
-  test/test-basic-sfm.py			\
-  test/test-calibration-basic.py		\
-  test/test-calibration-uncertainty-fixed-cam0.py      \
-  test/test-calibration-uncertainty-fixed-frames.py    \
-  test/test-projection-covariances-ief-fixed-cam0.py   \
-  test/test-projection-covariances-ief-fixed-frames.py \
-  test/test-lensmodel-string-manipulation
+TESTS :=						\
+  test/test-pywrap-functions.py				\
+  test/test-pylib-projections.py			\
+  test/test-poseutils.py				\
+  test/test-cameramodel.py				\
+  test/test-poseutils-clib.py				\
+  test/test-projections.py				\
+  test/test-projections-stereographic.py		\
+  test/test-gradients.py				\
+  test/test-py-gradients.py				\
+  test/test-cahvor					\
+  test/test-optimizer-callback.py			\
+  test/test-basic-sfm.py				\
+  test/test-calibration-basic.py			\
+  test/test-calibration-uncertainty-fixed-cam0.py	\
+  test/test-calibration-uncertainty-fixed-frames.py	\
+  test/test-projection-covariances-ief-fixed-cam0.py	\
+  test/test-projection-covariances-ief-fixed-frames.py	\
+  test/test-lensmodel-string-manipulation		\
+  test/test-CHOLMOD-factorization.py
 
 test check: all
 	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $t || SOMEFAILED=1; ) test -z "$$SOMEFAILED" || echo "SOME TEST SETS FAILED!"; test -z "$$SOMEFAILED" && echo "ALL TEST SETS PASSED!"
