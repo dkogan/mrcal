@@ -43,6 +43,18 @@ def parse_args():
                         transformation for each camera. Most usages will omit
                         this''')
 
+    parser.add_argument('--set',
+                        type=str,
+                        action='append',
+                        help='''Optional 'set' directives to pass to gnuplotlib. May be given multiple
+                        times''')
+
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Optional 'unset' directives to pass to gnuplotlib. May be given multiple
+                        times''')
+
     parser.add_argument('models',
                         type = str,
                         nargs= '+',
@@ -89,6 +101,11 @@ if args.transforms is not None:
 plotkwargs = {}
 if args.title    is not None: plotkwargs['title'   ] = args.title
 if args.hardcopy is not None: plotkwargs['hardcopy'] = args.hardcopy
+
+if hasattr(args, 'set') and getattr(args, 'set') is not None:
+    plotkwargs['set']   = getattr(args, 'set')
+if hasattr(args, 'unset') and getattr(args, 'unset') is not None:
+    plotkwargs['unset']   = getattr(args, 'unset')
 
 plot = mrcal.show_calibration_geometry(models,
                                        args.models,
