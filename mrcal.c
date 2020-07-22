@@ -3473,41 +3473,41 @@ static bool compute_uncertainty_matrices(// out
 
             int Nblocks = (int)(sizeof(blocks)/sizeof(blocks[0]));
 
-#define LOOP_STATE_BEGIN(istate_covariance, ivar_thisscale, Nvars_at_a_time) \
-            int istate_covariance = 0;                                  \
-            for(int iblock=0; iblock<Nblocks; iblock++)                 \
+#define LOOP_STATE_BEGIN(what, Nvars_at_a_time)                          \
+            int istate_covariance_ ## what = 0;                         \
+            for(int iblock_ ## what=0; iblock_ ## what<Nblocks; iblock_ ## what++) \
             {                                                           \
-                const block_t* b = &blocks[iblock];                     \
-                if(b->istate0 < 0) continue;                            \
+                const block_t* b_ ## what = &blocks[iblock_ ## what];   \
+                if(b_ ## what->istate0 < 0) continue;                   \
                                                                         \
-                if(iblock == 2 &&                                       \
+                if(iblock_ ## what == 2 &&                              \
                    icam_map_to_extrinsics[icam_state] < 0)              \
                 {                                                       \
                     /* THIS camera has no extrinsics. I store 0. The buffer has */ \
                     /* already been zeroed-out, so I don't need to do anything */ \
-                    istate_covariance += Nvars_pose;                    \
+                    istate_covariance_ ## what += Nvars_pose;           \
                     continue;                                           \
                 }                                                       \
                                                                         \
-                int iscale = 0;                                         \
-                for(int ivar_thisscale_begin = 0;                       \
-                    ivar_thisscale_begin < b->N;                        \
+                int iscale_ ## what = 0;                                \
+                for(int ivar_thisscale_begin_ ## what = 0;              \
+                    ivar_thisscale_begin_ ## what < b_ ## what->N;      \
                                                                         \
-                    ivar_thisscale_begin += b->N_at_each_scale,         \
-                    iscale ^= 1)                                        \
+                    ivar_thisscale_begin_ ## what += b_ ## what->N_at_each_scale, \
+                    iscale_ ## what ^= 1)                               \
                 {                                                       \
-                    double scale = b->scale[iscale];                    \
-                    if(scale <= 0) /* will have scale <= 0 only if */   \
-                                   /* rotation_only and looking at */   \
-                                   /* rotations */                      \
+                    double scale_ ## what = b_ ## what->scale[iscale_ ## what]; \
+                    if(scale_ ## what <= 0) /* will have scale <= 0 only if */ \
+                                            /* rotation_only and looking at */ \
+                                            /* rotations */             \
                         continue;                                       \
                                                                         \
-                    for(int ivar_thisscale=0;                           \
-                        ivar_thisscale<b->N_at_each_scale;              \
-                        ivar_thisscale += Nvars_at_a_time )
+                    for(int ivar_thisscale_ ## what=0;                  \
+                        ivar_thisscale_ ## what<b_ ## what->N_at_each_scale; \
+                        ivar_thisscale_ ## what += Nvars_at_a_time )
 
-#define LOOP_STATE_END(istate_covariance, ivar_thisscale)               \
-                    istate_covariance += b->N_at_each_scale;            \
+#define LOOP_STATE_END(what)                                            \
+                    istate_covariance_ ## what += b_ ## what->N_at_each_scale; \
                 }                                                       \
             }
 
@@ -3523,22 +3523,22 @@ static bool compute_uncertainty_matrices(// out
             cholmod_dense* M = NULL;
             cholmod_dense* Y = NULL;
             cholmod_dense* E = NULL;
-            LOOP_STATE_BEGIN(istate_covariance_outer, ivar_thisscale_outer, chunk_size)
+            LOOP_STATE_BEGIN(outer, chunk_size)
             {
                 int Nvars_here =
-                    (b->N_at_each_scale-ivar_thisscale_outer >= chunk_size) ?
-                    chunk_size : (b->N_at_each_scale - ivar_thisscale_outer);
+                    (b_outer->N_at_each_scale-ivar_thisscale_outer >= chunk_size) ?
+                    chunk_size : (b_outer->N_at_each_scale - ivar_thisscale_outer);
 
                 Jt_slice->ncol = Nvars_here;
                 memset( Jt_slice->x, 0, Jt_slice->nrow*Nvars_here*sizeof(double) );
                 for(int icol=0; icol<Nvars_here; icol++)
                 {
                     // cholmod stores its matrices col-first so I index by [irow + icol*nrow]
-                    ((double*)Jt_slice->x)[ b->istate0 +
-                                            ivar_thisscale_begin +
+                    ((double*)Jt_slice->x)[ b_outer->istate0 +
+                                            ivar_thisscale_begin_outer +
                                             ivar_thisscale_outer +
                                             icol + icol*Jt_slice->nrow] =
-                        scale;
+                        scale_outer;
                 }
 
                 cholmod_solve2( CHOLMOD_A, solver_context->factorization,
@@ -3549,7 +3549,7 @@ static bool compute_uncertainty_matrices(// out
                 // loop through each variable at this scale. I don't
                 // need to group them by chunk_size here; one-at-a-time
                 // is just fine
-                LOOP_STATE_BEGIN(istate_covariance_inner, ivar_thisscale_inner, 1)
+                LOOP_STATE_BEGIN(inner, 1)
                 {
                     // I applied the scaling to the right-hand-side. Now I apply
                     // it to the left-hand side
@@ -3559,15 +3559,15 @@ static bool compute_uncertainty_matrices(// out
                             istate_covariance_inner  + ivar_thisscale_inner ]  =
 
                             ((double*)(M->x))[icol*M->nrow +
-                                              b->istate0 +
-                                              ivar_thisscale_begin +
+                                              b_inner->istate0 +
+                                              ivar_thisscale_begin_inner +
                                               ivar_thisscale_inner] *
-                            scale *
+                            scale_inner *
                             observed_pixel_uncertainty*observed_pixel_uncertainty;
                 }
-                LOOP_STATE_END(istate_covariance_inner, ivar_thisscale_inner);
+                LOOP_STATE_END(inner);
             }
-            LOOP_STATE_END(istate_covariance_outer, ivar_thisscale_outer);
+            LOOP_STATE_END(outer);
 
 
             cholmod_free_dense (&M, &solver_context->common);
