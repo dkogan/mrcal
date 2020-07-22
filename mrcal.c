@@ -354,22 +354,6 @@ int mrcal_getNstate(int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframe
         (problem_details.do_optimize_calobject_warp ? 2 : 0);
 }
 
-static int getNmeasurements_observationsonly(int NobservationsBoard,
-                                             int NobservationsPoint,
-                                             int calibration_object_width_n,
-                                             int calibration_object_height_n)
-{
-    // *2 because I have separate x and y measurements
-    int Nmeas =
-        NobservationsBoard *
-        calibration_object_width_n*calibration_object_height_n *
-        2;
-
-    // *2 because I have separate x and y measurements
-    Nmeas += NobservationsPoint * 2;
-    return Nmeas;
-}
-
 static int getNregularizationTerms_percamera(mrcal_problem_details_t problem_details,
                                              lensmodel_t lensmodel)
 {
@@ -3203,15 +3187,28 @@ static bool compute_uncertainty_matrices(// out
         goto done;
 
 
-    //Nintrinsics_per_camera_state can be < Nintrinsics_per_camera_all, if we're
-    //locking down some variables with problem_details
+    // Nintrinsics_per_camera_state can be < Nintrinsics_per_camera_all, if we're
+    // locking down some variables with problem_details
     int Nintrinsics_per_camera_all = mrcal_getNlensParams(lensmodel);
     int Nintrinsics_per_camera_state =
         mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel);
-    int Nmeas_observations = getNmeasurements_observationsonly(NobservationsBoard,
-                                                               NobservationsPoint,
-                                                               calibration_object_width_n,
-                                                               calibration_object_height_n);
+
+    int Nmeasurements_boards =
+        mrcal_getNmeasurements_boards(NobservationsBoard,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
+    int Nmeasurements_points =
+        mrcal_getNmeasurements_points(NobservationsPoint);
+    int Nmeasurements_regularization =
+        mrcal_getNmeasurements_regularization(Ncameras_intrinsics,
+                                              problem_details,
+                                              lensmodel);
+
+    const int Nmeasurements_observations = Nmeasurements_boards;
+    if(Nmeasurements_points != 0)
+        MSG("WARNING: ignoring point observations for purposes of uncertainty. Need code to ignore the range normalization measurements");
+    // If I have regularization then I do ignore those properly, as needed
+
 
     int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
     if(covariance_intrinsics)
@@ -3278,9 +3275,6 @@ static bool compute_uncertainty_matrices(// out
         result = true;
         goto done;
     }
-
-    int Nstate = Jt->nrow;
-    int Nmeas  = Jt->ncol;
 
     // I will repeatedly solve the system JtJ x = v. CHOLMOD can do this for me
     // quickly, if I pre-analyze and pre-factorize JtJ. I do this here, and then
@@ -3618,13 +3612,13 @@ static bool compute_uncertainty_matrices(// out
                                                              problem_details,
                                                              lensmodel);
 
-        for(int i_meas=0; i_meas < Nmeas_observations; i_meas += chunk_size)
+        for(int i_meas=0; i_meas < Nmeasurements_observations; i_meas += chunk_size)
         {
             // sparse to dense for a chunk of Jt
             memset( Jt_slice->x, 0, Jt_slice->nrow*chunk_size*sizeof(double) );
             for(unsigned int icol=0; icol<(unsigned)chunk_size; icol++)
             {
-                if( (int)(i_meas + icol) >= Nmeas_observations )
+                if( (int)(i_meas + icol) >= Nmeasurements_observations )
                 {
                     // at the end, we could have one chunk with less that chunk_size
                     // columns
