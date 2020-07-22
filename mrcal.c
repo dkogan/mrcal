@@ -3291,7 +3291,9 @@ static bool compute_uncertainty_matrices(// out
             }
         }
 
-        assert( cholmod_factorize(Jt, solver_context->factorization, &solver_context->common) );
+        if( !cholmod_factorize(Jt, solver_context->factorization, &solver_context->common) )
+            assert(0);
+
         if(solver_context->factorization->minor != solver_context->factorization->n)
         {
             MSG("Got singular JtJ!");
