@@ -3639,11 +3639,11 @@ static bool compute_uncertainty_matrices(// out
                 }
             }
 
-            // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends up
-            // dense. cholmod doesn't have functions for this exact case. so I use
-            // the dense-sparse-dense function, and densify the input. Instead of
-            // sparse-sparse-sparse and the densifying the output. This feels like
-            // it'd be more efficient
+            // I'm solving JtJ x = b where J is sparse, b is sparse, but x ends
+            // up dense. cholmod doesn't have functions for this exact case. so
+            // I use the dense-sparse-dense function, and densify the input.
+            // Instead of sparse-sparse-sparse and then densifying the output.
+            // This feels like it'd be more efficient
             cholmod_dense* M = cholmod_solve( CHOLMOD_A, solver_context->factorization,
                                               Jt_slice,
                                               &solver_context->common);
