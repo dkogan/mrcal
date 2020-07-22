@@ -558,12 +558,12 @@ def solve_initial(args, seedmodels, imagersizes,
         # incremental optimizations to get it reasonably-close to the right
         # answer
         intrinsics_data,extrinsics,frames = \
-            mrcal.make_seed_no_distortion(imagersizes          = imagersizes,
-                                          focal_estimate       = args.focal,
-                                          Ncameras             = Ncameras,
-                                          indices_frame_camera = indices_frame_camera,
-                                          observations         = observations,
-                                          object_spacing       = args.object_spacing)
+            mrcal.make_seed_pinhole(imagersizes          = imagersizes,
+                                    focal_estimate       = args.focal,
+                                    Ncameras             = Ncameras,
+                                    indices_frame_camera = indices_frame_camera,
+                                    observations         = observations,
+                                    object_spacing       = args.object_spacing)
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
@@ -629,7 +629,7 @@ def solve_initial(args, seedmodels, imagersizes,
         # - what if for a given frame more than 2 cameras are observing the board?
         #
         # So I do the less-accurate-but-more-robust thing using pinhole
-        # monocular observations. This is what mrcal.make_seed_no_distortion()
+        # monocular observations. This is what mrcal.make_seed_pinhole()
         # does in the no-seed-available case
         calobject_poses_local_Rt_cf = \
             mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,

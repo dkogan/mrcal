@@ -4865,12 +4865,12 @@ system FROM the calibration object coordinate system.
     return frames_rt_toref
 
 
-def make_seed_no_distortion( imagersizes,
-                             focal_estimate,
-                             Ncameras,
-                             indices_frame_camera,
-                             observations,
-                             object_spacing):
+def make_seed_pinhole( imagersizes,
+                       focal_estimate,
+                       Ncameras,
+                       indices_frame_camera,
+                       observations,
+                       object_spacing):
     r'''Generate a solution seed for a given input
 
     Note that this assumes we're solving a calibration problem (stationary
