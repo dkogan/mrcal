@@ -3147,7 +3147,6 @@ static bool compute_uncertainty_matrices(// out
     int icam_map_to_extrinsics[Ncameras_intrinsics];
     int icam_map_to_intrinsics[Ncameras_extrinsics+1];
 
-
     dogleg_solverContext_t* solver_context = _solver_context;
     dogleg_solverContext_t __solver_context;
     if(solver_context == NULL)
