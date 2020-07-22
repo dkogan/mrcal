@@ -3321,8 +3321,6 @@ static bool compute_uncertainty_matrices(// out
             MSG("At this time, covariances_ief can only be computed for stationary cameras. Saw inconsistent Ncameras_intrinsics,Ncameras_extrinsics");
             goto done;
         }
-        if(!problem_details.do_skip_regularization)
-            MSG("WARNING: computing intrinsic uncertainty with regularization enabled: this will cause a bias. Continuing anyway");
 
         if(!problem_details.do_optimize_extrinsics)
         {
