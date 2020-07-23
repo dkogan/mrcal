@@ -591,9 +591,15 @@ static PyMethodDef SolverContext_methods[] =
       {}
     };
 
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+// PyObject_HEAD_INIT throws
+//   warning: missing braces around initializer []
+// This isn't mine to fix, so I'm ignoring it
 static PyTypeObject SolverContextType =
 {
-     PyVarObject_HEAD_INIT(NULL, 0)
+    PyObject_HEAD_INIT(NULL)
     .tp_name      = "mrcal.SolverContext",
     .tp_basicsize = sizeof(SolverContext),
     .tp_new       = PyType_GenericNew,
@@ -604,12 +610,7 @@ static PyTypeObject SolverContextType =
     .tp_flags     = Py_TPFLAGS_DEFAULT,
     .tp_doc       = "Opaque solver context used by mrcal",
 };
-
-
-
-
-
-
+#pragma GCC diagnostic pop
 
 // A container for a CHOLMOD factorization
 typedef struct {
@@ -1018,9 +1019,14 @@ static PyMethodDef CHOLMOD_factorization_methods[] =
     };
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+// PyObject_HEAD_INIT throws
+//   warning: missing braces around initializer []
+// This isn't mine to fix, so I'm ignoring it
 static PyTypeObject CHOLMOD_factorization_type =
 {
-     PyVarObject_HEAD_INIT(NULL, 0)
+     PyObject_HEAD_INIT(NULL)
     .tp_name      = "mrcal.CHOLMOD_factorization",
     .tp_basicsize = sizeof(CHOLMOD_factorization),
     .tp_new       = PyType_GenericNew,
@@ -1031,6 +1037,7 @@ static PyTypeObject CHOLMOD_factorization_type =
     .tp_flags     = Py_TPFLAGS_DEFAULT,
     .tp_doc       = CHOLMOD_factorization_docstring,
 };
+#pragma GCC diagnostic pop
 
 
 static bool parse_lensmodel_from_arg(// output
