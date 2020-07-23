@@ -3171,7 +3171,7 @@ static bool compute_uncertainty_matrices(// out
         solver_context->common.print_function = cholmod_error_callback;
 #else
         CHOLMOD_FUNCTION_DEFAULTS ;
-        CHOLMOD_FUNCTION_PRINTF(&solver_context->ctx) = cholmod_error_callback;
+        CHOLMOD_FUNCTION_PRINTF(&solver_context->common) = cholmod_error_callback;
 #endif
     }
 
