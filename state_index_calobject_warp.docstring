@@ -1,0 +1,5 @@
+Returns the index in the optimization vector of the calibration object warp
+
+The board can be warped along the x axis and/or along the y axis. A separate
+parameter is available for each axis. This function returns the index of the
+first of these two parameters. No arguments are expected.

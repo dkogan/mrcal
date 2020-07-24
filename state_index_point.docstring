@@ -1,0 +1,4 @@
+Returns the index in the optimization vector of the coordinates of point i
+
+Each point is represented by 3 values: an xyz world coordinate. i is given in
+the single argument

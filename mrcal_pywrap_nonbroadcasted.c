@@ -2253,6 +2253,513 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 
 
+// The state_index_... python functions don't need the full data but many of
+// them do need to know the dimensionality of the data. Thus these can take the
+// same arguments as optimizerCallback(). OR in lieu of that, the dimensions can
+// be passed-in explicitly with the arguments
+//
+// - Ncameras_intrinsics
+// - Ncameras_extrinsics
+// - Nframes
+// - Npoints
+// - NobservationsBoard
+// - NobservationsPoint
+//
+// If both are given, the explicit arguments take precedence. If neither are
+// given, I assume 0.
+//
+// This means that the arguments that are required in optimizerCallback() are
+// only optional here
+typedef int (callback_state_index_t)(int i,
+                                     int Ncameras_intrinsics,
+                                     int Ncameras_extrinsics,
+                                     int Nframes,
+                                     int Npoints,
+                                     int Npoints_fixed,
+                                     int NobservationsBoard,
+                                     int NobservationsPoint,
+                                     lensmodel_t lensmodel,
+                                     mrcal_problem_details_t problem_details);
+
+static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* kwargs,
+                                     const char* argname,
+                                     callback_state_index_t cb)
+{
+    // This is VERY similar to _pack_unpack_state(). Please consolidate
+    // Also somewhat similar to _optimize()
+
+    PyObject* result = NULL;
+
+    OPTIMIZERCALLBACK_ARGUMENTS_ALL(ARG_DEFINE) ;
+    int i = -1;
+
+    int Ncameras_intrinsics = -1;
+    int Ncameras_extrinsics = -1;
+    int Nframes             = -1;
+    int Npoints             = -1;
+    int NobservationsBoard  = -1;
+    int NobservationsPoint  = -1;
+
+    char* keywords[] = { (char*)argname,
+                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
+
+                         "Ncameras_intrinsics",
+                         "Ncameras_extrinsics",
+                         "Nframes",
+                         "Npoints",
+                         "NobservationsBoard",
+                         "NobservationsPoint",
+                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
+    char** keywords_noargname = &keywords[1];
+
+    if(argname != NULL)
+    {
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         "i"
+                                         "|" // everything is optional. I apply
+                                             // logic down the line to get what
+                                             // I need
+                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE)
+                                         "iiiiii"
+                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                         keywords,
+
+                                         &i,
+                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                         &Ncameras_intrinsics,
+                                         &Ncameras_extrinsics,
+                                         &Nframes,
+                                         &Npoints,
+                                         &NobservationsBoard,
+                                         &NobservationsPoint,
+                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+            goto done;
+    }
+    else
+    {
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         "iiiiii"
+                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                         keywords_noargname,
+
+                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                         &Ncameras_intrinsics,
+                                         &Ncameras_extrinsics,
+                                         &Nframes,
+                                         &Npoints,
+                                         &NobservationsBoard,
+                                         &NobservationsPoint,
+                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+            goto done;
+    }
+
+    if(lensmodel == NULL)
+    {
+        BARF("The 'lensmodel' argument is required");
+        goto done;
+    }
+
+    mrcal_problem_details_t problem_details =
+        { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
+          .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
+          .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
+          .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
+          .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),
+          .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
+        };
+
+    lensmodel_t lensmodel_type;
+    if(!parse_lensmodel_from_arg(&lensmodel_type, lensmodel))
+        goto done;
+
+    // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
+    // that's OK! After I do this and if !IS_NULL, then I can ask for array
+    // dimensions safely
+    bool check(void)
+    {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+        OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
+        return true;
+    }
+    if(!check()) goto done;
+
+    // If explicit dimensions are given, use them. If they're not given, but we
+    // have an array, use those dimensions. If an array isn't given either, use
+    // 0
+    if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
+    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
+    if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
+    if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
+    if(NobservationsBoard < 0)  NobservationsBoard  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(NobservationsPoint < 0)  NobservationsPoint  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+
+    int index = cb(i,
+                   Ncameras_intrinsics,
+                   Ncameras_extrinsics,
+                   Nframes,
+                   Npoints,
+                   Npoints_fixed,
+                   NobservationsBoard,
+                   NobservationsPoint,
+                   lensmodel_type,
+                   problem_details);
+    if(index < 0)
+        goto done;
+
+    result = Py_BuildValue("i", index);
+
+ done:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+#pragma GCC diagnostic pop
+
+    return result;
+}
+
+static int callback_state_index_intrinsics(int i,
+                                           int Ncameras_intrinsics,
+                                           int Ncameras_extrinsics,
+                                           int Nframes,
+                                           int Npoints,
+                                           int Npoints_fixed,
+                                           int NobservationsBoard,
+                                           int NobservationsPoint,
+                                           lensmodel_t lensmodel,
+                                           mrcal_problem_details_t problem_details)
+{
+    return mrcal_state_index_intrinsics(i,
+                                        problem_details,
+                                        lensmodel);
+}
+static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               "i_cam_intrinsics",
+                               callback_state_index_intrinsics);
+}
+
+static int callback_state_index_camera_rt(int i,
+                                          int Ncameras_intrinsics,
+                                          int Ncameras_extrinsics,
+                                          int Nframes,
+                                          int Npoints,
+                                          int Npoints_fixed,
+                                          int NobservationsBoard,
+                                          int NobservationsPoint,
+                                          lensmodel_t lensmodel,
+                                          mrcal_problem_details_t problem_details)
+{
+    if( i < 0 || i >= Ncameras_extrinsics)
+    {
+        BARF( "i_cam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              Ncameras_extrinsics-1,i);
+        return -1;
+    }
+    return
+        mrcal_state_index_camera_rt(i,
+                                    Ncameras_intrinsics,
+                                    problem_details,
+                                    lensmodel);
+}
+static PyObject* state_index_camera_rt(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               "i_cam_extrinsics",
+                               callback_state_index_camera_rt);
+}
+
+static int callback_state_index_frame_rt(int i,
+                                         int Ncameras_intrinsics,
+                                         int Ncameras_extrinsics,
+                                         int Nframes,
+                                         int Npoints,
+                                         int Npoints_fixed,
+                                         int NobservationsBoard,
+                                         int NobservationsPoint,
+                                         lensmodel_t lensmodel,
+                                         mrcal_problem_details_t problem_details)
+{
+    if( i < 0 || i >= Nframes)
+    {
+        BARF( "i_frames must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              Nframes-1,i);
+        return -1;
+    }
+    return
+        mrcal_state_index_frame_rt(i,
+                                   Ncameras_intrinsics,
+                                   Ncameras_extrinsics,
+                                   problem_details,
+                                   lensmodel);
+}
+static PyObject* state_index_frame_rt(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               "i_frame",
+                               callback_state_index_frame_rt);
+}
+
+static int callback_state_index_point(int i,
+                                      int Ncameras_intrinsics,
+                                      int Ncameras_extrinsics,
+                                      int Nframes,
+                                      int Npoints,
+                                      int Npoints_fixed,
+                                      int NobservationsBoard,
+                                      int NobservationsPoint,
+                                      lensmodel_t lensmodel,
+                                      mrcal_problem_details_t problem_details)
+{
+    if( i < 0 || i >= Npoints-Npoints_fixed)
+    {
+        BARF( "i_frames must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              Nframes-1,i);
+        return -1;
+    }
+    return
+        mrcal_state_index_point(i,
+                                Nframes,
+                                Ncameras_intrinsics,
+                                Ncameras_extrinsics,
+                                problem_details,
+                                lensmodel);
+}
+static PyObject* state_index_point(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               "i_point",
+                               callback_state_index_point);
+}
+
+static int callback_state_index_calobject_warp(int i,
+                                               int Ncameras_intrinsics,
+                                               int Ncameras_extrinsics,
+                                               int Nframes,
+                                               int Npoints,
+                                               int Npoints_fixed,
+                                               int NobservationsBoard,
+                                               int NobservationsPoint,
+                                               lensmodel_t lensmodel,
+                                               mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_state_index_calobject_warp(Npoints - Npoints_fixed,
+                                         Nframes,
+                                         Ncameras_intrinsics,
+                                         Ncameras_extrinsics,
+                                         problem_details,
+                                         lensmodel);
+}
+static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_state_index_calobject_warp);
+}
+
+static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kwargs,
+                                    bool pack)
+{
+    // This is VERY similar to state_index_generic(). Please consolidate
+    PyObject*      result = NULL;
+    PyArrayObject* p      = NULL;
+
+    OPTIMIZERCALLBACK_ARGUMENTS_ALL(ARG_DEFINE) ;
+
+    int Ncameras_intrinsics = -1;
+    int Ncameras_extrinsics = -1;
+    int Nframes             = -1;
+    int Npoints             = -1;
+    int NobservationsBoard  = -1;
+    int NobservationsPoint  = -1;
+
+    char* keywords[] = { "p",
+                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
+
+                         "Ncameras_intrinsics",
+                         "Ncameras_extrinsics",
+                         "Nframes",
+                         "Npoints",
+                         "NobservationsBoard",
+                         "NobservationsPoint",
+                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O&"
+                                     "|" // everything is optional. I apply
+                                     // logic down the line to get what
+                                     // I need
+                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE)
+                                     "iiiiii"
+                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                     keywords,
+
+                                     PyArray_Converter, &p,
+                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                     &Ncameras_intrinsics,
+                                     &Ncameras_extrinsics,
+                                     &Nframes,
+                                     &Npoints,
+                                     &NobservationsBoard,
+                                     &NobservationsPoint,
+                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+        goto done;
+
+    if(lensmodel == NULL)
+    {
+        BARF("The 'lensmodel' argument is required");
+        goto done;
+    }
+
+    mrcal_problem_details_t problem_details =
+        { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
+          .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
+          .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
+          .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
+          .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),
+          .do_skip_regularization            = skip_regularization && PyObject_IsTrue(skip_regularization)
+        };
+
+    lensmodel_t lensmodel_type;
+    if(!parse_lensmodel_from_arg(&lensmodel_type, lensmodel))
+        goto done;
+
+    // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
+    // that's OK! After I do this and if !IS_NULL, then I can ask for array
+    // dimensions safely
+    bool check(void)
+    {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+        OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
+        return true;
+    }
+    if(!check()) goto done;
+
+    // If explicit dimensions are given, use them. If they're not given, but we
+    // have an array, use those dimensions. If an array isn't given either, use
+    // 0
+    if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
+    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
+    if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
+    if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
+    if(NobservationsBoard < 0)  NobservationsBoard  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(NobservationsPoint < 0)  NobservationsPoint  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+
+
+    if( PyArray_TYPE(p) != NPY_DOUBLE )
+    {
+        BARF("The given array MUST have values of type 'float'");
+        goto done;
+    }
+
+    if( !PyArray_IS_C_CONTIGUOUS(p) )
+    {
+        BARF("The given array MUST be a C-style contiguous array");
+        goto done;
+    }
+
+    int       ndim = PyArray_NDIM(p);
+    npy_intp* dims = PyArray_DIMS(p);
+    if( ndim < 1 )
+    {
+        BARF("The given array MUST have at least one dimension");
+        goto done;
+    }
+
+    int Nstate =
+        mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
+                        Nframes, Npoints - Npoints_fixed,
+                        problem_details,
+                        lensmodel_type);
+
+    if( dims[ndim-1] != Nstate )
+    {
+        BARF("The given array MUST have last dimension of size Nstate=%d; instead got %ld",
+                     Nstate, dims[ndim-1]);
+        goto done;
+    }
+
+    double* x = (double*)PyArray_DATA(p);
+    if(pack)
+        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        {
+            mrcal_pack_solver_state_vector( x,
+                                            lensmodel_type, problem_details,
+                                            Ncameras_intrinsics, Ncameras_extrinsics,
+                                            Nframes, Npoints-Npoints_fixed );
+            x = &x[Nstate];
+        }
+    else
+        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        {
+            mrcal_unpack_solver_state_vector( x,
+                                              lensmodel_type, problem_details,
+                                              Ncameras_intrinsics, Ncameras_extrinsics,
+                                              Nframes, Npoints-Npoints_fixed );
+            x = &x[Nstate];
+        }
+
+    Py_INCREF(Py_None);
+    result = Py_None;
+
+ done:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+#pragma GCC diagnostic pop
+
+    Py_XDECREF(p);
+    return result;
+}
+static PyObject* pack_state(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return _pack_unpack_state(self, args, kwargs, true);
+}
+static PyObject* unpack_state(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return _pack_unpack_state(self, args, kwargs, false);
+}
+
+static const char state_index_intrinsics_docstring[] =
+#include "state_index_intrinsics.docstring.h"
+    ;
+static const char state_index_camera_rt_docstring[] =
+#include "state_index_camera_rt.docstring.h"
+    ;
+static const char state_index_frame_rt_docstring[] =
+#include "state_index_frame_rt.docstring.h"
+    ;
+static const char state_index_point_docstring[] =
+#include "state_index_point.docstring.h"
+    ;
+static const char state_index_calobject_warp_docstring[] =
+#include "state_index_calobject_warp.docstring.h"
+    ;
+static const char pack_state_docstring[] =
+#include "pack_state.docstring.h"
+    ;
+static const char unpack_state_docstring[] =
+#include "unpack_state.docstring.h"
+    ;
+
+
+
+
+
+
 
 static const char optimize_docstring[] =
 #include "optimize.docstring.h"
@@ -2281,6 +2788,15 @@ static const char unproject_stereographic_docstring[] =
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizerCallback,        METH_VARARGS | METH_KEYWORDS),
+
+      PYMETHODDEF_ENTRY(, state_index_intrinsics,     METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_camera_rt,      METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_frame_rt,       METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_point,          METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_calobject_warp, METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, pack_state,                 METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, unpack_state,               METH_VARARGS | METH_KEYWORDS),
+
       PYMETHODDEF_ENTRY(,getLensModelMeta,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
       PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
