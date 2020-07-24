@@ -1,8 +1,75 @@
-Converts a real-unit state vector to an unscaled, unitless one
+Scales a state vector to the packed, unitless form used by the optimizer
 
-In order to make the solver well-behaved, we scale all variables in the state
-vector before passing data to the solver. The solver thus sees only unitless
-data. I call this "unscaled" or "packed".
+SYNOPSIS
 
-This function takes a real-unit numpy array of shape (...., Nstate), and scales
-it to produce unitless data
+    m = mrcal.cameramodel('xxx.cameramodel')
+
+    optimization_inputs = m.optimization_inputs()
+
+    Jpacked = mrcal.optimizerCallback(**optimization_inputs)[2].toarray()
+
+    J = Jpacked.copy()
+    mrcal.pack_state(J, **optimization_inputs)
+
+In order to make the optimization well-behaved, we scale all the variables in
+the state and the gradients before passing them to the optimizer. The internal
+optimization library thus works only with unitless (or "packed") data.
+
+This function takes a full numpy array of shape (...., Nstate), and scales it to
+produce packed data. This function applies the scaling to the input array; the
+input is modified, and nothing is returned.
+
+To unpack a state vector, you naturally call unpack_state(). To unpack a
+jacobian matrix, you would call pack_state() because in a jacobian, the state is
+in the denominator. This is shown in the example above.
+
+Broadcasting is supported: any leading dimensions will be processed correctly,
+as long as the given array has shape (..., Nstate).
+
+In order to know what the scale factors should be, and how they should map to
+each variable in the state vector, we need quite a bit of context. If we have
+the full set of inputs to the optimization function, we can pass in those (as
+shown in the example above). Or we can pass the individual arguments that are
+needed (see ARGUMENTS section for the full list). If the optimization inputs and
+explicitly-given arguments conflict about the size of some array, the explicit
+arguments take precedence. If any array size is not specified, it is assumed to
+be 0. Thus most arguments are optional.
+
+ARGUMENTS
+
+- p: a numpy array of shape (..., Nstate). This is the full state on input, and
+  the packed state on output. The input array is modified.
+
+- **kwargs: if the optimization inputs are available, they can be passed-in as
+  kwargs. These inputs contain everything this function needs to operate. If we
+  don't have these, then the rest of the variables will need to be given
+
+- lensmodel: string specifying the lensmodel we're using (this is always
+  'LENSMODEL_...'). The full list of valid models is returned by
+  mrcal.getSupportedLensModels(). This is required if we're not passing in the
+  optimization inputs
+
+- do_optimize_intrinsic_core
+  do_optimize_intrinsic_distortions
+  do_optimize_extrinsics
+  do_optimize_frames
+
+  optional booleans; default to True. These specify what we're optimizing. See
+  the documentation for mrcal.optimize() for details
+
+- do_optimize_calobject_warp: optional boolean; defaults to False. Specifies
+  whether we're optimizing the warping of the calibration board.. See the
+  documentation for mrcal.optimize() for details
+
+- Ncameras_intrinsics
+  Ncameras_extrinsics
+  Nframes
+  Npoints
+  Npoints_fixed
+
+  optional integers; default to 0. These specify the sizes of various arrays in
+  the optimization. See the documentation for mrcal.optimize() for details
+
+RETURNED VALUE
+
+None. The scaling is applied to the input array
