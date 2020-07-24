@@ -1947,6 +1947,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         if( is_optimize )
         {
+            // we're wrapping mrcal_optimize()
             const int Npoints_fromBoards =
                 NobservationsBoard *
                 calibration_object_width_n*calibration_object_height_n;
@@ -2064,6 +2065,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         }
         else
         {
+            // we're wrapping mrcal_optimizerCallback()
+
             int N_j_nonzero = mrcal_getN_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
                                                    c_observations_board, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
