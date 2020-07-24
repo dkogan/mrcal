@@ -934,15 +934,17 @@ CHOLMOD_factorization_solve_JtJ_x_b(CHOLMOD_factorization* self, PyObject* args,
         BARF("bt must be a numpy array");
         goto done;
     }
-    if( 2 != PyArray_NDIM((PyArrayObject*)Py_bt) )
+
+    int ndim = PyArray_NDIM((PyArrayObject*)Py_bt);
+    if( ndim < 1 )
     {
-        BARF("bt must be a 2-dimensional numpy array. Instead got %d dimensions",
-             PyArray_NDIM((PyArrayObject*)Py_bt));
+        BARF("bt must be at least a 1-dimensional numpy array. Instead got %d dimensions",
+             ndim);
         goto done;
     }
 
-    int Nrhs   = (int)PyArray_DIMS((PyArrayObject*)Py_bt)[0];
-    int Nstate = (int)PyArray_DIMS((PyArrayObject*)Py_bt)[1];
+    int Nstate = (int)PyArray_DIMS((PyArrayObject*)Py_bt)[ndim-1];
+    int Nrhs   = (int)PyArray_SIZE((PyArrayObject*)Py_bt) / Nstate;
 
     if( self->factorization->n != (unsigned)Nstate )
     {
@@ -980,8 +982,8 @@ CHOLMOD_factorization_solve_JtJ_x_b(CHOLMOD_factorization* self, PyObject* args,
         .xtype = CHOLMOD_REAL,
         .dtype = CHOLMOD_DOUBLE };
 
-    Py_out = PyArray_SimpleNew(2,
-                               ((npy_intp[]){Nrhs,Nstate}),
+    Py_out = PyArray_SimpleNew(ndim,
+                               PyArray_DIMS((PyArrayObject*)Py_bt),
                                NPY_DOUBLE);
     if(Py_out == NULL)
     {

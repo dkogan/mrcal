@@ -50,11 +50,12 @@ get back xt.
 As many vectors b as we'd like may be given at one time. The dimensions of the
 returned array x will match the dimensions of the given array b.
 
+Broadcasting is supported: any leading dimensions will be processed correctly,
+as long as bt has shape (..., Nstate)
+
 This function carefully checks its input for validity, but makes no effort to be
 flexible: anything that doesn't look right will result in an exception.
 Specifically:
-
-- the array bt must have exactly 2 dimensions. shape = (Nrhs,Nstate)
 
 - bt must be C-contiguous (the normal numpy order)
 
@@ -62,9 +63,8 @@ Specifically:
 
 ARGUMENTS
 
-- bt: a numpy array of shape (Nrhs, Nstate). This array must be C-contiguous and
-  it must have dtype=float. If we have only a single right-hand-side, then we
-  STILL must pass in a 2-dimensional array: shape = (1, Nstate)
+- bt: a numpy array of shape (..., Nstate). This array must be C-contiguous and
+  it must have dtype=float
 
 RETURNED VALUE
 
