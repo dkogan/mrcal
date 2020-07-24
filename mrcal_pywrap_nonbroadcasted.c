@@ -2280,6 +2280,8 @@ typedef int (callback_state_index_t)(int i,
                                      int Npoints_fixed,
                                      int NobservationsBoard,
                                      int NobservationsPoint,
+                                     int calibration_object_width_n,
+                                     int calibration_object_height_n,
                                      lensmodel_t lensmodel,
                                      mrcal_problem_details_t problem_details);
 
@@ -2409,6 +2411,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                    Npoints_fixed,
                    NobservationsBoard,
                    NobservationsPoint,
+                   calibration_object_width_n,
+                   calibration_object_height_n,
                    lensmodel_type,
                    problem_details);
     if(index < 0)
@@ -2434,6 +2438,8 @@ static int callback_state_index_intrinsics(int i,
                                            int Npoints_fixed,
                                            int NobservationsBoard,
                                            int NobservationsPoint,
+                                           int calibration_object_width_n,
+                                           int calibration_object_height_n,
                                            lensmodel_t lensmodel,
                                            mrcal_problem_details_t problem_details)
 {
@@ -2456,6 +2462,8 @@ static int callback_state_index_camera_rt(int i,
                                           int Npoints_fixed,
                                           int NobservationsBoard,
                                           int NobservationsPoint,
+                                          int calibration_object_width_n,
+                                          int calibration_object_height_n,
                                           lensmodel_t lensmodel,
                                           mrcal_problem_details_t problem_details)
 {
@@ -2486,6 +2494,8 @@ static int callback_state_index_frame_rt(int i,
                                          int Npoints_fixed,
                                          int NobservationsBoard,
                                          int NobservationsPoint,
+                                         int calibration_object_width_n,
+                                         int calibration_object_height_n,
                                          lensmodel_t lensmodel,
                                          mrcal_problem_details_t problem_details)
 {
@@ -2517,6 +2527,8 @@ static int callback_state_index_point(int i,
                                       int Npoints_fixed,
                                       int NobservationsBoard,
                                       int NobservationsPoint,
+                                      int calibration_object_width_n,
+                                      int calibration_object_height_n,
                                       lensmodel_t lensmodel,
                                       mrcal_problem_details_t problem_details)
 {
@@ -2549,6 +2561,8 @@ static int callback_state_index_calobject_warp(int i,
                                                int Npoints_fixed,
                                                int NobservationsBoard,
                                                int NobservationsPoint,
+                                               int calibration_object_width_n,
+                                               int calibration_object_height_n,
                                                lensmodel_t lensmodel,
                                                mrcal_problem_details_t problem_details)
 {
@@ -2566,6 +2580,110 @@ static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyOb
                                NULL,
                                callback_state_index_calobject_warp);
 }
+
+static int callback_getNmeasurements_all(int i,
+                                         int Ncameras_intrinsics,
+                                         int Ncameras_extrinsics,
+                                         int Nframes,
+                                         int Npoints,
+                                         int Npoints_fixed,
+                                         int NobservationsBoard,
+                                         int NobservationsPoint,
+                                         int calibration_object_width_n,
+                                         int calibration_object_height_n,
+                                         lensmodel_t lensmodel,
+                                         mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_getNmeasurements_all(Ncameras_intrinsics,
+                                   NobservationsBoard,
+                                   NobservationsPoint,
+                                   calibration_object_width_n,
+                                   calibration_object_height_n,
+                                   problem_details,
+                                   lensmodel);
+}
+static PyObject* getNmeasurements_all(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_getNmeasurements_all);
+}
+
+static int callback_getNmeasurements_boards(int i,
+                                            int Ncameras_intrinsics,
+                                            int Ncameras_extrinsics,
+                                            int Nframes,
+                                            int Npoints,
+                                            int Npoints_fixed,
+                                            int NobservationsBoard,
+                                            int NobservationsPoint,
+                                            int calibration_object_width_n,
+                                            int calibration_object_height_n,
+                                            lensmodel_t lensmodel,
+                                            mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_getNmeasurements_boards(NobservationsBoard,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
+}
+static PyObject* getNmeasurements_boards(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_getNmeasurements_boards);
+}
+
+static int callback_getNmeasurements_points(int i,
+                                            int Ncameras_intrinsics,
+                                            int Ncameras_extrinsics,
+                                            int Nframes,
+                                            int Npoints,
+                                            int Npoints_fixed,
+                                            int NobservationsBoard,
+                                            int NobservationsPoint,
+                                            int calibration_object_width_n,
+                                            int calibration_object_height_n,
+                                            lensmodel_t lensmodel,
+                                            mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_getNmeasurements_points(NobservationsPoint);
+}
+static PyObject* getNmeasurements_points(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_getNmeasurements_points);
+}
+
+static int callback_getNmeasurements_regularization(int i,
+                                                    int Ncameras_intrinsics,
+                                                    int Ncameras_extrinsics,
+                                                    int Nframes,
+                                                    int Npoints,
+                                                    int Npoints_fixed,
+                                                    int NobservationsBoard,
+                                                    int NobservationsPoint,
+                                                    int calibration_object_width_n,
+                                                    int calibration_object_height_n,
+                                                    lensmodel_t lensmodel,
+                                                    mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_getNmeasurements_regularization(Ncameras_intrinsics,
+                                              problem_details,
+                                              lensmodel);
+}
+static PyObject* getNmeasurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_getNmeasurements_regularization);
+}
+
+
 
 static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kwargs,
                                     bool pack)
@@ -2756,7 +2874,18 @@ static const char pack_state_docstring[] =
 static const char unpack_state_docstring[] =
 #include "unpack_state.docstring.h"
     ;
-
+static const char getNmeasurements_all_docstring[] =
+#include "getNmeasurements_all.docstring.h"
+    ;
+static const char getNmeasurements_boards_docstring[] =
+#include "getNmeasurements_boards.docstring.h"
+    ;
+static const char getNmeasurements_points_docstring[] =
+#include "getNmeasurements_points.docstring.h"
+    ;
+static const char getNmeasurements_regularization_docstring[] =
+#include "getNmeasurements_regularization.docstring.h"
+    ;
 
 
 
@@ -2791,13 +2920,17 @@ static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizerCallback,        METH_VARARGS | METH_KEYWORDS),
 
-      PYMETHODDEF_ENTRY(, state_index_intrinsics,     METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, state_index_camera_rt,      METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, state_index_frame_rt,       METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, state_index_point,          METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, state_index_calobject_warp, METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, pack_state,                 METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, unpack_state,               METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_intrinsics,          METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_camera_rt,           METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_frame_rt,            METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_point,               METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, state_index_calobject_warp,      METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, pack_state,                      METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, unpack_state,                    METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, getNmeasurements_all,            METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, getNmeasurements_boards,         METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, getNmeasurements_points,         METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, getNmeasurements_regularization, METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,getLensModelMeta,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
