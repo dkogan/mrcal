@@ -2807,7 +2807,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     if( dims[ndim-1] != Nstate )
     {
         BARF("The given array MUST have last dimension of size Nstate=%d; instead got %ld",
-                     Nstate, dims[ndim-1]);
+             Nstate, dims[ndim-1]);
         goto done;
     }
 
