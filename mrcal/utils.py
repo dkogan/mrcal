@@ -1706,9 +1706,17 @@ else:                    we return an array of shape (...)
             raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
         try:
-            Var_ief,Var_ief_rotationonly,icam_extrinsics = \
+
+            cbresults = \
                 mrcal.optimizerCallback( **optimization_inputs,
-                                         get_covariances = True )[2:5]
+                                         get_covariances = True )
+
+            Var_ief               = cbresults[2]
+            Var_ief_rotationonly  = cbresults[3]
+            J                     = cbresults[ 1]
+            factorization         = cbresults[-1]
+            icam_extrinsics       = cbresults[-2]
+
             if atinfinity:
                 Var_ief = Var_ief_rotationonly
 

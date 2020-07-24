@@ -2185,7 +2185,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 goto done;
             }
 
-            result = PyTuple_New(2 + (covariances_ief ? 3 : 0));
+
+            PyObject* factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
+            if(factorization == NULL)
+                goto done;
+
+            result = PyTuple_New(2 + (covariances_ief ? 4 : 0));
             int i=0;
             PyTuple_SET_ITEM(result, 0, (PyObject*)x_final);
             PyTuple_SET_ITEM(result, 1,
@@ -2204,6 +2209,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 }
                 else
                     PyTuple_SET_ITEM(result, 4, PyLong_FromLong(icam_extrinsics_covariances_ief));
+                PyTuple_SET_ITEM(result, 5, factorization);
             }
 
             for(int i=0; i<PyTuple_Size(result); i++)
