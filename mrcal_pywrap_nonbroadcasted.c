@@ -616,9 +616,11 @@ static PyTypeObject SolverContextType =
 typedef struct {
     PyObject_HEAD
 
-    // if(inited), the "common" has been initialized
+    // if(inited_common), the "common" has been initialized
     // if(factorization), the factorization has been initialized
-    bool            inited;
+    //
+    // So to use the object we need inited_common && factorization
+    bool            inited_common;
     cholmod_common  common;
     cholmod_factor* factorization;
 
@@ -638,9 +640,77 @@ static int cholmod_error_callback(const char* s, ...)
   return ret;
 }
 
+// for my internal C usage
+static void _CHOLMOD_factorization_release_internal(CHOLMOD_factorization* self)
+{
+    if( self->factorization )
+    {
+        cholmod_free_factor(&self->factorization, &self->common);
+        self->factorization = NULL;
+    }
+    if( self->inited_common )
+        cholmod_finish(&self->common);
+    self->inited_common = false;
+}
+
+// for my internal C usage
+static bool
+_CHOLMOD_factorization_init_from_cholmod_sparse(CHOLMOD_factorization* self, cholmod_sparse* Jt)
+{
+    if( !self->inited_common )
+    {
+        if( !cholmod_start(&self->common) )
+        {
+            BARF("Error trying to cholmod_start");
+            return false;
+        }
+        self->inited_common = true;
+
+        // stolen from libdogleg
+
+        // I want to use LGPL parts of CHOLMOD only, so I turn off the supernodal routines. This gave me a
+        // 25% performance hit in the solver for a particular set of optical calibration data.
+        self->common.supernodal = 0;
+
+        // I want all output to go to STDERR, not STDOUT
+#if (CHOLMOD_VERSION <= (CHOLMOD_VER_CODE(2,2)))
+        self->common.print_function = cholmod_error_callback;
+#else
+        CHOLMOD_FUNCTION_DEFAULTS ;
+        CHOLMOD_FUNCTION_PRINTF(&self->common) = cholmod_error_callback;
+#endif
+    }
+
+    self->factorization = cholmod_analyze(Jt, &self->common);
+
+    if(self->factorization == NULL)
+    {
+        BARF("cholmod_analyze() failed");
+        return false;
+    }
+    if( !cholmod_factorize(Jt, self->factorization, &self->common) )
+    {
+        BARF("cholmod_factorize() failed");
+        return false;
+    }
+    if(self->factorization->minor != self->factorization->n)
+    {
+        BARF("Got singular JtJ!");
+        return false;
+    }
+    return true;
+}
+
+
 static int
 CHOLMOD_factorization_init(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
 {
+    // Any existing factorization goes away. If this function fails, we lose the
+    // existing factorization, which is fine. I'm placing this on top so that
+    // __init__() will get rid of the old state
+    _CHOLMOD_factorization_release_internal(self);
+
+
     // error by default
     int result = -1;
 
@@ -660,8 +730,15 @@ CHOLMOD_factorization_init(CHOLMOD_factorization* self, PyObject* args, PyObject
     PyObject* Py_w = NULL;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "O", keywords, &Py_J))
+                                     "|O", keywords, &Py_J))
         goto done;
+
+    if( Py_J == NULL )
+    {
+        // Success. Nothing to do
+        result = 0;
+        goto done;
+    }
 
     if(NULL == (module = PyImport_ImportModule("scipy.sparse")))
     {
@@ -772,35 +849,6 @@ CHOLMOD_factorization_init(CHOLMOD_factorization* self, PyObject* args, PyObject
     CHECK_NUMPY_ARRAY(indptr,  NPY_INT32);
 
     // OK, the input looks good. I guess I can tell CHOLMOD about it
-    if(self->factorization)
-    {
-        cholmod_free_factor(&self->factorization, &self->common);
-        self->factorization = NULL;
-    }
-
-    if( !self->inited )
-    {
-        if( !cholmod_start(&self->common) )
-        {
-            BARF("Error trying to cholmod_start");
-            goto done;
-        }
-        self->inited = true;
-
-        // stolen from libdogleg
-
-        // I want to use LGPL parts of CHOLMOD only, so I turn off the supernodal routines. This gave me a
-        // 25% performance hit in the solver for a particular set of optical calibration data.
-        self->common.supernodal = 0;
-
-        // I want all output to go to STDERR, not STDOUT
-#if (CHOLMOD_VERSION <= (CHOLMOD_VER_CODE(2,2)))
-        self->common.print_function = cholmod_error_callback;
-#else
-        CHOLMOD_FUNCTION_DEFAULTS ;
-        CHOLMOD_FUNCTION_PRINTF(&self->common) = cholmod_error_callback;
-#endif
-    }
 
     // My convention is to store row-major matrices, but CHOLMOD stores
     // col-major matrices. So I keep the same data, but tell CHOLMOD that I'm
@@ -820,37 +868,14 @@ CHOLMOD_factorization_init(CHOLMOD_factorization* self, PyObject* args, PyObject
         .packed = 1
     };
 
-    self->factorization = cholmod_analyze(&Jt, &self->common);
-    if(self->factorization == NULL)
-    {
-        BARF("cholmod_analyze() failed");
+    if(!_CHOLMOD_factorization_init_from_cholmod_sparse(self, &Jt))
         goto done;
-    }
-    if( !cholmod_factorize(&Jt, self->factorization, &self->common) )
-    {
-        BARF("cholmod_factorize() failed");
-        goto done;
-    }
-    if(self->factorization->minor != self->factorization->n)
-    {
-        BARF("Got singular JtJ!");
-        goto done;
-    }
 
     result = 0;
 
  done:
     if(result != 0)
-    {
-        if( self->factorization )
-        {
-            cholmod_free_factor(&self->factorization, &self->common);
-            self->factorization = NULL;
-        }
-        if( self->inited )
-            cholmod_finish(&self->common);
-        self->inited = false;
-    }
+        _CHOLMOD_factorization_release_internal(self);
 
     Py_XDECREF(module);
     Py_XDECREF(csr_matrix_type);
@@ -871,16 +896,14 @@ CHOLMOD_factorization_init(CHOLMOD_factorization* self, PyObject* args, PyObject
 
 static void CHOLMOD_factorization_dealloc(CHOLMOD_factorization* self)
 {
-    if( self->factorization )
-        cholmod_free_factor(&self->factorization, &self->common);
-    cholmod_finish(&self->common);
+    _CHOLMOD_factorization_release_internal(self);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 static PyObject* CHOLMOD_factorization_str(CHOLMOD_factorization* self)
 {
-    if(!self->inited)
-        return PyString_FromString("Not initialized");
+    if(!(self->inited_common && self->factorization))
+        return PyString_FromString("No factorization given");
 
     return PyString_FromFormat("Initialized with a valid factorization. N=%d",
                                self->factorization->n);
@@ -896,7 +919,7 @@ CHOLMOD_factorization_solve_JtJ_x_b(CHOLMOD_factorization* self, PyObject* args,
     char* keywords[] = {"bt", NULL};
     PyObject* Py_bt   = NULL;
 
-    if(!self->inited)
+    if(!(self->inited_common && self->factorization))
     {
         BARF("No factorization has been computed");
         goto done;
@@ -1038,6 +1061,26 @@ static PyTypeObject CHOLMOD_factorization_type =
     .tp_doc       = CHOLMOD_factorization_docstring,
 };
 #pragma GCC diagnostic pop
+
+
+// For the C code. Create a new Python CHOLMOD_factorization object from a C
+// cholmod_sparse structure
+static PyObject*
+CHOLMOD_factorization_from_cholmod_sparse(cholmod_sparse* Jt)
+{
+    PyObject* self = PyObject_CallObject((PyObject*)&CHOLMOD_factorization_type, NULL);
+    if(NULL == self)
+        return NULL;
+
+    if(!_CHOLMOD_factorization_init_from_cholmod_sparse((CHOLMOD_factorization*)self, Jt))
+    {
+        Py_DECREF(self);
+        return NULL;
+    }
+
+    return self;
+}
+
 
 
 static bool parse_lensmodel_from_arg(// output

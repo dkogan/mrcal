@@ -46,12 +46,15 @@ numpy and all of mrcal use a row-major convention for matrix storage, while
 CHOLMOD uses a column-major convention. Thus the inputs and outputs of this
 class are specified as row-major transposes.
 
-The class takes a sparse array J as a required argument in __init__(). J must be
-given as an instance of scipy.sparse.csr_matrix. csr is a row-major sparse
-representation. CHOLMOD wants column-major matrices, so it see this matrix J as
-a transpose: the CHOLMOD documentation refers to this as "At". And the CHOLMOD
-documentation talks about factoring AAt, while I talk about factoring JtJ. These
-are the same thing.
+The class takes a sparse array J as an argument in __init__(). J is optional,
+but there's no way in Python to pass it later, so from Python you should always
+pass J. This is optional for internal initialization from C code.
+
+J must be given as an instance of scipy.sparse.csr_matrix. csr is a row-major
+sparse representation. CHOLMOD wants column-major matrices, so it see this
+matrix J as a transpose: the CHOLMOD documentation refers to this as "At". And
+the CHOLMOD documentation talks about factoring AAt, while I talk about
+factoring JtJ. These are the same thing.
 
 The factorization of JtJ happens in __init__(), and we use this factorization
 later (as many times as we want) to solve JtJ x = b by calling solve_JtJ_x_b().
