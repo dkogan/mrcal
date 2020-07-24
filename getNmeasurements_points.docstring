@@ -1,0 +1,77 @@
+Return how many measurements we have from point observations
+
+SYNOPSIS
+
+    m = mrcal.cameramodel('xxx.cameramodel')
+
+    optimization_inputs = m.optimization_inputs()
+
+    x = mrcal.optimizerCallback(**optimization_inputs)[1]
+
+    Nmeas   = mrcal.getNmeasurements_points(**optimization_inputs)
+    i_meas0 = mrcal.getNmeasurements_boards(**optimization_inputs)
+
+    x_points = x[i_meas0:i_meas0+Nmeas]
+
+The optimization algorithm tries to minimize the norm of a "measurements" vector
+x. The optimizer doesn't know or care about the meaning of each element of this
+vector, but for later analysis, it is useful to know what's what. The
+mrcal.getNmeasurements_...() functions report where particular items end up in
+the vector of measurements.
+
+THIS function reports how many measurements come from the observations of
+discrete points. When solving structure-from-motion problems, most if not all of
+the measurements will come from these observations. These are stored
+contiguously. At this time, these measurements are assumed to begin directly
+after the calibration-object observations in the full vector of measurements x.
+
+In order to determine the mapping, we need quite a bit of context. If we have
+the full set of inputs to the optimization function, we can pass in those (as
+shown in the example above). Or we can pass the individual arguments that are
+needed (see ARGUMENTS section for the full list). If the optimization inputs and
+explicitly-given arguments conflict about the size of some array, the explicit
+arguments take precedence. If any array size is not specified, it is assumed to
+be 0. Thus most arguments are optional.
+
+ARGUMENTS
+
+- **kwargs: if the optimization inputs are available, they can be passed-in as
+  kwargs. These inputs contain everything this function needs to operate. If we
+  don't have these, then the rest of the variables will need to be given
+
+- lensmodel: string specifying the lensmodel we're using (this is always
+  'LENSMODEL_...'). The full list of valid models is returned by
+  mrcal.getSupportedLensModels(). This is required if we're not passing in the
+  optimization inputs
+
+- do_optimize_intrinsic_core
+  do_optimize_intrinsic_distortions
+  do_optimize_extrinsics
+  do_optimize_frames
+
+  optional booleans; default to True. These specify what we're optimizing. See
+  the documentation for mrcal.optimize() for details
+
+- do_optimize_calobject_warp
+  skip_regularization
+
+  optional booleans; default to False. These specify more optimization details.
+  See the documentation for mrcal.optimize() for details
+
+- Ncameras_intrinsics
+  Ncameras_extrinsics
+  Nframes
+  Npoints
+  Npoints_fixed
+  NobservationsBoard
+  NobservationsPoint
+  calibration_object_width_n
+  calibration_object_height_n
+
+  optional integers; default to 0. These specify the sizes of various arrays in
+  the optimization. See the documentation for mrcal.optimize() for details
+
+RETURNED VALUE
+
+The integer reporting how many elements of the measurement vector x come from
+observations of discrete points

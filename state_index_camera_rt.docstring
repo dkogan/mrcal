@@ -1,9 +1,79 @@
-Returns the index in the optimization vector of the pose of camera i
+Return the index in the optimization vector of the extrinsics of camera i
 
-Each camera is represented by 6 values: an orientation represented by a
-Rodrigues vector, and an xyz world coordinate. i is given in the single
-argument.
+SYNOPSIS
 
-Note that camera 0 defines the world coordinate system, so the pose of camera 0
-is not stored in the optimization vector, and thus passing i==0 is an error
+    m = mrcal.cameramodel('xxx.cameramodel')
 
+    optimization_inputs = m.optimization_inputs()
+
+    p = mrcal.optimizerCallback(**optimization_inputs)[0]
+    mrcal.unpack_state(p, **optimization_inputs)
+
+    i_camera_extrinsics = 1
+    i_state = mrcal.state_index_extrinsics(i_camera_extrinsics,
+                                           **optimization_inputs)
+
+    extrinsics_rt_fromref = p[i_state:i_state+6]
+
+The optimization algorithm sees its world described in one, big vector of state.
+The optimizer doesn't know or care about the meaning of each element of this
+vector, but for later analysis, it is useful to know what's what. The
+mrcal.state_index_...() functions report where particular items end up in the
+state vector.
+
+THIS function reports the beginning of the i-th camera extrinsics in the state
+vector. The extrinsics are stored contiguously as an "rt transformation": a
+3-element rotation represented as a Rodrigues vector followed by a 3-element
+translation. These transform points represented in the reference coordinate
+system to the coordinate system of the specific camera. Note that mrcal allows
+the reference coordinate system to be tied to a particular camera. In this case
+the extrinsics of that camera do not appear in the state vector at all, and
+i_camera_extrinsics == -1 in the indices_frame_camintrinsics_camextrinsics
+array.
+
+In order to determine the variable mapping, we need quite a bit of context. If
+we have the full set of inputs to the optimization function, we can pass in
+those (as shown in the example above). Or we can pass the individual arguments
+that are needed (see ARGUMENTS section for the full list). If the optimization
+inputs and explicitly-given arguments conflict about the size of some array, the
+explicit arguments take precedence. If any array size is not specified, it is
+assumed to be 0. Thus most arguments are optional.
+
+ARGUMENTS
+
+- i_cam_extrinsics: an integer indicating which camera we're asking about
+
+- **kwargs: if the optimization inputs are available, they can be passed-in as
+  kwargs. These inputs contain everything this function needs to operate. If we
+  don't have these, then the rest of the variables will need to be given
+
+- lensmodel: string specifying the lensmodel we're using (this is always
+  'LENSMODEL_...'). The full list of valid models is returned by
+  mrcal.getSupportedLensModels(). This is required if we're not passing in the
+  optimization inputs
+
+- do_optimize_intrinsic_core
+  do_optimize_intrinsic_distortions
+  do_optimize_extrinsics
+  do_optimize_frames
+
+  optional booleans; default to True. These specify what we're optimizing. See
+  the documentation for mrcal.optimize() for details
+
+- do_optimize_calobject_warp: optional boolean; defaults to False. Specifies
+  whether we're optimizing the warping of the calibration board.. See the
+  documentation for mrcal.optimize() for details
+
+- Ncameras_intrinsics
+  Ncameras_extrinsics
+  Nframes
+  Npoints
+  Npoints_fixed
+
+  optional integers; default to 0. These specify the sizes of various arrays in
+  the optimization. See the documentation for mrcal.optimize() for details
+
+RETURNED VALUE
+
+The integer reporting the location in the state vector where the contiguous
+block of extrinsics for camera i_cam_extrinsics begins
