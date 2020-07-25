@@ -326,9 +326,6 @@ typedef struct
 } mrcal_stats_t;
 
 
-// The returned covariance matrices are symmetric, but I return both halves for
-// now. I return the FULL-state covariances, NOT using the unitless state
-// internal to the optimizer
 mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL
@@ -337,44 +334,6 @@ mrcal_optimize( // out
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
                 int buffer_size_x_final,
-
-                // Shape (N * Nintrinsics_state*Nintrinsics_state)
-                //   N is 1 (if icam_intrinsics_covariances_ief >=
-                //   0) or Ncameras_intrinsics otherwise.
-                double* covariance_intrinsics,
-                // used only to confirm that the user passed-in the buffer they
-                // should have passed-in. The size must match exactly
-                int buffer_size_covariance_intrinsics,
-
-                // Shape (Ncameras_extrinsics*6,Ncameras_extrinsics*6)
-                double* covariance_extrinsics,
-                // used only to confirm that the user passed-in the buffer they
-                // should have passed-in. The size must match exactly
-                int buffer_size_covariance_extrinsics,
-
-                // May be NULL
-                // Shape (N * (Nintrinsics_state+6+6*Nframes)^2)
-                //   N is 1 (if icam_intrinsics_covariances_ief >=
-                //   0) or Ncameras_intrinsics otherwise.
-                //   Any variable we're not optimizing is omitted. If some
-                //   camera sits at the reference coordinate system, it doesn't
-                //   have extrinsics, and we write 0 in those entries of the
-                //   covariance
-                double* covariances_ief,
-                // used only to confirm that the user passed-in the buffer they
-                // should have passed-in. The size must match exactly
-                int buffer_size_covariances_ief,
-
-                // May be NULL
-                // Shape (N * (Nintrinsics_state+3+3*Nframes)^2)
-                //   N is 1 (if icam_intrinsics_covariances_ief >=
-                //   0) or Ncameras_intrinsics otherwise.
-                //   Just like covariances_ief, but look only at the rotations
-                //   when evaluating the frames, extrinsics
-                double* covariances_ief_rotationonly,
-                // used only to confirm that the user passed-in the buffer they
-                // should have passed-in. The size must match exactly
-                int buffer_size_covariances_ief_rotationonly,
 
                 // Which camera we're querying for covariance_intrinsics and
                 // covariances_ief... If <0 then I return the covariances for
@@ -447,9 +406,6 @@ mrcal_optimize( // out
 
 struct cholmod_sparse_struct;
 
-// The returned covariance matrices are symmetric, but I return both halves for
-// now. I return the FULL-state covariances, NOT using the unitless state
-// internal to the optimizer
 bool mrcal_optimizerCallback(// output measurements
                              double*         x,
 
@@ -457,30 +413,6 @@ bool mrcal_optimizerCallback(// output measurements
                              // it. This is the unitless Jacobian, used by the
                              // internal optimization routines
                              struct cholmod_sparse_struct* Jt,
-
-                             // May be NULL
-                             // Shape (N * (Nintrinsics_state+6+6*Nframes)^2)
-                             //   N is 1 (if icam_intrinsics_covariances_ief >=
-                             //   0) or Ncameras_intrinsics otherwise.
-                             //   Any variable we're not optimizing is omitted. If some
-                             //   camera sits at the reference coordinate system, it doesn't
-                             //   have extrinsics, and we write 0 in those entries of the
-                             //   covariance
-                             double* covariances_ief,
-                             // used only to confirm that the user passed-in the buffer they
-                             // should have passed-in. The size must match exactly
-                             int buffer_size_covariances_ief,
-
-                             // May be NULL
-                             // Shape (N * (Nintrinsics_state+3+3*Nframes)^2)
-                             //   N is 1 (if icam_intrinsics_covariances_ief >=
-                             //   0) or Ncameras_intrinsics otherwise.
-                             //   Just like covariances_ief, but look only at the rotations
-                             //   when evaluating the frames, extrinsics
-                             double* covariances_ief_rotationonly,
-                             // used only to confirm that the user passed-in the buffer they
-                             // should have passed-in. The size must match exactly
-                             int buffer_size_covariances_ief_rotationonly,
 
                              // May be NULL
                              // I return this ONLY if
