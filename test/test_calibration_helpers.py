@@ -126,7 +126,7 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
     def apply_slices(var_full, slices):
         r'''Use the slices[] to cut along both dimensions'''
 
-        cut_vert  = nps.glue( *[apply_slice(var_full,                  s) \
+        cut_vert  = nps.glue( *[apply_slice(var_full,                s) \
                                 for s in slices], axis=-2 )
         cut_horiz = nps.glue( *[apply_slice(nps.transpose(cut_vert), s) \
                                 for s in slices], axis=-2 )
