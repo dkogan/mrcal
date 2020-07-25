@@ -1407,18 +1407,8 @@ def _projection_uncertainty_rotationonly( p_cam,
 
 
 def projection_uncertainty( p_cam,
-
-                            # must pass either all of these
-                            lensmodel             = None,
-                            intrinsics_data       = None,
-                            extrinsics_rt_fromref = None,
-                            frames_rt_toref       = None,
-                            Var_ief               = None,
-
-                            # or this
-                            model                 = None,
-
-                            atinfinity            = False,
+                            model      = None,
+                            atinfinity = False,
 
                             # what we're reporting
                             what = 'covariance'):
@@ -1734,76 +1724,53 @@ else:                    we return an array of shape (...)
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
-    # must pass either the model OR all the constituent things I need
-    if model is None:
-        # "extrinsics_rt_fromref is None" is allowed: cameras is at the
-        # reference
-        if \
-           lensmodel             is None or \
-           intrinsics_data       is None or \
-           frames_rt_toref       is None or \
-           Var_ief               is None:
-            raise Exception("Must have been given a model xor all the components; instead got no model and some constituent is missing")
 
+    lensmodel = model.intrinsics()[0]
+
+    optimization_inputs = model.optimization_inputs()
+
+    if not optimization_inputs.get('do_optimize_extrinsics'):
+        raise Exception("Getting a covariance if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
+    if not optimization_inputs.get('do_optimize_intrinsic_core') or not optimization_inputs.get('do_optimize_intrinsic_distortions'):
+        raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
+
+    cbresults = \
+        mrcal.optimizerCallback( **optimization_inputs,
+                                 get_covariances = True )
+    J               = cbresults[ 1]
+    factorization   = cbresults[-1]
+    icam_extrinsics = cbresults[-2]
+
+    # The intrinsics,extrinsics,frames MUST come from the solve when
+    # evaluating the uncertainties. The user is allowed to update the
+    # extrinsics in the model after the solve, as long as I use the
+    # solve-time ones for the uncertainty computation. Updating the
+    # intrinsics invalidates the uncertainty stuff so I COULD grab those
+    # from the model. But for good hygiene I get them from the solve as
+    # well
+
+    icam_intrinsics = optimization_inputs['icam_intrinsics_covariances_ief']
+    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
+
+    istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
+    istate_frames     = mrcal.state_index_frame_rt  (0,               **optimization_inputs)
+
+    if icam_extrinsics < 0:
+        extrinsics_rt_fromref = None
+        istate_extrinsics     = None
     else:
-        if \
-           lensmodel             is not None or \
-           intrinsics_data       is not None or \
-           extrinsics_rt_fromref is not None or \
-           frames_rt_toref       is not None or \
-           Var_ief               is not None:
-            raise Exception("Must have been given a model xor all the components; instead got a model and some constituent is given too")
+        extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+        istate_extrinsics     = mrcal.state_index_camera_rt (icam_extrinsics, **optimization_inputs)
 
-        lensmodel = model.intrinsics()[0]
-
-        optimization_inputs = model.optimization_inputs()
-
-        if not optimization_inputs.get('do_optimize_extrinsics'):
-            raise Exception("Getting a covariance if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
-        if not optimization_inputs.get('do_optimize_intrinsic_core') or not optimization_inputs.get('do_optimize_intrinsic_distortions'):
-            raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
-
-        try:
-
-            cbresults = \
-                mrcal.optimizerCallback( **optimization_inputs,
-                                         get_covariances = True )
-
-            Var_ief               = cbresults[2]
-            Var_ief_rotationonly  = cbresults[3]
-            J                     = cbresults[ 1]
-            factorization         = cbresults[-1]
-            icam_extrinsics       = cbresults[-2]
-
-            if atinfinity:
-                Var_ief = Var_ief_rotationonly
-
-            # The intrinsics,extrinsics,frames MUST come from the solve when
-            # evaluating the uncertainties. The user is allowed to update the
-            # extrinsics in the model after the solve, as long as I use the
-            # solve-time ones for the uncertainty computation. Updating the
-            # intrinsics invalidates the uncertainty stuff so I COULD grab those
-            # from the model. But for good hygiene I get them from the solve as
-            # well
-            icam                  = optimization_inputs['icam_intrinsics_covariances_ief']
-            intrinsics_data       = optimization_inputs['intrinsics'][icam]
-
-            if icam_extrinsics < 0:
-                extrinsics_rt_fromref = None
-            else:
-                extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
-
-            frames_rt_toref = None
-            if optimization_inputs.get('do_optimize_frames'):
-                frames_rt_toref = optimization_inputs.get('frames_rt_toref')
-
-        except:
-            raise Exception("Couldn't get covariances_ief, frames_rt_toref from the model")
+    frames_rt_toref = None
+    if optimization_inputs.get('do_optimize_frames'):
+        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
 
 
-    # I transform to the frames' coordinate system. Then I transform and project
-    # back to the same q, but keeping track of the gradients. Which I then use
-    # to compute the sensitivities
+    Nmeasurements_observations = mrcal.getNmeasurements_boards(**optimization_inputs)
+    if Nmeasurements_observations == mrcal.getNmeasurements_all(**optimization_inputs):
+        # Note the special-case where I'm using all the observations
+        Nmeasurements_observations = None
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
@@ -1812,14 +1779,18 @@ else:                    we return an array of shape (...)
             _projection_uncertainty(p_cam,
                                     lensmodel, intrinsics_data,
                                     extrinsics_rt_fromref, frames_rt_toref,
-                                    Var_ief,
+                                    factorization, J, optimization_inputs,
+                                    istate_intrinsics, istate_extrinsics, istate_frames,
+                                    Nmeasurements_observations,
                                     what)
     else:
         return \
             _projection_uncertainty_rotationonly(p_cam,
                                                  lensmodel, intrinsics_data,
                                                  extrinsics_rt_fromref, frames_rt_toref,
-                                                 Var_ief,
+                                                 factorization, J, optimization_inputs,
+                                                 istate_intrinsics, istate_extrinsics, istate_frames,
+                                                 Nmeasurements_observations,
                                                  what)
 
 
