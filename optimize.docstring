@@ -214,14 +214,6 @@ OPTIONAL ARGUMENTS
   "calibration_object_spacing" argument specifies the dimensions of each square.
   Can be omitted if we have no board observations, just points
 
-- get_covariances: defaults to False. If True, I compute the covariance matrices
-  for intrinsics and extrinsics, and include them in the dict I return. These
-  are needed only for the uncertainty computations. If we're performing an
-  incremental solve, only the final optimize() call needs to compute these. The
-  covariance matrices are symmetric, but I return both halves for now. I return
-  the FULL-state covariances, NOT using the unitless state internal to the
-  optimizer
-
 - icam_intrinsics_covariances_ief: defaults to -1. If <0 then I return
   covariance_intrinsics, covariance_ief... for ALL the cameras. If >= 0 then I
   return those for just that camera
@@ -236,14 +228,13 @@ OPTIONAL ARGUMENTS
 - skip_regularization: if True, don't include regularization terms in the
   solver. Defaults to False
 
-- observed_pixel_uncertainty: Required if !skip_outlier_rejection or
-  get_covariances. The standard deviation of x and y pixel coordinates of the
-  input observations. The distribution of the inputs is assumed to be gaussian,
-  with the standard deviation specified by this argument. Note: this is the x
-  and y standard deviation, treated independently. If each of these is s, then
-  the LENGTH of the deviation of each pixel is a Rayleigh distribution with
-  expected value s*sqrt(pi/2) ~ s*1.25. This is used to set the outlier
-  rejection threshold
+- observed_pixel_uncertainty: Required if !skip_outlier_rejection. The standard
+  deviation of x and y pixel coordinates of the input observations. The
+  distribution of the inputs is assumed to be gaussian, with the standard
+  deviation specified by this argument. Note: this is the x and y standard
+  deviation, treated independently. If each of these is s, then the LENGTH of
+  the deviation of each pixel is a Rayleigh distribution with expected value
+  s*sqrt(pi/2) ~ s*1.25. This is used to set the outlier rejection threshold
 
 - point_min_range, point_max_range: Required ONLY if point observations are
   given. These are lower, upper bounds for the distance of a point observation

@@ -2,7 +2,7 @@ Call the optimization callback function
 
 SYNOPSIS
 
-    x,Jt_unitless = \
+    x,Jt_packed = \
       mrcal.optimizerCallback( intrinsics_data,
                                extrinsics_rt_fromref,
                                frames_rt_toref, points
@@ -20,7 +20,6 @@ SYNOPSIS
                                point_min_range                   = 0.1,
                                point_max_range                   = 100.0,
                                skip_regularization               = False,
-                               get_covariances                   = False,
                                verbose                           = False)
 
 The main optimization routine in mrcal.optimize() searches for optimal
@@ -53,29 +52,13 @@ The output is returned in a tuple:
   and working with it could be very memory-intensive and slow.
 
   This jacobian matrix comes directly from the optimization callback function,
-  which uses unitless state. Everything else, including the covariances uses the
-  full state. To convert a densified unitless jacobian to full units, one can do
-  this:
+  which uses packed, unitless state. To convert a densified packed jacobian to
+  full units, one can do this:
 
     x,Jt_sparse = mrcal.optimizerCallback(...)
     Jt_numpy    = Jt_sparse.toarray()
     solver_context.pack(Jt_numpy)
 
-If get_covariances: then the output tuple ALSO contains covariances:
+- icam_extrinsics_covariances_ief
 
-- covariances_ief: the intrinsics-extrinsics-frames covariances. These matrices
-  are symmetric, but I return both halves for now. I return the FULL-state
-  covariances, NOT using the unitless state internal to the optimizer
-
-- covariances_ief_rotationonly: the intrinsics-extrinsics-frames covariances at
-  infinity: only the rotation components of the extrinsics and frames are
-  considered. These matrices are symmetric, but I return both halves for now. I
-  return the FULL-state covariances, NOT using the unitless state internal to
-  the optimizer
-
-- icam_extrinsics_covariances_ief: if icam_intrinsics_covariances_ief is given
-  as >= 0, this is the corresponding icam_extrinsics. If the cameras aren't
-  stationary (no correspondence exists), the function call will fail. If the
-  corresponding camera is at the coordinate system reference,
-  icam_intrinsics_covariances_ief is -1. if icam_intrinsics_covariances_ief
-  doesn't request a specific camera (<0), this is None
+- factorization

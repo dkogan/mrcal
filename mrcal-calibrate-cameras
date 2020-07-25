@@ -579,7 +579,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                calibration_object_height_n       = args.object_height_n,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
-                               get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
@@ -597,7 +596,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                calibration_object_height_n       = args.object_height_n,
                                skip_outlier_rejection            = True,
                                skip_regularization               = True,
-                               get_covariances                   = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
@@ -694,7 +692,6 @@ def solve_initial(args, seedmodels, imagersizes,
                            calibration_object_height_n       = args.object_height_n,
                            skip_outlier_rejection            = args.skip_outlier_rejection,
                            skip_regularization               = False,
-                           get_covariances                   = False,
                            verbose                           = False)
     return intrinsics_data, extrinsics, frames, stats
 
@@ -804,7 +801,7 @@ if args.optimize_calobject_warp:
 else:
     calobject_warp = None
 
-print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp, covariances",
+print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp",
       file=sys.stderr)
 
 optimize_kwargs = \
@@ -837,23 +834,16 @@ optimize_kwargs = \
 if optimize_kwargs['skip_regularization']:
     optimize_kwargs['skip_regularization'] = False
     stats = mrcal.optimize(skip_outlier_rejection = False,
-                           get_covariances        = False,
                            verbose                = False,
                            **optimize_kwargs)
     optimize_kwargs['skip_regularization'] = True
 
 stats = mrcal.optimize(skip_outlier_rejection = False,
-                       get_covariances        = True,
                        verbose                = args.verbose_solver,
                        **optimize_kwargs)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 intrinsics = (args.lensmodel, intrinsics_data)
-
-if args.skip_extrinsics_solve:
-    covariance_extrinsics      = None
-else:
-    covariance_extrinsics      = stats.get('covariance_extrinsics')
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
@@ -872,145 +862,6 @@ if not args.skip_outlier_rejection:
                100.0 * stats['Noutliers'] / (args.object_height_n*args.object_width_n*len(observations)))
 if calobject_warp is not None:
     report += "calobject_warp = {}\n".format(calobject_warp)
-
-if args.pairs:
-
-    #   How do I compute the uncertainty in my extrinsics? This is similar to the
-    #   intrinsics procedures above, but it's simpler on some level: the
-    #   uncertainty in the parameters themselves is meaningful, I don't need to
-    #   propagate that to projection. The derivation works exactly the same way as
-    #   before, and
-
-    #   -> Var(extrinsics) = (inv(JtJ)[extrinsicsrows] J[observations]t)
-    #                        (inv(JtJ)[extrinsicsrows] J[observations]t)t
-    #                        s^2
-
-    #   The frame poses aren't known, however, so the extrinsics aren't defined
-    #   globally and I'm going to want to look at the extrinsics uncertainties of
-    #   some cameras in respect to other cameras. If I don't do this then any
-    #   camera at the coordinate-system reference has infinitely-confident
-    #   extrinsics; which is wrong. An example of what I might want to do: let's
-    #   say I have 4 cameras, with camera0 at the reference (3 sets of
-    #   extrinsics). How do I compute Var(yaw between cameras 2,3)? For simplicity
-    #   let's assume the cameras have relative transformation ~ identity, so yaw ~
-    #   rodrigues[1]. I have relative extrinsics for my cameras: rt20, rt30 ->
-    #   rt23[1] = compose(rt20, invert(rt30))[1]. I linearize this, so that
-    #   locally rt23[1] ~ rt23[1](0) + drt23[1]/drt20 drt20 + drt23[1]/drt30 drt30
-    #   = rt23[1](0) + A drt20 + B drt30 ~ AB drt2030
-
-    #   -> Var(rt23[1]) = AB Var(drt2030) ABt =
-    #                   = AB Mrt2030 Var(qref) Mrt2030t ABt =
-    #                   = AB Mrt2030 W^-2 s^2 Mrt2030t ABt =
-    #                   = AB inv(JtJ)_2030 J[observations]t W W^-2 s^2 W Jobservations inv(JtJ)_2030t ABt =
-    #                   = AB inv(JtJ)_2030 J[observations]t s^2 Jobservations inv(JtJ)_2030t ABt
-
-    #   Thus I make available the full covariance of all the extrinsics variables,
-    #   so that all the pairwise relationships can be observed.
-
-    #
-    # I have dp = M dqref
-    #
-    # yaw_pair0 = rt1[1] -> dyaw_pair0 = M[1,:] dqref
-    # Var(yaw_pair0) = M[1,:] Var(dqref) M[1,:]t = covariance(yaw,yaw)
-    #
-    # yaw_pair1 = compose_rt( rt3, invert_rt(rt2))[1]. I linearize: yaw_pair1 ~
-    # ... + inner(u, drt23) = ... + inner(u, M[irt23, :] dqref) ->
-    # Var(yaw_pair1) = ut M[irt23,:] M[irt23,:]t u s^2 = ut covariance(irt23,irt23) u
-    for i_pair in range(Ncameras//2):
-        if i_pair == 0:
-            stdev_yaw   = np.sqrt(stats['covariance_extrinsics'][1,1])
-            rt_1r = extrinsics[i_pair*2]
-            Rt_1r = mrcal.Rt_from_rt(rt_1r)
-            Rt_10 = Rt_1r
-            baseline = np.sqrt(nps.norm2(Rt_10[3,:]))
-        else:
-            rt_0r = extrinsics[i_pair*2-1]
-            rt_1r = extrinsics[i_pair*2  ]
-            ir0   = (i_pair*2-1)*6
-            ir1   = (i_pair*2  )*6
-
-            Rt_0r = mrcal.Rt_from_rt(rt_0r)
-            Rt_1r = mrcal.Rt_from_rt(rt_1r)
-            Rt_10 = mrcal.compose_Rt(Rt_1r, mrcal.invert_Rt(Rt_0r))
-            baseline = np.sqrt(nps.norm2(Rt_10[3,:]))
-
-            # I only care about the rotation components of these transformations
-            R_0r, dR_0r__dr_0r = mrcal.R_from_r(rt_0r[:3], get_gradients=True)
-            R_1r, dR_1r__dr_1r = mrcal.R_from_r(rt_1r[:3], get_gradients=True)
-
-            R_r0 = nps.transpose(R_0r)
-            dR_r0__dr_0r = nps.xchg(dR_0r__dr_0r,
-                                    0,1).reshape(9,3)
-
-            R_10 = nps.matmult(R_1r, R_r0)
-
-            # 00 10 20 ... ...
-            # 01 11 21 ... ...
-            # 02 12 22 ... ...
-            # ... 00 10 20 ...
-            # ... 01 11 21 ...
-            # ... 02 12 22 ...
-            # ... ... 00 10 20
-            # ... ... 01 11 21
-            # ... ... 02 12 22
-            dR_10__dR_1r = scipy.linalg.block_diag(nps.transpose(R_r0),
-                                                   nps.transpose(R_r0),
-                                                   nps.transpose(R_r0),)
-            # 00 . . 01 . . 02 . .
-            # . 00 . . 01 . . 02 .
-            # . . 00 . . 01 . . 02
-            # 10 . . 11 . . 12 . .
-            # . 10 . . 11 . . 12 .
-            # . . 10 . . 11 . . 12
-            # 20 . . 21 . . 22 . .
-            # . 20 . . 21 . . 22 .
-            # . . 20 . . 21 . . 22
-            dR_10__dR_r0 = nps.reorder(nps.dummy(nps.dummy(R_1r, -1), -1) * np.eye(3), 0,2,1,3).reshape(9,9)
-
-            # I'm looking at dr/dR here. What does dR mean? Are perturbations
-            # constrained to SO(3)? This was unclear so I removed gradient
-            # reporting from mrcal.r_from_R(), and this is the only remaining
-            # place I'm using the opencv Rodrigues function now. Should I bring
-            # the gradients back?
-            r_10, dr_10__dR_10 = cv2.Rodrigues(R_10)
-            r_10 = r_10.ravel()                       # fix opencv's weirdness
-            dr_10__dR_10= nps.transpose(dr_10__dR_10) # fix opencv's weirdness
-
-            dyaw__dR10  = dr_10__dR_10[1,:]
-            dyaw__dr_0r = nps.matmult(dyaw__dR10, dR_10__dR_r0, dR_r0__dr_0r)
-            dyaw__dr_1r = nps.matmult(dyaw__dR10, dR_10__dR_1r, dR_1r__dr_1r.reshape(9,3))
-
-            # finally, got the linear map between rotations and relative yaw
-            u = nps.glue(dyaw__dr_0r, dyaw__dr_1r, axis=-1)
-
-
-            # This computation of u was very complex. A test:
-            # delta = np.random.random(6) * 1e-6
-            # yaw0 = mrcal.compose_rt(rt_1r, mrcal.invert_rt (rt_0r))[1]
-            # rt_0r_shifted = rt_0r.copy()
-            # rt_0r_shifted[:3] += delta[:3]
-            # rt_1r_shifted = rt_1r.copy()
-            # rt_1r_shifted[:3] += delta[3:]
-            # yaw1 = mrcal.compose_rt(rt_1r_shifted, mrcal.invert_rt (rt_0r_shifted))[1]
-            # print(f"Gradient testing: saw dyaw: {yaw1-yaw0}, expected dyaw {nps.inner(u,delta)} err: {yaw1-yaw0 - nps.inner(u,delta)}")
-
-
-            # Get the slice of covariance for the rotations-only: r_01 and r_1r
-            A = stats['covariance_extrinsics'][ir0:ir0+3,ir0:ir0+3]
-            B = stats['covariance_extrinsics'][ir0:ir0+3,ir1:ir1+3]
-            C = stats['covariance_extrinsics'][ir1:ir1+3,ir0:ir0+3]
-            D = stats['covariance_extrinsics'][ir1:ir1+3,ir1:ir1+3]
-            covariance_slice = nps.glue( nps.glue(A,B, axis=-1),
-                                         nps.glue(C,D, axis=-1),
-                                        axis=-2 )
-
-            stdev_yaw   = np.sqrt(nps.inner( u, nps.inner(u, covariance_slice) ))
-
-        report += "Pair{} baseline: {:.2f}m\n".format(i_pair, baseline)
-        report += "Pair{} 1-stdev yaw uncertainty: {:.3f} degrees. Expected resulting range error at 1000m: {:.1f}m\n". \
-            format(i_pair,
-                   stdev_yaw*180./np.pi,
-                   stdev_yaw / baseline * 1000 * 1000 )
 
 print(report)
 

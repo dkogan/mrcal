@@ -1478,7 +1478,6 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(calibration_object_height_n,        int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(get_covariances,                    PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(icam_intrinsics_covariances_ief,    int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
@@ -1714,12 +1713,7 @@ static bool optimize_validate_args( // out
         i_cam_extrinsics_last = i_cam_extrinsics;
     }
 
-    if( (skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection) ) &&
-       !(get_covariances        && PyObject_IsTrue(get_covariances) ))
-    {
-        // The pixel uncertainty isn't used and doesn't matter
-    }
-    else
+    if( !(skip_outlier_rejection && PyObject_IsTrue(skip_outlier_rejection)))
     {
         // The pixel uncertainty is used and must be valid
         if( observed_pixel_uncertainty <= 0.0 )
@@ -1754,10 +1748,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     PyObject* result = NULL;
 
     PyArrayObject* x_final                      = NULL;
-    PyArrayObject* covariance_intrinsics        = NULL;
-    PyArrayObject* covariance_extrinsics        = NULL;
-    PyArrayObject* covariances_ief              = NULL;
-    PyArrayObject* covariances_ief_rotationonly = NULL;
     PyObject*      pystats                      = NULL;
 
     SET_SIGINT();
@@ -1913,60 +1903,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         int Nintrinsics_state = mrcal_getNintrinsicOptimizationParams(problem_details, lensmodel_type);
 
-        double* c_covariance_intrinsics        = NULL;
-        double* c_covariance_extrinsics        = NULL;
-        double* c_covariances_ief              = NULL;
-        double* c_covariances_ief_rotationonly = NULL;
-        int     Nvars_ief                      = -1;
-        int     Nvars_ief_rotationonly         = -1;
-        if(get_covariances && PyObject_IsTrue(get_covariances))
-        {
-            if(is_optimize)
-            {
-                if(Nintrinsics_state != 0)
-                {
-                    covariance_intrinsics =
-                        (PyArrayObject*)PyArray_SimpleNew(3,
-                                                          ((npy_intp[]){Ncameras_intrinsics,
-                                                               Nintrinsics_state,Nintrinsics_state}), NPY_DOUBLE);
-                    c_covariance_intrinsics = PyArray_DATA(covariance_intrinsics);
-                }
-                if(Ncameras_extrinsics >= 1)
-                {
-                    covariance_extrinsics =
-                        (PyArrayObject*)PyArray_SimpleNew(2,
-                                                          ((npy_intp[]){Ncameras_extrinsics*6,Ncameras_extrinsics*6}), NPY_DOUBLE);
-                    c_covariance_extrinsics = PyArray_DATA(covariance_extrinsics);
-                }
-            }
-
-            Nvars_ief = Nintrinsics_state;
-            if(problem_details.do_optimize_extrinsics) Nvars_ief += 6;
-            if(problem_details.do_optimize_frames)     Nvars_ief += 6*Nframes;
-            if(icam_intrinsics_covariances_ief>=0)
-                covariances_ief =
-                    (PyArrayObject*)PyArray_SimpleNew(2,
-                                                      ((npy_intp[]){Nvars_ief,Nvars_ief}), NPY_DOUBLE);
-            else
-                covariances_ief =
-                    (PyArrayObject*)PyArray_SimpleNew(3,
-                                                      ((npy_intp[]){Ncameras_intrinsics,Nvars_ief,Nvars_ief}), NPY_DOUBLE);
-            c_covariances_ief = PyArray_DATA(covariances_ief);
-
-            Nvars_ief_rotationonly = Nintrinsics_state;
-            if(problem_details.do_optimize_extrinsics) Nvars_ief_rotationonly += 3;
-            if(problem_details.do_optimize_frames)     Nvars_ief_rotationonly += 3*Nframes;
-            if(icam_intrinsics_covariances_ief>=0)
-                covariances_ief_rotationonly =
-                    (PyArrayObject*)PyArray_SimpleNew(2,
-                                                      ((npy_intp[]){Nvars_ief_rotationonly,Nvars_ief_rotationonly}), NPY_DOUBLE);
-            else
-                covariances_ief_rotationonly =
-                    (PyArrayObject*)PyArray_SimpleNew(3,
-                                                      ((npy_intp[]){Ncameras_intrinsics,Nvars_ief_rotationonly,Nvars_ief_rotationonly}), NPY_DOUBLE);
-            c_covariances_ief_rotationonly = PyArray_DATA(covariances_ief_rotationonly);
-        }
-
         // input
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
@@ -2001,14 +1937,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             mrcal_stats_t stats =
                 mrcal_optimize( c_x_final,
                                 Nmeasurements*sizeof(double),
-                                c_covariance_intrinsics,
-                                Ncameras_intrinsics_returning*Nintrinsics_state*Nintrinsics_state*sizeof(double),
-                                c_covariance_extrinsics,
-                                Ncameras_extrinsics*6*Ncameras_extrinsics*6*sizeof(double),
-                                c_covariances_ief,
-                                Ncameras_intrinsics_returning*Nvars_ief*Nvars_ief*sizeof(double),
-                                c_covariances_ief_rotationonly,
-                                Ncameras_intrinsics_returning*Nvars_ief_rotationonly*Nvars_ief_rotationonly*sizeof(double),
                                 icam_intrinsics_covariances_ief,
                                 (void**)solver_context_optimizer,
                                 c_intrinsics,
@@ -2076,34 +2004,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 BARF("Couldn't add to stats dict 'x'");
                 goto done;
             }
-            if( covariance_intrinsics &&
-                0 != PyDict_SetItemString(pystats, "covariance_intrinsics",
-                                          (PyObject*)covariance_intrinsics) )
-            {
-                BARF("Couldn't add to stats dict 'covariance_intrinsics'");
-                goto done;
-            }
-            if( covariance_extrinsics &&
-                0 != PyDict_SetItemString(pystats, "covariance_extrinsics",
-                                          (PyObject*)covariance_extrinsics) )
-            {
-                BARF("Couldn't add to stats dict 'covariance_extrinsics'");
-                goto done;
-            }
-            if( covariances_ief &&
-                0 != PyDict_SetItemString(pystats, "covariances_ief",
-                                          (PyObject*)covariances_ief) )
-            {
-                BARF("Couldn't add to stats dict 'covariances_ief'");
-                goto done;
-            }
-            if( covariances_ief_rotationonly &&
-                0 != PyDict_SetItemString(pystats, "covariances_ief_rotationonly",
-                                          (PyObject*)covariances_ief_rotationonly) )
-            {
-                BARF("Couldn't add to stats dict 'covariances_ief_rotationonly'");
-                goto done;
-            }
 
             result = pystats;
             Py_INCREF(result);
@@ -2149,10 +2049,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             if(!mrcal_optimizerCallback( // out
                                          c_x_final,
                                          &Jt,
-                                         c_covariances_ief,
-                                         Ncameras_intrinsics_returning*Nvars_ief*Nvars_ief*sizeof(double),
-                                         c_covariances_ief_rotationonly,
-                                         Ncameras_intrinsics_returning*Nvars_ief_rotationonly*Nvars_ief_rotationonly*sizeof(double),
                                          &icam_extrinsics_covariances_ief,
 
                                          // in
@@ -2192,7 +2088,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             if(factorization == NULL)
                 goto done;
 
-            result = PyTuple_New(2 + (covariances_ief ? 4 : 0));
+            result = PyTuple_New(4);
             int i=0;
             PyTuple_SET_ITEM(result, 0, (PyObject*)x_final);
             PyTuple_SET_ITEM(result, 1,
@@ -2200,19 +2096,14 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                      (PyObject*)P,
                                                      (PyObject*)I,
                                                      (PyObject*)X));
-            if(covariances_ief)
+            if(icam_intrinsics_covariances_ief < 0)
             {
-                PyTuple_SET_ITEM(result, 2, (PyObject*)covariances_ief);
-                PyTuple_SET_ITEM(result, 3, (PyObject*)covariances_ief_rotationonly);
-                if(icam_intrinsics_covariances_ief < 0)
-                {
-                    Py_INCREF(Py_None);
-                    PyTuple_SET_ITEM(result, 4, Py_None);
-                }
-                else
-                    PyTuple_SET_ITEM(result, 4, PyLong_FromLong(icam_extrinsics_covariances_ief));
-                PyTuple_SET_ITEM(result, 5, factorization);
+                Py_INCREF(Py_None);
+                PyTuple_SET_ITEM(result, 2, Py_None);
             }
+            else
+                PyTuple_SET_ITEM(result, 2, PyLong_FromLong(icam_extrinsics_covariances_ief));
+            PyTuple_SET_ITEM(result, 3, factorization);
 
             for(int i=0; i<PyTuple_Size(result); i++)
                 Py_INCREF(PyTuple_GET_ITEM(result,i));
@@ -2229,12 +2120,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
-    if(x_final)                      Py_DECREF(x_final);
-    if(covariance_intrinsics)        Py_DECREF(covariance_intrinsics);
-    if(covariance_extrinsics)        Py_DECREF(covariance_extrinsics);
-    if(covariances_ief)              Py_DECREF(covariances_ief);
-    if(covariances_ief_rotationonly) Py_DECREF(covariances_ief_rotationonly);
-    if(pystats)                      Py_DECREF(pystats);
+    if(x_final) Py_DECREF(x_final);
+    if(pystats) Py_DECREF(pystats);
 
     RESET_SIGINT();
     return result;
