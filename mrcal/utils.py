@@ -1133,23 +1133,119 @@ broadcasting
     return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
 
 
-def _projection_uncertainty_make_output(var, what):
-    r'''Helper for projection uncertainty functions'''
-    if what == 'covariance':           return var
-    if what == 'worstdirection-stdev': return worst_direction_stdev(var)
-    if what == 'rms-stdev':            return np.sqrt(nps.trace(var)/2.)
+def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
+                                         Nmeasurements_observations,
+                                         what ):
+    r'''Helper for projection uncertainty functions
+
+    The given factorization uses the packed, unitless state: p*.
+
+    The given J uses the packed, unitless state: p*. The given J applies to all
+    observations. The leading Nmeasurements_observations rows of J apply to the
+    observations of the calibration object, and we use just those for the input
+    noise propagation. if Nmeasurements_observations is None: assume that ALL
+    the measurements come from the calibration object observations; a simplifed
+    expression can be used in this case
+
+    The given dq_dpief_packed uses the packed, unitless state p*, so it already
+    includes the multiplication by D in the expressions below. It's sparse, but
+    stored densely, so it already includes the multiplication by S
+
+
+
+    The docstring of projection_uncertainty() has the derivation that
+    concludes that
+
+      Var(p*) = inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+
+    In the special case where all the measurements come from
+    observations, this simplifies to
+
+      Var(p*) = inv(J*tJ*)
+
+    My factorization is of packed (scaled, unitless) flavors of J (J*). So
+
+      Var(p) = D Var(p*) D
+
+    I want Var(q) = dq/dp[ief] Var(p[ief]) dq/dp[ief]t. Let S = [I 0] where the
+    specific nonzero locations specify the locations of [ief]:
+
+      Var(p[ief]) = S Var(p) St
+
+    So
+
+      Var(q) = dq/dp[ief] S D Var(p*) D St dq/dp[ief]t
+
+    In the regularized case I have
+
+      Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
+
+    It is far more efficient to compute inv(J*tJ*) D St dq/dp[ief]t than
+    inv(J*tJ*) J*[observations]t: there's far less to compute, and the matrices
+    are far smaller. Thus I don't compute the covariances directly.
+
+    In the non-regularized case:
+
+      Var(q) = dq/dp[ief] S D inv(J*tJ*) D St dq/dp[ief]t
+
+      1. solve( inv(J*tJ*), D St dq/dp[ief]t)
+         The result has shape (Nstate,2)
+
+      2. pre-multiply by dq/dp[ief] S D
+
+    In the regularized case:
+
+      Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
+
+      1. solve( inv(J*tJ*), D St dq/dp[ief]t)
+         The result has shape (Nstate,2)
+
+      2. Pre-multiply by J*[observations]
+         The result has shape (Nmeasurements_observations,2)
+
+      3. Compute the sum of the outer products of each row
+
+    '''
+
+    # shape (2,Nstate)
+    A = factorization.solve_JtJ_x_b( dq_dpief_packed )
+    if Nmeasurements_observations is not None:
+        # I have regularization. Use the more complicated expression
+
+        # I see no python way to do matrix multiplication with sparse matrices,
+        # so I have my own routine in C. AND the C routine does the outer
+        # product, so there's no big temporary expression. It's much faster
+        Var_dq = mrcal.A_Jt_J_At(A, J.indptr, J.indices, J.data,
+                                 Nleading_rows_J = Nmeasurements_observations)
+    else:
+        # No regularization. Use the simplified expression
+        Var_dq = nps.matmult(dq_dpief_packed, nps.transpose(A))
+
+    if what == 'covariance':           return Var_dq
+    if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dq)
+    if what == 'rms-stdev':            return np.sqrt(nps.trace(Var_dq)/2.)
     else: raise Exception("Shouldn't have gotten here. There's a bug")
+
 
 def _projection_uncertainty( p_cam,
                              lensmodel, intrinsics_data,
                              extrinsics_rt_fromref, frames_rt_toref,
-                             Var_ief,
+                             factorization, J, optimization_inputs,
+                             istate_intrinsics, istate_extrinsics, istate_frames,
+                             Nmeasurements_observations,
                              what):
     r'''Helper for projection_uncertainty()
+
+    See docs for _projection_uncertainty_make_output() and
+    projection_uncertainty()
 
     This function does all the work when observing points with a finite range
 
     '''
+
+    Nstate = J.shape[-1]
+    dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+
     Nintrinsics = intrinsics_data.shape[-1]
     if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
 
@@ -1176,6 +1272,7 @@ def _projection_uncertainty( p_cam,
         # already have p_ref, so I don't actually need to compute the value; I just
         # need the gradients
 
+        # dprefallframes_dframesr has shape (..., Nframes,3,3)
         _, \
         dprefallframes_dframesr, \
         dprefallframes_dframest, \
@@ -1195,69 +1292,52 @@ def _projection_uncertainty( p_cam,
         mrcal.project( p_cam, lensmodel, intrinsics_data,
                        get_gradients = True)
 
+    dq_dpief[..., :,istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_dintrinsics
+
     if extrinsics_rt_fromref is not None:
         _, dpcam_dr, dpcam_dt, dpcam_dpref = \
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
-        dq_dr = nps.matmult(dq_dpcam, dpcam_dr)
-        dq_dt = nps.matmult(dq_dpcam, dpcam_dt)
+
+        dq_dpief[..., :,istate_extrinsics:istate_extrinsics+3] = \
+            nps.matmult(dq_dpcam, dpcam_dr)
+        dq_dpief[..., :,istate_extrinsics+3:istate_extrinsics+6] = \
+            nps.matmult(dq_dpcam, dpcam_dt)
 
         if frames_rt_toref is not None:
-            dq_dframes = nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
-            dq_dief = nps.glue(dq_dintrinsics,
-                               dq_dr,
-                               dq_dt,
-                               dq_dframes,
-                               axis=-1)
-        else:
-            dq_dief = nps.glue(dq_dintrinsics,
-                               dq_dr,
-                               dq_dt,
-                               axis=-1)
-        return \
-            _projection_uncertainty_make_output( nps.matmult(dq_dief,
-                                     Var_ief,
-                                     nps.transpose(dq_dief)),
-                         what )
+            dq_dpief[..., :,istate_frames:istate_frames+Nframes] = \
+                nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
     else:
-
-        # I cut out the empty "extrinsics" rows, cols from the variance, so
-        # I just compute the chunks of nps.matmult(dq_dif, Var_ief,
-        # nps.transpose(dq_dif)) manually
         if frames_rt_toref is not None:
-            dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
+            dq_dpief[..., :,istate_frames:istate_frames+Nframes] = \
+                nps.matmult(dq_dpcam, dpref_dframes)
 
-            return _projection_uncertainty_make_output(
-                nps.matmult(dq_dintrinsics,
-                            Var_ief[:Nintrinsics,:Nintrinsics],
-                            nps.transpose(dq_dintrinsics)) + \
-                nps.matmult(dq_dframes,
-                            Var_ief[Nintrinsics+6:,:Nintrinsics],
-                            nps.transpose(dq_dintrinsics)) + \
-                nps.matmult(dq_dintrinsics,
-                            Var_ief[:Nintrinsics,Nintrinsics+6:],
-                            nps.transpose(dq_dframes)) + \
-                nps.matmult(dq_dframes,
-                            Var_ief[Nintrinsics+6:,Nintrinsics+6:],
-                            nps.transpose(dq_dframes)),
-                what )
-        else:
-            return _projection_uncertainty_make_output( nps.matmult(dq_dintrinsics,
-                                            Var_ief[:Nintrinsics,:Nintrinsics],
-                                            nps.transpose(dq_dintrinsics)),
-                                what )
+    mrcal.unpack_state(dq_dpief, **optimization_inputs)
+    return \
+        _projection_uncertainty_make_output( factorization, J,
+                                             dq_dpief, Nmeasurements_observations,
+                                             what)
 
 
 def _projection_uncertainty_rotationonly( p_cam,
                                           lensmodel, intrinsics_data,
                                           extrinsics_rt_fromref, frames_rt_toref,
-                                          Var_ief,
+                                          factorization, J, optimization_inputs,
+                                          istate_intrinsics, istate_extrinsics, istate_frames,
+                                          Nmeasurements_observations,
                                           what):
     r'''Helper for projection_uncertainty()
+
+    See docs for _projection_uncertainty_make_output() and
+    projection_uncertainty()
 
     This function does all the work when observing points at infinity
 
     '''
+
+    Nstate = J.shape[-1]
+    dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     Nintrinsics = intrinsics_data.shape[-1]
     if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
@@ -1284,68 +1364,46 @@ def _projection_uncertainty_rotationonly( p_cam,
         # already have p_ref, so I don't actually need to compute the value; I just
         # need the gradients
 
+        # dprefallframes_dframesr has shape (..., Nframes,3,3)
         _, \
         dprefallframes_dframesr, \
         _ = mrcal.rotate_point_r( frames_rt_toref[...,:3], p_frames,
                                   get_gradients = True)
 
-        # shape (..., 3,3*Nframes)
-        # /Nframes because I compute the mean over all the frames
-        dpref_dframes = nps.clump( nps.mv(dprefallframes_dframesr, -3, -2),
-                                   n = -2 ) / Nframes
-
     _, dq_dpcam, dq_dintrinsics = \
         mrcal.project( p_cam, lensmodel, intrinsics_data,
                        get_gradients = True)
+
+    dq_dpief[..., :,istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_dintrinsics
 
     if extrinsics_rt_fromref is not None:
         _, dpcam_dr, dpcam_dpref = \
             mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
                                  get_gradients = True)
-        dq_dr = nps.matmult(dq_dpcam, dpcam_dr)
+        dq_dpief[..., :,istate_extrinsics:istate_extrinsics+3] = \
+            nps.matmult(dq_dpcam, dpcam_dr)
 
         if frames_rt_toref is not None:
 
-            dq_dframes = nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
-            dq_dief = nps.glue(dq_dintrinsics,
-                               dq_dr,
-                               dq_dframes,
-                               axis=-1)
-        else:
-            dq_dief = nps.glue(dq_dintrinsics,
-                               dq_dr,
-                               axis=-1)
-        return \
-            _projection_uncertainty_make_output( nps.matmult(dq_dief,
-                                     Var_ief,
-                                     nps.transpose(dq_dief)),
-                         what )
+            dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
+
+            # dprefallframes_dframesr has shape (..., Nframes,3,3)
+            for i in range(Nframes):
+                dq_dpief[..., :,istate_frames+6*i:istate_frames+6*i+3] = \
+                    nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
     else:
-        # I cut out the empty "extrinsics" rows, cols from the variance, so
-        # I just compute the chunks of nps.matmult(dq_dif, Var_ief,
-        # nps.transpose(dq_dif)) manually
         if frames_rt_toref is not None:
-            dq_dframes = nps.matmult(dq_dpcam, dpref_dframes)
+            # dprefallframes_dframesr has shape (..., Nframes,3,3)
+            for i in range(Nframes):
+                dq_dpief[..., :,istate_frames+6*i:istate_frames+6*i+3] = \
+                    nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
 
-            return _projection_uncertainty_make_output(
-                nps.matmult(dq_dintrinsics,
-                            Var_ief[:Nintrinsics,:Nintrinsics],
-                            nps.transpose(dq_dintrinsics)) + \
-                nps.matmult(dq_dframes,
-                            Var_ief[Nintrinsics+3:,:Nintrinsics],
-                            nps.transpose(dq_dintrinsics)) + \
-                nps.matmult(dq_dintrinsics,
-                            Var_ief[:Nintrinsics,Nintrinsics+3:],
-                            nps.transpose(dq_dframes)) + \
-                nps.matmult(dq_dframes,
-                            Var_ief[Nintrinsics+3:,Nintrinsics+3:],
-                            nps.transpose(dq_dframes)),
-                what )
-        else:
-            return _projection_uncertainty_make_output( nps.matmult(dq_dintrinsics,
-                                            Var_ief[:Nintrinsics,:Nintrinsics],
-                                            nps.transpose(dq_dintrinsics)),
-                                what )
+    mrcal.unpack_state(dq_dpief, **optimization_inputs)
+    return \
+        _projection_uncertainty_make_output( factorization, J,
+                                             dq_dpief, Nmeasurements_observations,
+                                             what)
 
 
 def projection_uncertainty( p_cam,
