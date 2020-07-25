@@ -347,4 +347,89 @@ mrcal-genpywrap.py. Please keep them in sync """,
 '''},
 )
 
+m.function( "A_Jt_J_At",
+            """Computes matmult(A,Jt,J,At) for a sparse J
+
+This is used in the internals of projection_uncertainty().
+
+A has shape (2,Nstate)
+
+J has shape (Nmeasurements,Nstate). J is large and sparse
+
+We use the Nleading_rows_J leading rows of J. This integer is passed-in as an
+argument.
+
+matmult(A, Jt, J, At) has shape (2,2)
+
+The input matrices are large, but the result is very small. I can't see a way to
+do this efficiently in pure Python, so I'm writing this.
+
+J is sparse, stored by row. This is the scipy.sparse.csr_matrix representation,
+and is also how CHOLMOD stores Jt (CHOLMOD stores by column, so the same data
+looks like Jt to CHOLMOD). The sparse J is given here as the p,i,x arrays from
+CHOLMOD, equivalent to the indptr,indices,data members of
+scipy.sparse.csr_matrix respectively.
+ """,
+
+            args_input       = ('A', 'Jp', 'Ji', 'Jx'),
+            prototype_input  = ((2,'Nstate'), ('Np',), ('Nix',), ('Nix',)),
+            prototype_output = (2,2),
+
+            extra_args = (("int", "Nleading_rows_J", "-1", "i"),),
+
+            Ccode_validate = r'''
+            if(*Nleading_rows_J <= 0)
+            {
+                PyErr_Format(PyExc_RuntimeError,
+                             "Nleading_rows_J must be passed, and must be > 0");
+                return false;
+            }
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                { (np.float64, np.int32, np.int32, np.float64, np.float64):
+                 r'''
+
+                 // I'm computing A Jt J At = sum(outer(ja,ja)) where ja is each
+                 // row of matmult(J,At). Rows of matmult(J,At) are
+                 // matmult(jt,At) where jt are rows of J. So the logic is:
+                 //
+                 //   For each row jt of J:
+                 //     jta = matmult(jt,At); // jta has shape (2,)
+                 //     accumulate( outer(jta,jta) )
+
+
+                 int32_t Nstate = dims_slice__A[1];
+
+                 const double* A   = (const double* )data_slice__A;
+                 const int32_t* Jp = (const int32_t*)data_slice__Jp;
+                 const int32_t* Ji = (const int32_t*)data_slice__Ji;
+                 const double*  Jx = (const double* )data_slice__Jx;
+                 double* out       = (      double* )data_slice__output;
+
+                 // zero out the accumulator
+                 memset(((double*)data_slice__output), 0, 2*2*sizeof(double));
+
+                 for(int irow=0; irow<*Nleading_rows_J; irow++)
+                 {
+                     double jta[2] = {};
+
+                     for(int32_t i = Jp[irow]; i < Jp[irow+1]; i++)
+                     {
+                         int32_t icol = Ji[i];
+                         double x     = Jx[i];
+
+                         jta[0] += A[icol + 0*Nstate] * x;
+                         jta[1] += A[icol + 1*Nstate] * x;
+
+                     }
+                     out[0] += jta[0]*jta[0];
+                     out[1] += jta[1]*jta[0];
+                     out[2] += jta[1]*jta[0];
+                     out[3] += jta[1]*jta[1];
+                 }
+                 return true;
+'''},
+)
+
 m.write()
