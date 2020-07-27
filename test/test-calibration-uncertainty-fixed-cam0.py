@@ -190,7 +190,6 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
     idx_outliers, \
     _,  _, _,                  \
-    covariance_intrinsics,_,covariances_ief, covariances_ief_rotationonly, \
     solver_context =           \
         optimize(intrinsics_ref, extrinsics_ref, frames_ref, observations_perturbed,
                  indices_frame_camintrinsics_camextrinsics,
@@ -208,8 +207,7 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
                  skip_regularization               = True,
                  **kwargs)
 
-    return intrinsics_solved,extrinsics_solved,frames_solved, \
-        covariance_intrinsics, covariances_ief, covariances_ief_rotationonly
+    return intrinsics_solved,extrinsics_solved,frames_solved
 
 
 covariances_ief,covariances_ief_rotationonly = \

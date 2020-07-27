@@ -2145,14 +2145,7 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 // The state_index_... python functions don't need the full data but many of
 // them do need to know the dimensionality of the data. Thus these can take the
 // same arguments as optimizerCallback(). OR in lieu of that, the dimensions can
-// be passed-in explicitly with the arguments
-//
-// - Ncameras_intrinsics
-// - Ncameras_extrinsics
-// - Nframes
-// - Npoints
-// - NobservationsBoard
-// - NobservationsPoint
+// be passed-in explicitly with arguments
 //
 // If both are given, the explicit arguments take precedence. If neither are
 // given, I assume 0.

@@ -59,9 +59,7 @@ def _read(s, name):
     re_s = '.+'
 
     # I parse all key=value lines into my dict as raw text. Further I
-    # post-process some of these raw lines. The covariances don't fit into this
-    # mold, since the values span multiple lines. But since I don't care about
-    # covariances, I happily ignore them
+    # post-process some of these raw lines.
     x = {}
     for l in s.splitlines():
         if re.match('^\s*#|^\s*$', l):

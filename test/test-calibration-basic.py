@@ -122,7 +122,6 @@ intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
 p_packed, x, rmserr,                            \
-covariance_intrinsics, covariance_extrinsics,_,_,\
 solver_context =                                \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
@@ -138,7 +137,6 @@ observations[idx_outliers, 2] = -1
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
 p_packed, x, rmserr,                            \
-covariance_intrinsics, covariance_extrinsics,_,_,\
 solver_context =                                \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
@@ -157,7 +155,6 @@ calobject_warp = np.array((0.001, 0.001))
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
 p_packed, x, rmserr,                            \
-covariance_intrinsics, covariance_extrinsics,_,_,\
 solver_context =                                \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
@@ -171,7 +168,6 @@ solver_context =                                \
              do_optimize_extrinsics            = True,
              do_optimize_frames                = True,
              do_optimize_calobject_warp        = True,
-             get_covariances                   = True,
              skip_outlier_rejection            = False)
 observations[idx_outliers, 2] = -1
 
@@ -381,63 +377,12 @@ testutils.confirm_equal( dE_predicted, dE,
                          relative = True,
                          msg = "diff(E) predicted")
 
-###########################################################################
-# Fine. Let's make sure the noise propagation works as it should. First off, is
-# the implementation correct? Derivation in projection_uncertainty() says
-# intrinsics covariance:
-#
-#   Var(intrinsics) = (inv(JtJ)[intrinsicsrows] Jobservationst)
-#                     (inv(JtJ)[intrinsicsrows] Jobservationst)t
-#                     s^2
-#
-# Let's make sure the computation was done correctly
 Nobservations_board = indices_frame_camera.shape[0]
 Nmeasurements_board = Nobservations_board * object_height_n * object_width_n * 2
 
-invJtJ = np.linalg.inv(nps.matmult(nps.transpose(J0), J0))
-J0observations = J0[:Nmeasurements_board,:]
-
-for icam in range(Ncameras):
-
-    ivar0 = Nintrinsics*icam
-    ivar1 = Nintrinsics*icam + Nintrinsics
-    covariance_intrinsics_predicted = \
-        pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
-        nps.matmult( invJtJ[ivar0:ivar1,:],
-                     nps.transpose(J0observations),
-                     J0observations,
-                     invJtJ[:,ivar0:ivar1])
-
-    testutils.confirm_equal( covariance_intrinsics_predicted,
-                             covariance_intrinsics[icam, ...],
-                             relative = True,
-                             eps = 1e-3,
-                             msg = f"covariance_intrinsics computed correctly for camera {icam}")
-
 ###########################################################################
-# Same thing for covariance_extrinsics. Are we computing what we think we're
-# computing? First, let's look at all the extrinsics together as one big vector
-ivar0 = Nintrinsics*Ncameras
-ivar1 = Nintrinsics*Ncameras + 6*(Ncameras-1)
-
-covariance_extrinsics_predicted = \
-    pixel_uncertainty_stdev*pixel_uncertainty_stdev * \
-    nps.matmult( invJtJ[ ivar0:ivar1, :],
-                 nps.transpose(J0observations),
-                 J0observations,
-                 invJtJ[:, ivar0:ivar1 ])
-testutils.confirm_equal( covariance_extrinsics_predicted,
-                         covariance_extrinsics,
-                         relative = True,
-                         eps = 1e-3,
-                         msg = f"covariance_extrinsics computed correctly")
-
-
-###########################################################################
-# I confirmed that I'm computing what I think I'm computing. Do the desired
-# expressions do what they're supposed to do? I perturb my input observation
-# vector qref by dqref. The effect on the parameters should be dp = M dqref.
-# Where M = inv(JtJ) Jobservationst W
+# I perturb my input observation vector qref by dqref. The effect on the
+# parameters should be dp = M dqref. Where M = inv(JtJ) Jobservationst W
 
 # same outlier set as what I computed, but more noise. I don't compute NEW
 # outliers here: skip_outlier_rejection=True
@@ -446,7 +391,6 @@ dqref, observations_perturbed = sample_dqref(observations,
 _,_,_,_,         \
 _,               \
 p_packed1, _, _, \
-_,_,_,_,         \
 solver_context = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations_perturbed,
              indices_frame_camintrinsics_camextrinsics,

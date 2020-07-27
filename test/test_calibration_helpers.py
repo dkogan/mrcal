@@ -30,7 +30,6 @@ def optimize( intrinsics,
               do_optimize_calobject_warp        = False,
               skip_outlier_rejection            = True,
               skip_regularization               = False,
-              get_covariances                   = False,
               **kwargs):
     r'''Run the optimizer
 
@@ -63,23 +62,17 @@ def optimize( intrinsics,
                             do_optimize_intrinsic_distortions = do_optimize_intrinsic_distortions,
                             do_optimize_extrinsics            = do_optimize_extrinsics,
                             do_optimize_calobject_warp        = do_optimize_calobject_warp,
-                            get_covariances                   = get_covariances,
                             skip_regularization               = skip_regularization,
                             skip_outlier_rejection            = skip_outlier_rejection,
                             solver_context                    = solver_context,
                             **kwargs)
 
-    covariance_intrinsics        = stats.get('covariance_intrinsics')
-    covariance_extrinsics        = stats.get('covariance_extrinsics')
-    covariances_ief              = stats.get('covariances_ief')
-    covariances_ief_rotationonly = stats.get('covariances_ief_rotationonly')
     p_packed = solver_context.p().copy()
 
     return \
         intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp,   \
         observations[...,2] < 0.0, \
         p_packed, stats['x'], stats['rms_reproj_error__pixels'], \
-        covariance_intrinsics, covariance_extrinsics, covariances_ief, covariances_ief_rotationonly, \
         solver_context
 
 def sample_dqref(observations,
@@ -110,11 +103,8 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
                 cache_var_full):
     r'''Computes Var(intrinsics,extrinsics,frames)
 
-    This is returned by the C code, but I reimplement it here in Python to
-    compare. This returns the same kind of arrays that the C code returns. I
-    particular, if we're optimizing extrinsics, BUT some camera is sitting at
-    the reference, I include the rows, columns for the extrinsics arrays, but I
-    set them to 0
+    If we're optimizing extrinsics, BUT some camera is sitting at the reference,
+    I include the rows, columns for the extrinsics arrays, but I set them to 0
 
     '''
 
