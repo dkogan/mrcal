@@ -232,6 +232,6 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
 
 def sorted_eig(C):
     'like eig(), but the results are sorted by eigenvalue'
-    l,v = np.linalg.eig(covariances_ief[0])
+    l,v = np.linalg.eig(C)
     i = np.argsort(l)
     return l[i], v[:,i]
