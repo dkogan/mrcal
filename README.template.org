@@ -129,7 +129,7 @@ class. This class supports two different file formats:
 
 The file format is just a way to store data: any lens model can be stored
 in any file format. Currently some things aren't representable in a =.cahvor=
-file (covariance stuff), but only mrcal tools know what to do with that data,
+file (uncertainty stuff), but only mrcal tools know what to do with that data,
 and mrcal supports =.cameramodel= files.
 
 ** Lens models
