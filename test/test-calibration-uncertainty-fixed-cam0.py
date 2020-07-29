@@ -54,7 +54,7 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 
-from test_calibration_helpers import optimize,sample_dqref,get_var_ief,sorted_eig
+from test_calibration_helpers import optimize,sample_dqref,sorted_eig
 
 import re
 if   re.search("fixed-cam0",   sys.argv[0]): fixedframes = False
