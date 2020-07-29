@@ -165,8 +165,14 @@ def get_var_ief(icam_intrinsics, icam_extrinsics,
         J       = Jpacked.copy()
         solver_context.pack(J) # pack(), not unpack() because the packed variables are in the denominator
 
-        M = nps.matmult(nps.transpose(J), J)
-        var_full = np.linalg.inv(M)
+        Nmeasurements_regularization = solver_context.num_measurements_dict()['regularization']
+        if Nmeasurements_regularization == 0:
+            var_full = np.linalg.inv( nps.matmult(nps.transpose(J), J) )
+        else:
+            M = \
+                np.linalg.solve(nps.matmult(nps.transpose(J), J),
+                                nps.transpose(J[:-Nmeasurements_regularization]))
+            var_full = nps.matmult(M, nps.transpose(M))
 
         if cache_var_full is not None:
             cache_var_full[0] = var_full
