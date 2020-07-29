@@ -1406,8 +1406,7 @@ def _projection_uncertainty_rotationonly( p_cam,
                                              what)
 
 
-def projection_uncertainty( p_cam,
-                            model      = None,
+def projection_uncertainty( p_cam, model,
                             atinfinity = False,
 
                             # what we're reporting
