@@ -54,7 +54,7 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 
-from test_calibration_helpers import optimize,sample_dqref,get_var_ief
+from test_calibration_helpers import optimize,sample_dqref,get_var_ief,sorted_eig
 
 import re
 if   re.search("fixed-cam0",   sys.argv[0]): fixedframes = False
@@ -384,18 +384,6 @@ extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
 frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
 
 
-def eig_sorted(M):
-    '''like np.linalg.eig() but returns sorted eigenvalues'''
-    l,v = np.linalg.eig(M)
-    l0 = l[   0]
-    l1 = l[   1]
-    v0 = v[:, 0]
-    v1 = v[:, 1]
-    if l0 < l1:
-        l1,l0 = l0,l1
-        v1,v0 = v0,v1
-    return l0,v0, l1,v1
-
 def check_uncertainties_at(q0, distance):
 
     # distance of "None" means I'll simulate a large distance, but compare
@@ -499,13 +487,11 @@ def check_uncertainties_at(q0, distance):
                             msg = f"Var(dq) is symmetric at distance = {distancestr}")
 
     for icam in range(Ncameras):
-        l0,v0, l1,v1 = eig_sorted(Var_dq[icam])
-        l_predicted  = np.array((l0,l1))
-        v0_predicted = v0
+        l_predicted,v = sorted_eig(Var_dq[icam])
+        v0_predicted  = v[:,0]
 
-        l0,v0, l1,v1 = eig_sorted(Var_dq_observed[icam])
-        l_observed   = np.array((l0,l1))
-        v0_observed  = v0
+        l_observed,v = sorted_eig(Var_dq_observed[icam])
+        v0_observed  = v[:,0]
 
         testutils.confirm_equal(l_observed,
                                 l_predicted,
@@ -641,7 +627,9 @@ if 'study' in args:
 
 def get_cov_plot_args(q, Var, what):
 
-    l0,v0, l1,v1 = eig_sorted(Var)
+    l,v   = sorted_eig(Var)
+    l0,l1 = l
+    v0,v1 = nps.transpose(v)
 
     major       = np.sqrt(l0)
     minor       = np.sqrt(l1)
