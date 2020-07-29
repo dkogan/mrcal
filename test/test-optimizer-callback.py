@@ -130,35 +130,35 @@ for kwargs in all_test_kwargs:
             nps.clump(observations_copy, n=3)[i,2] = -1.
         del kwargs['outlier_indices']
 
-    x,Jt = mrcal.optimizerCallback( intrinsics_data,
-                                    nps.atleast_dims(extrinsics_rt_fromref, -2),
-                                    frames_rt_toref, points,
-                                    observations_copy, indices_frame_camintrinsics_camextrinsics,
-                                    observations_point,
-                                    indices_point_camintrinsics_camextrinsics,
+    x,J = mrcal.optimizerCallback( intrinsics_data,
+                                   nps.atleast_dims(extrinsics_rt_fromref, -2),
+                                   frames_rt_toref, points,
+                                   observations_copy, indices_frame_camintrinsics_camextrinsics,
+                                   observations_point,
+                                   indices_point_camintrinsics_camextrinsics,
 
-                                    lensmodel,
-                                    imagersizes                       = imagersizes,
-                                    calibration_object_spacing        = 0.1,
-                                    calibration_object_width_n        = 10,
-                                    calibration_object_height_n       = 10,
-                                    point_min_range                   = 1.0,
-                                    point_max_range                   = 1000.0,
-                                    verbose                           = False,
-                                    calobject_warp                    = np.array((1e-3, 2e-3)),
+                                   lensmodel,
+                                   imagersizes                       = imagersizes,
+                                   calibration_object_spacing        = 0.1,
+                                   calibration_object_width_n        = 10,
+                                   calibration_object_height_n       = 10,
+                                   point_min_range                   = 1.0,
+                                   point_max_range                   = 1000.0,
+                                   verbose                           = False,
+                                   calobject_warp                    = np.array((1e-3, 2e-3)),
 
-                                    **kwargs)[:2]
-    Jt = Jt.toarray()
+                                   **kwargs)[:2]
+    J = J.toarray()
 
     if False:
-        np.save(f"{testdir}/data/test-optimizer-callback-ref-x-{itest}.npy",  x)
-        np.save(f"{testdir}/data/test-optimizer-callback-ref-Jt-{itest}.npy", Jt)
+        np.save(f"{testdir}/data/test-optimizer-callback-ref-x-{itest}.npy", x)
+        np.save(f"{testdir}/data/test-optimizer-callback-ref-J-{itest}.npy", J)
     else:
-        x_ref  = np.load(f"{testdir}/data/test-optimizer-callback-ref-x-{itest}.npy")
-        Jt_ref = np.load(f"{testdir}/data/test-optimizer-callback-ref-Jt-{itest}.npy")
+        x_ref = np.load(f"{testdir}/data/test-optimizer-callback-ref-x-{itest}.npy")
+        J_ref = np.load(f"{testdir}/data/test-optimizer-callback-ref-J-{itest}.npy")
 
-        testutils.confirm_equal(x,  x_ref,  msg = f"comparing x for case {itest}")
-        testutils.confirm_equal(Jt, Jt_ref, msg = f"comparing Jt for case {itest}")
+        testutils.confirm_equal(x, x_ref, msg = f"comparing x for case {itest}")
+        testutils.confirm_equal(J, J_ref, msg = f"comparing J for case {itest}")
 
     itest += 1
 
