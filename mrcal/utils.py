@@ -1135,6 +1135,7 @@ broadcasting
 
 def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
                                          Nmeasurements_observations,
+                                         observed_pixel_uncertainty,
                                          what ):
     r'''Helper for projection uncertainty functions
 
@@ -1156,12 +1157,12 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
     The docstring of projection_uncertainty() has the derivation that
     concludes that
 
-      Var(p*) = inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+      Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
 
     In the special case where all the measurements come from
     observations, this simplifies to
 
-      Var(p*) = inv(J*tJ*)
+      Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*)
 
     My factorization is of packed (scaled, unitless) flavors of J (J*). So
 
@@ -1178,7 +1179,7 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
 
     In the regularized case I have
 
-      Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
+      Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t observed_pixel_uncertainty^2
 
     It is far more efficient to compute inv(J*tJ*) D St dq/dp[ief]t than
     inv(J*tJ*) J*[observations]t: there's far less to compute, and the matrices
@@ -1193,6 +1194,8 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
 
       2. pre-multiply by dq/dp[ief] S D
 
+      3. multiply by observed_pixel_uncertainty^2
+
     In the regularized case:
 
       Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
@@ -1204,6 +1207,8 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
          The result has shape (Nmeasurements_observations,2)
 
       3. Compute the sum of the outer products of each row
+
+      4. multiply by observed_pixel_uncertainty^2
 
     '''
 
@@ -1221,9 +1226,9 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
         # No regularization. Use the simplified expression
         Var_dq = nps.matmult(dq_dpief_packed, nps.transpose(A))
 
-    if what == 'covariance':           return Var_dq
-    if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dq)
-    if what == 'rms-stdev':            return np.sqrt(nps.trace(Var_dq)/2.)
+    if what == 'covariance':           return Var_dq * observed_pixel_uncertainty*observed_pixel_uncertainty
+    if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dq) * observed_pixel_uncertainty
+    if what == 'rms-stdev':            return np.sqrt(nps.trace(Var_dq)/2.) * observed_pixel_uncertainty
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
@@ -1233,6 +1238,7 @@ def _projection_uncertainty( p_cam,
                              factorization, J, optimization_inputs,
                              istate_intrinsics, istate_extrinsics, istate_frames,
                              Nmeasurements_observations,
+                             observed_pixel_uncertainty,
                              what):
     r'''Helper for projection_uncertainty()
 
@@ -1317,6 +1323,7 @@ def _projection_uncertainty( p_cam,
     return \
         _projection_uncertainty_make_output( factorization, J,
                                              dq_dpief, Nmeasurements_observations,
+                                             observed_pixel_uncertainty,
                                              what)
 
 
@@ -1326,6 +1333,7 @@ def _projection_uncertainty_rotationonly( p_cam,
                                           factorization, J, optimization_inputs,
                                           istate_intrinsics, istate_extrinsics, istate_frames,
                                           Nmeasurements_observations,
+                                          observed_pixel_uncertainty,
                                           what):
     r'''Helper for projection_uncertainty()
 
@@ -1403,6 +1411,7 @@ def _projection_uncertainty_rotationonly( p_cam,
     return \
         _projection_uncertainty_make_output( factorization, J,
                                              dq_dpief, Nmeasurements_observations,
+                                             observed_pixel_uncertainty,
                                              what)
 
 
@@ -1527,16 +1536,16 @@ standard deviation inversely proportional to the weight:
 
 and
 
-    Var(p) = M W^-2 Mt observed_pixel_uncertainty^2 =
-           = inv(JtJ) J[observations]t W W^-2 W J[observations] inv(JtJ) =
-           = inv(JtJ) J[observations]t J[observations] inv(JtJ)
+    Var(p) = observed_pixel_uncertainty^2 M W^-2 Mt=
+           = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t W W^-2 W J[observations] inv(JtJ)=
+           = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
 
 If we have no regularization, and all measurements are pixel errors, then
 J[observations] = J and
 
-    Var(p) = inv(JtJ) J[observations]t J[observations] inv(JtJ)
-           = inv(JtJ) JtJ inv(JtJ)
-           = inv(JtJ)
+    Var(p) = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
+           = observed_pixel_uncertainty^2 inv(JtJ) JtJ inv(JtJ)
+           = observed_pixel_uncertainty^2 inv(JtJ)
 
 Remember that this is the variance of the full optimization state p. This
 contains the intrinsics and extrinsics of ALL the cameras. And it contains ALL
@@ -1767,6 +1776,8 @@ else:                    we return an array of shape (...)
         # Note the special-case where I'm using all the observations
         Nmeasurements_observations = None
 
+    observed_pixel_uncertainty = optimization_inputs['observed_pixel_uncertainty']
+
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
     if not atinfinity:
@@ -1777,6 +1788,7 @@ else:                    we return an array of shape (...)
                                     factorization, J, optimization_inputs,
                                     istate_intrinsics, istate_extrinsics, istate_frames,
                                     Nmeasurements_observations,
+                                    observed_pixel_uncertainty,
                                     what)
     else:
         return \
@@ -1786,6 +1798,7 @@ else:                    we return an array of shape (...)
                                                  factorization, J, optimization_inputs,
                                                  istate_intrinsics, istate_extrinsics, istate_frames,
                                                  Nmeasurements_observations,
+                                                 observed_pixel_uncertainty,
                                                  what)
 
 
