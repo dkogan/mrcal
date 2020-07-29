@@ -3033,6 +3033,68 @@ int mrcal_state_index_calobject_warp(int NpointsVariable,
         (problem_details.do_optimize_frames     ? (Nframes*6 + NpointsVariable*3)   : 0);
 }
 
+static bool get_icam_extrinsics_covariances_ief(// out
+                                                int* icam_extrinsics_covariances_ief,
+
+                                                // in
+                                                int icam_intrinsics_covariances_ief,
+                                                int Ncameras_intrinsics,
+                                                int Ncameras_extrinsics,
+                                                int NobservationsBoard,
+                                                const observation_board_t* observations_board,
+                                                mrcal_problem_details_t problem_details)
+{
+    if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
+          Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
+    {
+        MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem");
+        return false;
+    }
+    if(!problem_details.do_optimize_extrinsics)
+    {
+        MSG("Cannot compute icam_extrinsics if !do_optimize_extrinsics");
+        return false;
+    }
+
+    int icam_map_to_extrinsics[Ncameras_intrinsics];
+    int icam_map_to_intrinsics[Ncameras_extrinsics+1];
+    for(int i=0; i<Ncameras_intrinsics;   i++) icam_map_to_extrinsics[i] = -100;
+    for(int i=0; i<Ncameras_extrinsics+1; i++) icam_map_to_intrinsics[i] = -100;
+
+    for(int i=0; i<NobservationsBoard; i++)
+    {
+        int i_cam_intrinsics = observations_board[i].i_cam_intrinsics;
+        int i_cam_extrinsics = observations_board[i].i_cam_extrinsics;
+        if(i_cam_extrinsics < 0) i_cam_extrinsics = -1;
+
+        if(icam_map_to_intrinsics[i_cam_extrinsics+1] == -100)
+            icam_map_to_intrinsics[i_cam_extrinsics+1] = i_cam_intrinsics;
+        else if(icam_map_to_intrinsics[i_cam_extrinsics+1] != i_cam_intrinsics)
+        {
+            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: observation %d has i_cam_intrinsics,i_cam_extrinsics %d,%d while I saw %d,%d previously",
+                i,
+                icam_map_to_intrinsics[i_cam_extrinsics+1], i_cam_extrinsics,
+                i_cam_intrinsics, i_cam_extrinsics);
+            return false;
+        }
+
+        if(icam_map_to_extrinsics[i_cam_intrinsics] == -100)
+            icam_map_to_extrinsics[i_cam_intrinsics] = i_cam_extrinsics;
+        else if(icam_map_to_extrinsics[i_cam_intrinsics] != i_cam_extrinsics)
+        {
+            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: observation %d has i_cam_intrinsics,i_cam_extrinsics %d,%d while I saw %d,%d previously",
+                i,
+                i_cam_intrinsics, icam_map_to_extrinsics[i_cam_intrinsics],
+                i_cam_intrinsics, i_cam_extrinsics);
+            return false;
+        }
+    }
+
+    *icam_extrinsics_covariances_ief = icam_map_to_extrinsics[icam_intrinsics_covariances_ief];
+
+    return true;
+}
+
 // Doing this myself instead of hooking into the logic in libdogleg for now.
 // Bring back the fancy libdogleg logic once everything stabilizes
 static
@@ -4276,6 +4338,23 @@ bool mrcal_optimizerCallback(// output measurements
                       Nframes, Npoints-Npoints_fixed, Nstate);
 
     optimizerCallback(packed_state, x, Jt, &ctx);
+
+    if(icam_extrinsics_covariances_ief)
+    {
+        if(!get_icam_extrinsics_covariances_ief(icam_extrinsics_covariances_ief,
+
+                                                icam_intrinsics_covariances_ief,
+                                                Ncameras_intrinsics,
+                                                Ncameras_extrinsics,
+                                                NobservationsBoard,
+                                                observations_board,
+                                                problem_details))
+        {
+            MSG("Failed to compute icam_extrinsics_covariances_ief");
+            goto done;
+
+        }
+    }
 
     result = true;
 
