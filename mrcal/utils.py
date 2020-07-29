@@ -1306,11 +1306,11 @@ def _projection_uncertainty( p_cam,
             nps.matmult(dq_dpcam, dpcam_dt)
 
         if frames_rt_toref is not None:
-            dq_dpief[..., :,istate_frames:istate_frames+Nframes] = \
+            dq_dpief[..., :,istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
     else:
         if frames_rt_toref is not None:
-            dq_dpief[..., :,istate_frames:istate_frames+Nframes] = \
+            dq_dpief[..., :,istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpref_dframes)
 
     mrcal.unpack_state(dq_dpief, **optimization_inputs)
