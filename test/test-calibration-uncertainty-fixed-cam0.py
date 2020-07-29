@@ -146,6 +146,8 @@ if fixedframes:
     extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref] )
 else:
     extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref[1:]] )
+if extrinsics_ref.size == 0:
+    extrinsics_ref = np.zeros((0,6), dtype=float)
 frames_ref     = mrcal.rt_from_Rt(Rt_cam0_board_ref)
 
 
@@ -181,7 +183,6 @@ Nsamples = 90
 
 
 def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs):
-    global solver_context
     if apply_noise:
         _, observations_perturbed = sample_dqref(observations_ref,
                                                  pixel_uncertainty_stdev)
@@ -189,8 +190,7 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
         observations_perturbed = observations_ref.copy()
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
     idx_outliers, \
-    _,  _, _,                  \
-    solver_context =           \
+    _,  _, _ =           \
         optimize(intrinsics_ref, extrinsics_ref, frames_ref, observations_perturbed,
                  indices_frame_camintrinsics_camextrinsics,
                  lensmodel,
@@ -209,11 +209,6 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
 
     return intrinsics_solved,extrinsics_solved,frames_solved
 
-
-covariances_ief,covariances_ief_rotationonly = \
-    sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
-                                  apply_noise        = False,
-                                  get_covariances    = True)[-2:]
 
 optimize_kwargs = \
     dict( intrinsics                                = intrinsics_ref,
@@ -267,30 +262,19 @@ q0 = imagersizes[0]/3.
 
 
 # I move the extrinsics of a model, write it to disk, and make sure the same
-# covariances come back
+# uncertainties come back
 for icam in (0,3):
     model_moved = mrcal.cameramodel(models_ref[icam])
     model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
     model_moved.write(f'{workdir}/out.cameramodel')
     model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
-    Var_ief_read,Var_ief_rotationonly_read,icam_extrinsics_read = \
-        mrcal.optimizerCallback( **model_read.optimization_inputs(),
-                                get_covariances = True )[2:5]
 
-    testutils.confirm_equal(covariances_ief[icam], Var_ief_read,
-                            eps = 0.001,
-                            worstcase = True,
-                            relative  = True,
-                            msg = f"covariances_ief with full rt matches for camera {icam} after moving, writing to disk, reading from disk")
-    testutils.confirm_equal(covariances_ief_rotationonly[icam], Var_ief_rotationonly_read,
-                            eps = 0.001,
-                            worstcase = True,
-                            relative  = True,
-                            msg = f"covariances_ief with rotation-only matches for camera {icam} after moving, writing to disk, reading from disk")
+    icam_extrinsics_read = \
+        mrcal.optimizerCallback( **model_read.optimization_inputs())[2]
+
     testutils.confirm_equal(icam if fixedframes else icam-1,
                             icam_extrinsics_read,
                             msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
-
 
     pcam = mrcal.unproject( q0, *models_ref[icam].intrinsics(),
                             normalize = True)
@@ -333,48 +317,6 @@ for icam in (0,3):
                             worstcase = True,
                             relative  = True,
                             msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
-
-
-cache_var_full = [None]
-
-covariances_ief_ref_rt = \
-    [ get_var_ief(icam_intrinsics          = icam_intrinsics,
-                  icam_extrinsics          = icam_intrinsics - (0 if fixedframes else 1),
-                  did_optimize_extrinsics  = True,
-                  did_optimize_frames      = not fixedframes,
-                  Nstate_intrinsics_onecam = Nintrinsics,
-                  Nframes                  = Nframes,
-                  pixel_uncertainty_stdev  = pixel_uncertainty_stdev,
-                  rotation_only            = False,
-                  solver_context           = solver_context,
-                  cache_var_full           = cache_var_full) for icam_intrinsics in range(Ncameras) ]
-
-covariances_ief_ref_r = \
-    [ get_var_ief(icam_intrinsics          = icam_intrinsics,
-                  icam_extrinsics          = icam_intrinsics - (0 if fixedframes else 1),
-                  did_optimize_extrinsics  = True,
-                  did_optimize_frames      = not fixedframes,
-                  Nstate_intrinsics_onecam = Nintrinsics,
-                  Nframes                  = Nframes,
-                  pixel_uncertainty_stdev  = pixel_uncertainty_stdev,
-                  rotation_only            = True,
-                  solver_context           = solver_context,
-                  cache_var_full           = cache_var_full) for icam_intrinsics in range(Ncameras) ]
-
-for i in range(Ncameras):
-    testutils.confirm_equal(covariances_ief[i], covariances_ief_ref_rt[i],
-                            eps = 0.001,
-                            worstcase = True,
-                            relative  = True,
-                            msg = f"covariances_ief with full rt matches for camera {i}")
-
-for i in range(Ncameras):
-    testutils.confirm_equal(covariances_ief_rotationonly[i], covariances_ief_ref_r[i],
-                            eps = 0.001,
-                            worstcase = True,
-                            relative  = True,
-                            msg = f"covariances_ief with rotation-only matches for camera {i}")
-
 
 print("Simulating input noise. This takes a little while...")
 iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3] \

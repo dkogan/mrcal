@@ -72,8 +72,7 @@ def optimize( intrinsics,
     return \
         intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp,   \
         observations[...,2] < 0.0, \
-        p_packed, stats['x'], stats['rms_reproj_error__pixels'], \
-        solver_context
+        p_packed, stats['x'], stats['rms_reproj_error__pixels']
 
 def sample_dqref(observations,
                  pixel_uncertainty_stdev,
