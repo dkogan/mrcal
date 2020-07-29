@@ -336,7 +336,7 @@ def callback_tweaked_intrinsics(intrinsics_data):
                                 calibration_object_width_n        = object_width_n,
                                 calibration_object_height_n       = object_height_n,
                                 skip_regularization               = False,
-                                verbose                           = False )
+                                verbose                           = False )[:2]
     Joptimizer = Joptimizer.toarray()
     J = Joptimizer.copy()
     solver_context.pack(J)
