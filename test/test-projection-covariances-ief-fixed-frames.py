@@ -1,1 +1,0 @@
-test-projection-covariances-ief-fixed-cam0.py
