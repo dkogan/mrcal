@@ -121,8 +121,7 @@ intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 # Simpler pre-solves
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
-p_packed, x, rmserr,                            \
-solver_context =                                \
+p_packed, x, rmserr = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -136,8 +135,7 @@ observations[idx_outliers, 2] = -1
 
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
-p_packed, x, rmserr,                            \
-solver_context =                                \
+p_packed, x, rmserr = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -154,8 +152,7 @@ observations[idx_outliers, 2] = -1
 calobject_warp = np.array((0.001, 0.001))
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
-p_packed, x, rmserr,                            \
-solver_context =                                \
+p_packed, x, rmserr = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -320,26 +317,33 @@ print("Should compare sets of outliers. Currently I'm detecting 7x the outliers 
 
 # ingests updated observations, so x,J have the outliers masked out with 0
 def callback_tweaked_intrinsics(intrinsics_data):
+    optimization_inputs = \
+        dict(intrinsics                                = intrinsics_data,
+             extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+             frames_rt_toref                           = frames_rt_toref,
+             points                                    = None,
+             observations_board                        = observations,
+             indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+             observations_point                        = None,
+             indices_point_camintrinsics_camextrinsics = None,
+             lensmodel                                 = lensmodel,
+             do_optimize_calobject_warp                = True,
+             calobject_warp                            = calobject_warp,
+             do_optimize_intrinsic_core                = True,
+             do_optimize_intrinsic_distortions         = True,
+             do_optimize_extrinsics                    = True,
+             imagersizes                               = imagersizes,
+             calibration_object_spacing                = object_spacing,
+             calibration_object_width_n                = object_width_n,
+             calibration_object_height_n               = object_height_n,
+             skip_regularization                       = False,
+             verbose                                   = False )
     x,Joptimizer = \
-        mrcal.optimizerCallback(intrinsics_data,extrinsics_rt_fromref,frames_rt_toref, None,
-                                observations, indices_frame_camintrinsics_camextrinsics,
-                                None, None,
-                                lensmodel,
-                                do_optimize_calobject_warp        = True,
-                                calobject_warp                    = calobject_warp,
-                                do_optimize_intrinsic_core        = True,
-                                do_optimize_intrinsic_distortions = True,
-                                do_optimize_extrinsics            = True,
-
-                                imagersizes                       = imagersizes,
-                                calibration_object_spacing        = object_spacing,
-                                calibration_object_width_n        = object_width_n,
-                                calibration_object_height_n       = object_height_n,
-                                skip_regularization               = False,
-                                verbose                           = False )[:2]
+        mrcal.optimizerCallback(**optimization_inputs)[:2]
     Joptimizer = Joptimizer.toarray()
     J = Joptimizer.copy()
-    solver_context.pack(J)
+
+    mrcal.pack_state(J, **optimization_inputs)
     return x,J,Joptimizer
 
 
@@ -352,7 +356,7 @@ x0,J0,J_packed0 = callback_tweaked_intrinsics(intrinsics)
 # intrinsics. The test-gradients tool does this much more thoroughly
 icam        = 1
 delta       = np.random.randn(Nintrinsics) * 1e-6
-ivar        = solver_context.state_index_intrinsics(icam)
+ivar        = mrcal.state_index_intrinsics(icam, **optimize_kwargs)
 J0_slice    = J0[:,ivar:ivar+Nintrinsics]
 intrinsics_perturbed = intrinsics.copy()
 intrinsics_perturbed[icam] += delta
@@ -390,8 +394,7 @@ dqref, observations_perturbed = sample_dqref(observations,
                                              pixel_uncertainty_stdev)
 _,_,_,_,         \
 _,               \
-p_packed1, _, _, \
-solver_context = \
+p_packed1, _, _ = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations_perturbed,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -412,9 +415,12 @@ M = np.linalg.solve( nps.matmult(nps.transpose(J_packed0),J_packed0),
                      nps.transpose(J_packed0[:Nmeasurements_board, :]) ) * w
 dp_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
 
-slice_intrinsics = slice(0,                                       solver_context.state_index_camera_rt(0))
-slice_extrinsics = slice(solver_context.state_index_camera_rt(0), solver_context.state_index_frame_rt(0))
-slice_frames     = slice(solver_context.state_index_frame_rt(0),  None)
+slice_intrinsics = slice(0,
+                         mrcal.state_index_camera_rt(0, **optimize_kwargs))
+slice_extrinsics = slice(mrcal.state_index_camera_rt(0, **optimize_kwargs),
+                         mrcal.state_index_frame_rt (0, **optimize_kwargs))
+slice_frames     = slice(mrcal.state_index_frame_rt (0, **optimize_kwargs),
+                         None)
 
 # These thresholds look terrible. And they are. But I'm pretty sure this is
 # working properly. Look at the plots
