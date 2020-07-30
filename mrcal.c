@@ -4274,8 +4274,7 @@ bool mrcal_optimizerCallback(// out
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,
-                             int calibration_object_height_n,
-                             int Nintrinsics, int Nmeasurements, int N_j_nonzero)
+                             int calibration_object_height_n)
 {
     bool result = false;
 
@@ -4309,6 +4308,23 @@ bool mrcal_optimizerCallback(// out
             Nstate*(int)sizeof(double),buffer_size_p_packed);
         goto done;
     }
+
+    int Nmeasurements = mrcal_getNmeasurements_all(Ncameras_intrinsics,
+                                                   NobservationsBoard,
+                                                   NobservationsPoint,
+                                                   calibration_object_width_n,
+                                                   calibration_object_height_n,
+                                                   problem_details,
+                                                   lensmodel);
+    int Nintrinsics = mrcal_getNlensParams(lensmodel);
+    int N_j_nonzero = mrcal_getN_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
+                                           observations_board, NobservationsBoard,
+                                           observations_point, NobservationsPoint,
+                                           Npoints, Npoints_fixed,
+                                           problem_details,
+                                           lensmodel,
+                                           calibration_object_width_n,
+                                           calibration_object_height_n);
 
     if( buffer_size_x != Nmeasurements*(int)sizeof(double) )
     {

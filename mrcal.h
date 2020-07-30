@@ -497,8 +497,7 @@ bool mrcal_optimizerCallback(// out
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,
-                             int calibration_object_height_n,
-                             int Nintrinsics, int Nmeasurements, int N_j_nonzero);
+                             int calibration_object_height_n);
 
 
 int mrcal_getNmeasurements_all(int Ncameras_intrinsics,

@@ -1603,7 +1603,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                    lensmodel_type,
                                                    calibration_object_width_n,
                                                    calibration_object_height_n);
-            int Nintrinsics = mrcal_getNlensParams(lensmodel_type);
 
             PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
             PyArrayObject* I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
@@ -1658,8 +1657,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
                                          calibration_object_spacing,
                                          calibration_object_width_n,
-                                         calibration_object_height_n,
-                                         Nintrinsics, Nmeasurements, N_j_nonzero) )
+                                         calibration_object_height_n) )
             {
                 BARF("mrcal_optimizerCallback() failed!'");
                 goto done;
