@@ -50,7 +50,7 @@ The output is returned in a tuple:
   the measurements in respect to the parameters. This is a SPARSE array of type
   scipy.sparse.csr_matrix. This object can be converted to a numpy array like this:
 
-    x,Jt_sparse = mrcal.optimizerCallback(...)
+    p,x,Jt_sparse = mrcal.optimizerCallback(...)
     Jt_numpy    = Jt_sparse.toarray()
 
   Note that the numpy array is dense, so it is very inefficient for sparse data,
@@ -60,7 +60,7 @@ The output is returned in a tuple:
   which uses packed, unitless state. To convert a densified packed jacobian to
   full units, one can do this:
 
-    x,Jt_sparse = mrcal.optimizerCallback(...)
+    p,x,Jt_sparse = mrcal.optimizerCallback(...)
     Jt_numpy    = Jt_sparse.toarray()
     solver_context.pack(Jt_numpy)
 
