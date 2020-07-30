@@ -44,30 +44,35 @@ def optimize( intrinsics,
     calobject_warp        = copy.deepcopy(calobject_warp)
     observations          = copy.deepcopy(observations)
 
-    solver_context = mrcal.SolverContext()
-    stats = mrcal.optimize( intrinsics, extrinsics_rt_fromref, frames_rt_toref, None,
-                            observations, indices_frame_camintrinsics_camextrinsics,
-                            None, None, lensmodel,
-                            calobject_warp              = calobject_warp,
-                            imagersizes                 = imagersizes,
-                            calibration_object_spacing  = object_spacing,
-                            calibration_object_width_n  = object_width_n,
-                            calibration_object_height_n = object_height_n,
-                            verbose                     = False,
+    optimization_inputs = \
+        dict( intrinsics                                = intrinsics,
+              extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+              frames_rt_toref                           = frames_rt_toref,
+              points                                    = None,
+              observations_board                        = observations,
+              indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+              observations_point                        = None,
+              indices_point_camintrinsics_camextrinsics = None,
+              lensmodel                                 = lensmodel,
+              calobject_warp                            = calobject_warp,
+              imagersizes                               = imagersizes,
+              calibration_object_spacing                = object_spacing,
+              calibration_object_width_n                = object_width_n,
+              calibration_object_height_n               = object_height_n,
+              verbose                                   = False,
+              observed_pixel_uncertainty                = pixel_uncertainty_stdev,
+              do_optimize_frames                        = do_optimize_frames,
+              do_optimize_intrinsic_core                = do_optimize_intrinsic_core,
+              do_optimize_intrinsic_distortions         = do_optimize_intrinsic_distortions,
+              do_optimize_extrinsics                    = do_optimize_extrinsics,
+              do_optimize_calobject_warp                = do_optimize_calobject_warp,
+              skip_regularization                       = skip_regularization,
+              skip_outlier_rejection                    = skip_outlier_rejection,
+              **kwargs)
 
-                            observed_pixel_uncertainty  = pixel_uncertainty_stdev,
+    stats = mrcal.optimize(**optimization_inputs)
 
-                            do_optimize_frames                = do_optimize_frames,
-                            do_optimize_intrinsic_core        = do_optimize_intrinsic_core,
-                            do_optimize_intrinsic_distortions = do_optimize_intrinsic_distortions,
-                            do_optimize_extrinsics            = do_optimize_extrinsics,
-                            do_optimize_calobject_warp        = do_optimize_calobject_warp,
-                            skip_regularization               = skip_regularization,
-                            skip_outlier_rejection            = skip_outlier_rejection,
-                            solver_context                    = solver_context,
-                            **kwargs)
-
-    p_packed = solver_context.p().copy()
+    p_packed = stats['p_packed']
 
     return \
         intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp,   \
