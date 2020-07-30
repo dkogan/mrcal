@@ -147,7 +147,7 @@ for kwargs in all_test_kwargs:
                                    verbose                           = False,
                                    calobject_warp                    = np.array((1e-3, 2e-3)),
 
-                                   **kwargs)[:2]
+                                   **kwargs)[1:3]
     J = J.toarray()
 
     if False:

@@ -329,6 +329,12 @@ typedef struct
 mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL
+                // Shape (Nstate,)
+                double* p_packed_final,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_p_packed_final,
+
                 // Shape (Nmeasurements,)
                 double* x_final,
                 // used only to confirm that the user passed-in the buffer they
@@ -406,8 +412,22 @@ mrcal_optimize( // out
 
 struct cholmod_sparse_struct;
 
-bool mrcal_optimizerCallback(// output measurements
-                             double*         x,
+bool mrcal_optimizerCallback(// out
+
+                             // These output pointers may NOT be NULL, unlike
+                             // their analogues in mrcal_optimize()
+
+                             // Shape (Nstate,)
+                             double* p_packed,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_p_packed,
+
+                             // Shape (Nmeasurements,)
+                             double* x,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_x,
 
                              // output Jacobian. May be NULL if we don't need
                              // it. This is the unitless Jacobian, used by the

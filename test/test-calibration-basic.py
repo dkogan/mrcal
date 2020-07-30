@@ -339,7 +339,7 @@ def callback_tweaked_intrinsics(intrinsics_data):
              skip_regularization                       = False,
              verbose                                   = False )
     x,Joptimizer = \
-        mrcal.optimizerCallback(**optimization_inputs)[:2]
+        mrcal.optimizerCallback(**optimization_inputs)[1:3]
     Joptimizer = Joptimizer.toarray()
     J = Joptimizer.copy()
 

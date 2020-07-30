@@ -270,7 +270,7 @@ for icam in (0,3):
     model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 
     icam_extrinsics_read = \
-        mrcal.optimizerCallback( **model_read.optimization_inputs())[2]
+        mrcal.optimizerCallback( **model_read.optimization_inputs())[3]
 
     testutils.confirm_equal(icam if fixedframes else icam-1,
                             icam_extrinsics_read,

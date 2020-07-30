@@ -1742,8 +1742,8 @@ else:                    we return an array of shape (...)
     if not optimization_inputs.get('do_optimize_intrinsic_core') or not optimization_inputs.get('do_optimize_intrinsic_distortions'):
         raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
-    x,J,icam_extrinsics,factorization = \
-        mrcal.optimizerCallback( **optimization_inputs )
+    J,icam_extrinsics,factorization = \
+        mrcal.optimizerCallback( **optimization_inputs )[2:]
 
     # The intrinsics,extrinsics,frames MUST come from the solve when
     # evaluating the uncertainties. The user is allowed to update the

@@ -4192,8 +4192,20 @@ void optimizerCallback(// input state
     }
 }
 
-bool mrcal_optimizerCallback(// output measurements
-                             double*         x,
+bool mrcal_optimizerCallback(// out
+                             // Each one of these output pointers may be NULL
+
+                             // Shape (Nstate,)
+                             double* p_packed,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_p_packed,
+
+                             // Shape (Nmeasurements,)
+                             double* x,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_x,
 
                              // output Jacobian. May be NULL if we don't need
                              // it. This is the unitless Jacobian, used by the
@@ -4270,18 +4282,6 @@ bool mrcal_optimizerCallback(// output measurements
     if(!modelHasCore_fxfycxcy(lensmodel))
         problem_details.do_optimize_intrinsic_core = false;
 
-    const int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
-                                       Nframes, Npoints-Npoints_fixed,
-                                       problem_details,
-                                       lensmodel);
-    double packed_state[Nstate];
-
-    if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
-    {
-        MSG("ERROR: We're using the calibration object warp, so a value MUST be passed in.");
-        goto done;
-    }
-
     if(!problem_details.do_optimize_intrinsic_core        &&
        !problem_details.do_optimize_intrinsic_distortions &&
        !problem_details.do_optimize_extrinsics            &&
@@ -4289,6 +4289,31 @@ bool mrcal_optimizerCallback(// output measurements
        !problem_details.do_optimize_calobject_warp)
     {
         MSG("Not optimizing any of our variables!");
+        goto done;
+    }
+
+    if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
+    {
+        MSG("ERROR: We're using the calibration object warp, so a value MUST be passed in.");
+        goto done;
+    }
+
+
+    const int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
+                                       Nframes, Npoints-Npoints_fixed,
+                                       problem_details,
+                                       lensmodel);
+    if( buffer_size_p_packed != Nstate*(int)sizeof(double) )
+    {
+        MSG("The buffer passed to fill-in p_packed has the wrong size. Needed exactly %d bytes, but got %d bytes",
+            Nstate*(int)sizeof(double),buffer_size_p_packed);
+        goto done;
+    }
+
+    if( buffer_size_x != Nmeasurements*(int)sizeof(double) )
+    {
+        MSG("The buffer passed to fill-in x has the wrong size. Needed exactly %d bytes, but got %d bytes",
+            Nmeasurements*(int)sizeof(double),buffer_size_x);
         goto done;
     }
 
@@ -4327,7 +4352,7 @@ bool mrcal_optimizerCallback(// output measurements
         .Nintrinsics                = Nintrinsics};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
-    pack_solver_state(packed_state,
+    pack_solver_state(p_packed,
                       lensmodel, intrinsics,
                       extrinsics_fromref,
                       frames_toref,
@@ -4337,7 +4362,7 @@ bool mrcal_optimizerCallback(// output measurements
                       Ncameras_intrinsics, Ncameras_extrinsics,
                       Nframes, Npoints-Npoints_fixed, Nstate);
 
-    optimizerCallback(packed_state, x, Jt, &ctx);
+    optimizerCallback(p_packed, x, Jt, &ctx);
 
     if(icam_extrinsics_covariances_ief)
     {
@@ -4365,6 +4390,13 @@ done:
 mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL
+
+                // Shape (Nstate,)
+                double* p_packed_final,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_p_packed_final,
+
                 // Shape (Nmeasurements,)
                 double* x_final,
                 // used only to confirm that the user passed-in the buffer they
@@ -4520,6 +4552,18 @@ mrcal_optimize( // out
         .Nintrinsics                = mrcal_getNlensParams(lensmodel)};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
+    const int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
+                                       Nframes, Npoints-Npoints_fixed,
+                                       problem_details,
+                                       lensmodel);
+
+    if( p_packed_final != NULL &&
+        buffer_size_p_packed_final != Nstate*(int)sizeof(double) )
+    {
+        MSG("The buffer passed to fill-in p_packed_final has the wrong size. Needed exactly %d bytes, but got %d bytes",
+            Nstate*(int)sizeof(double),buffer_size_p_packed_final);
+        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
     if( x_final != NULL &&
         buffer_size_x_final != ctx.Nmeasurements*(int)sizeof(double) )
     {
@@ -4536,10 +4580,6 @@ mrcal_optimize( // out
     if(_solver_context != NULL && *_solver_context != NULL)
         dogleg_freeContext((dogleg_solverContext_t**)_solver_context);
 
-    const int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
-                                       Nframes, Npoints-Npoints_fixed,
-                                       problem_details,
-                                       lensmodel);
     if(verbose)
         MSG("## Nmeasurements=%d, Nstate=%d", ctx.Nmeasurements, Nstate);
     if(ctx.Nmeasurements <= Nstate)
@@ -4690,6 +4730,8 @@ mrcal_optimize( // out
         // /2 because I have separate x and y measurements
         sqrt(norm2_error / ((double)ctx.Nmeasurements / 2.0));
 
+    if(p_packed_final)
+        memcpy(p_packed_final, solver_context->beforeStep->p, Nstate*sizeof(double));
     if(x_final)
         memcpy(x_final, solver_context->beforeStep->x, ctx.Nmeasurements*sizeof(double));
 

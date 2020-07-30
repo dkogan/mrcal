@@ -1747,8 +1747,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 {
     PyObject* result = NULL;
 
-    PyArrayObject* x_final                      = NULL;
-    PyObject*      pystats                      = NULL;
+    PyArrayObject* p_packed_final = NULL;
+    PyArrayObject* x_final        = NULL;
+    PyObject*      pystats        = NULL;
 
     SET_SIGINT();
 
@@ -1922,7 +1923,14 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         }
 
+        int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
+                                     Nframes, Npoints-Npoints_fixed,
+                                     problem_details, lensmodel_type);
+
         // both optimize() and optimizerCallback() use this
+        p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
+        double* c_p_packed_final = PyArray_DATA(p_packed_final);
+
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
         double* c_x_final = PyArray_DATA(x_final);
 
@@ -1935,7 +1943,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
             int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
             mrcal_stats_t stats =
-                mrcal_optimize( c_x_final,
+                mrcal_optimize( c_p_packed_final,
+                                Nstate*sizeof(double),
+                                c_x_final,
                                 Nmeasurements*sizeof(double),
                                 icam_intrinsics_covariances_ief,
                                 (void**)solver_context_optimizer,
@@ -1998,6 +2008,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             }
             MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
 
+            if( 0 != PyDict_SetItemString(pystats, "p_packed",
+                                          (PyObject*)p_packed_final) )
+            {
+                BARF("Couldn't add to stats dict 'p_packed'");
+                goto done;
+            }
             if( 0 != PyDict_SetItemString(pystats, "x",
                                           (PyObject*)x_final) )
             {
@@ -2022,10 +2038,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                    calibration_object_height_n);
             int Nintrinsics = mrcal_getNlensParams(lensmodel_type);
 
-            int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
-                                         Nframes, Npoints-Npoints_fixed,
-                                         problem_details, lensmodel_type);
-
             PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
             PyArrayObject* I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
             PyArrayObject* X = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_DOUBLE);
@@ -2047,7 +2059,10 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
             int icam_extrinsics_covariances_ief;
             if(!mrcal_optimizerCallback( // out
+                                         c_p_packed_final,
+                                         Nstate*sizeof(double),
                                          c_x_final,
+                                         Nmeasurements*sizeof(double),
                                          &Jt,
                                          &icam_extrinsics_covariances_ief,
 
@@ -2088,10 +2103,10 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             if(factorization == NULL)
                 goto done;
 
-            result = PyTuple_New(4);
-            int i=0;
-            PyTuple_SET_ITEM(result, 0, (PyObject*)x_final);
-            PyTuple_SET_ITEM(result, 1,
+            result = PyTuple_New(5);
+            PyTuple_SET_ITEM(result, 0, (PyObject*)p_packed_final);
+            PyTuple_SET_ITEM(result, 1, (PyObject*)x_final);
+            PyTuple_SET_ITEM(result, 2,
                              csr_from_cholmod_sparse(&Jt,
                                                      (PyObject*)P,
                                                      (PyObject*)I,
@@ -2099,11 +2114,11 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             if(icam_intrinsics_covariances_ief < 0)
             {
                 Py_INCREF(Py_None);
-                PyTuple_SET_ITEM(result, 2, Py_None);
+                PyTuple_SET_ITEM(result, 3, Py_None);
             }
             else
-                PyTuple_SET_ITEM(result, 2, PyLong_FromLong(icam_extrinsics_covariances_ief));
-            PyTuple_SET_ITEM(result, 3, factorization);
+                PyTuple_SET_ITEM(result, 3, PyLong_FromLong(icam_extrinsics_covariances_ief));
+            PyTuple_SET_ITEM(result, 4, factorization);
 
             for(int i=0; i<PyTuple_Size(result); i++)
                 Py_INCREF(PyTuple_GET_ITEM(result,i));
