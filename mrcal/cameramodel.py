@@ -39,7 +39,8 @@ def _validateExtrinsics(e):
 
 def _validateIntrinsics(imagersize,
                         i,
-                        optimization_inputs = None):
+                        optimization_inputs                 = None,
+                        icam_intrinsics_optimization_inputs = None):
     r'''Raises an exception if given components of the intrinsics is invalid'''
 
     # need two integers in the imager size
@@ -90,12 +91,12 @@ def _validateIntrinsics(imagersize,
         if not isinstance(optimization_inputs, dict):
             raise Exception(f"'optimization_inputs' must be a dict. Instead got type {type(optimization_inputs)}")
 
-        if 'icam_intrinsics_covariances_ief' not in optimization_inputs:
-            raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] missing. This must be an int >= 0")
-        if not isinstance(optimization_inputs['icam_intrinsics_covariances_ief'], int):
-            raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] not an int. This must be an int >= 0")
-        if optimization_inputs['icam_intrinsics_covariances_ief'] < 0:
-            raise Exception(f"optimization_inputs['icam_intrinsics_covariances_ief'] < 0. This must be an int >= 0")
+        if icam_intrinsics_optimization_inputs is None:
+            raise Exception(f"optimization_inputs is given, so icam_intrinsics_optimization_inputs MUST be given too")
+        if not isinstance(icam_intrinsics_optimization_inputs, int):
+            raise Exception(f"icam_intrinsics_optimization_inputs not an int. This must be an int >= 0")
+        if icam_intrinsics_optimization_inputs < 0:
+            raise Exception(f"icam_intrinsics_optimization_inputs < 0. This must be an int >= 0")
 
     return True
 
@@ -332,6 +333,10 @@ class cameramodel(object):
         f.write(("    'imagersize': [" + (" {:d}," * N) + "],\n").format(*(int(x) for x in self._imagersize)))
         f.write("\n")
 
+        if self._icam_intrinsics_optimization_inputs is not None:
+            f.write(("    'icam_intrinsics_optimization_inputs': {:d},\n").format(self._icam_intrinsics_optimization_inputs))
+        f.write("\n")
+
         if self._optimization_inputs_string is not None:
             f.write(r"""    # The optimization inputs contain all the data used to compute this model.
     # This contains ALL the observations for ALL the cameras in the solve. The uses of
@@ -415,9 +420,18 @@ class cameramodel(object):
             if not isinstance(model['optimization_inputs'], bytes):
                 raise CameramodelParseException("'optimization_inputs' is given, but it's not a byte string. type(optimization_inputs)={}". \
                                                 format(type(model['optimization_inputs'])))
-            self._optimization_inputs_string = model['optimization_inputs']
+            self._optimization_inputs_string           = model['optimization_inputs']
+
+            if 'icam_intrinsics_optimization_inputs' not in model:
+                raise CameramodelParseException("'optimization_inputs' is given, but icam_intrinsics_optimization_inputs NOT given")
+            if not isinstance(model['icam_intrinsics_optimization_inputs'], int):
+                raise CameramodelParseException("'icam_intrinsics_optimization_inputs' is given, but it's not an int")
+            if model['icam_intrinsics_optimization_inputs'] < 0:
+                raise CameramodelParseException("'icam_intrinsics_optimization_inputs' is given, but it's <0. Must be >= 0")
+            self._icam_intrinsics_optimization_inputs = model['icam_intrinsics_optimization_inputs']
         else:
-            self._optimization_inputs_string = None
+            self._optimization_inputs_string          = None
+            self._icam_intrinsics_optimization_inputs = None
 
     def __init__(self, file_or_model=None, **kwargs):
         r'''Initializes a new camera-model object
@@ -443,6 +457,9 @@ class cameramodel(object):
         - 'optimization_inputs': OPTIONAL dict of arguments to mrcal.optimize().
           These are stored in an opaque ascii-encoded-binary format, and are
           used by the tools to compute the projection uncertainty
+        - 'icam_intrinsics_optimization_inputs': OPTIONAL int. This indicates
+          which camera this was at calibration time. Used together with
+          optimization_inputs only
 
         '''
 
@@ -457,6 +474,7 @@ class cameramodel(object):
                 self._intrinsics                 = copy.deepcopy(file_or_model._intrinsics)
                 self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(file_or_model._valid_intrinsics_region))
                 self._optimization_inputs_string = copy.deepcopy(file_or_model._optimization_inputs_string)
+                self._icam_intrinsics_optimization_inputs = copy.deepcopy(file_or_model._icam_intrinsics_optimization_inputs)
 
             elif type(file_or_model) is str:
 
@@ -523,14 +541,15 @@ class cameramodel(object):
                                 format(extrinsics_keys, extrinsics_got))
             keys_remaining -= extrinsics_keys
 
-            keys_remaining -= set(('valid_intrinsics_region','optimization_inputs'))
+            keys_remaining -= set(('valid_intrinsics_region','optimization_inputs','icam_intrinsics_optimization_inputs'))
 
             if keys_remaining:
                 raise Exception("We were given some unknown parameters: {}".format(keys_remaining))
 
             self.intrinsics(kwargs['intrinsics'],
                             kwargs['imagersize'],
-                            kwargs.get('optimization_inputs'))
+                            kwargs.get('optimization_inputs'),
+                            kwargs.get('icam_intrinsics_optimization_inputs'))
             # if the following fails, I want None
             self._valid_intrinsics_region = None
             try:
@@ -591,9 +610,10 @@ class cameramodel(object):
 
 
     def intrinsics(self,
-                   intrinsics          = None,
-                   imagersize          = None,
-                   optimization_inputs = None):
+                   intrinsics                          = None,
+                   imagersize                          = None,
+                   optimization_inputs                 = None,
+                   icam_intrinsics_optimization_inputs = None):
         r'''Get or set the intrinsics in this model
 
         if no arguments are given: this is a getter of the INTRINSICS parameters
@@ -620,9 +640,10 @@ class cameramodel(object):
 
         # This is a getter
         if \
-           imagersize                 is None and \
-           intrinsics                 is None and \
-           optimization_inputs        is None:
+           imagersize                          is None and \
+           intrinsics                          is None and \
+           optimization_inputs                 is None and \
+           icam_intrinsics_optimization_inputs is None:
             return copy.deepcopy(self._intrinsics)
 
 
@@ -630,7 +651,8 @@ class cameramodel(object):
         if imagersize is None: imagersize = self._imagersize
         _validateIntrinsics(imagersize,
                             intrinsics,
-                            optimization_inputs)
+                            optimization_inputs,
+                            icam_intrinsics_optimization_inputs)
 
         self._imagersize = copy.deepcopy(imagersize)
         self._intrinsics = copy.deepcopy(intrinsics)
@@ -638,8 +660,10 @@ class cameramodel(object):
         if optimization_inputs is not None:
             self._optimization_inputs_string = \
                 _serialize_optimization_inputs(optimization_inputs)
+            self._icam_intrinsics_optimization_inputs = icam_intrinsics_optimization_inputs
         else:
-            self._optimization_inputs_string = None
+            self._optimization_inputs_string          = None
+            self._icam_intrinsics_optimization_inputs = None
 
 
     def _extrinsics_rt(self, toref, rt=None):
@@ -859,7 +883,7 @@ class cameramodel(object):
         return True
 
 
-    def optimization_inputs(self, *args, **kwargs):
+    def optimization_inputs(self):
         r'''Get the original optimization inputs
 
         This function is NOT a setter. Use intrinsics() to set this and all the
@@ -869,11 +893,23 @@ class cameramodel(object):
 
         '''
 
-        if len(args) or len(kwargs):
-            raise Exception("optimization_inputs() is NOT a setter. Please use intrinsics() to set them all together")
         if self._optimization_inputs_string is None:
             return None
         return _deserialize_optimization_inputs(self._optimization_inputs_string)
+
+    def icam_intrinsics_optimization_inputs(self):
+        r'''Get the camera index at optimization time
+
+        This function is NOT a setter. Use intrinsics() to set this and all the
+        intrinsics together. The optimization inputs aren't a part of the
+        intrinsics per se, but modifying any part of the intrinsics invalidates
+        the optimization inputs, so it only makes sense to set them all together
+
+        '''
+
+        if self._icam_intrinsics_optimization_inputs is None:
+            return None
+        return self._icam_intrinsics_optimization_inputs
 
 
     def set_cookie(self, cookie):

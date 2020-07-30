@@ -341,11 +341,6 @@ mrcal_optimize( // out
                 // should have passed-in. The size must match exactly
                 int buffer_size_x_final,
 
-                // Which camera we're querying for covariance_intrinsics and
-                // covariances_ief... If <0 then I return the covariances for
-                // ALL the cameras
-                int icam_intrinsics_covariances_ief,
-
                 // out, in
                 //
                 // This is a dogleg_solverContext_t. I don't want to #include
@@ -434,27 +429,8 @@ bool mrcal_optimizerCallback(// out
                              // internal optimization routines
                              struct cholmod_sparse_struct* Jt,
 
-                             // May be NULL
-                             // I return this ONLY if
-                             // icam_intrinsics_covariances_ief>=0 and at least
-                             // one of covariances_ief... is requested. The
-                             // icam_extrinsics corresponding to
-                             // icam_intrinsics_covariances_ief is reported
-                             // here. If the given camera is at the reference,
-                             // return <0. If the cameras are moving (mapping
-                             // between icam_intrinsics and icam_extrinsics not
-                             // bijective) and
-                             // icam_extrinsics_covariances_ief!=NULL, this
-                             // function call will return false
-                             int* icam_extrinsics_covariances_ief,
-
 
                              // in
-
-                             // Which camera we're querying for
-                             // covariances_ief... If <0 then I return the
-                             // covariances for ALL the cameras
-                             int icam_intrinsics_covariances_ief,
 
                              // intrinsics is a concatenation of the intrinsics core
                              // and the distortion params. The specific distortion
@@ -637,3 +613,20 @@ bool _mrcal_unproject_internal( // out
                                // core, distortions concatenated
                                const double* intrinsics,
                                const mrcal_projection_precomputed_t* precomputed);
+
+// Reports the icam_extrinsics corresponding to a given icam_intrinsics. On
+// success, the result is written to *icam_extrinsics, and we return true. If
+// the given camera is at the reference coordinate system, it has no extrinsics,
+// and we report -1. This query only makes sense for a calibration problem:
+// we're observing a moving object with stationary cameras. If we have moving
+// cameras, there won't be a single icam_extrinsics for a given icam_intrinsics,
+// and we report an error by returning false
+bool mrcal_get_corresponding_icam_extrinsics(// out
+                                             int* icam_extrinsics,
+
+                                             // in
+                                             int icam_intrinsics,
+                                             int Ncameras_intrinsics,
+                                             int Ncameras_extrinsics,
+                                             int NobservationsBoard,
+                                             const observation_board_t* observations_board);

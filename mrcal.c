@@ -23,7 +23,7 @@
 // Can be visualized like this:
 //
 //   model = mrcal.cameramodel("xxx.cameramodel")
-//   x,Jpacked = mrcal.optimizerCallback( **model.optimization_inputs() )
+//   x,Jpacked = mrcal.optimizerCallback( **model.optimization_inputs() )[1:3]
 //   Jpacked = Jpacked.toarray()
 //   gp.plotimage(np.abs(Jpacked))
 //
@@ -3033,26 +3033,27 @@ int mrcal_state_index_calobject_warp(int NpointsVariable,
         (problem_details.do_optimize_frames     ? (Nframes*6 + NpointsVariable*3)   : 0);
 }
 
-static bool get_icam_extrinsics_covariances_ief(// out
-                                                int* icam_extrinsics_covariances_ief,
+// Reports the icam_extrinsics corresponding to a given icam_intrinsics. On
+// success, the result is written to *icam_extrinsics, and we return true. If
+// the given camera is at the reference coordinate system, it has no extrinsics,
+// and we report -1. This query only makes sense for a calibration problem:
+// we're observing a moving object with stationary cameras. If we have moving
+// cameras, there won't be a single icam_extrinsics for a given icam_intrinsics,
+// and we report an error by returning false
+bool mrcal_get_corresponding_icam_extrinsics(// out
+                                             int* icam_extrinsics,
 
-                                                // in
-                                                int icam_intrinsics_covariances_ief,
-                                                int Ncameras_intrinsics,
-                                                int Ncameras_extrinsics,
-                                                int NobservationsBoard,
-                                                const observation_board_t* observations_board,
-                                                mrcal_problem_details_t problem_details)
+                                             // in
+                                             int icam_intrinsics,
+                                             int Ncameras_intrinsics,
+                                             int Ncameras_extrinsics,
+                                             int NobservationsBoard,
+                                             const observation_board_t* observations_board)
 {
     if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
           Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
     {
         MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem");
-        return false;
-    }
-    if(!problem_details.do_optimize_extrinsics)
-    {
-        MSG("Cannot compute icam_extrinsics if !do_optimize_extrinsics");
         return false;
     }
 
@@ -3090,7 +3091,7 @@ static bool get_icam_extrinsics_covariances_ief(// out
         }
     }
 
-    *icam_extrinsics_covariances_ief = icam_map_to_extrinsics[icam_intrinsics_covariances_ief];
+    *icam_extrinsics = icam_map_to_extrinsics[icam_intrinsics];
 
     return true;
 }
@@ -4212,27 +4213,8 @@ bool mrcal_optimizerCallback(// out
                              // internal optimization routines
                              cholmod_sparse* Jt,
 
-                             // May be NULL
-                             // I return this ONLY if
-                             // icam_intrinsics_covariances_ief>=0 and at least
-                             // one of covariances_ief... is requested. The
-                             // icam_extrinsics corresponding to
-                             // icam_intrinsics_covariances_ief is reported
-                             // here. If the given camera is at the reference,
-                             // return <0. If the cameras are moving (mapping
-                             // between icam_intrinsics and icam_extrinsics not
-                             // bijective) and
-                             // icam_extrinsics_covariances_ief!=NULL, this
-                             // function call will return false
-                             int* icam_extrinsics_covariances_ief,
-
 
                              // in
-
-                             // Which camera we're querying for
-                             // covariances_ief... If <0 then I return the
-                             // covariances for ALL the cameras
-                             int icam_intrinsics_covariances_ief,
 
                              // intrinsics is a concatenation of the intrinsics core
                              // and the distortion params. The specific distortion
@@ -4380,23 +4362,6 @@ bool mrcal_optimizerCallback(// out
 
     optimizerCallback(p_packed, x, Jt, &ctx);
 
-    if(icam_extrinsics_covariances_ief)
-    {
-        if(!get_icam_extrinsics_covariances_ief(icam_extrinsics_covariances_ief,
-
-                                                icam_intrinsics_covariances_ief,
-                                                Ncameras_intrinsics,
-                                                Ncameras_extrinsics,
-                                                NobservationsBoard,
-                                                observations_board,
-                                                problem_details))
-        {
-            MSG("Failed to compute icam_extrinsics_covariances_ief");
-            goto done;
-
-        }
-    }
-
     result = true;
 
 done:
@@ -4418,11 +4383,6 @@ mrcal_optimize( // out
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
                 int buffer_size_x_final,
-
-                // Which camera we're querying for covariance_intrinsics and
-                // covariances_ief... If <0 then I return the covariances for
-                // ALL the cameras
-                int icam_intrinsics_covariances_ief,
 
                 // out, in
                 //

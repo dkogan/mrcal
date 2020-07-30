@@ -150,8 +150,8 @@ REQUIRED ARGUMENTS
   "intrinsics_data" array, i_cam_extrinsics indexes the "extrinsics_rt_fromref"
   array
 
-  All of the indices are guaranteed to be monotonic. This array contains plain
-  'int' integers.
+  All of the indices are guaranteed to be monotonic. This array contains 32-bit
+  integers.
 
 - observations_point: array of dims (NobservationsPoint, 3). Each slice is an
   (x,y,weight) tuple where (x,y) are the pixel coordinates of the observed
@@ -213,10 +213,6 @@ OPTIONAL ARGUMENTS
   dimensions. This specifies the point counts on each side. The
   "calibration_object_spacing" argument specifies the dimensions of each square.
   Can be omitted if we have no board observations, just points
-
-- icam_intrinsics_covariances_ief: defaults to -1. If <0 then I return
-  covariance_intrinsics, covariance_ief... for ALL the cameras. If >= 0 then I
-  return those for just that camera
 
 - verbose: if True, write out all sorts of diagnostic data to STDERR. Defaults
   to False

@@ -1742,7 +1742,7 @@ else:                    we return an array of shape (...)
     if not optimization_inputs.get('do_optimize_intrinsic_core') or not optimization_inputs.get('do_optimize_intrinsic_distortions'):
         raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
-    J,icam_extrinsics,factorization = \
+    J,factorization = \
         mrcal.optimizerCallback( **optimization_inputs )[2:]
 
     # The intrinsics,extrinsics,frames MUST come from the solve when
@@ -1753,7 +1753,10 @@ else:                    we return an array of shape (...)
     # from the model. But for good hygiene I get them from the solve as
     # well
 
-    icam_intrinsics = optimization_inputs['icam_intrinsics_covariances_ief']
+    # which calibration-time camera we're looking at
+    icam_intrinsics = model.icam_intrinsics_optimization_inputs()
+    icam_extrinsics = mrcal.get_corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
+
     intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
 
     istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
@@ -1855,7 +1858,7 @@ Returns a tuple:
     extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref']
 
     # which calibration-time camera we're looking at
-    icam_intrinsics = optimization_inputs['icam_intrinsics_covariances_ief']
+    icam_intrinsics = model.icam_intrinsics_optimization_inputs()
 
 
     observations_board                        = optimization_inputs['observations_board']

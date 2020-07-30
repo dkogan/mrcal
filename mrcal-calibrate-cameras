@@ -522,8 +522,8 @@ def make_cameramodel(optimize_kwargs, i_camera):
                            extrinsics_rt_fromref = extrinsics[i_camera-1] if i_camera >= 1 \
                                                    else np.zeros(6),
                            imagersize            = imagersizes[i_camera],
-                           optimization_inputs   = dict(optimize_kwargs,
-                                                        icam_intrinsics_covariances_ief=i_camera))
+                           optimization_inputs   = optimize_kwargs,
+                           icam_intrinsics_optimization_inputs = i_camera )
 
 
 def make_cameramodels(optimize_kwargs):

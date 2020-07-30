@@ -327,7 +327,7 @@ int main(int argc, char* argv[] )
         { .point_min_range =  30.0,
           .point_max_range = 180.0};
 
-    mrcal_optimize( NULL,0, NULL,0, -1, NULL,
+    mrcal_optimize( NULL,0, NULL,0, NULL,
                     intrinsics,
                     extrinsics,
                     frames,

@@ -1057,7 +1057,7 @@ static PyObject* unproject_stereographic(PyObject* self,
 
 #define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp,              NPY_DOUBLE, {2}                  ) \
+    _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp, NPY_DOUBLE, {2}) \
     _(Npoints_fixed,                      int,            0,       "i",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
@@ -1069,7 +1069,6 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(calibration_object_height_n,        int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(icam_intrinsics_covariances_ief,    int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
 
@@ -1313,14 +1312,26 @@ static bool optimize_validate_args( // out
         }
     }
 
-    if(icam_intrinsics_covariances_ief > Ncameras_intrinsics)
-    {
-        BARF("icam_intrinsics_covariances_ief must be <0 (if we want all the cameras) or <Ncameras_intrinsics (if we want a single camera). Got icam_intrinsics_covariances_ief=%d, Ncameras_intrinsics=%d",
-             icam_intrinsics_covariances_ief, Ncameras_intrinsics);
-        return false;
-    }
-
     return true;
+}
+
+static void fill_c_observations_board(// out
+                                      observation_board_t* c_observations_board,
+
+                                      // in
+                                      int NobservationsBoard,
+                                      PyArrayObject* indices_frame_camintrinsics_camextrinsics)
+{
+    for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
+    {
+        int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int i_cam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int i_cam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
+
+        c_observations_board[i_observation].i_cam_intrinsics = i_cam_intrinsics;
+        c_observations_board[i_observation].i_cam_extrinsics = i_cam_extrinsics;
+        c_observations_board[i_observation].i_frame          = i_frame;
+    }
 }
 
 static
@@ -1434,19 +1445,12 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             NULL : (point2_t*)PyArray_DATA(calobject_warp);
 
 
-        observation_board_t c_observations_board[NobservationsBoard];
         point3_t* c_observations_board_pool = (point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
 
-        for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
-        {
-            int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
-            int i_cam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
-            int i_cam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
-
-            c_observations_board[i_observation].i_cam_intrinsics = i_cam_intrinsics;
-            c_observations_board[i_observation].i_cam_extrinsics = i_cam_extrinsics;
-            c_observations_board[i_observation].i_frame          = i_frame;
-        }
+        observation_board_t c_observations_board[NobservationsBoard];
+        fill_c_observations_board(c_observations_board,
+                                  NobservationsBoard,
+                                  indices_frame_camintrinsics_camextrinsics);
 
         int NobservationsPoint = PyArray_DIMS(observations_point)[0];
 
@@ -1508,13 +1512,11 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 NobservationsBoard *
                 calibration_object_width_n*calibration_object_height_n;
 
-            int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
             mrcal_stats_t stats =
                 mrcal_optimize( c_p_packed_final,
                                 Nstate*sizeof(double),
                                 c_x_final,
                                 Nmeasurements*sizeof(double),
-                                icam_intrinsics_covariances_ief,
                                 NULL,
                                 c_intrinsics,
                                 c_extrinsics,
@@ -1622,18 +1624,14 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 .i = PyArray_DATA(I),
                 .x = PyArray_DATA(X) };
 
-            int Ncameras_intrinsics_returning = icam_intrinsics_covariances_ief>=0 ? 1 : Ncameras_intrinsics;
-            int icam_extrinsics_covariances_ief;
             if(!mrcal_optimizerCallback( // out
                                          c_p_packed_final,
                                          Nstate*sizeof(double),
                                          c_x_final,
                                          Nmeasurements*sizeof(double),
                                          &Jt,
-                                         &icam_extrinsics_covariances_ief,
 
                                          // in
-                                         icam_intrinsics_covariances_ief,
                                          c_intrinsics,
                                          c_extrinsics,
                                          c_frames,
@@ -1668,7 +1666,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             if(factorization == NULL)
                 goto done;
 
-            result = PyTuple_New(5);
+            result = PyTuple_New(4);
             PyTuple_SET_ITEM(result, 0, (PyObject*)p_packed_final);
             PyTuple_SET_ITEM(result, 1, (PyObject*)x_final);
             PyTuple_SET_ITEM(result, 2,
@@ -1676,14 +1674,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                                      (PyObject*)P,
                                                      (PyObject*)I,
                                                      (PyObject*)X));
-            if(icam_intrinsics_covariances_ief < 0)
-            {
-                Py_INCREF(Py_None);
-                PyTuple_SET_ITEM(result, 3, Py_None);
-            }
-            else
-                PyTuple_SET_ITEM(result, 3, PyLong_FromLong(icam_extrinsics_covariances_ief));
-            PyTuple_SET_ITEM(result, 4, factorization);
+            PyTuple_SET_ITEM(result, 3, factorization);
 
             for(int i=0; i<PyTuple_Size(result); i++)
                 Py_INCREF(PyTuple_GET_ITEM(result,i));
@@ -2313,6 +2304,111 @@ static PyObject* unpack_state(PyObject* self, PyObject* args, PyObject* kwargs)
     return _pack_unpack_state(self, args, kwargs, false);
 }
 
+static PyObject* get_corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    // This is VERY similar to state_index_generic(). Please consolidate
+    PyObject* result          = NULL;
+    int       icam_intrinsics = -1;
+
+    OPTIMIZERCALLBACK_ARGUMENTS_ALL(ARG_DEFINE) ;
+
+    int Ncameras_intrinsics = -1;
+    int Ncameras_extrinsics = -1;
+    int NobservationsBoard  = -1;
+    int NobservationsPoint  = -1;
+
+    char* keywords[] = { "icam_intrinsics",
+                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
+
+                         "Ncameras_intrinsics",
+                         "Ncameras_extrinsics",
+                         "NobservationsBoard",
+                         "NobservationsPoint",
+                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "i"
+                                     "|" // everything is optional. I apply
+                                     // logic down the line to get what
+                                     // I need
+                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE)
+                                     "iiii"
+                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                     keywords,
+
+                                     &icam_intrinsics,
+                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                     &Ncameras_intrinsics,
+                                     &Ncameras_extrinsics,
+                                     &NobservationsBoard,
+                                     &NobservationsPoint,
+                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+        goto done;
+
+    // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
+    // that's OK! After I do this and if !IS_NULL, then I can ask for array
+    // dimensions safely
+    bool check(void)
+    {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+        OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+#pragma GCC diagnostic pop
+        return true;
+    }
+    if(!check()) goto done;
+
+    // If explicit dimensions are given, use them. If they're not given, but we
+    // have an array, use those dimensions. If an array isn't given either, use
+    // 0
+    if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
+    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
+    if(NobservationsBoard < 0)  NobservationsBoard  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(NobservationsPoint < 0)  NobservationsPoint  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+
+
+    if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
+    {
+        BARF("The given icam_intrinsics=%d is out of bounds. Must be >= 0 and < %d",
+             icam_intrinsics, Ncameras_intrinsics);
+        goto done;
+    }
+
+
+
+    int icam_extrinsics;
+    {
+        observation_board_t c_observations_board[NobservationsBoard];
+        fill_c_observations_board(c_observations_board,
+                                  NobservationsBoard,
+                                  indices_frame_camintrinsics_camextrinsics);
+        if(!mrcal_get_corresponding_icam_extrinsics(&icam_extrinsics,
+
+                                                    icam_intrinsics,
+                                                    Ncameras_intrinsics,
+                                                    Ncameras_extrinsics,
+                                                    NobservationsBoard,
+                                                    c_observations_board))
+        {
+            BARF("Error calling mrcal_get_corresponding_icam_extrinsics()");
+            goto done;
+        }
+    }
+
+    result = PyLong_FromLong(icam_extrinsics);
+
+ done:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+#pragma GCC diagnostic pop
+
+    return result;
+}
+
 static const char state_index_intrinsics_docstring[] =
 #include "state_index_intrinsics.docstring.h"
     ;
@@ -2345,6 +2441,9 @@ static const char getNmeasurements_points_docstring[] =
     ;
 static const char getNmeasurements_regularization_docstring[] =
 #include "getNmeasurements_regularization.docstring.h"
+    ;
+static const char get_corresponding_icam_extrinsics_docstring[] =
+#include "get_corresponding_icam_extrinsics.docstring.h"
     ;
 
 
@@ -2391,6 +2490,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, getNmeasurements_boards,         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, getNmeasurements_points,         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, getNmeasurements_regularization, METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, get_corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,getLensModelMeta,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),

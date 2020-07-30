@@ -248,8 +248,8 @@ models_ref = \
     [ mrcal.cameramodel( imagersize            = imagersizes[i],
                          intrinsics            = (lensmodel, intrinsics_ref[i,:]),
                          extrinsics_rt_fromref = extrinsics_ref_mounted[i,:],
-                         optimization_inputs   = dict(optimize_kwargs,
-                                                      icam_intrinsics_covariances_ief = i)) \
+                         optimization_inputs   = optimize_kwargs,
+                         icam_intrinsics_optimization_inputs = i) \
       for i in range(Ncameras) ]
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
@@ -269,8 +269,9 @@ for icam in (0,3):
     model_moved.write(f'{workdir}/out.cameramodel')
     model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 
-    icam_extrinsics_read = \
-        mrcal.optimizerCallback( **model_read.optimization_inputs())[3]
+    icam_intrinsics_read = model_read.icam_intrinsics_optimization_inputs()
+    icam_extrinsics_read = mrcal.get_corresponding_icam_extrinsics(icam_intrinsics_read,
+                                                                   **model_read.optimization_inputs())
 
     testutils.confirm_equal(icam if fixedframes else icam-1,
                             icam_extrinsics_read,
