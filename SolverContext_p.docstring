@@ -1,5 +1,0 @@
-Return the parameter vector at this operating point
-
-This is a vector of UNITLESS parameters, as seen by the optimizer. If needed, you
-can apply the scaling to convert the variables to real units by calling
-SolverContext.unpack().

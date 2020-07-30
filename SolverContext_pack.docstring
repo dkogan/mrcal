@@ -1,8 +1,0 @@
-Converts a real-unit state vector to an unscaled, unitless one
-
-In order to make the solver well-behaved, we scale all variables in the state
-vector before passing data to the solver. The solver thus sees only unitless
-data. I call this "unscaled" or "packed".
-
-This function takes a real-unit numpy array of shape (...., Nstate), and scales
-it to produce unitless data

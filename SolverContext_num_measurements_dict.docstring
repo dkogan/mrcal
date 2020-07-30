@@ -1,4 +1,0 @@
-Reports various measurement counts
-
-Returns a dict reporting how many measurements of various types our solve
-contains

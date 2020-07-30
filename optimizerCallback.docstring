@@ -60,9 +60,9 @@ The output is returned in a tuple:
   which uses packed, unitless state. To convert a densified packed jacobian to
   full units, one can do this:
 
-    p,x,Jt_sparse = mrcal.optimizerCallback(...)
+    p,x,Jt_sparse = mrcal.optimizerCallback(**optimization_inputs)
     Jt_numpy    = Jt_sparse.toarray()
-    solver_context.pack(Jt_numpy)
+    mrcal.pack_state(Jt_numpy, **optimization_inputs)
 
 - icam_extrinsics_covariances_ief
 

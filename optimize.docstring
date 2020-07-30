@@ -241,12 +241,5 @@ OPTIONAL ARGUMENTS
   to its observing camera. Each observation outside of this range is penalized.
   This helps the solver by guiding it away from unreasonable solutions.
 
-- solver_context: an object that will receive the context from this solve. This
-  context can be re-used in other calls. The usage is
-
-      solver_context = mrcal.SolverContext()
-      stats = mrcal.optimize( ...,
-                              solver_context = solver_context)
-
 We return a dict with various metrics describing the computation we just
 performed

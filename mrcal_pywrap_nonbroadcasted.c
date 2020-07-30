@@ -113,65 +113,6 @@ do {                                                                    \
                                                         function_prefix ## name ## _docstring}
 
 
-// A wrapper around a solver context and various solver metadata. I need the
-// optimization to be able to keep this, and I need Python to free it as
-// necessary when the refcount drops to 0
-typedef struct {
-    PyObject_HEAD
-    dogleg_solverContext_t* ctx;
-
-    lensmodel_t lensmodel;
-    mrcal_problem_details_t problem_details;
-
-    int Ncameras_intrinsics, Ncameras_extrinsics;
-    int Nframes, Npoints, Npoints_fixed;
-    int NobservationsBoard;
-    int calibration_object_width_n;
-    int calibration_object_height_n;
-
-} SolverContext;
-static void SolverContext_dealloc(SolverContext* self)
-{
-    mrcal_free_context((void**)&self->ctx);
-    Py_TYPE(self)->tp_free((PyObject*)self);
-}
-static PyObject* SolverContext_str(SolverContext* self)
-{
-    if(self->ctx == NULL)
-        return PyString_FromString("Empty context");
-    char lensmodel_name[1024];
-    const char* p_lensmodel_name = lensmodel_name;
-    if(!mrcal_lensmodel_name_full( lensmodel_name, sizeof(lensmodel_name), self->lensmodel ))
-    {
-        // Couldn't get the model string for some reason. This really should
-        // never happen. But instead of barfing I can return a static string
-        // that will be right much of the time (configuration-free models) and
-        // good-enough most of the time
-        p_lensmodel_name = mrcal_lensmodel_name( self->lensmodel );
-    }
-
-    return PyString_FromFormat("Non-empty context made with        %s\n"
-                               "Ncameras_intrinsics:               %d\n"
-                               "Ncameras_extrinsics:               %d\n"
-                               "Nframes:                           %d\n"
-                               "Npoints:                           %d\n"
-                               "Npoints_fixed:                     %d\n"
-                               "NobservationsBoard:                %d\n"
-                               "calibration_object_width_n:        %d\n"
-                               "calibration_object_height_n        %d\n"
-                               "do_optimize_intrinsic_core:        %d\n"
-                               "do_optimize_intrinsic_distortions: %d\n",
-                               p_lensmodel_name,
-                               self->Ncameras_intrinsics,
-                               self->Ncameras_extrinsics,
-                               self->Nframes, self->Npoints, self->Npoints_fixed,
-                               self->NobservationsBoard,
-                               self->calibration_object_width_n,
-                               self->calibration_object_height_n,
-                               self->problem_details.do_optimize_intrinsic_core,
-                               self->problem_details.do_optimize_intrinsic_distortions);
-}
-
 static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
 
                                           // These are allowed to be NULL; If
@@ -258,359 +199,9 @@ static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
     Py_XDECREF(method);
     Py_XDECREF(args);
 
-    return result;
-}
-
-static PyObject* SolverContext_J(SolverContext* self)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-
-    return csr_from_cholmod_sparse(self->ctx->beforeStep->Jt, NULL,NULL,NULL);
-}
-
-static PyObject* SolverContext_p(SolverContext* self)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-
-    cholmod_sparse* Jt = self->ctx->beforeStep->Jt;
-    return PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nrow}), NPY_DOUBLE, self->ctx->beforeStep->p);
-}
-
-static PyObject* SolverContext_x(SolverContext* self)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-
-    cholmod_sparse* Jt = self->ctx->beforeStep->Jt;
-    return PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->ncol}), NPY_DOUBLE, self->ctx->beforeStep->x);
-}
-
-static PyObject* SolverContext_state_index_intrinsics(SolverContext* self,
-                                                      PyObject* args)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-    PyObject* result = NULL;
-    int i_cam_intrinsics = -1;
-    if(!PyArg_ParseTuple( args, "i", &i_cam_intrinsics )) goto done;
-    if( i_cam_intrinsics < 0 || i_cam_intrinsics >= self->Ncameras_intrinsics )
-    {
-        BARF( "i_cam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              self->Ncameras_intrinsics-1,i_cam_intrinsics);
-        goto done;
-    }
-    result = Py_BuildValue("i",
-                           mrcal_state_index_intrinsics(i_cam_intrinsics,
-                                                        self->problem_details,
-                                                        self->lensmodel));
- done:
-    return result;
-}
-
-static PyObject* SolverContext_state_index_camera_rt(SolverContext* self,
-                                                     PyObject* args)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-    PyObject* result = NULL;
-    int i_cam_extrinsics = -1;
-    if(!PyArg_ParseTuple( args, "i", &i_cam_extrinsics )) goto done;
-    if( i_cam_extrinsics < 0 || i_cam_extrinsics >= self->Ncameras_extrinsics )
-    {
-        BARF( "i_cam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              self->Ncameras_extrinsics-1,i_cam_extrinsics) ;
-        goto done;
-    }
-    result = Py_BuildValue("i",
-                           mrcal_state_index_camera_rt(i_cam_extrinsics,
-                                                       self->Ncameras_intrinsics,
-                                                       self->problem_details,
-                                                       self->lensmodel));
- done:
-    return result;
-}
-static PyObject* SolverContext_state_index_frame_rt(SolverContext* self,
-                                                    PyObject* args)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-    PyObject* result = NULL;
-    int i_frame = -1;
-    if(!PyArg_ParseTuple( args, "i", &i_frame )) goto done;
-    if( i_frame < 0 || i_frame >= self->Nframes )
-    {
-        BARF( "i_frame must refer to a valid frame i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              self->Nframes-1,i_frame);
-        goto done;
-    }
-    result = Py_BuildValue("i",
-                           mrcal_state_index_frame_rt(i_frame,
-                                                      self->Ncameras_intrinsics,
-                                                      self->Ncameras_extrinsics,
-                                                      self->problem_details,
-                                                      self->lensmodel));
- done:
-    return result;
-}
-static PyObject* SolverContext_state_index_point(SolverContext* self,
-                                                 PyObject* args)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-    PyObject* result = NULL;
-    int i_point = -1;
-    if(!PyArg_ParseTuple( args, "i", &i_point )) goto done;
-    if( i_point < 0 || i_point >= self->Npoints-self->Npoints_fixed )
-    {
-        BARF( "i_point must refer to a valid point i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              self->Npoints-self->Npoints_fixed-1,
-              i_point);
-        goto done;
-    }
-    result = Py_BuildValue("i",
-                           mrcal_state_index_point(i_point,
-                                                   self->Nframes,
-                                                   self->Ncameras_intrinsics,
-                                                   self->Ncameras_extrinsics,
-                                                   self->problem_details,
-                                                   self->lensmodel));
- done:
-    return result;
-}
-static PyObject* SolverContext_state_index_calobject_warp(SolverContext* self,
-                                                          PyObject* args)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-
-    return Py_BuildValue("i",
-                         mrcal_state_index_calobject_warp(self->Npoints-self->Npoints_fixed,
-                                                          self->Nframes,
-                                                          self->Ncameras_intrinsics,
-                                                          self->Ncameras_extrinsics,
-                                                          self->problem_details,
-                                                          self->lensmodel));
-}
-
-static PyObject* SolverContext_num_measurements_dict(SolverContext* self)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-
-    int Nmeasurements_all = self->ctx->beforeStep->Jt->ncol;
-    int Nmeasurements_regularization =
-        mrcal_getNmeasurements_regularization(self->Ncameras_intrinsics,
-                                              self->problem_details,
-                                              self->lensmodel);
-    int Nmeasurements_boards =
-        mrcal_getNmeasurements_boards( self->NobservationsBoard,
-                                       self->calibration_object_width_n,
-                                       self->calibration_object_height_n);
-    int Nmeasurements_points =
-        Nmeasurements_all - Nmeasurements_regularization - Nmeasurements_boards;
-
-    PyObject* result = PyDict_New();
-    PyObject* x;
-
-    x = PyInt_FromLong(Nmeasurements_regularization);
-    PyDict_SetItemString(result, "regularization", x);
-    Py_DECREF(x);
-
-    x = PyInt_FromLong(Nmeasurements_boards);
-    PyDict_SetItemString(result, "boards", x);
-    Py_DECREF(x);
-
-    x = PyInt_FromLong(Nmeasurements_points);
-    PyDict_SetItemString(result, "points", x);
-    Py_DECREF(x);
-
-    x = PyInt_FromLong(Nmeasurements_all);
-    PyDict_SetItemString(result, "all", x);
-    Py_DECREF(x);
 
     return result;
 }
-
-static PyObject* SolverContext_pack_unpack(SolverContext* self,
-                                           PyObject* args,
-                                           bool pack)
-{
-    if( self->ctx == NULL )
-    {
-        BARF("I need a non-empty context");
-        return NULL;
-    }
-
-    PyObject*      result = NULL;
-    PyArrayObject* p      = NULL;
-    if(!PyArg_ParseTuple( args, "O&", PyArray_Converter, &p )) goto done;
-
-    if( PyArray_TYPE(p) != NPY_DOUBLE )
-    {
-        BARF("The input array MUST have values of type 'float'");
-        goto done;
-    }
-
-    if( !PyArray_IS_C_CONTIGUOUS(p) )
-    {
-        BARF("The input array MUST be a C-style contiguous array");
-        goto done;
-    }
-
-    int       ndim       = PyArray_NDIM(p);
-    npy_intp* dims       = PyArray_DIMS(p);
-    if( ndim <= 0 || dims[ndim-1] <= 0 )
-    {
-        BARF("The input array MUST have non-degenerate data in it");
-        goto done;
-    }
-
-    int Nstate = self->ctx->beforeStep->Jt->nrow;
-    if( dims[ndim-1] != Nstate )
-    {
-        BARF("The input array MUST have last dimension of size Nstate=%d; instead got %ld",
-                     Nstate, dims[ndim-1]);
-        goto done;
-    }
-
-    double* x = (double*)PyArray_DATA(p);
-    if(pack)
-        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
-        {
-            mrcal_pack_solver_state_vector( x,
-                                            self->lensmodel, self->problem_details,
-                                            self->Ncameras_intrinsics, self->Ncameras_extrinsics,
-                                            self->Nframes, self->Npoints-self->Npoints_fixed );
-            x = &x[Nstate];
-        }
-    else
-        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
-        {
-            mrcal_unpack_solver_state_vector( x,
-                                              self->lensmodel, self->problem_details,
-                                              self->Ncameras_intrinsics, self->Ncameras_extrinsics,
-                                              self->Nframes, self->Npoints-self->Npoints_fixed );
-            x = &x[Nstate];
-        }
-
-
-    Py_INCREF(Py_None);
-    result = Py_None;
-
- done:
-    Py_XDECREF(p);
-    return result;
-}
-static PyObject* SolverContext_pack(SolverContext* self, PyObject* args)
-{
-    return SolverContext_pack_unpack(self, args, true);
-}
-static PyObject* SolverContext_unpack(SolverContext* self, PyObject* args)
-{
-    return SolverContext_pack_unpack(self, args, false);
-}
-
-
-
-
-static const char SolverContext_J_docstring[] =
-#include "SolverContext_J.docstring.h"
-    ;
-static const char SolverContext_p_docstring[] =
-#include "SolverContext_p.docstring.h"
-    ;
-static const char SolverContext_x_docstring[] =
-#include "SolverContext_x.docstring.h"
-    ;
-static const char SolverContext_state_index_intrinsics_docstring[] =
-#include "SolverContext_state_index_intrinsics.docstring.h"
-    ;
-static const char SolverContext_state_index_camera_rt_docstring[] =
-#include "SolverContext_state_index_camera_rt.docstring.h"
-    ;
-static const char SolverContext_state_index_frame_rt_docstring[] =
-#include "SolverContext_state_index_frame_rt.docstring.h"
-    ;
-static const char SolverContext_state_index_point_docstring[] =
-#include "SolverContext_state_index_point.docstring.h"
-    ;
-static const char SolverContext_state_index_calobject_warp_docstring[] =
-#include "SolverContext_state_index_calobject_warp.docstring.h"
-    ;
-static const char SolverContext_num_measurements_dict_docstring[] =
-#include "SolverContext_num_measurements_dict.docstring.h"
-    ;
-static const char SolverContext_pack_docstring[] =
-#include "SolverContext_pack.docstring.h"
-    ;
-static const char SolverContext_unpack_docstring[] =
-#include "SolverContext_unpack.docstring.h"
-    ;
-
-static PyMethodDef SolverContext_methods[] =
-    { PYMETHODDEF_ENTRY(SolverContext_, J,                          METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, p,                          METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, x,                          METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_intrinsics,     METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_camera_rt,      METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_frame_rt,       METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_point,          METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, state_index_calobject_warp, METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, num_measurements_dict,      METH_NOARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, pack,                       METH_VARARGS),
-      PYMETHODDEF_ENTRY(SolverContext_, unpack,                     METH_VARARGS),
-      {}
-    };
-
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-braces"
-// PyObject_HEAD_INIT throws
-//   warning: missing braces around initializer []
-// This isn't mine to fix, so I'm ignoring it
-static PyTypeObject SolverContextType =
-{
-    PyObject_HEAD_INIT(NULL)
-    .tp_name      = "mrcal.SolverContext",
-    .tp_basicsize = sizeof(SolverContext),
-    .tp_new       = PyType_GenericNew,
-    .tp_dealloc   = (destructor)SolverContext_dealloc,
-    .tp_methods   = SolverContext_methods,
-    .tp_str       = (reprfunc)SolverContext_str,
-    .tp_repr      = (reprfunc)SolverContext_str,
-    .tp_flags     = Py_TPFLAGS_DEFAULT,
-    .tp_doc       = "Opaque solver context used by mrcal",
-};
-#pragma GCC diagnostic pop
 
 // A container for a CHOLMOD factorization
 typedef struct {
@@ -1488,8 +1079,7 @@ static PyObject* unproject_stereographic(PyObject* self,
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
-    _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(solver_context,                     SolverContext*, NULL,    "O",  (PyObject*),                       NULL,           -1,         {})
+    _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
 
 #define OPTIMIZE_ARGUMENTS_ALL(_) \
     OPTIMIZE_ARGUMENTS_REQUIRED(_) \
@@ -1730,13 +1320,6 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    if( !(IS_NULL(solver_context) ||
-          Py_TYPE(solver_context) == &SolverContextType) )
-    {
-        BARF("solver_context must be None or of type mrcal.SolverContext");
-        return false;
-    }
-
     return true;
 }
 
@@ -1907,22 +1490,6 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         // input
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
-        dogleg_solverContext_t** solver_context_optimizer = NULL;
-        if(!IS_NULL(solver_context))
-        {
-            solver_context_optimizer                   = &solver_context->ctx;
-            solver_context->lensmodel                  = lensmodel_type;
-            solver_context->problem_details            = problem_details;
-            solver_context->Ncameras_intrinsics        = Ncameras_intrinsics;
-            solver_context->Ncameras_extrinsics        = Ncameras_extrinsics;
-            solver_context->Nframes                    = Nframes;
-            solver_context->Npoints                    = Npoints;
-            solver_context->NobservationsBoard         = NobservationsBoard;
-            solver_context->calibration_object_width_n = calibration_object_width_n;
-            solver_context->calibration_object_height_n= calibration_object_height_n;
-
-        }
-
         int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
                                      Nframes, Npoints-Npoints_fixed,
                                      problem_details, lensmodel_type);
@@ -1948,7 +1515,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                 c_x_final,
                                 Nmeasurements*sizeof(double),
                                 icam_intrinsics_covariances_ief,
-                                (void**)solver_context_optimizer,
+                                NULL,
                                 c_intrinsics,
                                 c_extrinsics,
                                 c_frames,
@@ -2839,9 +2406,6 @@ static PyMethodDef methods[] =
 
 static void _init_mrcal_common(PyObject* module)
 {
-    Py_INCREF(&SolverContextType);
-    PyModule_AddObject(module, "SolverContext", (PyObject *)&SolverContextType);
-
     Py_INCREF(&CHOLMOD_factorization_type);
     PyModule_AddObject(module, "CHOLMOD_factorization", (PyObject *)&CHOLMOD_factorization_type);
 
@@ -2851,8 +2415,6 @@ static void _init_mrcal_common(PyObject* module)
 
 PyMODINIT_FUNC init_mrcal_nonbroadcasted(void)
 {
-    if (PyType_Ready(&SolverContextType) < 0)
-        return;
     if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
         return;
 
@@ -2876,8 +2438,6 @@ static struct PyModuleDef module_def =
 
 PyMODINIT_FUNC PyInit__mrcal_nonbroadcasted(void)
 {
-    if (PyType_Ready(&SolverContextType) < 0)
-        return NULL;
     if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
         return NULL;
 

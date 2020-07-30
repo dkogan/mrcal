@@ -1,4 +1,0 @@
-Returns the index in the optimization vector of the pose of frame i
-
-Each frame is represented by 6 values: an orientation represented by a Rodrigues
-vector, and an xyz world coordinate. i is given in the single argument
