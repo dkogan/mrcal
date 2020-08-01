@@ -1118,11 +1118,11 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    long int NobservationsBoard = PyArray_DIMS(observations_board)[0];
-    if( PyArray_DIMS(indices_frame_camintrinsics_camextrinsics)[0] != NobservationsBoard )
+    long int Nobservations_board = PyArray_DIMS(observations_board)[0];
+    if( PyArray_DIMS(indices_frame_camintrinsics_camextrinsics)[0] != Nobservations_board )
     {
-        BARF("Inconsistent NobservationsBoard: 'observations_board' says %ld, 'indices_frame_camintrinsics_camextrinsics' says %ld",
-                     NobservationsBoard,
+        BARF("Inconsistent Nobservations_board: 'observations_board' says %ld, 'indices_frame_camintrinsics_camextrinsics' says %ld",
+                     Nobservations_board,
                      PyArray_DIMS(indices_frame_camintrinsics_camextrinsics)[0]);
         return false;
     }
@@ -1130,7 +1130,7 @@ static bool optimize_validate_args( // out
     // calibration_object_spacing and calibration_object_width_n and
     // calibration_object_height_n must be > 0 OR we have to not be using a
     // calibration board
-    if( NobservationsBoard > 0 )
+    if( Nobservations_board > 0 )
     {
         if( calibration_object_spacing <= 0.0 )
         {
@@ -1156,11 +1156,11 @@ static bool optimize_validate_args( // out
         }
     }
 
-    int NobservationsPoint = PyArray_DIMS(observations_point)[0];
-    if( PyArray_DIMS(indices_point_camintrinsics_camextrinsics)[0] != NobservationsPoint )
+    int Nobservations_point = PyArray_DIMS(observations_point)[0];
+    if( PyArray_DIMS(indices_point_camintrinsics_camextrinsics)[0] != Nobservations_point )
     {
-        BARF("Inconsistent NobservationsPoint: 'observations_point...' says %ld, 'indices_point_camintrinsics_camextrinsics' says %ld",
-                     NobservationsPoint,
+        BARF("Inconsistent Nobservations_point: 'observations_point...' says %ld, 'indices_point_camintrinsics_camextrinsics' says %ld",
+                     Nobservations_point,
                      PyArray_DIMS(indices_point_camintrinsics_camextrinsics)[0]);
         return false;
     }
@@ -1183,7 +1183,7 @@ static bool optimize_validate_args( // out
     int i_frame_last  = -1;
     int i_cam_intrinsics_last = -1;
     int i_cam_extrinsics_last = -1;
-    for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
+    for(int i_observation=0; i_observation<Nobservations_board; i_observation++)
     {
         // check for monotonicity and in-rangeness
         int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
@@ -1264,7 +1264,7 @@ static bool optimize_validate_args( // out
     int i_point_last = -1;
     i_cam_intrinsics_last = -1;
     i_cam_extrinsics_last = -1;
-    for(int i_observation=0; i_observation<NobservationsPoint; i_observation++)
+    for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
     {
         int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
         int i_cam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
@@ -1319,10 +1319,10 @@ static void fill_c_observations_board(// out
                                       mrcal_observation_board_t* c_observations_board,
 
                                       // in
-                                      int NobservationsBoard,
+                                      int Nobservations_board,
                                       PyArrayObject* indices_frame_camintrinsics_camextrinsics)
 {
-    for(int i_observation=0; i_observation<NobservationsBoard; i_observation++)
+    for(int i_observation=0; i_observation<Nobservations_board; i_observation++)
     {
         int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
         int i_cam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
@@ -1433,7 +1433,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         int Ncameras_extrinsics= PyArray_DIMS(extrinsics_rt_fromref)[0];
         int Nframes            = PyArray_DIMS(frames_rt_toref)[0];
         int Npoints            = PyArray_DIMS(points)[0];
-        int NobservationsBoard = PyArray_DIMS(observations_board)[0];
+        int Nobservations_board = PyArray_DIMS(observations_board)[0];
 
         // The checks in optimize_validate_args() make sure these casts are kosher
         double*       c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
@@ -1447,15 +1447,15 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
         mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
 
-        mrcal_observation_board_t c_observations_board[NobservationsBoard];
+        mrcal_observation_board_t c_observations_board[Nobservations_board];
         fill_c_observations_board(c_observations_board,
-                                  NobservationsBoard,
+                                  Nobservations_board,
                                   indices_frame_camintrinsics_camextrinsics);
 
-        int NobservationsPoint = PyArray_DIMS(observations_point)[0];
+        int Nobservations_point = PyArray_DIMS(observations_point)[0];
 
-        mrcal_observation_point_t c_observations_point[NobservationsPoint];
-        for(int i_observation=0; i_observation<NobservationsPoint; i_observation++)
+        mrcal_observation_point_t c_observations_point[Nobservations_point];
+        for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
         {
             int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
             int i_cam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
@@ -1483,7 +1483,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             {.point_min_range = point_min_range,
              .point_max_range = point_max_range};
 
-        int Nmeasurements = mrcal_num_measurements_all(Ncameras_intrinsics, NobservationsBoard, NobservationsPoint,
+        int Nmeasurements = mrcal_num_measurements_all(Ncameras_intrinsics, Nobservations_board, Nobservations_point,
                                                        calibration_object_width_n,
                                                        calibration_object_height_n,
                                                        problem_details,
@@ -1509,7 +1509,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         {
             // we're wrapping mrcal_optimize()
             const int Npoints_fromBoards =
-                NobservationsBoard *
+                Nobservations_board *
                 calibration_object_width_n*calibration_object_height_n;
 
             mrcal_stats_t stats =
@@ -1525,14 +1525,14 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                 c_calobject_warp,
 
                                 c_observations_board_pool,
-                                NobservationsBoard,
+                                Nobservations_board,
 
                                 Ncameras_intrinsics, Ncameras_extrinsics,
                                 Nframes, Npoints, Npoints_fixed,
 
                                 c_observations_board,
                                 c_observations_point,
-                                NobservationsPoint,
+                                Nobservations_point,
 
                                 false,
                                 verbose &&                PyObject_IsTrue(verbose),
@@ -1598,8 +1598,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             // we're wrapping mrcal_optimizer_callback()
 
             int N_j_nonzero = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
-                                                   c_observations_board, NobservationsBoard,
-                                                   c_observations_point, NobservationsPoint,
+                                                   c_observations_board, Nobservations_board,
+                                                   c_observations_point, Nobservations_point,
                                                    Npoints, Npoints_fixed,
                                                    problem_details,
                                                    mrcal_lensmodel_type,
@@ -1643,9 +1643,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
                                          c_observations_board,
                                          c_observations_board_pool,
-                                         NobservationsBoard,
+                                         Nobservations_board,
                                          c_observations_point,
-                                         NobservationsPoint,
+                                         Nobservations_point,
 
                                          verbose && PyObject_IsTrue(verbose),
                                          mrcal_lensmodel_type,
@@ -1729,8 +1729,8 @@ typedef int (callback_state_index_t)(int i,
                                      int Nframes,
                                      int Npoints,
                                      int Npoints_fixed,
-                                     int NobservationsBoard,
-                                     int NobservationsPoint,
+                                     int Nobservations_board,
+                                     int Nobservations_point,
                                      int calibration_object_width_n,
                                      int calibration_object_height_n,
                                      mrcal_lensmodel_t lensmodel,
@@ -1752,8 +1752,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     int Ncameras_extrinsics = -1;
     int Nframes             = -1;
     int Npoints             = -1;
-    int NobservationsBoard  = -1;
-    int NobservationsPoint  = -1;
+    int Nobservations_board  = -1;
+    int Nobservations_point  = -1;
 
     char* keywords[] = { (char*)argname,
                          OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
@@ -1762,8 +1762,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                          "Ncameras_extrinsics",
                          "Nframes",
                          "Npoints",
-                         "NobservationsBoard",
-                         "NobservationsPoint",
+                         "Nobservations_board",
+                         "Nobservations_point",
                          OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
     char** keywords_noargname = &keywords[1];
@@ -1787,8 +1787,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                                          &Ncameras_extrinsics,
                                          &Nframes,
                                          &Npoints,
-                                         &NobservationsBoard,
-                                         &NobservationsPoint,
+                                         &Nobservations_board,
+                                         &Nobservations_point,
                                          OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
@@ -1806,8 +1806,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                                          &Ncameras_extrinsics,
                                          &Nframes,
                                          &Npoints,
-                                         &NobservationsBoard,
-                                         &NobservationsPoint,
+                                         &Nobservations_board,
+                                         &Nobservations_point,
                                          OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
@@ -1851,8 +1851,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
     if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
     if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
-    if(NobservationsBoard < 0)  NobservationsBoard  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
-    if(NobservationsPoint < 0)  NobservationsPoint  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+    if(Nobservations_board < 0)  Nobservations_board  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(Nobservations_point < 0)  Nobservations_point  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
     int index = cb(i,
                    Ncameras_intrinsics,
@@ -1860,8 +1860,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                    Nframes,
                    Npoints,
                    Npoints_fixed,
-                   NobservationsBoard,
-                   NobservationsPoint,
+                   Nobservations_board,
+                   Nobservations_point,
                    calibration_object_width_n,
                    calibration_object_height_n,
                    mrcal_lensmodel_type,
@@ -1887,8 +1887,8 @@ static int callback_state_index_intrinsics(int i,
                                            int Nframes,
                                            int Npoints,
                                            int Npoints_fixed,
-                                           int NobservationsBoard,
-                                           int NobservationsPoint,
+                                           int Nobservations_board,
+                                           int Nobservations_point,
                                            int calibration_object_width_n,
                                            int calibration_object_height_n,
                                            mrcal_lensmodel_t lensmodel,
@@ -1911,8 +1911,8 @@ static int callback_state_index_camera_rt(int i,
                                           int Nframes,
                                           int Npoints,
                                           int Npoints_fixed,
-                                          int NobservationsBoard,
-                                          int NobservationsPoint,
+                                          int Nobservations_board,
+                                          int Nobservations_point,
                                           int calibration_object_width_n,
                                           int calibration_object_height_n,
                                           mrcal_lensmodel_t lensmodel,
@@ -1943,8 +1943,8 @@ static int callback_state_index_frame_rt(int i,
                                          int Nframes,
                                          int Npoints,
                                          int Npoints_fixed,
-                                         int NobservationsBoard,
-                                         int NobservationsPoint,
+                                         int Nobservations_board,
+                                         int Nobservations_point,
                                          int calibration_object_width_n,
                                          int calibration_object_height_n,
                                          mrcal_lensmodel_t lensmodel,
@@ -1976,8 +1976,8 @@ static int callback_state_index_point(int i,
                                       int Nframes,
                                       int Npoints,
                                       int Npoints_fixed,
-                                      int NobservationsBoard,
-                                      int NobservationsPoint,
+                                      int Nobservations_board,
+                                      int Nobservations_point,
                                       int calibration_object_width_n,
                                       int calibration_object_height_n,
                                       mrcal_lensmodel_t lensmodel,
@@ -2010,8 +2010,8 @@ static int callback_state_index_calobject_warp(int i,
                                                int Nframes,
                                                int Npoints,
                                                int Npoints_fixed,
-                                               int NobservationsBoard,
-                                               int NobservationsPoint,
+                                               int Nobservations_board,
+                                               int Nobservations_point,
                                                int calibration_object_width_n,
                                                int calibration_object_height_n,
                                                mrcal_lensmodel_t lensmodel,
@@ -2038,8 +2038,8 @@ static int callback_num_measurements_all(int i,
                                          int Nframes,
                                          int Npoints,
                                          int Npoints_fixed,
-                                         int NobservationsBoard,
-                                         int NobservationsPoint,
+                                         int Nobservations_board,
+                                         int Nobservations_point,
                                          int calibration_object_width_n,
                                          int calibration_object_height_n,
                                          mrcal_lensmodel_t lensmodel,
@@ -2047,8 +2047,8 @@ static int callback_num_measurements_all(int i,
 {
     return
         mrcal_num_measurements_all(Ncameras_intrinsics,
-                                   NobservationsBoard,
-                                   NobservationsPoint,
+                                   Nobservations_board,
+                                   Nobservations_point,
                                    calibration_object_width_n,
                                    calibration_object_height_n,
                                    problem_details,
@@ -2067,15 +2067,15 @@ static int callback_num_measurements_boards(int i,
                                             int Nframes,
                                             int Npoints,
                                             int Npoints_fixed,
-                                            int NobservationsBoard,
-                                            int NobservationsPoint,
+                                            int Nobservations_board,
+                                            int Nobservations_point,
                                             int calibration_object_width_n,
                                             int calibration_object_height_n,
                                             mrcal_lensmodel_t lensmodel,
                                             mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_num_measurements_boards(NobservationsBoard,
+        mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
                                       calibration_object_height_n);
 }
@@ -2092,15 +2092,15 @@ static int callback_num_measurements_points(int i,
                                             int Nframes,
                                             int Npoints,
                                             int Npoints_fixed,
-                                            int NobservationsBoard,
-                                            int NobservationsPoint,
+                                            int Nobservations_board,
+                                            int Nobservations_point,
                                             int calibration_object_width_n,
                                             int calibration_object_height_n,
                                             mrcal_lensmodel_t lensmodel,
                                             mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_num_measurements_points(NobservationsPoint);
+        mrcal_num_measurements_points(Nobservations_point);
 }
 static PyObject* num_measurements_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2115,8 +2115,8 @@ static int callback_num_measurements_regularization(int i,
                                                     int Nframes,
                                                     int Npoints,
                                                     int Npoints_fixed,
-                                                    int NobservationsBoard,
-                                                    int NobservationsPoint,
+                                                    int Nobservations_board,
+                                                    int Nobservations_point,
                                                     int calibration_object_width_n,
                                                     int calibration_object_height_n,
                                                     mrcal_lensmodel_t lensmodel,
@@ -2149,8 +2149,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     int Ncameras_extrinsics = -1;
     int Nframes             = -1;
     int Npoints             = -1;
-    int NobservationsBoard  = -1;
-    int NobservationsPoint  = -1;
+    int Nobservations_board  = -1;
+    int Nobservations_point  = -1;
 
     char* keywords[] = { "p",
                          OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
@@ -2159,8 +2159,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                          "Ncameras_extrinsics",
                          "Nframes",
                          "Npoints",
-                         "NobservationsBoard",
-                         "NobservationsPoint",
+                         "Nobservations_board",
+                         "Nobservations_point",
                          OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
 
@@ -2181,8 +2181,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                                      &Ncameras_extrinsics,
                                      &Nframes,
                                      &Npoints,
-                                     &NobservationsBoard,
-                                     &NobservationsPoint,
+                                     &Nobservations_board,
+                                     &Nobservations_point,
                                      OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
@@ -2225,8 +2225,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
     if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
     if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
-    if(NobservationsBoard < 0)  NobservationsBoard  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
-    if(NobservationsPoint < 0)  NobservationsPoint  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+    if(Nobservations_board < 0)  Nobservations_board  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(Nobservations_point < 0)  Nobservations_point  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
 
     if( PyArray_TYPE(p) != NPY_DOUBLE )
@@ -2314,16 +2314,16 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
-    int NobservationsBoard  = -1;
-    int NobservationsPoint  = -1;
+    int Nobservations_board  = -1;
+    int Nobservations_point  = -1;
 
     char* keywords[] = { "icam_intrinsics",
                          OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
 
                          "Ncameras_intrinsics",
                          "Ncameras_extrinsics",
-                         "NobservationsBoard",
-                         "NobservationsPoint",
+                         "Nobservations_board",
+                         "Nobservations_point",
                          OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
 
@@ -2342,8 +2342,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
                                      OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
                                      &Ncameras_intrinsics,
                                      &Ncameras_extrinsics,
-                                     &NobservationsBoard,
-                                     &NobservationsPoint,
+                                     &Nobservations_board,
+                                     &Nobservations_point,
                                      OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
@@ -2365,8 +2365,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     // 0
     if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
     if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
-    if(NobservationsBoard < 0)  NobservationsBoard  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
-    if(NobservationsPoint < 0)  NobservationsPoint  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+    if(Nobservations_board < 0)  Nobservations_board  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(Nobservations_point < 0)  Nobservations_point  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
 
     if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
@@ -2380,16 +2380,16 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
 
     int icam_extrinsics;
     {
-        mrcal_observation_board_t c_observations_board[NobservationsBoard];
+        mrcal_observation_board_t c_observations_board[Nobservations_board];
         fill_c_observations_board(c_observations_board,
-                                  NobservationsBoard,
+                                  Nobservations_board,
                                   indices_frame_camintrinsics_camextrinsics);
         if(!mrcal_corresponding_icam_extrinsics(&icam_extrinsics,
 
                                                     icam_intrinsics,
                                                     Ncameras_intrinsics,
                                                     Ncameras_extrinsics,
-                                                    NobservationsBoard,
+                                                    Nobservations_board,
                                                     c_observations_board))
         {
             BARF("Error calling mrcal_corresponding_icam_extrinsics()");

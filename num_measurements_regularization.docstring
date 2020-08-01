@@ -64,8 +64,8 @@ ARGUMENTS
   Nframes
   Npoints
   Npoints_fixed
-  NobservationsBoard
-  NobservationsPoint
+  Nobservations_board
+  Nobservations_point
   calibration_object_width_n
   calibration_object_height_n
 

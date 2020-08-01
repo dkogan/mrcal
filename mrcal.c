@@ -328,7 +328,7 @@ int mrcal_num_intrinsics_optimization_params(mrcal_problem_details_t problem_det
 }
 
 int mrcal_num_state(int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                    int NpointsVariable,
+                    int Npoints_variable,
                     mrcal_problem_details_t problem_details,
                     mrcal_lensmodel_t lensmodel)
 {
@@ -337,7 +337,7 @@ int mrcal_num_state(int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframe
         (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
 
         // frame poses, individual observed points
-        (problem_details.do_optimize_frames ? (Nframes * 6 + NpointsVariable * 3) : 0) +
+        (problem_details.do_optimize_frames ? (Nframes * 6 + Npoints_variable * 3) : 0) +
 
         // camera intrinsics
         (Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel)) +
@@ -360,21 +360,21 @@ static int num_regularization_terms_percamera(mrcal_problem_details_t problem_de
     return N;
 }
 
-int mrcal_num_measurements_boards(int NobservationsBoard,
+int mrcal_num_measurements_boards(int Nobservations_board,
                                   int calibration_object_width_n,
                                   int calibration_object_height_n)
 {
     // *2 because I have separate x and y measurements
     return
-        NobservationsBoard *
+        Nobservations_board *
         calibration_object_width_n*calibration_object_height_n *
         2;
 }
 
-int mrcal_num_measurements_points(int NobservationsPoint)
+int mrcal_num_measurements_points(int Nobservations_point)
 {
     // 3: x,y measurements, range normalization
-    return NobservationsPoint * 3;
+    return Nobservations_point * 3;
 }
 
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
@@ -387,26 +387,26 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
 }
 
 int mrcal_num_measurements_all(int Ncameras_intrinsics,
-                               int NobservationsBoard,
-                               int NobservationsPoint,
+                               int Nobservations_board,
+                               int Nobservations_point,
                                int calibration_object_width_n,
                                int calibration_object_height_n,
                                mrcal_problem_details_t problem_details,
                                mrcal_lensmodel_t lensmodel)
 {
     return
-        mrcal_num_measurements_boards( NobservationsBoard,
+        mrcal_num_measurements_boards( Nobservations_board,
                                        calibration_object_width_n,
                                        calibration_object_height_n) +
-        mrcal_num_measurements_points(NobservationsPoint) +
+        mrcal_num_measurements_points(Nobservations_point) +
         mrcal_num_measurements_regularization( Ncameras_intrinsics, problem_details, lensmodel);
 }
 
 int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
                           const mrcal_observation_board_t* observations_board,
-                          int NobservationsBoard,
+                          int Nobservations_board,
                           const mrcal_observation_point_t* observations_point,
-                          int NobservationsPoint,
+                          int Nobservations_point,
                           int Npoints, int Npoints_fixed,
                           mrcal_problem_details_t problem_details,
                           mrcal_lensmodel_t lensmodel,
@@ -439,7 +439,7 @@ int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
         modelHasCore_fxfycxcy(lensmodel) )
         Nintrinsics_per_measurement -= 2;
 
-    int N = NobservationsBoard * ( (problem_details.do_optimize_frames         ? 6 : 0) +
+    int N = Nobservations_board * ( (problem_details.do_optimize_frames         ? 6 : 0) +
                                    (problem_details.do_optimize_extrinsics     ? 6 : 0) +
                                    (problem_details.do_optimize_calobject_warp ? 2 : 0) +
                                    + Nintrinsics_per_measurement );
@@ -447,14 +447,14 @@ int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
     // initial estimate counts extrinsics for the reference camera, which need
     // to be subtracted off
     if(problem_details.do_optimize_extrinsics)
-        for(int i=0; i<NobservationsBoard; i++)
+        for(int i=0; i<Nobservations_board; i++)
             if(observations_board[i].i_cam_extrinsics < 0)
                 N -= 6;
     // *2 because I have separate x and y measurements
     N *= 2*calibration_object_width_n*calibration_object_height_n;
 
     // Now the point observations
-    for(int i=0; i<NobservationsPoint; i++)
+    for(int i=0; i<Nobservations_point; i++)
     {
         N += 2*Nintrinsics_per_measurement;
         if( problem_details.do_optimize_frames &&
@@ -2657,7 +2657,7 @@ static void pack_solver_state( // out
                               const mrcal_point2_t*          calobject_warp, // 1 of these
                               mrcal_problem_details_t problem_details,
                               int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                              int NpointsVariable,
+                              int Npoints_variable,
 
                               int Nstate_ref)
 {
@@ -2692,7 +2692,7 @@ static void pack_solver_state( // out
             p[i_state++] = frames_toref[i_frame].t.xyz[2] / SCALE_TRANSLATION_FRAME;
         }
 
-        for(int i_point = 0; i_point < NpointsVariable; i_point++)
+        for(int i_point = 0; i_point < Npoints_variable; i_point++)
         {
             p[i_state++] = points[i_point].xyz[0] / SCALE_POSITION_POINT;
             p[i_state++] = points[i_point].xyz[1] / SCALE_POSITION_POINT;
@@ -2720,7 +2720,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                      const mrcal_lensmodel_t lensmodel,
                                      mrcal_problem_details_t problem_details,
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                     int Nframes, int NpointsVariable)
+                                     int Nframes, int Npoints_variable)
 {
     int i_state = 0;
 
@@ -2758,7 +2758,7 @@ void mrcal_pack_solver_state_vector( // out, in
             p[i_state++] = frames_toref->t.xyz[2] / SCALE_TRANSLATION_FRAME;
         }
 
-        for(int i_point = 0; i_point < NpointsVariable; i_point++)
+        for(int i_point = 0; i_point < Npoints_variable; i_point++)
         {
             mrcal_point3_t* points = (mrcal_point3_t*)(&p[i_state]);
             p[i_state++] = points->xyz[0] / SCALE_POSITION_POINT;
@@ -2918,7 +2918,7 @@ static void unpack_solver_state( // out
                                  const double* p,
                                  const mrcal_lensmodel_t lensmodel,
                                  mrcal_problem_details_t problem_details,
-                                 int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes, int NpointsVariable,
+                                 int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes, int Npoints_variable,
 
                                  int Nstate_ref)
 {
@@ -2934,7 +2934,7 @@ static void unpack_solver_state( // out
     {
         for(int i_frame = 0; i_frame < Nframes; i_frame++)
             i_state += unpack_solver_state_framert_one( &frames_toref[i_frame], &p[i_state] );
-        for(int i_point = 0; i_point < NpointsVariable; i_point++)
+        for(int i_point = 0; i_point < Npoints_variable; i_point++)
             i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
     }
 
@@ -2953,7 +2953,7 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        const mrcal_lensmodel_t lensmodel,
                                        mrcal_problem_details_t problem_details,
                                        int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                       int Nframes, int NpointsVariable)
+                                       int Nframes, int Npoints_variable)
 {
     int i_state = unpack_solver_state_intrinsics(p,
                                                  p, lensmodel, problem_details,
@@ -2977,7 +2977,7 @@ void mrcal_unpack_solver_state_vector( // out, in
         for(int i_frame = 0; i_frame < Nframes; i_frame++)
             i_state += unpack_solver_state_framert_one( &frames_toref[i_frame], &p[i_state] );
         mrcal_point3_t* points = (mrcal_point3_t*)(&p[i_state]);
-        for(int i_point = 0; i_point < NpointsVariable; i_point++)
+        for(int i_point = 0; i_point < Npoints_variable; i_point++)
             i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
     }
     if( problem_details.do_optimize_calobject_warp )
@@ -3019,7 +3019,7 @@ int mrcal_state_index_point(int i_point, int Nframes, int Ncameras_intrinsics, i
         (Nframes * 6) +
         i_point*3;
 }
-int mrcal_state_index_calobject_warp(int NpointsVariable,
+int mrcal_state_index_calobject_warp(int Npoints_variable,
                                      int Nframes, int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      mrcal_problem_details_t problem_details,
                                      mrcal_lensmodel_t lensmodel)
@@ -3027,7 +3027,7 @@ int mrcal_state_index_calobject_warp(int NpointsVariable,
     return
         Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel) +
         (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
-        (problem_details.do_optimize_frames     ? (Nframes*6 + NpointsVariable*3)   : 0);
+        (problem_details.do_optimize_frames     ? (Nframes*6 + Npoints_variable*3)   : 0);
 }
 
 // Reports the icam_extrinsics corresponding to a given icam_intrinsics. On
@@ -3044,7 +3044,7 @@ bool mrcal_corresponding_icam_extrinsics(// out
                                              int icam_intrinsics,
                                              int Ncameras_intrinsics,
                                              int Ncameras_extrinsics,
-                                             int NobservationsBoard,
+                                             int Nobservations_board,
                                              const mrcal_observation_board_t* observations_board)
 {
     if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
@@ -3059,7 +3059,7 @@ bool mrcal_corresponding_icam_extrinsics(// out
     for(int i=0; i<Ncameras_intrinsics;   i++) icam_map_to_extrinsics[i] = -100;
     for(int i=0; i<Ncameras_extrinsics+1; i++) icam_map_to_intrinsics[i] = -100;
 
-    for(int i=0; i<NobservationsBoard; i++)
+    for(int i=0; i<Nobservations_board; i++)
     {
         int i_cam_intrinsics = observations_board[i].i_cam_intrinsics;
         int i_cam_extrinsics = observations_board[i].i_cam_extrinsics;
@@ -3107,7 +3107,7 @@ bool markOutliers(// output, input
 
                   // input
                   const mrcal_observation_board_t* observations_board,
-                  int NobservationsBoard,
+                  int Nobservations_board,
                   int calibration_object_width_n,
                   int calibration_object_height_n,
 
@@ -3155,7 +3155,7 @@ bool markOutliers(// output, input
 #define LOOP_FEATURE_BEGIN()                                            \
     i_feature = 0;                                                      \
     for(int i_observation_board=0;                                      \
-        i_observation_board<NobservationsBoard;                         \
+        i_observation_board<Nobservations_board;                         \
         i_observation_board++)                                          \
     {                                                                   \
         const mrcal_observation_board_t* observation = &observations_board[i_observation_board]; \
@@ -3261,10 +3261,10 @@ typedef struct
 
     const mrcal_observation_board_t* observations_board;
     const mrcal_point3_t* observations_board_pool;
-    int NobservationsBoard;
+    int Nobservations_board;
 
     const mrcal_observation_point_t* observations_point;
-    int NobservationsPoint;
+    int Nobservations_point;
 
     bool verbose;
 
@@ -3402,7 +3402,7 @@ void optimizer_callback(// input state
 
     int i_feature = 0;
     for(int i_observation_board = 0;
-        i_observation_board < ctx->NobservationsBoard;
+        i_observation_board < ctx->Nobservations_board;
         i_observation_board++)
     {
         const mrcal_observation_board_t* observation = &ctx->observations_board[i_observation_board];
@@ -3692,7 +3692,7 @@ void optimizer_callback(// input state
     // Handle all the point observations. This is VERY similar to the
     // board-observation loop above. Please consolidate
     for(int i_observation_point = 0;
-        i_observation_point < ctx->NobservationsPoint;
+        i_observation_point < ctx->Nobservations_point;
         i_observation_point++)
     {
         const mrcal_observation_point_t* observation = &ctx->observations_point[i_observation_point];
@@ -4238,10 +4238,10 @@ bool mrcal_optimizer_callback(// out
                              // observed_pixel_uncertainty scales inversely with
                              // the weight
                              const mrcal_point3_t* observations_board_pool,
-                             int NobservationsBoard,
+                             int Nobservations_board,
 
                              const mrcal_observation_point_t* observations_point,
-                             int NobservationsPoint,
+                             int Nobservations_point,
                              bool verbose,
 
                              mrcal_lensmodel_t lensmodel,
@@ -4289,16 +4289,16 @@ bool mrcal_optimizer_callback(// out
     }
 
     int Nmeasurements = mrcal_num_measurements_all(Ncameras_intrinsics,
-                                                   NobservationsBoard,
-                                                   NobservationsPoint,
+                                                   Nobservations_board,
+                                                   Nobservations_point,
                                                    calibration_object_width_n,
                                                    calibration_object_height_n,
                                                    problem_details,
                                                    lensmodel);
     int Nintrinsics = mrcal_num_lens_params(lensmodel);
     int N_j_nonzero = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
-                                           observations_board, NobservationsBoard,
-                                           observations_point, NobservationsPoint,
+                                           observations_board, Nobservations_board,
+                                           observations_point, Nobservations_point,
                                            Npoints, Npoints_fixed,
                                            problem_details,
                                            lensmodel,
@@ -4313,7 +4313,7 @@ bool mrcal_optimizer_callback(// out
     }
 
     const int Npoints_fromBoards =
-        NobservationsBoard *
+        Nobservations_board *
         calibration_object_width_n*calibration_object_height_n;
 
 #warning "Outliers only work with board observations for now. Point outliers could be implemented without a lot of trouble now"
@@ -4331,9 +4331,9 @@ bool mrcal_optimizer_callback(// out
         .Npoints_fixed              = Npoints_fixed,
         .observations_board         = observations_board,
         .observations_board_pool    = observations_board_pool,
-        .NobservationsBoard         = NobservationsBoard,
+        .Nobservations_board         = Nobservations_board,
         .observations_point         = observations_point,
-        .NobservationsPoint         = NobservationsPoint,
+        .Nobservations_point         = Nobservations_point,
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
@@ -4416,7 +4416,7 @@ mrcal_optimize( // out
                 // input (even if skip_outlier_rejection). New outliers are
                 // marked with z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
-                int NobservationsBoard,
+                int Nobservations_board,
 
                 // in
                 int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
@@ -4424,7 +4424,7 @@ mrcal_optimize( // out
 
                 const mrcal_observation_board_t* observations_board,
                 const mrcal_observation_point_t* observations_point,
-                int NobservationsPoint,
+                int Nobservations_point,
 
                 bool check_gradient,
                 bool verbose,
@@ -4478,7 +4478,7 @@ mrcal_optimize( // out
     // dogleg_parameters.trustregion_increase_threshold = 0.75;
 
     const int Npoints_fromBoards =
-        NobservationsBoard *
+        Nobservations_board *
         calibration_object_width_n*calibration_object_height_n;
 
 #warning "outliers only work with board observations for now"
@@ -4496,9 +4496,9 @@ mrcal_optimize( // out
         .Npoints_fixed              = Npoints_fixed,
         .observations_board         = observations_board,
         .observations_board_pool    = observations_board_pool,
-        .NobservationsBoard         = NobservationsBoard,
+        .Nobservations_board         = Nobservations_board,
         .observations_point         = observations_point,
-        .NobservationsPoint         = NobservationsPoint,
+        .Nobservations_point         = Nobservations_point,
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
@@ -4508,15 +4508,15 @@ mrcal_optimize( // out
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
         .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
         .Nmeasurements              = mrcal_num_measurements_all(Ncameras_intrinsics,
-                                                                 NobservationsBoard,
-                                                                 NobservationsPoint,
+                                                                 Nobservations_board,
+                                                                 Nobservations_point,
                                                                  calibration_object_width_n,
                                                                  calibration_object_height_n,
                                                                  problem_details,
                                                                  lensmodel),
         .N_j_nonzero                = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
-                                                           observations_board, NobservationsBoard,
-                                                           observations_point, NobservationsPoint,
+                                                           observations_board, Nobservations_board,
+                                                           observations_point, Nobservations_point,
                                                            Npoints, Npoints_fixed,
                                                            problem_details,
                                                            lensmodel,
@@ -4581,7 +4581,7 @@ mrcal_optimize( // out
 
 #warning "outliers for board observations only"
         int Nfeatures =
-            NobservationsBoard *
+            Nobservations_board *
             calibration_object_width_n *
             calibration_object_height_n;
         for(int i=0; i<Nfeatures; i++)
@@ -4628,7 +4628,7 @@ mrcal_optimize( // out
                  markOutliers(observations_board_pool,
                               &stats.Noutliers,
                               observations_board,
-                              NobservationsBoard,
+                              Nobservations_board,
                               calibration_object_width_n,
                               calibration_object_height_n,
                               solver_context->beforeStep->x,

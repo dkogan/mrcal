@@ -123,7 +123,7 @@ REQUIRED ARGUMENTS
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- observations_board: array of dims (NobservationsBoard,
+- observations_board: array of dims (Nobservations_board,
                                      calibration_object_height_n,
                                      calibration_object_width_n,
                                      3).
@@ -142,7 +142,7 @@ REQUIRED ARGUMENTS
 
   THIS ARRAY IS MODIFIED BY THIS CALL (to mark outliers)
 
-- indices_frame_camintrinsics_camextrinsics: array of dims (NobservationsBoard,
+- indices_frame_camintrinsics_camextrinsics: array of dims (Nobservations_board,
   3). For each observation these are an
   (i_frame,i_cam_intrinsics,i_cam_extrinsics) tuple. i_cam_extrinsics == -1
   means this observation came from a camera in the reference coordinate system.
@@ -153,7 +153,7 @@ REQUIRED ARGUMENTS
   All of the indices are guaranteed to be monotonic. This array contains 32-bit
   integers.
 
-- observations_point: array of dims (NobservationsPoint, 3). Each slice is an
+- observations_point: array of dims (Nobservations_point, 3). Each slice is an
   (x,y,weight) tuple where (x,y) are the pixel coordinates of the observed
   point, and "weight" is the relative weight of this point observation. Most of
   the weights are expected to be 1.0, which implies that the noise on the
@@ -164,7 +164,7 @@ REQUIRED ARGUMENTS
   that produced these observations are given in the indices_point_camera_points
   array.
 
-- indices_point_camintrinsics_camextrinsics: array of dims (NobservationsPoint,
+- indices_point_camintrinsics_camextrinsics: array of dims (Nobservations_point,
   3). For each observation these are an
   (i_point,i_cam_intrinsics,i_cam_extrinsics) tuple. Analogous to
   indices_frame_camintrinsics_camextrinsics, but for observations of discrete

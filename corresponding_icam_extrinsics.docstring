@@ -51,12 +51,12 @@ ARGUMENTS
 
 - Ncameras_intrinsics
   Ncameras_extrinsics
-- NobservationsBoard
-- NobservationsPoint
+- Nobservations_board
+- Nobservations_point
   optional integers; default to 0. These specify the sizes of various arrays in
   the optimization. See the documentation for mrcal.optimize() for details
 
-- indices_frame_camintrinsics_camextrinsics: array of dims (NobservationsBoard,
+- indices_frame_camintrinsics_camextrinsics: array of dims (Nobservations_board,
   3). For each observation these are an
   (i_frame,i_cam_intrinsics,i_cam_extrinsics) tuple. i_cam_extrinsics == -1
   means this observation came from a camera in the reference coordinate system.

@@ -139,11 +139,11 @@ int main(int argc, char* argv[] )
     mrcal_point3_t observations_point_px[4] = {};
     // How many of the observations we want to actually use. Can be fewer than
     // defined in the above arrays if we're testing something
-#define NobservationsBoard 6
-#define NobservationsPoint 3
+#define Nobservations_board 6
+#define Nobservations_point 3
 
     // fill observations with arbitrary data
-    for(int i=0; i<NobservationsBoard; i++)
+    for(int i=0; i<Nobservations_board; i++)
         for(int j=0; j<calibration_object_height_n; j++)
             for(int k=0; k<calibration_object_width_n; k++)
             {
@@ -154,7 +154,7 @@ int main(int argc, char* argv[] )
                 observations_px[i][calibration_object_width_n*j + k].z =
                     1. / (double)(1 << ((i+j+k) % 3));
             }
-    for(int i=0; i<NobservationsPoint; i++)
+    for(int i=0; i<Nobservations_point; i++)
     {
         observations_point_px[i].x = 1100.0 + (double)i*20.0;
         observations_point_px[i].y = 800.0  - (double)i*12.0;
@@ -316,10 +316,10 @@ int main(int argc, char* argv[] )
            (problem_details.do_optimize_calobject_warp ? 2 : 0),
            mrcal_state_index_calobject_warp(Npoints-Npoints_fixed,
                                             Nframes, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
-    int Nmeasurements_boards         = mrcal_num_measurements_boards(NobservationsBoard,
+    int Nmeasurements_boards         = mrcal_num_measurements_boards(Nobservations_board,
                                                                      calibration_object_width_n,
                                                                      calibration_object_height_n);
-    int Nmeasurements_points         = mrcal_num_measurements_points(NobservationsPoint);
+    int Nmeasurements_points         = mrcal_num_measurements_points(Nobservations_point);
     int Nmeasurements_regularization = mrcal_num_measurements_regularization(Ncameras_intrinsics, problem_details, lensmodel);
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
            Nmeasurements_boards, 0);
@@ -340,13 +340,13 @@ int main(int argc, char* argv[] )
                     &calobject_warp,
 
                     (mrcal_point3_t*)observations_px,
-                    NobservationsBoard,
+                    Nobservations_board,
 
                     Ncameras_intrinsics,Ncameras_extrinsics,
                     Nframes, Npoints, Npoints_fixed,
                     observations_board,
                     observations_point,
-                    NobservationsPoint,
+                    Nobservations_point,
 
                     true,
                     false,
