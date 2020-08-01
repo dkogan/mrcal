@@ -64,19 +64,19 @@ def _validateIntrinsics(imagersize,
     if N != 2:
         raise Exception("Valid intrinsics are an iterable of len 2")
 
-    lens_model = i[0]
-    intrinsics   = i[1]
+    lensmodel  = i[0]
+    intrinsics = i[1]
 
     # If this fails, I keep the exception and let it fall through
-    Nintrinsics_want = mrcal.num_lens_params(lens_model)
+    Nintrinsics_want = mrcal.num_lens_params(lensmodel)
 
     try:
         Nintrinsics_have = len(intrinsics)
     except:
-        raise Exception("Valid intrinsics are (lens_model, intrinsics) where 'intrinsics' is an iterable with a length")
+        raise Exception("Valid intrinsics are (lensmodel, intrinsics) where 'intrinsics' is an iterable with a length")
 
     if Nintrinsics_want != Nintrinsics_have:
-        raise Exception("Mismatched Nintrinsics. Got {}, but model {} must have {}".format(Nintrinsics_have,lens_model,Nintrinsics_want))
+        raise Exception("Mismatched Nintrinsics. Got {}, but model {} must have {}".format(Nintrinsics_have,lensmodel,Nintrinsics_want))
 
     for x in intrinsics:
         if not isinstance(x, numbers.Number):
@@ -271,7 +271,7 @@ class cameramodel(object):
     sample valid .cameramodel:
 
         # generated with ...
-        { 'lens_model': 'LENSMODEL_OPENCV8',
+        { 'lensmodel': 'LENSMODEL_OPENCV8',
 
           # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
           'intrinsics': [1766.0712405930,
@@ -309,7 +309,7 @@ class cameramodel(object):
         # I write this out manually instead of using repr for the whole thing
         # because I want to preserve key ordering
         f.write("{\n")
-        f.write("    'lens_model':  '{}',\n".format(self._intrinsics[0]))
+        f.write("    'lensmodel':  '{}',\n".format(self._intrinsics[0]))
         f.write("\n")
 
         N = len(self._intrinsics[1])
@@ -382,11 +382,15 @@ class cameramodel(object):
 
         # for compatibility
         if 'distortion_model' in model and \
-           not 'lens_model' in model:
-            model['lens_model'] = model['distortion_model'].replace('DISTORTION', 'LENSMODEL')
+           not 'lensmodel'    in model:
+            model['lensmodel'] = model['distortion_model'].replace('DISTORTION', 'LENSMODEL')
             del model['distortion_model']
+        if 'lens_model' in model and \
+           not 'lensmodel'    in model:
+            model['lensmodel'] = model['lens_model']
+            del model['lens_model']
 
-        keys_required = set(('lens_model',
+        keys_required = set(('lensmodel',
                              'intrinsics',
                              'extrinsics',
                              'imagersize'))
@@ -399,7 +403,7 @@ class cameramodel(object):
         if 'valid_intrinsics_region' in model:
             valid_intrinsics_region = np.array(model['valid_intrinsics_region'])
 
-        intrinsics = (model['lens_model'], np.array(model['intrinsics'], dtype=float))
+        intrinsics = (model['lensmodel'], np.array(model['intrinsics'], dtype=float))
 
         _validateIntrinsics(model['imagersize'],
                             intrinsics)
@@ -445,7 +449,7 @@ class cameramodel(object):
         if file_or_model is None, then the input comes from kwargs, and they
         must NOT be None. The following keys are expected
 
-        - 'intrinsics': REQUIRED tuple (lens_model, parameters)
+        - 'intrinsics': REQUIRED tuple (lensmodel, parameters)
         - Exactly ONE or ZERO of the following for the extrinsics (if omitted we
           use an identity transformation):
           - 'extrinsics_Rt_toref'
@@ -620,9 +624,9 @@ class cameramodel(object):
         only; otherwise this is a setter. As a setter, everything related to the
         lens is set together (dimensions, lens parameters, uncertainty, etc).
 
-        "intrinsics" is a tuple (lens_model, parameters):
+        "intrinsics" is a tuple (lensmodel, parameters):
 
-        - lens_model is a string for the specific lens model we're
+        - lensmodel is a string for the specific lens model we're
           using. mrcal.supported_lensmodels() returns a list
           of supported models.
 
