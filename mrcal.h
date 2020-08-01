@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "basic_points.h"
+#include "basic_geometry.h"
 #include "poseutils.h"
 
 
