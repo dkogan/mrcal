@@ -165,8 +165,8 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
 
                  if(cookie->lensmodel.type == LENSMODEL_CAHVORE)
                      return _mrcal_project_internal_cahvore(
-                                (point2_t*)data_slice__output,
-                                (const point3_t*)data_slice__points,
+                                (mrcal_point2_t*)data_slice__output,
+                                (const mrcal_point3_t*)data_slice__points,
                                 N,
                                 (const double*)data_slice__intrinsics);
 
@@ -174,9 +174,9 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                     cookie->lensmodel.type == LENSMODEL_PINHOLE)
                  {
                      _mrcal_project_internal_opencv(
-                                (point2_t*)data_slice__output,
+                                (mrcal_point2_t*)data_slice__output,
                                 NULL, NULL,
-                                (const point3_t*)data_slice__points,
+                                (const mrcal_point3_t*)data_slice__points,
                                 N,
                                 (const double*)data_slice__intrinsics,
                                 cookie->Nintrinsics);
@@ -184,9 +184,9 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                  }
 
                  return
-                     _mrcal_project_internal((point2_t*)data_slice__output,
+                     _mrcal_project_internal((mrcal_point2_t*)data_slice__output,
                                              NULL, NULL,
-                                             (const point3_t*)data_slice__points,
+                                             (const mrcal_point3_t*)data_slice__points,
                                              N,
                                              cookie->lensmodel,
                                              // core, distortions concatenated
@@ -261,10 +261,10 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                  memset(data_slice__output2, 0, N*2*cookie->Nintrinsics*sizeof(double));
 
                  return
-                     _mrcal_project_internal((point2_t*)data_slice__output0,
-                                             (point3_t*)data_slice__output1,
+                     _mrcal_project_internal((mrcal_point2_t*)data_slice__output0,
+                                             (mrcal_point3_t*)data_slice__output1,
                                              (double*)  data_slice__output2,
-                                             (const point3_t*)data_slice__points,
+                                             (const mrcal_point3_t*)data_slice__points,
                                              N,
                                              cookie->lensmodel,
                                              // core, distortions concatenated
@@ -330,15 +330,15 @@ mrcal-genpywrap.py. Please keep them in sync """,
                  const int N = 1;
                  if( cookie->lensmodel.type == LENSMODEL_PINHOLE ||
                      cookie->lensmodel.type == LENSMODEL_STEREOGRAPHIC )
-                     mrcal_unproject((point3_t*)data_slice__output,
-                                     (const point2_t*)data_slice__points,
+                     mrcal_unproject((mrcal_point3_t*)data_slice__output,
+                                     (const mrcal_point2_t*)data_slice__points,
                                      N,
                                      cookie->lensmodel,
                                      // core, distortions concatenated
                                      (const double*)data_slice__intrinsics);
                  return
-                     _mrcal_unproject_internal((point3_t*)data_slice__output,
-                                               (const point2_t*)data_slice__points,
+                     _mrcal_unproject_internal((mrcal_point3_t*)data_slice__output,
+                                               (const mrcal_point2_t*)data_slice__points,
                                                N,
                                                cookie->lensmodel,
                                                // core, distortions concatenated

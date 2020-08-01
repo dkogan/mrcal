@@ -10,7 +10,7 @@
 // unconstrained 6DOF pose containing a rodrigues rotation and a translation
 typedef struct
 {
-    point3_t r,t;
+    mrcal_point3_t r,t;
 } pose_t;
 
 // An observation of a calibration board. Each "observation" is ONE camera
@@ -39,7 +39,7 @@ typedef struct
     // independent on x,y, and has standard deviation of
     // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
     // with the weight.
-    point3_t px;
+    mrcal_point3_t px;
 } observation_point_t;
 
 
@@ -244,11 +244,11 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
 //
 // This function supports CAHVORE distortions if we don't ask for gradients
 bool mrcal_project( // out
-                   point2_t* q,
+                   mrcal_point2_t* q,
 
                    // Stored as a row-first array of shape (N,2,3). Each
-                   // trailing ,3 dimension element is a point3_t
-                   point3_t* dq_dp,
+                   // trailing ,3 dimension element is a mrcal_point3_t
+                   mrcal_point3_t* dq_dp,
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics). This is a DENSE array.
                    // High-parameter-count lens models have very sparse
@@ -258,7 +258,7 @@ bool mrcal_project( // out
                    double*   dq_dintrinsics,
 
                    // in
-                   const point3_t* p,
+                   const mrcal_point3_t* p,
                    int N,
                    lensmodel_t lensmodel,
                    // core, distortions concatenated
@@ -276,10 +276,10 @@ bool mrcal_project( // out
 //
 // This function does NOT support CAHVORE
 bool mrcal_unproject( // out
-                     point3_t* out,
+                     mrcal_point3_t* out,
 
                      // in
-                     const point2_t* q,
+                     const mrcal_point2_t* q,
                      int N,
                      lensmodel_t lensmodel,
                      // core, distortions concatenated
@@ -291,24 +291,24 @@ bool mrcal_unproject( // out
 // the camera. Thus this is a good basis for optimization over observation
 // vectors: it's unconstrained, smoooth and effectively singularity-free
 void mrcal_project_stereographic( // output
-                                 point2_t* q,
-                                 point3_t* dq_dv, // May be NULL. Each point
-                                                  // gets a block of 2 point3_t
+                                 mrcal_point2_t* q,
+                                 mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                  // gets a block of 2 mrcal_point3_t
                                                   // objects
 
                                   // input
-                                 const point3_t* v,
+                                 const mrcal_point3_t* v,
                                  int N,
                                  double fx, double fy,
                                  double cx, double cy);
 void mrcal_unproject_stereographic( // output
-                                   point3_t* v,
-                                   point2_t* dv_dq, // May be NULL. Each point
+                                   mrcal_point3_t* v,
+                                   mrcal_point2_t* dv_dq, // May be NULL. Each point
                                                     // gets a block of 3
-                                                    // point2_t objects
+                                                    // mrcal_point2_t objects
 
                                    // input
-                                   const point2_t* q,
+                                   const mrcal_point2_t* q,
                                    int N,
                                    double fx, double fy,
                                    double cx, double cy);
@@ -364,8 +364,8 @@ mrcal_optimize( // out
                 double*       intrinsics,         // Ncameras_intrinsics * NlensParams
                 pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                 pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
-                point3_t*     points,             // Npoints of these.    In the reference frame
-                point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
+                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                 // All the board pixel observations, in order.
                 // .x, .y are the pixel observations
@@ -378,7 +378,7 @@ mrcal_optimize( // out
                 // z<0 indicates that this is an outlier. This is respected on
                 // input (even if skip_outlier_rejection). New outliers are
                 // marked with z<0 on output, so this isn't const
-                point3_t* observations_board_pool,
+                mrcal_point3_t* observations_board_pool,
                 int NobservationsBoard,
 
                 // in
@@ -439,8 +439,8 @@ bool mrcal_optimizerCallback(// out
                              const double*       intrinsics,         // Ncameras_intrinsics * NlensParams
                              const pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
                              const pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
-                             const point3_t*     points,     // Npoints of these.    In the reference frame
-                             const point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                             const mrcal_point3_t*     points,     // Npoints of these.    In the reference frame
+                             const mrcal_point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                              int Npoints, int Npoints_fixed, // at the end of points[]
@@ -457,7 +457,7 @@ bool mrcal_optimizerCallback(// out
                              // the weight.
                              //
                              // z<0 indicates that this is an outlier
-                             const point3_t* observations_board_pool,
+                             const mrcal_point3_t* observations_board_pool,
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
@@ -560,30 +560,30 @@ void mrcal_unpack_solver_state_vector( // out, in
 // THESE ARE NOT A PART OF THE EXTERNAL API. Exported for the mrcal python
 // wrapper only
 void _mrcal_project_internal_opencv( // outputs
-                                    point2_t* q,
-                                    point3_t* dq_dp,               // may be NULL
+                                    mrcal_point2_t* q,
+                                    mrcal_point3_t* dq_dp,               // may be NULL
                                     double* dq_dintrinsics_nocore, // may be NULL
 
                                     // inputs
-                                    const point3_t* p,
+                                    const mrcal_point3_t* p,
                                     int N,
                                     const double* intrinsics,
                                     int Nintrinsics);
 bool _mrcal_project_internal_cahvore( // out
-                                     point2_t* out,
+                                     mrcal_point2_t* out,
 
                                      // in
-                                     const point3_t* v,
+                                     const mrcal_point3_t* v,
                                      int N,
 
                                      // core, distortions concatenated
                                      const double* intrinsics);
 bool _mrcal_project_internal( // out
-                             point2_t* q,
+                             mrcal_point2_t* q,
 
                              // Stored as a row-first array of shape (N,2,3). Each
-                             // trailing ,3 dimension element is a point3_t
-                             point3_t* dq_dp,
+                             // trailing ,3 dimension element is a mrcal_point3_t
+                             mrcal_point3_t* dq_dp,
                              // core, distortions concatenated. Stored as a row-first
                              // array of shape (N,2,Nintrinsics). This is a DENSE array.
                              // High-parameter-count lens models have very sparse
@@ -593,7 +593,7 @@ bool _mrcal_project_internal( // out
                              double*   dq_dintrinsics,
 
                              // in
-                             const point3_t* p,
+                             const mrcal_point3_t* p,
                              int N,
                              lensmodel_t lensmodel,
                              // core, distortions concatenated
@@ -604,10 +604,10 @@ bool _mrcal_project_internal( // out
 void _mrcal_precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
                                       lensmodel_t lensmodel);
 bool _mrcal_unproject_internal( // out
-                               point3_t* out,
+                               mrcal_point3_t* out,
 
                                // in
-                               const point2_t* q,
+                               const mrcal_point2_t* q,
                                int N,
                                lensmodel_t lensmodel,
                                // core, distortions concatenated

@@ -697,12 +697,12 @@ typedef struct
 // NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
 // only
 void _mrcal_project_internal_opencv( // outputs
-                                    point2_t* q,
-                                    point3_t* dq_dp,               // may be NULL
+                                    mrcal_point2_t* q,
+                                    mrcal_point3_t* dq_dp,               // may be NULL
                                     double* dq_dintrinsics_nocore, // may be NULL
 
                                     // inputs
-                                    const point3_t* p,
+                                    const mrcal_point3_t* p,
                                     int N,
                                     const double* intrinsics,
                                     int Nintrinsics)
@@ -803,19 +803,19 @@ void _mrcal_project_internal_opencv( // outputs
 // These are all internals for project(). It was getting unwieldy otherwise
 static
 void _project_point_parametric( // outputs
-                               point2_t* q,
-                               point2_t* dq_dfxy, double* dq_dintrinsics_nocore,
-                               point3_t* restrict dq_drcamera,
-                               point3_t* restrict dq_dtcamera,
-                               point3_t* restrict dq_drframe,
-                               point3_t* restrict dq_dtframe,
+                               mrcal_point2_t* q,
+                               mrcal_point2_t* dq_dfxy, double* dq_dintrinsics_nocore,
+                               mrcal_point3_t* restrict dq_drcamera,
+                               mrcal_point3_t* restrict dq_dtcamera,
+                               mrcal_point3_t* restrict dq_drframe,
+                               mrcal_point3_t* restrict dq_dtframe,
 
                                // inputs
-                               const point3_t* p,
-                               const point3_t* dp_drc,
-                               const point3_t* dp_dtc,
-                               const point3_t* dp_drf,
-                               const point3_t* dp_dtf,
+                               const mrcal_point3_t* p,
+                               const mrcal_point3_t* dp_drc,
+                               const mrcal_point3_t* dp_dtc,
+                               const mrcal_point3_t* dp_drf,
+                               const mrcal_point3_t* dp_dtf,
 
                                const double* restrict intrinsics,
                                bool camera_at_identity,
@@ -834,7 +834,7 @@ void _project_point_parametric( // outputs
         const double fy = intrinsics[1];
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
-        point3_t dq_dp[2];
+        mrcal_point3_t dq_dp[2];
         if( lensmodel.type == LENSMODEL_PINHOLE )
         {
             double pz_recip = 1. / p->z;
@@ -893,7 +893,7 @@ void _project_point_parametric( // outputs
 
         // I perturb p, and then apply the focal length, center pixel stuff
         // normally
-        point3_t p_distorted;
+        mrcal_point3_t p_distorted;
 
         // distortion parameter layout:
         //   alpha
@@ -1044,13 +1044,13 @@ void _project_point_parametric( // outputs
 // same as the pinhole projection for long lenses, but supports views behind the
 // camera
 void mrcal_project_stereographic( // output
-                                 point2_t* q,
-                                 point3_t* dq_dv, // May be NULL. Each point
-                                                  // gets a block of 2 point3_t
+                                 mrcal_point2_t* q,
+                                 mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                  // gets a block of 2 mrcal_point3_t
                                                   // objects
 
                                   // input
-                                 const point3_t* v,
+                                 const mrcal_point3_t* v,
                                  int N,
                                  double fx, double fy,
                                  double cx, double cy)
@@ -1094,27 +1094,27 @@ void mrcal_project_stereographic( // output
             //        = fx ( [scale 0 0] + B x * [x y z] + x A [0 0 1] )
             double A = -scale*scale / 2.;
             double B = A / mag_xyz;
-            dq_dv[2*i + 0] = (point3_t){.x = fx * (v[i].x * (B*v[i].x) + scale),
+            dq_dv[2*i + 0] = (mrcal_point3_t){.x = fx * (v[i].x * (B*v[i].x) + scale),
                                         .y = fx * (v[i].x * (B*v[i].y)),
                                         .z = fx * (v[i].x * (B*v[i].z + A))};
-            dq_dv[2*i + 1] = (point3_t){.x = fy * (v[i].y * (B*v[i].x)),
+            dq_dv[2*i + 1] = (mrcal_point3_t){.x = fy * (v[i].y * (B*v[i].x)),
                                         .y = fy * (v[i].y * (B*v[i].y) + scale),
                                         .z = fy * (v[i].y * (B*v[i].z + A))};
         }
-        q[i] = (point2_t){.x = v[i].x * scale * fx + cx,
+        q[i] = (mrcal_point2_t){.x = v[i].x * scale * fx + cx,
                           .y = v[i].y * scale * fy + cy};
     }
 }
 
 // Compute a stereographic unprojection using a constant fxy, cxy
 void mrcal_unproject_stereographic( // output
-                                   point3_t* v,
-                                   point2_t* dv_dq, // May be NULL. Each point
+                                   mrcal_point3_t* v,
+                                   mrcal_point2_t* dv_dq, // May be NULL. Each point
                                                     // gets a block of 3
-                                                    // point2_t objects
+                                                    // mrcal_point2_t objects
 
                                    // input
-                                   const point2_t* q,
+                                   const mrcal_point2_t* q,
                                    int N,
                                    double fx, double fy,
                                    double cx, double cy)
@@ -1194,18 +1194,18 @@ void mrcal_unproject_stereographic( // output
     //     print( unproj(proj(v)) / v)
     for(int i=0; i<N; i++)
     {
-        point2_t u = {.x = (q[i].x - cx) / fx,
+        mrcal_point2_t u = {.x = (q[i].x - cx) / fx,
                       .y = (q[i].y - cy) / fy};
 
         double norm2u = u.x*u.x + u.y*u.y;
         if(dv_dq)
         {
-            dv_dq[3*i + 0] = (point2_t){.x = 1.0/fx};
-            dv_dq[3*i + 1] = (point2_t){.y = 1.0/fy};
-            dv_dq[3*i + 2] = (point2_t){.x = -u.x/2.0/fx,
+            dv_dq[3*i + 0] = (mrcal_point2_t){.x = 1.0/fx};
+            dv_dq[3*i + 1] = (mrcal_point2_t){.y = 1.0/fy};
+            dv_dq[3*i + 2] = (mrcal_point2_t){.x = -u.x/2.0/fx,
                                         .y = -u.y/2.0/fy};
         }
-        v[i] = (point3_t){ .x = u.x,
+        v[i] = (mrcal_point3_t){ .x = u.x,
                            .y = u.y,
                            .z = 1. - 1./4. * norm2u };
     }
@@ -1309,24 +1309,24 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
 
 static
 void _project_point_splined( // outputs
-                            point2_t* q,
-                            point2_t* dq_dfxy,
+                            mrcal_point2_t* q,
+                            mrcal_point2_t* dq_dfxy,
 
                             double* grad_ABCDx_ABCDy,
                             int* ivar0,
 
                             // Gradient outputs. May be NULL
-                            point3_t* restrict dq_drcamera,
-                            point3_t* restrict dq_dtcamera,
-                            point3_t* restrict dq_drframe,
-                            point3_t* restrict dq_dtframe,
+                            mrcal_point3_t* restrict dq_drcamera,
+                            mrcal_point3_t* restrict dq_dtcamera,
+                            mrcal_point3_t* restrict dq_drframe,
+                            mrcal_point3_t* restrict dq_dtframe,
 
                             // inputs
-                            const point3_t* restrict p,
-                            const point3_t* restrict dp_drc,
-                            const point3_t* restrict dp_dtc,
-                            const point3_t* restrict dp_drf,
-                            const point3_t* restrict dp_dtf,
+                            const mrcal_point3_t* restrict p,
+                            const mrcal_point3_t* restrict dp_drc,
+                            const mrcal_point3_t* restrict dp_dtc,
+                            const mrcal_point3_t* restrict dp_drf,
+                            const mrcal_point3_t* restrict dp_dtf,
 
                             const double* restrict intrinsics,
                             bool camera_at_identity,
@@ -1366,7 +1366,7 @@ void _project_point_splined( // outputs
                          p->z*p->z );
     double scale = 2.0 / (mag_p + p->z);
 
-    point2_t u = {.x = p->x * scale,
+    mrcal_point2_t u = {.x = p->x * scale,
                   .y = p->y * scale};
     // du/dp = d/dp ( xy * scale )
     //       = pxy dscale/dp + [I; 0] scale
@@ -1389,7 +1389,7 @@ void _project_point_splined( // outputs
     double iy = u.y*segments_per_u + (double)(Ny-1)/2.;
 #warning need to bounds-check
     int ix0, iy0;
-    point2_t deltau;
+    mrcal_point2_t deltau;
     double ddeltau_dux[2];
     double ddeltau_duy[2];
     const double fx = intrinsics[0];
@@ -1490,10 +1490,10 @@ void _project_point_splined( // outputs
         dq_dfxy->y = u.y + deltau.y;
     }
 
-    void propagate_extrinsics( point3_t* dq_deee,
-                               const point3_t* dp_deee)
+    void propagate_extrinsics( mrcal_point3_t* dq_deee,
+                               const mrcal_point3_t* dp_deee)
     {
-        point3_t du_deee[2];
+        mrcal_point3_t du_deee[2];
         mul_genN3_gen33_vout(2, (double*)du_dp, (double*)dp_deee, (double*)du_deee);
 
         for(int i=0; i<3; i++)
@@ -1508,7 +1508,7 @@ void _project_point_splined( // outputs
                   ddeltau_dux[1] * du_deee[0].xyz[i]);
         }
     }
-    void propagate_extrinsics_cam0( point3_t* dq_deee)
+    void propagate_extrinsics_cam0( mrcal_point3_t* dq_deee)
     {
         for(int i=0; i<3; i++)
         {
@@ -1558,7 +1558,7 @@ typedef struct
 // gradients reference ALL of these points
 static
 void project( // out
-             point2_t* restrict q,
+             mrcal_point2_t* restrict q,
 
              // The intrinsics gradients. These are split among several arrays.
              // High-parameter-count lens models can return their gradients
@@ -1573,11 +1573,11 @@ void project( // out
              double** restrict dq_dfxy,
              double** restrict dq_dintrinsics_nocore,
              gradient_sparse_meta_t* gradient_sparse_meta,
-             point3_t* restrict dq_drcamera,
-             point3_t* restrict dq_dtcamera,
-             point3_t* restrict dq_drframe,
-             point3_t* restrict dq_dtframe,
-             point2_t* restrict dq_dcalobject_warp,
+             mrcal_point3_t* restrict dq_drcamera,
+             mrcal_point3_t* restrict dq_dtcamera,
+             mrcal_point3_t* restrict dq_drframe,
+             mrcal_point3_t* restrict dq_dtframe,
+             mrcal_point2_t* restrict dq_dcalobject_warp,
 
              // in
 
@@ -1585,7 +1585,7 @@ void project( // out
              const double* restrict intrinsics,
              const pose_t* restrict camera_rt,
              const pose_t* restrict frame_rt,
-             const point2_t* restrict calobject_warp,
+             const mrcal_point2_t* restrict calobject_warp,
 
              bool camera_at_identity, // if true, camera_rt is unused
              lensmodel_t lensmodel,
@@ -1681,7 +1681,7 @@ void project( // out
 
     mrcal_R_from_r(Rj, d_Rj_rj, joint_rt);
 
-    point2_t* p_dq_dfxy                  = NULL;
+    mrcal_point2_t* p_dq_dfxy                  = NULL;
     double*   p_dq_dintrinsics_nocore    = NULL;
     bool      has_core                   = modelHasCore_fxfycxcy(lensmodel);
     bool      has_dense_intrinsics_grad  = (lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC);
@@ -1700,7 +1700,7 @@ void project( // out
             // Each point produces 2 measurements. Each one depends on ONE fxy
             // element. So Npoints*2 of these
             *dq_dfxy  = &dq_dintrinsics_pool_double[ivar_pool];
-            p_dq_dfxy = (point2_t*)*dq_dfxy;
+            p_dq_dfxy = (mrcal_point2_t*)*dq_dfxy;
             ivar_pool += Npoints*2;
         }
         if(has_dense_intrinsics_grad)
@@ -1731,26 +1731,26 @@ void project( // out
 
     // These are produced by propagate_extrinsics() and consumed by
     // project_point()
-    point3_t _dp_drc[3];
-    point3_t _dp_dtc[3];
-    point3_t _dp_drf[3];
-    point3_t _dp_dtf[3];
-    point3_t* dp_drc;
-    point3_t* dp_dtc;
-    point3_t* dp_drf;
-    point3_t* dp_dtf;
+    mrcal_point3_t _dp_drc[3];
+    mrcal_point3_t _dp_dtc[3];
+    mrcal_point3_t _dp_drf[3];
+    mrcal_point3_t _dp_dtf[3];
+    mrcal_point3_t* dp_drc;
+    mrcal_point3_t* dp_dtc;
+    mrcal_point3_t* dp_drf;
+    mrcal_point3_t* dp_dtf;
 
-    point3_t propagate_extrinsics( const point3_t* pt_ref,
+    mrcal_point3_t propagate_extrinsics( const mrcal_point3_t* pt_ref,
                                    const geometric_gradients_t* gg,
                                    const double* Rj, const double* d_Rj_rj,
                                    const double* _tj )
     {
         // Rj * pt + tj -> pt
-        point3_t p;
+        mrcal_point3_t p;
         mul_vec3_gen33t_vout(pt_ref->xyz, Rj, p.xyz);
         add_vec(3, p.xyz,  _tj);
 
-        void propagate_extrinsics_one(point3_t* dp_dparam,
+        void propagate_extrinsics_one(mrcal_point3_t* dp_dparam,
                                       const double* drj_dparam,
                                       const double* dtj_dparam,
                                       const double* d_Rj_rj)
@@ -1764,7 +1764,7 @@ void project( // out
                 add_vec(3, dp_dparam[i].xyz, &dtj_dparam[3*i] );
             }
         }
-        void propagate_extrinsics_one_rzero(point3_t* dp_dparam,
+        void propagate_extrinsics_one_rzero(mrcal_point3_t* dp_dparam,
                                             const double* dtj_dparam,
                                             const double* d_Rj_rj)
         {
@@ -1772,7 +1772,7 @@ void project( // out
             // dRj[row0]/drc = dRj[row0]/drj * drj_drc
             memcpy(dp_dparam->xyz, dtj_dparam, 9*sizeof(double));
         }
-        void propagate_extrinsics_one_tzero(point3_t* dp_dparam,
+        void propagate_extrinsics_one_tzero(mrcal_point3_t* dp_dparam,
                                             const double* drj_dparam,
                                             const double* d_Rj_rj)
         {
@@ -1784,15 +1784,15 @@ void project( // out
                 mul_vec3_gen33     ( dp_dparam[i].xyz,   drj_dparam);
             }
         }
-        void propagate_extrinsics_one_rzero_tidentity(point3_t* dp_dparam,
+        void propagate_extrinsics_one_rzero_tidentity(mrcal_point3_t* dp_dparam,
                                                       const double* d_Rj_rj)
         {
-            dp_dparam[0] = (point3_t){.x = 1.0};
-            dp_dparam[1] = (point3_t){.y = 1.0};
-            dp_dparam[2] = (point3_t){.z = 1.0};
+            dp_dparam[0] = (mrcal_point3_t){.x = 1.0};
+            dp_dparam[1] = (mrcal_point3_t){.y = 1.0};
+            dp_dparam[2] = (mrcal_point3_t){.z = 1.0};
         }
 
-        void propagate_extrinsics_one_cam0(point3_t* dp_rf,
+        void propagate_extrinsics_one_cam0(mrcal_point3_t* dp_rf,
                                            const double* _d_Rf_rf)
         {
             // dRj[row0]/drj is 3x3 matrix at &_d_Rf_rf[0]
@@ -1834,21 +1834,21 @@ void project( // out
     }
 
     void project_point( // outputs
-                       point2_t* q,
-                       point2_t* p_dq_dfxy,
+                       mrcal_point2_t* q,
+                       mrcal_point2_t* p_dq_dfxy,
                        double* p_dq_dintrinsics_nocore,
                        double* gradient_sparse_meta_pool,
                        int runlen,
-                       point3_t* restrict dq_drcamera,
-                       point3_t* restrict dq_dtcamera,
-                       point3_t* restrict dq_drframe,
-                       point3_t* restrict dq_dtframe,
-                       point2_t* restrict dq_dcalobject_warp,
+                       mrcal_point3_t* restrict dq_drcamera,
+                       mrcal_point3_t* restrict dq_dtcamera,
+                       mrcal_point3_t* restrict dq_drframe,
+                       mrcal_point3_t* restrict dq_dtframe,
+                       mrcal_point2_t* restrict dq_dcalobject_warp,
                        // inputs
-                       const point3_t* p,
+                       const mrcal_point3_t* p,
                        const double* restrict intrinsics,
                        lensmodel_t lensmodel,
-                       const point2_t* dpt_ref2_dwarp,
+                       const mrcal_point2_t* dpt_ref2_dwarp,
 
                        // if NULL then the camera is at the reference
                        bool camera_at_identity,
@@ -1909,7 +1909,7 @@ void project( // out
             //            [a b]
             // Let R = [r0 r1 r2]
             // dp/dw = dp/dt [ar2 br2] = [a dp/dt r2    b dp/dt r2]
-            point3_t* p_dq_dt;
+            mrcal_point3_t* p_dq_dt;
             if(!camera_at_identity) p_dq_dt = dq_dtcamera;
             else                    p_dq_dt = dq_dtframe;
             if(!p_dq_dt)
@@ -1939,8 +1939,8 @@ void project( // out
         0;
     if( !calibration_object_width_n )
     {
-        point3_t p =
-            propagate_extrinsics( &(point3_t){},
+        mrcal_point3_t p =
+            propagate_extrinsics( &(mrcal_point3_t){},
                                   camera_at_identity ? NULL : &gg,
                                   Rj, d_Rj_rj, &joint_rt[3]);
         project_point(  q,
@@ -1961,9 +1961,9 @@ void project( // out
         for(int y = 0; y<calibration_object_height_n; y++)
             for(int x = 0; x<calibration_object_width_n; x++)
             {
-                point3_t pt_ref = {.x = (double)x * calibration_object_spacing,
+                mrcal_point3_t pt_ref = {.x = (double)x * calibration_object_spacing,
                                    .y = (double)y * calibration_object_spacing};
-                point2_t dpt_ref2_dwarp = {};
+                mrcal_point2_t dpt_ref2_dwarp = {};
 
                 if(calobject_warp != NULL)
                 {
@@ -1985,7 +1985,7 @@ void project( // out
                     dpt_ref2_dwarp.y = dy;
                 }
 
-                point3_t p =
+                mrcal_point3_t p =
                     propagate_extrinsics( &pt_ref,
                                           camera_at_identity ? NULL : &gg,
                                           Rj, d_Rj_rj, &joint_rt[3]);
@@ -2012,10 +2012,10 @@ void project( // out
 // NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
 // only
 bool _mrcal_project_internal_cahvore( // out
-                                     point2_t* out,
+                                     mrcal_point2_t* out,
 
                                      // in
-                                     const point3_t* v,
+                                     const mrcal_point3_t* v,
                                      int N,
 
                                      // core, distortions concatenated
@@ -2185,11 +2185,11 @@ bool _mrcal_project_internal_cahvore( // out
 // NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
 // only
 bool _mrcal_project_internal( // out
-                             point2_t* q,
+                             mrcal_point2_t* q,
 
                              // Stored as a row-first array of shape (N,2,3). Each
-                             // trailing ,3 dimension element is a point3_t
-                             point3_t* dq_dp,
+                             // trailing ,3 dimension element is a mrcal_point3_t
+                             mrcal_point3_t* dq_dp,
                              // core, distortions concatenated. Stored as a row-first
                              // array of shape (N,2,Nintrinsics). This is a DENSE array.
                              // High-parameter-count lens models have very sparse
@@ -2199,7 +2199,7 @@ bool _mrcal_project_internal( // out
                              double*   dq_dintrinsics,
 
                              // in
-                             const point3_t* p,
+                             const mrcal_point3_t* p,
                              int N,
                              lensmodel_t lensmodel,
                              // core, distortions concatenated
@@ -2322,11 +2322,11 @@ bool _mrcal_project_internal( // out
 //
 // This function supports CAHVORE distortions if we don't ask for gradients
 bool mrcal_project( // out
-                   point2_t* q,
+                   mrcal_point2_t* q,
 
                    // Stored as a row-first array of shape (N,2,3). Each
-                   // trailing ,3 dimension element is a point3_t
-                   point3_t* dq_dp,
+                   // trailing ,3 dimension element is a mrcal_point3_t
+                   mrcal_point3_t* dq_dp,
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics). This is a DENSE array.
                    // High-parameter-count lens models have very sparse
@@ -2336,7 +2336,7 @@ bool mrcal_project( // out
                    double*   dq_dintrinsics,
 
                    // in
-                   const point3_t* p,
+                   const mrcal_point3_t* p,
                    int N,
                    lensmodel_t lensmodel,
                    // core, distortions concatenated
@@ -2399,10 +2399,10 @@ bool mrcal_project( // out
 //
 // This function does NOT support CAHVORE
 bool mrcal_unproject( // out
-                     point3_t* out,
+                     mrcal_point3_t* out,
 
                      // in
-                     const point2_t* q,
+                     const mrcal_point2_t* q,
                      int N,
                      lensmodel_t lensmodel,
                      // core, distortions concatenated
@@ -2454,10 +2454,10 @@ bool mrcal_unproject( // out
 // NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
 // only
 bool _mrcal_unproject_internal( // out
-                               point3_t* out,
+                               mrcal_point3_t* out,
 
                                // in
-                               const point2_t* q,
+                               const mrcal_point2_t* q,
                                int N,
                                lensmodel_t lensmodel,
                                // core, distortions concatenated
@@ -2483,14 +2483,14 @@ bool _mrcal_unproject_internal( // out
             // u is the constant-fxy-cxy 2D stereographic
             // projection of the hypothesis v. I unproject it stereographically,
             // and project it using the actual model
-            point2_t dv_du[3];
+            mrcal_point2_t dv_du[3];
             pose_t frame = {};
             mrcal_unproject_stereographic( &frame.t, dv_du,
-                                           (point2_t*)u, 1,
+                                           (mrcal_point2_t*)u, 1,
                                            fx,fy,cx,cy );
 
-            point3_t dq_dtframe[2];
-            point2_t q_hypothesis;
+            mrcal_point3_t dq_dtframe[2];
+            mrcal_point2_t q_hypothesis;
             project( &q_hypothesis,
                      NULL,NULL,NULL,NULL,NULL,
                      NULL, NULL, NULL, dq_dtframe,
@@ -2577,8 +2577,8 @@ bool _mrcal_unproject_internal( // out
             // thing if we're reporting in 2d. Otherwise I need to unproject
 
             // This is the normal no-error path
-            mrcal_unproject_stereographic((point3_t*)out, NULL,
-                                          (point2_t*)out, 1,
+            mrcal_unproject_stereographic((mrcal_point3_t*)out, NULL,
+                                          (mrcal_point2_t*)out, 1,
                                           fx,fy,cx,cy);
             if(!model_supports_projection_behind_camera(lensmodel) && out->xyz[2] < 0.0)
             {
@@ -2656,8 +2656,8 @@ static void pack_solver_state( // out
                               const double* intrinsics, // Ncameras_intrinsics of these
                               const pose_t*            extrinsics_fromref, // Ncameras_extrinsics of these
                               const pose_t*            frames_toref,     // Nframes of these
-                              const point3_t*          points,     // Npoints of these
-                              const point2_t*          calobject_warp, // 1 of these
+                              const mrcal_point3_t*          points,     // Npoints of these
+                              const mrcal_point2_t*          calobject_warp, // 1 of these
                               mrcal_problem_details_t problem_details,
                               int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                               int NpointsVariable,
@@ -2763,7 +2763,7 @@ void mrcal_pack_solver_state_vector( // out, in
 
         for(int i_point = 0; i_point < NpointsVariable; i_point++)
         {
-            point3_t* points = (point3_t*)(&p[i_state]);
+            mrcal_point3_t* points = (mrcal_point3_t*)(&p[i_state]);
             p[i_state++] = points->xyz[0] / SCALE_POSITION_POINT;
             p[i_state++] = points->xyz[1] / SCALE_POSITION_POINT;
             p[i_state++] = points->xyz[2] / SCALE_POSITION_POINT;
@@ -2772,7 +2772,7 @@ void mrcal_pack_solver_state_vector( // out, in
 
     if( problem_details.do_optimize_calobject_warp )
     {
-        point2_t* calobject_warp = (point2_t*)(&p[i_state]);
+        mrcal_point2_t* calobject_warp = (mrcal_point2_t*)(&p[i_state]);
         p[i_state++] = calobject_warp->x / SCALE_CALOBJECT_WARP;
         p[i_state++] = calobject_warp->y / SCALE_CALOBJECT_WARP;
     }
@@ -2884,7 +2884,7 @@ static int unpack_solver_state_framert_one(// out
 }
 
 static int unpack_solver_state_point_one(// out
-                                         point3_t* point,
+                                         mrcal_point3_t* point,
 
                                          // in
                                          const double* p)
@@ -2897,7 +2897,7 @@ static int unpack_solver_state_point_one(// out
 }
 
 static int unpack_solver_state_calobject_warp(// out
-                                              point2_t* calobject_warp,
+                                              mrcal_point2_t* calobject_warp,
 
                                               // in
                                               const double* p)
@@ -2914,8 +2914,8 @@ static void unpack_solver_state( // out
 
                                  pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these
                                  pose_t*       frames_toref,     // Nframes of these
-                                 point3_t*     points,     // Npoints of these
-                                 point2_t*     calobject_warp, // 1 of these
+                                 mrcal_point3_t*     points,     // Npoints of these
+                                 mrcal_point2_t*     calobject_warp, // 1 of these
 
                                  // in
                                  const double* p,
@@ -2979,13 +2979,13 @@ void mrcal_unpack_solver_state_vector( // out, in
         pose_t* frames_toref = (pose_t*)(&p[i_state]);
         for(int i_frame = 0; i_frame < Nframes; i_frame++)
             i_state += unpack_solver_state_framert_one( &frames_toref[i_frame], &p[i_state] );
-        point3_t* points = (point3_t*)(&p[i_state]);
+        mrcal_point3_t* points = (mrcal_point3_t*)(&p[i_state]);
         for(int i_point = 0; i_point < NpointsVariable; i_point++)
             i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
     }
     if( problem_details.do_optimize_calobject_warp )
     {
-        point2_t* calobject_warp = (point2_t*)(&p[i_state]);
+        mrcal_point2_t* calobject_warp = (mrcal_point2_t*)(&p[i_state]);
         i_state += unpack_solver_state_calobject_warp(calobject_warp, &p[i_state]);
     }
 }
@@ -3101,9 +3101,9 @@ bool mrcal_get_corresponding_icam_extrinsics(// out
 static
 bool markOutliers(// output, input
 
-                  // the weight stored in each point3_t.z indicates outlierness
+                  // the weight stored in each mrcal_point3_t.z indicates outlierness
                   // on entry AND on exit. Outliers have weight < 0.0
-                  point3_t* observations_board_pool,
+                  mrcal_point3_t* observations_board_pool,
 
                   // output
                   int* Noutliers,
@@ -3167,7 +3167,7 @@ bool markOutliers(// output, input
             i_pt < calibration_object_width_n*calibration_object_height_n; \
             i_pt++, i_feature++)                                        \
         {                                                               \
-            const point3_t* pt_observed = &observations_board_pool[i_feature]; \
+            const mrcal_point3_t* pt_observed = &observations_board_pool[i_feature]; \
             double* weight = &observations_board_pool[i_feature].z;
 
 
@@ -3255,15 +3255,15 @@ typedef struct
     const double*       intrinsics; // Ncameras_intrinsics * NlensParams of these
     const pose_t*       extrinsics_fromref; // Ncameras_extrinsics of these. Transform FROM the reference frame
     const pose_t*       frames_toref;     // Nframes of these.    Transform TO the reference frame
-    const point3_t*     points;     // Npoints of these.    In the reference frame
-    const point2_t*     calobject_warp; // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+    const mrcal_point3_t*     points;     // Npoints of these.    In the reference frame
+    const mrcal_point2_t*     calobject_warp; // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
     // in
     int Ncameras_intrinsics, Ncameras_extrinsics, Nframes;
     int Npoints, Npoints_fixed;
 
     const observation_board_t* observations_board;
-    const point3_t* observations_board_pool;
+    const mrcal_point3_t* observations_board_pool;
     int NobservationsBoard;
 
     const observation_point_t* observations_point;
@@ -3352,7 +3352,7 @@ void optimizerCallback(// input state
     double intrinsics_all[ctx->Ncameras_intrinsics][ctx->Nintrinsics];
     pose_t camera_rt[ctx->Ncameras_extrinsics];
 
-    point2_t calobject_warp_local = {};
+    mrcal_point2_t calobject_warp_local = {};
     const int i_var_calobject_warp =
         mrcal_state_index_calobject_warp(ctx->Npoints - ctx->Npoints_fixed,
                                          ctx->Nframes,
@@ -3433,12 +3433,12 @@ void optimizerCallback(// input state
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
-        point3_t dq_drcamera       [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
-        point3_t dq_dtcamera       [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
-        point3_t dq_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
-        point3_t dq_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
-        point2_t dq_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
-        point2_t pt_hypothesis     [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
+        mrcal_point3_t dq_drcamera       [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        mrcal_point3_t dq_dtcamera       [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        mrcal_point3_t dq_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        mrcal_point3_t dq_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        mrcal_point2_t dq_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
+        mrcal_point2_t pt_hypothesis     [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
         // I get the intrinsics gradients in separate arrays, possibly sparsely.
         // All the data lives in dq_dintrinsics_pool_double[], with the other data
         // indicating the meaning of the values in the pool.
@@ -3465,15 +3465,15 @@ void optimizerCallback(// input state
                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
                 ctx->problem_details.do_optimize_extrinsics ?
-                (point3_t*)dq_drcamera : NULL,
+                (mrcal_point3_t*)dq_drcamera : NULL,
                 ctx->problem_details.do_optimize_extrinsics ?
-                (point3_t*)dq_dtcamera : NULL,
+                (mrcal_point3_t*)dq_dtcamera : NULL,
                 ctx->problem_details.do_optimize_frames ?
-                (point3_t*)dq_drframe : NULL,
+                (mrcal_point3_t*)dq_drframe : NULL,
                 ctx->problem_details.do_optimize_frames ?
-                (point3_t*)dq_dtframe : NULL,
+                (mrcal_point3_t*)dq_dtframe : NULL,
                 ctx->problem_details.do_optimize_calobject_warp ?
-                (point2_t*)dq_dcalobject_warp : NULL,
+                (mrcal_point2_t*)dq_dcalobject_warp : NULL,
 
                 // input
                 intrinsics_all[i_cam_intrinsics],
@@ -3489,7 +3489,7 @@ void optimizerCallback(// input state
             i_pt < ctx->calibration_object_width_n*ctx->calibration_object_height_n;
             i_pt++, i_feature++)
         {
-            const point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
+            const mrcal_point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
             double weight = pt_observed->z;
 
             if(weight >= 0.0)
@@ -3707,7 +3707,7 @@ void optimizerCallback(// input state
             ctx->problem_details.do_optimize_frames &&
             i_point < ctx->Npoints - ctx->Npoints_fixed;
 
-        const point3_t* pt_observed = &observation->px;
+        const mrcal_point3_t* pt_observed = &observation->px;
         double weight = pt_observed->z;
 
         const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                              ctx->problem_details, ctx->lensmodel);
@@ -3716,7 +3716,7 @@ void optimizerCallback(// input state
         const int i_var_point      = mrcal_state_index_point     (i_point, ctx->Nframes,
                                                                   ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                                                   ctx->problem_details, ctx->lensmodel);
-        point3_t point;
+        mrcal_point3_t point;
         if(use_position_from_state)
             unpack_solver_state_point_one(&point, &packed_state[i_var_point]);
         else
@@ -3729,15 +3729,15 @@ void optimizerCallback(// input state
         double* dq_dintrinsics_nocore               = NULL;
         gradient_sparse_meta_t gradient_sparse_meta = {};
 
-        point3_t dq_drcamera[2];
-        point3_t dq_dtcamera[2];
-        point3_t dq_dpoint  [2];
+        mrcal_point3_t dq_drcamera[2];
+        mrcal_point3_t dq_dtcamera[2];
+        mrcal_point3_t dq_dpoint  [2];
 
         // The array reference [-3] is intended, but the compiler throws a
         // warning. I silence it here
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
-        point2_t pt_hypothesis;
+        mrcal_point2_t pt_hypothesis;
         project(&pt_hypothesis,
 
                 ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
@@ -3936,7 +3936,7 @@ void optimizerCallback(// input state
                            d_Rc_rc,
                            camera_rt[i_cam_extrinsics].r.xyz);
 
-            point3_t pcam;
+            mrcal_point3_t pcam;
             mul_vec3_gen33t_vout(point.xyz, Rc, pcam.xyz);
             add_vec(3, pcam.xyz, camera_rt[i_cam_extrinsics].t.xyz);
 
@@ -4223,8 +4223,8 @@ bool mrcal_optimizerCallback(// out
                              const double*       intrinsics,         // Ncameras_intrinsics * NlensParams
                              const pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
                              const pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
-                             const point3_t*     points,     // Npoints of these.    In the reference frame
-                             const point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                             const mrcal_point3_t*     points,     // Npoints of these.    In the reference frame
+                             const mrcal_point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                              int Npoints, int Npoints_fixed, // at the end of points[]
@@ -4240,7 +4240,7 @@ bool mrcal_optimizerCallback(// out
                              // of observed_pixel_uncertainty.
                              // observed_pixel_uncertainty scales inversely with
                              // the weight
-                             const point3_t* observations_board_pool,
+                             const mrcal_point3_t* observations_board_pool,
                              int NobservationsBoard,
 
                              const observation_point_t* observations_point,
@@ -4404,8 +4404,8 @@ mrcal_optimize( // out
                 double*       intrinsics,         // Ncameras_intrinsics * NlensParams
                 pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                 pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
-                point3_t*     points,             // Npoints of these.    In the reference frame
-                point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
+                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
                 // All the board pixel observations, in order.
                 // .x, .y are the pixel observations
@@ -4418,7 +4418,7 @@ mrcal_optimize( // out
                 // z<0 indicates that this is an outlier. This is respected on
                 // input (even if skip_outlier_rejection). New outliers are
                 // marked with z<0 on output, so this isn't const
-                point3_t* observations_board_pool,
+                mrcal_point3_t* observations_board_pool,
                 int NobservationsBoard,
 
                 // in

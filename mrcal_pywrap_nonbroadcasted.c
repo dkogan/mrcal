@@ -1000,15 +1000,15 @@ static PyObject* _un_project_stereographic(PyObject* NPY_UNUSED(self),
     }
 
     if(projecting)
-        mrcal_project_stereographic((point2_t*)PyArray_DATA(out),
-                                    get_gradients_bool ? (point3_t*)PyArray_DATA(grad)  : NULL,
-                                    (const point3_t*)PyArray_DATA(points),
+        mrcal_project_stereographic((mrcal_point2_t*)PyArray_DATA(out),
+                                    get_gradients_bool ? (mrcal_point3_t*)PyArray_DATA(grad)  : NULL,
+                                    (const mrcal_point3_t*)PyArray_DATA(points),
                                     Npoints,
                                     fx,fy,cx,cy);
     else
-        mrcal_unproject_stereographic((point3_t*)PyArray_DATA(out),
-                                      get_gradients_bool ? (point2_t*)PyArray_DATA(grad) : NULL,
-                                      (const point2_t*)PyArray_DATA(points),
+        mrcal_unproject_stereographic((mrcal_point3_t*)PyArray_DATA(out),
+                                      get_gradients_bool ? (mrcal_point2_t*)PyArray_DATA(grad) : NULL,
+                                      (const mrcal_point2_t*)PyArray_DATA(points),
                                       Npoints,
                                       fx,fy,cx,cy);
 
@@ -1439,13 +1439,13 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         double*       c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
         pose_t*       c_extrinsics     = (pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
         pose_t*       c_frames         = (pose_t*)  PyArray_DATA(frames_rt_toref);
-        point3_t*     c_points         = (point3_t*)PyArray_DATA(points);
-        point2_t*     c_calobject_warp =
+        mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
+        mrcal_point2_t*     c_calobject_warp =
             IS_NULL(calobject_warp) ?
-            NULL : (point2_t*)PyArray_DATA(calobject_warp);
+            NULL : (mrcal_point2_t*)PyArray_DATA(calobject_warp);
 
 
-        point3_t* c_observations_board_pool = (point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
+        mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
 
         observation_board_t c_observations_board[NobservationsBoard];
         fill_c_observations_board(c_observations_board,
@@ -1465,7 +1465,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             c_observations_point[i_observation].i_cam_extrinsics = i_cam_extrinsics;
             c_observations_point[i_observation].i_point          = i_point;
 
-            c_observations_point[i_observation].px = ((point3_t*)PyArray_DATA(observations_point))[i_observation];
+            c_observations_point[i_observation].px = ((mrcal_point3_t*)PyArray_DATA(observations_point))[i_observation];
         }
 
 

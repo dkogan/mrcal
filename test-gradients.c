@@ -119,10 +119,10 @@ int main(int argc, char* argv[] )
           { .r = { .xyz = {  .20,  -.22,   .75}},  .t = { .xyz = { 3.1, 6.3, 10.4}}}};
     int Nframes  = sizeof(frames)    /sizeof(frames[0]);
 
-    point3_t points[] =
+    mrcal_point3_t points[] =
         { {.xyz = {-5.3,   2.3, 20.4}},
           {.xyz = {-15.3, -3.2, 200.4}}};
-    point2_t calobject_warp = {.x = 0.001, .y = -0.005};
+    mrcal_point2_t calobject_warp = {.x = 0.001, .y = -0.005};
 
     int Npoints      = sizeof(points)/sizeof(points[0]);
     int Npoints_fixed = 1;
@@ -130,8 +130,8 @@ int main(int argc, char* argv[] )
 #define calibration_object_width_n  10
 #define calibration_object_height_n 9
 
-    point3_t observations_px      [6][calibration_object_width_n*calibration_object_height_n] = {};
-    point3_t observations_point_px[4] = {};
+    mrcal_point3_t observations_px      [6][calibration_object_width_n*calibration_object_height_n] = {};
+    mrcal_point3_t observations_point_px[4] = {};
     // How many of the observations we want to actually use. Can be fewer than
     // defined in the above arrays if we're testing something
 #define NobservationsBoard 6
@@ -334,7 +334,7 @@ int main(int argc, char* argv[] )
                     points,
                     &calobject_warp,
 
-                    (point3_t*)observations_px,
+                    (mrcal_point3_t*)observations_px,
                     NobservationsBoard,
 
                     Ncameras_intrinsics,Ncameras_extrinsics,
