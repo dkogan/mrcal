@@ -7,12 +7,6 @@
 #include "poseutils.h"
 
 
-// unconstrained 6DOF pose containing a rodrigues rotation and a translation
-typedef struct
-{
-    mrcal_point3_t r,t;
-} pose_t;
-
 // An observation of a calibration board. Each "observation" is ONE camera
 // observing a board
 typedef struct

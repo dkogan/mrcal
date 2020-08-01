@@ -17,3 +17,9 @@ typedef union
     };
     double xyz[3];
 } mrcal_point3_t;
+
+// unconstrained 6DOF pose containing a rodrigues rotation and a translation
+typedef struct
+{
+    mrcal_point3_t r,t;
+} pose_t;
