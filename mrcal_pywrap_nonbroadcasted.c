@@ -2267,18 +2267,18 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
         {
             mrcal_pack_solver_state_vector( x,
-                                            mrcal_lensmodel_type, problem_details,
                                             Ncameras_intrinsics, Ncameras_extrinsics,
-                                            Nframes, Npoints-Npoints_fixed );
+                                            Nframes, Npoints-Npoints_fixed,
+                                            problem_details, mrcal_lensmodel_type);
             x = &x[Nstate];
         }
     else
         for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
         {
             mrcal_unpack_solver_state_vector( x,
-                                              mrcal_lensmodel_type, problem_details,
                                               Ncameras_intrinsics, Ncameras_extrinsics,
-                                              Nframes, Npoints-Npoints_fixed );
+                                              Nframes, Npoints-Npoints_fixed,
+                                              problem_details, mrcal_lensmodel_type);
             x = &x[Nstate];
         }
 

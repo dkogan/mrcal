@@ -2717,10 +2717,10 @@ void mrcal_pack_solver_state_vector( // out, in
                                                 // meaningful state on output
 
                                      // in
-                                     const mrcal_lensmodel_t lensmodel,
-                                     mrcal_problem_details_t problem_details,
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                     int Nframes, int Npoints_variable)
+                                     int Nframes, int Npoints_variable,
+                                     mrcal_problem_details_t problem_details,
+                                     const mrcal_lensmodel_t lensmodel)
 {
     int i_state = 0;
 
@@ -2950,10 +2950,10 @@ void mrcal_unpack_solver_state_vector( // out, in
                                                   // output
 
                                        // in
-                                       const mrcal_lensmodel_t lensmodel,
-                                       mrcal_problem_details_t problem_details,
                                        int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                       int Nframes, int Npoints_variable)
+                                       int Nframes, int Npoints_variable,
+                                       mrcal_problem_details_t problem_details,
+                                       const mrcal_lensmodel_t lensmodel)
 {
     int i_state = unpack_solver_state_intrinsics(p,
                                                  p, lensmodel, problem_details,
