@@ -591,16 +591,23 @@ def get_point_cov_plot_args(q, what):
     return get_cov_plot_args(q_mean,Var, what)
 
 def make_plot(icam, **kwargs):
+
+    q_sampled_mean = np.mean(q_sampled[:,icam,:],axis=-2)
+
     p = gp.gnuplotlib(square=1,
-                      _xrange=(q0[0]-2,q0[0]+2),
-                      _yrange=(q0[1]-2,q0[1]+2),
+                      _xrange=(q_sampled_mean[0]-2,q_sampled_mean[0]+2),
+                      _yrange=(q_sampled_mean[1]-2,q_sampled_mean[1]+2),
                       title=f'Uncertainty reprojection distribution for camera {icam}',
                       **kwargs)
     p.plot( (q_sampled[:,icam,0], q_sampled[:,icam,1],
-             dict(_with = 'points pt 7 ps 2',
+             dict(_with = 'points pt 6',
                   tuplesize = 2)),
             *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed"),
-            *get_cov_plot_args( q0, Var_dq[icam], "Propagating intrinsics, extrinsics uncertainties"))
+            *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Propagating intrinsics, extrinsics uncertainties"),
+            (q0,
+             dict(tuplesize = -2,
+                  _with     = 'points pt 1 ps 2',
+                  legend    = 'Nominal center point. Regularization may bias the distribution off this point')))
     return p
 
 if 'show-distribution' in args:
