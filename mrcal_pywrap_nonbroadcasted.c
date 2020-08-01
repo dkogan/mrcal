@@ -54,9 +54,9 @@ do {                                                                    \
 } while(0)
 
 #define PERCENT_S_COMMA(s,n) "'%s',"
-#define COMMA_LENSMODEL_NAME(s,n) , mrcal_lensmodel_name( (mrcal_lensmodel_t){.type = s} )
-#define VALID_LENSMODELS_FORMAT  "(" LENSMODEL_LIST(PERCENT_S_COMMA) ")"
-#define VALID_LENSMODELS_ARGLIST LENSMODEL_LIST(COMMA_LENSMODEL_NAME)
+#define COMMA_LENSMODEL_NAME(s,n) , mrcal_lensmodel_name( (mrcal_lensmodel_t){.type = MRCAL_##s} )
+#define VALID_LENSMODELS_FORMAT  "(" MRCAL_LENSMODEL_LIST(PERCENT_S_COMMA) ")"
+#define VALID_LENSMODELS_ARGLIST MRCAL_LENSMODEL_LIST(COMMA_LENSMODEL_NAME)
 
 #define CHECK_CONTIGUOUS(x) do {                                        \
     if( !PyArray_IS_C_CONTIGUOUS(x) )                                   \
@@ -689,9 +689,9 @@ static bool parse_lensmodel_from_arg(// output
     }
 
     *lensmodel = mrcal_lensmodel_from_name(lensmodel_cstring);
-    if( !mrcal_mrcal_lensmodel_type_is_valid(lensmodel->type) )
+    if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
-        if(lensmodel->type == LENSMODEL_INVALID_BADCONFIG)
+        if(lensmodel->type == MRCAL_LENSMODEL_INVALID_BADCONFIG)
         {
             BARF("Couldn't parse the configuration of the given lens model '%s'",
                          lensmodel_cstring);
@@ -723,7 +723,7 @@ static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
 #define MRCAL_ITEM_BUILDVALUE_DEF(  name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) " s "pybuildvaluecode
 #define MRCAL_ITEM_BUILDVALUE_VALUE(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) , #name, cookie name
 
-    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC )
+    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
         result = Py_BuildValue("{"
                                MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
                                MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
@@ -758,9 +758,9 @@ static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
 
-    if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
+    if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
-        BARF( "This function works only with the LENSMODEL_SPLINED_STEREOGRAPHIC model. %S passed in",
+        BARF( "This function works only with the MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC model. %S passed in",
               lensmodel_string);
         goto done;
     }

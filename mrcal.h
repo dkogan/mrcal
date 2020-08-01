@@ -48,7 +48,7 @@ typedef struct
 // <=0 means the parameter count is dynamic and will be computed by
 // mrcal_getNlensParams(). This also implies that this model has some
 // configuration that affects the parameter count
-#define LENSMODEL_NOCONFIG_LIST(_)                                    \
+#define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                    \
     _(LENSMODEL_PINHOLE, 4)                                           \
     _(LENSMODEL_STEREOGRAPHIC, 4) /* Simple stereographic-only model */ \
     _(LENSMODEL_OPENCV4, 8)                                           \
@@ -57,30 +57,30 @@ typedef struct
     _(LENSMODEL_OPENCV12,16)   /* available in OpenCV >= 3.0.0) */    \
     _(LENSMODEL_CAHVOR,  9)                                           \
     _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */
-#define LENSMODEL_WITHCONFIG_LIST(_)                                  \
+#define MRCAL_LENSMODEL_WITHCONFIG_LIST(_)                                  \
     _(LENSMODEL_SPLINED_STEREOGRAPHIC,      0)
-#define LENSMODEL_LIST(_)                       \
-    LENSMODEL_NOCONFIG_LIST(_)                  \
-    LENSMODEL_WITHCONFIG_LIST(_)
+#define MRCAL_LENSMODEL_LIST(_)                 \
+    MRCAL_LENSMODEL_NOCONFIG_LIST(_)            \
+    MRCAL_LENSMODEL_WITHCONFIG_LIST(_)
 
 // parametric models have no extra configuration, and no precomputed data
-typedef struct {} LENSMODEL_PINHOLE__config_t;
-typedef struct {} LENSMODEL_STEREOGRAPHIC__config_t;
-typedef struct {} LENSMODEL_OPENCV4__config_t;
-typedef struct {} LENSMODEL_OPENCV5__config_t;
-typedef struct {} LENSMODEL_OPENCV8__config_t;
-typedef struct {} LENSMODEL_OPENCV12__config_t;
-typedef struct {} LENSMODEL_CAHVOR__config_t;
-typedef struct {} LENSMODEL_CAHVORE__config_t;
+typedef struct {} mrcal_LENSMODEL_PINHOLE__config_t;
+typedef struct {} mrcal_LENSMODEL_STEREOGRAPHIC__config_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV4__config_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV5__config_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV8__config_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV12__config_t;
+typedef struct {} mrcal_LENSMODEL_CAHVOR__config_t;
+typedef struct {} mrcal_LENSMODEL_CAHVORE__config_t;
 
-typedef struct {} LENSMODEL_PINHOLE__precomputed_t;
-typedef struct {} LENSMODEL_STEREOGRAPHIC__precomputed_t;
-typedef struct {} LENSMODEL_OPENCV4__precomputed_t;
-typedef struct {} LENSMODEL_OPENCV5__precomputed_t;
-typedef struct {} LENSMODEL_OPENCV8__precomputed_t;
-typedef struct {} LENSMODEL_OPENCV12__precomputed_t;
-typedef struct {} LENSMODEL_CAHVOR__precomputed_t;
-typedef struct {} LENSMODEL_CAHVORE__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_PINHOLE__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_STEREOGRAPHIC__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV4__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV5__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV8__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV12__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_CAHVOR__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_CAHVORE__precomputed_t;
 
 #define MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
 
@@ -102,7 +102,7 @@ _Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short t
 typedef struct
 {
     MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
-} LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
+} mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
 
 // The splined stereographic models configuration parameters can be used to
 // compute the segment size. I cache this computation
@@ -111,30 +111,28 @@ typedef struct
     // The distance between adjacent knots (1 segment) is u_per_segment =
     // 1/segments_per_u
     double segments_per_u;
-} LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t;
+} mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t;
 
-#define LENSMODEL_OPENCV_FIRST LENSMODEL_OPENCV4
-#define LENSMODEL_OPENCV_LAST  LENSMODEL_OPENCV12
-#define LENSMODEL_IS_OPENCV(d) (LENSMODEL_OPENCV_FIRST <= (d) && (d) <= LENSMODEL_OPENCV_LAST)
+#define MRCAL_LENSMODEL_IS_OPENCV(d) (MRCAL_LENSMODEL_OPENCV4 <= (d) && (d) <= MRCAL_LENSMODEL_OPENCV12)
 
 
 // types <0 are invalid. The different invalid types are just for error
 // reporting
+#define LIST_WITH_COMMA(s,n) ,MRCAL_ ## s
 typedef enum
-    { LENSMODEL_INVALID           = -2,
-      LENSMODEL_INVALID_BADCONFIG = -1
+    { MRCAL_LENSMODEL_INVALID           = -2,
+      MRCAL_LENSMODEL_INVALID_BADCONFIG = -1
       // The rest, starting with 0
-#define LIST_WITH_COMMA(s,n) ,s
-      LENSMODEL_LIST( LIST_WITH_COMMA ) } mrcal_mrcal_lensmodel_type_t;
-
+      MRCAL_LENSMODEL_LIST( LIST_WITH_COMMA ) } mrcal_lensmodel_type_t;
+#undef LIST_WITH_COMMA
 
 typedef struct
 {
-    mrcal_mrcal_lensmodel_type_t type;
+    mrcal_lensmodel_type_t type;
     union
     {
-#define CONFIG_STRUCT(s,n) s##__config_t s##__config;
-        LENSMODEL_LIST(CONFIG_STRUCT);
+#define CONFIG_STRUCT(s,n) mrcal_ ##s##__config_t s##__config;
+        MRCAL_LENSMODEL_LIST(CONFIG_STRUCT);
 #undef CONFIG_STRUCT
     };
 } mrcal_lensmodel_t;
@@ -144,14 +142,14 @@ typedef struct
     bool ready;
     union
     {
-#define PRECOMPUTED_STRUCT(s,n) s##__precomputed_t s##__precomputed;
-        LENSMODEL_LIST(PRECOMPUTED_STRUCT);
+#define PRECOMPUTED_STRUCT(s,n) mrcal_ ##s##__precomputed_t s##__precomputed;
+        MRCAL_LENSMODEL_LIST(PRECOMPUTED_STRUCT);
 #undef PRECOMPUTED_STRUCT
     };
 } mrcal_projection_precomputed_t;
 
 __attribute__((unused))
-static bool mrcal_mrcal_lensmodel_type_is_valid(mrcal_mrcal_lensmodel_type_t t)
+static bool mrcal_lensmodel_type_is_valid(mrcal_lensmodel_type_t t)
 {
     return t >= 0;
 }
@@ -203,14 +201,14 @@ bool               mrcal_lensmodel_name_full             ( char* out, int size, 
 
 // parses the model name AND the configuration into a mrcal_lensmodel_t structure.
 // Strings with valid model names but missing or unparseable configuration
-// return {.type = LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
+// return {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
 // invalid lensmodel.type, which can be checked with
-// mrcal_mrcal_lensmodel_type_is_valid(lensmodel->type)
+// mrcal_lensmodel_type_is_valid(lensmodel->type)
 mrcal_lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
 
 // parses the model name only. The configuration is ignored. Even if it's
-// missing or unparseable. Unknown model names return LENSMODEL_INVALID
-mrcal_mrcal_lensmodel_type_t   mrcal_mrcal_lensmodel_type_from_name        ( const char* name );
+// missing or unparseable. Unknown model names return MRCAL_LENSMODEL_INVALID
+mrcal_lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
 
 mrcal_lensmodel_meta_t mrcal_lensmodel_meta              ( const mrcal_lensmodel_t m );
 int                mrcal_getNlensParams                  ( const mrcal_lensmodel_t m );

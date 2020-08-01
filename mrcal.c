@@ -66,8 +66,8 @@
     static_assert(n > 0, "no-config implies known-at-compile-time param count");
 #define CHECK_CONFIG_NPARAM_WITHCONFIG(s,n) \
     static_assert(n <= 0, "with-config implies unknown-at-compile-time param count");
-LENSMODEL_NOCONFIG_LIST(  CHECK_CONFIG_NPARAM_NOCONFIG)
-LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
+MRCAL_LENSMODEL_NOCONFIG_LIST(  CHECK_CONFIG_NPARAM_NOCONFIG)
+MRCAL_LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
 
 
 // Returns a static string, using "..." as a placeholder for any configuration
@@ -88,14 +88,14 @@ const char* mrcal_lensmodel_name( mrcal_lensmodel_t model )
 {
     switch(model.type)
     {
-#define CASE_STRING_NOCONFIG(s,n) case s: ;                             \
+#define CASE_STRING_NOCONFIG(s,n) case MRCAL_##s: ;     \
         return #s;
-#define _CASE_STRING_WITHCONFIG(s,n,s_CONFIG_LIST) case s: ;            \
+#define _CASE_STRING_WITHCONFIG(s,n,s_CONFIG_LIST) case MRCAL_##s: ;    \
         return #s s_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE, );
 #define CASE_STRING_WITHCONFIG(s,n) _CASE_STRING_WITHCONFIG(s,n,MRCAL_ ## s ## _CONFIG_LIST)
 
-        LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
-        LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
+        MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
+        MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
 
     default:
         assert(0);
@@ -112,7 +112,7 @@ const char* mrcal_lensmodel_name( mrcal_lensmodel_t model )
 // mrcal_lensmodel_name() for configuration-free models
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
   (char* out, int size,
-   const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
+   const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
         snprintf( out, size, "LENSMODEL_SPLINED_STEREOGRAPHIC"
@@ -123,14 +123,14 @@ bool mrcal_lensmodel_name_full( char* out, int size, mrcal_lensmodel_t model )
 {
     switch(model.type)
     {
-#define CASE_STRING_NOCONFIG(s,n) case s: \
+#define CASE_STRING_NOCONFIG(s,n) case MRCAL_##s: \
         return size > snprintf(out,size, #s);
 
-#define CASE_STRING_WITHCONFIG(s,n) case s: \
+#define CASE_STRING_WITHCONFIG(s,n) case MRCAL_##s: \
         return size > s##__snprintf_model(out, size, &model.s##__config);
 
-        LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
-        LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
+        MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
+        MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
 
     default:
         assert(0);
@@ -143,7 +143,7 @@ bool mrcal_lensmodel_name_full( char* out, int size, mrcal_lensmodel_t model )
 }
 
 
-static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config, const char* config_str)
+static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config, const char* config_str)
 {
     int pos;
     int Nelements = 0 MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_SCAN_CFG_ELEMENT_PLUS1, );
@@ -163,11 +163,8 @@ const char* const* mrcal_getSupportedLensModels( void )
 #define NAMESTRING_WITHCONFIG(s,n) _NAMESTRING_WITHCONFIG(s,n,MRCAL_ ## s ## _CONFIG_LIST)
 
     static const char* names[] = {
-        LENSMODEL_NOCONFIG_LIST(  NAMESTRING_NOCONFIG)
-        LENSMODEL_WITHCONFIG_LIST(NAMESTRING_WITHCONFIG)
-
-        //        return #s MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE, );
-
+        MRCAL_LENSMODEL_NOCONFIG_LIST(  NAMESTRING_NOCONFIG)
+        MRCAL_LENSMODEL_WITHCONFIG_LIST(NAMESTRING_WITHCONFIG)
         NULL };
     return names;
 }
@@ -181,59 +178,59 @@ const char* const* mrcal_getSupportedLensModels( void )
 
 // parses the model name AND the configuration into a mrcal_lensmodel_t structure.
 // Strings with valid model names but missing or unparseable configuration
-// return {.type = LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
-// {.type = LENSMODEL_INVALID}
+// return {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
+// {.type = MRCAL_LENSMODEL_INVALID}
 mrcal_lensmodel_t mrcal_lensmodel_from_name( const char* name )
 {
 #define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
     if( 0 == strcmp( name, #s) )                                        \
-        return (mrcal_lensmodel_t){.type = s};
+        return (mrcal_lensmodel_t){.type = MRCAL_##s};
 
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. I need to extract the config from the string. */ \
     /* The string format is NAME_cfg1=var1_cfg2=var2... */              \
     if( 0 == strcmp( name, #s) )                                        \
-        return (mrcal_lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG};      \
+        return (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG};      \
     if( 0 == strncmp( name, #s"_", strlen(#s)+1) )                      \
     {                                                                   \
         /* found name. Now extract the config */                        \
-        mrcal_lensmodel_t model = {.type = s};                                \
-        s##__config_t* config = &model.s##__config;                     \
+        mrcal_lensmodel_t model = {.type = MRCAL_##s};                  \
+        mrcal_##s##__config_t* config = &model.s##__config;             \
                                                                         \
         const char* config_str = &name[strlen(#s)];                     \
                                                                         \
         if(s##__scan_model_config(config, config_str))                  \
             return model;                                               \
         else                                                            \
-            return (mrcal_lensmodel_t){.type = LENSMODEL_INVALID_BADCONFIG};  \
+            return (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG};  \
     }
 
-    LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
-    LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
+    MRCAL_LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
+    MRCAL_LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
-    return (mrcal_lensmodel_t){.type = LENSMODEL_INVALID};
+    return (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID};
 
 #undef CHECK_AND_RETURN_NOCONFIG
 #undef CHECK_AND_RETURN_WITHCONFIG
 }
 
 // parses the model name only. The configuration is ignored. Even if it's
-// missing or unparseable. Unknown model names return LENSMODEL_INVALID
-mrcal_mrcal_lensmodel_type_t mrcal_mrcal_lensmodel_type_from_name( const char* name )
+// missing or unparseable. Unknown model names return MRCAL_LENSMODEL_INVALID
+mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 {
 #define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
-    if( 0 == strcmp( name, #s) ) return s;
+    if( 0 == strcmp( name, #s) ) return MRCAL_##s;
 
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. If the name is followed by _ or nothing, I */  \
     /* accept this model */                                             \
-    if( 0 == strcmp( name, #s) ) return s;                              \
-    if( 0 == strncmp( name, #s"_", strlen(#s)+1) ) return s;
+    if( 0 == strcmp( name, #s) ) return MRCAL_##s;                      \
+    if( 0 == strncmp( name, #s"_", strlen(#s)+1) ) return MRCAL_##s;
 
-    LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
-    LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
+    MRCAL_LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
+    MRCAL_LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
-    return LENSMODEL_INVALID;
+    return MRCAL_LENSMODEL_INVALID;
 
 #undef CHECK_AND_RETURN_NOCONFIG
 #undef CHECK_AND_RETURN_WITHCONFIG
@@ -243,17 +240,17 @@ mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const mrcal_lensmodel_t m )
 {
     switch(m.type)
     {
-    case LENSMODEL_SPLINED_STEREOGRAPHIC:
-    case LENSMODEL_STEREOGRAPHIC:
+    case MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC:
+    case MRCAL_LENSMODEL_STEREOGRAPHIC:
         return (mrcal_lensmodel_meta_t) { .has_core                  = true,
                                           .can_project_behind_camera = true };
-    case LENSMODEL_PINHOLE:
-    case LENSMODEL_OPENCV4:
-    case LENSMODEL_OPENCV5:
-    case LENSMODEL_OPENCV8:
-    case LENSMODEL_OPENCV12:
-    case LENSMODEL_CAHVOR:
-    case LENSMODEL_CAHVORE:
+    case MRCAL_LENSMODEL_PINHOLE:
+    case MRCAL_LENSMODEL_OPENCV4:
+    case MRCAL_LENSMODEL_OPENCV5:
+    case MRCAL_LENSMODEL_OPENCV8:
+    case MRCAL_LENSMODEL_OPENCV12:
+    case MRCAL_LENSMODEL_CAHVOR:
+    case MRCAL_LENSMODEL_CAHVORE:
         return (mrcal_lensmodel_meta_t) { .has_core                  = true,
                                           .can_project_behind_camera = false };
 
@@ -276,7 +273,7 @@ bool model_supports_projection_behind_camera( const mrcal_lensmodel_t m )
     return meta.can_project_behind_camera;
 }
 
-static int LENSMODEL_SPLINED_STEREOGRAPHIC__getNlensParams(const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
+static int LENSMODEL_SPLINED_STEREOGRAPHIC__getNlensParams(const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
         // I have two surfaces: one for x and another for y
@@ -290,13 +287,13 @@ int mrcal_getNlensParams(const mrcal_lensmodel_t m)
     switch(m.type)
     {
 #define CASE_NUM_NOCONFIG(s,n)                                          \
-        case s: return n;
+        case MRCAL_##s: return n;
 
 #define CASE_NUM_WITHCONFIG(s,n)                                        \
-        case s: return s##__getNlensParams(&m.s##__config);
+        case MRCAL_##s: return s##__getNlensParams(&m.s##__config);
 
-        LENSMODEL_NOCONFIG_LIST(   CASE_NUM_NOCONFIG )
-        LENSMODEL_WITHCONFIG_LIST( CASE_NUM_WITHCONFIG )
+        MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_NUM_NOCONFIG )
+        MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_NUM_WITHCONFIG )
 
     default: ;
     }
@@ -425,7 +422,7 @@ int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
     // each one depends on ALL of the intrinsics. Splined models are sparse,
     // however, and there's only a partial dependence
     int Nintrinsics_per_measurement;
-    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         int run_len =
             lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1;
@@ -823,9 +820,9 @@ void _project_point_parametric( // outputs
 {
     // u = distort(p, distortions)
     // q = uxy/uz * fxy + cxy
-    if( lensmodel.type == LENSMODEL_PINHOLE ||
-        lensmodel.type == LENSMODEL_STEREOGRAPHIC ||
-        LENSMODEL_IS_OPENCV(lensmodel.type) )
+    if( lensmodel.type == MRCAL_LENSMODEL_PINHOLE ||
+        lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
+        MRCAL_LENSMODEL_IS_OPENCV(lensmodel.type) )
     {
         // q = fxy pxy/pz + cxy
         // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
@@ -835,7 +832,7 @@ void _project_point_parametric( // outputs
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
         mrcal_point3_t dq_dp[2];
-        if( lensmodel.type == LENSMODEL_PINHOLE )
+        if( lensmodel.type == MRCAL_LENSMODEL_PINHOLE )
         {
             double pz_recip = 1. / p->z;
             q->x = p->x*pz_recip * fx + cx;
@@ -849,7 +846,7 @@ void _project_point_parametric( // outputs
             dq_dp[1].y = fy * pz_recip;
             dq_dp[1].z = -fy*p->y*pz_recip*pz_recip;
         }
-        else if(lensmodel.type == LENSMODEL_STEREOGRAPHIC)
+        else if(lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC)
         {
             mrcal_project_stereographic(q, dq_dp,
                                         p, 1, fx,fy,cx,cy);
@@ -887,7 +884,7 @@ void _project_point_parametric( // outputs
             dq_dfxy->y = (q->y - cy)/fy; // dqy/dfy
         }
     }
-    else if( lensmodel.type == LENSMODEL_CAHVOR )
+    else if( lensmodel.type == MRCAL_LENSMODEL_CAHVOR )
     {
         int NdistortionParams = mrcal_getNlensParams(lensmodel) - 4;
 
@@ -1211,12 +1208,12 @@ void mrcal_unproject_stereographic( // output
     }
 }
 
-static void _mrcal_precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
+static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC
   ( // output
-    LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed,
+    mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed,
 
     //input
-    const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config )
+    const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config )
 {
     // I have N control points describing a given field-of-view. I
     // want to space out the control points evenly. I'm using
@@ -1266,8 +1263,8 @@ void _mrcal_precompute_lensmodel_data(mrcal_projection_precomputed_t* precompute
                                       mrcal_lensmodel_t lensmodel)
 {
     // currently only this model has anything
-    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
-        _mrcal_precompute_lensmodel_data_LENSMODEL_SPLINED_STEREOGRAPHIC
+    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+        _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC
             ( &precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed,
               &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config );
     precomputed->ready = true;
@@ -1279,9 +1276,9 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
                                          double* ux, double* uy,
                                          mrcal_lensmodel_t lensmodel)
 {
-    if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
+    if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
-        MSG("This function works only with the LENSMODEL_SPLINED_STEREOGRAPHIC model. '%s' passed in",
+        MSG("This function works only with the MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC model. '%s' passed in",
             mrcal_lensmodel_name(lensmodel));
         return false;
     }
@@ -1289,9 +1286,9 @@ bool mrcal_get_knots_for_splined_models( // buffers must hold at least
     mrcal_projection_precomputed_t precomputed_all;
     _mrcal_precompute_lensmodel_data(&precomputed_all, lensmodel);
 
-    LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+    mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
         &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-    LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed =
+    mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed =
         &precomputed_all.LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed;
 
     // The logic I'm reversing is
@@ -1684,8 +1681,8 @@ void project( // out
     mrcal_point2_t* p_dq_dfxy                  = NULL;
     double*   p_dq_dintrinsics_nocore    = NULL;
     bool      has_core                   = modelHasCore_fxfycxcy(lensmodel);
-    bool      has_dense_intrinsics_grad  = (lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC);
-    bool      has_sparse_intrinsics_grad = (lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool      has_dense_intrinsics_grad  = (lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool      has_sparse_intrinsics_grad = (lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
 
     if(dq_dintrinsics_pool_double != NULL)
     {
@@ -1710,14 +1707,14 @@ void project( // out
         }
         if(has_sparse_intrinsics_grad)
         {
-            if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC)
+            if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
             {
                 MSG("Unhandled lens model: %d (%s)",
                     lensmodel.type,
                     mrcal_lensmodel_name(lensmodel));
                 assert(0);
             }
-            const LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+            const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
                 &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
             *gradient_sparse_meta =
                 (gradient_sparse_meta_t)
@@ -1854,7 +1851,7 @@ void project( // out
                        bool camera_at_identity,
                        const double* Rj)
     {
-        if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+        if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
         {
             // only need 3+3 for quadratic splines
             double grad_ABCDx_ABCDy[4+4];
@@ -1934,7 +1931,7 @@ void project( // out
 
 
 
-    int runlen = (lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+    int runlen = (lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
         (lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
         0;
     if( !calibration_object_width_n )
@@ -2347,11 +2344,11 @@ bool mrcal_project( // out
     // _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
 
     // project() doesn't handle cahvore, so I special-case it here
-    if( lensmodel.type == LENSMODEL_CAHVORE )
+    if( lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
     {
         if(dq_dintrinsics != NULL || dq_dp != NULL)
         {
-            fprintf(stderr, "mrcal_project(LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients\n");
+            fprintf(stderr, "mrcal_project(MRCAL_LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients\n");
             return false;
         }
         return _mrcal_project_internal_cahvore(q, p, N, intrinsics);
@@ -2364,8 +2361,8 @@ bool mrcal_project( // out
     // is very slow. I can call it once, and use its fast internal loop,
     // however. This special case does the same thing, but much faster.
     if(dq_dintrinsics == NULL && dq_dp == NULL &&
-       (LENSMODEL_IS_OPENCV(lensmodel.type) ||
-        lensmodel.type == LENSMODEL_PINHOLE))
+       (MRCAL_LENSMODEL_IS_OPENCV(lensmodel.type) ||
+        lensmodel.type == MRCAL_LENSMODEL_PINHOLE))
     {
         _mrcal_project_internal_opencv( q, NULL,NULL,
                                         p, N, intrinsics, Nintrinsics);
@@ -2408,14 +2405,14 @@ bool mrcal_unproject( // out
                      // core, distortions concatenated
                      const double* intrinsics)
 {
-    if( lensmodel.type == LENSMODEL_CAHVORE )
+    if( lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
     {
-        fprintf(stderr, "mrcal_unproject(LENSMODEL_CAHVORE) not yet implemented. No gradients available\n");
+        fprintf(stderr, "mrcal_unproject(MRCAL_LENSMODEL_CAHVORE) not yet implemented. No gradients available\n");
         return false;
     }
 
     // easy special-cases
-    if( lensmodel.type == LENSMODEL_PINHOLE )
+    if( lensmodel.type == MRCAL_LENSMODEL_PINHOLE )
     {
         double fx = intrinsics[0];
         double fy = intrinsics[1];
@@ -2433,7 +2430,7 @@ bool mrcal_unproject( // out
         }
         return true;
     }
-    if( lensmodel.type == LENSMODEL_STEREOGRAPHIC )
+    if( lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC )
     {
         double fx = intrinsics[0];
         double fy = intrinsics[1];
@@ -4094,8 +4091,8 @@ void optimizerCallback(// input state
                     // different ways. Specific logic follows
                     double scale = scale_regularization_distortion;
 
-                    if( LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
-                        ctx->lensmodel.type >= LENSMODEL_OPENCV8 &&
+                    if( MRCAL_LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
+                        ctx->lensmodel.type >= MRCAL_LENSMODEL_OPENCV8 &&
                         5 <= j && j <= 7 )
                     {
                         // The radial distortion in opencv is x_distorted =
@@ -4106,8 +4103,8 @@ void optimizerCallback(// input state
                         // Note that k2,k3 are tangential (NOT radial)
                         // distortion components. Note that the r6 factor in
                         // the numerator is only present for
-                        // >=LENSMODEL_OPENCV5. Note that the denominator
-                        // is only present for >= LENSMODEL_OPENCV8. The
+                        // >=MRCAL_LENSMODEL_OPENCV5. Note that the denominator
+                        // is only present for >= MRCAL_LENSMODEL_OPENCV8. The
                         // danger with a rational model is that it's
                         // possible to get into a situation where scale ~
                         // 0/0 ~ 1. This would have very poorly behaved

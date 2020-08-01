@@ -33,14 +33,14 @@ bool validate_lensmodel(// out; valid if we returned true
     }
 
     *lensmodel = mrcal_lensmodel_from_name(lensmodel_str);
-    if( !mrcal_mrcal_lensmodel_type_is_valid(lensmodel->type) )
+    if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
         PyErr_Format(PyExc_RuntimeError,
                      "Couldn't parse 'lensmodel' argument '%s'", lensmodel_str);
         return false;
     }
 
-    if( !is_project && lensmodel->type == LENSMODEL_CAHVORE )
+    if( !is_project && lensmodel->type == MRCAL_LENSMODEL_CAHVORE )
     {
         PyErr_Format(PyExc_RuntimeError,
                      "The internal _unproject() routine does not support CAHVORE. Use the Python mrcal.unproject() for that");
@@ -100,7 +100,7 @@ index 666f48e..2a4edff 100644
 -                 const int N = 1;
 +                 const int N = dims_slice__points[0];
  
-                  if(cookie->lensmodel.type == LENSMODEL_CAHVORE)
+                  if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
                       return _mrcal_project_internal_cahvore(
 """
 # I see 0.9 sec with the code as is, and 0.8 sec with the patch. Or before I
@@ -163,15 +163,15 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                  r'''
                  const int N = 1;
 
-                 if(cookie->lensmodel.type == LENSMODEL_CAHVORE)
+                 if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
                      return _mrcal_project_internal_cahvore(
                                 (mrcal_point2_t*)data_slice__output,
                                 (const mrcal_point3_t*)data_slice__points,
                                 N,
                                 (const double*)data_slice__intrinsics);
 
-                 if(LENSMODEL_IS_OPENCV(cookie->lensmodel.type) ||
-                    cookie->lensmodel.type == LENSMODEL_PINHOLE)
+                 if(MRCAL_LENSMODEL_IS_OPENCV(cookie->lensmodel.type) ||
+                    cookie->lensmodel.type == MRCAL_LENSMODEL_PINHOLE)
                  {
                      _mrcal_project_internal_opencv(
                                 (mrcal_point2_t*)data_slice__output,
@@ -240,10 +240,10 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              if(cookie->lensmodel.type == LENSMODEL_CAHVORE)
+              if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
               {
                   PyErr_Format(PyExc_RuntimeError,
-                               "_project(LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients");
+                               "_project(MRCAL_LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients");
                   return false;
               }
               cookie->Nintrinsics = mrcal_getNlensParams(cookie->lensmodel);
@@ -314,10 +314,10 @@ mrcal-genpywrap.py. Please keep them in sync """,
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              if(cookie->lensmodel.type == LENSMODEL_CAHVORE)
+              if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
               {
                   PyErr_Format(PyExc_RuntimeError,
-                               "_unproject(LENSMODEL_CAHVORE) is not yet implemented: we need gradients. The python mrcal.unproject() should work; slowly.");
+                               "_unproject(MRCAL_LENSMODEL_CAHVORE) is not yet implemented: we need gradients. The python mrcal.unproject() should work; slowly.");
                   return false;
               }
               _mrcal_precompute_lensmodel_data(&cookie->precomputed, cookie->lensmodel);
@@ -328,8 +328,8 @@ mrcal-genpywrap.py. Please keep them in sync """,
                 {np.float64:
                  r'''
                  const int N = 1;
-                 if( cookie->lensmodel.type == LENSMODEL_PINHOLE ||
-                     cookie->lensmodel.type == LENSMODEL_STEREOGRAPHIC )
+                 if( cookie->lensmodel.type == MRCAL_LENSMODEL_PINHOLE ||
+                     cookie->lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC )
                      mrcal_unproject((mrcal_point3_t*)data_slice__output,
                                      (const mrcal_point2_t*)data_slice__points,
                                      N,

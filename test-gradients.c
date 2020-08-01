@@ -18,8 +18,8 @@ int main(int argc, char* argv[] )
         "\n"
         "The lensmodels are given as the expected strings. Splined stereographic models\n"
         "MUST be given as either of\n"
-        "  LENSMODEL_SPLINED_STEREOGRAPHIC_2\n"
-        "  LENSMODEL_SPLINED_STEREOGRAPHIC_3\n"
+        "  MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_2\n"
+        "  MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_3\n"
         "\n"
         "problem-details are a list of parameters we're optimizing. This is some set of\n"
         "  intrinsic-core\n"
@@ -47,16 +47,16 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    mrcal_lensmodel_t lensmodel = {.type = mrcal_mrcal_lensmodel_type_from_name(argv[iarg]) };
-    if( !mrcal_mrcal_lensmodel_type_is_valid(lensmodel.type) )
+    mrcal_lensmodel_t lensmodel = {.type = mrcal_lensmodel_type_from_name(argv[iarg]) };
+    if( !mrcal_lensmodel_type_is_valid(lensmodel.type) )
     {
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
         fprintf(stderr, "Lens model name '%s' unknown. I only know about ("
-                        LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
+                        MRCAL_LENSMODEL_LIST( QUOTED_LIST_WITH_COMMA )
                 ")\n", argv[iarg]);
         return 1;
     }
-    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC)
+    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         if(0 == strcmp(argv[iarg], "LENSMODEL_SPLINED_STEREOGRAPHIC_2"))
             lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order = 2;
@@ -181,7 +181,7 @@ int main(int argc, char* argv[] )
     for(int i=0; i<Ncameras_intrinsics*2; i++)
         imagersizes[i] = 1000 + 10*i;
 
-    if(lensmodel.type == LENSMODEL_SPLINED_STEREOGRAPHIC )
+    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
     {
         // the order was already set above
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx           = 11;
@@ -211,7 +211,7 @@ int main(int argc, char* argv[] )
     intrinsics_core->center_xy[0] = 1830.3;
     intrinsics_core->center_xy[1] = 1810.2;
 
-    if(lensmodel.type != LENSMODEL_SPLINED_STEREOGRAPHIC )
+    if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
         for(int i=0; i<Ncameras_intrinsics; i++)
             for(int j=0; j<Ndistortion; j++)
                 intrinsics[Nintrinsics * i + 4 + j] = 0.1 + 0.05 * (double)(i + Ncameras_intrinsics*j);
