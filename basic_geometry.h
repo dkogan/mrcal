@@ -22,4 +22,4 @@ typedef union
 typedef struct
 {
     mrcal_point3_t r,t;
-} pose_t;
+} mrcal_pose_t;

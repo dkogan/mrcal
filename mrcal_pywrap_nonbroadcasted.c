@@ -1101,7 +1101,7 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    static_assert( sizeof(pose_t)/sizeof(double) == 6, "pose_t is assumed to contain 6 elements");
+    static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
@@ -1437,8 +1437,8 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
         // The checks in optimize_validate_args() make sure these casts are kosher
         double*       c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
-        pose_t*       c_extrinsics     = (pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
-        pose_t*       c_frames         = (pose_t*)  PyArray_DATA(frames_rt_toref);
+        mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
+        mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(frames_rt_toref);
         mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
         mrcal_point2_t*     c_calobject_warp =
             IS_NULL(calobject_warp) ?

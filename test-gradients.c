@@ -109,10 +109,10 @@ int main(int argc, char* argv[] )
         }
 
 
-    pose_t extrinsics[] =
+    mrcal_pose_t extrinsics[] =
         { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { 2.3, 0.2, 0.1}}}};
 
-    pose_t frames[] =
+    mrcal_pose_t frames[] =
         { { .r = { .xyz = { -.1,    .52,  -.13}},  .t = { .xyz = { 1.3, 0.1, 10.2}}},
           { .r = { .xyz = {  .90,   .24,   .135}}, .t = { .xyz = { 0.7, 0.1, 20.3}}},
           { .r = { .xyz = {  .80,   .52,   .335}}, .t = { .xyz = { 0.7, 0.6, 30.4}}},

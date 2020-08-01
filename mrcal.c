@@ -1583,8 +1583,8 @@ void project( // out
 
              // everything; includes the core, if there is one
              const double* restrict intrinsics,
-             const pose_t* restrict camera_rt,
-             const pose_t* restrict frame_rt,
+             const mrcal_pose_t* restrict camera_rt,
+             const mrcal_pose_t* restrict frame_rt,
              const mrcal_point2_t* restrict calobject_warp,
 
              bool camera_at_identity, // if true, camera_rt is unused
@@ -1648,14 +1648,14 @@ void project( // out
     double _joint_rt[6];
     double* joint_rt;
 
-    pose_t frame_rt_validr = {.t = frame_rt->t};
+    mrcal_pose_t frame_rt_validr = {.t = frame_rt->t};
     if(calibration_object_width_n) frame_rt_validr.r = frame_rt->r;
 
     if(!camera_at_identity)
     {
-        // make sure I can pass pose_t.r as an rt[] transformation
-        static_assert( offsetof(pose_t, r) == 0,                   "pose_t has expected structure");
-        static_assert( offsetof(pose_t, t) == 3*sizeof(double),    "pose_t has expected structure");
+        // make sure I can pass mrcal_pose_t.r as an rt[] transformation
+        static_assert( offsetof(mrcal_pose_t, r) == 0,                   "mrcal_pose_t has expected structure");
+        static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),    "mrcal_pose_t has expected structure");
         mrcal_compose_rt( _joint_rt,
                           gg._d_rj_rc, gg._d_rj_rf,
                           gg._d_tj_rc, gg._d_tj_tf,
@@ -2212,7 +2212,7 @@ bool _mrcal_project_internal( // out
     {
         for(int i=0; i<N; i++)
         {
-            pose_t frame = {.r = {},
+            mrcal_pose_t frame = {.r = {},
                             .t = p[i]};
 
             // simple non-intrinsics-gradient path. dp_dp is handled entirely in
@@ -2231,7 +2231,7 @@ bool _mrcal_project_internal( // out
 
     for(int i=0; i<N; i++)
     {
-        pose_t frame = {.r = {},
+        mrcal_pose_t frame = {.r = {},
                         .t = p[i]};
 
         // simple non-intrinsics-gradient path. dp_dp is handled entirely in
@@ -2484,7 +2484,7 @@ bool _mrcal_unproject_internal( // out
             // projection of the hypothesis v. I unproject it stereographically,
             // and project it using the actual model
             mrcal_point2_t dv_du[3];
-            pose_t frame = {};
+            mrcal_pose_t frame = {};
             mrcal_unproject_stereographic( &frame.t, dv_du,
                                            (mrcal_point2_t*)u, 1,
                                            fx,fy,cx,cy );
@@ -2654,8 +2654,8 @@ static void pack_solver_state( // out
                               // in
                               const lensmodel_t lensmodel,
                               const double* intrinsics, // Ncameras_intrinsics of these
-                              const pose_t*            extrinsics_fromref, // Ncameras_extrinsics of these
-                              const pose_t*            frames_toref,     // Nframes of these
+                              const mrcal_pose_t*            extrinsics_fromref, // Ncameras_extrinsics of these
+                              const mrcal_pose_t*            frames_toref,     // Nframes of these
                               const mrcal_point3_t*          points,     // Npoints of these
                               const mrcal_point2_t*          calobject_warp, // 1 of these
                               mrcal_problem_details_t problem_details,
@@ -2731,12 +2731,12 @@ void mrcal_pack_solver_state_vector( // out, in
                                              lensmodel, problem_details,
                                              Ncameras_intrinsics );
 
-    static_assert( offsetof(pose_t, r) == 0,                   "pose_t has expected structure");
-    static_assert( offsetof(pose_t, t) == 3*sizeof(double),    "pose_t has expected structure");
+    static_assert( offsetof(mrcal_pose_t, r) == 0,                   "mrcal_pose_t has expected structure");
+    static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),    "mrcal_pose_t has expected structure");
     if( problem_details.do_optimize_extrinsics )
         for(int i_cam_extrinsics=0; i_cam_extrinsics < Ncameras_extrinsics; i_cam_extrinsics++)
         {
-            pose_t* extrinsics_fromref = (pose_t*)(&p[i_state]);
+            mrcal_pose_t* extrinsics_fromref = (mrcal_pose_t*)(&p[i_state]);
 
             p[i_state++] = extrinsics_fromref->r.xyz[0] / SCALE_ROTATION_CAMERA;
             p[i_state++] = extrinsics_fromref->r.xyz[1] / SCALE_ROTATION_CAMERA;
@@ -2751,7 +2751,7 @@ void mrcal_pack_solver_state_vector( // out, in
     {
         for(int i_frame = 0; i_frame < Nframes; i_frame++)
         {
-            pose_t* frames_toref = (pose_t*)(&p[i_state]);
+            mrcal_pose_t* frames_toref = (mrcal_pose_t*)(&p[i_state]);
             p[i_state++] = frames_toref->r.xyz[0] / SCALE_ROTATION_FRAME;
             p[i_state++] = frames_toref->r.xyz[1] / SCALE_ROTATION_FRAME;
             p[i_state++] = frames_toref->r.xyz[2] / SCALE_ROTATION_FRAME;
@@ -2849,7 +2849,7 @@ static int unpack_solver_state_intrinsics( // out
 }
 
 static int unpack_solver_state_extrinsics_one(// out
-                                              pose_t* extrinsic,
+                                              mrcal_pose_t* extrinsic,
 
                                               // in
                                               const double* p)
@@ -2866,7 +2866,7 @@ static int unpack_solver_state_extrinsics_one(// out
 }
 
 static int unpack_solver_state_framert_one(// out
-                                           pose_t* frame,
+                                           mrcal_pose_t* frame,
 
                                            // in
                                            const double* p)
@@ -2912,8 +2912,8 @@ static int unpack_solver_state_calobject_warp(// out
 static void unpack_solver_state( // out
                                  double* intrinsics, // Ncameras_intrinsics of these
 
-                                 pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these
-                                 pose_t*       frames_toref,     // Nframes of these
+                                 mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these
+                                 mrcal_pose_t*       frames_toref,     // Nframes of these
                                  mrcal_point3_t*     points,     // Npoints of these
                                  mrcal_point2_t*     calobject_warp, // 1 of these
 
@@ -2964,19 +2964,19 @@ void mrcal_unpack_solver_state_vector( // out, in
 
     if( problem_details.do_optimize_extrinsics )
     {
-        static_assert( offsetof(pose_t, r) == 0,
-                       "pose_t has expected structure");
-        static_assert( offsetof(pose_t, t) == 3*sizeof(double),
-                       "pose_t has expected structure");
+        static_assert( offsetof(mrcal_pose_t, r) == 0,
+                       "mrcal_pose_t has expected structure");
+        static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),
+                       "mrcal_pose_t has expected structure");
 
-        pose_t* extrinsics_fromref = (pose_t*)(&p[i_state]);
+        mrcal_pose_t* extrinsics_fromref = (mrcal_pose_t*)(&p[i_state]);
         for(int i_cam_extrinsics=0; i_cam_extrinsics < Ncameras_extrinsics; i_cam_extrinsics++)
             i_state += unpack_solver_state_extrinsics_one( &extrinsics_fromref[i_cam_extrinsics], &p[i_state] );
     }
 
     if( problem_details.do_optimize_frames )
     {
-        pose_t* frames_toref = (pose_t*)(&p[i_state]);
+        mrcal_pose_t* frames_toref = (mrcal_pose_t*)(&p[i_state]);
         for(int i_frame = 0; i_frame < Nframes; i_frame++)
             i_state += unpack_solver_state_framert_one( &frames_toref[i_frame], &p[i_state] );
         mrcal_point3_t* points = (mrcal_point3_t*)(&p[i_state]);
@@ -3253,8 +3253,8 @@ typedef struct
 {
     // these are all UNPACKED
     const double*       intrinsics; // Ncameras_intrinsics * NlensParams of these
-    const pose_t*       extrinsics_fromref; // Ncameras_extrinsics of these. Transform FROM the reference frame
-    const pose_t*       frames_toref;     // Nframes of these.    Transform TO the reference frame
+    const mrcal_pose_t*       extrinsics_fromref; // Ncameras_extrinsics of these. Transform FROM the reference frame
+    const mrcal_pose_t*       frames_toref;     // Nframes of these.    Transform TO the reference frame
     const mrcal_point3_t*     points;     // Npoints of these.    In the reference frame
     const mrcal_point2_t*     calobject_warp; // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
@@ -3350,7 +3350,7 @@ void optimizerCallback(// input state
     // I do the frame poses later. This is a good way to do it if I have few
     // cameras. With many cameras (this will be slow)
     double intrinsics_all[ctx->Ncameras_intrinsics][ctx->Nintrinsics];
-    pose_t camera_rt[ctx->Ncameras_extrinsics];
+    mrcal_pose_t camera_rt[ctx->Ncameras_extrinsics];
 
     mrcal_point2_t calobject_warp_local = {};
     const int i_var_calobject_warp =
@@ -3400,7 +3400,7 @@ void optimizerCallback(// input state
         if(ctx->problem_details.do_optimize_extrinsics)
             unpack_solver_state_extrinsics_one(&camera_rt[i_camera_extrinsics], &packed_state[i_var_camera_rt]);
         else
-            memcpy(&camera_rt[i_camera_extrinsics], &ctx->extrinsics_fromref[i_camera_extrinsics], sizeof(pose_t));
+            memcpy(&camera_rt[i_camera_extrinsics], &ctx->extrinsics_fromref[i_camera_extrinsics], sizeof(mrcal_pose_t));
     }
 
     int i_feature = 0;
@@ -3421,11 +3421,11 @@ void optimizerCallback(// input state
                                        ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                        ctx->problem_details, ctx->lensmodel);
 
-        pose_t frame_rt;
+        mrcal_pose_t frame_rt;
         if(ctx->problem_details.do_optimize_frames)
             unpack_solver_state_framert_one(&frame_rt, &packed_state[i_var_frame_rt]);
         else
-            memcpy(&frame_rt, &ctx->frames_toref[i_frame], sizeof(pose_t));
+            memcpy(&frame_rt, &ctx->frames_toref[i_frame], sizeof(mrcal_pose_t));
 
         const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                           ctx->problem_details, ctx->lensmodel);
         // invalid if i_cam_extrinsics < 0, but unused in that case
@@ -3761,7 +3761,7 @@ void optimizerCallback(// input state
                 // I only have the point position, so the 'rt' memory
                 // points 3 back. The fake "r" here will not be
                 // referenced
-                (pose_t*)(&point.xyz[-3]),
+                (mrcal_pose_t*)(&point.xyz[-3]),
                 NULL,
 
                 i_cam_extrinsics < 0,
@@ -4221,8 +4221,8 @@ bool mrcal_optimizerCallback(// out
                              // parameters may vary, depending on lensmodel, so
                              // this is a variable-length structure
                              const double*       intrinsics,         // Ncameras_intrinsics * NlensParams
-                             const pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
-                             const pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
+                             const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
+                             const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
                              const mrcal_point3_t*     points,     // Npoints of these.    In the reference frame
                              const mrcal_point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
@@ -4402,8 +4402,8 @@ mrcal_optimize( // out
                 // vary, depending on lensmodel, so this is a variable-length
                 // structure
                 double*       intrinsics,         // Ncameras_intrinsics * NlensParams
-                pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
-                pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
+                mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
+                mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                 mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 

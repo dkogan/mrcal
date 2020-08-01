@@ -356,8 +356,8 @@ mrcal_optimize( // out
                 // vary, depending on lensmodel, so this is a variable-length
                 // structure
                 double*       intrinsics,         // Ncameras_intrinsics * NlensParams
-                pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
-                pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
+                mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
+                mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                 mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
@@ -431,8 +431,8 @@ bool mrcal_optimizerCallback(// out
                              // parameters may vary, depending on lensmodel, so
                              // this is a variable-length structure
                              const double*       intrinsics,         // Ncameras_intrinsics * NlensParams
-                             const pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
-                             const pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
+                             const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
+                             const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
                              const mrcal_point3_t*     points,     // Npoints of these.    In the reference frame
                              const mrcal_point2_t*     calobject_warp, // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
