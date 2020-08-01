@@ -1220,8 +1220,8 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
         # I see no python way to do matrix multiplication with sparse matrices,
         # so I have my own routine in C. AND the C routine does the outer
         # product, so there's no big temporary expression. It's much faster
-        Var_dq = mrcal.A_Jt_J_At(A, J.indptr, J.indices, J.data,
-                                 Nleading_rows_J = Nmeasurements_observations)
+        Var_dq = mrcal._mrcal_broadcasted._A_Jt_J_At(A, J.indptr, J.indices, J.data,
+                                                     Nleading_rows_J = Nmeasurements_observations)
     else:
         # No regularization. Use the simplified expression
         Var_dq = nps.matmult(dq_dpief_packed, nps.transpose(A))

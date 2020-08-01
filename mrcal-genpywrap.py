@@ -347,7 +347,7 @@ mrcal-genpywrap.py. Please keep them in sync """,
 '''},
 )
 
-m.function( "A_Jt_J_At",
+m.function( "_A_Jt_J_At",
             """Computes matmult(A,Jt,J,At) for a sparse J
 
 This is used in the internals of projection_uncertainty().
