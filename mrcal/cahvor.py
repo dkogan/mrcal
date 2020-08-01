@@ -263,7 +263,7 @@ def _write(f, m, note=None):
             f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *E))
 
     elif re.match('LENSMODEL_OPENCV*', lens_model):
-        Ndistortions = mrcal.getNlensParams(lens_model) - 4
+        Ndistortions = mrcal.num_lens_params(lens_model) - 4
         f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(lens_model, *intrinsics[4:]))
     elif len(intrinsics) != 4:
         raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, lens_model={}".format(len(intrinsics), lens_model))

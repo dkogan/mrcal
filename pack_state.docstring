@@ -6,7 +6,7 @@ SYNOPSIS
 
     optimization_inputs = m.optimization_inputs()
 
-    Jpacked = mrcal.optimizerCallback(**optimization_inputs)[2].toarray()
+    Jpacked = mrcal.optimizer_callback(**optimization_inputs)[2].toarray()
 
     J = Jpacked.copy()
     mrcal.pack_state(J, **optimization_inputs)
@@ -46,7 +46,7 @@ ARGUMENTS
 
 - lensmodel: string specifying the lensmodel we're using (this is always
   'LENSMODEL_...'). The full list of valid models is returned by
-  mrcal.getSupportedLensModels(). This is required if we're not passing in the
+  mrcal.supported_lensmodels(). This is required if we're not passing in the
   optimization inputs
 
 - do_optimize_intrinsic_core

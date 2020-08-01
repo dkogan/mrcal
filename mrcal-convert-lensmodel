@@ -123,7 +123,7 @@ import mrcal
 
 lensmodel_to = args.to
 try:
-    Ndistortions = mrcal.getNlensParams(lensmodel_to) - 4
+    Ndistortions = mrcal.num_lens_params(lensmodel_to) - 4
 except:
     raise Exception("Unknown lens model: '{}'".format(lensmodel_to))
 

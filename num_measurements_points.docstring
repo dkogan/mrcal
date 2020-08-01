@@ -6,17 +6,17 @@ SYNOPSIS
 
     optimization_inputs = m.optimization_inputs()
 
-    x = mrcal.optimizerCallback(**optimization_inputs)[1]
+    x = mrcal.optimizer_callback(**optimization_inputs)[1]
 
-    Nmeas   = mrcal.getNmeasurements_points(**optimization_inputs)
-    i_meas0 = mrcal.getNmeasurements_boards(**optimization_inputs)
+    Nmeas   = mrcal.num_measurements_points(**optimization_inputs)
+    i_meas0 = mrcal.num_measurements_boards(**optimization_inputs)
 
     x_points = x[i_meas0:i_meas0+Nmeas]
 
 The optimization algorithm tries to minimize the norm of a "measurements" vector
 x. The optimizer doesn't know or care about the meaning of each element of this
 vector, but for later analysis, it is useful to know what's what. The
-mrcal.getNmeasurements_...() functions report where particular items end up in
+mrcal.num_measurements_...() functions report where particular items end up in
 the vector of measurements.
 
 THIS function reports how many measurements come from the observations of
@@ -41,7 +41,7 @@ ARGUMENTS
 
 - lensmodel: string specifying the lensmodel we're using (this is always
   'LENSMODEL_...'). The full list of valid models is returned by
-  mrcal.getSupportedLensModels(). This is required if we're not passing in the
+  mrcal.supported_lensmodels(). This is required if we're not passing in the
   optimization inputs
 
 - do_optimize_intrinsic_core

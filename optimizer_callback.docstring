@@ -3,24 +3,24 @@ Call the optimization callback function
 SYNOPSIS
 
     p_packed,x,Jt_packed,factorization = \
-      mrcal.optimizerCallback( intrinsics_data,
-                               extrinsics_rt_fromref,
-                               frames_rt_toref, points
-                               observations_board, indices_frame_camintrinsics_camextrinsics,
-                               observations_point, indices_point_camintrinsics_camextrinsics_flags,
+      mrcal.optimizer_callback( intrinsics_data,
+                                extrinsics_rt_fromref,
+                                frames_rt_toref, points
+                                observations_board, indices_frame_camintrinsics_camextrinsics,
+                                observations_point, indices_point_camintrinsics_camextrinsics_flags,
 
-                               lensmodel,
-                               imagersizes                       = imagersizes,
-                               observed_pixel_uncertainty        = observed_pixel_uncertainty,
-                               do_optimize_intrinsic_core        = True,
-                               do_optimize_intrinsic_distortions = True,
-                               calibration_object_spacing        = object_spacing,
-                               calibration_object_width_n        = 10,
-                               calibration_object_height_n       = 9,
-                               point_min_range                   = 0.1,
-                               point_max_range                   = 100.0,
-                               skip_regularization               = False,
-                               verbose                           = False)
+                                lensmodel,
+                                imagersizes                       = imagersizes,
+                                observed_pixel_uncertainty        = observed_pixel_uncertainty,
+                                do_optimize_intrinsic_core        = True,
+                                do_optimize_intrinsic_distortions = True,
+                                calibration_object_spacing        = object_spacing,
+                                calibration_object_width_n        = 10,
+                                calibration_object_height_n       = 9,
+                                point_min_range                   = 0.1,
+                                point_max_range                   = 100.0,
+                                skip_regularization               = False,
+                                verbose                           = False)
 
 The main optimization routine in mrcal.optimize() searches for optimal
 parameters by repeatedly calling a function to evaluate each hypothethical
@@ -50,7 +50,7 @@ The output is returned in a tuple:
   the measurements in respect to the parameters. This is a SPARSE array of type
   scipy.sparse.csr_matrix. This object can be converted to a numpy array like this:
 
-    p,x,Jt_sparse = mrcal.optimizerCallback(...)[:3]
+    p,x,Jt_sparse = mrcal.optimizer_callback(...)[:3]
     Jt_numpy    = Jt_sparse.toarray()
 
   Note that the numpy array is dense, so it is very inefficient for sparse data,
@@ -60,7 +60,7 @@ The output is returned in a tuple:
   which uses packed, unitless state. To convert a densified packed jacobian to
   full units, one can do this:
 
-    p,x,Jt_sparse = mrcal.optimizerCallback(**optimization_inputs)[:3]
+    p,x,Jt_sparse = mrcal.optimizer_callback(**optimization_inputs)[:3]
     Jt_numpy    = Jt_sparse.toarray()
     mrcal.pack_state(Jt_numpy, **optimization_inputs)
 

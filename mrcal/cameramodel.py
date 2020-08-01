@@ -68,7 +68,7 @@ def _validateIntrinsics(imagersize,
     intrinsics   = i[1]
 
     # If this fails, I keep the exception and let it fall through
-    Nintrinsics_want = mrcal.getNlensParams(lens_model)
+    Nintrinsics_want = mrcal.num_lens_params(lens_model)
 
     try:
         Nintrinsics_have = len(intrinsics)
@@ -252,7 +252,7 @@ class cameramodel(object):
 
       - Some representation of the camera projection behavior. This is dependent
         on the lens model being used. The full list of supported models is
-        returned by mrcal.getSupportedLensModels()
+        returned by mrcal.supported_lensmodels()
 
     - The extrinsics: the pose of this camera in respect to some reference
       coordinate system. The meaning of this coordinate system is user-defined,
@@ -313,7 +313,7 @@ class cameramodel(object):
         f.write("\n")
 
         N = len(self._intrinsics[1])
-        if(mrcal.getLensModelMeta(self._intrinsics[0])['has_core']):
+        if(mrcal.lensmodel_meta(self._intrinsics[0])['has_core']):
             f.write("    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
         f.write(("    'intrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._intrinsics[1]))
         f.write("\n")
@@ -623,7 +623,7 @@ class cameramodel(object):
         "intrinsics" is a tuple (lens_model, parameters):
 
         - lens_model is a string for the specific lens model we're
-          using. mrcal.getSupportedLensModels() returns a list
+          using. mrcal.supported_lensmodels() returns a list
           of supported models.
 
         - intrinsics is a numpy array of lens parameters. The number and meaning

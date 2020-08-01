@@ -46,7 +46,7 @@ typedef struct
 
 // names of the lens models, intrinsic parameter counts. A parameter count of
 // <=0 means the parameter count is dynamic and will be computed by
-// mrcal_getNlensParams(). This also implies that this model has some
+// mrcal_num_lens_params(). This also implies that this model has some
 // configuration that affects the parameter count
 #define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                    \
     _(LENSMODEL_PINHOLE, 4)                                           \
@@ -210,13 +210,13 @@ mrcal_lensmodel_t        mrcal_lensmodel_from_name             ( const char* nam
 // missing or unparseable. Unknown model names return MRCAL_LENSMODEL_INVALID
 mrcal_lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
 
-mrcal_lensmodel_meta_t mrcal_lensmodel_meta              ( const mrcal_lensmodel_t m );
-int                mrcal_getNlensParams                  ( const mrcal_lensmodel_t m );
-int                mrcal_getNintrinsicOptimizationParams ( mrcal_problem_details_t problem_details,
-                                                           mrcal_lensmodel_t m );
-const char* const* mrcal_getSupportedLensModels          ( void ); // NULL-terminated array of char* strings
+mrcal_lensmodel_meta_t mrcal_lensmodel_meta                    ( const mrcal_lensmodel_t m );
+int                mrcal_num_lens_params                   ( const mrcal_lensmodel_t m );
+int                mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
+                                                             mrcal_lensmodel_t m );
+const char* const* mrcal_supported_lensmodels             ( void ); // NULL-terminated array of char* strings
 
-bool mrcal_get_knots_for_splined_models( // buffers must hold at least
+bool mrcal_knots_for_splined_models( // buffers must hold at least
                                          // config->Nx and config->Ny values
                                          // respectively
                                          double* ux, double* uy,
@@ -392,7 +392,7 @@ mrcal_optimize( // out
 
 struct cholmod_sparse_struct;
 
-bool mrcal_optimizerCallback(// out
+bool mrcal_optimizer_callback(// out
 
                              // These output pointers may NOT be NULL, unlike
                              // their analogues in mrcal_optimize()
@@ -461,25 +461,25 @@ bool mrcal_optimizerCallback(// out
                              int calibration_object_height_n);
 
 
-int mrcal_getNmeasurements_all(int Ncameras_intrinsics,
+int mrcal_num_measurements_all(int Ncameras_intrinsics,
                                int NobservationsBoard,
                                int NobservationsPoint,
                                int calibration_object_width_n,
                                int calibration_object_height_n,
                                mrcal_problem_details_t problem_details,
                                mrcal_lensmodel_t lensmodel);
-int mrcal_getNmeasurements_boards(int NobservationsBoard,
+int mrcal_num_measurements_boards(int NobservationsBoard,
                                   int calibration_object_width_n,
                                   int calibration_object_height_n);
-int mrcal_getNmeasurements_points(int NobservationsPoint);
-int mrcal_getNmeasurements_regularization(int Ncameras_intrinsics,
+int mrcal_num_measurements_points(int NobservationsPoint);
+int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
                                           mrcal_problem_details_t problem_details,
                                           mrcal_lensmodel_t lensmodel);
-int mrcal_getNstate(int Ncameras_intrinsics, int Ncameras_extrinsics,
+int mrcal_num_state(int Ncameras_intrinsics, int Ncameras_extrinsics,
                     int Nframes, int NpointsVariable,
                     mrcal_problem_details_t problem_details,
                     mrcal_lensmodel_t lensmodel);
-int mrcal_getN_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
+int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
                           const mrcal_observation_board_t* observations_board,
                           int NobservationsBoard,
                           const mrcal_observation_point_t* observations_point,
@@ -606,7 +606,7 @@ bool _mrcal_unproject_internal( // out
 // we're observing a moving object with stationary cameras. If we have moving
 // cameras, there won't be a single icam_extrinsics for a given icam_intrinsics,
 // and we report an error by returning false
-bool mrcal_get_corresponding_icam_extrinsics(// out
+bool mrcal_corresponding_icam_extrinsics(// out
                                              int* icam_extrinsics,
 
                                              // in

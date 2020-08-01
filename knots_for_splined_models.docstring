@@ -2,7 +2,7 @@ Returns a tuple of locations of x and y spline knots
 
 SYNOPSIS
 
-    print(mrcal.getKnotsForSplinedModels('LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=4_Ny=3_fov_x_deg=200'))
+    print(mrcal.knots_for_splined_models('LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=4_Ny=3_fov_x_deg=200'))
 
     ( array([-4.76701437, -2.38350719,  0.        ,  2.38350719,  4.76701437]),
       array([-3.57526078, -1.19175359,  1.19175359,  3.57526078]) )
@@ -19,7 +19,7 @@ surface. In the case of LENSMODEL_SPLINED_STEREOGRAPHIC, these are the
 normalized stereographic projection coordinates. These can be unprojected to
 observation vectors at the knots:
 
-  ux,uy = mrcal.getKnotsForSplinedModels('LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=5_Ny=4_fov_x_deg=200')
+  ux,uy = mrcal.knots_for_splined_models('LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=5_Ny=4_fov_x_deg=200')
   u  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
   v  = mrcal.unproject_stereographic(u, 1,1,0,0)
 

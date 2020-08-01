@@ -193,7 +193,7 @@ int main(int argc, char* argv[] )
         // There is no core
         problem_details.do_optimize_intrinsic_core = false;
 
-    int Nintrinsics = mrcal_getNlensParams(lensmodel);
+    int Nintrinsics = mrcal_num_lens_params(lensmodel);
     int Ndistortion = Nintrinsics;
     if(modelHasCore_fxfycxcy(lensmodel))
         Ndistortion -= 4;
@@ -316,11 +316,11 @@ int main(int argc, char* argv[] )
            (problem_details.do_optimize_calobject_warp ? 2 : 0),
            mrcal_state_index_calobject_warp(Npoints-Npoints_fixed,
                                             Nframes, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
-    int Nmeasurements_boards         = mrcal_getNmeasurements_boards(NobservationsBoard,
+    int Nmeasurements_boards         = mrcal_num_measurements_boards(NobservationsBoard,
                                                                      calibration_object_width_n,
                                                                      calibration_object_height_n);
-    int Nmeasurements_points         = mrcal_getNmeasurements_points(NobservationsPoint);
-    int Nmeasurements_regularization = mrcal_getNmeasurements_regularization(Ncameras_intrinsics, problem_details, lensmodel);
+    int Nmeasurements_points         = mrcal_num_measurements_points(NobservationsPoint);
+    int Nmeasurements_regularization = mrcal_num_measurements_regularization(Ncameras_intrinsics, problem_details, lensmodel);
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
            Nmeasurements_boards, 0);
     printf("## Measurement points: %d measurements. Starts at measurement %d\n",

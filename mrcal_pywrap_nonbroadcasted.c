@@ -215,7 +215,7 @@ typedef struct {
     cholmod_common  common;
     cholmod_factor* factorization;
 
-    // optimizerCallback should return it
+    // optimizer_callback should return it
     // and I should have two solve methods:
 } CHOLMOD_factorization;
 
@@ -705,8 +705,8 @@ static bool parse_lensmodel_from_arg(// output
     return true;
 }
 
-static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
-                                  PyObject* args)
+static PyObject* lensmodel_meta(PyObject* NPY_UNUSED(self),
+                                PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
@@ -743,7 +743,7 @@ static PyObject* getLensModelMeta(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
+static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
                                           PyObject* args)
 {
     PyObject*      result = NULL;
@@ -768,9 +768,9 @@ static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
     {
         double ux[lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx];
         double uy[lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny];
-        if(!mrcal_get_knots_for_splined_models(ux,uy, lensmodel))
+        if(!mrcal_knots_for_splined_models(ux,uy, lensmodel))
         {
-            BARF( "mrcal_get_knots_for_splined_models() failed");
+            BARF( "mrcal_knots_for_splined_models() failed");
             goto done;
         }
 
@@ -806,8 +806,8 @@ static PyObject* getKnotsForSplinedModels(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
-                                PyObject* args)
+static PyObject* num_lens_params(PyObject* NPY_UNUSED(self),
+                                 PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
@@ -819,7 +819,7 @@ static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
 
-    int Nparams = mrcal_getNlensParams(lensmodel);
+    int Nparams = mrcal_num_lens_params(lensmodel);
 
     result = Py_BuildValue("i", Nparams);
 
@@ -828,12 +828,12 @@ static PyObject* getNlensParams(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-static PyObject* getSupportedLensModels(PyObject* NPY_UNUSED(self),
-                                        PyObject* NPY_UNUSED(args))
+static PyObject* supported_lensmodels(PyObject* NPY_UNUSED(self),
+                                      PyObject* NPY_UNUSED(args))
 {
     PyObject* result = NULL;
     SET_SIGINT();
-    const char* const* names = mrcal_getSupportedLensModels();
+    const char* const* names = mrcal_supported_lensmodels();
 
     // I now have a NULL-terminated list of NULL-terminated strings. Get N
     int N=0;
@@ -1084,7 +1084,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     OPTIMIZE_ARGUMENTS_REQUIRED(_) \
     OPTIMIZE_ARGUMENTS_OPTIONAL(_)
 
-// Using this for both optimize() and optimizerCallback()
+// Using this for both optimize() and optimizer_callback()
 static bool optimize_validate_args( // out
                                     mrcal_lensmodel_t* mrcal_lensmodel_type,
 
@@ -1168,7 +1168,7 @@ static bool optimize_validate_args( // out
     if(!parse_lensmodel_from_arg(mrcal_lensmodel_type, lensmodel))
         return false;
 
-    int NlensParams = mrcal_getNlensParams(*mrcal_lensmodel_type);
+    int NlensParams = mrcal_num_lens_params(*mrcal_lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[1] )
     {
         BARF("intrinsics.shape[1] MUST be %d. Instead got %ld",
@@ -1335,7 +1335,7 @@ static void fill_c_observations_board(// out
 }
 
 static
-PyObject* _optimize(bool is_optimize, // or optimizerCallback
+PyObject* _optimize(bool is_optimize, // or optimizer_callback
                     PyObject* args,
                     PyObject* kwargs)
 {
@@ -1420,7 +1420,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
 
 
     mrcal_lensmodel_t mrcal_lensmodel_type;
-    // Check the arguments for optimize(). If optimizerCallback, then the other
+    // Check the arguments for optimize(). If optimizer_callback, then the other
     // stuff is defined, but it all has valid, default values
     if( !optimize_validate_args(&mrcal_lensmodel_type,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
@@ -1483,22 +1483,22 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
             {.point_min_range = point_min_range,
              .point_max_range = point_max_range};
 
-        int Nmeasurements = mrcal_getNmeasurements_all(Ncameras_intrinsics, NobservationsBoard, NobservationsPoint,
+        int Nmeasurements = mrcal_num_measurements_all(Ncameras_intrinsics, NobservationsBoard, NobservationsPoint,
                                                        calibration_object_width_n,
                                                        calibration_object_height_n,
                                                        problem_details,
                                                        mrcal_lensmodel_type);
 
-        int Nintrinsics_state = mrcal_getNintrinsicOptimizationParams(problem_details, mrcal_lensmodel_type);
+        int Nintrinsics_state = mrcal_num_intrinsics_optimization_params(problem_details, mrcal_lensmodel_type);
 
         // input
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
-        int Nstate = mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
+        int Nstate = mrcal_num_state(Ncameras_intrinsics, Ncameras_extrinsics,
                                      Nframes, Npoints-Npoints_fixed,
                                      problem_details, mrcal_lensmodel_type);
 
-        // both optimize() and optimizerCallback() use this
+        // both optimize() and optimizer_callback() use this
         p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
         double* c_p_packed_final = PyArray_DATA(p_packed_final);
 
@@ -1595,9 +1595,9 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
         }
         else
         {
-            // we're wrapping mrcal_optimizerCallback()
+            // we're wrapping mrcal_optimizer_callback()
 
-            int N_j_nonzero = mrcal_getN_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
+            int N_j_nonzero = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
                                                    c_observations_board, NobservationsBoard,
                                                    c_observations_point, NobservationsPoint,
                                                    Npoints, Npoints_fixed,
@@ -1624,7 +1624,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                 .i = PyArray_DATA(I),
                 .x = PyArray_DATA(X) };
 
-            if(!mrcal_optimizerCallback( // out
+            if(!mrcal_optimizer_callback( // out
                                          c_p_packed_final,
                                          Nstate*sizeof(double),
                                          c_x_final,
@@ -1657,7 +1657,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
                                          calibration_object_width_n,
                                          calibration_object_height_n) )
             {
-                BARF("mrcal_optimizerCallback() failed!'");
+                BARF("mrcal_optimizer_callback() failed!'");
                 goto done;
             }
 
@@ -1698,7 +1698,7 @@ PyObject* _optimize(bool is_optimize, // or optimizerCallback
     return result;
 }
 
-static PyObject* optimizerCallback(PyObject* NPY_UNUSED(self),
+static PyObject* optimizer_callback(PyObject* NPY_UNUSED(self),
                                    PyObject* args,
                                    PyObject* kwargs)
 {
@@ -1715,13 +1715,13 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
 
 // The state_index_... python functions don't need the full data but many of
 // them do need to know the dimensionality of the data. Thus these can take the
-// same arguments as optimizerCallback(). OR in lieu of that, the dimensions can
+// same arguments as optimizer_callback(). OR in lieu of that, the dimensions can
 // be passed-in explicitly with arguments
 //
 // If both are given, the explicit arguments take precedence. If neither are
 // given, I assume 0.
 //
-// This means that the arguments that are required in optimizerCallback() are
+// This means that the arguments that are required in optimizer_callback() are
 // only optional here
 typedef int (callback_state_index_t)(int i,
                                      int Ncameras_intrinsics,
@@ -2032,7 +2032,7 @@ static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyOb
                                callback_state_index_calobject_warp);
 }
 
-static int callback_getNmeasurements_all(int i,
+static int callback_num_measurements_all(int i,
                                          int Ncameras_intrinsics,
                                          int Ncameras_extrinsics,
                                          int Nframes,
@@ -2046,7 +2046,7 @@ static int callback_getNmeasurements_all(int i,
                                          mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_getNmeasurements_all(Ncameras_intrinsics,
+        mrcal_num_measurements_all(Ncameras_intrinsics,
                                    NobservationsBoard,
                                    NobservationsPoint,
                                    calibration_object_width_n,
@@ -2054,14 +2054,14 @@ static int callback_getNmeasurements_all(int i,
                                    problem_details,
                                    lensmodel);
 }
-static PyObject* getNmeasurements_all(PyObject* self, PyObject* args, PyObject* kwargs)
+static PyObject* num_measurements_all(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return state_index_generic(self, args, kwargs,
                                NULL,
-                               callback_getNmeasurements_all);
+                               callback_num_measurements_all);
 }
 
-static int callback_getNmeasurements_boards(int i,
+static int callback_num_measurements_boards(int i,
                                             int Ncameras_intrinsics,
                                             int Ncameras_extrinsics,
                                             int Nframes,
@@ -2075,18 +2075,18 @@ static int callback_getNmeasurements_boards(int i,
                                             mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_getNmeasurements_boards(NobservationsBoard,
+        mrcal_num_measurements_boards(NobservationsBoard,
                                       calibration_object_width_n,
                                       calibration_object_height_n);
 }
-static PyObject* getNmeasurements_boards(PyObject* self, PyObject* args, PyObject* kwargs)
+static PyObject* num_measurements_boards(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return state_index_generic(self, args, kwargs,
                                NULL,
-                               callback_getNmeasurements_boards);
+                               callback_num_measurements_boards);
 }
 
-static int callback_getNmeasurements_points(int i,
+static int callback_num_measurements_points(int i,
                                             int Ncameras_intrinsics,
                                             int Ncameras_extrinsics,
                                             int Nframes,
@@ -2100,16 +2100,16 @@ static int callback_getNmeasurements_points(int i,
                                             mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_getNmeasurements_points(NobservationsPoint);
+        mrcal_num_measurements_points(NobservationsPoint);
 }
-static PyObject* getNmeasurements_points(PyObject* self, PyObject* args, PyObject* kwargs)
+static PyObject* num_measurements_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return state_index_generic(self, args, kwargs,
                                NULL,
-                               callback_getNmeasurements_points);
+                               callback_num_measurements_points);
 }
 
-static int callback_getNmeasurements_regularization(int i,
+static int callback_num_measurements_regularization(int i,
                                                     int Ncameras_intrinsics,
                                                     int Ncameras_extrinsics,
                                                     int Nframes,
@@ -2123,15 +2123,15 @@ static int callback_getNmeasurements_regularization(int i,
                                                     mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_getNmeasurements_regularization(Ncameras_intrinsics,
+        mrcal_num_measurements_regularization(Ncameras_intrinsics,
                                               problem_details,
                                               lensmodel);
 }
-static PyObject* getNmeasurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
+static PyObject* num_measurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return state_index_generic(self, args, kwargs,
                                NULL,
-                               callback_getNmeasurements_regularization);
+                               callback_num_measurements_regularization);
 }
 
 
@@ -2250,7 +2250,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     }
 
     int Nstate =
-        mrcal_getNstate(Ncameras_intrinsics, Ncameras_extrinsics,
+        mrcal_num_state(Ncameras_intrinsics, Ncameras_extrinsics,
                         Nframes, Npoints - Npoints_fixed,
                         problem_details,
                         mrcal_lensmodel_type);
@@ -2304,7 +2304,7 @@ static PyObject* unpack_state(PyObject* self, PyObject* args, PyObject* kwargs)
     return _pack_unpack_state(self, args, kwargs, false);
 }
 
-static PyObject* get_corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
+static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     // This is VERY similar to state_index_generic(). Please consolidate
     PyObject* result          = NULL;
@@ -2384,7 +2384,7 @@ static PyObject* get_corresponding_icam_extrinsics(PyObject* self, PyObject* arg
         fill_c_observations_board(c_observations_board,
                                   NobservationsBoard,
                                   indices_frame_camintrinsics_camextrinsics);
-        if(!mrcal_get_corresponding_icam_extrinsics(&icam_extrinsics,
+        if(!mrcal_corresponding_icam_extrinsics(&icam_extrinsics,
 
                                                     icam_intrinsics,
                                                     Ncameras_intrinsics,
@@ -2392,7 +2392,7 @@ static PyObject* get_corresponding_icam_extrinsics(PyObject* self, PyObject* arg
                                                     NobservationsBoard,
                                                     c_observations_board))
         {
-            BARF("Error calling mrcal_get_corresponding_icam_extrinsics()");
+            BARF("Error calling mrcal_corresponding_icam_extrinsics()");
             goto done;
         }
     }
@@ -2430,20 +2430,20 @@ static const char pack_state_docstring[] =
 static const char unpack_state_docstring[] =
 #include "unpack_state.docstring.h"
     ;
-static const char getNmeasurements_all_docstring[] =
-#include "getNmeasurements_all.docstring.h"
+static const char num_measurements_all_docstring[] =
+#include "num_measurements_all.docstring.h"
     ;
-static const char getNmeasurements_boards_docstring[] =
-#include "getNmeasurements_boards.docstring.h"
+static const char num_measurements_boards_docstring[] =
+#include "num_measurements_boards.docstring.h"
     ;
-static const char getNmeasurements_points_docstring[] =
-#include "getNmeasurements_points.docstring.h"
+static const char num_measurements_points_docstring[] =
+#include "num_measurements_points.docstring.h"
     ;
-static const char getNmeasurements_regularization_docstring[] =
-#include "getNmeasurements_regularization.docstring.h"
+static const char num_measurements_regularization_docstring[] =
+#include "num_measurements_regularization.docstring.h"
     ;
-static const char get_corresponding_icam_extrinsics_docstring[] =
-#include "get_corresponding_icam_extrinsics.docstring.h"
+static const char corresponding_icam_extrinsics_docstring[] =
+#include "corresponding_icam_extrinsics.docstring.h"
     ;
 
 
@@ -2454,20 +2454,20 @@ static const char get_corresponding_icam_extrinsics_docstring[] =
 static const char optimize_docstring[] =
 #include "optimize.docstring.h"
     ;
-static const char optimizerCallback_docstring[] =
-#include "optimizerCallback.docstring.h"
+static const char optimizer_callback_docstring[] =
+#include "optimizer_callback.docstring.h"
     ;
-static const char getLensModelMeta_docstring[] =
-#include "getLensModelMeta.docstring.h"
+static const char lensmodel_meta_docstring[] =
+#include "lensmodel_meta.docstring.h"
     ;
-static const char getNlensParams_docstring[] =
-#include "getNlensParams.docstring.h"
+static const char num_lens_params_docstring[] =
+#include "num_lens_params.docstring.h"
     ;
-static const char getSupportedLensModels_docstring[] =
-#include "getSupportedLensModels.docstring.h"
+static const char supported_lensmodels_docstring[] =
+#include "supported_lensmodels.docstring.h"
     ;
-static const char getKnotsForSplinedModels_docstring[] =
-#include "getKnotsForSplinedModels.docstring.h"
+static const char knots_for_splined_models_docstring[] =
+#include "knots_for_splined_models.docstring.h"
     ;
 static const char project_stereographic_docstring[] =
 #include "project_stereographic.docstring.h"
@@ -2477,7 +2477,7 @@ static const char unproject_stereographic_docstring[] =
     ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,optimizerCallback,        METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,optimizer_callback,        METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, state_index_intrinsics,          METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_camera_rt,           METH_VARARGS | METH_KEYWORDS),
@@ -2486,16 +2486,16 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, state_index_calobject_warp,      METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, pack_state,                      METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, unpack_state,                    METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, getNmeasurements_all,            METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, getNmeasurements_boards,         METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, getNmeasurements_points,         METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, getNmeasurements_regularization, METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, get_corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_measurements_all,            METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_measurements_boards,         METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_measurements_points,         METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_measurements_regularization, METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
 
-      PYMETHODDEF_ENTRY(,getLensModelMeta,         METH_VARARGS),
-      PYMETHODDEF_ENTRY(,getNlensParams,           METH_VARARGS),
-      PYMETHODDEF_ENTRY(,getSupportedLensModels,   METH_NOARGS),
-      PYMETHODDEF_ENTRY(,getKnotsForSplinedModels, METH_VARARGS),
+      PYMETHODDEF_ENTRY(,lensmodel_meta,         METH_VARARGS),
+      PYMETHODDEF_ENTRY(,num_lens_params,           METH_VARARGS),
+      PYMETHODDEF_ENTRY(,supported_lensmodels,   METH_NOARGS),
+      PYMETHODDEF_ENTRY(,knots_for_splined_models, METH_VARARGS),
       PYMETHODDEF_ENTRY(,project_stereographic,    METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,unproject_stereographic,  METH_VARARGS | METH_KEYWORDS),
       {}

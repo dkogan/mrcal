@@ -242,7 +242,7 @@ def compute_scale_f_pinhole_for_fit(model, fit):
 
     v_edges = mrcal.unproject(q_edges, lensmodel, intrinsics_data)
 
-    if not mrcal.getLensModelMeta(lensmodel)['has_core']:
+    if not mrcal.lensmodel_meta(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
@@ -320,7 +320,7 @@ def make_target_pinhole_model_for_reprojection(model_from,
     lensmodel,intrinsics_data = model_from.intrinsics()
     imagersize                = model_from.imagersize()
 
-    if not mrcal.getLensModelMeta(lensmodel)['has_core']:
+    if not mrcal.lensmodel_meta(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core")
     cx,cy = intrinsics_data[2:4]
     intrinsics_data[:2] *= scale_focal

@@ -1,4 +1,4 @@
-Return how many measurements we have from calibration object observations
+Return how many measurements we have from regularization
 
 SYNOPSIS
 
@@ -6,24 +6,25 @@ SYNOPSIS
 
     optimization_inputs = m.optimization_inputs()
 
-    x = mrcal.optimizerCallback(**optimization_inputs)[1]
+    x = mrcal.optimizer_callback(**optimization_inputs)[1]
 
-    Nmeas   = mrcal.getNmeasurements_boards(**optimization_inputs)
-    i_meas0 = 0
+    Nmeas   = mrcal.num_measurements_regularization(**optimization_inputs)
+    i_meas0 = mrcal.num_measurements_boards(**optimization_inputs) + \
+              mrcal.num_measurements_points(**optimization_inputs)
 
-    x_boards = x[i_meas0:i_meas0+Nmeas]
+    x_regularization = x[i_meas0:i_meas0+Nmeas]
 
 The optimization algorithm tries to minimize the norm of a "measurements" vector
 x. The optimizer doesn't know or care about the meaning of each element of this
 vector, but for later analysis, it is useful to know what's what. The
-mrcal.getNmeasurements_...() functions report where particular items end up in
+mrcal.num_measurements_...() functions report where particular items end up in
 the vector of measurements.
 
-THIS function reports how many measurements come from the observations of the
-calibration object. When solving calibration problems, most if not all of the
-measurements will come from these observations. These are stored contiguously.
-At this time, these measurements are assumed to sit at the beginning of the full
-vector of measurements x.
+THIS function reports how many measurements come from the regularization terms
+of the optimization problem. These don't model physical effects, but guide the
+solver away from obviously-incorrect solutions, and resolve ambiguities. This
+helps the solver converge to the right solution, quickly. At this time, these
+measurements are assumed to sit at the end of the full vector of measurements x.
 
 In order to determine the mapping, we need quite a bit of context. If we have
 the full set of inputs to the optimization function, we can pass in those (as
@@ -41,7 +42,7 @@ ARGUMENTS
 
 - lensmodel: string specifying the lensmodel we're using (this is always
   'LENSMODEL_...'). The full list of valid models is returned by
-  mrcal.getSupportedLensModels(). This is required if we're not passing in the
+  mrcal.supported_lensmodels(). This is required if we're not passing in the
   optimization inputs
 
 - do_optimize_intrinsic_core
@@ -74,4 +75,4 @@ ARGUMENTS
 RETURNED VALUE
 
 The integer reporting how many elements of the measurement vector x come from
-the calibration object observations
+regularization terms

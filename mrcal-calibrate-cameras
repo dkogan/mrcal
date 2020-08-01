@@ -642,7 +642,7 @@ def solve_initial(args, seedmodels, imagersizes,
 
     def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \
-            mrcal.getNlensParams(lensmodel) - \
+            mrcal.num_lens_params(lensmodel) - \
             intrinsics_data.shape[1]
         newDistortions = \
             (np.random.random((Ncameras, NnewDistortions)) - 0.5)*2. *1e-6

@@ -130,7 +130,7 @@ for kwargs in all_test_kwargs:
             nps.clump(observations_copy, n=3)[i,2] = -1.
         del kwargs['outlier_indices']
 
-    x,J = mrcal.optimizerCallback( intrinsics_data,
+    x,J = mrcal.optimizer_callback( intrinsics_data,
                                    nps.atleast_dims(extrinsics_rt_fromref, -2),
                                    frames_rt_toref, points,
                                    observations_copy, indices_frame_camintrinsics_camextrinsics,

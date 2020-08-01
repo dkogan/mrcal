@@ -1682,7 +1682,7 @@ broadcasts on p_cam only. We accept
 
 - intrinsics_data: a numpy array of shape (Nintrinsics,) where Nintrinsics is
   the number of parameters in the intrinsics vector for this lens model,
-  returned by mrcal.getNlensParams(lensmodel). This is required if and only if
+  returned by mrcal.num_lens_params(lensmodel). This is required if and only if
   model is None
 
 - extrinsics_rt_fromref: a numpy array of shape (6,) or None. This is an rt
@@ -1743,7 +1743,7 @@ else:                    we return an array of shape (...)
         raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
     J,factorization = \
-        mrcal.optimizerCallback( **optimization_inputs )[2:]
+        mrcal.optimizer_callback( **optimization_inputs )[2:]
 
     # The intrinsics,extrinsics,frames MUST come from the solve when
     # evaluating the uncertainties. The user is allowed to update the
@@ -1755,7 +1755,7 @@ else:                    we return an array of shape (...)
 
     # which calibration-time camera we're looking at
     icam_intrinsics = model.icam_intrinsics_optimization_inputs()
-    icam_extrinsics = mrcal.get_corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
+    icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
 
     intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
 
@@ -1774,8 +1774,8 @@ else:                    we return an array of shape (...)
         frames_rt_toref = optimization_inputs.get('frames_rt_toref')
 
 
-    Nmeasurements_observations = mrcal.getNmeasurements_boards(**optimization_inputs)
-    if Nmeasurements_observations == mrcal.getNmeasurements_all(**optimization_inputs):
+    Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
+    if Nmeasurements_observations == mrcal.num_measurements_all(**optimization_inputs):
         # Note the special-case where I'm using all the observations
         Nmeasurements_observations = None
 
@@ -2478,7 +2478,7 @@ into a variable, even if you're not going to be doing anything with this object
     if gridn_height is None:
         gridn_height = int(round(H/W*gridn_width))
 
-    if not mrcal.getLensModelMeta(lensmodel)['has_core']:
+    if not mrcal.lensmodel_meta(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
@@ -2707,11 +2707,11 @@ An array of shape (N,2) containing a contour representing the projection domain.
     if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
         raise Exception(f"This only makes sense with splined models. Input uses {lensmodel}")
 
-    ux,uy = mrcal.getKnotsForSplinedModels(lensmodel)
+    ux,uy = mrcal.knots_for_splined_models(lensmodel)
     # shape (Ny,Nx,2)
     u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
 
-    meta = mrcal.getLensModelMeta(lensmodel)
+    meta = mrcal.lensmodel_meta(lensmodel)
     if meta['order'] == 2:
         # spline order is 3. The valid region is 1/2 segments inwards from the
         # outer contour
@@ -2936,8 +2936,8 @@ into a variable, even if you're not going to be doing anything with this object
         kwargs['set'] = [kwargs['set']]
 
 
-    ux_knots,uy_knots = mrcal.getKnotsForSplinedModels(lensmodel)
-    meta = mrcal.getLensModelMeta(lensmodel)
+    ux_knots,uy_knots = mrcal.knots_for_splined_models(lensmodel)
+    meta = mrcal.lensmodel_meta(lensmodel)
     Nx = meta['Nx']
     Ny = meta['Ny']
 
@@ -4339,7 +4339,7 @@ camera coordinate system FROM the calibration object coordinate system.
     lensmodels      = [di[0] for di in lensmodels_intrinsics_data]
     intrinsics_data = [di[1] for di in lensmodels_intrinsics_data]
 
-    if not all([mrcal.getLensModelMeta(m)['has_core'] for m in lensmodels]):
+    if not all([mrcal.lensmodel_meta(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
     fx = [ i[0] for i in intrinsics_data ]

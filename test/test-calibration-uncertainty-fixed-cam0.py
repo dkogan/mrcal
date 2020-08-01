@@ -100,7 +100,7 @@ lensmodel   = models_ref[0].intrinsics()[0]
 lensmodel = 'LENSMODEL_OPENCV4'
 for m in models_ref:
     m.intrinsics( intrinsics = (lensmodel, m.intrinsics()[1][:8]))
-Nintrinsics = mrcal.getNlensParams(lensmodel)
+Nintrinsics = mrcal.num_lens_params(lensmodel)
 
 Ncameras = len(models_ref)
 Nframes  = 50
@@ -270,7 +270,7 @@ for icam in (0,3):
     model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 
     icam_intrinsics_read = model_read.icam_intrinsics_optimization_inputs()
-    icam_extrinsics_read = mrcal.get_corresponding_icam_extrinsics(icam_intrinsics_read,
+    icam_extrinsics_read = mrcal.corresponding_icam_extrinsics(icam_intrinsics_read,
                                                                    **model_read.optimization_inputs())
 
     testutils.confirm_equal(icam if fixedframes else icam-1,

@@ -39,7 +39,7 @@ lensmodel   = models_ref[0].intrinsics()[0]
 lensmodel = 'LENSMODEL_OPENCV4'
 for m in models_ref:
     m.intrinsics( intrinsics = (lensmodel, m.intrinsics()[1][:8]))
-Nintrinsics = mrcal.getNlensParams(lensmodel)
+Nintrinsics = mrcal.num_lens_params(lensmodel)
 
 Ncameras = len(models_ref)
 Nframes  = 50
@@ -339,7 +339,7 @@ def callback_tweaked_intrinsics(intrinsics_data):
              skip_regularization                       = False,
              verbose                                   = False )
     x,Joptimizer = \
-        mrcal.optimizerCallback(**optimization_inputs)[1:3]
+        mrcal.optimizer_callback(**optimization_inputs)[1:3]
     Joptimizer = Joptimizer.toarray()
     J = Joptimizer.copy()
 
