@@ -6,7 +6,7 @@
 #include "mrcal.h"
 
 static
-bool modelHasCore_fxfycxcy( const lensmodel_t m )
+bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t m )
 {
     mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
     return meta.has_core;
@@ -47,8 +47,8 @@ int main(int argc, char* argv[] )
         return 1;
     }
 
-    lensmodel_t lensmodel = {.type = mrcal_lensmodel_type_from_name(argv[iarg]) };
-    if( !mrcal_lensmodel_type_is_valid(lensmodel.type) )
+    mrcal_lensmodel_t lensmodel = {.type = mrcal_mrcal_lensmodel_type_from_name(argv[iarg]) };
+    if( !mrcal_mrcal_lensmodel_type_is_valid(lensmodel.type) )
     {
 #define QUOTED_LIST_WITH_COMMA(s,n) "'" #s "',"
         fprintf(stderr, "Lens model name '%s' unknown. I only know about ("
@@ -157,14 +157,14 @@ int main(int argc, char* argv[] )
     }
 
     // The observations of chessboards and of discrete points
-    observation_board_t observations_board[] =
+    mrcal_observation_board_t observations_board[] =
         { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 0},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 0},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 1},
           {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 2},
           {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_frame = 3},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_frame = 3} };
-    observation_point_t observations_point[] =
+    mrcal_observation_point_t observations_point[] =
         { {.i_cam_intrinsics = 0, .i_cam_extrinsics = -1, .i_point = 0, .px = observations_point_px[0]},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 0, .px = observations_point_px[1]},
           {.i_cam_intrinsics = 1, .i_cam_extrinsics =  0, .i_point = 1, .px = observations_point_px[3]} };
@@ -194,13 +194,13 @@ int main(int argc, char* argv[] )
         Ndistortion -= 4;
     double intrinsics[Ncameras_intrinsics * Nintrinsics];
 
-    intrinsics_core_t* intrinsics_core = (intrinsics_core_t*)intrinsics;
+    mrcal_intrinsics_core_t* intrinsics_core = (mrcal_intrinsics_core_t*)intrinsics;
     intrinsics_core->focal_xy [0] = 2000.3;
     intrinsics_core->focal_xy [1] = 1900.5;
     intrinsics_core->center_xy[0] = 1800.3;
     intrinsics_core->center_xy[1] = 1790.2;
 
-    intrinsics_core = (intrinsics_core_t*)(&intrinsics[Nintrinsics]);
+    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[Nintrinsics]);
     intrinsics_core->focal_xy [0] = 2100.2;
     intrinsics_core->focal_xy [1] = 2130.4;
     intrinsics_core->center_xy[0] = 1830.3;

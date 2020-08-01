@@ -19,7 +19,7 @@ m = npsp.module( name      = "_mrcal_broadcasted",
 
 static
 bool validate_lensmodel(// out; valid if we returned true
-                        lensmodel_t* lensmodel,
+                        mrcal_lensmodel_t* lensmodel,
 
                         // in
                         const char* lensmodel_str,
@@ -33,7 +33,7 @@ bool validate_lensmodel(// out; valid if we returned true
     }
 
     *lensmodel = mrcal_lensmodel_from_name(lensmodel_str);
-    if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
+    if( !mrcal_mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
         PyErr_Format(PyExc_RuntimeError,
                      "Couldn't parse 'lensmodel' argument '%s'", lensmodel_str);
@@ -142,7 +142,7 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
             extra_args = (("const char*", "lensmodel", "NULL", "s"),),
 
             Ccode_cookie_struct = '''
-              lensmodel_t                    lensmodel;
+              mrcal_lensmodel_t                    lensmodel;
               int                            Nintrinsics;
               mrcal_projection_precomputed_t precomputed;
             ''',
@@ -229,7 +229,7 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
             extra_args = (("const char*", "lensmodel", "NULL", "s"),),
 
             Ccode_cookie_struct = '''
-              lensmodel_t                    lensmodel;
+              mrcal_lensmodel_t                    lensmodel;
               int                            Nintrinsics;
               mrcal_projection_precomputed_t precomputed;
             ''',
@@ -304,7 +304,7 @@ mrcal-genpywrap.py. Please keep them in sync """,
             extra_args = (("const char*", "lensmodel", "NULL", "s"),),
 
             Ccode_cookie_struct = '''
-              lensmodel_t lensmodel;
+              mrcal_lensmodel_t lensmodel;
               mrcal_projection_precomputed_t precomputed;
             ''',
 
