@@ -184,13 +184,6 @@ typedef struct
     double  point_min_range;
 } mrcal_problem_constants_t;
 
-#define DO_OPTIMIZE_ALL ((mrcal_problem_details_t) { .do_optimize_intrinsic_core        = true, \
-                                                     .do_optimize_intrinsic_distortions = true, \
-                                                     .do_optimize_extrinsics            = true, \
-                                                     .do_optimize_frames                = true, \
-                                                     .do_optimize_calobject_warp        = true, \
-                                                     .do_skip_regularization            = false})
-
 // These return a string describing the lens model. mrcal_lensmodel_name()
 // returns a static string. For models with no configuration, this is the FULL
 // string. For models that have a configuration, however, a static string cannot
