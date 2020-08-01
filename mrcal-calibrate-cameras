@@ -764,7 +764,7 @@ else:
 
 
 observations, indices_frame_camera, paths = \
-    mrcal.get_chessboard_observations(args.object_width_n,
+    mrcal.chessboard_observations(args.object_width_n,
                                       args.object_height_n,
                                       args.images,
                                       args.corners_cache,

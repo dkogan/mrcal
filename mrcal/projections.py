@@ -571,7 +571,7 @@ def calobservations_project(lensmodel, intrinsics, extrinsics, frames,
 
     '''
 
-    object_ref = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing, calobject_warp)
+    object_ref = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing, calobject_warp)
     Rf = mrcal.R_from_r(frames[:,:3])
     Rf = nps.mv(Rf,           0, -5)
     tf = nps.mv(frames[:,3:], 0, -5)

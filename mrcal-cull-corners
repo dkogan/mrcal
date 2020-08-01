@@ -156,7 +156,7 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
 
 
 observations, _, paths = \
-    mrcal.get_chessboard_observations(Nw = args.object_width_n,
+    mrcal.chessboard_observations(Nw = args.object_width_n,
                                       Nh = args.object_height_n,
                                       corners_cache_vnl = sys.stdin,
                                       keep_level = True)

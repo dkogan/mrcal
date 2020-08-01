@@ -131,7 +131,7 @@ vectors: we return a rotation matrix in a (3,3) array
     else:       return _align3d_procrustes_points (A,B)
 
 
-def get_ref_calibration_object(W, H, object_spacing, calobject_warp=None):
+def ref_calibration_object(W, H, object_spacing, calobject_warp=None):
     r'''Return the geometry of the calibration object
 
 SYNOPSIS
@@ -139,7 +139,7 @@ SYNOPSIS
     import gnuplotlib as gp
     import numpysane as nps
 
-    obj = mrcal.get_ref_calibration_object( 10,6, 0.1 )
+    obj = mrcal.ref_calibration_object( 10,6, 0.1 )
 
     print(obj.shape)
     ===> (6, 10, 3)
@@ -181,7 +181,7 @@ Returns the geometry of a calibration object in its own reference coordinate
 system in a (H,W,3) array. Only a grid-of-points calibration object is
 supported, possibly with some bowing (i.e. what the internal mrcal solver
 supports). Each row of the output is an (x,y,z) point. The origin is at the
-corner of the grid, so get_ref_calibration_object(...)[0,0,:] is
+corner of the grid, so ref_calibration_object(...)[0,0,:] is
 np.array((0,0,0)). The grid spans x and y, with z representing the depth: z=0
 for a flat calibration object.
 
@@ -299,7 +299,7 @@ ARGUMENTS
 
 - calobject_warp: a description of the calibration board warping. None means "no
   warping": the object is flat. Otherwise this is an array of shape (2,). See
-  the docs for get_ref_calibration_object() for a description.
+  the docs for ref_calibration_object() for a description.
 
 - at_xyz_rpydeg: the nominal pose of the calibration object, in the reference
   coordinate system. This is an array of shape (6,): the position of the center
@@ -340,11 +340,11 @@ We return a tuple:
                    (object_width_n -1)*object_spacing/2.,
                    0 ))
     board_reference = \
-        mrcal.get_ref_calibration_object(object_width_n,object_height_n,
+        mrcal.ref_calibration_object(object_width_n,object_height_n,
                                          object_spacing,calobject_warp) - \
         board_translation
 
-    # Transformation from the board returned by get_ref_calibration_object() to
+    # Transformation from the board returned by ref_calibration_object() to
     # the one I use here. It's a shift to move the origin to the center of the
     # board
     Rt_boardref_origboardref = mrcal.identity_Rt()
@@ -540,7 +540,7 @@ ARGUMENTS
 
 - calobject_warp: optional (2,) array describing the calibration board warping.
   None means "no warping": the object is flat. Used only if frames_rt_toref is
-  not None. See the docs for get_ref_calibration_object() for a description.
+  not None. See the docs for ref_calibration_object() for a description.
 
 - points: optional array of shape (N,3). If omitted, we don't plot the observed
   points. If given, each row of shape (3,) is a point in the reference
@@ -750,7 +750,7 @@ into a variable, even if you're not going to be doing anything with this object
         #     frames_rt_toref = frames_rt_toref[i_frames, ...]
 
 
-        calobject_ref = get_ref_calibration_object(object_width_n, object_height_n,
+        calobject_ref = ref_calibration_object(object_width_n, object_height_n,
                                                    object_spacing, calobject_warp)
 
         Rf = mrcal.R_from_r(frames_rt_toref[..., :3])
@@ -1851,7 +1851,7 @@ Returns a tuple:
     object_spacing      = optimization_inputs['calibration_object_spacing']
     calobject_warp      = optimization_inputs['calobject_warp']
     # shape (Nh,Nw,3)
-    full_object         = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing)
+    full_object         = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing)
 
     # all the frames, extrinsics at calibration time
     frames_rt_toref       = optimization_inputs['frames_rt_toref']
@@ -3670,7 +3670,7 @@ def show_valid_intrinsics_region(models,
     return plot
 
 
-def _get_correspondences_from_hugin(f):
+def _correspondences_from_hugin(f):
     r'''Reads correspondences from a hugin .pto file
 
     Returns an (N,4) numpy array containing (x1,y1, x2,y2) rows
@@ -3685,7 +3685,7 @@ def _get_correspondences_from_hugin(f):
                          axis=-2)
     return p
 
-def get_correspondences_from_hugin(f):
+def correspondences_from_hugin(f):
     r'''Reads correspondences from a hugin .pto file
 
     Returns an (N,4) numpy array containing (x1,y1, x2,y2) rows
@@ -3694,9 +3694,9 @@ def get_correspondences_from_hugin(f):
 
     if type(f) is str:
         with open(f, 'r') as openedfile:
-            return _get_correspondences_from_hugin(openedfile)
+            return _correspondences_from_hugin(openedfile)
 
-    return _get_correspondences_from_hugin(f)
+    return _correspondences_from_hugin(f)
 
 
 # mrcal.shellquote is either pipes.quote or shlex.quote, depending on
@@ -3710,14 +3710,14 @@ except:
     shellquote = shlex.quote
 
 
-def get_mapping_file_framenocameraindex(*files_per_camera):
+def mapping_file_framenocameraindex(*files_per_camera):
     r'''Parse image filenames to get the frame numbers
 
 SYNOPSIS
 
     mapping_file_framenocameraindex = \
-      get_mapping_file_framenocameraindex( ('img5-cam2.jpg', 'img6-cam2.jpg'),
-                                           ('img6-cam3.jpg', 'img7-cam3.jpg'),)
+      mapping_file_framenocameraindex( ('img5-cam2.jpg', 'img6-cam2.jpg'),
+                                       ('img6-cam3.jpg', 'img7-cam3.jpg'),)
 
     print(mapping_file_framenocameraindex)
     ===>
@@ -3863,7 +3863,7 @@ from the filename.
     return mapping
 
 
-def get_chessboard_observations(Nw, Nh, globs=('*',), corners_cache_vnl=None, jobs=1,
+def chessboard_observations(Nw, Nh, globs=('*',), corners_cache_vnl=None, jobs=1,
                                 exclude_images=set(),
                                 weighted=True,
                                 keep_level=False):
@@ -3872,7 +3872,7 @@ def get_chessboard_observations(Nw, Nh, globs=('*',), corners_cache_vnl=None, jo
 SYNOPSIS
 
   observations, indices_frame_camera, paths = \
-      mrcal.get_chessboard_observations(10, 10,
+      mrcal.chessboard_observations(10, 10,
                                         ('frame*-cam0.jpg','frame*-cam1.jpg'),
                                         "corners.vnl")
 
@@ -4200,7 +4200,7 @@ which mrcal.optimize() expects
     #               push observations
     #               push indices_frame_camera
     mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images)
-    mapping_file_framenocameraindex       = get_mapping_file_framenocameraindex(*files_per_camera)
+    mapping_file_framenocameraindex       = mapping_file_framenocameraindex(*files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
     # {for(cameras) {}} loop will just end up looking at these files in order
@@ -4263,7 +4263,7 @@ SYNOPSIS
     i_camera = indices_frame_camera[i_observation,1]
 
     # The calibration object in its reference coordinate system
-    calobject = mrcal.get_ref_calibration_object(object_width_n,
+    calobject = mrcal.ref_calibration_object(object_width_n,
                                                  object_height_n,
                                                  object_spacing)
 
@@ -4367,7 +4367,7 @@ camera coordinate system FROM the calibration object coordinate system.
     object_height_n,object_width_n = observations.shape[-3:-1]
 
     # No calobject_warp. Good-enough for the seeding
-    full_object = mrcal.get_ref_calibration_object(object_width_n, object_height_n, object_spacing)
+    full_object = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing)
 
     for i_observation in range(Nobservations):
 
@@ -4497,7 +4497,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
         # j!=0. Good enough for now
         #
         # No calobject_warp. Good-enough for the seeding
-        full_object = mrcal.get_ref_calibration_object(object_width_n,object_height_n,
+        full_object = mrcal.ref_calibration_object(object_width_n,object_height_n,
                                                        object_spacing)
 
         A = np.array(())
@@ -4745,7 +4745,7 @@ SYNOPSIS
     i_frame,i_camera = indices_frame_camera[i_observation, :]
 
     # The calibration object in its reference coordinate system
-    calobject = mrcal.get_ref_calibration_object(object_width_n,
+    calobject = mrcal.ref_calibration_object(object_width_n,
                                                  object_height_n,
                                                  object_spacing)
 
@@ -4865,7 +4865,7 @@ system FROM the calibration object coordinate system.
         # object into the mean point cloud
         #
         # No calobject_warp. Good-enough for the seeding
-        obj = mrcal.get_ref_calibration_object(object_width_n, object_height_n,
+        obj = mrcal.ref_calibration_object(object_width_n, object_height_n,
                                                object_spacing)
 
         sum_obj_unproj = obj*0
@@ -5154,7 +5154,7 @@ input was None
     return nps.glue(c, c[0,:], axis=-2)
 
 
-def get_homography_headon_view(intrinsics0, intrinsics1,
+def homography_headon_view(intrinsics0, intrinsics1,
                                q0, q1 = None,
                                Rt10   = None,
                                range0 = None):
