@@ -2,7 +2,7 @@ Call the optimization callback function
 
 SYNOPSIS
 
-    p_packed,x,Jt_packed,factorization = \
+    p_packed,x,J_packed,factorization = \
       mrcal.optimizer_callback( intrinsics_data,
                                 extrinsics_rt_fromref,
                                 frames_rt_toref, points
@@ -31,27 +31,32 @@ mrcal.optimize(), but the inputs are all read-only
 ARGUMENTS
 
 This function accepts lots of arguments, but they're the same as the arguments
-to mrcal.optimize() so please see that docstring for details
+to mrcal.optimize() so please see that documentation for details
 
 RETURNED VALUES
 
 The output is returned in a tuple:
 
-- p_packed: a numpy array of shape (Nstate,). This is the packed state vector
-  that represents the inputs, as seen by the optimizer. If the optimization
-  routine was running, it would use this as a starting point in the search for
-  different parameters, trying to find those that minimize norm2(x)
+- p_packed: a numpy array of shape (Nstate,). This is the packed (unitless)
+  state vector that represents the inputs, as seen by the optimizer. If the
+  optimization routine was running, it would use this as a starting point in the
+  search for different parameters, trying to find those that minimize norm2(x).
+  This packed state can be converted to the expanded representation like this:
+
+    p = mrcal.optimizer_callback(**optimization_inputs)[0
+    mrcal.unpack_state(p, **optimization_inputs)
 
 - x: a numpy array of shape (Nmeasurements,). This is the error vector. If the
   optimization routine was running, it would be testing different parameters,
   trying to find those that minimize norm2(x)
 
 - J: a sparse matrix of shape (Nmeasurements,Nstate). These are the gradients of
-  the measurements in respect to the parameters. This is a SPARSE array of type
-  scipy.sparse.csr_matrix. This object can be converted to a numpy array like this:
+  the measurements in respect to the packed parameters. This is a SPARSE array
+  of type scipy.sparse.csr_matrix. This object can be converted to a numpy array
+  like this:
 
-    p,x,Jt_sparse = mrcal.optimizer_callback(...)[:3]
-    Jt_numpy    = Jt_sparse.toarray()
+    p,x,J_sparse = mrcal.optimizer_callback(...)[:3]
+    J_numpy      = J_sparse.toarray()
 
   Note that the numpy array is dense, so it is very inefficient for sparse data,
   and working with it could be very memory-intensive and slow.
@@ -60,8 +65,16 @@ The output is returned in a tuple:
   which uses packed, unitless state. To convert a densified packed jacobian to
   full units, one can do this:
 
-    p,x,Jt_sparse = mrcal.optimizer_callback(**optimization_inputs)[:3]
-    Jt_numpy    = Jt_sparse.toarray()
-    mrcal.pack_state(Jt_numpy, **optimization_inputs)
+    J_sparse = mrcal.optimizer_callback(**optimization_inputs)[2]
+    J_numpy      = J_sparse.toarray()
+    mrcal.pack_state(J_numpy, **optimization_inputs)
 
-- factorization
+  Note that we're calling pack_state() intead of unpack_state() because the
+  packed variables are in the denominator
+
+- factorization: a Cholesky factorization of JtJ in a
+  mrcal.CHOLMOD_factorization object. The core of the optimization algorithm is
+  solving a linear system JtJ x = b. J is a large, sparse matrix, so we do this
+  with a Cholesky factorization of J using the CHOLMOD library. This
+  factorization is also useful in other contexts, such as uncertainty
+  quantification, so we make it available here.
