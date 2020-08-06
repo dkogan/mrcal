@@ -189,36 +189,77 @@ by default. To get normalized vectors, pass normalize=True
     return v
 
 
-def compute_scale_f_pinhole_for_fit(model, fit):
-    r'''Compute best value of scale_f_pinhole for mrcal-reproject-image
+def scale_focal__best_pinhole_fit(model, fit):
+    r'''Compute the optimal focal-length scale for reprojection to a pinhole lens
 
-    mrcal-reproject-image can produce images obtained with an arbitrary
-    focal-length scale. Different scaling values can either zoom in to cut off
-    sections of the original image, or zoom out to waste pixels with no-data
-    available at the edges. This functions computes optimal values for
-    scale_f_pinhole, based on the "fit" parameter. This is one of
+SYNOPSIS
 
-    - None to keep the focal lengths the same for the input and output image
-      models. This is a scaling of 1.0
+    model = mrcal.cameramodel('from.cameramodel')
 
-    - A numpy array of imager points that must fill the imager as much as
-      possible, without going out of bounds
+    lensmodel,intrinsics_data = model.intrinsics()
 
-    - A string that indicates which points must remain in bounds. One of
-      "corners", "centers-horizontal", "centers-vertical"
+    scale_focal = mrcal.scale_focal__best_pinhole_fit(model,
+                                                      'centers-horizontal')
+
+    intrinsics_data[:2] *= scale_focal
+
+    model_pinhole = \
+        mrcal.cameramodel(intrinsics = ('LENSMODEL_PINHOLE',
+                                        intrinsics_data[:4]),
+                          imagersize = model.imagersize(),
+                          extrinsics_rt_fromref = model.extrinsics_rt_fromref() )
+
+
+It is often useful to reproject an image to a pinhole lens model (using the
+mrcal-reproject-image tool or the reproject_image__compute_map(),
+transform_image() functions). When doing this, we're free to choose all of the
+parameters of this pinhole lens model. In particular, the focal length
+parameters serves as a "zoom" factor: we can either increase the resolution of
+the center, but then we cut off sections of the image at the edges. This
+function computes best focal-length scaling, for several meanings of "best".
+
+I assume an output pinhole model that has pinhole parameters
+
+    (k*fx, k*fy, cx, cy)
+
+where (fx, fy, cx, cy) are the parameters from the input model, and k is the
+scaling we compute.
+
+This function looks at some points on the edge of the input image. I choose k so
+that all of these points end up inside the pinhole-reprojected image, leaving
+the worst one at the edge. The set of points I look at are specified in the
+"fit" argument.
+
+ARGUMENTS
+
+- model: a mrcal.cameramodel object for the input lens model
+
+- fit: which pixel coordinates in the input image must project into the output
+  pinhole-projected image. The 'fit' argument must be one of
+
+  - a numpy array of shape (N,2) where each row is a pixel coordinate in the
+    input image
+
+  - "corners": each of the 4 corners of the input image must project into the
+    output image
+
+  - "centers-horizontal": the two points at the left and right edges of the
+    input image, half-way vertically, must both project into the output image
+
+  - "centers-vertical": the two points at the top and bottom edges of the input
+    image, half-way horizontally, must both project into the output image
+
+RETURNED VALUE
+
+A scalar scale_focal that can be passed to make_target_pinhole_model_for_reprojection()
 
     '''
 
-    # I create an output pinhole model that has pinhole parameters
-    # (k*fx,k*fy,cx,cy) where (fx,fy,cx,cy) are the parameters from the input
-    # model. Note the scaling k
-    #
-    # I look at a number of points on the edge of the input image. Of the points
-    # I look at I choose k so that all the points end up inside the undistorted
-    # image, leaving the worst one at the edge
     if fit is None: return 1.0
 
-    W,H = model.imagersize()
+    WH  = np.array(model.imagersize(), dtype=float)
+    W,H = WH
+
     if type(fit) is np.ndarray:
         q_edges = fit
     elif type(fit) is str:
@@ -234,9 +275,9 @@ def compute_scale_f_pinhole_for_fit(model, fit):
             q_edges = np.array((((W-1.)/2., 0,   ),
                                 ((W-1.)/2., H-1.,)))
         else:
-            raise Exception("fit must be either None or a numpy array of one of ('corners','centers-horizontal','centers-vertical')")
+            raise Exception("fit must be either None or a numpy array or one of ('corners','centers-horizontal','centers-vertical')")
     else:
-        raise Exception("fit must be either None or a numpy array of one of ('corners','centers-horizontal','centers-vertical')")
+        raise Exception("fit must be either None or a numpy array or one of ('corners','centers-horizontal','centers-vertical')")
 
     lensmodel,intrinsics_data = model.intrinsics()
 
@@ -252,8 +293,6 @@ def compute_scale_f_pinhole_for_fit(model, fit):
     # for all my points, and that the points occupy as large a chunk of the
     # imager as possible. I can look at just the normalized x and y. Just one of
     # the query points should land on the edge; the rest should be in-bounds
-
-    WH = np.array(model.imagersize(), dtype=float)
 
     normxy_edges = v_edges[:,:2] / v_edges[:,(2,)]
     normxy_min   = (      - cxy) / fxy
@@ -287,7 +326,7 @@ def make_target_pinhole_model_for_reprojection(model_from,
       base pinhole parameters
 
     - The "fit" spec. This defines the focal-length scaling, computd by
-      compute_scale_f_pinhole_for_fit()
+      scale_focal__best_pinhole_fit()
 
     - The imager size scaling
 
@@ -314,7 +353,7 @@ def make_target_pinhole_model_for_reprojection(model_from,
                       file=sys.stderr)
                 sys.exit(1)
 
-        scale_focal = mrcal.compute_scale_f_pinhole_for_fit(model_from, fit)
+        scale_focal = mrcal.scale_focal__best_pinhole_fit(model_from, fit)
 
     # I have some scale_focal now. I apply it
     lensmodel,intrinsics_data = model_from.intrinsics()

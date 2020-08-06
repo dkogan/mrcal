@@ -19,12 +19,12 @@ m               = mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel")
 W,H             = m.imagersize()
 intrinsics_core = m.intrinsics()[1][:4]
 
-testutils.confirm_equal( mrcal.compute_scale_f_pinhole_for_fit(m, None),
+testutils.confirm_equal( mrcal.scale_focal__best_pinhole_fit(m, None),
                          1.0,
-                         msg = 'compute_scale_f_pinhole_for_fit')
+                         msg = 'scale_focal__best_pinhole_fit')
 
 
-def fit_check(scale_f_pinhole, intrinsics, v,
+def fit_check(scale_focal, intrinsics, v,
               W                        = W,
               H                        = H,
               scale_imagersize_pinhole = 1.0,
@@ -39,7 +39,7 @@ def fit_check(scale_f_pinhole, intrinsics, v,
 
     '''
     intrinsics = intrinsics.copy()
-    intrinsics[:2] *= scale_f_pinhole
+    intrinsics[:2] *= scale_focal
     intrinsics     *= scale_imagersize_pinhole
 
     q = mrcal.project(v, 'LENSMODEL_PINHOLE', intrinsics)
@@ -67,7 +67,7 @@ def fit_check(scale_f_pinhole, intrinsics, v,
 
 
 err_msg = \
-    fit_check( mrcal.compute_scale_f_pinhole_for_fit(m, 'corners'),
+    fit_check( mrcal.scale_focal__best_pinhole_fit(m, 'corners'),
                intrinsics_core,
                mrcal.unproject( np.array(((  0 ,  0),
                                           (W-1,   0),
@@ -75,28 +75,28 @@ err_msg = \
                                           (W-1, H-1)), dtype=float),
                                 *m.intrinsics()),)
 testutils.confirm( err_msg == '',
-                   msg = 'compute_scale_f_pinhole_for_fit' + err_msg)
+                   msg = 'scale_focal__best_pinhole_fit' + err_msg)
 
 err_msg = \
-    fit_check( mrcal.compute_scale_f_pinhole_for_fit(m, 'centers-horizontal'),
+    fit_check( mrcal.scale_focal__best_pinhole_fit(m, 'centers-horizontal'),
                intrinsics_core,
                mrcal.unproject( np.array(((  0, (H-1.)/2.),
                                           (W-1, (H-1.)/2.)), dtype=float),
                                 *m.intrinsics()),)
 testutils.confirm( err_msg == '',
-                   msg = 'compute_scale_f_pinhole_for_fit' + err_msg)
+                   msg = 'scale_focal__best_pinhole_fit' + err_msg)
 
 err_msg = \
-    fit_check( mrcal.compute_scale_f_pinhole_for_fit(m, 'centers-vertical'),
+    fit_check( mrcal.scale_focal__best_pinhole_fit(m, 'centers-vertical'),
                intrinsics_core,
                mrcal.unproject( np.array((((W-1.)/2.,   0.),
                                           ((W-1.)/2., H-1.)), dtype=float),
                                 *m.intrinsics()),)
 testutils.confirm( err_msg == '',
-                   msg = 'compute_scale_f_pinhole_for_fit' + err_msg)
+                   msg = 'scale_focal__best_pinhole_fit' + err_msg)
 
 err_msg = \
-    fit_check( mrcal.compute_scale_f_pinhole_for_fit(m,
+    fit_check( mrcal.scale_focal__best_pinhole_fit(m,
                                                      np.array((((W-1.)/2.,   0.),
                                                                ((W-1.)/2., H-1.)), dtype=float)),
                intrinsics_core,
@@ -104,6 +104,6 @@ err_msg = \
                                           ((W-1.)/2., H-1.)), dtype=float),
                                 *m.intrinsics()),)
 testutils.confirm( err_msg == '',
-                   msg = 'compute_scale_f_pinhole_for_fit' + err_msg)
+                   msg = 'scale_focal__best_pinhole_fit' + err_msg)
 
 testutils.finish()
