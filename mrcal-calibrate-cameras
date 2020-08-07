@@ -557,7 +557,7 @@ def solve_initial(args, seedmodels, imagersizes,
         # I have no seed. I compute a rough seed, and run a few preliminary,
         # incremental optimizations to get it reasonably-close to the right
         # answer
-        intrinsics_data,extrinsics,frames = \
+        intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
             mrcal.make_seed_pinhole(imagersizes          = imagersizes,
                                     focal_estimate       = args.focal,
                                     indices_frame_camera = indices_frame_camera,
@@ -566,7 +566,7 @@ def solve_initial(args, seedmodels, imagersizes,
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
-        stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+        stats = mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, None,
                                observations, indices_frame_camintrinsics_camextrinsics,
                                None, None,
                                lensmodel,
@@ -583,7 +583,7 @@ def solve_initial(args, seedmodels, imagersizes,
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
         sys.stderr.write("vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only\n")
-        stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+        stats = mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, None,
                                observations, indices_frame_camintrinsics_camextrinsics,
                                None, None,
                                lensmodel,
@@ -599,6 +599,8 @@ def solve_initial(args, seedmodels, imagersizes,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
+        extrinsics_Rt_fromref = mrcal.Rt_from_rt( extrinsics_rt_fromref )
+
     else:
 
         # The caller made sure that all the models use the same lens model
@@ -608,7 +610,7 @@ def solve_initial(args, seedmodels, imagersizes,
         # I keep the relative camera poses constant, but place camera0 at the
         # origin
         Rt_r0 = seedmodels[0].extrinsics_Rt_toref()
-        extrinsics_Rt = \
+        extrinsics_Rt_fromref = \
             nps.cat( *[ mrcal.compose_Rt( m.extrinsics_Rt_fromref(),Rt_r0)
                         for m in seedmodels[1:]])
 
@@ -633,9 +635,9 @@ def solve_initial(args, seedmodels, imagersizes,
                                                                observations,
                                                                args.object_spacing,
                                                                seedmodels)
-        frames = \
+        frames_rt_toref = \
             mrcal.estimate_joint_frame_poses(
-                calobject_poses_local_Rt_cf, extrinsics_Rt,
+                calobject_poses_local_Rt_cf, extrinsics_Rt_fromref,
                 indices_frame_camera,
                 args.object_width_n,args.object_height_n,
                 args.object_spacing)
@@ -676,9 +678,9 @@ def solve_initial(args, seedmodels, imagersizes,
     print("=================== optimizing everything{}from seeded intrinsics". \
           format(" except board warp " if args.optimize_calobject_warp else " "))
 
-    extrinsics = mrcal.rt_from_Rt(extrinsics_Rt)
+    extrinsics_rt_fromref = mrcal.rt_from_Rt(extrinsics_Rt_fromref)
 
-    stats = mrcal.optimize(intrinsics_data, extrinsics, frames, None,
+    stats = mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, None,
                            observations, indices_frame_camintrinsics_camextrinsics,
                            None, None,
                            lensmodel,
@@ -693,7 +695,7 @@ def solve_initial(args, seedmodels, imagersizes,
                            skip_outlier_rejection            = args.skip_outlier_rejection,
                            skip_regularization               = False,
                            verbose                           = False)
-    return intrinsics_data, extrinsics, frames, stats
+    return intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, stats
 
 
 
@@ -781,7 +783,7 @@ imagersizes = np.array([get_imagersize_one(icamera,
                                            seedmodels) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
-intrinsics_data,extrinsics,frames,stats = \
+intrinsics_data,extrinsics_rt_fromref,frames_rt_toref,stats = \
     solve_initial(args, seedmodels,
                   imagersizes,
                   observations, indices_frame_camera)
@@ -801,8 +803,8 @@ print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp",
 
 optimize_kwargs = \
     dict( intrinsics                                = intrinsics_data,
-          extrinsics_rt_fromref                     = extrinsics,
-          frames_rt_toref                           = frames,
+          extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+          frames_rt_toref                           = frames_rt_toref,
           points                                    = None,
           observations_board                        = observations,
           indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
@@ -863,7 +865,7 @@ print(report)
 # shape (Nframes,Ncameras,Nheight,Nwidth,2)
 projected = \
     mrcal.calobservations_project(intrinsics[0], intrinsics[1],
-                                  extrinsics, frames,
+                                  extrinsics_rt_fromref, frames_rt_toref,
                                   args.object_spacing,
                                   args.object_width_n, args.object_height_n,
                                   calobject_warp)
