@@ -298,8 +298,6 @@ if 'write-models' in args:
 q0 = imagersizes[0]/3.
 
 
-# I move the extrinsics of a model, write it to disk, and make sure the same
-# uncertainties come back
 for icam in (0,3):
     # I move the extrinsics of a model, write it to disk, and make sure the same
     # uncertainties come back
