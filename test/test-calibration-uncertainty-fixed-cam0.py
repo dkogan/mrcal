@@ -308,7 +308,7 @@ for icam in (0,3):
 
     icam_intrinsics_read = model_read.icam_intrinsics_optimization_inputs()
     icam_extrinsics_read = mrcal.corresponding_icam_extrinsics(icam_intrinsics_read,
-                                                                   **model_read.optimization_inputs())
+                                                               **model_read.optimization_inputs())
 
     testutils.confirm_equal(icam if fixedframes else icam-1,
                             icam_extrinsics_read,
