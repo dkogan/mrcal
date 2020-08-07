@@ -781,11 +781,6 @@ imagersizes = np.array([get_imagersize_one(icamera,
                                            seedmodels) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
-if args.skip_outlier_rejection: print("We are NOT rejecting outliers")
-else:                           print("We ARE rejecting outliers")
-if args.skip_regularization:    print("We are NOT applying regularization in the solver")
-else:                           print("We ARE applying regularization in the solver")
-
 intrinsics_data,extrinsics,frames,stats = \
     solve_initial(args, seedmodels,
                   imagersizes,
