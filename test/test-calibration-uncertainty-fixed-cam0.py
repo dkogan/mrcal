@@ -38,6 +38,9 @@ To test stuff pass any/all of these in any order:
 - study: compute a grid of the predicted worst-direction distributions across
   the imager and for different depths
 
+- write-models: write the produced models to disk. The files on disk can then be
+  processed with the cmdline tools
+
 Any of the diagnostic modes drop into a REPL when done
 
 '''
@@ -65,7 +68,7 @@ else:
 
 args = set(sys.argv[1:])
 
-known_args = set(('show-distribution', 'study'))
+known_args = set(('show-distribution', 'study', 'write-models'))
 
 if not all(arg in known_args for arg in args):
     raise Exception(f"Unknown argument given. I know about {known_args}")
@@ -279,6 +282,12 @@ models_ref_optimized = \
                          optimization_inputs   = optimize_kwargs_optimized,
                          icam_intrinsics_optimization_inputs = i) \
       for i in range(Ncameras) ]
+
+if 'write-models' in args:
+    for i in range(Ncameras):
+        models_ref          [i].write(f"/tmp/models-ref-camera{i}.cameramodel")
+        models_ref_optimized[i].write(f"/tmp/models-ref-optimized-camera{i}.cameramodel")
+    sys.exit()
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
