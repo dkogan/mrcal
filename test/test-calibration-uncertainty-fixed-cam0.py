@@ -53,6 +53,7 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
+import copy
 
 from test_calibration_helpers import optimize,sample_dqref,sorted_eig
 
@@ -252,6 +253,33 @@ models_ref = \
                          icam_intrinsics_optimization_inputs = i) \
       for i in range(Ncameras) ]
 
+# And rebuild a new set of models, BUT, running the optimizer (no noise) before
+# storing the models. If the optimization is looking only at the input data,
+# then this will be identical to models_ref. But if we also have regularization,
+# this will move us off-center. From this point on, these should generally be
+# used instead of models_ref
+iieeff = \
+    sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
+                                  apply_noise=False)
+if fixedframes:
+    extrinsics_ref_optimized_mounted = iieeff[1]
+else:
+    extrinsics_ref_optimized_mounted = \
+        nps.glue( np.zeros((6,), dtype=float),
+                  iieeff[1],
+                  axis = -2)
+optimize_kwargs_optimized = copy.deepcopy(optimize_kwargs)
+optimize_kwargs_optimized['intrinsics']            = iieeff[0]
+optimize_kwargs_optimized['extrinsics_rt_fromref'] = iieeff[1]
+optimize_kwargs_optimized['frames_rt_toref']       = iieeff[2]
+models_ref_optimized = \
+    [ mrcal.cameramodel( imagersize            = imagersizes[i],
+                         intrinsics            = (lensmodel, iieeff[0][i,:]),
+                         extrinsics_rt_fromref = extrinsics_ref_optimized_mounted[i,:],
+                         optimization_inputs   = optimize_kwargs_optimized,
+                         icam_intrinsics_optimization_inputs = i) \
+      for i in range(Ncameras) ]
+
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
 # this to represent a point in a globally-consistent coordinate system. Here I
@@ -264,7 +292,9 @@ q0 = imagersizes[0]/3.
 # I move the extrinsics of a model, write it to disk, and make sure the same
 # uncertainties come back
 for icam in (0,3):
-    model_moved = mrcal.cameramodel(models_ref[icam])
+    # I move the extrinsics of a model, write it to disk, and make sure the same
+    # uncertainties come back
+    model_moved = mrcal.cameramodel(models_ref_optimized[icam])
     model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
     model_moved.write(f'{workdir}/out.cameramodel')
     model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
@@ -277,12 +307,12 @@ for icam in (0,3):
                             icam_extrinsics_read,
                             msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
-    pcam = mrcal.unproject( q0, *models_ref[icam].intrinsics(),
+    pcam = mrcal.unproject( q0, *models_ref_optimized[icam].intrinsics(),
                             normalize = True)
 
     Var_dq_ref = \
         mrcal.projection_uncertainty( pcam * 1.0,
-                                      model = models_ref[icam] )
+                                      model = models_ref_optimized[icam] )
     Var_dq_moved_written_read = \
         mrcal.projection_uncertainty( pcam * 1.0,
                                       model = model_read )
@@ -294,7 +324,7 @@ for icam in (0,3):
 
     Var_dq_inf_ref = \
         mrcal.projection_uncertainty( pcam * 1.0,
-                                      model = models_ref[icam],
+                                      model = models_ref_optimized[icam],
                                       atinfinity = True )
     Var_dq_inf_moved_written_read = \
         mrcal.projection_uncertainty( pcam * 1.0,
@@ -311,7 +341,7 @@ for icam in (0,3):
     # invariant, so I don't check that
     Var_dq_inf_far_ref = \
         mrcal.projection_uncertainty( pcam * 100.0,
-                                      model = models_ref[icam],
+                                      model = models_ref_optimized[icam],
                                       atinfinity = True )
     testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
                             eps = 0.001,
@@ -400,7 +430,7 @@ def check_uncertainties_at(q0, distance):
         nps.cat(*[ mrcal.projection_uncertainty( \
             v0_cam[icam] * (distance if not atinfinity else 1.0),
             atinfinity = atinfinity,
-            model      = models_ref[icam]) \
+            model      = models_ref_optimized[icam]) \
                    for icam in range(Ncameras) ])
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
@@ -507,7 +537,7 @@ if 'study' in args:
 
     # shape (gridn_height,gridn_width,Nranges,3)
     pcam = \
-        nps.dummy(nps.cat(*[mrcal.unproject( qxy, *models_ref[icam].intrinsics(),
+        nps.dummy(nps.cat(*[mrcal.unproject( qxy, *models_ref_optimized[icam].intrinsics(),
                                              normalize = True) for icam in range(Ncameras)]), -2) * \
         nps.dummy(ranges, -1)
 
@@ -515,7 +545,7 @@ if 'study' in args:
     Var_dq_grid = \
         nps.cat(*[ mrcal.projection_uncertainty( \
             pcam[icam],
-            model = models_ref[icam] ) \
+            model = models_ref_optimized[icam] ) \
                    for icam in range(Ncameras) ])
     # shape (Ncameras, gridn_height, gridn_width, Nranges)
     worst_direction_stdev_grid = mrcal.worst_direction_stdev(Var_dq_grid)
@@ -525,7 +555,7 @@ if 'study' in args:
         nps.cat(*[ mrcal.projection_uncertainty( \
             pcam[icam,:,:,0,:], # any range works here
             atinfinity = True,
-            model = models_ref[icam] ) \
+            model = models_ref_optimized[icam] ) \
                    for icam in range(Ncameras) ])
 
     # shape (Ncameras, gridn_height, gridn_width)
