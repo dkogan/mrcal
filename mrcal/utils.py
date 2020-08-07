@@ -4171,12 +4171,12 @@ which mrcal.optimize() expects
     #               push observations
     #               push indices_frame_camera
     mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images)
-    mapping_file_framenocameraindex       = mapping_file_framenocameraindex(*files_per_camera)
+    file_framenocameraindex               = mapping_file_framenocameraindex(*files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
     # {for(cameras) {}} loop will just end up looking at these files in order
-    files_sorted = sorted(mapping_file_corners.keys(), key=lambda f: mapping_file_framenocameraindex[f][1])
-    files_sorted = sorted(files_sorted,                key=lambda f: mapping_file_framenocameraindex[f][0])
+    files_sorted = sorted(mapping_file_corners.keys(), key=lambda f: file_framenocameraindex[f][1])
+    files_sorted = sorted(files_sorted,                key=lambda f: file_framenocameraindex[f][0])
 
     i_observation = 0
 
@@ -4185,7 +4185,7 @@ which mrcal.optimize() expects
     for f in files_sorted:
         # The frame indices I return are consecutive starting from 0, NOT the
         # original frame numbers
-        i_frame,i_camera = mapping_file_framenocameraindex[f]
+        i_frame,i_camera = file_framenocameraindex[f]
         if i_frame_last == None or i_frame_last != i_frame:
             index_frame += 1
             i_frame_last = i_frame
