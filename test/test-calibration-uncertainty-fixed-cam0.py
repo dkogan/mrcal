@@ -403,8 +403,9 @@ def check_uncertainties_at(q0, distance):
         extrinsics_sampled_mounted = extrinsics_sampled
         p0_sampleref               = p0_ref
     else:
-        # I want to treat the extrinsics arrays as if all the camera transformations are
-        # stored there
+        # I want to treat the extrinsics arrays as if ALL the camera
+        # transformations are stored there. Cam0 is at the reference, so prepend
+        # its identity transformation
         extrinsics_sampled_mounted = \
             nps.glue( np.zeros((Nsamples,1,6), dtype=float),
                       extrinsics_sampled,
