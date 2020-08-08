@@ -1364,7 +1364,7 @@ void _project_point_splined( // outputs
     double scale = 2.0 / (mag_p + p->z);
 
     mrcal_point2_t u = {.x = p->x * scale,
-                  .y = p->y * scale};
+                        .y = p->y * scale};
     // du/dp = d/dp ( xy * scale )
     //       = pxy dscale/dp + [I; 0] scale
     // dscale/dp = d (2.0 / (mag_p + p->z))/dp =
