@@ -3551,7 +3551,7 @@ def show_projection_diff(models,
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
-                                    dict(_with = 'lines lw 3 nocontour',
+                                    dict(_with = 'lines lw 3',
                                          legend = "valid region of 1st camera")) )
         else:
             # 3d plot
@@ -3574,7 +3574,7 @@ def show_projection_diff(models,
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
-                                    dict(_with = 'lines lw 3 nocontour',
+                                    dict(_with = 'lines lw 3',
                                          legend = "valid region of 2nd camera")) )
         else:
             # 3d plot
