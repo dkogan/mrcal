@@ -188,10 +188,11 @@ Nsamples = 90
 
 def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs):
     if apply_noise:
-        _, observations_perturbed = sample_dqref(observations_ref,
-                                                 pixel_uncertainty_stdev)
+        dqref, observations_perturbed = sample_dqref(observations_ref,
+                                                     pixel_uncertainty_stdev)
     else:
         observations_perturbed = observations_ref.copy()
+        dqref                  = observations_perturbed[...,:2]*0
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
     idx_outliers, \
     _,  _, _ =           \
@@ -210,8 +211,9 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
                  skip_outlier_rejection            = True,
                  skip_regularization               = True,
                  **kwargs)
-
-    return intrinsics_solved,extrinsics_solved,frames_solved
+    return \
+        intrinsics_solved,extrinsics_solved,frames_solved,\
+        dqref, observations_perturbed
 
 
 optimize_kwargs = \
@@ -263,7 +265,7 @@ models_ref = \
 # used instead of models_ref
 iieeff = \
     sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
-                                  apply_noise=False)
+                                  apply_noise=False)[:3]
 if fixedframes:
     extrinsics_ref_optimized_mounted = iieeff[1]
 else:
