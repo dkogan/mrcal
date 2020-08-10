@@ -167,13 +167,15 @@ if args.radius < -1e6:
 #    using the new model
 
 ### I sample the pixels in an NxN grid
-N = 60
+Nx = 80
+Ny = 60
 
-qx = np.linspace(0, dims[0]-1, N)
-qy = np.linspace(0, dims[1]-1, N)
 
-# q is (N*N, 2). Each slice of q[:] is an (x,y) pixel coord
-q = nps.transpose(nps.clump( nps.cat(*np.meshgrid(qx,qy)), n=-2))
+qx = np.linspace(0, dims[0]-1, Nx)
+qy = np.linspace(0, dims[1]-1, Ny)
+
+# q is (Ny*Nx, 2). Each slice of q[:] is an (x,y) pixel coord
+q = np.ascontiguousarray( nps.transpose(nps.clump( nps.cat(*np.meshgrid(qx,qy)), n=-2)) )
 if args.radius != 0:
     # we use a subset of the input data for the fit
     if args.where is None:
@@ -204,7 +206,7 @@ Npoints = len(q)
 
 
 ### I unproject this, with broadcasting
-v = mrcal.unproject( q, *m.intrinsics() )
+v = mrcal.unproject( q, *m.intrinsics(), normalize = True )
 
 
 ### Solve!
@@ -220,15 +222,19 @@ for i in range(10): # this many trials
     distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-8 # random initial seed
     intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
                                      axis=-2)
-    # range-less points with weight 1.0
-    observations_points = nps.glue(q, np.ones((Npoints, 1),), -np.ones((Npoints, 1),), axis=-1)
+    # each point has weight 1.0
+    observations_points = nps.glue(q, np.ones((Npoints, 1),), axis=-1)
     observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
     # Which points we're observing. This is dense and kinda silly for this
     # application. Each slice is (i_point,i_camera)
-    indices_points = nps.transpose(nps.glue(np.arange(Npoints,    dtype=np.int32),
-                                            np.zeros ((Npoints,), dtype=np.int32), axis=-2))
-    indices_points = np.ascontiguousarray(indices_points) # must be contiguous. mrcal.optimize() should really be more lax here
+    indices_point_camintrinsics_camextrinsics = np.zeros((Npoints,3), dtype=np.int32)
+    indices_point_camintrinsics_camextrinsics[:,0] = \
+        np.arange(Npoints,    dtype=np.int32)
+    indices_point_camintrinsics_camextrinsics[:,1] = \
+        np.zeros ((Npoints,), dtype=np.int32)
+    indices_point_camintrinsics_camextrinsics[:,2] = \
+        np.zeros ((Npoints,), dtype=np.int32) - 1
 
     # Moving rotation too can make this better. Current formulation doesn't
     # allow this.
@@ -243,14 +249,27 @@ for i in range(10): # this many trials
                    None, # no board observations
                    None, # no board observations
                    observations_points,
-                   indices_points,
+                   indices_point_camintrinsics_camextrinsics,
                    lensmodel_to,
 
+                   # I'm not optimizing the point positions (frames), so these
+                   # need to be set to be inactive. I normalized my observations
+                   # so the ranges are all 1.0, and these need to encompass that
+                   # range
+                   point_min_range = 0.001,
+                   point_max_range = 1000.0,
+
                    imagersizes                       = nps.atleast_dims(dims, -2),
+
+                   # I optimize the lens parameters. That's the whole point
                    do_optimize_intrinsic_core        = True,
                    do_optimize_intrinsic_distortions = True,
+
+                   # NOT optimizing the camera geometry or the observed point positions
                    do_optimize_extrinsics            = False,
                    do_optimize_frames                = False,
+
+                   # No outliers. I have the points that I have
                    skip_outlier_rejection            = True,
                    verbose                           = args.verbose)
     q_solved = mrcal.project( v,
