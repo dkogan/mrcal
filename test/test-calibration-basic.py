@@ -245,7 +245,8 @@ def projection_diff(models_ref, max_dist_from_center, fit_Rcompensating = True):
     lensmodels      = [model.intrinsics()[0] for model in models_ref]
     intrinsics_data = [model.intrinsics()[1] for model in models_ref]
 
-    # shape (..., Nh,Nw, ...)
+    # v  shape (...,Ncameras,Nheight,Nwidth,...)
+    # q0 shape (...,         Nheight,Nwidth,...)
     v,q0 = \
         mrcal.sample_imager_unproject(Nw,None,
                                       *imagersizes[0],

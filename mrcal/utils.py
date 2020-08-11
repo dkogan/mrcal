@@ -3410,7 +3410,8 @@ def show_projection_diff(models,
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
 
-    # shape (...,Nheight,Nwidth,...)
+    # v  shape (...,Ncameras,Nheight,Nwidth,...)
+    # q0 shape (...,         Nheight,Nwidth,...)
     v,q0 = sample_imager_unproject(gridn_width, gridn_height,
                                    W, H,
                                    lensmodels, intrinsics_data)
