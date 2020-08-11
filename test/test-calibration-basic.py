@@ -255,6 +255,7 @@ def projection_diff(models_ref, max_dist_from_center, fit_Rcompensating = True):
     Rcompensating01 = \
         mrcal.compute_Rcompensating(q0,
                                     v[0,...], v[1,...],
+                                    weights      = None,
                                     focus_center = None,
                                     focus_radius = -1 if fit_Rcompensating else 0,
                                     imagersizes  = imagersizes)

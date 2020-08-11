@@ -3135,7 +3135,7 @@ The mask that indicates whether each point is within the region
     return mask
 
 
-def compute_Rcompensating(q0, v0, v1,
+def compute_Rcompensating(q0, v0, v1, weights,
                           focus_center, focus_radius,
                           imagersizes):
 
@@ -3179,11 +3179,21 @@ def compute_Rcompensating(q0, v0, v1,
 
     '''
 
-    # Any inf/nan vector are set to 0
+    if weights is None:
+        weights = np.ones(q0.shape[:-1], dtype=float)
+
+    # Any inf/nan weight or vector are set to 0
+    weights[ ~np.isfinite(weights) ] = 0.0
     i_nan_v0 = ~np.isfinite(v0)
     i_nan_v1 = ~np.isfinite(v1)
     v0[i_nan_v0] = 0.
+    weights[i_nan_v0[...,0]] = 0.0
+    weights[i_nan_v0[...,1]] = 0.0
+    weights[i_nan_v0[...,2]] = 0.0
     v1[i_nan_v1] = 0.
+    weights[i_nan_v1[...,0]] = 0.0
+    weights[i_nan_v1[...,1]] = 0.0
+    weights[i_nan_v1[...,2]] = 0.0
 
     # my state vector is a rodrigues rotation, seeded with the identity
     # rotation
@@ -3197,7 +3207,7 @@ def compute_Rcompensating(q0, v0, v1,
         R,dRdr = mrcal.R_from_r(r, get_gradients=True)
         # dRdr has shape (3,3,3). First 2 for R, last 1 for r
 
-        x = angle_err_sq(V0fit, V1fit, R)
+        x = angle_err_sq(V0fit, V1fit, R)*wfit
 
         # dx/dr = d(1-c)/dr = - V1ct dV0R/dr
         dV0R_dr = \
@@ -3205,7 +3215,7 @@ def compute_Rcompensating(q0, v0, v1,
             nps.dummy(V0fit[..., (1,)], axis=-1) * dRdr[1,:,:] + \
             nps.dummy(V0fit[..., (2,)], axis=-1) * dRdr[2,:,:]
 
-        J = -nps.matmult(nps.dummy(V1fit, -2), dV0R_dr)[..., 0, :]
+        J = -nps.matmult(nps.dummy(V1fit, -2), dV0R_dr)[..., 0, :] * nps.dummy(wfit, -1)
         return x,J
 
     def residual(r, cache, **kwargs):
@@ -3230,8 +3240,10 @@ def compute_Rcompensating(q0, v0, v1,
         return np.eye(3)
 
 
-    V0cut   = nps.clump(v0,n=2)
-    V1cut   = nps.clump(v1,n=2)
+    V0cut   = nps.clump(v0,     n=2)
+    V1cut   = nps.clump(v1,     n=2)
+    wcut    = nps.clump(weights,n=2)
+
     icenter = np.array((v0.shape[:2])) // 2
     if focus_radius < 2*(W+H):
         # We try to match the geometry in a particular region
@@ -3241,8 +3253,9 @@ def compute_Rcompensating(q0, v0, v1,
         if np.count_nonzero(i)<3:
             warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
         else:
-            V0cut = v0[i, ...]
-            V1cut = v1[i, ...]
+            V0cut = v0     [i, ...]
+            V1cut = v1     [i, ...]
+            wcut  = weights[i, ...]
 
             # get the nearest index on my grid to the requested center
             icenter_flat = np.argmin(nps.norm2(q_off_center))
@@ -3256,7 +3269,7 @@ def compute_Rcompensating(q0, v0, v1,
 
     # I compute a procrustes fit using ONLY data in the region of interest.
     # This is used to seed the nonlinear optimizer
-    R_procrustes = align3d_procrustes( V0cut, V1cut, vectors=True)
+    R_procrustes = align3d_procrustes( V0cut, V1cut, weights=wcut, vectors=True)
     r_procrustes = mrcal.r_from_R(R_procrustes)
     r_procrustes = r_procrustes.ravel()
 
@@ -3271,8 +3284,9 @@ def compute_Rcompensating(q0, v0, v1,
     import scipy.ndimage
     regions,_ = scipy.ndimage.label(esq < thresholdsq)
     mask = regions==regions[icenter[0],icenter[1]]
-    V0fit = v0[mask, ...]
-    V1fit = v1[mask, ...]
+    V0fit = v0     [mask, ...]
+    V1fit = v1     [mask, ...]
+    wfit  = weights[mask, ...]
     # V01fit are used by the optimization cost function
 
     # gradient check
@@ -3432,6 +3446,7 @@ def show_projection_diff(models,
         Rcompensating01 = \
             compute_Rcompensating(q0,
                                   v[0,...], v[1,...],
+                                  None,
                                   focus_center, focus_radius,
                                   imagersizes)
         q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating01),
@@ -3448,6 +3463,7 @@ def show_projection_diff(models,
                               lensmodel, intrinsics_data,
                               imagersizes):
             R = compute_Rcompensating(q0, v0, v1,
+                                      None,
                                       focus_center,
                                       focus_radius,
                                       imagersizes)
