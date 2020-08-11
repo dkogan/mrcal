@@ -152,7 +152,8 @@ observations[idx_outliers, 2] = -1
 calobject_warp = np.array((0.001, 0.001))
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
-p_packed, x, rmserr, _ = \
+p_packed, x, rmserr, \
+optimization_inputs = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -171,34 +172,10 @@ observations[idx_outliers, 2] = -1
 
 
 ############# Calibration computed. Now I see how well I did
-
-optimize_kwargs = \
-    dict( intrinsics                                = intrinsics,
-          extrinsics_rt_fromref                     = extrinsics_rt_fromref,
-          frames_rt_toref                           = frames_rt_toref,
-          points                                    = None,
-          observations_board                        = observations,
-          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
-          observations_point                        = None,
-          indices_point_camintrinsics_camextrinsics = None,
-          lensmodel                                 = lensmodel,
-          imagersizes                               = imagersizes,
-          calobject_warp                            = calobject_warp,
-          do_optimize_intrinsic_core                = True,
-          do_optimize_intrinsic_distortions         = True,
-          do_optimize_extrinsics                    = True,
-          do_optimize_frames                        = True,
-          do_optimize_calobject_warp                = True,
-          calibration_object_spacing                = object_spacing,
-          calibration_object_width_n                = object_width_n,
-          calibration_object_height_n               = object_height_n,
-          skip_regularization                       = False,
-          observed_pixel_uncertainty                = pixel_uncertainty_stdev)
-
 models_solved = \
     [ mrcal.cameramodel( imagersize                      = imagersizes[i],
                          intrinsics                      = (lensmodel, intrinsics[i,:]),
-                         optimization_inputs             = optimize_kwargs,
+                         optimization_inputs             = optimization_inputs,
                          icam_intrinsics_optimization_inputs = i )
       for i in range(Ncameras)]
 for i in range(1,Ncameras):
@@ -356,7 +333,7 @@ x0,J0,J_packed0 = callback_tweaked_intrinsics(intrinsics)
 # intrinsics. The test-gradients tool does this much more thoroughly
 icam        = 1
 delta       = np.random.randn(Nintrinsics) * 1e-6
-ivar        = mrcal.state_index_intrinsics(icam, **optimize_kwargs)
+ivar        = mrcal.state_index_intrinsics(icam, **optimization_inputs)
 J0_slice    = J0[:,ivar:ivar+Nintrinsics]
 intrinsics_perturbed = intrinsics.copy()
 intrinsics_perturbed[icam] += delta
@@ -416,10 +393,10 @@ M = np.linalg.solve( nps.matmult(nps.transpose(J_packed0),J_packed0),
 dp_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
 
 slice_intrinsics = slice(0,
-                         mrcal.state_index_camera_rt(0, **optimize_kwargs))
-slice_extrinsics = slice(mrcal.state_index_camera_rt(0, **optimize_kwargs),
-                         mrcal.state_index_frame_rt (0, **optimize_kwargs))
-slice_frames     = slice(mrcal.state_index_frame_rt (0, **optimize_kwargs),
+                         mrcal.state_index_camera_rt(0, **optimization_inputs))
+slice_extrinsics = slice(mrcal.state_index_camera_rt(0, **optimization_inputs),
+                         mrcal.state_index_frame_rt (0, **optimization_inputs))
+slice_frames     = slice(mrcal.state_index_frame_rt (0, **optimization_inputs),
                          None)
 
 # These thresholds look terrible. And they are. But I'm pretty sure this is
