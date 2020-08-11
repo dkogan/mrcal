@@ -193,6 +193,7 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
     else:
         observations_perturbed = observations_ref.copy()
         dqref                  = observations_perturbed[...,:2]*0
+
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
     idx_outliers, \
     _,  _, _, \
@@ -214,31 +215,9 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
                  **kwargs)
     return \
         intrinsics_solved,extrinsics_solved,frames_solved,\
-        dqref, observations_perturbed
+        dqref, observations_perturbed, \
+        optimization_inputs
 
-
-optimize_kwargs = \
-    dict( intrinsics                                = intrinsics_ref,
-          extrinsics_rt_fromref                     = extrinsics_ref,
-          frames_rt_toref                           = frames_ref,
-          points                                    = None,
-          observations_board                        = observations_ref,
-          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
-          observations_point                        = None,
-          indices_point_camintrinsics_camextrinsics = None,
-          lensmodel                                 = lensmodel,
-          imagersizes                               = imagersizes,
-          calobject_warp                            = calobject_warp_ref,
-          do_optimize_intrinsic_core                = True,
-          do_optimize_intrinsic_distortions         = True,
-          do_optimize_extrinsics                    = True,
-          do_optimize_frames                        = not fixedframes,
-          do_optimize_calobject_warp                = True,
-          calibration_object_spacing                = object_spacing,
-          calibration_object_width_n                = object_width_n,
-          calibration_object_height_n               = object_height_n,
-          skip_regularization                       = True,
-          observed_pixel_uncertainty                = pixel_uncertainty_stdev)
 
 # I want to treat the extrinsics arrays as if all the camera transformations are
 # stored there
@@ -250,39 +229,23 @@ else:
                   extrinsics_ref,
                   axis = -2)
 
-# rebuild models_ref. Same data as before, but with optimization_inputs
-models_ref = \
-    [ mrcal.cameramodel( imagersize            = imagersizes[i],
-                         intrinsics            = (lensmodel, intrinsics_ref[i,:]),
-                         extrinsics_rt_fromref = extrinsics_ref_mounted[i,:],
-                         optimization_inputs   = optimize_kwargs,
-                         icam_intrinsics_optimization_inputs = i) \
-      for i in range(Ncameras) ]
-
 # And rebuild a new set of models, BUT, running the optimizer (no noise) before
 # storing the models. If the optimization is looking only at the input data,
 # then this will be identical to models_ref. But if we also have regularization,
-# this will move us off-center. From this point on, these should generally be
-# used instead of models_ref
-iieeff = \
+# this will move us off-center
+ii,ee,ff,_,_,optimization_inputs = \
     sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
-                                  apply_noise=False)[:3]
-if fixedframes:
-    extrinsics_ref_optimized_mounted = iieeff[1]
-else:
-    extrinsics_ref_optimized_mounted = \
-        nps.glue( np.zeros((6,), dtype=float),
-                  iieeff[1],
-                  axis = -2)
-optimize_kwargs_optimized = copy.deepcopy(optimize_kwargs)
-optimize_kwargs_optimized['intrinsics']            = iieeff[0]
-optimize_kwargs_optimized['extrinsics_rt_fromref'] = iieeff[1]
-optimize_kwargs_optimized['frames_rt_toref']       = iieeff[2]
+                                  apply_noise=False)
+extrinsics_ref_optimized_mounted = ee if fixedframes else \
+    nps.glue( np.zeros((6,), dtype=float),
+              ee,
+              axis = -2)
+
 models_ref_optimized = \
     [ mrcal.cameramodel( imagersize            = imagersizes[i],
-                         intrinsics            = (lensmodel, iieeff[0][i,:]),
+                         intrinsics            = (lensmodel, ii[i,:]),
                          extrinsics_rt_fromref = extrinsics_ref_optimized_mounted[i,:],
-                         optimization_inputs   = optimize_kwargs_optimized,
+                         optimization_inputs   = optimization_inputs,
                          icam_intrinsics_optimization_inputs = i) \
       for i in range(Ncameras) ]
 
