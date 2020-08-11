@@ -11,15 +11,15 @@ import warnings
 
 import mrcal
 
-@nps.broadcast_define( (('N',3,), ('N',3,),),
+@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
                        (4,3), )
-def _align3d_procrustes_points(A, B):
+def _align3d_procrustes_points(A, B, w):
     A = nps.transpose(A)
     B = nps.transpose(B)
 
     # I process Mt instead of M to not need to transpose anything later, and to
     # end up with contiguous-memory results
-    Mt = nps.matmult(               A - np.mean(A, axis=-1)[..., np.newaxis],
+    Mt = nps.matmult(              (A - np.mean(A, axis=-1)[..., np.newaxis])*w,
                       nps.transpose(B - np.mean(B, axis=-1)[..., np.newaxis]))
     V,S,Ut = np.linalg.svd(Mt)
 
@@ -40,15 +40,15 @@ def _align3d_procrustes_points(A, B):
     return nps.glue( R, t.ravel(), axis=-2)
 
 
-@nps.broadcast_define( (('N',3,), ('N',3,),),
+@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
                        (3,3), )
-def _align3d_procrustes_vectors(A, B):
+def _align3d_procrustes_vectors(A, B, w):
     A = nps.transpose(A)
     B = nps.transpose(B)
 
     # I process Mt instead of M to not need to transpose anything later, and to
     # end up with contiguous-memory results
-    Mt = nps.matmult( A, nps.transpose(B) )
+    Mt = nps.matmult( A*w, nps.transpose(B) )
     V,S,Ut = np.linalg.svd(Mt)
 
     R = nps.matmult(V, Ut)
@@ -65,7 +65,9 @@ def _align3d_procrustes_vectors(A, B):
 
 # I use _align3d_procrustes_...() to do the work. Those are separate functions
 # with separate broadcasting prototypes
-def align3d_procrustes(A, B, vectors=False):
+def align3d_procrustes(A, B,
+                       weights = None,
+                       vectors = False):
     r"""Compute a transformation to align sets of points in different coordinate systems
 
 SYNOPSIS
@@ -86,7 +88,6 @@ SYNOPSIS
     [The fit error from applying the optimal transformation. If the two point
      clouds match up, this will be small]
 
-
 Given two sets of 3D points in numpy arrays of shape (N,3), we find the optimal
 rotation, translation to align these sets of points. This is done with a
 well-known direct method. See:
@@ -96,7 +97,7 @@ well-known direct method. See:
 
 We return a transformation that minimizes the sum 2-norm of the misalignment:
 
-    cost = sum( norm2( a[i] - transform(b[i]) ))
+    cost = sum( norm2( w[i] (a[i] - transform(b[i])) ))
 
 By default we are aligning sets of POINTS, and we return an Rt transformation (a
 (4,3) array formed by nps.glue(R,t, axis=-2) where R is a (3,3) rotation matrix
@@ -115,6 +116,9 @@ ARGUMENTS
 - B: an array of shape (..., N, 3). Each row is a point (or vector) in the
   coordinate system we're transforming FROM
 
+- weights: optional array of shape (..., N). Specifies the relative weight of
+  each point. If omitted, all the given points are weighted equally
+
 - vectors: optional boolean. By default (vectors=False) we're aligning POINTS
   and we return an Rt transformation. If vectors: we align VECTORS and we return
   a rotation matrix
@@ -127,8 +131,11 @@ not vectors (the default) we return an Rt transformation in a (4,3) array. If
 vectors: we return a rotation matrix in a (3,3) array
 
     """
-    if vectors: return _align3d_procrustes_vectors(A,B)
-    else:       return _align3d_procrustes_points (A,B)
+    if weights is None:
+        weights = np.ones(A.shape[:-1], dtype=float)
+
+    if vectors: return _align3d_procrustes_vectors(A,B,weights)
+    else:       return _align3d_procrustes_points (A,B,weights)
 
 
 def ref_calibration_object(W, H, object_spacing, calobject_warp=None):
