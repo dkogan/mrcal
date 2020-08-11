@@ -998,14 +998,16 @@ We return a tuple:
         # shape: Ncameras,Nwidth,Nheight,3
         return np.array([mrcal.unproject(np.ascontiguousarray(grid),
                                          lensmodel[i],
-                                         intrinsics_data[i]) \
+                                         intrinsics_data[i],
+                                         normalize = normalize) \
                          for i in range(len(lensmodel))]), \
                grid
     else:
         # shape: Nheight,Nwidth,3
         return \
             mrcal.unproject(np.ascontiguousarray(grid),
-                            lensmodel, intrinsics_data), \
+                            lensmodel, intrinsics_data,
+                            normalize = normalize), \
             grid
 
 
