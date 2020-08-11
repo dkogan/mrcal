@@ -250,7 +250,8 @@ def projection_diff(models_ref, max_dist_from_center, fit_Rcompensating = True):
     v,q0 = \
         mrcal.sample_imager_unproject(Nw,None,
                                       *imagersizes[0],
-                                      lensmodels, intrinsics_data)
+                                      lensmodels, intrinsics_data,
+                                      normalize = True)
     Rcompensating01 = \
         mrcal.compute_Rcompensating(q0,
                                     v[0,...], v[1,...],

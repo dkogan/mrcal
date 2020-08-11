@@ -3179,11 +3179,6 @@ def compute_Rcompensating(q0, v0, v1,
 
     '''
 
-    # I THINK this function expects normalized vectors, so I normalize them here
-    def normalize(x):
-        return x / nps.dummy(nps.mag(x), axis=-1)
-    v0 = normalize(v0)
-    v1 = normalize(v1)
 
     # my state vector is a rodrigues rotation, seeded with the identity
     # rotation
@@ -3423,7 +3418,8 @@ def show_projection_diff(models,
     # q0 shape (...,         Nheight,Nwidth,...)
     v,q0 = sample_imager_unproject(gridn_width, gridn_height,
                                    W, H,
-                                   lensmodels, intrinsics_data)
+                                   lensmodels, intrinsics_data,
+                                   normalize = True)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
