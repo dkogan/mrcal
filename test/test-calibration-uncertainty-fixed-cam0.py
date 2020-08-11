@@ -195,7 +195,8 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs
         dqref                  = observations_perturbed[...,:2]*0
     intrinsics_solved,extrinsics_solved,frames_solved,_, \
     idx_outliers, \
-    _,  _, _ =           \
+    _,  _, _, \
+    optimization_inputs =           \
         optimize(intrinsics_ref, extrinsics_ref, frames_ref, observations_perturbed,
                  indices_frame_camintrinsics_camextrinsics,
                  lensmodel,

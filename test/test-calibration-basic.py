@@ -121,7 +121,7 @@ intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 # Simpler pre-solves
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
-p_packed, x, rmserr = \
+p_packed, x, rmserr, _ = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -135,7 +135,7 @@ observations[idx_outliers, 2] = -1
 
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
-p_packed, x, rmserr = \
+p_packed, x, rmserr, _ = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -152,7 +152,7 @@ observations[idx_outliers, 2] = -1
 calobject_warp = np.array((0.001, 0.001))
 intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
 idx_outliers, \
-p_packed, x, rmserr = \
+p_packed, x, rmserr, _ = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,
@@ -394,7 +394,7 @@ dqref, observations_perturbed = sample_dqref(observations,
                                              pixel_uncertainty_stdev)
 _,_,_,_,         \
 _,               \
-p_packed1, _, _ = \
+p_packed1, _, _, _ = \
     optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations_perturbed,
              indices_frame_camintrinsics_camextrinsics,
              lensmodel,

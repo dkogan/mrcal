@@ -67,17 +67,18 @@ def optimize( intrinsics,
               do_optimize_extrinsics                    = do_optimize_extrinsics,
               do_optimize_calobject_warp                = do_optimize_calobject_warp,
               skip_regularization                       = skip_regularization,
-              skip_outlier_rejection                    = skip_outlier_rejection,
               **kwargs)
 
-    stats = mrcal.optimize(**optimization_inputs)
+    stats = mrcal.optimize(**optimization_inputs,
+                           skip_outlier_rejection = skip_outlier_rejection)
 
     p_packed = stats['p_packed']
 
     return \
         intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp,   \
         observations[...,2] < 0.0, \
-        p_packed, stats['x'], stats['rms_reproj_error__pixels']
+        p_packed, stats['x'], stats['rms_reproj_error__pixels'], \
+        optimization_inputs
 
 def sample_dqref(observations,
                  pixel_uncertainty_stdev,
