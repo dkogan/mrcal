@@ -3179,6 +3179,11 @@ def compute_Rcompensating(q0, v0, v1,
 
     '''
 
+    # Any inf/nan vector are set to 0
+    i_nan_v0 = ~np.isfinite(v0)
+    i_nan_v1 = ~np.isfinite(v1)
+    v0[i_nan_v0] = 0.
+    v1[i_nan_v1] = 0.
 
     # my state vector is a rodrigues rotation, seeded with the identity
     # rotation
