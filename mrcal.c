@@ -4019,10 +4019,10 @@ void optimizer_callback(// input state
         //   Nmeasurements_rest*normal_pixel_error_sq * 0.005/2. =
         //   Nmeasurements_regularization_distortion *normal_regularization_distortion_error_sq  =
         //   Nmeasurements_regularization_centerpixel*normal_regularization_centerpixel_error_sq =
-
-
+        //
+        //   normal_regularization_distortion_error_sq  = (scale*normal_centerpixel_offset)^2
+        //   normal_regularization_centerpixel_error_sq = (scale*normal_distortion_value  )^2
         const bool dump_regularizaton_details = false;
-
 
         int    Nmeasurements_regularization_distortion  = ctx->Ncameras_intrinsics*(ctx->Nintrinsics-Ncore);
         int    Nmeasurements_regularization_centerpixel = ctx->Ncameras_intrinsics*2;
@@ -4046,6 +4046,7 @@ void optimizer_callback(// input state
 
                 double expected_regularization_distortion_error_sq_noscale =
                     (double)Nmeasurements_regularization_distortion *
+                    normal_distortion_value *
                     normal_distortion_value;
 
                 double scale_sq =
@@ -4116,18 +4117,13 @@ void optimizer_callback(// input state
                         scale *= 5.;
                     }
 
-                    // This exists to avoid /0 in the gradient
-                    const double eps = 1e-3;
-
-                    double sign         = copysign(1.0, intrinsics_all[i_cam_intrinsics][j+Ncore]);
-                    double err_no_scale = sqrt(fabs(intrinsics_all[i_cam_intrinsics][j+Ncore]) + eps);
-                    double err          = err_no_scale * scale;
-
+                    double err       = scale*intrinsics_all[i_cam_intrinsics][j+Ncore];
                     x[iMeasurement]  = err;
                     norm2_error     += err*err;
 
                     STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
-                                    scale * sign * SCALE_DISTORTION / (2. * err_no_scale) );
+                                    scale * SCALE_DISTORTION );
+
                     iMeasurement++;
                     if(dump_regularizaton_details)
                         MSG("regularization distortion: %g; norm2: %g", err, err*err);
