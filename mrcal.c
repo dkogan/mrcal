@@ -53,8 +53,6 @@
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 #define SCALE_CALOBJECT_WARP          0.01
 
-// This is hard-coded to 1.0; the computation of scale_distortion_regularization
-// below assumes it
 #define SCALE_DISTORTION              1.0
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
