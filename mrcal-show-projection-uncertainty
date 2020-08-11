@@ -107,6 +107,10 @@ if args.extraset is not None:
     plotkwargs_extra['set'] = args.extraset
 
 model = mrcal.cameramodel(args.model)
+if model.optimization_inputs() is None:
+    print("ERROR: optimization_inputs are unavailable in this model. Uncertainty cannot be computed",
+          file = sys.stderr)
+    sys.exit()
 
 if not args.observations_xydist:
     plot = mrcal.show_projection_uncertainty(model,

@@ -1736,11 +1736,13 @@ else:                    we return an array of shape (...)
     lensmodel = model.intrinsics()[0]
 
     optimization_inputs = model.optimization_inputs()
+    if optimization_inputs is None:
+        raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
 
     if not optimization_inputs.get('do_optimize_extrinsics'):
-        raise Exception("Getting a covariance if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
+        raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
     if not optimization_inputs.get('do_optimize_intrinsic_core') or not optimization_inputs.get('do_optimize_intrinsic_distortions'):
-        raise Exception("Getting a covariance if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
+        raise Exception("Computing uncertainty if !do_optimize_intrinsic_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
     J,factorization = \
         mrcal.optimizer_callback( **optimization_inputs )[2:]
