@@ -1,45 +1,79 @@
 #!/usr/bin/python3
 
-r'''Visualize the difference in projection between some models
+r'''Visualize the difference in projection between N models
 
 SYNOPSIS
 
   $ mrcal-show-projection-diff before.cameramodel after.cameramodel
   ... a plot pops up showing how these two models differ in their projections
 
+It is often useful to compare the projection behavior of two camera models. For
+instance, one may want to evaluate the quality of a calibration by comparing the
+results of two different chessboard dances. Or one may want to evaluate the
+stability of the intrinsics in response to mechanical or thermal stresses. This
+tool makes these comparisons, and produces a visualization of the results.
 
-If we're given exactly 2 models then I show the projection DIFFERENCE. I show
-this as either a vector field or a heat map. If N > 2 then a vector field isn't
-possible and we show a heat map of the STANDARD DEVIATION of the differences.
+In the most common case we're given exactly 2 models to compare. We then show
+the projection DIFFERENCE as either a vector field or a heat map. If we're given
+more than 2 models then a vector field isn't possible and we show a heat map of
+the STANDARD DEVIATION of all the differences.
 
-This routine takes into account the potential variability of camera rotation by
-fitting this implied camera rotation to align the models as much as possible.
-This is required because a camera pitch/yaw motion looks a lot like a shift in
-the camera optical axis (cx,cy). So I could be comparing two sets of intrinsics
-that both represent the same lens faithfully, but imply different rotations: the
-rotation would be compensated for by a shift in cx,cy. If I compare the two sets
-of intrinsics by IGNORING the rotations, the cx,cy difference would produce a
-large diff despite both models being right.
+What are we showing? Broadly, we grid the imager, unproject each point in the
+grid from one camera to produce a world point, reproject it to the other camera,
+and look at the resulting pixel difference in this reprojection.
 
-The implied rotation is fit using a subset of the imager data:
+When comparing multiple cameras, usually the lens intrinsics differ a bit, and
+the implied origin of the camera coordinate systems and their orientation differ
+also. These geometric uncertainties are baked into the intrinsics. So when we
+project "the same world point" we must apply a geometric transformation to
+compensate for the difference in the geometry of the two cameras. This
+transformation is unknown, but we can estimate it by fitting projections across
+the imager: the "right" transformation would result in apparent low projection
+diffs in a wide area.
 
-  if --radius < 0 (the default):
-     I fit a compensating rotation using a "reasonable" area in the center of
-     the imager. I use --radius = min(width,height)/6.
+This transformation is computed by the compute_compensating_Rt10() function, and
+some details of its operation are significant:
 
-  if --radius > 0:
-     I use observation vectors within --radius pixels of --where. To use ALL the
-     data, pass in a very large --radius.
+- The imager area we use for the fit
+- Which world points we're looking at
 
-  if --radius == 0:
-     I do NOT fit a compensating rotation. Rationale: with radius == 0, I have
-     no fitting data, so I do not fit anything at all.
+In most practical usages, we would not expect a good fit everywhere in the
+imager: areas where no chessboards were observed will not fit well, for
+instance. From the point of view of the fit we perform, those ill-fitting areas
+should be treated as outliers, and they should NOT be a part of the solve. How
+do we specify the well-fitting area? The best way is to use the model
+uncertainties: these can be used to emphasize the confident regions of the
+imager. This is the default behavior. If uncertainties aren't available, or if
+we want a faster solve, pass --no-uncertainties. The well-fitting region can
+then be passed using --where and --radius to indicate the circle in the imager
+we care about.
 
-  if --where is omitted (the default):
-     --where is at the center of the imager
+If using uncertainties then we utilize all the data in the imager by default. if
+--no-uncertainties, then the defaults are to use a more reasonable circle of
+radius min(width,height)/6 at the center of the imager. Usually this is
+suffiently correct, and we don't need to mess with it. If we aren't guided to
+the correct focus region, the compensating transformation solve will try to fit
+lots of outliers, which would result in an incorrect compensating
+transformation, which in turn would produce overly-high reported diffs. A common
+case when this happens is if the chessboard observations used in the calibration
+were concentrated to the side of the image (off-center), no uncertainties were
+used, and --where was not pointed to that area.
 
-Generally the computation isn't very sensitive to choices of --radius and
---where, so omitting these is recommended.
+If we KNOW that there is no geometric difference between our cameras, and we
+thus shoul dlook at the intrinsics differences only, then we don't need to
+estimate the compensating transformation. Indicate this case by passing
+--radius 0
+
+Unlike the projection operation, the diff operation is NOT invariant under
+geometric scaling: if we look at the projection difference for two points at
+different locations along a single observation ray, there will be a variation in
+the observed diff. This is due to the geometric difference in the two cameras.
+If the models differed only in their intrinsics parameters, then this would not
+happen. Thus we need to know how far from the camera to look, and this is
+specified by --distance. By default we look out to infinity. If we care about
+the projection difference at some other distance, pass that here. Generally the
+most confident distance will be where the chessboards were observed at
+calibration time.
 
 '''
 
@@ -66,6 +100,11 @@ def parse_args():
                         help='''By default we display the projection diff for points infinitely far away from
                         the camera. If we want to look closer in, the desired
                         observation distance can be given in this argument''')
+    parser.add_argument('--observations',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I show where the chessboard corners were observed at calibration
+                        time. These should correspond to the low-diff regions.''')
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
@@ -160,15 +199,16 @@ models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 
 plot = mrcal.show_projection_diff(models,
                                   args.gridn[0], args.gridn[1],
-                                  use_uncertainties= not args.no_uncertainties,
-                                  distance        = args.distance,
-                                  focus_center    = args.where,
-                                  focus_radius    = args.radius,
-                                  vectorfield     = args.vectorfield,
-                                  vectorscale     = args.vectorscale,
-                                  hardcopy        = args.hardcopy,
-                                  cbmax           = args.cbmax,
-                                  extratitle      = args.extratitle,
-                                  kwargs          = plotkwargs_extra)
+                                  observations      = args.observations,
+                                  distance          = args.distance,
+                                  use_uncertainties = not args.no_uncertainties,
+                                  focus_center      = args.where,
+                                  focus_radius      = args.radius,
+                                  vectorfield       = args.vectorfield,
+                                  vectorscale       = args.vectorscale,
+                                  hardcopy          = args.hardcopy,
+                                  cbmax             = args.cbmax,
+                                  extratitle        = args.extratitle,
+                                  kwargs            = plotkwargs_extra)
 if args.hardcopy is None:
     plot.wait()

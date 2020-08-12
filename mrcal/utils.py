@@ -1980,8 +1980,8 @@ ARGUMENTS
   gridn_height/gridn_width ~ imager_height/imager_width
 
 - observations: optional boolean, defaulting to False. If True, we overlay
-  calibration-time observations on top of the heat map and contours we plot
-  normally
+  calibration-time observations on top of the uncertainty plot. We should then
+  see that more data produces more confident results.
 
 - distance: optional value, defaulting to None. The projection uncertainty
   varies depending on the range to the observed point, with the queried range
@@ -3174,12 +3174,13 @@ mrcal-show-projection-diff tool.
 
 What are we comparing? We project the same world point into the two cameras, and
 report the difference in projection. Usually, the lens intrinsics differ a bit,
-and the implied origin of the camera coordinate system and its orientation
+and the implied origin of the camera coordinate systems and their orientation
 differ also. These geometric uncertainties are baked into the intrinsics. So
 when we project "the same world point" we must apply a geometric transformation
-to compensate for the difference. This transformation is unknown, but we can
-estimate it by fitting projections across the imager: the "right" transformation
-would result in apparent low projection diffs in a wide area.
+to compensate for the difference in the geometry of the two cameras. This
+transformation is unknown, but we can estimate it by fitting projections across
+the imager: the "right" transformation would result in apparent low projection
+diffs in a wide area.
 
 The primary inputs are unprojected gridded samples of the two imagers, obtained
 with something like sample_imager_unproject(). We grid the two imagers, and
@@ -3196,7 +3197,7 @@ significant:
 - The subset of points we use for the optimization
 - What kind of transformation we use
 
-In most practical usages, we would expect a good fit only in a subset of the
+In most practical usages, we would not expect a good fit everywhere in the
 imager: areas where no chessboards were observed will not fit well, for
 instance. From the point of view of the fit we perform, those ill-fitting areas
 should be treated as outliers, and they should NOT be a part of the solve. How
@@ -3211,15 +3212,16 @@ possible to pass both a focus region and weights, but it's probably not very
 useful.
 
 Unlike the projection operation, the diff operation is NOT invariant under
-geometric scaling: if we look at the difference of projection for two points at
+geometric scaling: if we look at the projection difference for two points at
 different locations along a single observation ray, there will be a variation in
-the obesrved diff. This is due to the geometric difference in the two cameras.
+the observed diff. This is due to the geometric difference in the two cameras.
 If the models differed only in their intrinsics parameters, then this would not
 happen. Thus this function needs to know how far from the camera it should look.
 By default (atinfinity = True) we look out to infinity. In this case, v0 is
 expected to contain unit vectors. To use any other distance, pass atinfinity =
 False, and pass POINTS in v0 instead of just observation directions. v1 should
-always be normalized.
+always be normalized. Generally the most confident distance will be where the
+chessboards were observed at calibration time.
 
 Practically, it is very easy for the unprojection operation to produce nan or
 inf values. And the weights could potentially have some invalid values also.
@@ -3255,11 +3257,11 @@ ARGUMENTS
   This is intended to be used if no uncertainties are available, and we need to
   manually select the focus region.
 
-- focus_radius: optional floating-point value; LARGE by default. Used to
-  indicate that we're interested only in a subset of pixels q0, a distance
-  focus_radius from focus_center. By default focus_radius is LARGE, so we use
-  all the points. This is intended to be used if no uncertainties are available,
-  and we need to manually select the focus region.
+- focus_radius: optional value; LARGE by default. Used to indicate that we're
+  interested only in a subset of pixels q0, a distance focus_radius from
+  focus_center. By default focus_radius is LARGE, so we use all the points. This
+  is intended to be used if no uncertainties are available, and we need to
+  manually select the focus region.
 
 RETURNED VALUE
 
@@ -3470,58 +3472,168 @@ def show_projection_diff(models,
                          gridn_width  = 60,
                          gridn_height = None,
 
-                         # By default, I use the uncertainties to weigh the fit,
-                         # looking at the whole imager. Without uncertainties,
-                         # choosing the right focus area is important; we use a
-                         # "reasonable" area in the center by default (if not
-                         # using uncertainties)
+                         observations = False,
+                         distance     = None,
+
                          use_uncertainties= True,
-                         distance         = None,
                          focus_center     = None,
                          focus_radius     = -1.,
 
                          vectorfield      = False,
                          vectorscale      = 1.0,
                          extratitle       = None,
-                         hardcopy         = None,
                          cbmax            = 4,
-                         kwargs = None):
+                         kwargs           = None):
     r'''Visualize the difference in projection between N models
 
+SYNOPSIS
 
-    If we're given exactly 2 models then I show the projection DIFFERENCE. I
-    show this as either a vector field or a heat map. If N > 2 then a vector
-    field isn't possible and we show a heat map of the STANDARD DEVIATION of the
-    differences.
+    models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
+               mrcal.cameramodel('cam0-dance1.cameramodel') )
 
-    This routine takes into account the potential variability of camera rotation by
-    fitting this implied camera rotation to align the models as much as possible.
-    This is required because a camera pitch/yaw motion looks a lot like a shift in
-    the camera optical axis (cx,cy). So I could be comparing two sets of intrinsics
-    that both represent the same lens faithfully, but imply different rotations: the
-    rotation would be compensated for by a shift in cx,cy. If I compare the two sets
-    of intrinsics by IGNORING the rotations, the cx,cy difference would produce a
-    large diff despite both models being right.
+    mrcal.show_projection_diff(models)
 
-    The implied rotation is fit using a subset of the imager data:
+    ... A plot pops up displaying the projection difference between the two
+    ... cameras
 
-      if focus_radius < 0 (the default):
-         I fit a compensating rotation using a "reasonable" area in the center of
-         the imager. I use focus_radius = min(width,height)/6.
+It is often useful to compare the projection behavior of two camera models. For
+instance, one may want to evaluate the quality of a calibration by comparing the
+results of two different chessboard dances. Or one may want to evaluate the
+stability of the intrinsics in response to mechanical or thermal stresses. This
+function makes these comparisons, and produces a visualization of the results.
 
-      if focus_radius > 0:
-         I use observation vectors within focus_radius pixels of focus_center.
-         To use ALL the data, pass in a very large focus_radius.
+In the most common case we're given exactly 2 models to compare. We then show
+the projection DIFFERENCE as either a vector field or a heat map. If we're given
+more than 2 models then a vector field isn't possible and we show a heat map of
+the STANDARD DEVIATION of all the differences.
 
-      if focus_radius == 0:
-         I do NOT fit a compensating rotation. Rationale: with radius == 0, I have
-         no fitting data, so I do not fit anything at all.
+What are we showing? Broadly, we grid the imager, unproject each point in the
+grid from one camera to produce a world point, reproject it to the other camera,
+and look at the resulting pixel difference in this reprojection.
 
-      if focus_center is omitted (the default):
-         focus_center is at the center of the imager
+When comparing multiple cameras, usually the lens intrinsics differ a bit, and
+the implied origin of the camera coordinate systems and their orientation differ
+also. These geometric uncertainties are baked into the intrinsics. So when we
+project "the same world point" we must apply a geometric transformation to
+compensate for the difference in the geometry of the two cameras. This
+transformation is unknown, but we can estimate it by fitting projections across
+the imager: the "right" transformation would result in apparent low projection
+diffs in a wide area.
 
-    Generally the computation isn't very sensitive to choices of focus_radius
-    and focus_center, so omitting these is recommended.
+This transformation is computed by the compute_compensating_Rt10() function, and
+some details of its operation are significant:
+
+- The imager area we use for the fit
+- Which world points we're looking at
+
+In most practical usages, we would not expect a good fit everywhere in the
+imager: areas where no chessboards were observed will not fit well, for
+instance. From the point of view of the fit we perform, those ill-fitting areas
+should be treated as outliers, and they should NOT be a part of the solve. How
+do we specify the well-fitting area? The best way is to use the model
+uncertainties: these can be used to emphasize the confident regions of the
+imager. This behavior is selected with use_uncertainties=True, which is the
+default. If uncertainties aren't available, or if we want a faster solve, pass
+use_uncertainties=False. The well-fitting region can then be passed using the
+focus_center,focus_radius arguments to indicate the circle in the imager we care
+about.
+
+If use_uncertainties then the defaults for focus_center,focus_radius are set to
+utilize all the data in the imager. If not use_uncertainties, then the defaults
+are to use a more reasonable circle of radius min(width,height)/6 at the center
+of the imager. Usually this is suffiently correct, and we don't need to mess
+with it. If we aren't guided to the correct focus region, the compensating
+transformation solve will try to fit lots of outliers, which would result in an
+incorrect compensating transformation, which in turn would produce overly-high
+reported diffs. A common case when this happens is if the chessboard
+observations used in the calibration were concentrated to the side of the image
+(off-center), no uncertainties were used, and the focus_center was not pointed
+to that area.
+
+If we KNOW that there is no geometric difference between our cameras, and we
+thus shoul dlook at the intrinsics differences only, then we don't need to
+estimate the compensating transformation. Indicate this case by passing
+focus_radius=0.
+
+Unlike the projection operation, the diff operation is NOT invariant under
+geometric scaling: if we look at the projection difference for two points at
+different locations along a single observation ray, there will be a variation in
+the observed diff. This is due to the geometric difference in the two cameras.
+If the models differed only in their intrinsics parameters, then this would not
+happen. Thus we need to know how far from the camera to look, and this is
+specified by the "distance" argument. By default (distance = None) we look out
+to infinity. If we care about the projection difference at some other distance,
+pass that here. Generally the most confident distance will be where the
+chessboards were observed at calibration time.
+
+ARGUMENTS
+
+- models: iterable of mrcal.cameramodel objects we're comparing. Usually there
+  will be 2 of these, but more than 2 is possible. The intrinsics are used; the
+  extrinsics are NOT.
+
+- gridn_width: optional value, defaulting to 60. How many points along the
+  horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+- observations: optional boolean, defaulting to False. If True, we overlay
+  calibration-time observations on top of the difference plot. We should then
+  see that more data produces more consistent results.
+
+- distance: optional value, defaulting to None. The projection difference varies
+  depending on the range to the observed world points, with the queried range
+  set in this 'distance' argument. If None (the default) we look out to
+  infinity.
+
+- use_uncertainties: optional boolean, defaulting to True. If True we use the
+  whole imager to fit the compensating transformation, using the uncertainties
+  to emphasize the confident regions. If False, it is important to select the
+  confident region using the focus_center and focus_radius arguments. If
+  use_uncertainties is True, but that data isn't available, we report a warning,
+  and try to proceed without.
+
+- focus_center: optional array of shape (2,); the imager center by default. Used
+  to indicate that the compensating transformation should use only those pixels
+  a distance focus_radius from focus_center. This is intended to be used if no
+  uncertainties are available, and we need to manually select the focus region.
+
+- focus_radius: optional value. If use_uncertainties then the default is LARGE,
+  to use the whole imager. Else the default is min(width,height)/6. Used to
+  indicate that the compensating transformation should use only those pixels a
+  distance focus_radius from focus_center. This is intended to be used if no
+  uncertainties are available, and we need to manually select the focus region.
+  Pass focus_radius=0 to avoid computing the compensating transformation, and to
+  use the identity. This would mean there're no geometric differences, and we're
+  comparing the intrinsics only
+
+- vectorfield: optional boolean, defaulting to False. By default we produce a
+  heat map of the projection differences. If vectorfield: we produce a vector
+  field instead. This is more busy, and is often less clear at first glance, but
+  unlike a heat map, this shows the directions of the differences in addition to
+  the magnitude. This is only valid if we're given exactly two models to compare
+
+- vectorscale: optional value, defaulting to 1.0. Applicable only if
+  vectorfield. The magnitude of the errors displayed in the vector field is
+  often very small, and impossible to make out when looking at the whole imager.
+  This argument can be used to scale all the displayed vectors to improve
+  legibility.
+
+- extratitle: optional string to include in the title of the resulting plot
+
+- cbmax: optional value, defaulting to 4.0. Sets the maximum range of the color
+  map
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUE
+
+The gnuplotlib plot object. The plot disappears when this object is destroyed
+(by the garbage collection, for instance), so do save this returned plot object
+into a variable, even if you're not going to be doing anything with this object
 
     '''
 
@@ -3586,7 +3698,7 @@ def show_projection_diff(models,
         # Two models. Take the difference and call it good
 
         if focus_radius == 0:
-            Rt_compensating10 = np.identity_Rt()
+            Rt_compensating10 = mrcal.identity_Rt()
         else:
             if uncertainties is not None:
                 weights = 1.0 / (uncertainties[0]*uncertainties[1])
@@ -3657,9 +3769,6 @@ def show_projection_diff(models,
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
 
     if vectorfield:
         plot = gp.gnuplotlib(square=1,
@@ -3746,6 +3855,43 @@ def show_projection_diff(models,
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1], valid_region1[:,0]*0,
                                     dict(_with = 'lines lw 3 nocontour',
                                          legend = "valid region of 2nd camera")) )
+
+    if observations:
+
+        # "nocontour" only for 3d plots
+        _2d = bool(vectorfield)
+        if _2d:
+            _with     = 'points'
+            tuplesize = 2
+        else:
+            _with     = 'points nocontour'
+            tuplesize = 3
+
+        for i in range(len(models)):
+
+            m = models[i]
+
+            p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
+                board_observations_at_calibration_time(m)
+            q_cam_calobjects_inliers = \
+                mrcal.project( p_cam_calobjects_inliers, *m.intrinsics() )
+            q_cam_calobjects_outliers = \
+                mrcal.project( p_cam_calobjects_outliers, *m.intrinsics() )
+
+            if len(q_cam_calobjects_inliers):
+                plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
+                                         q_cam_calobjects_inliers[...,1] ) +
+                                       ( () if _2d else ( np.zeros(q_cam_calobjects_inliers.shape[:-1]), )) +
+                                       ( dict( tuplesize = tuplesize,
+                                               _with     = _with,
+                                               legend    = f'Camera {i} inliers'), ))
+            if len(q_cam_calobjects_outliers):
+                plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
+                                         q_cam_calobjects_outliers[...,1] ) +
+                                       ( () if _2d else ( np.zeros(q_cam_calobjects_outliers.shape[:-1]), )) +
+                                       ( dict( tuplesize = tuplesize,
+                                               _with     = _with,
+                                               legend    = f'Camera {i} outliers'), ))
 
     plot.plot( *plot_data_args )
 
