@@ -209,6 +209,6 @@ plot = mrcal.show_projection_diff(models,
                                   hardcopy          = args.hardcopy,
                                   cbmax             = args.cbmax,
                                   extratitle        = args.extratitle,
-                                  kwargs            = plotkwargs_extra)
+                                  **plotkwargs_extra)
 if args.hardcopy is None:
     plot.wait()

@@ -3483,7 +3483,7 @@ def show_projection_diff(models,
                          vectorscale      = 1.0,
                          extratitle       = None,
                          cbmax            = 4,
-                         kwargs           = None):
+                         **kwargs):
     r'''Visualize the difference in projection between N models
 
 SYNOPSIS
@@ -3636,9 +3636,6 @@ The gnuplotlib plot object. The plot disappears when this object is destroyed
 into a variable, even if you're not going to be doing anything with this object
 
     '''
-
-    if kwargs is None: kwargs = {}
-
     if len(models) > 2 and vectorfield:
         raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
                         format(len(models)))
