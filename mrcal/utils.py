@@ -3755,11 +3755,11 @@ into a variable, even if you're not going to be doing anything with this object
 
     if 'title' not in kwargs:
         if focus_radius == 0:
-            where = "NOT fitting an implied rotation"
+            where = "NOT fitting a compensating transformation"
         elif focus_radius > 2*(W+H):
-            where = "implied rotation fitted everywhere"
+            where = "compensating transformation fitted everywhere"
         else:
-            where = "implied rotation fit looking at {} with radius {}". \
+            where = "compensating transformation fit looking at {} with radius {}". \
                 format('the imager center' if focus_center is None else focus_center,
                        focus_radius)
         title = "Diff looking at {} models; {}".format(len(models), where)
