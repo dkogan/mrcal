@@ -3135,49 +3135,145 @@ The mask that indicates whether each point is within the region
     return mask
 
 
-def compute_Rcompensating(q0, v0, v1,
-                          focus_center, focus_radius,
-                          weights = None):
+def compute_compensating_Rt10(q0, v0, v1,
+                              weights      = None,
+                              atinfinity   = True,
+                              focus_center = np.zeros((2,), dtype=float),
+                              focus_radius = 1.0e8):
 
-    r'''Computes a compensating rotation to fit two cameras' projections
+    r'''Compute a compensating transformation to fit two cameras' projections
 
-    I sample the imager grid in all my cameras, and compute the rotation that
-    maps the vectors to each other as closely as possible. Then I produce a
-    difference map by projecting the matched-up vectors. This is very similar in
-    spirit to what compute_Rcorrected_dq_dintrinsics() did (removed in commit
-    4240260), but that function worked analytically, while this one explicitly
-    computes the rotation by matching up known vectors.
+SYNOPSIS
 
+    models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
+               mrcal.cameramodel('cam0-dance1.cameramodel') )
 
-    I compute the rotation using a Procrustes fit:
+    lensmodels      = [model.intrinsics()[0] for model in models]
+    intrinsics_data = [model.intrinsics()[1] for model in models]
 
-        R = align3d_procrustes( nps.clump(v0,n=2),
-                                nps.clump(v1,n=2), vectors=True)
+    # v  shape (...,Ncameras,Nheight,Nwidth,...)
+    # q0 shape (...,         Nheight,Nwidth,...)
+    v,q0 = \
+        mrcal.sample_imager_unproject(60, None,
+                                      *models[0].imagersize(),
+                                      lensmodels, intrinsics_data,
+                                      normalize = True)
+    Rt_compensating10 = \
+        mrcal.compute_compensating_Rt10(q0, v[0,...], v[1,...])
 
-    This works, but it minimizes a norm2() metric, and is sensitive to outliers.
-    If my lens model doesn't fit perfectly, I can fit well only in some
-    areas. So I try to handle the outliers in two ways:
+    q1 = mrcal.project( mrcal.transform_point_Rt(Rt_compensating10, v[0,...]),
+                        *models[1].intrinsics())
 
-    - I compute a reasonable seed using a procrustes fit using data in the area
-      of interest
+    projection_diff = q1 - q0
 
-    - The residuals in the area of interest will be low-ish. Outside of it they
-      may or may not be low, depending on how well the model fits
+When comparing projections from two lens models, it is usually necessary to
+align the geometry of the two cameras, to cancel out any transformations implied
+by the intrinsics of the lenses. This transformation is computed by this
+function, used primarily by show_projection_diff() and the
+mrcal-show-projection-diff tool.
 
-    - I pick a loose threshold, and throw away all data outside of a
-      low-enough-error region around the center of the region of interest
+What are we comparing? We project the same world point into the two cameras, and
+report the difference in projection. Usually, the lens intrinsics differ a bit,
+and the implied origin of the camera coordinate system and its orientation
+differ also. These geometric uncertainties are baked into the intrinsics. So
+when we project "the same world point" we must apply a geometric transformation
+to compensate for the difference. This transformation is unknown, but we can
+estimate it by fitting projections across the imager: the "right" transformation
+would result in apparent low projection diffs in a wide area.
 
-    - Then I run the solve again using a nonlinear optimizer and a robust loss
-      function
+The primary inputs are unprojected gridded samples of the two imagers, obtained
+with something like sample_imager_unproject(). We grid the two imagers, and
+produce normalized observation vectors for each grid point. We pass the pixel
+grid from camera0 in q0, and the two unprojections in v0, v1. This function then
+tries to find a transformation to minimize
 
-    The optimization routine I'm using doesn't map to my problem very well, so
-    I'm doing something ugly: least squares with the residual vector composed of
-    the angle errors. cos(angle) = inner(v0,v1) ~ 1 - x*x -> x = sqrt(1-inner())
-    I.e. I compute sqrt() to get the residual, and the optimizer will then
-    square it again. I'm guessing this uglyness won't affect me adversely in any
-    way
+  norm2( project(camera1, transform(v0)) - q1 )
+
+We return an Rt transformation to map points in the camera0 coordinate system to
+the camera1 coordinate system. Some details about this general formulation are
+significant:
+
+- The subset of points we use for the optimization
+- What kind of transformation we use
+
+In most practical usages, we would expect a good fit only in a subset of the
+imager: areas where no chessboards were observed will not fit well, for
+instance. From the point of view of the fit we perform, those ill-fitting areas
+should be treated as outliers, and they should NOT be a part of the solve. How
+do we specify the well-fitting area? The best way is to use the model
+uncertainties to pass the weights in the "weights" argument (see
+show_projection_diff() for an implementation). If uncertainties aren't
+available, or if we want a faster solve, the focus region can be passed in the
+focus_center, focus_radius arguments. By default, these are set to encompass the
+whole imager, since the uncertainties would take care of everything, but without
+uncertainties (weights = None), these should be set more discriminately. It is
+possible to pass both a focus region and weights, but it's probably not very
+useful.
+
+Unlike the projection operation, the diff operation is NOT invariant under
+geometric scaling: if we look at the difference of projection for two points at
+different locations along a single observation ray, there will be a variation in
+the obesrved diff. This is due to the geometric difference in the two cameras.
+If the models differed only in their intrinsics parameters, then this would not
+happen. Thus this function needs to know how far from the camera it should look.
+By default (atinfinity = True) we look out to infinity. In this case, v0 is
+expected to contain unit vectors. To use any other distance, pass atinfinity =
+False, and pass POINTS in v0 instead of just observation directions. v1 should
+always be normalized.
+
+Practically, it is very easy for the unprojection operation to produce nan or
+inf values. And the weights could potentially have some invalid values also.
+This function explicitly checks for such illegal data in v0, v1 and weights, and
+ignores those points.
+
+ARGUMENTS
+
+- q0: an array of shape (Nh,Nw,2). Gridded pixel coordinates covering the imager
+  of both cameras
+
+- v0: an array of shape (Nh,Nw,3). An unprojection of q0 from camera 0. If
+  atinfinity, this should contain unit vectors, else it should contain points in
+  space at the desired distance from the camera
+
+- v1: an array of shape (Nh,Nw,3). An unprojection of q0 from camera 1. This
+  should always contain unit vectors, regardless of the value of atinfinity
+
+- weights: optional array of shape (Nh,Nw); None by default. If given, these are
+  used to weigh each fitted point differently. Usually we use the projection
+  uncertainties to apply a stronger weight to more confident points. If omitted
+  or None, we weigh each point equally
+
+- atinfinity: optional boolean; True by default. If True, we're looking out to
+  infinity, and I compute a rotation-only fit; a full Rt transformation is still
+  returned, but Rt[3,:] is 0; v0 should contain unit vectors. If False, I'm
+  looking out to a finite distance, and v0 should contain 3D points specifying
+  the positions of interest.
+
+- focus_center: optional array of shape (2,); (0,0) by default. Used to indicate
+  that we're interested only in a subset of pixels q0, a distance focus_radius
+  from focus_center. By default focus_radius is LARGE, so we use all the points.
+  This is intended to be used if no uncertainties are available, and we need to
+  manually select the focus region.
+
+- focus_radius: optional floating-point value; LARGE by default. Used to
+  indicate that we're interested only in a subset of pixels q0, a distance
+  focus_radius from focus_center. By default focus_radius is LARGE, so we use
+  all the points. This is intended to be used if no uncertainties are available,
+  and we need to manually select the focus region.
+
+RETURNED VALUE
+
+An array of shape (4,3), representing an Rt transformation from camera0 to
+camera1. If atinfinity then we're computing a rotation-fit only, but we still
+report a full Rt transformation with the t component set to 0
 
     '''
+
+    # This is very similar in spirit to what compute_Rcorrected_dq_dintrinsics() did
+    # (removed in commit 4240260), but that function worked analytically, while this
+    # one explicitly computes the rotation by matching up known vectors.
+
+    import scipy.optimize
 
     if weights is None:
         weights = np.ones(q0.shape[:-1], dtype=float)
@@ -3195,131 +3291,153 @@ def compute_Rcompensating(q0, v0, v1,
     weights[i_nan_v1[...,1]] = 0.0
     weights[i_nan_v1[...,2]] = 0.0
 
-    # my state vector is a rodrigues rotation, seeded with the identity
-    # rotation
-    cache = {'r': None}
-
-    def angle_err_sq(v0,v1,R):
-        # cos(x) = inner(v0,v1) ~ 1 - x*x
-        return 1 - nps.inner(nps.matmult(v0,R), v1)
-
-    def residual_jacobian(r):
-        R,dRdr = mrcal.R_from_r(r, get_gradients=True)
-        # dRdr has shape (3,3,3). First 2 for R, last 1 for r
-
-        x = angle_err_sq(V0fit, V1fit, R)*wfit
-
-        # dx/dr = d(1-c)/dr = - V1ct dV0R/dr
-        dV0R_dr = \
-            nps.dummy(V0fit[..., (0,)], axis=-1) * dRdr[0,:,:] + \
-            nps.dummy(V0fit[..., (1,)], axis=-1) * dRdr[1,:,:] + \
-            nps.dummy(V0fit[..., (2,)], axis=-1) * dRdr[2,:,:]
-
-        J = -nps.matmult(nps.dummy(V1fit, -2), dV0R_dr)[..., 0, :] * nps.dummy(wfit, -1)
-        return x,J
-
-    def residual(r, cache, **kwargs):
-        if cache['r'] is None or not np.array_equal(r,cache['r']):
-            cache['r'] = r
-            cache['x'],cache['J'] = residual_jacobian(r)
-        return cache['x']
-    def jacobian(r, cache, **kwargs):
-        if cache['r'] is None or not np.array_equal(r,cache['r']):
-            cache['r'] = r
-            cache['x'],cache['J'] = residual_jacobian(r)
-        return cache['J']
-
     # We try to match the geometry in a particular region
     q_off_center = q0 - focus_center
     i = nps.norm2(q_off_center) < focus_radius*focus_radius
     if np.count_nonzero(i)<3:
         raise Exception("Focus region contained too few points")
 
-    V0cut = v0     [i, ...]
-    V1cut = v1     [i, ...]
-    wcut  = weights[i, ...]
+    v0_cut = v0     [i, ...]
+    v1_cut = v1     [i, ...]
+    wcut   = weights[i, ...]
 
-    # I compute a procrustes fit using ONLY data in the region of interest.
-    # This is used to seed the nonlinear optimizer
-    R_procrustes = align3d_procrustes( V0cut, V1cut, weights=wcut, vectors=True)
-    r_procrustes = mrcal.r_from_R(R_procrustes)
+    if not atinfinity:
+        p0     = v0
+        p0_cut = v0_cut
 
-    esq = angle_err_sq(V0cut,V1cut,R_procrustes)
+    def residual_jacobian_rt(rt):
 
-    # I throw away everything that's clearly not in the "good" region, and
-    # reoptimize with a robust error function. These are both intended to reduce
-    # the effect of outliers
-    esq_threshold = np.percentile(esq.ravel(), 50)
-    esq = angle_err_sq(v0,v1,R_procrustes)
-    esq[~i, ...] = 1e6 # regions I don't care get an unreasonably high error
+        # rtp0 has shape (N,3)
+        rtp0, drtp0_dr, drtp0_dt, _ = \
+            mrcal.transform_point_rt(rt, p0_cut,
+                                     get_gradients = True)
 
-    import scipy.ndimage
-    import scipy.stats
-    import scipy.optimize
-    maskimage = esq < esq_threshold
-    regions,num_regions = scipy.ndimage.label(maskimage)
+        # shape (N,3,6)
+        drtp0_drt = nps.glue( drtp0_dr, drtp0_dt, axis=-1)
 
-    # I pick the biggest low-error region
-    try:
-        # Respect the focus region ([i]) and ignore the high-error regions
-        # (regions != 0)
-        regions_cut = regions[i]
-        mode       = scipy.stats.mode(regions_cut[regions_cut != 0])
-        mode_value = mode[0][0]
-    except:
-        print("Could not find the most common component in the low-error region. Mode: {mode}")
-        raise
+        # inner(a,b) ~ cos(x) ~ 1 - x^2/2
+        # Each of these has shape (N)
+        mag_rtp0 = nps.mag(rtp0)
+        inner    = nps.inner(rtp0, v1_cut)
+        th2      = 2.* (1.0 - inner / mag_rtp0)
+        x        = th2 * wcut
 
-    i[ regions != mode_value ] = 0
-    V0fit = v0     [i, ...]
-    V1fit = v1     [i, ...]
-    wfit  = weights[i, ...]
-    # V01fit are used by the optimization cost function
+        # shape (N,6)
+        dmag_rtp0_drt = nps.matmult( nps.dummy(rtp0, -2),   # shape (N,1,3)
+                                     drtp0_drt              # shape (N,3,6)
+                                     # matmult has shape (N,1,6)
+                                   )[:,0,:] / \
+                                   nps.dummy(mag_rtp0, -1)  # shape (N,1)
+        # shape (N,6)
+        dinner_drt    = nps.matmult( nps.dummy(v1_cut, -2), # shape (N,1,3)
+                                     drtp0_drt              # shape (N,3,6)
+                                     # matmult has shape (N,1,6)
+                                   )[:,0,:]
 
-    # gradient check
-    # r = r_procrustes
-    # r0 = r
-    # x0,J0 = residual_jacobian(r0)
-    # dr = np.random.random(3) * 1e-7
-    # r1 = r+dr
-    # x1,J1 = residual_jacobian(r1)
+        # dth2 = 2 (inner dmag_rtp0 - dinner mag_rtp0)/ mag_rtp0^2
+        # shape (N,6)
+        J = 2. * \
+            (nps.dummy(inner,    -1) * dmag_rtp0_drt - \
+             nps.dummy(mag_rtp0, -1) * dinner_drt) / \
+             nps.dummy(mag_rtp0*mag_rtp0, -1) * \
+             nps.dummy(wcut,-1)
+        return x, J
+
+
+    def residual_jacobian_r(r):
+
+        # rv0     has shape (N,3)
+        # drv0_dr has shape (N,3,3)
+        rv0, drv0_dr, _ = \
+            mrcal.rotate_point_r(r, v0_cut,
+                                 get_gradients = True)
+
+        # inner(a,b) ~ cos(x) ~ 1 - x^2/2
+        # Each of these has shape (N)
+        inner = nps.inner(rv0, v1_cut)
+        th2   = 2.* (1.0 - inner)
+        x     = th2 * wcut
+
+        # shape (N,3)
+        dinner_dr = nps.matmult( nps.dummy(v1_cut, -2), # shape (N,1,3)
+                                 drv0_dr                # shape (N,3,3)
+                                 # matmult has shape (N,1,3)
+                               )[:,0,:]
+
+        J = -2. * dinner_dr * nps.dummy(wcut,-1)
+        return x, J
+
+
+    cache = {'rt': None}
+    def residual(rt, f):
+        if cache['rt'] is None or not np.array_equal(rt,cache['rt']):
+            cache['rt'] = rt
+            cache['x'],cache['J'] = f(rt)
+        return cache['x']
+    def jacobian(rt, f):
+        if cache['rt'] is None or not np.array_equal(rt,cache['rt']):
+            cache['rt'] = rt
+            cache['x'],cache['J'] = f(rt)
+        return cache['J']
+
+
+    # # gradient check
+    # import gnuplotlib as gp
+    # p0     = v0
+    # p0_cut = v0_cut
+    # rt0 = np.random.random(6)*1e-3
+    # x0,J0 = residual_jacobian_rt(rt0)
+    # drt = np.random.random(6)*1e-7
+    # rt1 = rt0+drt
+    # x1,J1 = residual_jacobian_rt(rt1)
+    # dx_theory = nps.matmult(J0, nps.transpose(drt)).ravel()
+    # dx_got    = x1-x0
+    # relerr = (dx_theory-dx_got) / ( (np.abs(dx_theory)+np.abs(dx_got))/2. )
+    # gp.plot(relerr, wait=1, title='rt')
+    # r0 = np.random.random(3)*1e-3
+    # x0,J0 = residual_jacobian_r(r0)
+    # dr = np.random.random(3)*1e-7
+    # r1 = r0+dr
+    # x1,J1 = residual_jacobian_r(r1)
     # dx_theory = nps.matmult(J0, nps.transpose(dr)).ravel()
     # dx_got    = x1-x0
     # relerr = (dx_theory-dx_got) / ( (np.abs(dx_theory)+np.abs(dx_got))/2. )
-    # import gnuplotlib as gp
-    # gp.plot(relerr)
+    # gp.plot(relerr, wait=1, title='r')
+    # sys.exit()
 
+    if atinfinity:
 
-    # Seed from the procrustes solve
-    res = scipy.optimize.least_squares(residual, r_procrustes, jac=jacobian,
-                                       method='dogbox',
+        r = np.random.random(3) * 1e-3
 
-                                       loss='soft_l1',
-                                       f_scale=esq_threshold,
-                                       # max_nfev=1,
-                                       args=(cache,),
-                                       verbose=0)
-    r_fit = res.x
-    R_fit = mrcal.R_from_r(r_fit)
+        res = scipy.optimize.least_squares(residual,
+                                           r,
+                                           jac=jacobian,
+                                           method='dogbox',
 
-    # # A simpler routine to JUST move pitch/yaw to align the optical axes
-    # r = mrcal.r_from_R(R)
-    # r[2] = 0
-    # R = mrcal.R_from_r(r)
-    # dth_x = \
-    #     np.arctan2( intrinsics_data[i,2] - imagersizes[i,0],
-    #                 intrinsics_data[i,0] ) - \
-    #     np.arctan2( intrinsics_data[0,2] - imagersizes[0,0],
-    #                 intrinsics_data[0,0] )
-    # dth_y = \
-    #     np.arctan2( intrinsics_data[i,3] - imagersizes[i,1],
-    #                 intrinsics_data[i,1] ) - \
-    #     np.arctan2( intrinsics_data[0,3] - imagersizes[1,1],
-    #                 intrinsics_data[0,1] )
-    # r = np.array((-dth_y, dth_x, 0))
-    # R = mrcal.R_from_r(r)
+                                           loss='soft_l1',
+                                           f_scale = (1.0e-1 * np.pi/180.)**2., # 0.1 deg^2
+                                           # max_nfev=1,
+                                           args=(residual_jacobian_r,),
+                                           verbose=0)
+        Rt = np.zeros((4,3), dtype=float)
+        Rt[:3,:] = mrcal.R_from_r(res.x)
+        return Rt
 
-    return R_fit
+    else:
+
+        rt = np.random.random(6) * 1e-3
+
+        res = scipy.optimize.least_squares(residual,
+                                           rt,
+                                           jac=jacobian,
+                                           method='dogbox',
+
+                                           loss='soft_l1',
+                                           f_scale = (1.0e-1 * np.pi/180.)**2., # 0.1 deg^2
+                                           # max_nfev=1,
+                                           args=(residual_jacobian_rt,),
+                                           verbose=0)
+        return mrcal.Rt_from_rt(res.x)
 
 
 def _densify_polyline(p, spacing):
@@ -3358,6 +3476,7 @@ def show_projection_diff(models,
                          # "reasonable" area in the center by default (if not
                          # using uncertainties)
                          use_uncertainties= True,
+                         distance         = None,
                          focus_center     = None,
                          focus_radius     = -1.,
 
@@ -3430,14 +3549,21 @@ def show_projection_diff(models,
                                    lensmodels, intrinsics_data,
                                    normalize = True)
 
+    if distance is None:
+        atinfinity = True
+        distance   = 1.0
+    else:
+        atinfinity = False
+
     if focus_radius == 0:
         use_uncertainties = False
 
     if use_uncertainties:
         try:
             uncertainties = \
-                [ mrcal.projection_uncertainty(v[i], models[i],
-                                               atinfinity = True,
+                [ mrcal.projection_uncertainty(v[i] * distance,
+                                               models[i],
+                                               atinfinity = atinfinity,
                                                what       = 'worstdirection-stdev') \
                   for i in range(len(models)) ]
         except:
@@ -3460,31 +3586,35 @@ def show_projection_diff(models,
         # Two models. Take the difference and call it good
 
         if focus_radius == 0:
-            Rcompensating01 = np.eye(3)
+            Rt_compensating10 = np.identity_Rt()
         else:
             if uncertainties is not None:
-                weight = 1.0 / (uncertainties[0]*uncertainties[1])
+                weights = 1.0 / (uncertainties[0]*uncertainties[1])
             else:
-                weight = None
+                weights = None
 
-            # weight may be inf or nan. compute_Rcompensating() will clean those up,
-            # as well as any inf/nan in v (from failed unprojections)
-            Rcompensating01 = \
-                compute_Rcompensating(q0, v[0,...], v[1,...],
-                                      focus_center, focus_radius,
-                                      weight)
-        q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating01),
+            # weight may be inf or nan. compute_compensating_Rt10() will clean
+            # those up, as well as any inf/nan in v (from failed unprojections)
+            Rt_compensating10 = \
+                compute_compensating_Rt10(q0,
+                                          v[0,...] * distance,
+                                          v[1,...],
+                                          weights,
+                                          atinfinity,
+                                          focus_center, focus_radius)
+        q1 = mrcal.project( mrcal.transform_point_Rt(Rt_compensating10,
+                                                     v[0,...] * distance),
                            lensmodels[1], intrinsics_data[1])
 
         diff    = q1 - q0
         difflen = nps.mag(diff)
 
     else:
+
         # Many models. Look at the stdev
         def get_reprojections(q0, i0, i1,
                               focus_center, focus_radius,
-                              lensmodel, intrinsics_data,
-                              imagersizes):
+                              lensmodel, intrinsics_data):
             v0 = v[i0,...]
             v1 = v[i1,...]
 
@@ -3493,21 +3623,23 @@ def show_projection_diff(models,
             else:
 
                 if uncertainties is not None:
-                    weight = 1.0 / (uncertainties[i0]*uncertainties[i1])
+                    weights = 1.0 / (uncertainties[i0]*uncertainties[i1])
                 else:
-                    weight = None
+                    weights = None
 
-                R = compute_Rcompensating(q0, v0, v1,
-                                          focus_center, focus_radius,
-                                          weight)
-            return mrcal.project(nps.matmult(v0,R),
+                Rt_compensating10 = \
+                    compute_compensating_Rt10(q0, v0*distance, v1,
+                                              weights, atinfinity,
+                                              focus_center, focus_radius)
+            return mrcal.project(mrcal.transform_point_Rt(Rt_compensating10,
+                                                          v0*distance),
                                  lensmodel, intrinsics_data)
 
         grids = nps.cat(*[get_reprojections(q0,
                                             0, i,
                                             focus_center, focus_radius,
-                                            lensmodels[i], intrinsics_data[i],
-                                            imagersizes) for i in range(1,len(v))])
+                                            lensmodels[i], intrinsics_data[i]) \
+                          for i in range(1,len(v))])
 
         difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
 
@@ -3601,7 +3733,8 @@ def show_projection_diff(models,
         # more densely.
         v1 = mrcal.unproject(_densify_polyline(valid_region1, spacing = 50),
                              lensmodels[1], intrinsics_data[1])
-        valid_region1 = mrcal.project( nps.matmult( v1, nps.transpose(Rcompensating01) ),
+        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt_compensating10),
+                                                                 v1 ),
                                        lensmodels[0], intrinsics_data[0] )
         if vectorfield:
             # 2d plot
