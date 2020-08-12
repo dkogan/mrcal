@@ -51,7 +51,7 @@ def parse_args():
                         (15,10) grid if --observations-xydist)''')
     parser.add_argument('--distance',
                         type=float,
-                        help='''By default we display the projection uncertainty infinitely away from the
+                        help='''By default we display the projection uncertainty infinitely far away from the
                         camera. If we want to look closer in, the desired
                         observation distance can be given in this argument''')
     parser.add_argument('--isotropic',
