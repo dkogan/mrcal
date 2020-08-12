@@ -3135,9 +3135,9 @@ The mask that indicates whether each point is within the region
     return mask
 
 
-def compute_Rcompensating(q0, v0, v1, weights,
+def compute_Rcompensating(q0, v0, v1,
                           focus_center, focus_radius,
-                          imagersizes):
+                          weights = None):
 
     r'''Computes a compensating rotation to fit two cameras' projections
 
@@ -3229,64 +3229,51 @@ def compute_Rcompensating(q0, v0, v1, weights,
             cache['x'],cache['J'] = residual_jacobian(r)
         return cache['J']
 
+    # We try to match the geometry in a particular region
+    q_off_center = q0 - focus_center
+    i = nps.norm2(q_off_center) < focus_radius*focus_radius
+    if np.count_nonzero(i)<3:
+        raise Exception("Focus region contained too few points")
 
-
-    W,H = imagersizes[0,:]
-    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
-    if focus_radius < 0:     focus_radius = min(W,H)/6.
-    if focus_radius == 0:
-        # We assume the geometry is fixed across the two models, and we fit
-        # nothing
-        return np.eye(3)
-
-
-    V0cut   = nps.clump(v0,     n=2)
-    V1cut   = nps.clump(v1,     n=2)
-    wcut    = nps.clump(weights,n=2)
-
-    icenter = np.array((v0.shape[:2])) // 2
-    if focus_radius < 2*(W+H):
-        # We try to match the geometry in a particular region
-
-        q_off_center = q0 - focus_center
-        i = nps.norm2(q_off_center) < focus_radius*focus_radius
-        if np.count_nonzero(i)<3:
-            warnings.warn("Focus region contained too few points; I need at least 3. Fitting EVERYWHERE across the imager")
-        else:
-            V0cut = v0     [i, ...]
-            V1cut = v1     [i, ...]
-            wcut  = weights[i, ...]
-
-            # get the nearest index on my grid to the requested center
-            icenter_flat = np.argmin(nps.norm2(q_off_center))
-
-            # This looks funny, but it's right. My grid is set up that you index
-            # with the x-coord and then the y-coord. This is opposite from the
-            # matrix convention that numpy uses: y then x.
-            ix = icenter_flat // v0.shape[1]
-            iy = icenter_flat - ix*v0.shape[1]
-            icenter = np.array((ix,iy))
+    V0cut = v0     [i, ...]
+    V1cut = v1     [i, ...]
+    wcut  = weights[i, ...]
 
     # I compute a procrustes fit using ONLY data in the region of interest.
     # This is used to seed the nonlinear optimizer
     R_procrustes = align3d_procrustes( V0cut, V1cut, weights=wcut, vectors=True)
     r_procrustes = mrcal.r_from_R(R_procrustes)
-    r_procrustes = r_procrustes.ravel()
 
+    esq = angle_err_sq(V0cut,V1cut,R_procrustes)
+
+    # I throw away everything that's clearly not in the "good" region, and
+    # reoptimize with a robust error function. These are both intended to reduce
+    # the effect of outliers
+    esq_threshold = np.percentile(esq.ravel(), 50)
     esq = angle_err_sq(v0,v1,R_procrustes)
+    esq[~i, ...] = 1e6 # regions I don't care get an unreasonably high error
 
-    # throw away everything that's k times as wrong as the center of
-    # interest. I look at a connected component around the center. I pick a
-    # large k here, and use a robust error function further down
-    k = 10
-    angle_err_sq_at_center = esq[icenter[0],icenter[1]]
-    thresholdsq = angle_err_sq_at_center*k*k
     import scipy.ndimage
-    regions,_ = scipy.ndimage.label(esq < thresholdsq)
-    mask = regions==regions[icenter[0],icenter[1]]
-    V0fit = v0     [mask, ...]
-    V1fit = v1     [mask, ...]
-    wfit  = weights[mask, ...]
+    import scipy.stats
+    import scipy.optimize
+    maskimage = esq < esq_threshold
+    regions,num_regions = scipy.ndimage.label(maskimage)
+
+    # I pick the biggest low-error region
+    try:
+        # Respect the focus region ([i]) and ignore the high-error regions
+        # (regions != 0)
+        regions_cut = regions[i]
+        mode       = scipy.stats.mode(regions_cut[regions_cut != 0])
+        mode_value = mode[0][0]
+    except:
+        print("Could not find the most common component in the low-error region. Mode: {mode}")
+        raise
+
+    i[ regions != mode_value ] = 0
+    V0fit = v0     [i, ...]
+    V1fit = v1     [i, ...]
+    wfit  = weights[i, ...]
     # V01fit are used by the optimization cost function
 
     # gradient check
@@ -3302,13 +3289,13 @@ def compute_Rcompensating(q0, v0, v1, weights,
     # import gnuplotlib as gp
     # gp.plot(relerr)
 
-    import scipy.optimize
+
     # Seed from the procrustes solve
     res = scipy.optimize.least_squares(residual, r_procrustes, jac=jacobian,
                                        method='dogbox',
 
                                        loss='soft_l1',
-                                       f_scale=angle_err_sq_at_center*3.0,
+                                       f_scale=esq_threshold,
                                        # max_nfev=1,
                                        args=(cache,),
                                        verbose=0)
@@ -3365,8 +3352,12 @@ def show_projection_diff(models,
                          gridn_width  = 60,
                          gridn_height = None,
 
-                         # fit a "reasonable" area in the center by
-                         # default
+                         # By default, I use the uncertainties to weigh the fit,
+                         # looking at the whole imager. Without uncertainties,
+                         # choosing the right focus area is important; we use a
+                         # "reasonable" area in the center by default (if not
+                         # using uncertainties)
+                         use_uncertainties= True,
                          focus_center     = None,
                          focus_radius     = -1.,
 
@@ -3432,7 +3423,6 @@ def show_projection_diff(models,
     lensmodels      = [model.intrinsics()[0] for model in models]
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
-
     # v  shape (...,Ncameras,Nheight,Nwidth,...)
     # q0 shape (...,         Nheight,Nwidth,...)
     v,q0 = sample_imager_unproject(gridn_width, gridn_height,
@@ -3440,15 +3430,49 @@ def show_projection_diff(models,
                                    lensmodels, intrinsics_data,
                                    normalize = True)
 
+    if focus_radius == 0:
+        use_uncertainties = False
+
+    if use_uncertainties:
+        try:
+            uncertainties = \
+                [ mrcal.projection_uncertainty(v[i], models[i],
+                                               atinfinity = True,
+                                               what       = 'worstdirection-stdev') \
+                  for i in range(len(models)) ]
+        except:
+            print(f"WARNING: show_projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic\nException: {e}",
+                  file = sys.stderr)
+            use_uncertainties = False
+            uncertainties     = None
+    else:
+        use_uncertainties = False
+        uncertainties     = None
+
+    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+    if focus_radius < 0:
+        if use_uncertainties:
+            focus_radius = max(W,H) * 100 # whole imager
+        else:
+            focus_radius = min(W,H)/6.
+
     if len(models) == 2:
         # Two models. Take the difference and call it good
 
-        Rcompensating01 = \
-            compute_Rcompensating(q0,
-                                  v[0,...], v[1,...],
-                                  None,
-                                  focus_center, focus_radius,
-                                  imagersizes)
+        if focus_radius == 0:
+            Rcompensating01 = np.eye(3)
+        else:
+            if uncertainties is not None:
+                weight = 1.0 / (uncertainties[0]*uncertainties[1])
+            else:
+                weight = None
+
+            # weight may be inf or nan. compute_Rcompensating() will clean those up,
+            # as well as any inf/nan in v (from failed unprojections)
+            Rcompensating01 = \
+                compute_Rcompensating(q0, v[0,...], v[1,...],
+                                      focus_center, focus_radius,
+                                      weight)
         q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating01),
                            lensmodels[1], intrinsics_data[1])
 
@@ -3457,59 +3481,38 @@ def show_projection_diff(models,
 
     else:
         # Many models. Look at the stdev
-        def get_reprojections(q0, v0, v1,
-                              focus_center,
-                              focus_radius,
+        def get_reprojections(q0, i0, i1,
+                              focus_center, focus_radius,
                               lensmodel, intrinsics_data,
                               imagersizes):
-            R = compute_Rcompensating(q0, v0, v1,
-                                      None,
-                                      focus_center,
-                                      focus_radius,
-                                      imagersizes)
+            v0 = v[i0,...]
+            v1 = v[i1,...]
+
+            if focus_radius == 0:
+                R = np.eye(3)
+            else:
+
+                if uncertainties is not None:
+                    weight = 1.0 / (uncertainties[i0]*uncertainties[i1])
+                else:
+                    weight = None
+
+                R = compute_Rcompensating(q0, v0, v1,
+                                          focus_center, focus_radius,
+                                          weight)
             return mrcal.project(nps.matmult(v0,R),
                                  lensmodel, intrinsics_data)
 
         grids = nps.cat(*[get_reprojections(q0,
-                                            v[0,...], v[i,...],
+                                            0, i,
                                             focus_center, focus_radius,
                                             lensmodels[i], intrinsics_data[i],
                                             imagersizes) for i in range(1,len(v))])
 
-        # I look at synthetic data with calibrations fit off ONLY the right half
-        # of the image. I look to see how well I'm doing on the left half of the
-        # image. I expect this wouldn't work well, and indeed it doesn't: diffs
-        # off the reference look poor. BUT cross-validation says we're doing
-        # well: diffs off the various solutions look good. Here I look at a
-        # point in the diff map the is clearly wrong (diff-off-reference says it
-        # is), but that the cross-validation says is fine.
-        #
-        # Command:
-        #   dima@fatty:~/src_boats/mrcal/studies/syntheticdata/scans.LENSMODEL_OPENCV4.cull_leftof2000$ ../../../mrcal-show-projection-diff  --cbmax 2 *.cameramodel ../../../analyses/synthetic_data/reference.cameramodel  --where 800 1080
-        #
-        # I plot the projection points for the reference and for each of my
-        # models. I can see that the models cluster: things look consistent so
-        # cross-validation says we're confident. But I can also see the
-        # reference off to the side: they're all wrong. Hmmm.
-
-        # g = grids[:,10,19,:]
-        # r = g[-1,:]
-        # g = nps.glue(q0[10,19], g[:-1,:], axis=-2)
-        # gp.plot((r[0],r[1],               dict(legend='reference')),
-        #         (g[...,0,None],g[...,1,None], dict(legend=np.arange(len(g)))),
-        #         square=1, _with='points', wait=1)
-        # sys.exit()
-
-        # I also had this: is it better?
-        # stdevs  = np.std(grids, axis=0)
-        # difflen = nps.mag(stdevs)
-
         difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
 
-    if 'title' not in kwargs:
-        if focus_radius < 0:
-            focus_radius = min(W,H)/6.
 
+    if 'title' not in kwargs:
         if focus_radius == 0:
             where = "NOT fitting an implied rotation"
         elif focus_radius > 2*(W+H):

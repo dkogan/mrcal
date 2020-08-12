@@ -74,9 +74,11 @@ def parse_args():
                         type=float,
                         default=-1.,
                         help='''Radius of the region of interest. If ==0, we do NOT fit an implied rotation
-                        at all. If omitted or <0, we use a "reasonable value:
-                        min(width,height)/6. To fit with data across the WHOLE
-                        imager: pass in a very large radius''')
+                        at all. If omitted or <0, we use a "reasonable" value:
+                        the whole imager if we're using uncertainties, or
+                        min(width,height)/6 if --no-uncertainties. To fit with
+                        data across the whole imager in either case, pass in a
+                        very large radius''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=4,
@@ -100,6 +102,15 @@ def parse_args():
                         help='''If plotting a vectorfield, scale all the vectors by this factor. Useful to
                         improve legibility if the vectors are too small to
                         see''')
+
+    parser.add_argument('--no-uncertainties',
+                        action = 'store_true',
+                        default = False,
+                        help='''By default we use the uncertainties in the model to weigh the diff. This will
+                        focus the diff on the confident region in the models
+                        without --where or --radius. The computation will run
+                        faster with --no-uncertainties, but the default --where
+                        and --radius may need to be adjusted''')
 
     parser.add_argument('--hardcopy',
                         type=str,
@@ -144,6 +155,7 @@ models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 
 plot = mrcal.show_projection_diff(models,
                                   args.gridn[0], args.gridn[1],
+                                  use_uncertainties= not args.no_uncertainties,
                                   focus_center    = args.where,
                                   focus_radius    = args.radius,
                                   vectorfield     = args.vectorfield,

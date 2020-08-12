@@ -252,13 +252,17 @@ def projection_diff(models_ref, max_dist_from_center, fit_Rcompensating = True):
                                       *imagersizes[0],
                                       lensmodels, intrinsics_data,
                                       normalize = True)
+
+    W,H = imagersizes[0]
+    focus_center = None
+    focus_radius = -1 if fit_Rcompensating else 0
+    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+    if focus_radius < 0:     focus_radius = min(W,H)/6.
+
     Rcompensating01 = \
         mrcal.compute_Rcompensating(q0,
                                     v[0,...], v[1,...],
-                                    weights      = None,
-                                    focus_center = None,
-                                    focus_radius = -1 if fit_Rcompensating else 0,
-                                    imagersizes  = imagersizes)
+                                    focus_center, focus_radius)
     q1 = mrcal.project(nps.matmult(v[0,...],Rcompensating01),
                        lensmodels[1], intrinsics_data[1])
     diff = nps.mag(q1 - q0)
