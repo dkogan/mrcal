@@ -238,8 +238,8 @@ ii,ee,ff,_,_,optimization_inputs = \
                                   apply_noise=False)
 
 models_ref_optimized = \
-    [ mrcal.cameramodel( optimization_inputs   = optimization_inputs,
-                         icam_intrinsics_optimization_inputs = i) \
+    [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
+                         icam_intrinsics     = i) \
       for i in range(Ncameras) ]
 
 if 'write-models' in args:
@@ -265,7 +265,7 @@ for icam in (0,3):
     model_moved.write(f'{workdir}/out.cameramodel')
     model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 
-    icam_intrinsics_read = model_read.icam_intrinsics_optimization_inputs()
+    icam_intrinsics_read = model_read.icam_intrinsics()
     icam_extrinsics_read = mrcal.corresponding_icam_extrinsics(icam_intrinsics_read,
                                                                **model_read.optimization_inputs())
 

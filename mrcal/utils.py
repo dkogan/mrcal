@@ -1765,7 +1765,7 @@ else:                    we return an array of shape (...)
     # well
 
     # which calibration-time camera we're looking at
-    icam_intrinsics = model.icam_intrinsics_optimization_inputs()
+    icam_intrinsics = model.icam_intrinsics()
     icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
 
     intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
@@ -1869,7 +1869,7 @@ Returns a tuple:
     extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref']
 
     # which calibration-time camera we're looking at
-    icam_intrinsics = model.icam_intrinsics_optimization_inputs()
+    icam_intrinsics = model.icam_intrinsics()
 
 
     observations_board                        = optimization_inputs['observations_board']
