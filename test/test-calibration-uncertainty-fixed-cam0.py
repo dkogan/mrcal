@@ -467,33 +467,6 @@ if len(args) == 0:
 
 import gnuplotlib as gp
 
-
-def show_uncertainty_map(uncertainty, **kwargs):
-    r'''Render the uncertainty map
-
-    Do something like this:
-
-        import time
-        icam = 0
-        for irange in range(worst_direction_stdev_grid.shape[-1]):
-            show_uncertainty_map(worst_direction_stdev_grid[icam,:,:,irange])
-            time.sleep(1)
-
-'''
-    gp.plot(uncertainty,
-            tuplesize = 3,
-            using     = mrcal.imagergrid_using(imagersizes[0], gridn_width, gridn_height),
-            _with     = np.array(('image','lines nosurface')),
-            legend    = '',
-            ascii     = True,
-            _xrange   = [0,               imagersizes[0,0]],
-            _yrange   = [imagersizes[0,1],0],
-            unset     = 'grid',
-            _3d       = True,
-            _set      = ('view equal xy','view map','contour surface','cntrparam levels incremental 10,-0.5,0','key box opaque'),
-            cbrange   = [0,15],
-            **kwargs)
-
 if 'study' in args:
     gridn_width  = 16
     gridn_height = 12
