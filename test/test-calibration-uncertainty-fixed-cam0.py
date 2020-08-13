@@ -236,16 +236,9 @@ else:
 ii,ee,ff,_,_,optimization_inputs = \
     sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
                                   apply_noise=False)
-extrinsics_ref_optimized_mounted = ee if fixedframes else \
-    nps.glue( np.zeros((6,), dtype=float),
-              ee,
-              axis = -2)
 
 models_ref_optimized = \
-    [ mrcal.cameramodel( imagersize            = imagersizes[i],
-                         intrinsics            = (lensmodel, ii[i,:]),
-                         extrinsics_rt_fromref = extrinsics_ref_optimized_mounted[i,:],
-                         optimization_inputs   = optimization_inputs,
+    [ mrcal.cameramodel( optimization_inputs   = optimization_inputs,
                          icam_intrinsics_optimization_inputs = i) \
       for i in range(Ncameras) ]
 

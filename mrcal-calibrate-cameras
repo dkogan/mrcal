@@ -504,29 +504,7 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     return [w,h]
 
 
-def make_cameramodel(optimize_kwargs, i_camera):
-    r'''Assemble one cameramodel from a completed calibration
-
-    The calibration routines treat the intrinsics and extrinsics for all cameras
-    as a vector. This routine converts a single camera to a mrcal.cameramodel
-    structure that can be fed to all the other routines.
-
-    '''
-    lensmodel   = optimize_kwargs['lensmodel']
-    intrinsics  = optimize_kwargs['intrinsics']
-    extrinsics  = optimize_kwargs['extrinsics_rt_fromref']
-    imagersizes = optimize_kwargs['imagersizes']
-
-    return \
-        mrcal.cameramodel( intrinsics            = (lensmodel, intrinsics[i_camera]),
-                           extrinsics_rt_fromref = extrinsics[i_camera-1] if i_camera >= 1 \
-                                                   else np.zeros(6),
-                           imagersize            = imagersizes[i_camera],
-                           optimization_inputs   = optimize_kwargs,
-                           icam_intrinsics_optimization_inputs = i_camera )
-
-
-def make_cameramodels(optimize_kwargs):
+def make_cameramodels(optimization_inputs):
     r'''Assemble cameramodels from a completed calibration
 
     The calibration routines treat the intrinsics and extrinsics for all cameras
@@ -534,7 +512,10 @@ def make_cameramodels(optimize_kwargs):
     structures that can be fed to all the other routines.
 
     '''
-    return [ make_cameramodel(optimize_kwargs, i_camera) \
+    return [ mrcal.cameramodel( \
+                optimization_inputs                 = optimization_inputs,
+                icam_intrinsics_optimization_inputs = i_camera ) \
+
              for i_camera in range(len(optimize_kwargs['intrinsics'])) ]
 
 

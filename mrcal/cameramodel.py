@@ -437,51 +437,104 @@ class cameramodel(object):
             self._optimization_inputs_string          = None
             self._icam_intrinsics_optimization_inputs = None
 
-    def __init__(self, file_or_model=None, **kwargs):
+    def __init__(self,
+
+                 file_or_model                       = None,
+
+                 intrinsics                          = None,
+                 imagersize                          = None,
+                 extrinsics_Rt_toref                 = None,
+                 extrinsics_Rt_fromref               = None,
+                 extrinsics_rt_toref                 = None,
+                 extrinsics_rt_fromref               = None,
+
+                 optimization_inputs                 = None,
+                 icam_intrinsics_optimization_inputs = None,
+
+                 valid_intrinsics_region             = None ):
         r'''Initializes a new camera-model object
 
-        If file_or_model is not None: we read the camera model from a filename,
-        a pre-opened file or from another camera model (copy constructor). In
-        this case kwargs MUST be None. If reading a filename, and the filename
-        is xxx.cahvor, then we assume a legacy cahvor file format instead of the
-        usual one. If the filename is '-' we read standard input
+        We read the input in one of several ways. The arguments for the OTHER
+        methods must all be None
 
-        if file_or_model is None, then the input comes from kwargs, and they
-        must NOT be None. The following keys are expected
+        - file_or_model: we read the camera model from a filename or a
+          pre-opened file object or from an existing cameramodel object to copy.
+          If reading a filename, and the filename is xxx.cahvor, then we assume
+          the legacy cahvor file format instead of the usual .cameramodel. If
+          the filename is '-' we read standard input (both .cahvor and
+          .cameramodel supported)
 
-        - 'intrinsics': REQUIRED tuple (lensmodel, parameters)
-        - Exactly ONE or ZERO of the following for the extrinsics (if omitted we
-          use an identity transformation):
-          - 'extrinsics_Rt_toref'
-          - 'extrinsics_Rt_fromref'
-          - 'extrinsics_rt_toref'
-          - 'extrinsics_rt_fromref'
-        - 'imagersize': REQUIRED iterable for the (width,height) of the imager
-        - 'valid_intrinsics_region'   : OPTIONAL
-        - 'optimization_inputs': OPTIONAL dict of arguments to mrcal.optimize().
-          These are stored in an opaque ascii-encoded-binary format, and are
-          used by the tools to compute the projection uncertainty
-        - 'icam_intrinsics_optimization_inputs': OPTIONAL int. This indicates
-          which camera this was at calibration time. Used together with
-          optimization_inputs only
+        - discrete arguments. Each thing we want to store is passed in a
+          separate argument. Exactly ONE or ZERO of the extrinsics_... arguments
+          must be given; if omitted we use an identity transformation. The known
+          arguments:
+
+          - intrinsics (a tuple (lensmodel, parameters))
+          - imagersize ((width,height) of the imager)
+          - extrinsics_Rt_toref
+          - extrinsics_Rt_fromref
+          - extrinsics_rt_toref
+          - extrinsics_rt_fromref
+
+        - optimization_inputs. These are a dict of arguments to mrcal.optimize()
+          at the optimum, and contain all the information needed for the camera
+          model (and more!) 'icam_intrinsics_optimization_inputs' is also
+          required in this case. This indicates the identity of this camera at
+          calibration time
+
+        There's also a 'valid_intrinsics_region' argument, which is optional,
+        and works with the discrete arguments or the optimization_inputs.
+
+
+        file_or_model is first because I want to be able to say
+        mrcal.cameramodel(file)
 
         '''
 
-        if len(kwargs) == 0:
-            if file_or_model is None:
-                raise Exception("We have neither an existing model to read nor a set of parameters")
+        Nargs = dict(file_or_model       = 0,
+                     discrete            = 0,
+                     extrinsics          = 0,
+                     optimization_inputs = 0)
 
-            elif type(file_or_model) is cameramodel:
-                import copy
+        if file_or_model is not None: Nargs['file_or_model'] += 1
+        if intrinsics    is not None: Nargs['discrete']      += 1
+        if imagersize    is not None: Nargs['discrete']      += 1
+
+        if extrinsics_Rt_toref is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
+        if extrinsics_Rt_fromref is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
+        if extrinsics_rt_toref is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
+        if extrinsics_rt_fromref is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
+
+        if optimization_inputs is not None:
+            Nargs['optimization_inputs'] += 1
+        if icam_intrinsics_optimization_inputs is not None:
+            Nargs['optimization_inputs'] += 1
+
+
+
+        if Nargs['file_or_model']:
+            if Nargs['discrete'] + \
+               Nargs['optimization_inputs']:
+                raise Exception("'file_or_model' specified, so none of the other inputs should be")
+
+            if isinstance(file_or_model, cameramodel):
                 self._imagersize                 = copy.deepcopy(file_or_model._imagersize)
                 self._extrinsics                 = copy.deepcopy(file_or_model._extrinsics)
                 self._intrinsics                 = copy.deepcopy(file_or_model._intrinsics)
                 self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(file_or_model._valid_intrinsics_region))
                 self._optimization_inputs_string = copy.deepcopy(file_or_model._optimization_inputs_string)
                 self._icam_intrinsics_optimization_inputs = copy.deepcopy(file_or_model._icam_intrinsics_optimization_inputs)
+                return
 
-            elif type(file_or_model) is str:
-
+            if type(file_or_model) is str:
                 if re.match(".*\.cahvor$", file_or_model):
                     # Read a .cahvor. This is more complicated than it looks. I
                     # want to read the .cahvor file into self, but the current
@@ -512,52 +565,65 @@ class cameramodel(object):
                 else:
                     with open(file_or_model, 'r') as openedfile:
                         tryread(openedfile)
-            else:
-                self._read_into_self(file_or_model)
+                return
 
-        else:
-            if file_or_model is not None:
-                raise Exception("We have kwargs AND file_or_model. Should have gotten exactly one of these")
+            self._read_into_self(file_or_model)
+            return
 
-            keys_remaining = set( kwargs.keys() )
 
-            if 'intrinsics' not in kwargs:
-                raise Exception("No file_or_model was given, so we MUST have gotten an 'intrinsics' kwarg")
-            if 'imagersize' not in kwargs:
-                raise Exception("No file_or_model was given, so we MUST have gotten a 'imagersize' kwarg")
-            keys_remaining -= set(('intrinsics', 'imagersize'))
 
-            extrinsics_keys = set(('extrinsics_Rt_toref',
-                                   'extrinsics_Rt_fromref',
-                                   'extrinsics_rt_toref',
-                                   'extrinsics_rt_fromref'))
-            extrinsics_got = keys_remaining.intersection(extrinsics_keys)
-            if len(extrinsics_got) == 0:
+
+        if Nargs['discrete']:
+
+            if Nargs['file_or_model'] + \
+               Nargs['optimization_inputs']:
+                raise Exception("discrete values specified, so none of the other inputs should be")
+
+            if Nargs['discrete']-Nargs['extrinsics'] != 2:
+                raise Exception("Discrete values given. Must have gotten 'intrinsics' AND 'imagersize' AND optionally ONE of the extrinsics_...")
+
+            if Nargs['extrinsics'] == 0:
                 # No extrinsics. Use the identity
                 self.extrinsics_rt_fromref(np.zeros((6,),dtype=float))
-            elif len(extrinsics_got) == 1:
-                if 'extrinsics_Rt_toref'   in kwargs: self.extrinsics_Rt_toref  (kwargs['extrinsics_Rt_toref'  ])
-                if 'extrinsics_Rt_fromref' in kwargs: self.extrinsics_Rt_fromref(kwargs['extrinsics_Rt_fromref'])
-                if 'extrinsics_rt_toref'   in kwargs: self.extrinsics_rt_toref  (kwargs['extrinsics_rt_toref'  ])
-                if 'extrinsics_rt_fromref' in kwargs: self.extrinsics_rt_fromref(kwargs['extrinsics_rt_fromref'])
+            elif Nargs['extrinsics'] == 1:
+                if   extrinsics_Rt_toref   is not None: self.extrinsics_Rt_toref  (extrinsics_Rt_toref)
+                elif extrinsics_Rt_fromref is not None: self.extrinsics_Rt_fromref(extrinsics_Rt_fromref)
+                elif extrinsics_rt_toref   is not None: self.extrinsics_rt_toref  (extrinsics_rt_toref)
+                elif extrinsics_rt_fromref is not None: self.extrinsics_rt_fromref(extrinsics_rt_fromref)
             else:
-                raise Exception("No file_or_model was given, so we can take ONE of {}. Instead we got '{}". \
-                                format(extrinsics_keys, extrinsics_got))
-            keys_remaining -= extrinsics_keys
+                raise Exception("At most one of the extrinsics_... arguments may be given")
 
-            keys_remaining -= set(('valid_intrinsics_region','optimization_inputs','icam_intrinsics_optimization_inputs'))
+            self.intrinsics(intrinsics, imagersize)
 
-            if keys_remaining:
-                raise Exception("We were given some unknown parameters: {}".format(keys_remaining))
+        elif Nargs['optimization_inputs']:
+            if Nargs['file_or_model'] + \
+               Nargs['discrete']:
+                raise Exception("optimization_inputs specified, so none of the other inputs should be")
 
-            self.intrinsics(kwargs['intrinsics'],
-                            kwargs['imagersize'],
-                            kwargs.get('optimization_inputs'),
-                            kwargs.get('icam_intrinsics_optimization_inputs'))
-            # if the following fails, I want None
-            self._valid_intrinsics_region = None
+            if Nargs['optimization_inputs'] != 2:
+                raise Exception("optimization_input given. Must have gotten 'optimization_input' AND 'icam_intrinsics_optimization_inputs'")
+
+            self.intrinsics( ( optimization_inputs['lensmodel'],
+                               optimization_inputs['intrinsics'][icam_intrinsics_optimization_inputs] ),
+                            optimization_inputs['imagersizes'][icam_intrinsics_optimization_inputs],
+                            optimization_inputs,
+                            icam_intrinsics_optimization_inputs)
+
+            icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                                                  **optimization_inputs)
+            if icam_extrinsics < 0:
+                self.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+            else:
+                self.extrinsics_rt_fromref(optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics])
+
+        else:
+            raise Exception("At least one source of initialization data must have been given. Need a filename or a cameramodel object or discrete arrays or optimization_inputs")
+
+
+        self._valid_intrinsics_region = None # default
+        if valid_intrinsics_region is not None:
             try:
-                self.valid_intrinsics_region(kwargs.get('valid_intrinsics_region'))
+                self.valid_intrinsics_region(valid_intrinsics_region)
             except Exception as e:
                 warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
 
@@ -882,13 +948,15 @@ class cameramodel(object):
 
         # setter
         valid_intrinsics_region = mrcal.close_contour(valid_intrinsics_region)
+
+        # raises exception on error
         _validateValidIntrinsicsRegion(valid_intrinsics_region)
         self._valid_intrinsics_region = copy.deepcopy(valid_intrinsics_region)
         return True
 
 
     def optimization_inputs(self):
-        r'''Get the original optimization inputs
+        r'''Get the original optimization inputs AT THE OPTIMUM
 
         This function is NOT a setter. Use intrinsics() to set this and all the
         intrinsics together. The optimization inputs aren't a part of the

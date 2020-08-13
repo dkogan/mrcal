@@ -173,9 +173,7 @@ observations[idx_outliers, 2] = -1
 
 ############# Calibration computed. Now I see how well I did
 models_solved = \
-    [ mrcal.cameramodel( imagersize                      = imagersizes[i],
-                         intrinsics                      = (lensmodel, intrinsics[i,:]),
-                         optimization_inputs             = optimization_inputs,
+    [ mrcal.cameramodel( optimization_inputs             = optimization_inputs,
                          icam_intrinsics_optimization_inputs = i )
       for i in range(Ncameras)]
 for i in range(1,Ncameras):
