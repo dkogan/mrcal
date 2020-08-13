@@ -2386,11 +2386,11 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
                                   indices_frame_camintrinsics_camextrinsics);
         if(!mrcal_corresponding_icam_extrinsics(&icam_extrinsics,
 
-                                                    icam_intrinsics,
-                                                    Ncameras_intrinsics,
-                                                    Ncameras_extrinsics,
-                                                    Nobservations_board,
-                                                    c_observations_board))
+                                                icam_intrinsics,
+                                                Ncameras_intrinsics,
+                                                Ncameras_extrinsics,
+                                                Nobservations_board,
+                                                c_observations_board))
         {
             BARF("Error calling mrcal_corresponding_icam_extrinsics()");
             goto done;

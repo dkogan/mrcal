@@ -607,11 +607,11 @@ bool _mrcal_unproject_internal( // out
 // cameras, there won't be a single icam_extrinsics for a given icam_intrinsics,
 // and we report an error by returning false
 bool mrcal_corresponding_icam_extrinsics(// out
-                                             int* icam_extrinsics,
+                                         int* icam_extrinsics,
 
-                                             // in
-                                             int icam_intrinsics,
-                                             int Ncameras_intrinsics,
-                                             int Ncameras_extrinsics,
-                                             int Nobservations_board,
-                                             const mrcal_observation_board_t* observations_board);
+                                         // in
+                                         int icam_intrinsics,
+                                         int Ncameras_intrinsics,
+                                         int Ncameras_extrinsics,
+                                         int Nobservations_board,
+                                         const mrcal_observation_board_t* observations_board);
