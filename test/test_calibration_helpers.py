@@ -84,6 +84,9 @@ def sample_dqref(observations,
                  pixel_uncertainty_stdev,
                  make_outliers = False):
 
+    # Outliers have weight < 0. The code will adjust the outlier observations
+    # also. But that shouldn't matter: they're outliers so those observations
+    # should be ignored
     weight  = observations[...,-1]
     q_noise = np.random.randn(*observations.shape[:-1], 2) * pixel_uncertainty_stdev / nps.mv(nps.cat(weight,weight),0,-1)
 
