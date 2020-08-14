@@ -196,8 +196,8 @@ typedef struct
 // return true if we succeeded successfully. So even for models with a
 // configuration mrcal_lensmodel_from_name( mrcal_lensmodel_name_full(...) )
 // would succeed
-const char*        mrcal_lensmodel_name                  ( mrcal_lensmodel_t model );
-bool               mrcal_lensmodel_name_full             ( char* out, int size, mrcal_lensmodel_t model );
+const char*        mrcal_lensmodel_name     ( mrcal_lensmodel_t model );
+bool               mrcal_lensmodel_name_full( char* out, int size, mrcal_lensmodel_t model );
 
 // parses the model name AND the configuration into a mrcal_lensmodel_t structure.
 // Strings with valid model names but missing or unparseable configuration
@@ -214,13 +214,13 @@ mrcal_lensmodel_meta_t mrcal_lensmodel_meta                    ( const mrcal_len
 int                mrcal_num_lens_params                   ( const mrcal_lensmodel_t m );
 int                mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
                                                              mrcal_lensmodel_t m );
-const char* const* mrcal_supported_lensmodels             ( void ); // NULL-terminated array of char* strings
+const char* const* mrcal_supported_lensmodels              ( void ); // NULL-terminated array of char* strings
 
 bool mrcal_knots_for_splined_models( // buffers must hold at least
-                                         // config->Nx and config->Ny values
-                                         // respectively
-                                         double* ux, double* uy,
-                                         mrcal_lensmodel_t lensmodel);
+                                     // config->Nx and config->Ny values
+                                     // respectively
+                                     double* ux, double* uy,
+                                     mrcal_lensmodel_t lensmodel);
 
 // Wrapper around the internal project() function: the function used in the
 // inner optimization loop. These map world points to their observed pixel
