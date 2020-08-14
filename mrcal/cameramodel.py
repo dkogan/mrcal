@@ -389,6 +389,10 @@ class cameramodel(object):
            not 'lensmodel'    in model:
             model['lensmodel'] = model['lens_model']
             del model['lens_model']
+        if 'icam_intrinsics_optimization_inputs' in model and \
+           not 'icam_intrinsics' in model:
+            model['icam_intrinsics'] = model['icam_intrinsics_optimization_inputs']
+            del model['icam_intrinsics_optimization_inputs']
 
         keys_required = set(('lensmodel',
                              'intrinsics',
