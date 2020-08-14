@@ -1664,16 +1664,21 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
             PyObject* factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
             if(factorization == NULL)
-                goto done;
+            {
+                // Couldn't compute factorization. I don't barf, but set the
+                // factorization to None
+                factorization = Py_None;
+                Py_INCREF(factorization);
+                PyErr_Clear();
+            }
 
             result = PyTuple_New(4);
             PyTuple_SET_ITEM(result, 0, (PyObject*)p_packed_final);
             PyTuple_SET_ITEM(result, 1, (PyObject*)x_final);
-            PyTuple_SET_ITEM(result, 2,
-                             csr_from_cholmod_sparse(&Jt,
-                                                     (PyObject*)P,
-                                                     (PyObject*)I,
-                                                     (PyObject*)X));
+            PyTuple_SET_ITEM(result, 2, csr_from_cholmod_sparse(&Jt,
+                                                                (PyObject*)P,
+                                                                (PyObject*)I,
+                                                                (PyObject*)X));
             PyTuple_SET_ITEM(result, 3, factorization);
 
             for(int i=0; i<PyTuple_Size(result); i++)

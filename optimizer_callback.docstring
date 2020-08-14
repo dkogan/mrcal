@@ -77,4 +77,5 @@ The output is returned in a tuple:
   solving a linear system JtJ x = b. J is a large, sparse matrix, so we do this
   with a Cholesky factorization of J using the CHOLMOD library. This
   factorization is also useful in other contexts, such as uncertainty
-  quantification, so we make it available here.
+  quantification, so we make it available here. If the factorization could not
+  be computed (because JtJ isn't full-rank for instance), this is set to None
