@@ -438,9 +438,9 @@ int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
         Nintrinsics_per_measurement -= 2;
 
     int N = Nobservations_board * ( (problem_details.do_optimize_frames         ? 6 : 0) +
-                                   (problem_details.do_optimize_extrinsics     ? 6 : 0) +
-                                   (problem_details.do_optimize_calobject_warp ? 2 : 0) +
-                                   + Nintrinsics_per_measurement );
+                                    (problem_details.do_optimize_extrinsics     ? 6 : 0) +
+                                    (problem_details.do_optimize_calobject_warp ? 2 : 0) +
+                                  Nintrinsics_per_measurement );
 
     // initial estimate counts extrinsics for the reference camera, which need
     // to be subtracted off
