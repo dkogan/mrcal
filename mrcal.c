@@ -154,7 +154,7 @@ static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( mrcal_LENSMODEL_
         config_str[pos] == '\0';
 }
 
-const char* const* mrcal_supported_lensmodels( void )
+const char* const* mrcal_supported_lensmodel_names( void )
 {
 #define NAMESTRING_NOCONFIG(s,n)                  #s,
 #define _NAMESTRING_WITHCONFIG(s,n,s_CONFIG_LIST) #s s_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE, ),

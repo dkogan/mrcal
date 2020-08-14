@@ -833,7 +833,7 @@ static PyObject* supported_lensmodels(PyObject* NPY_UNUSED(self),
 {
     PyObject* result = NULL;
     SET_SIGINT();
-    const char* const* names = mrcal_supported_lensmodels();
+    const char* const* names = mrcal_supported_lensmodel_names();
 
     // I now have a NULL-terminated list of NULL-terminated strings. Get N
     int N=0;

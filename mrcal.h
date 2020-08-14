@@ -214,7 +214,7 @@ mrcal_lensmodel_meta_t mrcal_lensmodel_meta                    ( const mrcal_len
 int                mrcal_num_lens_params                   ( const mrcal_lensmodel_t m );
 int                mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
                                                              mrcal_lensmodel_t m );
-const char* const* mrcal_supported_lensmodels              ( void ); // NULL-terminated array of char* strings
+const char* const* mrcal_supported_lensmodel_names         ( void ); // NULL-terminated array of char* strings
 
 bool mrcal_knots_for_splined_models( // buffers must hold at least
                                      // config->Nx and config->Ny values
