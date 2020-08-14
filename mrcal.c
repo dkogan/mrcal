@@ -302,8 +302,8 @@ int mrcal_num_lens_params(const mrcal_lensmodel_t m)
 }
 
 static
-int get_num_intrinsics_optimization_params(mrcal_problem_details_t problem_details,
-                                           mrcal_lensmodel_t lensmodel)
+int get_num_distortions_optimization_params(mrcal_problem_details_t problem_details,
+                                            mrcal_lensmodel_t lensmodel)
 {
     if( !problem_details.do_optimize_intrinsic_distortions )
         return 0;
@@ -315,9 +315,9 @@ int get_num_intrinsics_optimization_params(mrcal_problem_details_t problem_detai
 }
 
 int mrcal_num_intrinsics_optimization_params(mrcal_problem_details_t problem_details,
-                                                 mrcal_lensmodel_t lensmodel)
+                                             mrcal_lensmodel_t lensmodel)
 {
-    int N = get_num_intrinsics_optimization_params(problem_details, lensmodel);
+    int N = get_num_distortions_optimization_params(problem_details, lensmodel);
 
     if( problem_details.do_optimize_intrinsic_core &&
         modelHasCore_fxfycxcy(lensmodel) )
@@ -351,7 +351,7 @@ static int num_regularization_terms_percamera(mrcal_problem_details_t problem_de
         return 0;
 
     // distortions
-    int N = get_num_intrinsics_optimization_params(problem_details, lensmodel);
+    int N = get_num_distortions_optimization_params(problem_details, lensmodel);
     // optical center
     if(problem_details.do_optimize_intrinsic_core)
         N += 2;
