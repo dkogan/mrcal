@@ -1756,6 +1756,9 @@ else:                    we return an array of shape (...)
     J,factorization = \
         mrcal.optimizer_callback( **optimization_inputs )[2:]
 
+    if factorization is None:
+        raise Exception("Cannot compute the uncertainty: factorization computation failed")
+
     # The intrinsics,extrinsics,frames MUST come from the solve when
     # evaluating the uncertainties. The user is allowed to update the
     # extrinsics in the model after the solve, as long as I use the
