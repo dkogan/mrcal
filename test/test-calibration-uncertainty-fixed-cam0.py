@@ -107,6 +107,9 @@ for m in models_ref:
 Nintrinsics = mrcal.num_lens_params(lensmodel)
 
 Ncameras = len(models_ref)
+Ncameras_extrinsics = Ncameras
+if not fixedframes: Ncameras_extrinsics -= 1
+
 Nframes  = 50
 
 models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
@@ -315,12 +318,17 @@ for icam in (0,3):
                             relative  = True,
                             msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
 
-print("Simulating input noise. This takes a little while...")
-iieeff = [sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3] \
-          for isample in range(Nsamples)]
-intrinsics_sampled = nps.cat( *[ief[0] for ief in iieeff] )
-extrinsics_sampled = nps.cat( *[ief[1] for ief in iieeff] )
-frames_sampled     = nps.cat( *[ief[2] for ief in iieeff] )
+intrinsics_sampled = np.zeros( (Nsamples,Ncameras,Nintrinsics),  dtype=float )
+extrinsics_sampled = np.zeros( (Nsamples,Ncameras_extrinsics,6), dtype=float )
+frames_sampled     = np.zeros( (Nsamples,Nframes, 6),            dtype=float )
+
+for isample in range(Nsamples):
+    print(f"Sampling {isample}/{Nsamples}")
+    ii,ee,ff = sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3]
+
+    intrinsics_sampled[isample,...] = ii
+    extrinsics_sampled[isample,...] = ee
+    frames_sampled    [isample,...] = ff
 
 
 def check_uncertainties_at(q0, distance):
