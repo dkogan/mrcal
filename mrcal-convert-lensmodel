@@ -335,20 +335,16 @@ else:
                  do_optimize_extrinsics                    = False,
                  do_optimize_frames                        = False )
 
-        mrcal.optimize(**optimization_inputs,
-                       # No outliers. I have the points that I have
-                       skip_outlier_rejection            = True,
-                       verbose                           = args.verbose)
-        q_solved = mrcal.project( v,
-                                  lensmodel_to,
-                                  intrinsics_to_values.ravel())
-        diff = q_solved - q
-        err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
-        sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
+        stats = mrcal.optimize(**optimization_inputs,
+                               # No outliers. I have the points that I have
+                               skip_outlier_rejection            = True,
+                               verbose                           = args.verbose)
+        err_rms = stats['rms_reproj_error__pixels']
+        print(f"RMS error of this solution: {err_rms} pixels.",
+              file=sys.stderr)
         if err_rms < err_rms_best:
             err_rms_best = err_rms
             intrinsics_values_best = np.array(intrinsics_to_values)
-
 
     if not len(intrinsics_values_best):
         print("No valid intrinsics found!", file=sys.stderr)
