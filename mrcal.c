@@ -3734,6 +3734,80 @@ void optimizer_callback(// input state
         const mrcal_point3_t* pt_observed = &observation->px;
         double weight = pt_observed->z;
 
+        if(weight < 0.0)
+        {
+            // Outlier. Cost = 0. Jacobians are 0 too, but I must preserve the
+            // structure
+            const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                              ctx->problem_details, ctx->lensmodel);
+            // invalid if i_cam_extrinsics < 0, but unused in that case
+            const int i_var_camera_rt  = mrcal_state_index_camera_rt (i_cam_extrinsics, ctx->Ncameras_intrinsics,    ctx->problem_details, ctx->lensmodel);
+            const int i_var_point      = mrcal_state_index_point     (i_point, ctx->Nframes,
+                                                                      ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                      ctx->problem_details, ctx->lensmodel);
+
+            // I have my two measurements (dx, dy). I propagate their
+            // gradient and store them
+            for( int i_xy=0; i_xy<2; i_xy++ )
+            {
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                x[iMeasurement] = 0;
+
+                if( ctx->problem_details.do_optimize_intrinsic_core )
+                {
+                    // fx,fy. x depends on fx only. y depends on fy only
+                    STORE_JACOBIAN( i_var_intrinsics + i_xy, 0 );
+
+                    // cx,cy. The gradients here are known to be 1. And x depends on cx only. And y depends on cy only
+                    STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0);
+                }
+
+                if( ctx->problem_details.do_optimize_intrinsic_distortions )
+                {
+                    if( (ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions) &&
+                        ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
+                    {
+                        // sparse gradient. This is an outlier, so it doesn't
+                        // matter which points I say I depend on, as long as I
+                        // pick the right number, and says that j=0. I pick the
+                        // control points at the start because why not
+                        const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+                            &ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
+                        int len = config->order+1;
+                        for(int i=0; i<len*len; i++)
+                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0);
+                    }
+                    else
+                        for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
+                            STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0);
+                }
+
+                if(i_cam_extrinsics >= 0 && ctx->problem_details.do_optimize_extrinsics )
+                {
+                    STORE_JACOBIAN3( i_var_camera_rt + 0, 0,0,0 );
+                    STORE_JACOBIAN3( i_var_camera_rt + 3, 0,0,0 );
+                }
+
+                if( use_position_from_state )
+                    STORE_JACOBIAN3( i_var_point, 0,0,0 );
+
+                iMeasurement++;
+            }
+
+            if(Jt) Jrowptr[iMeasurement] = iJacobian;
+            x[iMeasurement] = 0;
+            if(i_cam_extrinsics >= 0 && ctx->problem_details.do_optimize_extrinsics )
+            {
+                STORE_JACOBIAN3( i_var_camera_rt + 0, 0,0,0 );
+                STORE_JACOBIAN3( i_var_camera_rt + 3, 0,0,0 );
+            }
+            if( use_position_from_state )
+                STORE_JACOBIAN3( i_var_point, 0,0,0 );
+            iMeasurement++;
+
+            continue;
+        }
+
+
         const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                              ctx->problem_details, ctx->lensmodel);
         // invalid if i_cam_extrinsics < 0, but unused in that case
         const int i_var_camera_rt  = mrcal_state_index_camera_rt (i_cam_extrinsics, ctx->Ncameras_intrinsics,    ctx->problem_details, ctx->lensmodel);
