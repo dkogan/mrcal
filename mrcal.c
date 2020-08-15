@@ -3258,7 +3258,7 @@ bool markOutliers(// output, input
         if(dx*dx > k0*k0*var ||
            dy*dy > k0*k0*var )
         {
-            *weight = -1.0;
+            *weight *= -1.0;
             (*Noutliers)++;
 
             // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
