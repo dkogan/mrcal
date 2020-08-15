@@ -10,50 +10,70 @@ SYNOPSIS
       > left.opencv4.cameramodel
 
   ... lots of output as the solve runs ...
-  libdogleg at dogleg.c:1064: success! took 10 iterations
-  RMS error of the solution: 3.40256580058 pixels.
+  RMS error of this solution: 3.40256580058 pixels.
 
-  ... a plot pops up showing the vector field of the difference ...
-
-This is a tool to convert a given camera model from one lens model to
-another. The input and output models have identical extrinsics and an identical
-intrinsic core (focal lengths, center pixel coords).
-
-
-this isn't actually very useful. I should change ALL the intrinsics; core and all
-The ONLY differing part is the distortion coefficients.
+  ... a plot pops up showing the differences ...
 
 While the lens models all exist to solve the same problem, the different
-representations don't map to one another perfectly, so this tool seeks to find
-the best fit only. It does this by sampling a number of points in the imager,
-converting them to observation vectors in the camera coordinate system (using
-the given camera model), and then fitting a new camera model (with a different
-distortions) that matches the observation vectors to the source imager
-coordinates.
+representations don't map to one another perfectly, and this tool seeks to find
+the best-fitting parameters of the desired lens model. There are two ways to do
+that:
 
-Note that the lens model implementations are usually optimized in the
-'undistort' direction, not the 'distort' direction, so the step of converting
-the target imager coordinates to observation vectors can be slow. This is highly
-dependent on the camera model specifically. CAHVORE especially is glacial. This
-can be mitigated somewhat by a better implementation, but in the meantime,
-please be patient.
+1. If the given cameramodel file contains optimization_inputs, then we have all
+   the data that was used to compute this model in the first place, and we can
+   re-run the original optimization, using the new lens model. This is the
+   default behavior. If the input model doesn't have optimization_inputs, an
+   error will result.
 
-Camera models have originally been computed by a calibration procedure that
-takes as input a number of point observations, and the resulting models are only
-valid in an area where those observations were available; it's an extrapolation
-everywhere else. This is generally OK, and we try to cover the whole imager when
-calibrating cameras. Models with high distortions (CAHVORE, OPENCV >= 8)
-generally have quickly-increasing effects towards the edges of the imager, and
-the distortions represented by these models at the extreme edges of the imager
-are often not reliable, since the initial calibration data is rarely available
-at the extreme edges. Thus using points at the extreme edges to fit another
-model is often counterproductive, and I provide the --where and --radius
-commandline options for this case. We use data in a circular region of the
-imager. This region is centered on the point given by --where (or at the center
-of the imager, if omitted). The radius of this region is given by --radius. If
-'--radius 0' is given, I use ALL the data. A radius<0 can be used to set the
-size of the no-data margin at the corners; in this case I'll use sqrt(width^2 +
-height^2) - abs(radius)
+2. We can sample lots of points on the imager, unproject them to observation
+   vectors in the camera coordinate system, and then fit the new camera model to
+   project these vectors back to pixel coordinates, minimizing the projection
+   differences. Select this mode by passing --sampled.
+
+The first method is preferred. Since camera models (lens parameters AND
+geometry) are computed off observations of a known object, the confidence of the
+resulting projections varies widely in different areas of the space being
+projected. The first method uses the original data, so it implicitly respects
+these uncertainties 100%. The second method, however, doesn't have any of the
+uncertainty information, so it cannot respect it.
+
+As usual, the lens parameters have some extrinsics baked-in. At this time the
+two methods handle this differently:
+
+1. If we're re-optimizing the original inputs we currently reoptimize
+   EVERYTHING: intrinsics and extrinsics. Thus models generated in this way are
+   NOT drop-in replacements for the original models: the extrinsics must be
+   re-computed afterwards. The model I output will contain the original
+   extrinsics (since I have nothing else), but they will no longer be right. In
+   the future I may add an option to constrain the fit to preserve the
+   extrinsics, thus making the results a drop-in replacement
+
+2. If we're matching up sampled projections, we don't have enough information to
+   separate the intrinsics from the implied extrinsics, so the results ARE a
+   drop-in replacement for the origin model.
+
+If we're using option 2 (optimizing sampled projections) we need to consider
+that the model we're trying to fit will not fit the original model in all parts
+of the imager. Usually this is a factor when converting wide-angle lenses to use
+a leaner model: a decent fit will be available at the center, with more and more
+divergence as we move towards the edges. We handle this with the --where and
+--radius options to allow the user to choose the area of the imager that is used
+for the fit. This region is centered on the point given by --where (or at the
+center of the imager, if omitted). The radius of this region is given by
+--radius. If '--radius 0' is given, I use ALL the data. A radius<0 can be used
+to set the size of the no-data margin at the corners; in this case I'll use
+
+    r = sqrt(width^2 + height^2)/2. - abs(radius)
+
+There's a balance to strike here. A larger radius means that we'll try to fit as
+well as we can in a larger area. This might mean that we won't fit well
+anywhere, we we won't do terribly anywhere, either. A smaller area means that we
+give up on the outer regions entirely (resulting in very poor fits there), but
+we'll be able to fit much better in the areas that remain. Generally empirical
+testing is required to find a good compromise: pass --viz to see the resulting
+differences. Note that --radius and --where applies only if we're optimizing
+sampled reprojections; if we're using the original optimization inputs, the
+options are illegal.
 
 '''
 
@@ -71,31 +91,36 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--sampled',
+                        action='store_true',
+                        help='''Instead of solving the original calibration problem using the new lens model,
+                        use sampled imager points. This produces biased results,
+                        but can be used even if the original optimization_inputs
+                        aren't available, and it produces results that have the
+                        same extrinsics as the input model''')
     parser.add_argument('--verbose',
                         action='store_true',
                         help='''Report the solver details''')
-
     parser.add_argument('--viz',
                         action='store_true',
-                        help='''Visualize the difference''')
+                        help='''Visualize the differences between the input and output models''')
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
-                        help='''I use a subset of the imager to compute the fit. The active region is a
-                        circle centered on this point. If omitted, we will
-                        focus on the center of the imager''')
+                        help='''Valid only if --sampled. I use a subset of the imager to compute the fit. The
+                        active region is a circle centered on this point. If
+                        omitted, we will focus on the center of the imager''')
     parser.add_argument('--radius',
                         type=float,
-                        default=-1e8, # -large number to indicate that we're taking the default
-                        help='''I use a subset of the imager to compute the fit. The active region is a
-                        circle with a radius given by this parameter. If radius
-                        == 0, I'll use the whole imager for the fit. If radius <
-                        0, this parameter specifies the width of the region at
-                        the corners that I should ignore: I will use
-                        sqrt(width^2 + height^2) - abs(radius). This is valid
-                        ONLY if we're focusing at the center of the imager. By
-                        default I ignore a large-ish chunk area at the
-                        corners.''')
+                        help='''Valid only if --sampled. I use a subset of the imager to compute the fit. The
+                        active region is a circle with a radius given by this
+                        parameter. If radius == 0, I'll use the whole imager for
+                        the fit. If radius < 0, this parameter specifies the
+                        width of the region at the corners that I should ignore:
+                        I will use sqrt(width^2 + height^2)/2. - abs(radius).
+                        This is valid ONLY if we're focusing at the center of
+                        the imager. By default I ignore a large-ish chunk area
+                        at the corners.''')
 
     parser.add_argument('to',
                         type=str,
@@ -108,6 +133,15 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
+
+if not args.sampled and (args.where is not None or args.radius is not None):
+    print("--where and --radius only make sense without --sampled", file=sys.stderr)
+    sys.exit(1)
+
+if args.to == 'LENSMODEL_CAHVORE':
+    print("LENSMODEL_CAHVORE models aren't supported at this time: its gradients aren't implemented",
+          file=sys.stderr)
+    sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -125,7 +159,8 @@ lensmodel_to = args.to
 try:
     Ndistortions = mrcal.num_lens_params(lensmodel_to) - 4
 except:
-    raise Exception("Unknown lens model: '{}'".format(lensmodel_to))
+    print(f"Unknown lens model: '{lensmodel_to}'", file=sys.stderr)
+    sys.exit(1)
 
 
 m = mrcal.cameramodel(args.model)
@@ -140,172 +175,203 @@ if lensmodel_from == lensmodel_to:
     sys.exit(0)
 
 
-if lensmodel_to == 'LENSMODEL_CAHVORE':
-    raise Exception("LENSMODEL_CAHVORE models aren't supported at this time: gradients aren't implemented")
+if not args.sampled:
 
-dims = m.imagersize()
-if dims is None:
-    sys.stderr.write("Warning: imager size not available. Using centerpixel*2\n")
-    dims = m.intrinsics()[1][2:4] * 2
+    if not mrcal.lensmodel_meta(lensmodel_from)['has_core']:
+        raise Exception("Seeding is only implemented if the original model has a core. Please implement that for this to work")
 
-if args.radius < -1e6:
-    # By default use 1/4 of the smallest dimension
-    args.radius = -np.min(m.imagersize()) // 4
-    sys.stderr.write("Default radius: {}. We're ignoring the regions {} pixels from each corner\n". \
-                     format(args.radius, -args.radius))
-    if args.where is not None and \
-       nps.norm2(args.where - (dims - 1.) / 2) > 1e-3:
-        sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center: use an explicit --radius, or omit --where\n")
-        sys.exit(1)
-
-
-# Alrighty. Let's actually do the work. I do this:
-#
-# 1. Sample the imager space with the known model
-# 2. Unproject to get the 3d observation vectors
-# 3. Solve a new model that fits those vectors to the known observations, but
-#    using the new model
-
-### I sample the pixels in an NxN grid
-Nx = 80
-Ny = 60
-
-
-qx = np.linspace(0, dims[0]-1, Nx)
-qy = np.linspace(0, dims[1]-1, Ny)
-
-# q is (Ny*Nx, 2). Each slice of q[:] is an (x,y) pixel coord
-q = np.ascontiguousarray( nps.transpose(nps.clump( nps.cat(*np.meshgrid(qx,qy)), n=-2)) )
-if args.radius != 0:
-    # we use a subset of the input data for the fit
-    if args.where is None:
-        focus_center = (dims - 1.) / 2.
-    else:
-        focus_center = args.where
-
-    if args.radius > 0:
-        r = args.radius
-    else:
-        if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
-            sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center\n")
-            sys.exit(1)
-        r = np.sqrt(nps.norm2(dims))/2. + args.radius
-
-    grid_off_center = q - focus_center
-    i = nps.norm2(grid_off_center) < r*r
-    q = q[i, ...]
-
-
-# To visualize the sample grid:
-# import gnuplotlib as gp
-# gp.plot(q[:,0], q[:,1], _with='points pt 7 ps 2', xrange=[0,3904],yrange=[3904,0], wait=1, square=1)
-# sys.exit()
-
-Npoints = len(q)
-
-
-
-### I unproject this, with broadcasting
-v = mrcal.unproject( q, *m.intrinsics(), normalize = True )
-
-
-### Solve!
-
-### I solve the optimization a number of times with different random seed
-### values, taking the best-fitting results. This is required for the richer
-### models such as LENSMODEL_OPENCV8
-err_rms_best = 1e10
-intrinsics_values_best = np.array(())
-for i in range(10): # this many trials
-    # random seed for the new intrinsics
-    intrinsics_core = m.intrinsics()[1][:4]
-    distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-8 # random initial seed
+    intrinsics_core = intrinsics_from[1][:4]
+    distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3
     intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
                                      axis=-2)
-    # each point has weight 1.0
-    observations_points = nps.glue(q, np.ones((Npoints, 1),), axis=-1)
-    observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
-    # Which points we're observing. This is dense and kinda silly for this
-    # application. Each slice is (i_point,i_camera)
-    indices_point_camintrinsics_camextrinsics = np.zeros((Npoints,3), dtype=np.int32)
-    indices_point_camintrinsics_camextrinsics[:,0] = \
-        np.arange(Npoints,    dtype=np.int32)
-    indices_point_camintrinsics_camextrinsics[:,1] = \
-        np.zeros ((Npoints,), dtype=np.int32)
-    indices_point_camintrinsics_camextrinsics[:,2] = \
-        np.zeros ((Npoints,), dtype=np.int32) - 1
+    optimization_inputs = m.optimization_inputs()
 
-    # Moving rotation too can make this better. Current formulation doesn't
-    # allow this.
-    # - have a way to use custom calibration objects
-    # - optimize the single view of this object by tweaking ONLY the rotation
-    # - for data I generate I can regularize the off-center optical axis. But
-    #   this doesn't help for other people's data
-    optimization_inputs = \
-        dict(intrinsics                                = intrinsics_to_values,
-             extrinsics_rt_fromref                     = None, # no extrinsics. Just one camera
-             frames_rt_toref                           = None, # no frames. Just points
-             points                                    = v,
-             observations_board                        = None, # no board observations
-             indices_frame_camintrinsics_camextrinsics = None, # no board observations
-             observations_point                        = observations_points,
-             indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
-             lensmodel                                 = lensmodel_to,
+    optimization_inputs['lensmodel']  = lensmodel_to
+    optimization_inputs['intrinsics'] = intrinsics_to_values
+    optimization_inputs['verbose']    = args.verbose
 
-             imagersizes                               = nps.atleast_dims(dims, -2),
+    stats = mrcal.optimize(**optimization_inputs,
+                           skip_outlier_rejection = False)
 
-             # I'm not optimizing the point positions (frames), so these
-             # need to be set to be inactive. I normalized my observations
-             # so the ranges are all 1.0, and these need to encompass that
-             # range
-             point_min_range                           = 0.001,
-             point_max_range                           = 1000.0,
+    sys.stderr.write("RMS error of the solution: {} pixels.\n". \
+                     format(stats['rms_reproj_error__pixels']))
+    m_to = mrcal.cameramodel( optimization_inputs = optimization_inputs,
+                              icam_intrinsics     = m.icam_intrinsics() )
 
-             # I optimize the lens parameters. That's the whole point
-             do_optimize_intrinsic_core                = True,
-             do_optimize_intrinsic_distortions         = True,
+    # I reuse the extrinsics from the original. This isn't right, but it's the
+    # best I got
+    m_to.extrinsics_rt_fromref(m.extrinsics_rt_fromref())
 
-             # NOT optimizing the camera geometry or the observed point positions
-             do_optimize_extrinsics                    = False,
-             do_optimize_frames                        = False )
+else:
+    dims = m.imagersize()
+    if dims is None:
+        sys.stderr.write("Warning: imager size not available. Using centerpixel*2\n")
+        dims = intrinsics_from[1][2:4] * 2
 
-    mrcal.optimize(**optimization_inputs,
-                   # No outliers. I have the points that I have
-                   skip_outlier_rejection            = True,
-                   verbose                           = args.verbose)
-    q_solved = mrcal.project( v,
-                              lensmodel_to,
-                              intrinsics_to_values.ravel())
-    diff = q_solved - q
-    err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
-    sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
-    if err_rms < err_rms_best:
-        err_rms_best = err_rms
-        intrinsics_values_best = np.array(intrinsics_to_values)
+    if args.radius is None:
+        # By default use 1/4 of the smallest dimension
+        args.radius = -np.min(m.imagersize()) // 4
+        sys.stderr.write("Default radius: {}. We're ignoring the regions {} pixels from each corner\n". \
+                         format(args.radius, -args.radius))
+        if args.where is not None and \
+           nps.norm2(args.where - (dims - 1.) / 2) > 1e-3:
+            sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center: use an explicit --radius, or omit --where\n")
+            sys.exit(1)
 
 
-if not len(intrinsics_values_best):
-    print("No valid intrinsics found!", file=sys.stderr)
-    sys.exit(1)
+    # Alrighty. Let's actually do the work. I do this:
+    #
+    # 1. Sample the imager space with the known model
+    # 2. Unproject to get the 3d observation vectors
+    # 3. Solve a new model that fits those vectors to the known observations, but
+    #    using the new model
 
-sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
-m_to = mrcal.cameramodel( intrinsics            = (lensmodel_to, intrinsics_values_best.ravel()),
-                          extrinsics_rt_fromref = m.extrinsics_rt_fromref(),
-                          imagersize            = dims )
+    ### I sample the pixels in an NxN grid
+    Nx = 80
+    Ny = 60
+
+
+    qx = np.linspace(0, dims[0]-1, Nx)
+    qy = np.linspace(0, dims[1]-1, Ny)
+
+    # q is (Ny*Nx, 2). Each slice of q[:] is an (x,y) pixel coord
+    q = np.ascontiguousarray( nps.transpose(nps.clump( nps.cat(*np.meshgrid(qx,qy)), n=-2)) )
+    if args.radius != 0:
+        # we use a subset of the input data for the fit
+        if args.where is None:
+            focus_center = (dims - 1.) / 2.
+        else:
+            focus_center = args.where
+
+        if args.radius > 0:
+            r = args.radius
+        else:
+            if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
+                sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center\n")
+                sys.exit(1)
+            r = nps.mag(dims)/2. + args.radius
+
+        grid_off_center = q - focus_center
+        i = nps.norm2(grid_off_center) < r*r
+        q = q[i, ...]
+
+
+    # To visualize the sample grid:
+    # import gnuplotlib as gp
+    # gp.plot(q[:,0], q[:,1], _with='points pt 7 ps 2', xrange=[0,3904],yrange=[3904,0], wait=1, square=1)
+    # sys.exit()
+
+    Npoints = len(q)
+
+
+
+    ### I unproject this, with broadcasting
+    v = mrcal.unproject( q, *m.intrinsics(), normalize = True )
+
+
+    ### Solve!
+
+    ### I solve the optimization a number of times with different random seed
+    ### values, taking the best-fitting results. This is required for the richer
+    ### models such as LENSMODEL_OPENCV8
+    err_rms_best = 1e10
+    intrinsics_values_best = np.array(())
+    for i in range(10): # this many trials
+        # random seed for the new intrinsics
+        intrinsics_core = intrinsics_from[1][:4]
+        distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3 # random initial seed
+        intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
+                                         axis=-2)
+        # each point has weight 1.0
+        observations_points = nps.glue(q, np.ones((Npoints, 1),), axis=-1)
+        observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
+
+        # Which points we're observing. This is dense and kinda silly for this
+        # application. Each slice is (i_point,i_camera)
+        indices_point_camintrinsics_camextrinsics = np.zeros((Npoints,3), dtype=np.int32)
+        indices_point_camintrinsics_camextrinsics[:,0] = \
+            np.arange(Npoints,    dtype=np.int32)
+        indices_point_camintrinsics_camextrinsics[:,1] = \
+            np.zeros ((Npoints,), dtype=np.int32)
+        indices_point_camintrinsics_camextrinsics[:,2] = \
+            np.zeros ((Npoints,), dtype=np.int32) - 1
+
+        # Moving rotation too can make this better. Current formulation doesn't
+        # allow this.
+        # - have a way to use custom calibration objects
+        # - optimize the single view of this object by tweaking ONLY the rotation
+        # - for data I generate I can regularize the off-center optical axis. But
+        #   this doesn't help for other people's data
+        optimization_inputs = \
+            dict(intrinsics                                = intrinsics_to_values,
+                 extrinsics_rt_fromref                     = None, # no extrinsics. Just one camera
+                 frames_rt_toref                           = None, # no frames. Just points
+                 points                                    = v,
+                 observations_board                        = None, # no board observations
+                 indices_frame_camintrinsics_camextrinsics = None, # no board observations
+                 observations_point                        = observations_points,
+                 indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
+                 lensmodel                                 = lensmodel_to,
+
+                 imagersizes                               = nps.atleast_dims(dims, -2),
+
+                 # I'm not optimizing the point positions (frames), so these
+                 # need to be set to be inactive. I normalized my observations
+                 # so the ranges are all 1.0, and these need to encompass that
+                 # range
+                 point_min_range                           = 0.001,
+                 point_max_range                           = 1000.0,
+
+                 # I optimize the lens parameters. That's the whole point
+                 do_optimize_intrinsic_core                = True,
+                 do_optimize_intrinsic_distortions         = True,
+
+                 # NOT optimizing the camera geometry or the observed point positions
+                 do_optimize_extrinsics                    = False,
+                 do_optimize_frames                        = False )
+
+        mrcal.optimize(**optimization_inputs,
+                       # No outliers. I have the points that I have
+                       skip_outlier_rejection            = True,
+                       verbose                           = args.verbose)
+        q_solved = mrcal.project( v,
+                                  lensmodel_to,
+                                  intrinsics_to_values.ravel())
+        diff = q_solved - q
+        err_rms = np.sqrt(np.mean(nps.inner(diff, diff)))
+        sys.stderr.write("RMS error of this solution: {} pixels.\n".format(err_rms))
+        if err_rms < err_rms_best:
+            err_rms_best = err_rms
+            intrinsics_values_best = np.array(intrinsics_to_values)
+
+
+    if not len(intrinsics_values_best):
+        print("No valid intrinsics found!", file=sys.stderr)
+        sys.exit(1)
+
+    sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
+    m_to = mrcal.cameramodel( intrinsics            = (lensmodel_to, intrinsics_values_best.ravel()),
+                              extrinsics_rt_fromref = m.extrinsics_rt_fromref(),
+                              imagersize            = dims )
+
 
 
 # The note says how we ran this, and contains the commented-out report
 note = \
-    "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
-                                           ' '.join(mrcal.shellquote(s) for s in sys.argv))
+    "generated on {} with   {}\n". \
+    format(time.strftime("%Y-%m-%d %H:%M:%S"),
+           ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
 m_to.write(sys.stdout, note=note)
 
 if args.viz:
 
     plot = mrcal.show_projection_diff( (m, m_to),
-                                       focus_radius=0, # don't compute an implicit rotation
+
+                                       # don't compute an implicit rotation if
+                                       # the original extrinsics were right
+                                       focus_radius = 0 if args.sampled else -1,
                                        cbmax=4)
     plot.wait()
 
