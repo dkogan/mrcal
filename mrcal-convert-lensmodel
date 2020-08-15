@@ -262,12 +262,16 @@ else:
     # gp.plot(q[:,0], q[:,1], _with='points pt 7 ps 2', xrange=[0,3904],yrange=[3904,0], wait=1, square=1)
     # sys.exit()
 
-    Npoints = len(q)
-
-
-
     ### I unproject this, with broadcasting
-    v = mrcal.unproject( q, *m.intrinsics(), normalize = True )
+    v = mrcal.unproject( q, *intrinsics_from, normalize = True )
+
+    # Ignore any failed unprojections
+    i_finite = np.isfinite(v[:,0])
+    v = v[i_finite]
+    q = q[i_finite]
+    Npoints = len(q)
+    weights = np.ones((Npoints,), dtype=float)
+
 
 
     ### Solve!
@@ -284,7 +288,7 @@ else:
         intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
                                          axis=-2)
         # each point has weight 1.0
-        observations_points = nps.glue(q, np.ones((Npoints, 1),), axis=-1)
+        observations_points = nps.glue(q, nps.transpose(weights), axis=-1)
         observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
         # Which points we're observing. This is dense and kinda silly for this
