@@ -242,33 +242,35 @@ for i in range(10): # this many trials
     # - optimize the single view of this object by tweaking ONLY the rotation
     # - for data I generate I can regularize the off-center optical axis. But
     #   this doesn't help for other people's data
-    mrcal.optimize(intrinsics_to_values,
-                   None, # no extrinsics. Just one camera
-                   None, # no frames. Just points
-                   v,
-                   None, # no board observations
-                   None, # no board observations
-                   observations_points,
-                   indices_point_camintrinsics_camextrinsics,
-                   lensmodel_to,
+    optimization_inputs = \
+        dict(intrinsics                                = intrinsics_to_values,
+             extrinsics_rt_fromref                     = None, # no extrinsics. Just one camera
+             frames_rt_toref                           = None, # no frames. Just points
+             points                                    = v,
+             observations_board                        = None, # no board observations
+             indices_frame_camintrinsics_camextrinsics = None, # no board observations
+             observations_point                        = observations_points,
+             indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
+             lensmodel                                 = lensmodel_to,
 
-                   # I'm not optimizing the point positions (frames), so these
-                   # need to be set to be inactive. I normalized my observations
-                   # so the ranges are all 1.0, and these need to encompass that
-                   # range
-                   point_min_range = 0.001,
-                   point_max_range = 1000.0,
+             imagersizes                               = nps.atleast_dims(dims, -2),
 
-                   imagersizes                       = nps.atleast_dims(dims, -2),
+             # I'm not optimizing the point positions (frames), so these
+             # need to be set to be inactive. I normalized my observations
+             # so the ranges are all 1.0, and these need to encompass that
+             # range
+             point_min_range                           = 0.001,
+             point_max_range                           = 1000.0,
 
-                   # I optimize the lens parameters. That's the whole point
-                   do_optimize_intrinsic_core        = True,
-                   do_optimize_intrinsic_distortions = True,
+             # I optimize the lens parameters. That's the whole point
+             do_optimize_intrinsic_core                = True,
+             do_optimize_intrinsic_distortions         = True,
 
-                   # NOT optimizing the camera geometry or the observed point positions
-                   do_optimize_extrinsics            = False,
-                   do_optimize_frames                = False,
+             # NOT optimizing the camera geometry or the observed point positions
+             do_optimize_extrinsics                    = False,
+             do_optimize_frames                        = False )
 
+    mrcal.optimize(**optimization_inputs,
                    # No outliers. I have the points that I have
                    skip_outlier_rejection            = True,
                    verbose                           = args.verbose)
