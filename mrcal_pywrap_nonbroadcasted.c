@@ -1823,7 +1823,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
         goto done;
     }
 
-    mrcal_problem_details_t problem_details =
+    const mrcal_problem_details_t problem_details =
         { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
           .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
           .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
@@ -2197,7 +2197,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         goto done;
     }
 
-    mrcal_problem_details_t problem_details =
+    const mrcal_problem_details_t problem_details =
         { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
           .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
           .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
