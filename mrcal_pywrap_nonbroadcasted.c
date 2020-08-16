@@ -1856,8 +1856,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
     if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
     if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
-    if(Nobservations_board < 0)  Nobservations_board  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
-    if(Nobservations_point < 0)  Nobservations_point  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+    if(Nobservations_board < 0) Nobservations_board = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
     int index = cb(i,
                    Ncameras_intrinsics,
@@ -2230,8 +2230,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
     if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
     if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
-    if(Nobservations_board < 0)  Nobservations_board  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
-    if(Nobservations_point < 0)  Nobservations_point  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+    if(Nobservations_board < 0) Nobservations_board = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
 
     if( PyArray_TYPE(p) != NPY_DOUBLE )
@@ -2370,8 +2370,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     // 0
     if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
     if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
-    if(Nobservations_board < 0)  Nobservations_board  = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
-    if(Nobservations_point < 0)  Nobservations_point  = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+    if(Nobservations_board < 0) Nobservations_board = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
+    if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
 
     if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
