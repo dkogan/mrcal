@@ -2802,73 +2802,42 @@ void mrcal_pack_solver_state_vector( // out, in
     }
 }
 
-static int unpack_solver_state_intrinsics_onecamera( // out
-                                                    mrcal_intrinsics_core_t* intrinsics_core,
-                                                    const mrcal_lensmodel_t lensmodel,
-                                                    double* distortions,
-
-                                                    // in
-                                                    const double* p,
-                                                    int Nintrinsics,
-                                                    mrcal_problem_details_t problem_details )
-{
-    int i_state = 0;
-    if( problem_details.do_optimize_intrinsic_core )
-    {
-        intrinsics_core->focal_xy [0] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
-        intrinsics_core->focal_xy [1] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
-        intrinsics_core->center_xy[0] = p[i_state++] * SCALE_INTRINSICS_CENTER_PIXEL;
-        intrinsics_core->center_xy[1] = p[i_state++] * SCALE_INTRINSICS_CENTER_PIXEL;
-    }
-
-    if( problem_details.do_optimize_intrinsic_distortions )
-    {
-        int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
-        for(int i = 0; i<Nintrinsics-Ncore; i++)
-            distortions[i] = p[i_state++] * SCALE_DISTORTION;
-    }
-
-    return i_state;
-}
-
-
 static int unpack_solver_state_intrinsics( // out
-                                           double* intrinsics, // Ncameras_intrinsics of
-                                                               // these
+
+                                           // Ncameras_intrinsics of these
+                                           double* intrinsics,
 
                                            // in
                                            const double* p,
                                            const mrcal_lensmodel_t lensmodel,
                                            mrcal_problem_details_t problem_details,
+                                           int intrinsics_stride,
                                            int Ncameras_intrinsics )
 {
     if( !problem_details.do_optimize_intrinsic_core &&
         !problem_details.do_optimize_intrinsic_distortions )
         return 0;
 
+    const int Nintrinsics = mrcal_num_lens_params(lensmodel);
+    const int Ncore       = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
 
-    int Nintrinsics = mrcal_num_lens_params(lensmodel);
     int i_state = 0;
-    if(modelHasCore_fxfycxcy(lensmodel))
-        for(int i_cam_intrinsics=0; i_cam_intrinsics < Ncameras_intrinsics; i_cam_intrinsics++)
+    for(int i_cam_intrinsics=0; i_cam_intrinsics < Ncameras_intrinsics; i_cam_intrinsics++)
+    {
+        if( problem_details.do_optimize_intrinsic_core && Ncore )
         {
-            i_state +=
-                unpack_solver_state_intrinsics_onecamera( (mrcal_intrinsics_core_t*)intrinsics,
-                                                          lensmodel,
-                                                          &intrinsics[4],
-                                                          &p[i_state], Nintrinsics, problem_details );
-            intrinsics = &intrinsics[Nintrinsics];
+            intrinsics[i_cam_intrinsics*intrinsics_stride + 0] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
+            intrinsics[i_cam_intrinsics*intrinsics_stride + 1] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
+            intrinsics[i_cam_intrinsics*intrinsics_stride + 2] = p[i_state++] * SCALE_INTRINSICS_CENTER_PIXEL;
+            intrinsics[i_cam_intrinsics*intrinsics_stride + 3] = p[i_state++] * SCALE_INTRINSICS_CENTER_PIXEL;
         }
-    else
-        for(int i_cam_intrinsics=0; i_cam_intrinsics < Ncameras_intrinsics; i_cam_intrinsics++)
+
+        if( problem_details.do_optimize_intrinsic_distortions )
         {
-            i_state +=
-                unpack_solver_state_intrinsics_onecamera( NULL,
-                                                          lensmodel,
-                                                          intrinsics,
-                                                          &p[i_state], Nintrinsics, problem_details );
-            intrinsics = &intrinsics[Nintrinsics];
+            for(int i = 0; i<Nintrinsics-Ncore; i++)
+                intrinsics[i_cam_intrinsics*intrinsics_stride + Ncore + i] = p[i_state++] * SCALE_DISTORTION;
         }
+    }
     return i_state;
 }
 
@@ -2934,12 +2903,16 @@ static int unpack_solver_state_calobject_warp(// out
 
 // From unit-scale values to real values. Optimizer sees unit-scale values
 static void unpack_solver_state( // out
-                                 double* intrinsics, // Ncameras_intrinsics of these
+
+                                 // ALL intrinsics; whether we're optimizing
+                                 // them or not. Don't touch the parts of this
+                                 // array we're not optimizing
+                                 double* intrinsics_all,                 // Ncameras_intrinsics of these
 
                                  mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these
-                                 mrcal_pose_t*       frames_toref,     // Nframes of these
-                                 mrcal_point3_t*     points,     // Npoints of these
-                                 mrcal_point2_t*     calobject_warp, // 1 of these
+                                 mrcal_pose_t*       frames_toref,       // Nframes of these
+                                 mrcal_point3_t*     points,             // Npoints of these
+                                 mrcal_point2_t*     calobject_warp,     // 1 of these
 
                                  // in
                                  const double* p,
@@ -2949,8 +2922,9 @@ static void unpack_solver_state( // out
 
                                  int Nstate_ref)
 {
-    int i_state = unpack_solver_state_intrinsics(intrinsics,
+    int i_state = unpack_solver_state_intrinsics(intrinsics_all,
                                                  p, lensmodel, problem_details,
+                                                 mrcal_num_lens_params(lensmodel),
                                                  Ncameras_intrinsics);
 
     if( problem_details.do_optimize_extrinsics )
@@ -2982,8 +2956,11 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        mrcal_problem_details_t problem_details,
                                        const mrcal_lensmodel_t lensmodel)
 {
-    int i_state = unpack_solver_state_intrinsics(p,
+    int i_state = unpack_solver_state_intrinsics(&p[modelHasCore_fxfycxcy(lensmodel) &&
+                                                    !problem_details.do_optimize_intrinsic_core ? -4 : 0],
                                                  p, lensmodel, problem_details,
+                                                 mrcal_num_intrinsics_optimization_params(problem_details,
+                                                                                          lensmodel),
                                                  Ncameras_intrinsics);
 
     if( problem_details.do_optimize_extrinsics )
@@ -3391,25 +3368,33 @@ void optimizer_callback(// input state
         i_camera_intrinsics<ctx->Ncameras_intrinsics;
         i_camera_intrinsics++)
     {
-        // First I pull in the chunks from the optimization vector
-        const int i_var_intrinsics = mrcal_state_index_intrinsics(i_camera_intrinsics,
-                                                                  ctx->problem_details, ctx->lensmodel);
+        // Construct the FULL intrinsics vector, based on either the
+        // optimization vector or the inputs, depending on what we're optimizing
         double* intrinsics_here  = &intrinsics_all[i_camera_intrinsics][0];
         double* distortions_here = &intrinsics_all[i_camera_intrinsics][Ncore];
 
-        unpack_solver_state_intrinsics_onecamera((mrcal_intrinsics_core_t*)intrinsics_here,
-                                                 ctx->lensmodel,
-                                                 distortions_here,
-                                                 &packed_state[ i_var_intrinsics ],
-                                                 ctx->Nintrinsics,
-                                                 ctx->problem_details );
-
-        // And then I fill in the gaps using the seed values
-        if(!ctx->problem_details.do_optimize_intrinsic_core && Ncore)
-            memcpy( intrinsics_here,
-                    &ctx->intrinsics[ctx->Nintrinsics*i_camera_intrinsics],
-                    Ncore*sizeof(double) );
-        if(!ctx->problem_details.do_optimize_intrinsic_distortions)
+        int i_var_intrinsics = mrcal_state_index_intrinsics(i_camera_intrinsics,
+                                                            ctx->problem_details, ctx->lensmodel);
+        if(Ncore)
+        {
+            if( ctx->problem_details.do_optimize_intrinsic_core )
+            {
+                intrinsics_here[0] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_FOCAL_LENGTH;
+                intrinsics_here[1] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_FOCAL_LENGTH;
+                intrinsics_here[2] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_CENTER_PIXEL;
+                intrinsics_here[3] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_CENTER_PIXEL;
+            }
+            else
+                memcpy( intrinsics_here,
+                        &ctx->intrinsics[ctx->Nintrinsics*i_camera_intrinsics],
+                        Ncore*sizeof(double) );
+        }
+        if( ctx->problem_details.do_optimize_intrinsic_distortions )
+        {
+            for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
+                distortions_here[i] = packed_state[i_var_intrinsics++] * SCALE_DISTORTION;
+        }
+        else
             memcpy( distortions_here,
                     &ctx->intrinsics[ctx->Nintrinsics*i_camera_intrinsics + Ncore],
                     (ctx->Nintrinsics-Ncore)*sizeof(double) );
