@@ -22,14 +22,14 @@
 //
 // Can be visualized like this:
 //
-//   model = mrcal.cameramodel("xxx.cameramodel")
-//   x,Jpacked = mrcal.optimizer_callback( **model.optimization_inputs() )[1:3]
-//   Jpacked = Jpacked.toarray()
-//   gp.plotimage(np.abs(Jpacked))
+//   p0,x0,J0 = mrcal.optimizer_callback(**optimization_inputs)[:3]
+//   J0 = J0.toarray()
+//   ss = np.sum(np.abs(J0), axis=-2)
+//   gp.plot(ss)
 //
-// This visualized the PACKED jacobian: the active variables should be ~ 1. This
-// is very rough, obviously. But if some set of variables is consistently 100x
-// the magnitude of some others, that should be fixed.
+// This visualizes the overall effect of each variable. If the scales aren't
+// tuned properly, some variables will have orders of magnitude stronger
+// response than others, and the optimization problem won't converge well.
 //
 // The scipy.optimize.least_squares() function claims to be able to estimate
 // these automatically, without requiring these hard-coded values from the user.
