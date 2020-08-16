@@ -4797,34 +4797,30 @@ mrcal_optimize( // out
             ctx.reportFitMsg = "After";
 #warning hook this up
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
-        }
-
-        if(!problem_details.do_skip_regularization)
-        {
-            double norm2_err_regularization = 0;
-            int    Nmeasurements_regularization =
-                Ncameras_intrinsics *
-                num_regularization_terms_percamera(problem_details,
-                                                   lensmodel);
-
-            for(int i=0; i<Nmeasurements_regularization; i++)
+            if(!problem_details.do_skip_regularization)
             {
-                double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
-                norm2_err_regularization += x*x;
-            }
+                double norm2_err_regularization = 0;
+                int    Nmeasurements_regularization =
+                    Ncameras_intrinsics *
+                    num_regularization_terms_percamera(problem_details,
+                                                       lensmodel);
 
-            double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
-            double ratio_regularization_cost = norm2_err_regularization / norm2_err_nonregularization;
+                for(int i=0; i<Nmeasurements_regularization; i++)
+                {
+                    double x = solver_context->beforeStep->x[ctx.Nmeasurements-1 - i];
+                    norm2_err_regularization += x*x;
+                }
 
-            if(verbose)
-            {
+                double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
+                double ratio_regularization_cost   = norm2_err_regularization / norm2_error;
+
                 for(int i=0; i<Nmeasurements_regularization; i++)
                 {
                     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
                     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
                 }
-                MSG("norm2_error: %f", norm2_error);
-                MSG("norm2_err_regularization: %f", norm2_err_regularization);
+                MSG("norm2_error: %f",               norm2_error);
+                MSG("norm2_err_regularization: %f",  norm2_err_regularization);
                 MSG("regularization cost ratio: %g", ratio_regularization_cost);
             }
         }
