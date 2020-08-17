@@ -184,10 +184,17 @@ testutils.confirm_equal( dE_predicted, dE,
                          relative = True,
                          msg = "diff(E) predicted")
 
-###########################################################################
-# I perturb my input observation vector qref by dqref. The effect on the
-# parameters should be dp = M dqref. Where M = inv(JtJ) Jobservationst W
+# At the optimum dE/dp = 0 -> xtJ = 0
+xtJ0 = nps.inner(nps.transpose(J0),x0)
+testutils.confirm_equal( xtJ0, 0,
+                         eps = 1e-5,
+                         worstcase = True,
+                         msg = "dE/dp = 0 at the optimum: original")
 
+
+
+###########################################################################
+# I perturb my input observation vector qref by dqref.
 noise_for_gradients = 1e-3
 dqref,observations_perturbed = sample_dqref(baseline['observations_board'],
                                             noise_for_gradients)
@@ -198,34 +205,87 @@ mrcal.optimize(**optimization_inputs, skip_outlier_rejection=True)
 p1,x1,J1 = mrcal.optimizer_callback(**optimization_inputs)[:3]
 J1 = J1.toarray()
 
-dp = p1-p0
-w = baseline['observations_board'][..., np.array((2,2))].ravel()
+dx_observed = x1-x0
+dp_observed = p1-p0
+w           = observations_perturbed[...,2]
+w[w < 0]    = 0 # outliers have weight=0
+w           = np.ravel(nps.mv(nps.cat(w,w),0,-1)) # each weight controls x,y
+
+xtJ1 = nps.inner(nps.transpose(J0),x0)
+testutils.confirm_equal( xtJ1, 0,
+                         eps = 1e-5,
+                         worstcase = True,
+                         msg = "dE/dp = 0 at the optimum: perturbed")
+
+# I added noise reoptimized, did dx do the expected thing?
+# I should have
+#   x(p+dp, qref+dqref) = x + J dp + dx/dqref dqref
+# -> x1-x0 ~ J dp + dx/dqref dqref
+#   x[measurements] = (q - qref) * weight
+# -> dx/dqref = -diag(weight)
+dx_predicted = nps.inner(J0,dp_observed)
+dx_predicted[:Nmeasurements_boards] -= w * dqref.ravel()
+
+# plot_dx = gp.gnuplotlib( title = "dx predicted,observed",
+#                          _set  = f'arrow nohead from {Nmeasurements_boards},graph 0 to {Nmeasurements_boards},graph 1')
+# plot_dx.plot( (nps.cat(dx_observed,dx_predicted),
+#                dict(legend = np.array(('observed','predicted')),
+#                     _with  = 'lines')),
+#               (dx_observed-dx_predicted,
+#                dict(legend = "err",
+#                     _with  = "lines lw 2",
+#                     y2=1)))
+testutils.confirm_equal( dx_predicted, dx_observed,
+                         eps = 1e-6,
+                         worstcase = True,
+                         msg = "dx follows the prediction")
+
+# The effect on the
+# parameters should be dp = M dqref. Where M = inv(JtJ) Jobservationst W
+
 M = np.linalg.solve( nps.matmult(nps.transpose(J0),J0),
                      nps.transpose(J0[:Nmeasurements_boards, :]) ) * w
 dp_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
 
-slice_intrinsics = slice(0,
-                         mrcal.state_index_camera_rt(0, **baseline))
-slice_extrinsics = slice(mrcal.state_index_camera_rt(0, **baseline),
-                         mrcal.state_index_frame_rt (0, **baseline))
-slice_frames     = slice(mrcal.state_index_frame_rt (0, **baseline),
-                         mrcal.state_index_calobject_warp(**baseline),)
+istate0_frames         = mrcal.state_index_frame_rt (0, **baseline)
+istate0_calobject_warp = mrcal.state_index_calobject_warp(**baseline)
+try:
+    istate0_extrinsics = mrcal.state_index_camera_rt(0, **baseline)
+except:
+    istate0_extrinsics = istate0_frames
+
+slice_intrinsics = slice(0, istate0_extrinsics)
+slice_extrinsics = slice(istate0_extrinsics, istate0_frames)
+slice_frames     = slice(istate0_frames, istate0_calobject_warp)
 
 # These thresholds look terrible. And they are. But I'm pretty sure this is
 # working properly. Look at the plots
+#
+# plot_dp = gp.gnuplotlib( title = "dp predicted,observed",
+#                          _set  = (f"arrow nohead from {istate0_frames},graph 0         to {istate0_frames},graph 1",
+#                                   f"arrow nohead from {istate0_calobject_warp},graph 0 to {istate0_calobject_warp},graph 1") + \
+#                                   () if istate0_extrinsics is None else \
+#                                   (f"arrow nohead from {istate0_extrinsics},graph 0 to {istate0_extrinsics},graph 1",))
+# plot_dp.plot( (nps.cat(dp_observed,dp_predicted),
+#                dict(legend = np.array(('observed','predicted')),
+#                     _with  = 'lines')),
+#               (dp_observed-dp_predicted,
+#                dict(legend = "err",
+#                     _with  = "lines lw 2",
+#                     y2=1)))
 testutils.confirm_equal( dp_predicted[slice_intrinsics],
-                         dp          [slice_intrinsics],
+                         dp_observed [slice_intrinsics],
                          percentile = 80,
                          eps        = 0.2,
                          msg        = f"Predicted dp from dqref: intrinsics")
 testutils.confirm_equal( dp_predicted[slice_extrinsics],
-                         dp          [slice_extrinsics],
+                         dp_observed [slice_extrinsics],
                          relative   = True,
                          percentile = 80,
                          eps        = 0.2,
                          msg        = f"Predicted dp from dqref: extrinsics")
 testutils.confirm_equal( dp_predicted[slice_frames],
-                         dp          [slice_frames],
+                         dp_observed [slice_frames],
                          percentile = 80,
                          eps        = 0.2,
                          msg        = f"Predicted dp from dqref: frames")
