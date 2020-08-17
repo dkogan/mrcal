@@ -3617,8 +3617,6 @@ void optimizer_callback(// input state
 
                     iMeasurement++;
                 }
-                if(gradient_sparse_meta.pool != NULL)
-                    splined_intrinsics_grad_irun++;
             }
             else
             {
@@ -3698,6 +3696,8 @@ void optimizer_callback(// input state
                     iMeasurement++;
                 }
             }
+            if(gradient_sparse_meta.pool != NULL)
+                splined_intrinsics_grad_irun++;
         }
     }
 
