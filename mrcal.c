@@ -4534,7 +4534,7 @@ mrcal_optimize( // out
                 // distortion params. The specific distortion parameters may
                 // vary, depending on lensmodel, so this is a variable-length
                 // structure
-                double*       intrinsics,         // Ncameras_intrinsics * NlensParams
+                double*             intrinsics,         // Ncameras_intrinsics * NlensParams
                 mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                 mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
@@ -4772,10 +4772,10 @@ mrcal_optimize( // out
                               verbose) );
 
         // Done. I have the final state. I spit it back out
-        unpack_solver_state( intrinsics, // Ncameras_intrinsics of these
+        unpack_solver_state( intrinsics,         // Ncameras_intrinsics of these
                              extrinsics_fromref, // Ncameras_extrinsics of these
-                             frames_toref,     // Nframes of these
-                             points,     // Npoints of these
+                             frames_toref,       // Nframes of these
+                             points,             // Npoints of these
                              calobject_warp,
                              packed_state,
                              lensmodel,
