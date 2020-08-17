@@ -165,11 +165,11 @@ typedef struct
 typedef struct
 {
     // Applies only to those models that HAVE a core (fx,fy,cx,cy)
-    bool do_optimize_intrinsic_core        : 1;
+    bool do_optimize_intrinsics_core        : 1;
 
     // For models that have a core, these are all the non-core parameters. For
     // models that do not, these are ALL the parameters
-    bool do_optimize_intrinsic_distortions : 1;
+    bool do_optimize_intrinsics_distortions : 1;
     bool do_optimize_extrinsics            : 1;
     bool do_optimize_frames                : 1;
     bool do_skip_regularization            : 1;

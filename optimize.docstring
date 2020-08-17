@@ -11,8 +11,8 @@ SYNOPSIS
                             lensmodel,
                             imagersizes                       = imagersizes,
                             observed_pixel_uncertainty        = observed_pixel_uncertainty,
-                            do_optimize_intrinsic_core        = True,
-                            do_optimize_intrinsic_distortions = True,
+                            do_optimize_intrinsics_core        = True,
+                            do_optimize_intrinsics_distortions = True,
                             calibration_object_spacing        = object_spacing,
                             calibration_object_width_n        = 10,
                             calibration_object_height_n       = 9,
@@ -196,8 +196,8 @@ OPTIONAL ARGUMENTS
   unaffected by the optimization. This is 0 by default, and we optimize all the
   points.
 
-- do_optimize_intrinsic_core
-- do_optimize_intrinsic_distortions
+- do_optimize_intrinsics_core
+- do_optimize_intrinsics_distortions
 - do_optimize_extrinsics
 - do_optimize_frames
 - do_optimize_calobject_warp

@@ -328,8 +328,8 @@ else:
                  point_max_range                           = 1000.0,
 
                  # I optimize the lens parameters. That's the whole point
-                 do_optimize_intrinsic_core                = True,
-                 do_optimize_intrinsic_distortions         = True,
+                 do_optimize_intrinsics_core                = True,
+                 do_optimize_intrinsics_distortions         = True,
 
                  # NOT optimizing the camera geometry or the observed point positions
                  do_optimize_extrinsics                    = False,

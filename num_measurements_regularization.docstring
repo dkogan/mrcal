@@ -45,8 +45,8 @@ ARGUMENTS
   mrcal.supported_lensmodels(). This is required if we're not passing in the
   optimization inputs
 
-- do_optimize_intrinsic_core
-  do_optimize_intrinsic_distortions
+- do_optimize_intrinsics_core
+  do_optimize_intrinsics_distortions
   do_optimize_extrinsics
   do_optimize_frames
 

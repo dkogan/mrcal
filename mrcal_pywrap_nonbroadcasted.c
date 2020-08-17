@@ -1059,8 +1059,8 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp, NPY_DOUBLE, {2}) \
     _(Npoints_fixed,                      int,            0,       "i",  ,                                  NULL,           -1,         {})  \
-    _(do_optimize_intrinsic_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
-    _(do_optimize_intrinsic_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_intrinsics_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_intrinsics_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_calobject_warp,         PyObject*,      Py_False,"O",  ,                                  NULL,           -1,         {})  \
@@ -1471,8 +1471,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
 
         mrcal_problem_details_t problem_details =
-            { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
-              .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
+            { .do_optimize_intrinsics_core        = PyObject_IsTrue(do_optimize_intrinsics_core),
+              .do_optimize_intrinsics_distortions = PyObject_IsTrue(do_optimize_intrinsics_distortions),
               .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
               .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
               .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),
@@ -1824,8 +1824,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     }
 
     const mrcal_problem_details_t problem_details =
-        { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
-          .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
+        { .do_optimize_intrinsics_core        = PyObject_IsTrue(do_optimize_intrinsics_core),
+          .do_optimize_intrinsics_distortions = PyObject_IsTrue(do_optimize_intrinsics_distortions),
           .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
           .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
           .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),
@@ -2198,8 +2198,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     }
 
     const mrcal_problem_details_t problem_details =
-        { .do_optimize_intrinsic_core        = PyObject_IsTrue(do_optimize_intrinsic_core),
-          .do_optimize_intrinsic_distortions = PyObject_IsTrue(do_optimize_intrinsic_distortions),
+        { .do_optimize_intrinsics_core        = PyObject_IsTrue(do_optimize_intrinsics_core),
+          .do_optimize_intrinsics_distortions = PyObject_IsTrue(do_optimize_intrinsics_distortions),
           .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
           .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
           .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),

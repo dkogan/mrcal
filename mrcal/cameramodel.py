@@ -235,6 +235,18 @@ def _deserialize_optimization_inputs(data_bytes):
             arr = None
         optimization_inputs[k] = arr
 
+    # for legacy compatibility
+    def renamed(s0, s1, d):
+        if s0 in d and not s1 in d:
+            d[s1] = d[s0]
+            del d[s0]
+    renamed('do_optimize_intrinsic_core',
+            'do_optimize_intrinsics_core',
+            optimization_inputs)
+    renamed('do_optimize_intrinsic_distortions',
+            'do_optimize_intrinsics_distortions',
+            optimization_inputs)
+
     return optimization_inputs
 
 

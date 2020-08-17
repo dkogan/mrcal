@@ -305,7 +305,7 @@ static
 int get_num_distortions_optimization_params(mrcal_problem_details_t problem_details,
                                             mrcal_lensmodel_t lensmodel)
 {
-    if( !problem_details.do_optimize_intrinsic_distortions )
+    if( !problem_details.do_optimize_intrinsics_distortions )
         return 0;
 
     int N = mrcal_num_lens_params(lensmodel);
@@ -319,7 +319,7 @@ int mrcal_num_intrinsics_optimization_params(mrcal_problem_details_t problem_det
 {
     int N = get_num_distortions_optimization_params(problem_details, lensmodel);
 
-    if( problem_details.do_optimize_intrinsic_core &&
+    if( problem_details.do_optimize_intrinsics_core &&
         modelHasCore_fxfycxcy(lensmodel) )
         N += 4; // fx,fy,cx,cy
     return N;
@@ -352,11 +352,11 @@ static int num_regularization_terms_percamera(mrcal_problem_details_t problem_de
 
     int N = 0;
     // optical center
-    if(problem_details.do_optimize_intrinsic_core)
+    if(problem_details.do_optimize_intrinsics_core)
         N += 2;
 
     // distortions
-    if( problem_details.do_optimize_intrinsic_distortions )
+    if( problem_details.do_optimize_intrinsics_distortions )
     {
         if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
         {
@@ -438,15 +438,15 @@ int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
         int run_len =
             lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1;
         Nintrinsics_per_measurement =
-            (problem_details.do_optimize_intrinsic_core        ? 4                 : 0)  +
-            (problem_details.do_optimize_intrinsic_distortions ? (run_len*run_len) : 0);
+            (problem_details.do_optimize_intrinsics_core        ? 4                 : 0)  +
+            (problem_details.do_optimize_intrinsics_distortions ? (run_len*run_len) : 0);
     }
     else
         Nintrinsics_per_measurement =
             mrcal_num_intrinsics_optimization_params(problem_details, lensmodel);
 
     // x depends on fx,cx but NOT on fy, cy. And similarly for y.
-    if( problem_details.do_optimize_intrinsic_core &&
+    if( problem_details.do_optimize_intrinsics_core &&
         modelHasCore_fxfycxcy(lensmodel) )
         Nintrinsics_per_measurement -= 2;
 
@@ -486,7 +486,7 @@ int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
 
     if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
-        if(!problem_details.do_optimize_intrinsic_core)
+        if(!problem_details.do_optimize_intrinsics_core)
             N +=
                 Ncameras_intrinsics *
                 5 *
@@ -2654,7 +2654,7 @@ static int pack_solver_state_intrinsics( // out
 
     for(int i_cam_intrinsics=0; i_cam_intrinsics < Ncameras_intrinsics; i_cam_intrinsics++)
     {
-        if( problem_details.do_optimize_intrinsic_core )
+        if( problem_details.do_optimize_intrinsics_core )
         {
             const mrcal_intrinsics_core_t* intrinsics_core = (const mrcal_intrinsics_core_t*)intrinsics;
             p[i_state++] = intrinsics_core->focal_xy [0] / SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -2663,7 +2663,7 @@ static int pack_solver_state_intrinsics( // out
             p[i_state++] = intrinsics_core->center_xy[1] / SCALE_INTRINSICS_CENTER_PIXEL;
         }
 
-        if( problem_details.do_optimize_intrinsic_distortions )
+        if( problem_details.do_optimize_intrinsics_distortions )
 
             for(int i = 0; i<Ndistortions; i++)
                 p[i_state++] = intrinsics[Ncore + i] / SCALE_DISTORTION;
@@ -2814,8 +2814,8 @@ static int unpack_solver_state_intrinsics( // out
                                            int intrinsics_stride,
                                            int Ncameras_intrinsics )
 {
-    if( !problem_details.do_optimize_intrinsic_core &&
-        !problem_details.do_optimize_intrinsic_distortions )
+    if( !problem_details.do_optimize_intrinsics_core &&
+        !problem_details.do_optimize_intrinsics_distortions )
         return 0;
 
     const int Nintrinsics = mrcal_num_lens_params(lensmodel);
@@ -2824,7 +2824,7 @@ static int unpack_solver_state_intrinsics( // out
     int i_state = 0;
     for(int i_cam_intrinsics=0; i_cam_intrinsics < Ncameras_intrinsics; i_cam_intrinsics++)
     {
-        if( problem_details.do_optimize_intrinsic_core && Ncore )
+        if( problem_details.do_optimize_intrinsics_core && Ncore )
         {
             intrinsics[i_cam_intrinsics*intrinsics_stride + 0] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
             intrinsics[i_cam_intrinsics*intrinsics_stride + 1] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -2832,7 +2832,7 @@ static int unpack_solver_state_intrinsics( // out
             intrinsics[i_cam_intrinsics*intrinsics_stride + 3] = p[i_state++] * SCALE_INTRINSICS_CENTER_PIXEL;
         }
 
-        if( problem_details.do_optimize_intrinsic_distortions )
+        if( problem_details.do_optimize_intrinsics_distortions )
         {
             for(int i = 0; i<Nintrinsics-Ncore; i++)
                 intrinsics[i_cam_intrinsics*intrinsics_stride + Ncore + i] = p[i_state++] * SCALE_DISTORTION;
@@ -2957,7 +2957,7 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        const mrcal_lensmodel_t lensmodel)
 {
     int i_state = unpack_solver_state_intrinsics(&p[modelHasCore_fxfycxcy(lensmodel) &&
-                                                    !problem_details.do_optimize_intrinsic_core ? -4 : 0],
+                                                    !problem_details.do_optimize_intrinsics_core ? -4 : 0],
                                                  p, lensmodel, problem_details,
                                                  mrcal_num_intrinsics_optimization_params(problem_details,
                                                                                           lensmodel),
@@ -3344,7 +3344,7 @@ void optimizer_callback(// input state
 
     int Ncore = modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
     int Ncore_state = (modelHasCore_fxfycxcy(ctx->lensmodel) &&
-                       ctx->problem_details.do_optimize_intrinsic_core) ? 4 : 0;
+                       ctx->problem_details.do_optimize_intrinsics_core) ? 4 : 0;
 
     // If I'm locking down some parameters, then the state vector contains a
     // subset of my data. I reconstitute the intrinsics and extrinsics here.
@@ -3377,7 +3377,7 @@ void optimizer_callback(// input state
                                                             ctx->problem_details, ctx->lensmodel);
         if(Ncore)
         {
-            if( ctx->problem_details.do_optimize_intrinsic_core )
+            if( ctx->problem_details.do_optimize_intrinsics_core )
             {
                 intrinsics_here[0] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_FOCAL_LENGTH;
                 intrinsics_here[1] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -3389,7 +3389,7 @@ void optimizer_callback(// input state
                         &ctx->intrinsics[ctx->Nintrinsics*i_camera_intrinsics],
                         Ncore*sizeof(double) );
         }
-        if( ctx->problem_details.do_optimize_intrinsic_distortions )
+        if( ctx->problem_details.do_optimize_intrinsics_distortions )
         {
             for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
                 distortions_here[i] = packed_state[i_var_intrinsics++] * SCALE_DISTORTION;
@@ -3467,9 +3467,9 @@ void optimizer_callback(// input state
 
         project(pt_hypothesis,
 
-                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
                   dq_dintrinsics_pool_double : NULL,
-                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
                   dq_dintrinsics_pool_int : NULL,
                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
@@ -3521,7 +3521,7 @@ void optimizer_callback(// input state
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
-                    if( ctx->problem_details.do_optimize_intrinsic_core )
+                    if( ctx->problem_details.do_optimize_intrinsics_core )
                     {
                         // fx,fy. x depends on fx only. y depends on fy only
                         STORE_JACOBIAN( i_var_intrinsics + i_xy,
@@ -3533,7 +3533,7 @@ void optimizer_callback(// input state
                                         weight * SCALE_INTRINSICS_CENTER_PIXEL );
                     }
 
-                    if( ctx->problem_details.do_optimize_intrinsic_distortions )
+                    if( ctx->problem_details.do_optimize_intrinsics_distortions )
                     {
                         if(gradient_sparse_meta.pool != NULL)
                         {
@@ -3545,7 +3545,7 @@ void optimizer_callback(// input state
                             //
                             // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
                             const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
-                                ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
+                                ( ctx->problem_details.do_optimize_intrinsics_core ? 0 : 4 );
 
                             const int     len   = gradient_sparse_meta.run_side_length;
                             const double* ABCDx = &gradient_sparse_meta.pool[len*2*splined_intrinsics_grad_irun + 0];
@@ -3646,18 +3646,18 @@ void optimizer_callback(// input state
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
-                    if( ctx->problem_details.do_optimize_intrinsic_core )
+                    if( ctx->problem_details.do_optimize_intrinsics_core )
                     {
                         STORE_JACOBIAN( i_var_intrinsics + i_xy,   0.0 );
                         STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0.0 );
                     }
 
-                    if( ctx->problem_details.do_optimize_intrinsic_distortions )
+                    if( ctx->problem_details.do_optimize_intrinsics_distortions )
                     {
                         if(gradient_sparse_meta.pool != NULL)
                         {
                             const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
-                                ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
+                                ( ctx->problem_details.do_optimize_intrinsics_core ? 0 : 4 );
                             const int len          = gradient_sparse_meta.run_side_length;
                             const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
 
@@ -3737,7 +3737,7 @@ void optimizer_callback(// input state
                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
                 x[iMeasurement] = 0;
 
-                if( ctx->problem_details.do_optimize_intrinsic_core )
+                if( ctx->problem_details.do_optimize_intrinsics_core )
                 {
                     // fx,fy. x depends on fx only. y depends on fy only
                     STORE_JACOBIAN( i_var_intrinsics + i_xy, 0 );
@@ -3746,9 +3746,9 @@ void optimizer_callback(// input state
                     STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0);
                 }
 
-                if( ctx->problem_details.do_optimize_intrinsic_distortions )
+                if( ctx->problem_details.do_optimize_intrinsics_distortions )
                 {
-                    if( (ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions) &&
+                    if( (ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions) &&
                         ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
                     {
                         // sparse gradient. This is an outlier, so it doesn't
@@ -3823,9 +3823,9 @@ void optimizer_callback(// input state
         mrcal_point2_t pt_hypothesis;
         project(&pt_hypothesis,
 
-                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
                 dq_dintrinsics_pool_double : NULL,
-                ctx->problem_details.do_optimize_intrinsic_core || ctx->problem_details.do_optimize_intrinsic_distortions ?
+                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
                 dq_dintrinsics_pool_int : NULL,
                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
@@ -3862,7 +3862,7 @@ void optimizer_callback(// input state
             x[iMeasurement] = err;
             norm2_error += err*err;
 
-            if( ctx->problem_details.do_optimize_intrinsic_core )
+            if( ctx->problem_details.do_optimize_intrinsics_core )
             {
                 // fx,fy. x depends on fx only. y depends on fy only
                 STORE_JACOBIAN( i_var_intrinsics + i_xy,
@@ -3874,7 +3874,7 @@ void optimizer_callback(// input state
                                 weight * SCALE_INTRINSICS_CENTER_PIXEL );
             }
 
-            if( ctx->problem_details.do_optimize_intrinsic_distortions )
+            if( ctx->problem_details.do_optimize_intrinsics_distortions )
             {
                 if(gradient_sparse_meta.pool != NULL)
                 {
@@ -3886,7 +3886,7 @@ void optimizer_callback(// input state
                     //
                     // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
                     const int ivar0 = dq_dintrinsics_pool_int[0] -
-                        ( ctx->problem_details.do_optimize_intrinsic_core ? 0 : 4 );
+                        ( ctx->problem_details.do_optimize_intrinsics_core ? 0 : 4 );
 
                     const int     len   = gradient_sparse_meta.run_side_length;
                     const double* ABCDx = &gradient_sparse_meta.pool[0];
@@ -4092,8 +4092,8 @@ void optimizer_callback(// input state
     // parameters
     if(!ctx->problem_details.do_skip_regularization &&
        modelHasCore_fxfycxcy(ctx->lensmodel) &&
-       ( ctx->problem_details.do_optimize_intrinsic_distortions ||
-         ctx->problem_details.do_optimize_intrinsic_core
+       ( ctx->problem_details.do_optimize_intrinsics_distortions ||
+         ctx->problem_details.do_optimize_intrinsics_core
          ))
     {
         // I want the total regularization cost to be low relative to the
@@ -4166,7 +4166,7 @@ void optimizer_callback(// input state
             const int i_var_intrinsics =
                 mrcal_state_index_intrinsics(i_cam_intrinsics, ctx->problem_details, ctx->lensmodel);
 
-            if( ctx->problem_details.do_optimize_intrinsic_distortions)
+            if( ctx->problem_details.do_optimize_intrinsics_distortions)
             {
                 if(ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
                 {
@@ -4271,7 +4271,7 @@ void optimizer_callback(// input state
                 }
             }
 
-            if( ctx->problem_details.do_optimize_intrinsic_core)
+            if( ctx->problem_details.do_optimize_intrinsics_core)
             {
                 // And another regularization term: optical center should be
                 // near the middle. This breaks the symmetry between moving the
@@ -4394,10 +4394,10 @@ bool mrcal_optimizer_callback(// out
     bool result = false;
 
     if(!modelHasCore_fxfycxcy(lensmodel))
-        problem_details.do_optimize_intrinsic_core = false;
+        problem_details.do_optimize_intrinsics_core = false;
 
-    if(!problem_details.do_optimize_intrinsic_core        &&
-       !problem_details.do_optimize_intrinsic_distortions &&
+    if(!problem_details.do_optimize_intrinsics_core        &&
+       !problem_details.do_optimize_intrinsics_distortions &&
        !problem_details.do_optimize_extrinsics            &&
        !problem_details.do_optimize_frames                &&
        !problem_details.do_optimize_calobject_warp)
@@ -4585,10 +4585,10 @@ mrcal_optimize( // out
     }
 
     if(!modelHasCore_fxfycxcy(lensmodel))
-        problem_details.do_optimize_intrinsic_core = false;
+        problem_details.do_optimize_intrinsics_core = false;
 
-    if(!problem_details.do_optimize_intrinsic_core        &&
-       !problem_details.do_optimize_intrinsic_distortions &&
+    if(!problem_details.do_optimize_intrinsics_core        &&
+       !problem_details.do_optimize_intrinsics_distortions &&
        !problem_details.do_optimize_extrinsics            &&
        !problem_details.do_optimize_frames                &&
        !problem_details.do_optimize_calobject_warp)

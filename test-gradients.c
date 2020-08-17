@@ -73,8 +73,8 @@ int main(int argc, char* argv[] )
     iarg++;
 
     if(iarg >= argc)
-        problem_details = ((mrcal_problem_details_t) { .do_optimize_intrinsic_core        = true,
-                                                       .do_optimize_intrinsic_distortions = true,
+        problem_details = ((mrcal_problem_details_t) { .do_optimize_intrinsics_core        = true,
+                                                       .do_optimize_intrinsics_distortions = true,
                                                        .do_optimize_extrinsics            = true,
                                                        .do_optimize_frames                = true,
                                                        .do_optimize_calobject_warp        = true,
@@ -84,12 +84,12 @@ int main(int argc, char* argv[] )
         {
             if( 0 == strcmp(argv[iarg], "intrinsic-core") )
             {
-                problem_details.do_optimize_intrinsic_core = true;
+                problem_details.do_optimize_intrinsics_core = true;
                 continue;
             }
             if( 0 == strcmp(argv[iarg], "intrinsic-distortions") )
             {
-                problem_details.do_optimize_intrinsic_distortions = true;
+                problem_details.do_optimize_intrinsics_distortions = true;
                 continue;
             }
             if( 0 == strcmp(argv[iarg], "extrinsics") )
@@ -191,7 +191,7 @@ int main(int argc, char* argv[] )
 
     if(!modelHasCore_fxfycxcy(lensmodel))
         // There is no core
-        problem_details.do_optimize_intrinsic_core = false;
+        problem_details.do_optimize_intrinsics_core = false;
 
     int Nintrinsics = mrcal_num_lens_params(lensmodel);
     int Ndistortion = Nintrinsics;
@@ -293,12 +293,12 @@ int main(int argc, char* argv[] )
     printf("## Ncameras_intrinsics = %d\n", Ncameras_intrinsics);
     printf("## Ncameras_extrinsics = %d\n", Ncameras_extrinsics);
     printf("## Intrinsics: %d variables per camera (%d for the core, %d for the rest; %d total). Starts at variable %d\n",
-           (problem_details.do_optimize_intrinsic_core        ? 4           : 0) +
-           (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0),
-           (problem_details.do_optimize_intrinsic_core        ? 4           : 0),
-           (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0),
-           Ncameras_intrinsics*((problem_details.do_optimize_intrinsic_core        ? 4           : 0) +
-                                (problem_details.do_optimize_intrinsic_distortions ? Ndistortion : 0)),
+           (problem_details.do_optimize_intrinsics_core        ? 4           : 0) +
+           (problem_details.do_optimize_intrinsics_distortions ? Ndistortion : 0),
+           (problem_details.do_optimize_intrinsics_core        ? 4           : 0),
+           (problem_details.do_optimize_intrinsics_distortions ? Ndistortion : 0),
+           Ncameras_intrinsics*((problem_details.do_optimize_intrinsics_core        ? 4           : 0) +
+                                (problem_details.do_optimize_intrinsics_distortions ? Ndistortion : 0)),
            mrcal_state_index_intrinsics(0, problem_details, lensmodel));
     printf("## Extrinsics: %d variables per camera for all cameras except camera 0 (%d total). Starts at variable %d\n",
            (problem_details.do_optimize_extrinsics ? 6                     : 0),
