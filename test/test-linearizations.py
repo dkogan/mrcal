@@ -1,0 +1,233 @@
+#!/usr/bin/python3
+
+r'''Linearization test
+
+Make sure the linearization assumptions used in the uncertainty computations
+hold. The expressions are derived in the docstring for
+mrcal.projection_uncertainty()
+
+'''
+
+import sys
+import numpy as np
+import numpysane as nps
+import os
+
+testdir = os.path.dirname(os.path.realpath(__file__))
+
+# I import the LOCAL mrcal since that's what I'm testing
+sys.path[:0] = f"{testdir}/..",
+import mrcal
+import copy
+import testutils
+
+from test_calibration_helpers import sample_dqref
+
+# I want the RNG to be deterministic
+np.random.seed(0)
+
+############# Set up my world, and compute all the perfect positions, pixel
+############# observations of everything
+models_ref = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+               mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+               mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
+               mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
+
+imagersizes = nps.cat( *[m.imagersize() for m in models_ref] )
+lensmodel   = models_ref[0].intrinsics()[0]
+# I have opencv8 models_ref, but let me truncate to opencv4 models_ref to keep this
+# simple and fast
+lensmodel = 'LENSMODEL_OPENCV4'
+for m in models_ref:
+    m.intrinsics( intrinsics = (lensmodel, m.intrinsics()[1][:8]))
+Nintrinsics = mrcal.num_lens_params(lensmodel)
+
+Ncameras = len(models_ref)
+Ncameras_extrinsics = Ncameras - 1
+
+Nframes  = 50
+
+models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+models_ref[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
+models_ref[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
+models_ref[3].extrinsics_rt_fromref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
+
+pixel_uncertainty_stdev = 1.5
+object_spacing          = 0.1
+object_width_n          = 10
+object_height_n         = 9
+calobject_warp_ref      = np.array((0.002, -0.005))
+
+# shapes (Nframes, Ncameras, Nh, Nw, 2),
+#        (Nframes, 4,3)
+q_ref,Rt_cam0_board_ref = \
+    mrcal.make_synthetic_board_observations(models_ref,
+                                            object_width_n, object_height_n, object_spacing,
+                                            calobject_warp_ref,
+                                            np.array((-2,   0,  4.0,  0.,  0.,  0.)),
+                                            np.array((2.5, 2.5, 2.0, 40., 30., 30.)),
+                                            Nframes)
+
+############# I have perfect observations in q_ref. I corrupt them by noise
+# weight has shape (Nframes, Ncameras, Nh, Nw),
+weight01 = (np.random.rand(*q_ref.shape[:-1]) + 1.) / 2. # in [0,1]
+weight0 = 0.2
+weight1 = 1.0
+weight = weight0 + (weight1-weight0)*weight01
+
+# I want observations of shape (Nframes*Ncameras, Nh, Nw, 3) where each row is
+# (x,y,weight)
+observations_ref = nps.clump( nps.glue(q_ref,
+                                       nps.dummy(weight,-1),
+                                       axis=-1),
+                              n=2)
+
+# These are perfect
+intrinsics_ref = nps.cat( *[m.intrinsics()[1]         for m in models_ref] )
+extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref[1:]] )
+if extrinsics_ref.size == 0:
+    extrinsics_ref = np.zeros((0,6), dtype=float)
+frames_ref     = mrcal.rt_from_Rt(Rt_cam0_board_ref)
+
+
+# Dense observations. All the cameras see all the boards
+indices_frame_camera = np.zeros( (Nframes*Ncameras, 2), dtype=np.int32)
+indices_frame = indices_frame_camera[:,0].reshape(Nframes,Ncameras)
+indices_frame.setfield(nps.outer(np.arange(Nframes, dtype=np.int32),
+                                 np.ones((Ncameras,), dtype=np.int32)),
+                       dtype = np.int32)
+indices_camera = indices_frame_camera[:,1].reshape(Nframes,Ncameras)
+indices_camera.setfield(nps.outer(np.ones((Nframes,), dtype=np.int32),
+                                 np.arange(Ncameras, dtype=np.int32)),
+                       dtype = np.int32)
+
+indices_frame_camintrinsics_camextrinsics = \
+    nps.glue(indices_frame_camera,
+             indices_frame_camera[:,(1,)] - 1,
+             axis=-1)
+
+
+# Add a bit of noise to make my baseline not perfect
+_,observations_baseline = sample_dqref(observations_ref,
+                                       pixel_uncertainty_stdev)
+baseline = \
+    dict(intrinsics                                = intrinsics_ref,
+         extrinsics_rt_fromref                     = extrinsics_ref,
+         frames_rt_toref                           = frames_ref,
+         points                                    = None,
+         observations_board                        = observations_baseline,
+         indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+         observations_point                        = None,
+         indices_point_camintrinsics_camextrinsics = None,
+         lensmodel                                 = lensmodel,
+         do_optimize_calobject_warp                = True,
+         calobject_warp                            = calobject_warp_ref,
+         do_optimize_intrinsics_core               = True,
+         do_optimize_intrinsics_distortions        = True,
+         do_optimize_extrinsics                    = True,
+         imagersizes                               = imagersizes,
+         calibration_object_spacing                = object_spacing,
+         calibration_object_width_n                = object_width_n,
+         calibration_object_height_n               = object_height_n,
+         skip_regularization                       = False,
+         observed_pixel_uncertainty                = pixel_uncertainty_stdev,
+         verbose                                   = False )
+
+# p,J are packed
+mrcal.optimize(**baseline,
+               skip_outlier_rejection = True)
+
+
+# Done setting up. I'll be looking at tiny motions off the baseline
+Nframes     = len(frames_ref)
+Ncameras    = len(intrinsics_ref)
+lensmodel   = baseline['lensmodel']
+Nintrinsics = mrcal.num_lens_params(lensmodel)
+
+Nmeasurements_boards         = mrcal.num_measurements_boards(**baseline)
+Nmeasurements_regularization = mrcal.num_measurements_regularization(**baseline)
+pixel_uncertainty_stdev      = baseline['observed_pixel_uncertainty']
+
+p0,x0,J0 = mrcal.optimizer_callback(**baseline)[:3]
+J0 = J0.toarray()
+
+
+###########################################################################
+# First a very basic gradient check. Looking at an arbitrary camera's
+# intrinsics. The test-gradients tool does this much more thoroughly
+optimization_inputs = copy.deepcopy(baseline)
+delta       = np.random.randn(Nintrinsics*Ncameras) * 1e-3
+optimization_inputs['intrinsics'] += delta.reshape(Ncameras,Nintrinsics)
+p1,x1,J1 = mrcal.optimizer_callback(**optimization_inputs)[:3]
+dx_observed = x1 - x0
+
+J0_unpacked = J0.copy()
+mrcal.pack_state(J0_unpacked, **baseline)
+
+dx_predicted = nps.inner(J0_unpacked[:, :Nintrinsics*Ncameras], delta)
+testutils.confirm_equal( dx_predicted, dx_observed,
+                         eps = 1e-3,
+                         worstcase = True,
+                         relative = True,
+                         msg = "Trivial, sanity-checking gradient check")
+
+
+###########################################################################
+# We're supposed to be at the optimum. E = norm2(x) ~ norm2(x0 + J dp) =
+# norm2(x0) + 2 dpt Jt x0 + norm2(J dp). At the optimum Jt x0 = 0 -> E =
+# norm2(x0) + norm2(J dp). dE = norm2(J dp) = norm2(dx_predicted)
+x_predicted  = x0 + dx_predicted
+dE           = nps.norm2(x1) - nps.norm2(x0)
+dE_predicted = nps.norm2(dx_predicted)
+testutils.confirm_equal( dE_predicted, dE,
+                         eps = 1e-3,
+                         relative = True,
+                         msg = "diff(E) predicted")
+
+###########################################################################
+# I perturb my input observation vector qref by dqref. The effect on the
+# parameters should be dp = M dqref. Where M = inv(JtJ) Jobservationst W
+
+noise_for_gradients = 1e-3
+dqref,observations_perturbed = sample_dqref(baseline['observations_board'],
+                                            noise_for_gradients)
+optimization_inputs = copy.deepcopy(baseline)
+optimization_inputs['observations_board'] = observations_perturbed
+
+mrcal.optimize(**optimization_inputs, skip_outlier_rejection=True)
+p1,x1,J1 = mrcal.optimizer_callback(**optimization_inputs)[:3]
+J1 = J1.toarray()
+
+dp = p1-p0
+w = baseline['observations_board'][..., np.array((2,2))].ravel()
+M = np.linalg.solve( nps.matmult(nps.transpose(J0),J0),
+                     nps.transpose(J0[:Nmeasurements_boards, :]) ) * w
+dp_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
+
+slice_intrinsics = slice(0,
+                         mrcal.state_index_camera_rt(0, **baseline))
+slice_extrinsics = slice(mrcal.state_index_camera_rt(0, **baseline),
+                         mrcal.state_index_frame_rt (0, **baseline))
+slice_frames     = slice(mrcal.state_index_frame_rt (0, **baseline),
+                         mrcal.state_index_calobject_warp(**baseline),)
+
+# These thresholds look terrible. And they are. But I'm pretty sure this is
+# working properly. Look at the plots
+testutils.confirm_equal( dp_predicted[slice_intrinsics],
+                         dp          [slice_intrinsics],
+                         percentile = 80,
+                         eps        = 0.2,
+                         msg        = f"Predicted dp from dqref: intrinsics")
+testutils.confirm_equal( dp_predicted[slice_extrinsics],
+                         dp          [slice_extrinsics],
+                         relative   = True,
+                         percentile = 80,
+                         eps        = 0.2,
+                         msg        = f"Predicted dp from dqref: extrinsics")
+testutils.confirm_equal( dp_predicted[slice_frames],
+                         dp          [slice_frames],
+                         percentile = 80,
+                         eps        = 0.2,
+                         msg        = f"Predicted dp from dqref: frames")
+
+testutils.finish()
