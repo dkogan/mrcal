@@ -246,6 +246,10 @@ def _deserialize_optimization_inputs(data_bytes):
     renamed('do_optimize_intrinsic_distortions',
             'do_optimize_intrinsics_distortions',
             optimization_inputs)
+    if 'calibration_object_width_n'  in optimization_inputs:
+        del optimization_inputs['calibration_object_width_n' ]
+    if 'calibration_object_height_n' in optimization_inputs:
+        del optimization_inputs['calibration_object_height_n']
 
     return optimization_inputs
 

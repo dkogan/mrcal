@@ -140,8 +140,6 @@ for kwargs in all_test_kwargs:
                                    lensmodel,
                                    imagersizes                       = imagersizes,
                                    calibration_object_spacing        = 0.1,
-                                   calibration_object_width_n        = 10,
-                                   calibration_object_height_n       = 10,
                                    point_min_range                   = 1.0,
                                    point_max_range                   = 1000.0,
                                    verbose                           = False,

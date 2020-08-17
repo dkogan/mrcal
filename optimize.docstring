@@ -11,11 +11,9 @@ SYNOPSIS
                             lensmodel,
                             imagersizes                       = imagersizes,
                             observed_pixel_uncertainty        = observed_pixel_uncertainty,
-                            do_optimize_intrinsics_core        = True,
-                            do_optimize_intrinsics_distortions = True,
+                            do_optimize_intrinsics_core       = True,
+                            do_optimize_intrinsics_distortions= True,
                             calibration_object_spacing        = object_spacing,
-                            calibration_object_width_n        = 10,
-                            calibration_object_height_n       = 9,
                             point_min_range                   = 0.1,
                             point_max_range                   = 100.0,
                             skip_outlier_rejection            = False,
@@ -206,13 +204,10 @@ OPTIONAL ARGUMENTS
   is fx,fy,cx,cy. These all default to True so if we specify none of these, we
   will optimize ALL the variables.
 
-- calibration_object_spacing: the width of each square in a calibration
-  board. Can be omitted if we have no board observations, just points
-
-- calibration_object_width_n,calibration_object_height_n: the calibration board
-  dimensions. This specifies the point counts on each side. The
-  "calibration_object_spacing" argument specifies the dimensions of each square.
-  Can be omitted if we have no board observations, just points
+- calibration_object_spacing: the width of each square in a calibration board.
+  Can be omitted if we have no board observations, just points. The calibration
+  object has shape (calibration_object_height_n,calibration_object_width_n),
+  given by the dimensions of "observations_board"
 
 - verbose: if True, write out all sorts of diagnostic data to STDERR. Defaults
   to False

@@ -603,8 +603,8 @@ into a variable, even if you're not going to be doing anything with this object
                 optimization_inputs = m.optimization_inputs()
                 _frames_rt_toref = optimization_inputs['frames_rt_toref']
                 _object_spacing  = optimization_inputs['calibration_object_spacing']
-                _object_width_n  = optimization_inputs['calibration_object_width_n']
-                _object_height_n = optimization_inputs['calibration_object_height_n']
+                _object_width_n  = optimization_inputs['observations_board'].shape[-2]
+                _object_height_n = optimization_inputs['observations_board'].shape[-3]
                 _calobject_warp  = optimization_inputs['calobject_warp']
             except:
                 _frames_rt_toref = None
@@ -1860,8 +1860,11 @@ Returns a tuple:
     if optimization_inputs is None:
         return Exception("The given model doesn't contain optimization_inputs, so this function doesn't have any data to work with")
 
-    object_width_n      = optimization_inputs['calibration_object_width_n']
-    object_height_n     = optimization_inputs['calibration_object_height_n']
+    if optimization_inputs.get('observations_board') is None:
+        return Exception("No board observations available")
+
+    object_width_n      = optimization_inputs['observations_board'].shape[-2]
+    object_height_n     = optimization_inputs['observations_board'].shape[-3]
     object_spacing      = optimization_inputs['calibration_object_spacing']
     calobject_warp      = optimization_inputs['calobject_warp']
     # shape (Nh,Nw,3)

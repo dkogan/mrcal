@@ -1065,8 +1065,6 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_calobject_warp,         PyObject*,      Py_False,"O",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(calibration_object_width_n,         int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
-    _(calibration_object_height_n,        int,            -1,      "i",  ,                                  NULL,           -1,         {})  \
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
@@ -1127,33 +1125,12 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    // calibration_object_spacing and calibration_object_width_n and
-    // calibration_object_height_n must be > 0 OR we have to not be using a
+    // calibration_object_spacing must be > 0 OR we have to not be using a
     // calibration board
-    if( Nobservations_board > 0 )
+    if( Nobservations_board > 0 && calibration_object_spacing <= 0.0 )
     {
-        if( calibration_object_spacing <= 0.0 )
-        {
-            BARF("We have board observations, so calibration_object_spacing MUST be a valid float > 0");
-            return false;
-        }
-
-        if( calibration_object_width_n <= 0 || calibration_object_height_n <= 0)
-        {
-            BARF("We have board observations, so calibration_object_width_n and calibration_object_height_n MUST both be a valid int > 0");
-            return false;
-        }
-
-        if( calibration_object_height_n != PyArray_DIMS(observations_board)[1] ||
-            calibration_object_width_n  != PyArray_DIMS(observations_board)[2] )
-        {
-            BARF("observations_board.shape MUST be (...,%d,%d,3). Instead got (%ld,%ld,%ld)",
-                         calibration_object_height_n, calibration_object_width_n,
-                         PyArray_DIMS(observations_board)[1],
-                         PyArray_DIMS(observations_board)[2],
-                         PyArray_DIMS(observations_board)[3]);
-            return false;
-        }
+        BARF("We have board observations, so calibration_object_spacing MUST be a valid float > 0");
+        return false;
     }
 
     int Nobservations_point = PyArray_DIMS(observations_point)[0];
@@ -1350,6 +1327,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     // define a superset of the variables: the ones used in optimize()
     OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
 
+    int calibration_object_height_n = -1;
+    int calibration_object_width_n  = -1;
+
     if( is_optimize )
     {
         char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
@@ -1417,8 +1397,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 #undef SET_NULL_IF_NONE
 
 
-
-
     mrcal_lensmodel_t mrcal_lensmodel_type;
     // Check the arguments for optimize(). If optimizer_callback, then the other
     // stuff is defined, but it all has valid, default values
@@ -1429,14 +1407,20 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         goto done;
 
     {
-        int Ncameras_intrinsics= PyArray_DIMS(intrinsics)[0];
-        int Ncameras_extrinsics= PyArray_DIMS(extrinsics_rt_fromref)[0];
-        int Nframes            = PyArray_DIMS(frames_rt_toref)[0];
-        int Npoints            = PyArray_DIMS(points)[0];
+        int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
+        int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
+        int Nframes             = PyArray_DIMS(frames_rt_toref)[0];
+        int Npoints             = PyArray_DIMS(points)[0];
         int Nobservations_board = PyArray_DIMS(observations_board)[0];
 
+        if( Nobservations_board > 0 )
+        {
+            calibration_object_height_n = PyArray_DIMS(observations_board)[1];
+            calibration_object_width_n  = PyArray_DIMS(observations_board)[2];
+        }
+
         // The checks in optimize_validate_args() make sure these casts are kosher
-        double*       c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
+        double*             c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
         mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
         mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(frames_rt_toref);
         mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
@@ -1757,8 +1741,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     int Ncameras_extrinsics = -1;
     int Nframes             = -1;
     int Npoints             = -1;
-    int Nobservations_board  = -1;
-    int Nobservations_point  = -1;
+    int Nobservations_board = -1;
+    int Nobservations_point = -1;
 
     char* keywords[] = { (char*)argname,
                          OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
@@ -1824,8 +1808,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     }
 
     const mrcal_problem_details_t problem_details =
-        { .do_optimize_intrinsics_core        = PyObject_IsTrue(do_optimize_intrinsics_core),
-          .do_optimize_intrinsics_distortions = PyObject_IsTrue(do_optimize_intrinsics_distortions),
+        { .do_optimize_intrinsics_core       = PyObject_IsTrue(do_optimize_intrinsics_core),
+          .do_optimize_intrinsics_distortions= PyObject_IsTrue(do_optimize_intrinsics_distortions),
           .do_optimize_extrinsics            = PyObject_IsTrue(do_optimize_extrinsics),
           .do_optimize_frames                = PyObject_IsTrue(do_optimize_frames),
           .do_optimize_calobject_warp        = PyObject_IsTrue(do_optimize_calobject_warp),
@@ -1858,6 +1842,15 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
     if(Nobservations_board < 0) Nobservations_board = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
     if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
+
+    int calibration_object_height_n = -1;
+    int calibration_object_width_n  = -1;
+    if( Nobservations_board > 0 )
+    {
+        calibration_object_height_n = PyArray_DIMS(observations_board)[1];
+        calibration_object_width_n  = PyArray_DIMS(observations_board)[2];
+    }
+
 
     int index = cb(i,
                    Ncameras_intrinsics,
