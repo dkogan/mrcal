@@ -392,19 +392,23 @@ class cameramodel(object):
             else:
                 raise CameramodelParseException("Failed to parse cameramodel '{}'\n".format(name))
 
-        # for compatibility
-        if 'distortion_model' in model and \
-           not 'lensmodel'    in model:
-            model['lensmodel'] = model['distortion_model'].replace('DISTORTION', 'LENSMODEL')
-            del model['distortion_model']
-        if 'lens_model' in model and \
-           not 'lensmodel'    in model:
-            model['lensmodel'] = model['lens_model']
-            del model['lens_model']
-        if 'icam_intrinsics_optimization_inputs' in model and \
-           not 'icam_intrinsics' in model:
-            model['icam_intrinsics'] = model['icam_intrinsics_optimization_inputs']
-            del model['icam_intrinsics_optimization_inputs']
+        # for legacy compatibility
+        def renamed(s0, s1, d):
+            if s0 in d and not s1 in d:
+                d[s1] = d[s0]
+                del d[s0]
+        renamed('distortion_model',
+                'lensmodel',
+                model)
+        renamed('lens_model',
+                'lensmodel',
+                model)
+        renamed('icam_intrinsics_optimization_inputs',
+                'icam_intrinsics',
+                model)
+        model['lensmodel'] = model['lensmodel'].replace('DISTORTION', 'LENSMODEL')
+
+
 
         keys_required = set(('lensmodel',
                              'intrinsics',
