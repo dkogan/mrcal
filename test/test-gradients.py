@@ -192,7 +192,11 @@ for test in tests:
     varmap  = get_variable_map(full)
     measmap = get_measurement_map(full)
 
-    cut = subprocess.check_output( ("vnl-filter", "--perl", "-p", f"error_relative,type={varmap},meastype={measmap}"),
+    cut = subprocess.check_output( ("vnl-filter",
+                                    "gradient_reported || gradient_observed",
+                                    "--perl",
+                                    "-p",
+                                    f"error_relative,type={varmap},meastype={measmap}"),
                                    input=full,
                                    encoding='ascii')
     with StringIO(cut) as f:
