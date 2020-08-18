@@ -2056,7 +2056,7 @@ into a variable, even if you're not going to be doing anything with this object
                           'view map',
                           'contour surface',
                           'key box opaque',
-                          f'cntrparam levels incremental {cbmax},-0.5,0'])
+                          f'cntrparam levels incremental {cbmax},-0.2,0'])
 
     plot_data_args = [(err,
                        dict( tuplesize=3,
