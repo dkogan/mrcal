@@ -96,10 +96,19 @@ def parse_args():
                         nargs = 2,
                         help='''How densely we should sample the imager. By default we use a 60x40 grid''')
     parser.add_argument('--distance',
-                        type=float,
+                        type=str,
                         help='''By default we display the projection diff for points infinitely far away from
                         the camera. If we want to look closer in, the desired
-                        observation distance can be given in this argument''')
+                        observation distance can be given in this argument. We
+                        can also fit multiple distances at the same time by
+                        passing them here in a comma-separated, whitespace-less
+                        list. If multiple distances are given, we fit the
+                        compensating transformation using ALL the distances, but
+                        we display the best-fitting difference for each point.
+                        Only one distance is supported if --vectorfield.
+                        Multiple distances are especially useful if we have
+                        uncertainties: the most confident distance will be
+                        found, and displayed.''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
@@ -184,7 +193,16 @@ args = parse_args()
 if args.vectorscale != 1.0 and not args.vectorfield:
     raise Exception("--vectorscale only makes sense with --vectorfield")
 
+if args.distance is None:
+    distance = None
+else:
+    try:
+        distance = [float(d) for d in args.distance.split(',')]
+    except:
+        raise Exception("--distances must be given a comma-separated list of distances")
 
+    if len(distance) > 1 and args.vectorfield:
+        raise Exception("--distance can support at most one value if --vectorfield. Not clear how to plot otherwise")
 
 
 
@@ -200,7 +218,7 @@ models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 plot = mrcal.show_projection_diff(models,
                                   args.gridn[0], args.gridn[1],
                                   observations      = args.observations,
-                                  distance          = args.distance,
+                                  distance          = distance,
                                   use_uncertainties = not args.no_uncertainties,
                                   focus_center      = args.where,
                                   focus_radius      = args.radius,

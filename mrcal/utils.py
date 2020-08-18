@@ -3239,17 +3239,21 @@ ARGUMENTS
 - q0: an array of shape (Nh,Nw,2). Gridded pixel coordinates covering the imager
   of both cameras
 
-- v0: an array of shape (Nh,Nw,3). An unprojection of q0 from camera 0. If
+- v0: an array of shape (...,Nh,Nw,3). An unprojection of q0 from camera 0. If
   atinfinity, this should contain unit vectors, else it should contain points in
-  space at the desired distance from the camera
+  space at the desired distance from the camera. This array may have leading
+  dimensions that are all used in the fit. These leading dimensions correspond
+  to those in the "weights" array
 
 - v1: an array of shape (Nh,Nw,3). An unprojection of q0 from camera 1. This
   should always contain unit vectors, regardless of the value of atinfinity
 
-- weights: optional array of shape (Nh,Nw); None by default. If given, these are
-  used to weigh each fitted point differently. Usually we use the projection
+- weights: optional array of shape (...,Nh,Nw); None by default. If given, these
+  are used to weigh each fitted point differently. Usually we use the projection
   uncertainties to apply a stronger weight to more confident points. If omitted
-  or None, we weigh each point equally
+  or None, we weigh each point equally. This array may have leading dimensions
+  that are all used in the fit. These leading dimensions correspond to those in
+  the "v0" array
 
 - atinfinity: optional boolean; True by default. If True, we're looking out to
   infinity, and I compute a rotation-only fit; a full Rt transformation is still
@@ -3284,10 +3288,20 @@ report a full Rt transformation with the t component set to 0
     import scipy.optimize
 
     if weights is None:
-        weights = np.ones(q0.shape[:-1], dtype=float)
+        weights = np.ones(v0.shape[:-1], dtype=float)
+    else:
+        # Any inf/nan weight or vector are set to 0
+        weights = weights.copy()
+        weights[ ~np.isfinite(weights) ] = 0.0
 
-    # Any inf/nan weight or vector are set to 0
-    weights[ ~np.isfinite(weights) ] = 0.0
+    v0 = v0.copy()
+    v1 = v1.copy()
+
+    # v0 had shape (..., Nh,Nw,3). Collapse all the leading dimensions into one
+    # And do the same for weights
+    v0      = nps.clump(v0,      n = len(v0.shape)     -3)
+    weights = nps.clump(weights, n = len(weights.shape)-2)
+
     i_nan_v0 = ~np.isfinite(v0)
     i_nan_v1 = ~np.isfinite(v1)
     v0[i_nan_v0] = 0.
@@ -3295,9 +3309,9 @@ report a full Rt transformation with the t component set to 0
     weights[i_nan_v0[...,1]] = 0.0
     weights[i_nan_v0[...,2]] = 0.0
     v1[i_nan_v1] = 0.
-    weights[i_nan_v1[...,0]] = 0.0
-    weights[i_nan_v1[...,1]] = 0.0
-    weights[i_nan_v1[...,2]] = 0.0
+    weights[..., i_nan_v1[...,0]] = 0.0
+    weights[..., i_nan_v1[...,1]] = 0.0
+    weights[..., i_nan_v1[...,2]] = 0.0
 
     # We try to match the geometry in a particular region
     q_off_center = q0 - focus_center
@@ -3305,9 +3319,9 @@ report a full Rt transformation with the t component set to 0
     if np.count_nonzero(i)<3:
         raise Exception("Focus region contained too few points")
 
-    v0_cut = v0     [i, ...]
-    v1_cut = v1     [i, ...]
-    wcut   = weights[i, ...]
+    v0_cut = v0     [...,i, :]
+    v1_cut = v1     [    i, :]
+    wcut   = weights[...,i   ]
 
     if not atinfinity:
         p0     = v0
@@ -3315,41 +3329,41 @@ report a full Rt transformation with the t component set to 0
 
     def residual_jacobian_rt(rt):
 
-        # rtp0 has shape (N,3)
+        # rtp0 has shape (...,N,3)
         rtp0, drtp0_dr, drtp0_dt, _ = \
             mrcal.transform_point_rt(rt, p0_cut,
                                      get_gradients = True)
 
-        # shape (N,3,6)
+        # shape (...,N,3,6)
         drtp0_drt = nps.glue( drtp0_dr, drtp0_dt, axis=-1)
 
         # inner(a,b) ~ cos(x) ~ 1 - x^2/2
-        # Each of these has shape (N)
+        # Each of these has shape (...,N)
         mag_rtp0 = nps.mag(rtp0)
         inner    = nps.inner(rtp0, v1_cut)
         th2      = 2.* (1.0 - inner / mag_rtp0)
         x        = th2 * wcut
 
-        # shape (N,6)
-        dmag_rtp0_drt = nps.matmult( nps.dummy(rtp0, -2),   # shape (N,1,3)
-                                     drtp0_drt              # shape (N,3,6)
-                                     # matmult has shape (N,1,6)
-                                   )[:,0,:] / \
-                                   nps.dummy(mag_rtp0, -1)  # shape (N,1)
-        # shape (N,6)
-        dinner_drt    = nps.matmult( nps.dummy(v1_cut, -2), # shape (N,1,3)
-                                     drtp0_drt              # shape (N,3,6)
-                                     # matmult has shape (N,1,6)
-                                   )[:,0,:]
+        # shape (...,N,6)
+        dmag_rtp0_drt = nps.matmult( nps.dummy(rtp0, -2),   # shape (...,N,1,3)
+                                     drtp0_drt              # shape (...,N,3,6)
+                                     # matmult has shape (...,N,1,6)
+                                   )[...,0,:] / \
+                                   nps.dummy(mag_rtp0, -1)  # shape (...,N,1)
+        # shape (..., N,6)
+        dinner_drt    = nps.matmult( nps.dummy(v1_cut, -2), # shape (    N,1,3)
+                                     drtp0_drt              # shape (...,N,3,6)
+                                     # matmult has shape (...,N,1,6)
+                                   )[...,0,:]
 
         # dth2 = 2 (inner dmag_rtp0 - dinner mag_rtp0)/ mag_rtp0^2
-        # shape (N,6)
+        # shape (...,N,6)
         J = 2. * \
             (nps.dummy(inner,    -1) * dmag_rtp0_drt - \
              nps.dummy(mag_rtp0, -1) * dinner_drt) / \
              nps.dummy(mag_rtp0*mag_rtp0, -1) * \
              nps.dummy(wcut,-1)
-        return x, J
+        return x.ravel(), nps.clump(J, n=len(J.shape)-1)
 
 
     def residual_jacobian_r(r):
@@ -3569,8 +3583,11 @@ If the models differed only in their intrinsics parameters, then this would not
 happen. Thus we need to know how far from the camera to look, and this is
 specified by the "distance" argument. By default (distance = None) we look out
 to infinity. If we care about the projection difference at some other distance,
-pass that here. Generally the most confident distance will be where the
-chessboards were observed at calibration time.
+pass that here. Multiple distances can be passed in an iterable. We'll then fit
+the compensating transformation off all the distances, and we'll display the
+best-fitting difference for each pixel. Multiple distances aren't supported if
+vectorfield (not clear how to plot, otherwise). Generally the most confident
+distance will be where the chessboards were observed at calibration time.
 
 ARGUMENTS
 
@@ -3592,7 +3609,9 @@ ARGUMENTS
 - distance: optional value, defaulting to None. The projection difference varies
   depending on the range to the observed world points, with the queried range
   set in this 'distance' argument. If None (the default) we look out to
-  infinity.
+  infinity. We can compute the compensating transformation off multiple
+  distances if they're given here as an iterable. This is especially useful if
+  we have uncertainties, since then we'll emphasize the best-fitting distances.
 
 - use_uncertainties: optional boolean, defaulting to True. If True we use the
   whole imager to fit the compensating transformation, using the uncertainties
@@ -3642,11 +3661,24 @@ The gnuplotlib plot object. The plot disappears when this object is destroyed
 into a variable, even if you're not going to be doing anything with this object
 
     '''
-    if len(models) > 2 and vectorfield:
-        raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
-                        format(len(models)))
 
     import gnuplotlib as gp
+
+    if distance is None:
+        atinfinity = True
+        distance   = 1.0
+    else:
+        atinfinity = False
+        distance   = nps.atleast_dims(np.array(distance), -1)
+        distance   = nps.mv(distance.ravel(), -1,-4)
+
+    if vectorfield:
+        if len(models) > 2:
+            raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
+                            format(len(models)))
+        if len(distance) > 1:
+            raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
+
 
     imagersizes = np.array([model.imagersize() for model in models])
     if np.linalg.norm(np.std(imagersizes, axis=-2)) != 0:
@@ -3657,24 +3689,19 @@ into a variable, even if you're not going to be doing anything with this object
     lensmodels      = [model.intrinsics()[0] for model in models]
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
-    # v  shape (...,Ncameras,Nheight,Nwidth,...)
-    # q0 shape (...,         Nheight,Nwidth,...)
+    # v  shape (Ncameras,Nheight,Nwidth,3)
+    # q0 shape (         Nheight,Nwidth,2)
     v,q0 = sample_imager_unproject(gridn_width, gridn_height,
                                    W, H,
                                    lensmodels, intrinsics_data,
                                    normalize = True)
-
-    if distance is None:
-        atinfinity = True
-        distance   = 1.0
-    else:
-        atinfinity = False
 
     if focus_radius == 0:
         use_uncertainties = False
 
     if use_uncertainties:
         try:
+            # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
             uncertainties = \
                 [ mrcal.projection_uncertainty(v[i] * distance,
                                                models[i],
@@ -3703,6 +3730,7 @@ into a variable, even if you're not going to be doing anything with this object
         if focus_radius == 0:
             Rt_compensating10 = mrcal.identity_Rt()
         else:
+            # weights has shape (len(distance),Nh,Nw))
             if uncertainties is not None:
                 weights = 1.0 / (uncertainties[0]*uncertainties[1])
             else:
@@ -3717,13 +3745,16 @@ into a variable, even if you're not going to be doing anything with this object
                                           weights,
                                           atinfinity,
                                           focus_center, focus_radius)
+
         q1 = mrcal.project( mrcal.transform_point_Rt(Rt_compensating10,
                                                      v[0,...] * distance),
                            lensmodels[1], intrinsics_data[1])
+        # shape (len(distance),Nheight,Nwidth,2)
+        q1 = nps.atleast_dims(q1, -4)
 
         diff    = q1 - q0
         difflen = nps.mag(diff)
-
+        difflen = np.min( difflen, axis=-3)
     else:
 
         # Many models. Look at the stdev
@@ -3746,17 +3777,22 @@ into a variable, even if you're not going to be doing anything with this object
                     compute_compensating_Rt10(q0, v0*distance, v1,
                                               weights, atinfinity,
                                               focus_center, focus_radius)
-            return mrcal.project(mrcal.transform_point_Rt(Rt_compensating10,
-                                                          v0*distance),
-                                 lensmodel, intrinsics_data)
+            q1 = mrcal.project(mrcal.transform_point_Rt(Rt_compensating10,
+                                                        v0*distance),
+                               lensmodel, intrinsics_data)
+            # returning shape (len(distance),Nheight,Nwidth,2)
+            return nps.atleast_dims(q1, -4)
 
+        # shape (Ncameras-1,len(distance),Nheight,Nwidth,2)
         grids = nps.cat(*[get_reprojections(q0,
                                             0, i,
                                             focus_center, focus_radius,
                                             lensmodels[i], intrinsics_data[i]) \
                           for i in range(1,len(v))])
 
-        difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
+        difflen = np.sqrt(np.mean( np.min(nps.norm2(grids-q0),
+                                          axis=-3),
+                                   axis=0))
 
 
     if 'title' not in kwargs:
