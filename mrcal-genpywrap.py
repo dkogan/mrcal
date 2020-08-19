@@ -407,8 +407,10 @@ scipy.sparse.csr_matrix respectively.
                  const double*  Jx = (const double* )data_slice__Jx;
                  double* out       = (      double* )data_slice__output;
 
-                 // zero out the accumulator
-                 memset(((double*)data_slice__output), 0, 2*2*sizeof(double));
+                 out[0] = 0.0;
+                 out[1] = 0.0;
+                 out[2] = 0.0;
+                 out[3] = 0.0;
 
                  for(int irow=0; irow<*Nleading_rows_J; irow++)
                  {
