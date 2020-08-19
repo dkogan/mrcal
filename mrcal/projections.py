@@ -711,34 +711,114 @@ def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
         cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
 
 
-def calobservations_project(lensmodel, intrinsics, extrinsics, frames,
-                            object_spacing,
-                            object_width_n, object_height_n,
-                            calobject_warp):
-    r'''Takes in the same arguments as mrcal.optimize(), and returns all
-    the projections. Output has shape (Nframes,Ncameras,object_height_n,object_width_n,2)
+def project_boards(lensmodel, intrinsics,
+                   extrinsics_rt_fromref,
+                   frames_rt_toref,
+                   calibration_object_spacing,
+                   calibration_object_width_n  = None,
+                   calibration_object_height_n = None,
+                   observations_board          = None,
+                   calobject_warp              = None,
+                   **kwargs):
+
+    r'''Project all calibration-time observations of the calibration object
+
+SYNOPSIS
+
+    model = mrcal.cameramodel("xxx.cameramodel")
+
+    q = mrcal.project_boards( **model.optimization_inputs() )
+
+    # q is an array of pixel coordinates of all the chessboard corners over all
+    # the cameras and all the instances in time
+
+A camera calibration based on observations of a known object consists of
+minimizing the difference between observed pixels and the projections of the
+object using a hypothetical set of parameters. These hypothetical projections
+can be obtained by calling this function, usually as part of an evaluation of
+calibration results.
+
+An actual calibration problem usually has sparse observations: some cameras will
+observe the calibration object sometimes, but not all cameras will observe it
+all the time. This hypothetical projection function isn't constrained by
+reality, however, so it reports dense results: it says where each camera would
+have seen the object at every point in time.
+
+The arguments to this function are a subset of the arguments to
+mrcal.optimize(), so we can pass in **optimization_inputs. The actual arguments
+we use are listed below. Normally the dimensions of the calibration object are
+inferred from the shape of the 'observations_board' array. Since this function
+doesn't need that data, we can pass those dimensions in explicitly, in the
+calibration_object_width_n, calibration_object_height_n arguments. Either those
+arguments OR observations_board must be given.
+
+ARGUMENTS
+
+- lensmodel: the lens model we're using. This is a string "LENSMODEL_..."
+
+- intrinsics: a numpy array of shape (Ncameras_intrinsics,Nintrinsics)
+  describing the lens parameters
+
+- extrinsics_rt_fromref: a numpy array of shape (Ncameras_extrinsics,6)
+  describing the relative camera geometry
+
+- frames_rt_toref: a numpy array of shape (Nframes,6) describing the pose of the
+  calibration object at each instance in time
+
+- calibration_object_spacing: the distance between adjacent corners in the
+  calibration object
+
+- calibration_object_width_n: optional integer describing the horizontal corner
+  count in the calibration object. If omitted, we get this from the shape of
+  'observations_board'
+
+- calibration_object_height_n: optional integer describing the vertical corner
+  count in the calibration object. If omitted, we get this from the shape of
+  'observations_board'
+
+- observations_board: optional numpy array used to provide the shape of the
+  calibration object if calibration_object_width_n and/or
+  calibration_object_height_n are not given
+
+- calobject_warp: optional numpy array of shape (2,) used to describe the
+  warping of the calibration object. If omitted, we assume a flat object
+
+RETURNED VALUE
+
+We return a dense numpy array of pixel observations of shape
+(Nframes,Ncameras,Nheight,Nwidth,2)
 
     '''
 
-    object_ref = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing, calobject_warp)
-    Rf = mrcal.R_from_r(frames[:,:3])
-    Rf = nps.mv(Rf,           0, -5)
-    tf = nps.mv(frames[:,3:], 0, -5)
+    if calibration_object_height_n is None: calibration_object_height_n = observations_board.shape[-3]
+    if calibration_object_width_n  is None: calibration_object_width_n  = observations_board.shape[-2]
 
-    # object in the cam0 coord system. shape=(Nframes, 1, object_height_n, object_width_n, 3)
+
+    object_ref = mrcal.ref_calibration_object(calibration_object_width_n,
+                                              calibration_object_height_n,
+                                              calibration_object_spacing,
+                                              calobject_warp)
+    Rf = mrcal.R_from_r(frames_rt_toref[:,:3])
+    Rf = nps.mv(Rf,           0, -5)
+    tf = nps.mv(frames_rt_toref[:,3:], 0, -5)
+
+    # object in the cam0 coord system. shape=(Nframes, 1, calibration_object_height_n, calibration_object_width_n, 3)
     object_cam0 = nps.matmult( object_ref, nps.transpose(Rf)) + tf
 
-    Rc = mrcal.R_from_r(extrinsics[:,:3])
+    Rc = mrcal.R_from_r(extrinsics_rt_fromref[:,:3])
     Rc = nps.mv(Rc,               0, -4)
-    tc = nps.mv(extrinsics[:,3:], 0, -4)
+    tc = nps.mv(extrinsics_rt_fromref[:,3:], 0, -4)
 
-    # object in the OTHER camera coord systems. shape=(Nframes, Ncameras-1, object_height_n, object_width_n, 3)
+    # object in the OTHER camera coord systems.
+    # shape=(Nframes, Ncameras-1, calibration_object_height_n, calibration_object_width_n, 3)
     object_cam_others = nps.matmult( object_cam0, nps.transpose(Rc)) + tc
 
-    # object in the ALL camera coord systems. shape=(Nframes, Ncameras, object_height_n, object_width_n, 3)
+    # object in the ALL camera coord systems.
+    # shape=(Nframes, Ncameras, calibration_object_height_n, calibration_object_width_n, 3)
     object_cam = nps.glue(object_cam0, object_cam_others, axis=-4)
 
-    # projected points. shape=(Nframes, Ncameras, object_height_n, object_width_n, 2)
+    # projected points.
+    # shape=(Nframes, Ncameras, calibration_object_height_n, calibration_object_width_n, 2)
 
     # loop over Ncameras. project() will broadcast over the points
     intrinsics = nps.atleast_dims(intrinsics, -2)
@@ -748,6 +828,7 @@ def calobservations_project(lensmodel, intrinsics, extrinsics, frames,
                                             intrinsics[i_camera,:] ) for \
                              i_camera in range(Ncameras)]),
                    0,-4)
+
 
 def calobservations_compute_reproj_error(projected, observations, indices_frame_camera,
                                          object_width_n, object_height_n):

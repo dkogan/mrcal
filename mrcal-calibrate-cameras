@@ -813,8 +813,6 @@ stats = mrcal.optimize(skip_outlier_rejection = False,
                        **optimize_kwargs)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
-intrinsics = (args.lensmodel, intrinsics_data)
-
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
 
 Npoints_chessboard = args.object_width_n*args.object_height_n*Nobservations
@@ -835,13 +833,10 @@ if calobject_warp is not None:
 
 print(report)
 
+models = make_cameramodels(optimize_kwargs)
+
 # shape (Nframes,Ncameras,Nheight,Nwidth,2)
-projected = \
-    mrcal.calobservations_project(intrinsics[0], intrinsics[1],
-                                  extrinsics_rt_fromref, frames_rt_toref,
-                                  args.object_spacing,
-                                  args.object_width_n, args.object_height_n,
-                                  calobject_warp)
+projected = mrcal.project_boards(**optimize_kwargs)
 
 # Each has shape (Nobservations,Nheight,Nwidth,2)
 reproj_err_including_outliers, reproj_err_0_for_outliers = \
@@ -919,7 +914,6 @@ def get_valid_intrinsics_region(model, i_camera,
 
 
 # Write the output models
-models = make_cameramodels(optimize_kwargs)
 for i in range(Ncameras):
     models[i].valid_intrinsics_region(get_valid_intrinsics_region(models[i], i))
 
@@ -1050,7 +1044,7 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     plotkwargs = \
         dict(square=1,cbmin=0,
              title='{}: i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={:.2f}, measurement_RMS_ignoring_outliers={:.2f}'. \
-               format( intrinsics[0],
+               format( args.lensmodel,
                        i_observation, i_frame, i_camera,
                        paths[i_observation],
                        rms_reproj_err_including_outliers_perobservation[i_observation],
@@ -1511,11 +1505,11 @@ plots_projection_uncertainty = [None] * Ncameras
 def show_projection_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     global plots_projection_uncertainty
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
     for i_camera in i_camera_all:
         plots_projection_uncertainty[i_camera] = \
             mrcal.show_projection_uncertainty(models[i_camera],
-                                              extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
+                                              extratitle = "Camera {} with {}".format(i_camera, args.lensmodel),
                                               gridn_width  = gridn_width,
                                               gridn_height = gridn_height,
                                               **kwargs)
@@ -1523,18 +1517,18 @@ plots_projection_uncertainty_xydist = [None] * Ncameras
 def show_projection_uncertainty_xydist(i_camera = None, gridn_width = 15, gridn_height = 10, **kwargs):
 
     global plots_projection_uncertainty_xydist
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
     for i_camera in i_camera_all:
         plots_projection_uncertainty_xydist[i_camera] = \
             mrcal.show_projection_uncertainty_xydist(models[i_camera],
-                                                     extratitle = "Camera {} with {}".format(i_camera, intrinsics[0]),
+                                                     extratitle = "Camera {} with {}".format(i_camera, args.lensmodel),
                                                      gridn_width  = gridn_width,
                                                      gridn_height = gridn_height,
                                                      **kwargs)
 plots_valid_intrinsics_region = [None] * Ncameras
 def show_valid_intrinsics_region(i_camera = None, **kwargs):
     global plots_valid_intrinsics_region
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
     for i_camera in i_camera_all:
         plots_valid_intrinsics_region[i_camera] = \
             mrcal.show_valid_intrinsics_region(models[i_camera],
@@ -1545,7 +1539,7 @@ plots_projections = [None] * Ncameras
 def show_projection_behavior(mode, i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     global plots_projections
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
     for i_camera in i_camera_all:
         plots_projections[i_camera] = \
             mrcal.show_projection_behavior(models[i_camera],
@@ -1559,7 +1553,7 @@ plots_splined_model_surface = [None] * Ncameras
 def show_splined_model_surface(i_camera = None, i_xy=0, **kwargs):
 
     global plots_splined_model_surface
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics[1]))
+    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
     for i_camera in i_camera_all:
         plots_splined_model_surface[i_camera] = \
             mrcal.show_splined_model_surface(models[i_camera], i_xy,
