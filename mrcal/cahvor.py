@@ -9,8 +9,12 @@ import numpysane as nps
 
 import mrcal
 
-r'''A wrapper around mrcal.cameramodel to interface with JPL's CAHVOR files and
-transforms.txt files
+r'''Read/write legacy .cahvor camera models
+
+This is a interface to be able to work with camera models stored in the .cahvor
+file format. This supports a subset of .cameramodel files. Unless you're
+interfacing with tools that expect .cahvor files, there's little reason to touch
+this module.
 
 The O in CAHVOR is an optical axis: 3 numbers representing a 2DOF quantity. I
 store this as an unconstrainted 2-vector (alpha, beta)
