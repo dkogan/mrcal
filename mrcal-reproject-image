@@ -304,13 +304,29 @@ if (args.plane_n is     None and args.plane_d is not None) or \
     print("--plane-n and --plane-d should both be given or neither should be", file=sys.stderr)
     sys.exit(1)
 
-
-
-
-
-
 import numpy as np
 import numpysane as nps
+
+if args.fit is not None:
+    if re.match(r"^[0-9\.e-]+(,[0-9\.e-]+)*$", args.fit):
+        xy = np.array([int(x) for x in args.fit.split(',')], dtype=float)
+        Nxy = len(xy)
+        if Nxy % 2 or Nxy < 4:
+            print(f"If passing pixel coordinates to --fit, I need at least 2 x,y pairs. Instead got {Nxy} values",
+                  file=sys.stderr)
+            sys.exit(1)
+        args.fit = xy.reshape(Nxy//2, 2)
+    elif re.match("^(corners|centers-horizontal|centers-vertical)$", args.fit):
+        # this is valid. nothing to do
+        pass
+    else:
+        print("--fit must be a comma-separated list of numbers or one of ('corners','centers-horizontal','centers-vertical')",
+              file=sys.stderr)
+        sys.exit(1)
+
+
+
+
 import cv2
 import glob
 import multiprocessing
@@ -337,7 +353,9 @@ else:
             print("--to-pinhole with only the FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
             sys.exit(1)
 
-        model_to = mrcal.make_target_pinhole_model_for_reprojection(model_from, args.fit, args.scale_focal, args.scale_image)
+        model_to = mrcal.pinhole_model_for_reprojection(model_from, args.fit,
+                                                        args.scale_focal,
+                                                        args.scale_image)
 
         print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                                      ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
@@ -350,7 +368,9 @@ else:
             sys.exit(1)
 
         model_to     = mrcal.cameramodel(getattr(args, 'model-to'))
-        model_target = mrcal.make_target_pinhole_model_for_reprojection(model_to, args.fit, args.scale_focal, args.scale_image)
+        model_target = mrcal.pinhole_model_for_reprojection(model_to, args.fit,
+                                                            args.scale_focal,
+                                                            args.scale_image)
         print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                                      ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
         print("# Generated pinhole model:")
@@ -412,7 +432,7 @@ def process(model_from, model_to, image_globs, suffix,
     filenames_inout = zip(filenames_in, filenames_out)
 
     global mapxy
-    mapxy = mrcal.reproject_image__compute_map(model_from, model_to,
+    mapxy = mrcal.compute_map_for_reprojection(model_from, model_to,
                                                use_rotation    = use_rotation,
                                                plane_n         = plane_n,
                                                plane_d         = plane_d)
