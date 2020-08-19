@@ -199,11 +199,11 @@ testutils.confirm_equal( np.std(x),
                          msg = "Residual have the expected distribution" )
 
 # Checking the extrinsics. These aren't defined absolutely: each solve is free
-# to put the observed frames anywhere it likes. The intrinsics-diff code
-# computes a compensating rotation to address this. Here I simply look at the
-# relative transformations between cameras, which would cancel out any extra
-# rotations. AND since camera0 is fixed at the identity transformation, I can
-# simply look at each extrinsics transformation.
+# to put the observed frames anywhere it likes. The projection-diff code
+# computes a transformation to address this. Here I simply look at the relative
+# transformations between cameras, which would cancel out any extra
+# transformations, AND since camera0 is fixed at the identity transformation, I
+# can simply look at each extrinsics transformation.
 for icam in range(1,len(models_ref)):
 
     Rt_extrinsics_err = \
@@ -234,12 +234,12 @@ testutils.confirm_equal( np.min( (nps.trace(Rt_frame_err[..., :3,:]) - 1)/2. ),
                          msg = "Recovered frame rotation")
 
 
-# Checking the intrinsics. Each intrinsics vector encodes an implicit rotation.
-# I compute and compensate for this rotation when making my intrinsics
-# comparisons. I make sure that within some distance of the pixel center, the
-# projections match up to within some number of pixels
+# Checking the intrinsics. Each intrinsics vector encodes an implicit
+# transformation. I compute and apply this transformation when making my
+# intrinsics comparisons. I make sure that within some distance of the pixel
+# center, the projections match up to within some number of pixels
 Nw = 60
-def projection_diff(models_ref, max_dist_from_center, fit_Rcompensating = True):
+def projection_diff(models_ref, max_dist_from_center, fit_implied_Rt = True):
     lensmodels      = [model.intrinsics()[0] for model in models_ref]
     intrinsics_data = [model.intrinsics()[1] for model in models_ref]
 
@@ -253,18 +253,18 @@ def projection_diff(models_ref, max_dist_from_center, fit_Rcompensating = True):
 
     W,H = imagersizes[0]
     focus_center = None
-    focus_radius = -1 if fit_Rcompensating else 0
+    focus_radius = -1 if fit_implied_Rt else 0
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
     if focus_radius < 0:     focus_radius = min(W,H)/6.
 
 
-    Rt_compensating01 = \
-        mrcal.compute_compensating_Rt10(q0,
-                                        v[0,...], v[1,...],
-                                        focus_center = focus_center,
-                                        focus_radius = focus_radius)
+    implied_Rt10 = \
+        mrcal.intrinsics_implied_Rt10(q0,
+                                      v[0,...], v[1,...],
+                                      focus_center = focus_center,
+                                      focus_radius = focus_radius)
 
-    q1 = mrcal.project( mrcal.transform_point_Rt(Rt_compensating01,
+    q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
                                                  v[0,...]),
                        lensmodels[1], intrinsics_data[1])
     diff = nps.mag(q1 - q0)

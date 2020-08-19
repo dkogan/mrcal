@@ -3141,13 +3141,13 @@ The mask that indicates whether each point is within the region
     return mask
 
 
-def compute_compensating_Rt10(q0, v0, v1,
-                              weights      = None,
-                              atinfinity   = True,
-                              focus_center = np.zeros((2,), dtype=float),
-                              focus_radius = 1.0e8):
+def intrinsics_implied_Rt10(q0, v0, v1,
+                            weights      = None,
+                            atinfinity   = True,
+                            focus_center = np.zeros((2,), dtype=float),
+                            focus_radius = 1.0e8):
 
-    r'''Compute a compensating transformation to fit two cameras' projections
+    r'''Compute the implied-by-the-intrinsics transformation to fit two cameras' projections
 
 SYNOPSIS
 
@@ -3164,10 +3164,10 @@ SYNOPSIS
                                       *models[0].imagersize(),
                                       lensmodels, intrinsics_data,
                                       normalize = True)
-    Rt_compensating10 = \
-        mrcal.compute_compensating_Rt10(q0, v[0,...], v[1,...])
+    implied_Rt10 = \
+        mrcal.intrinsics_implied_Rt10(q0, v[0,...], v[1,...])
 
-    q1 = mrcal.project( mrcal.transform_point_Rt(Rt_compensating10, v[0,...]),
+    q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10, v[0,...]),
                         *models[1].intrinsics())
 
     projection_diff = q1 - q0
@@ -3540,8 +3540,8 @@ transformation is unknown, but we can estimate it by fitting projections across
 the imager: the "right" transformation would result in apparent low projection
 diffs in a wide area.
 
-This transformation is computed by the compute_compensating_Rt10() function, and
-some details of its operation are significant:
+This transformation is computed by intrinsics_implied_Rt10(), and some details
+of its operation are significant:
 
 - The imager area we use for the fit
 - Which world points we're looking at
@@ -3561,19 +3561,18 @@ about.
 If use_uncertainties then the defaults for focus_center,focus_radius are set to
 utilize all the data in the imager. If not use_uncertainties, then the defaults
 are to use a more reasonable circle of radius min(width,height)/6 at the center
-of the imager. Usually this is suffiently correct, and we don't need to mess
-with it. If we aren't guided to the correct focus region, the compensating
-transformation solve will try to fit lots of outliers, which would result in an
-incorrect compensating transformation, which in turn would produce overly-high
+of the imager. Usually this is sufficiently correct, and we don't need to mess
+with it. If we aren't guided to the correct focus region, the
+implied-by-the-intrinsics solve will try to fit lots of outliers, which would
+result in an incorrect transformation, which in turn would produce overly-high
 reported diffs. A common case when this happens is if the chessboard
 observations used in the calibration were concentrated to the side of the image
 (off-center), no uncertainties were used, and the focus_center was not pointed
 to that area.
 
 If we KNOW that there is no geometric difference between our cameras, and we
-thus shoul dlook at the intrinsics differences only, then we don't need to
-estimate the compensating transformation. Indicate this case by passing
-focus_radius=0.
+thus should look at the intrinsics differences only, then we don't need to
+estimate the transformation. Indicate this case by passing focus_radius=0.
 
 Unlike the projection operation, the diff operation is NOT invariant under
 geometric scaling: if we look at the projection difference for two points at
@@ -3584,10 +3583,11 @@ happen. Thus we need to know how far from the camera to look, and this is
 specified by the "distance" argument. By default (distance = None) we look out
 to infinity. If we care about the projection difference at some other distance,
 pass that here. Multiple distances can be passed in an iterable. We'll then fit
-the compensating transformation off all the distances, and we'll display the
-best-fitting difference for each pixel. Multiple distances aren't supported if
-vectorfield (not clear how to plot, otherwise). Generally the most confident
-distance will be where the chessboards were observed at calibration time.
+the implied-by-the-intrinsics transformation using all the distances, and we'll
+display the best-fitting difference for each pixel. Multiple distances aren't
+supported if vectorfield (not clear how to plot, otherwise). Generally the most
+confident distance will be where the chessboards were observed at calibration
+time.
 
 ARGUMENTS
 
@@ -3609,30 +3609,32 @@ ARGUMENTS
 - distance: optional value, defaulting to None. The projection difference varies
   depending on the range to the observed world points, with the queried range
   set in this 'distance' argument. If None (the default) we look out to
-  infinity. We can compute the compensating transformation off multiple
-  distances if they're given here as an iterable. This is especially useful if
-  we have uncertainties, since then we'll emphasize the best-fitting distances.
+  infinity. We can compute the implied-by-the-intrinsics transformation off
+  multiple distances if they're given here as an iterable. This is especially
+  useful if we have uncertainties, since then we'll emphasize the best-fitting
+  distances.
 
 - use_uncertainties: optional boolean, defaulting to True. If True we use the
-  whole imager to fit the compensating transformation, using the uncertainties
-  to emphasize the confident regions. If False, it is important to select the
-  confident region using the focus_center and focus_radius arguments. If
-  use_uncertainties is True, but that data isn't available, we report a warning,
-  and try to proceed without.
+  whole imager to fit the implied-by-the-intrinsics transformation, using the
+  uncertainties to emphasize the confident regions. If False, it is important to
+  select the confident region using the focus_center and focus_radius arguments.
+  If use_uncertainties is True, but that data isn't available, we report a
+  warning, and try to proceed without.
 
 - focus_center: optional array of shape (2,); the imager center by default. Used
-  to indicate that the compensating transformation should use only those pixels
-  a distance focus_radius from focus_center. This is intended to be used if no
-  uncertainties are available, and we need to manually select the focus region.
+  to indicate that the implied-by-the-intrinsics transformation should use only
+  those pixels a distance focus_radius from focus_center. This is intended to be
+  used if no uncertainties are available, and we need to manually select the
+  focus region.
 
 - focus_radius: optional value. If use_uncertainties then the default is LARGE,
   to use the whole imager. Else the default is min(width,height)/6. Used to
-  indicate that the compensating transformation should use only those pixels a
-  distance focus_radius from focus_center. This is intended to be used if no
-  uncertainties are available, and we need to manually select the focus region.
-  Pass focus_radius=0 to avoid computing the compensating transformation, and to
-  use the identity. This would mean there're no geometric differences, and we're
-  comparing the intrinsics only
+  indicate that the implied-by-the-intrinsics transformation should use only
+  those pixels a distance focus_radius from focus_center. This is intended to be
+  used if no uncertainties are available, and we need to manually select the
+  focus region. Pass focus_radius=0 to avoid computing the transformation, and
+  to use the identity. This would mean there're no geometric differences, and
+  we're comparing the intrinsics only
 
 - vectorfield: optional boolean, defaulting to False. By default we produce a
   heat map of the projection differences. If vectorfield: we produce a vector
@@ -3728,7 +3730,7 @@ into a variable, even if you're not going to be doing anything with this object
         # Two models. Take the difference and call it good
 
         if focus_radius == 0:
-            Rt_compensating10 = mrcal.identity_Rt()
+            implied_Rt10 = mrcal.identity_Rt()
         else:
             # weights has shape (len(distance),Nh,Nw))
             if uncertainties is not None:
@@ -3736,17 +3738,17 @@ into a variable, even if you're not going to be doing anything with this object
             else:
                 weights = None
 
-            # weight may be inf or nan. compute_compensating_Rt10() will clean
+            # weight may be inf or nan. intrinsics_implied_Rt10() will clean
             # those up, as well as any inf/nan in v (from failed unprojections)
-            Rt_compensating10 = \
-                compute_compensating_Rt10(q0,
-                                          v[0,...] * distance,
-                                          v[1,...],
-                                          weights,
-                                          atinfinity,
-                                          focus_center, focus_radius)
+            implied_Rt10 = \
+                intrinsics_implied_Rt10(q0,
+                                        v[0,...] * distance,
+                                        v[1,...],
+                                        weights,
+                                        atinfinity,
+                                        focus_center, focus_radius)
 
-        q1 = mrcal.project( mrcal.transform_point_Rt(Rt_compensating10,
+        q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
                                                      v[0,...] * distance),
                            lensmodels[1], intrinsics_data[1])
         # shape (len(distance),Nheight,Nwidth,2)
@@ -3773,11 +3775,11 @@ into a variable, even if you're not going to be doing anything with this object
                 else:
                     weights = None
 
-                Rt_compensating10 = \
-                    compute_compensating_Rt10(q0, v0*distance, v1,
-                                              weights, atinfinity,
-                                              focus_center, focus_radius)
-            q1 = mrcal.project(mrcal.transform_point_Rt(Rt_compensating10,
+                implied_Rt10 = \
+                    intrinsics_implied_Rt10(q0, v0*distance, v1,
+                                            weights, atinfinity,
+                                            focus_center, focus_radius)
+            q1 = mrcal.project(mrcal.transform_point_Rt(implied_Rt10,
                                                         v0*distance),
                                lensmodel, intrinsics_data)
             # returning shape (len(distance),Nheight,Nwidth,2)
@@ -3797,11 +3799,11 @@ into a variable, even if you're not going to be doing anything with this object
 
     if 'title' not in kwargs:
         if focus_radius == 0:
-            where = "NOT fitting a compensating transformation"
+            where = "NOT fitting an implied-by-the-intrinsics transformation"
         elif focus_radius > 2*(W+H):
-            where = "compensating transformation fitted everywhere"
+            where = "implied-by-the-intrinsics transformation fitted everywhere"
         else:
-            where = "compensating transformation fit looking at {} with radius {}". \
+            where = "implied-by-the-intrinsics transformation fit looking at {} with radius {}". \
                 format('the imager center' if focus_center is None else focus_center,
                        focus_radius)
         title = "Diff looking at {} models; {}".format(len(models), where)
@@ -3881,7 +3883,7 @@ into a variable, even if you're not going to be doing anything with this object
         # more densely.
         v1 = mrcal.unproject(_densify_polyline(valid_region1, spacing = 50),
                              lensmodels[1], intrinsics_data[1])
-        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt_compensating10),
+        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(implied_Rt10),
                                                                  v1 ),
                                        lensmodels[0], intrinsics_data[0] )
         if vectorfield:

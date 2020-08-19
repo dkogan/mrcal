@@ -31,8 +31,8 @@ transformation is unknown, but we can estimate it by fitting projections across
 the imager: the "right" transformation would result in apparent low projection
 diffs in a wide area.
 
-This transformation is computed by the compute_compensating_Rt10() function, and
-some details of its operation are significant:
+This transformation is computed by intrinsics_implied_Rt10(), and some details
+of its operation are significant:
 
 - The imager area we use for the fit
 - Which world points we're looking at
@@ -51,18 +51,17 @@ we care about.
 If using uncertainties then we utilize all the data in the imager by default. if
 --no-uncertainties, then the defaults are to use a more reasonable circle of
 radius min(width,height)/6 at the center of the imager. Usually this is
-suffiently correct, and we don't need to mess with it. If we aren't guided to
-the correct focus region, the compensating transformation solve will try to fit
-lots of outliers, which would result in an incorrect compensating
-transformation, which in turn would produce overly-high reported diffs. A common
-case when this happens is if the chessboard observations used in the calibration
-were concentrated to the side of the image (off-center), no uncertainties were
-used, and --where was not pointed to that area.
+sufficiently correct, and we don't need to mess with it. If we aren't guided to
+the correct focus region, the implied-by-the-intrinsics solve will try to fit
+lots of outliers, which would result in an incorrect transformation, which in
+turn would produce overly-high reported diffs. A common case when this happens
+is if the chessboard observations used in the calibration were concentrated to
+the side of the image (off-center), no uncertainties were used, and --where was
+not pointed to that area.
 
 If we KNOW that there is no geometric difference between our cameras, and we
-thus shoul dlook at the intrinsics differences only, then we don't need to
-estimate the compensating transformation. Indicate this case by passing
---radius 0
+thus should look at the intrinsics differences only, then we don't need to
+estimate the transformation. Indicate this case by passing --radius 0
 
 Unlike the projection operation, the diff operation is NOT invariant under
 geometric scaling: if we look at the projection difference for two points at
@@ -103,12 +102,12 @@ def parse_args():
                         can also fit multiple distances at the same time by
                         passing them here in a comma-separated, whitespace-less
                         list. If multiple distances are given, we fit the
-                        compensating transformation using ALL the distances, but
-                        we display the best-fitting difference for each point.
-                        Only one distance is supported if --vectorfield.
-                        Multiple distances are especially useful if we have
-                        uncertainties: the most confident distance will be
-                        found, and displayed.''')
+                        implied-by-the-intrinsics transformation using ALL the
+                        distances, but we display the best-fitting difference
+                        for each point. Only one distance is supported if
+                        --vectorfield. Multiple distances are especially useful
+                        if we have uncertainties: the most confident distance
+                        will be found, and displayed.''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
