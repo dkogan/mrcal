@@ -469,11 +469,9 @@ Returns the transformation that describes a mapping
 This transformation can then be applied to a whole image by calling
 transform_image().
 
-This function returns a transformation map in an (2,Nheight,Nwidth) array. The
+This function returns a transformation map in an (Nheight,Nwidth,2) array. The
 image made by model_to will have shape (Nheight,Nwidth). Each pixel (x,y) in
-this image corresponds to a pixel (mapxy[0,y,x],mapxy[1,y,x]) in the image made
-by model_from. Note the strange xy/yx ordering and dimensionality. This is what
-cv2.remap() (the function providing the internals of transform_image()) expects.
+this image corresponds to a pixel mapxy[y,x,:] in the image made by model_from.
 
 This function has 3 modes of operation:
 
@@ -551,9 +549,10 @@ ARGUMENTS
 
 RETURNED VALUE
 
-A numpy array of shape (2,Nheight,Nwidth) where Nheight and Nwidth represent the
-imager dimensions of model_to. This array can be passed to
-mrcal.transform_image()
+A numpy array of shape (Nheight,Nwidth,2) where Nheight and Nwidth represent the
+imager dimensions of model_to. This array contains 32-bit floats, as required by
+cv2.remap() (the function providing the internals of mrcal.transform_image()).
+This array can be passed to mrcal.transform_image()
 
     '''
 
@@ -648,8 +647,8 @@ mrcal.transform_image()
             v = nps.matmult(v, R_to_from)
 
     mapxy = mrcal.project( v, lensmodel_from, intrinsics_data_from )
-    # Reorder to (2,Nheight,Nwidth)
-    return nps.mv(mapxy, -1,0).astype(np.float32)
+
+    return mapxy.astype(np.float32)
 
 
 def transform_image(image, mapxy):
@@ -681,15 +680,17 @@ ARGUMENTS
 
 - image: a numpy array containing an image we're transforming
 
-- mapxy: a numpy array of shape (2,Nheight,Nwidth) where Nheight and Nwidth
-  represent the dimensions of the target image
+- mapxy: a numpy array of shape (Nheight,Nwidth,2) where Nheight and Nwidth
+  represent the dimensions of the target image. This array is expected to have
+  dtype=np.float32, since the internals of this function are provided by
+  cv2.remap()
 
 RETURNED VALUE
 
 A numpy array of shape (..., Nheight, Nwidth) containing the transformed image.
 
     '''
-    return cv2.remap(image, mapxy[0], mapxy[1],
+    return cv2.remap(image, mapxy, None,
                      cv2.INTER_LINEAR)
 
 
