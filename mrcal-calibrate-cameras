@@ -840,9 +840,8 @@ projected = mrcal.project_boards(**optimize_kwargs)
 
 # Each has shape (Nobservations,Nheight,Nwidth,2)
 reproj_err_including_outliers, reproj_err_0_for_outliers = \
-    mrcal.calobservations_compute_reproj_error(projected, observations,
-                                               indices_frame_camera,
-                                               args.object_width_n,args.object_height_n)
+    mrcal.calibration_residuals(projected, observations,
+                                indices_frame_camera)
 
 
 

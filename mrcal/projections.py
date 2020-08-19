@@ -725,9 +725,10 @@ def project_boards(lensmodel, intrinsics,
 
 SYNOPSIS
 
-    model = mrcal.cameramodel("xxx.cameramodel")
+    model               = mrcal.cameramodel("xxx.cameramodel")
+    optimization_inputs = model.optimization_inputs()
 
-    q = mrcal.project_boards( **model.optimization_inputs() )
+    q = mrcal.project_boards( **optimization_inputs )
 
     # q is an array of pixel coordinates of all the chessboard corners over all
     # the cameras and all the instances in time
@@ -830,48 +831,104 @@ We return a dense numpy array of pixel observations of shape
                    0,-4)
 
 
-def calobservations_compute_reproj_error(projected, observations, indices_frame_camera,
-                                         object_width_n, object_height_n):
-    r'''Computes reprojection errors when calibrating with board observations
+def calibration_residuals(projected_boards, observations_board, indices_frame_camera):
+    r'''Report reprojection errors at a calibration solution
 
-    Given
+SYNOPSIS
 
-    - projected (shape [Nframes,Ncameras,object_height_n,object_width_n,2])
-      These are dense observations I compute. The actual observations are
-      sparse: some cameras don't observe the chessboard in some frames
+    model               = mrcal.cameramodel("xxx.cameramodel")
+    optimization_inputs = model.optimization_inputs()
 
-    - observations (shape [Nobservations,object_height_n,object_width_n,3])
-      observations[....,:] is (x,y,weight). weight<0 == "outlier"
+    q = mrcal.project_boards( **optimization_inputs )
 
-    - indices_frame_camera (shape [Nobservations,2])
+    observations_board   = optimization_inputs['observations_board']
+    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,:2]
 
-    Return (err_all_points,err_ignoring_outliers). Each is the reprojection
-    error for each point: shape
-    (Nobservations,object_height_n,object_width_n,2). One includes the outliers
-    in the returned errors, and the other does not
+    err_everything,err_zero_for_outliers = \
+        mrcal.calibration_residuals(q,
+                                    observations_board,
+                                    indices_frame_camera)
 
-    Note that the data is expected to come from a pure calibration problem, not
-    structure-from-motion or anything else. I have N stationary cameras, with
-    different intrinsics, and different extrinsics. The first camera is the
-    reference coordinate system. We take an indices_frame_camera and NOT
-    indices_frame_camintrinsics_camextrinsics
+A camera calibration based on observations of a known object consists of
+minimizing the difference between observed pixels and the projections of the
+object using a hypothetical set of parameters. These differences can be obtained
+by calling this function, usually as part of an evaluation of calibration
+results.
+
+Unlike mrcal.optimize(), this function assumes we're solving a vanilla
+calibration problem: stationary cameras are observing a moving calibration
+object, with the first camera defining the reference coordinate system. Thus
+this function accepts 'indices_frame_camera' instead of the more general
+'indices_frame_camintrinsics_camextrinsics' accepted by mrcal.optimize(). For
+this function, the "camera" refers to the intrinsics, so
+
+    indices_frame_camera = indices_frame_camintrinsics_camextrinsics[:,:2]
+
+We return two versions of the residuals: one reporting everything, including the
+outliers, and the other with 0 in place of the outlier residuals. The outliers
+aren't a part of the optimization, so the first version would show very high
+errors for those observations. The second version is what is actually seen by
+the optimization algorithm.
+
+The optimization weighs the observations differently, depending on the value of
+the weights stored in observations_board[..., 2]. This function returns pure
+pixel errors, and does NOT apply the weights.
+
+ARGUMENTS
+
+- projected_boards: a numpy array of shape
+  (Nframes,Ncameras,object_height_n,object_width_n,2). These are the dense
+  projections that we would be observing if the parameters in this solve
+  described the world perfectly. Unlike this dense array, the actual
+  observations are sparse: some cameras don't observe the chessboard in some
+  frames, with the pattern described in indices_frame_camera. This array is
+  returned by mrcal.project_boards()
+
+- observations_board: a numpy array of shape
+  (Nobservations,object_height_n,object_width_n,3). The observed pixel
+  coordinates of the calibration object corners. Each row of this array is
+  (x,y,weight). This function does NOT apply the weight to the pixel errors.
+  Outliers are indicated by weight<0, and this function DOES respect that.
+
+- indices_frame_camera: a numpy array of shape (Nobservations,2). For each
+  observation in observations_board the frame and camera indices are given in
+  each row of indices_frame_camera. The frame indicates a point in time.
+
+RETURNED VALUE
+
+A tuple:
+
+- err_everything: a numpy array of shape
+  (Nobservations,object_height_n,object_width_n,2) describing the x,y pixel
+  errors of each corner in each observation. This array contains errors even for
+  outliers. Those were not used in the optimization, so large errors would
+  appear in this array for the outlier observations
+
+- err_zero_for_outliers: a numpy array of shape
+  (Nobservations,object_height_n,object_width_n,2) describing the x,y pixel
+  errors of each corner in each observation. This array contains 0 for outlier
+  observations
 
     '''
 
-    Nobservations         = indices_frame_camera.shape[0]
-    err_all_points        = np.zeros((Nobservations,object_height_n,object_width_n,2))
-    err_ignoring_outliers = np.zeros((Nobservations,object_height_n,object_width_n,2))
+    Nobservations = indices_frame_camera.shape[0]
+
+    object_height_n = observations_board.shape[-3]
+    object_width_n  = observations_board.shape[-2]
+
+    err_everything        = np.zeros((Nobservations,object_height_n,object_width_n,2))
+    err_zero_for_outliers = np.zeros((Nobservations,object_height_n,object_width_n,2))
 
     for i_observation in range(Nobservations):
         i_frame, i_camera = indices_frame_camera[i_observation]
 
-        err = projected[i_frame,i_camera] - observations[i_observation, ..., :2]
+        err = projected_boards[i_frame,i_camera] - observations_board[i_observation, ..., :2]
 
-        err_all_points[i_observation] = err
+        err_everything[i_observation] = err
 
-        mask_outliers = (observations[i_observation, ..., 2] < 0.0)
+        mask_outliers = (observations_board[i_observation, ..., 2] < 0.0)
         err[mask_outliers, :] = 0
-        err_ignoring_outliers[i_observation] = err
+        err_zero_for_outliers[i_observation] = err
 
-    return err_all_points,err_ignoring_outliers
+    return err_everything,err_zero_for_outliers
 
