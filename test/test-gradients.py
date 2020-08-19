@@ -195,8 +195,14 @@ for test in tests:
     cut = subprocess.check_output( ("vnl-filter",
                                     "gradient_reported || gradient_observed",
                                     "--perl",
-                                    "-p",
-                                    f"error_relative,type={varmap},meastype={measmap}"),
+
+                                    # I compute error_relative myself because I
+                                    # want to add an extra eps. This smoothes
+                                    # out reported relative gradient errors for
+                                    # tiny gradients. If they're tiny I could
+                                    # accidentally trigger an error otherwise
+                                    "-p", "error_relative=error/((abs(gradient_reported)+abs(gradient_observed))/2. + 1e-3)",
+                                    "-p", f"type={varmap},meastype={measmap}"),
                                    input=full,
                                    encoding='ascii')
     with StringIO(cut) as f:
