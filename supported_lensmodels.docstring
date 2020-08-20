@@ -14,8 +14,16 @@ SYNOPSIS
      'LENSMODEL_CAHVOR',
      'LENSMODEL_CAHVORE')
 
-The above list is correct as of this writing, but more models could be added
-with time. Models ending in '...' have configuration parameters given in the
-model string, replacing the '...'. Note that at this time CAHVORE is supported
-only partially: gradients aren't implemented, so we can't compute an optimal
-CAHVORE model
+mrcal knows about some set of lens models, which can be queried here. The above
+list is correct as of this writing, but more models could be added with time.
+
+The returned lens models are all supported, with possible gaps. The only missing
+functionality at this time is that CAHVORE is gradients aren't implemented, so
+we can't compute an optimal CAHVORE model.
+
+Models ending in '...' have configuration parameters given in the model string,
+replacing the '...'.
+
+RETURNED VALUE
+
+A tuple of strings listing out all the currently-supported lens models

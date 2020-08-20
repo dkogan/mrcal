@@ -38,3 +38,8 @@ ARGUMENTS
     - (...,2) array of projected pixel coordinates
     - (...,2,3) array of the gradients of the pixel coordinates in respect to
       the input 3D point positions
+
+RETURNED VALUE
+
+A numpy array of shape (...,2) containing the projections corresponding to each
+element in the input "points" array
