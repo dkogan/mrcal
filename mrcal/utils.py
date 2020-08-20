@@ -249,7 +249,7 @@ def make_synthetic_board_observations(models,
                                       object_spacing, calobject_warp,
                                       at_xyz_rpydeg, noiseradius_xyz_rpydeg,
                                       Nframes):
-    r'''Produces synthetic observations of a chessboard
+    r'''Produce synthetic observations of a chessboard
 
 SYNOPSIS
 
