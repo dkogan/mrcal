@@ -1,7 +1,24 @@
 #!/usr/bin/python3
 
-'''A 'cameramodel' class to read/write/manipulate camera models'''
+'''A class to read/write/manipulate camera models
 
+SYNOPSIS
+
+    model_for_intrinsics = mrcal.cameramodel('model0.cameramodel')
+    model_for_extrinsics = mrcal.cameramodel('model1.cameramodel')
+
+    model_joint = \
+        mrcal.cameramodel( intrinsics            = \
+                             model_for_intrinsics.intrinsics(),
+                           imagersize            = \
+                             model_for_intrinsics.imagersize(),
+                           extrinsics_rt_fromref = \
+                             model_for_extrinsics.extrinsics_rt_fromref() )
+
+    # model_joint now has intrinsics from 'model0.cameramodel' and extrinsics
+    # from 'model1.cameramodel'
+
+'''
 
 import sys
 import numpy as np
@@ -32,8 +49,6 @@ def _validateExtrinsics(e):
     for x in e:
         if not isinstance(x, numbers.Number):
             raise Exception("All extrinsics elements should be numeric, but '{}' isn't".format(x))
-
-    return True
 
 
 def _validateIntrinsics(imagersize,
@@ -97,13 +112,12 @@ def _validateIntrinsics(imagersize,
         if icam_intrinsics < 0:
             raise Exception(f"icam_intrinsics < 0. This must be an int >= 0")
 
-    return True
-
 
 def _validateValidIntrinsicsRegion(valid_intrinsics_region):
+    r'''Raises an exception if the given valid_intrinsics_region is illegal'''
 
     if valid_intrinsics_region is None:
-        return True
+        return
 
     try:
         # valid intrinsics region is a closed contour, so I need at least 4 points to be valid
@@ -114,87 +128,94 @@ def _validateValidIntrinsicsRegion(valid_intrinsics_region):
     except:
         raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
                         format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
-    return True
 
 
 class CameramodelParseException(Exception):
+    r'''Raised if a .cameramodel file couldn't be parsed successfully
+
+    This is just a normal "Exception" with a different name, so I can handle
+    this specifically
+
+    '''
     pass
 
 
 def _serialize_optimization_inputs(optimization_inputs):
-    r'''Convert a optimization-input dict to an ascii string
+    r'''Convert a optimization_inputs dict to an ascii string
 
-    I store the optimization inputs as an opaque string in the .cameramodel
-    file. This is a potentially large data blob that has little value in
-    being readable to the user. To serialize I do this:
+This is an internal function.
 
-    - normalize the data in the dict. The numpy.save...() functions have
-      quirks, so I must work around them:
+I store the optimization inputs as an opaque string in the .cameramodel
+file. This is a potentially large data blob that has little value in
+being readable to the user. To serialize I do this:
 
-      - All non-numpy-array values are read in as scalar numpy arrays, so I
-        must extract them at reading time
+- normalize the data in the dict. The numpy.save...() functions have
+  quirks, so I must work around them:
 
-      - Any non-trivial objects are pickled, but pickling is not safe for
-        untrusted data, so I disable pickling, which means that non-trivial
-        objects are not serializable. This includes None. So I store None as
-        ''. This means I can't store '', which I guess is OK
+  - All non-numpy-array values are read in as scalar numpy arrays, so I
+    must extract them at reading time
 
-    - np.savez_compressed() to make a compressed binary data stream
+  - Any non-trivial objects are pickled, but pickling is not safe for
+    untrusted data, so I disable pickling, which means that non-trivial
+    objects are not serializable. This includes None. So I store None as
+    ''. This means I can't store '', which I guess is OK
 
-    - base64.b85encode() to convert to printable ascii
+- np.savez_compressed() to make a compressed binary data stream
 
-    This works, but the normalization is ugly, and this thing is
-    inefficient. b85encode() is written in Python for instance. I can
-    replace some of this with tarfile, which doesn't really solve the
-    problems, but it could be a starting point for something better in the
-    future
+- base64.b85encode() to convert to printable ascii
+
+This works, but the normalization is ugly, and this thing is
+inefficient. b85encode() is written in Python for instance. I can
+replace some of this with tarfile, which doesn't really solve the
+problems, but it could be a starting point for something better in the
+future
 
 
-        def write():
-            d = dict( x  = np.arange(1000) + 5,
-                      y  = np.arange(300, dtype=float) / 2,
-                      z  = None,
-                      s  = 'abc',
-                      bt = True,
-                      bf = False)
+    def write():
+        d = dict( x  = np.arange(1000) + 5,
+                  y  = np.arange(300, dtype=float) / 2,
+                  z  = None,
+                  s  = 'abc',
+                  bt = True,
+                  bf = False)
 
-            f = io.BytesIO()
+        f = io.BytesIO()
+        tar = \
+            tarfile.open(name    = None,
+                         mode    = 'w|gz',
+                         fileobj = f)
+
+        for k in d.keys():
+            v = d[k]
+            if v is None: v = ''
+
+            d_bytes = io.BytesIO()
+            np.save(d_bytes, v, allow_pickle = False)
+
+            tarinfo = tarfile.TarInfo(name=k)
+            tarinfo.size = d_bytes.tell()
+            d_bytes.seek(0)
+            tar.addfile( tarinfo,
+                         fileobj = d_bytes )
+        tar.close()
+        sys.stdout.buffer.write(f.getvalue())
+
+    def read():
+        with open("/tmp/tst.tar.gz", "rb") as f:
             tar = \
                 tarfile.open(name    = None,
-                             mode    = 'w|gz',
+                             mode    = 'r|gz',
                              fileobj = f)
 
-            for k in d.keys():
-                v = d[k]
-                if v is None: v = ''
-
-                d_bytes = io.BytesIO()
-                np.save(d_bytes, v, allow_pickle = False)
-
-                tarinfo = tarfile.TarInfo(name=k)
-                tarinfo.size = d_bytes.tell()
-                d_bytes.seek(0)
-                tar.addfile( tarinfo,
-                             fileobj = d_bytes )
+            for m in tar:
+                b = tar.extractfile(m).read()
+                arr = np.load(io.BytesIO(b), allow_pickle=False, encoding='bytes')
+                if arr.shape == ():
+                    arr = arr.item()
+                if type(arr) is str and arr == '':
+                    arr = None
+                print(arr)
             tar.close()
-            sys.stdout.buffer.write(f.getvalue())
-
-        def read():
-            with open("/tmp/tst.tar.gz", "rb") as f:
-                tar = \
-                    tarfile.open(name    = None,
-                                 mode    = 'r|gz',
-                                 fileobj = f)
-
-                for m in tar:
-                    b = tar.extractfile(m).read()
-                    arr = np.load(io.BytesIO(b), allow_pickle=False, encoding='bytes')
-                    if arr.shape == ():
-                        arr = arr.item()
-                    if type(arr) is str and arr == '':
-                        arr = None
-                    print(arr)
-                tar.close()
     '''
 
     data_bytes = io.BytesIO()
@@ -213,8 +234,12 @@ def _serialize_optimization_inputs(optimization_inputs):
 def _deserialize_optimization_inputs(data_bytes):
     r'''Convert an ascii string for the optimization-input to a full dict
 
-    This is the inverse of _serialize_optimization_inputs(). See the
-    docstring of that function for details
+This is an internal function.
+
+
+This is the inverse of _serialize_optimization_inputs(). See the docstring of
+that function for details
+
     '''
 
     optimization_inputs_bytes = io.BytesIO(base64.b85decode(data_bytes))
@@ -245,6 +270,10 @@ def _deserialize_optimization_inputs(data_bytes):
     renamed('do_optimize_intrinsic_distortions',
             'do_optimize_intrinsics_distortions',
             optimization_inputs)
+    # renamed('icam_intrinsics_optimization_inputs',
+    #         'icam_intrinsics',
+    #         optimization_inputs)
+
     if 'calibration_object_width_n'  in optimization_inputs:
         del optimization_inputs['calibration_object_width_n' ]
     if 'calibration_object_height_n' in optimization_inputs:
@@ -253,59 +282,107 @@ def _deserialize_optimization_inputs(data_bytes):
     return optimization_inputs
 
 
-
 class cameramodel(object):
     r'''A class that describes the lens parameters and geometry of a single camera
 
-    This class represents
+SYNOPSIS
 
-    - The intrinsics: parameters internal to this camera. These do not change as
-      the camera moves around in space. Usually these contain
+    model = mrcal.cameramodel('xxx.cameramodel')
 
-      - The 4 pinhole-camera parameters: focal lengths, coordinates of the
-        center pixel
+    extrinsics_Rt_toref = model.extrinsics_Rt_toref()
 
-      - Some representation of the camera projection behavior. This is dependent
-        on the lens model being used. The full list of supported models is
-        returned by mrcal.supported_lensmodels()
+    extrinsics_Rt_toref[3,2] += 10.0
 
-    - The extrinsics: the pose of this camera in respect to some reference
-      coordinate system. The meaning of this coordinate system is user-defined,
-      and carries no special meaning to the mrcal.cameramodel class
+    extrinsics_Rt_toref = model.extrinsics_Rt_toref(extrinsics_Rt_toref)
 
-    - The optimization inputs: this is a big blob containing all the data that
-      was used to compute the intrinsics and extrinsics in this model. This can
-      be used to compute the projection uncertainties, visualize the
-      calibration-time frames, and re-solve the calibration problem for
-      diagnostics
+    model.write('moved.cameramodel')
 
-    This class provides facilities to read/write models, and to get/set the
-    various parameters.
+    # we read a model from disk, moved it 10 units along the z axis, and wrote
+    # the results back to disk
 
-    The format of a .cameramodel file is a python dictionary that we eval. A
-    sample valid .cameramodel:
+This class represents
 
-        # generated with ...
-        { 'lensmodel': 'LENSMODEL_OPENCV8',
+- The intrinsics: parameters that describe the lens. These do not change as the
+  camera moves around in space. These are generally represented by a tuple
+  (lensmodel,intrinsics_data)
 
-          # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
-          'intrinsics': [1766.0712405930,
-                         1765.8925266865,
-                         1944.0664501036,
-                         1064.5231421210,
-                         2.1648025156,
-                         -1.1851581377,
-                         -0.0000931342,
-                         0.0007782462,
-                         -0.2351910903,
-                         2.4460295029,
-                         -0.6697132481,
-                         -0.6284355415],
+  - lensmodel: a string "LENSMODEL_...". The full list of supported models is
+    returned by mrcal.supported_lensmodels()
 
-          # extrinsics are rt_fromref
-          'extrinsics': [0,0,0,0,0,0],
-          'imagersize': [3840,2160]
-        }
+  - intrinsics_data: a numpy array of shape
+    (mrcal.lensmodel_num_params(lensmodel),). For lensmodels that have an
+    "intrinsics core" (all of them, currently) the first 4 elements are
+
+    - fx: the focal-length along the x axis, in pixels
+    - fy: the focal-length along the y axis, in pixels
+    - cx: the projection center along the x axis, in pixels
+    - cy: the projection center along the y axis, in pixels
+
+    The remaining elements (both their number and their meaning) are dependent
+    on the specific lensmodel being used. Some models (LENSMODEL_PINHOLE for
+    example) do not have any elements other than the core.
+
+  These are gettable/settable by the intrinsics() method.
+
+- The extrinsics: the pose of this camera in respect to some reference
+  coordinate system. The meaning of this "reference" coordinate system is
+  user-defined, and means nothing to mrcal.cameramodel. If we have multiple
+  cameramodels, they generally share this "reference" coordinate system, and it
+  is used as a reference to place the cameras in respect to each other.
+  Internally this is stored as an rt transformation converting points
+  represented in the reference coordinate TO a representation in the camera
+  coordinate system. These are gettable/settable by these methods:
+
+  - extrinsics_rt_toref()
+  - extrinsics_rt_fromref()
+  - extrinsics_Rt_toref()
+  - extrinsics_Rt_fromref()
+
+  These exist for convenience, and handle the necessary conversion internally.
+  These make it simple to use the desired Rt/rt transformation and the desired
+  to/from reference direction.
+
+- The optimization inputs: this is a dict containing all the data that was used
+  to compute the contents of this model. These are the kwargs passable to
+  mrcal.optimize() and mrcal.optimizer_callback(), that describe the
+  optimization problem at its final optimum. Storing these is optional, but they
+  are very useful for diagnostics, since everything in the model can be
+  re-generated from this data. Some things (most notably the projection
+  uncertainties) are also computed off the optimization_inputs(), making these
+  extra-useful. The optimization_inputs dict can be queried by the
+  optimization_inputs() method. Setting this can be done only together with the
+  intrinsics(), using the intrinsics() method. For the purposes of computing the
+  projection uncertainty it is allowed to move the camera (change the
+  extrinsics), so the extrinsics_...() methods may be called without
+  invalidating the optimization_inputs
+
+This class provides facilities to read/write models on disk, and to get/set the
+various components.
+
+The format of a .cameramodel file is a python dictionary that we (safely) eval.
+A sample valid .cameramodel file:
+
+    # generated with ...
+    { 'lensmodel': 'LENSMODEL_OPENCV8',
+
+      # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+      'intrinsics': [1766.0712405930,
+                     1765.8925266865,
+                     1944.0664501036,
+                     1064.5231421210,
+                     2.1648025156,
+                     -1.1851581377,
+                     -0.0000931342,
+                     0.0007782462,
+                     -0.2351910903,
+                     2.4460295029,
+                     -0.6697132481,
+                     -0.6284355415],
+
+      # extrinsics are rt_fromref
+      'extrinsics': [0,0,0,0,0,0],
+      'imagersize': [3840,2160]
+    }
 
     '''
 
@@ -475,42 +552,74 @@ class cameramodel(object):
                  icam_intrinsics         = None,
 
                  valid_intrinsics_region = None ):
-        r'''Initializes a new camera-model object
+        r'''Initialize a new camera-model object
 
-        We read the input in one of several ways. The arguments for the OTHER
-        methods must all be None
+We can initialize using one of several methods, depending on which arguments are
+given. The arguments for the methods we're not using MUST all be None. Methods:
 
-        - file_or_model: we read the camera model from a filename or a
-          pre-opened file object or from an existing cameramodel object to copy.
-          If reading a filename, and the filename is xxx.cahvor, then we assume
-          the legacy cahvor file format instead of the usual .cameramodel. If
-          the filename is '-' we read standard input (both .cahvor and
-          .cameramodel supported)
+- Read a file on disk. The filename should be given in the 'file_or_model'
+  argument
 
-        - discrete arguments. Each thing we want to store is passed in a
-          separate argument. Exactly ONE or ZERO of the extrinsics_... arguments
-          must be given; if omitted we use an identity transformation. The known
-          arguments:
+- Read a python 'file' object. Similarly, the opened file should be given in the
+  'file_or_model' argument
 
-          - intrinsics (a tuple (lensmodel, parameters))
-          - imagersize ((width,height) of the imager)
-          - extrinsics_Rt_toref
-          - extrinsics_Rt_fromref
-          - extrinsics_rt_toref
-          - extrinsics_rt_fromref
+- Copy an existing cameramodel object. Pass the object in the 'file_or_model'
+  argument.
 
-        - optimization_inputs. These are a dict of arguments to mrcal.optimize()
-          at the optimum, and contain all the information needed for the camera
-          model (and more!) 'icam_intrinsics' is also
-          required in this case. This indicates the identity of this camera at
-          calibration time
+- Read discrete arguments. The components of this model (intrinsics, extrinsics,
+  etc) can be passed-in separetely via separate arguments
 
-        There's also a 'valid_intrinsics_region' argument, which is optional,
-        and works with the discrete arguments or the optimization_inputs.
+- optimization_inputs. If we have an optimization_inputs dict to store, this
+  alone may be passed-in, and all the model components can be read from it.
 
+ARGUMENTS
 
-        file_or_model is first because I want to be able to say
-        mrcal.cameramodel(file)
+- file_or_model: we read the camera model from a filename or a pre-opened file
+  object or from an existing cameramodel object to copy. If reading a filename,
+  and the filename is xxx.cahvor, then we assume the legacy cahvor file format
+  instead of the usual .cameramodel. If the filename is '-' we read standard
+  input (both .cahvor and .cameramodel supported)
+
+- intrinsics: a tuple (lensmodel, intrinsics_data). If given, 'imagersize' is
+  also required.
+
+- imagersize: tuple (width,height) for the size of the imager. If given,
+  'intrinsics' is also required
+
+- extrinsics_Rt_toref: numpy array of shape (4,3) describing the Rt
+  transformation FROM the camera coordinate system TO the reference coordinate
+  system. Exclusive with the other 'extrinsics_...' arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  arguments are given, an identity transformation is set
+
+- extrinsics_Rt_fromref: numpy array of shape (4,3) describing the Rt
+  transformation FROM the reference coordinate system TO the camera coordinate
+  system. Exclusive with the other 'extrinsics_...' arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  arguments are given, an identity transformation is set
+
+- extrinsics_rt_toref: numpy array of shape (6,) describing the rt
+  transformation FROM the camera coordinate system TO the reference coordinate
+  system. Exclusive with the other 'extrinsics_...' arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  arguments are given, an identity transformation is set
+
+- extrinsics_rt_fromref: numpy array of shape (6,) describing the rt
+  transformation FROM the reference coordinate system TO the camera coordinate
+  system. Exclusive with the other 'extrinsics_...' arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  arguments are given, an identity transformation is set
+
+- optimization_inputs: a dict of arguments to mrcal.optimize() at the optimum.
+  These contain all the information needed to populate the camera model (and
+  more!). If given, 'icam_intrinsics' is also required
+
+- icam_intrinsics: integer identifying this camera in the solve defined by
+  'optimization_inputs'. If given, 'optimization_inputs' is required
+
+- valid_intrinsics_region': numpy array of shape (N,2). Defines a closed contour
+  in the imager pixel space. Points inside this contour are assumed to have
+  'valid' intrinsics.
 
         '''
 
@@ -658,7 +767,7 @@ class cameramodel(object):
     def __str__(self):
         '''Stringification
 
-        I return what would be written to a .cameramodel file'''
+        Return what would be written to a .cameramodel file'''
 
         f = io.StringIO()
         self._write(f)
@@ -667,7 +776,7 @@ class cameramodel(object):
     def __repr__(self):
         '''Representation
 
-        I return a string of a constructor function call'''
+        Return a string of a constructor function call'''
 
         funcs = (self.imagersize,
                  self.intrinsics,
@@ -680,12 +789,30 @@ class cameramodel(object):
 
 
     def write(self, f, note=None, cahvor=False):
-        r'''Writes out this camera model
+        r'''Write out this camera model to disk
 
-        We write to the given filename or a given pre-opened file. If the
-        filename is xxx.cahvor or if the 'cahvor' parameter is True, we use the
-        legacy cahvor file format
+SYNOPSIS
 
+    model.write('left.cameramodel')
+
+We write the contents of the given mrcal.cameramodel object to the given
+filename or a given pre-opened file. If the filename is 'xxx.cahvor' or if
+cahvor: we use the legacy cahvor file format for output
+
+ARGUMENTS
+
+- f: a string for the filename or an opened Python 'file' object to use
+
+- note: an optional string, defaulting to None. This is a comment that will be
+  written to the top of the output file. This should describe how this model was
+  generated
+
+- cahvor: an optional boolean, defaulting to False. If True: we write out the
+  data using the legacy .cahvor file format
+
+RETURNED VALUES
+
+None
         '''
 
         if cahvor:
@@ -713,26 +840,80 @@ class cameramodel(object):
                    icam_intrinsics     = None):
         r'''Get or set the intrinsics in this model
 
-        if no arguments are given: this is a getter of the INTRINSICS parameters
-        only; otherwise this is a setter. As a setter, everything related to the
-        lens is set together (dimensions, lens parameters, uncertainty, etc).
+SYNOPSIS
 
-        "intrinsics" is a tuple (lensmodel, parameters):
+    # getter
+    lensmodel,intrinsics_data = model.intrinsics()
 
-        - lensmodel is a string for the specific lens model we're
-          using. mrcal.supported_lensmodels() returns a list
-          of supported models.
+    # setter
+    model.intrinsics( intrinsics          = ('LENSMODEL_PINHOLE',
+                                             fx_fy_cx_cy),
+                      imagersize          = (640,480),
+                      optimization_inputs = optimization_inputs,
+                      icam_intrinsics     = 0)
 
-        - intrinsics is a numpy array of lens parameters. The number and meaning
-          of these parameters depends on the lens model we're using. For those
-          models that have a core the first 4 values are the pinhole-camera
-          parameters: (fx,fy,cx,cy), with the following values representing the
-          lens distortion.
+This function has two modes of operation: a getter and a setter, depending on
+the arguments.
 
-        This "intrinsics" tuple is required. The other arguments are optional.
-        If the imagersize is omitted, the current model's imagersize will be
-        used. If anything else is omitted, it will be unset in the model.
+- If no arguments are given: this is a getter. The getter returns the
+  (lensmodel, intrinsics_data) tuple only.
 
+  - lensmodel: a string "LENSMODEL_...". The full list of supported models is
+    returned by mrcal.supported_lensmodels()
+
+  - intrinsics_data: a numpy array of shape
+    (mrcal.lensmodel_num_params(lensmodel),). For lensmodels that have an
+    "intrinsics core" (all of them, currently) the first 4 elements are
+
+    - fx: the focal-length along the x axis, in pixels
+    - fy: the focal-length along the y axis, in pixels
+    - cx: the projection center along the x axis, in pixels
+    - cy: the projection center along the y axis, in pixels
+
+    The remaining elements (both their number and their meaning) are dependent
+    on the specific lensmodel being used. Some models (LENSMODEL_PINHOLE for
+    example) do not have any elements other than the core.
+
+- If any arguments are given, this is a setter. The setter takes in
+
+  - the (lensmodel, intrinsics_data) tuple
+  - (optionally) the imagersize
+  - (optionally) optimization_inputs
+  - (optionally) icam_intrinsics
+
+  Changing any of these 4 parameters automatically invalidates the others, and
+  it only makes sense to set them in unison.
+
+The getters return a copy of the data, and the setters make a copy of the input:
+so it's impossible for the caller or callee to modify each other's data.
+
+ARGUMENTS
+
+- intrinsics: a (lensmodel, intrinsics_data) to set
+
+- imagersize: optional iterable of length 2. The (width,height) for the size of
+  the imager. If omitted, I use the imagersize already stored in this object.
+  This is useful if a valid cameramodel object already exists, and I want to
+  update it with new lens parameters
+
+- optimization_inputs: optional dict of arguments to mrcal.optimize() at the
+  optimum. These contain all the information needed to populate the camera model
+  (and more!). If given, 'icam_intrinsics' is also required. If omitted, no
+  optimization_inputs are stored; re-solving and computing of uncertainties is
+  impossible.
+
+- icam_intrinsics: optional integer identifying this camera in the solve defined
+  by 'optimization_inputs'. May be omitted if 'optimization_inputs' is omitted
+
+RETURNED VALUE
+
+If this is a getter (no arguments given), returns a (lensmodel, intrinsics_data)
+tuple where
+
+- lensmodel is a string "LENSMODEL_..."
+
+- intrinsics_data is a numpy array of shape
+  (mrcal.lensmodel_num_params(lensmodel),)
         '''
 
         # This is a getter
@@ -766,24 +947,24 @@ class cameramodel(object):
     def _extrinsics_rt(self, toref, rt=None):
         r'''Get or set the extrinsics in this model
 
-        This function represents the pose as a 6-long numpy array that contains
-        a 3-long Rodrigues rotation followed by a 3-long translation in the last
-        row:
+This function represents the pose as a 6-long numpy array that contains
+a 3-long Rodrigues rotation followed by a 3-long translation in the last
+row:
 
-          r = rt[:3]
-          t = rt[3:]
-          R = mrcal.R_from_r(r)
+  r = rt[:3]
+  t = rt[3:]
+  R = mrcal.R_from_r(r)
 
-        The transformation is b <-- R*a + t:
+The transformation is b <-- R*a + t:
 
-          import numpysane as nps
-          b = nps.matmult(a, nps.transpose(R)) + t
+  import numpysane as nps
+  b = nps.matmult(a, nps.transpose(R)) + t
 
-        if rt is None: this is a getter; otherwise a setter.
+if rt is None: this is a getter; otherwise a setter.
 
-        toref is a boolean. if toref: then rt maps points in the coord system of
-        THIS camera to the reference coord system. Otherwise in the opposite
-        direction
+toref is a boolean. if toref: then rt maps points in the coord system of
+THIS camera to the reference coord system. Otherwise in the opposite
+direction
 
         '''
 
@@ -808,23 +989,32 @@ class cameramodel(object):
     def extrinsics_rt_toref(self, rt=None):
         r'''Get or set the extrinsics in this model
 
-        This function represents the pose as a 6-long numpy array that contains
-        a 3-long Rodrigues rotation followed by a 3-long translation in the last
-        row:
+SYNOPSIS
 
-          r = rt[:3]
-          t = rt[3:]
-          R = mrcal.R_from_r(r)
+    # getter
+    rt_rc = model.extrinsics_rt_toref()
 
-        The transformation is b <-- R*a + t:
+    # setter
+    model.extrinsics_rt_toref( rt_rc )
 
-          import numpysane as nps
-          b = nps.matmult(a, nps.transpose(R)) + t
+This function gets/sets rt_toref: a numpy array of shape (6,) describing the rt
+transformation FROM the camera coordinate system TO the reference coordinate
+system.
 
-        if rt is None: this is a getter; otherwise a setter.
+if rt is None: this is a getter; otherwise a setter.
 
-        In this function rt maps points in the coord system of THIS camera to
-        the reference coord system
+The getters return a copy of the data, and the setters make a copy of the input:
+so it's impossible for the caller or callee to modify each other's data.
+
+ARGUMENTS
+
+- rt: a numpy array of shape (6,). The rt transformation TO the reference
+  coordinate system
+
+RETURNED VALUE
+
+If this is a getter (no arguments given), returns a a numpy array of shape (6,).
+The rt transformation TO the reference coordinate system.
 
         '''
         return self._extrinsics_rt(True, rt)
@@ -833,23 +1023,32 @@ class cameramodel(object):
     def extrinsics_rt_fromref(self, rt=None):
         r'''Get or set the extrinsics in this model
 
-        This function represents the pose as a 6-long numpy array that contains
-        a 3-long Rodrigues rotation followed by a 3-long translation in the last
-        row:
+SYNOPSIS
 
-          r = rt[:3]
-          t = rt[3:]
-          R = mrcal.R_from_r(r)
+    # getter
+    rt_cr = model.extrinsics_rt_fromref()
 
-        The transformation is b <-- R*a + t:
+    # setter
+    model.extrinsics_rt_fromref( rt_cr )
 
-          import numpysane as nps
-          b = nps.matmult(a, nps.transpose(R)) + t
+This function gets/sets rt_fromref: a numpy array of shape (6,) describing the
+rt transformation FROM the reference coordinate system TO the camera coordinate
+system.
 
-        if rt is None: this is a getter; otherwise a setter.
+if rt is None: this is a getter; otherwise a setter.
 
-        In this function Rt maps points in the REFERENCE coord system to the
-        coordinate system of THIS camera
+The getters return a copy of the data, and the setters make a copy of the input:
+so it's impossible for the caller or callee to modify each other's data.
+
+ARGUMENTS
+
+- rt: a numpy array of shape (6,). The rt transformation FROM the reference
+  coordinate system
+
+RETURNED VALUE
+
+If this is a getter (no arguments given), returns a a numpy array of shape (6,).
+The rt transformation FROM the reference coordinate system.
 
         '''
         return self._extrinsics_rt(False, rt)
@@ -901,22 +1100,32 @@ class cameramodel(object):
     def extrinsics_Rt_toref(self, Rt=None):
         r'''Get or set the extrinsics in this model
 
-        This function represents the pose as a shape (4,3) numpy array that
-        contains a (3,3) rotation matrix, followed by a (1,3) translation in the
-        last row:
+SYNOPSIS
 
-          R = Rt[:3,:]
-          t = Rt[ 3,:]
+    # getter
+    Rt_rc = model.extrinsics_Rt_toref()
 
-        The transformation is b <-- R*a + t:
+    # setter
+    model.extrinsics_Rt_toref( Rt_rc )
 
-          import numpysane as nps
-          b = nps.matmult(a, nps.transpose(R)) + t
+This function gets/sets Rt_toref: a numpy array of shape (4,3) describing the Rt
+transformation FROM the camera coordinate system TO the reference coordinate
+system.
 
-        if Rt is None: this is a getter; otherwise a setter.
+if Rt is None: this is a getter; otherwise a setter.
 
-        In this function Rt maps points in the coord system of THIS camera to
-        the reference coord system
+The getters return a copy of the data, and the setters make a copy of the input:
+so it's impossible for the caller or callee to modify each other's data.
+
+ARGUMENTS
+
+- Rt: a numpy array of shape (4,3). The Rt transformation TO the reference
+  coordinate system
+
+RETURNED VALUE
+
+If this is a getter (no arguments given), returns a a numpy array of shape
+(4,3). The Rt transformation TO the reference coordinate system.
 
         '''
         return self._extrinsics_Rt(True, Rt)
@@ -925,32 +1134,56 @@ class cameramodel(object):
     def extrinsics_Rt_fromref(self, Rt=None):
         r'''Get or set the extrinsics in this model
 
-        This function represents the pose as a shape (4,3) numpy array that
-        contains a (3,3) rotation matrix, followed by a (1,3) translation in the
-        last row:
+SYNOPSIS
 
-          R = Rt[:3,:]
-          t = Rt[ 3,:]
+    # getter
+    Rt_cr = model.extrinsics_Rt_fromref()
 
-        The transformation is b <-- R*a + t:
+    # setter
+    model.extrinsics_Rt_fromref( Rt_cr )
 
-          import numpysane as nps
-          b = nps.matmult(a, nps.transpose(R)) + t
+This function gets/sets Rt_fromref: a numpy array of shape (4,3) describing the
+Rt transformation FROM the reference coordinate system TO the camera coordinate
+system.
 
-        if Rt is None: this is a getter; otherwise a setter.
+if Rt is None: this is a getter; otherwise a setter.
 
-        In this function Rt maps points in the REFERENCE coord system to the
-        coordinate system of THIS camera
+The getters return a copy of the data, and the setters make a copy of the input:
+so it's impossible for the caller or callee to modify each other's data.
+
+ARGUMENTS
+
+- Rt: a numpy array of shape (4,3). The Rt transformation FROM the reference
+  coordinate system
+
+RETURNED VALUE
+
+If this is a getter (no arguments given), returns a a numpy array of shape
+(4,3). The Rt transformation FROM the reference coordinate system.
 
         '''
         return self._extrinsics_Rt(False, Rt)
 
 
     def imagersize(self, *args, **kwargs):
-        r'''Get the imager imagersize in this model
+        r'''Get the imagersize in this model
 
-        This function is NOT a setter. Use intrinsics() to set all the
-        intrinsics together
+SYNOPSIS
+
+    width,height = model.imagersize()
+
+This function retrieves the dimensions of the imager described by this camera
+model. This function is NOT a setter; use intrinsics() to set all the intrinsics
+together.
+
+ARGUMENTS
+
+None
+
+RETURNED VALUE
+
+A length-2 tuple (width,height)
+
         '''
         if len(args) or len(kwargs):
             raise Exception("imagersize() is NOT a setter. Please use intrinsics() to set them all together")
@@ -983,26 +1216,74 @@ class cameramodel(object):
 
 
     def optimization_inputs(self):
-        r'''Get the original optimization inputs AT THE OPTIMUM
+        r'''Get the original optimization inputs
 
-        This function is NOT a setter. Use intrinsics() to set this and all the
-        intrinsics together. The optimization inputs aren't a part of the
-        intrinsics per se, but modifying any part of the intrinsics invalidates
-        the optimization inputs, so it only makes sense to set them all together
+SYNOPSIS
 
+    p,x,j = mrcal.optimizer_callback(**model.optimization_inputs())[:3]
+
+This function retrieves the optimization inputs: a dict containing all the data
+that was used to compute the contents of this model. These are the kwargs
+passable to mrcal.optimize() and mrcal.optimizer_callback(), that describe the
+optimization problem at its final optimum. A cameramodel object may not contain
+this data, in which case we return None.
+
+This function is NOT a setter; use intrinsics() to set all the intrinsics
+together. The optimization inputs aren't a part of the intrinsics per se, but
+modifying any part of the intrinsics invalidates the optimization inputs, so it
+makes sense to set them all together
+
+ARGUMENTS
+
+None
+
+RETURNED VALUE
+
+The optimization_inputs dict, or None if one isn't stored in this model.
         '''
 
         if self._optimization_inputs_string is None:
             return None
         return _deserialize_optimization_inputs(self._optimization_inputs_string)
 
-    def icam_intrinsics(self):
-        r'''Get the camera index at optimization time
 
-        This function is NOT a setter. Use intrinsics() to set this and all the
-        intrinsics together. The optimization inputs aren't a part of the
-        intrinsics per se, but modifying any part of the intrinsics invalidates
-        the optimization inputs, so it only makes sense to set them all together
+    def icam_intrinsics(self):
+        r'''Get the camera index indentifying this camera at optimization time
+
+SYNOPSIS
+
+    m = mrcal.cameramodel('xxx.cameramodel')
+
+    optimization_inputs = m.optimization_inputs()
+
+    icam_intrinsics = m.icam_intrinsics()
+
+    icam_extrinsics = \
+        mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                            **optimization_inputs)
+
+    if icam_extrinsics >= 0:
+        extrinsics_rt_fromref_at_calibration_time = \
+            optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+
+This function retrieves the integer identifying this camera in the solve defined
+by 'optimization_inputs'. When the optimization happened, we may have been
+calibrating multiple cameras at the same time, and only one of those cameras is
+described by this 'cameramodel' object. The 'icam_intrinsics' index returned by
+this function specifies which camera this is.
+
+This function is NOT a setter; use intrinsics() to set all the intrinsics
+together. The optimization inputs and icam_intrinsics aren't a part of the
+intrinsics per se, but modifying any part of the intrinsics invalidates the
+optimization inputs, so it makes sense to set them all together
+
+ARGUMENTS
+
+None
+
+RETURNED VALUE
+
+The icam_intrinsics integer, or None if one isn't stored in this model.
 
         '''
 
