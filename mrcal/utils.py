@@ -2858,7 +2858,7 @@ element (difference consists of N separate polygons)
         [subpiece for p in diff for subpiece in split_polygon_to_remove_holes(p)]
 
 
-def show_splined_model_surface(model, ixy,
+def show_splined_model_surface(model, xy,
                                imager_domain = True,
                                extratitle    = None,
                                **kwargs):
@@ -2869,7 +2869,7 @@ SYNOPSIS
 
     model = mrcal.cameramodel(model_filename)
 
-    mrcal.show_splined_model_surface( model, 0 )
+    mrcal.show_splined_model_surface( model, 'x' )
 
     ... A plot pops up displaying the spline knots, the spline surface (for the
     ... "x" coordinate), the spline domain and the imager boundary
@@ -2906,9 +2906,8 @@ ARGUMENTS
 
 - model: the mrcal.cameramodel object being evaluated
 
-- ixy: an integer 0 or 1: selects the surface we're looking at. We have a
-  separate surface for the x and y coordinates, with the two sharing the knot
-  positions
+- xy: 'x' or 'y': selects the surface we're looking at. We have a separate
+  surface for the x and y coordinates, with the two sharing the knot positions
 
 - imager_domain: optional boolean defaults to True. If False: we plot everything
   against normalized stereographic coordinates; in this representation the knots
@@ -2930,6 +2929,11 @@ into a variable, even if you're not going to be doing anything with this object
 
     '''
 
+    if   xy == 'x': ixy = 0
+    elif xy == 'y': ixy = 1
+    else:
+        raise Exception("xy should be either 'x' or 'y'")
+
     lensmodel,intrinsics_data = model.intrinsics()
     W,H                       = model.imagersize()
 
@@ -2941,7 +2945,7 @@ into a variable, even if you're not going to be doing anything with this object
 
     if 'title' not in kwargs:
 
-        title = f"Surface for {lensmodel}. Looking at deltau{'y' if ixy else 'x'}"
+        title = f"Surface for {lensmodel}. Looking at deltau{xy}"
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
@@ -3005,7 +3009,7 @@ into a variable, even if you're not going to be doing anything with this object
                     lensmodel, intrinsics_data ))
 
     plotoptions = dict(kwargs,
-                       zlabel   = f"Deltau{'y' if ixy else 'x'} (unitless)")
+                       zlabel   = f"Deltau{xy} (unitless)")
     surface_curveoptions = dict()
     if imager_domain:
         plotoptions['xlabel'] = 'X pixel coord'

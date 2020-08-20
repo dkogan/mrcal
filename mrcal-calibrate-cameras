@@ -963,7 +963,7 @@ Potential things to look at:
     show_projection_behavior('heatmap',    i_camera)
     show_projection_behavior('vectorfield',i_camera)
     show_projection_behavior('radial',     i_camera)
-    show_splined_model_surface(    i_camera, i_xy)
+    show_splined_model_surface(    i_camera, xy)
     stats
     i_observations_worst
     rms_reproj_err_including_outliers_perobservation
@@ -1549,13 +1549,13 @@ def show_projection_behavior(mode, i_camera = None, gridn_width = 60, gridn_heig
                                            **kwargs)
 
 plots_splined_model_surface = [None] * Ncameras
-def show_splined_model_surface(i_camera = None, i_xy=0, **kwargs):
+def show_splined_model_surface(i_camera = None, xy='x', **kwargs):
 
     global plots_splined_model_surface
     i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
     for i_camera in i_camera_all:
         plots_splined_model_surface[i_camera] = \
-            mrcal.show_splined_model_surface(models[i_camera], i_xy,
+            mrcal.show_splined_model_surface(models[i_camera], xy,
                                              extratitle = "camera {}".format(i_camera),
                                              **kwargs)
 

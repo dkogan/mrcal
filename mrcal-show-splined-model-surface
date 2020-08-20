@@ -4,7 +4,7 @@ r'''Visualizes the surface represented in a splined lens model
 
 SYNOPSIS
 
-  $ mrcal-show-splined-model-surface cam.cameramodel 0
+  $ mrcal-show-splined-model-surface cam.cameramodel x
   ... a plot pops up showing the surface
 
 Splined models are built with a splined surface that we index to compute the
@@ -57,10 +57,9 @@ def parse_args():
                         type=str,
                         help='''Input camera model. If "-' is given, we read standard input''')
 
-    parser.add_argument('ixy',
-                        type=int,
-                        choices = (0,1),
-                        help='''Whether we're looking at the x surface (0) or the y surface (1)''')
+    parser.add_argument('xy',
+                        choices = ('x','y'),
+                        help='''Whether we're looking at the x surface or the y surface''')
 
     return parser.parse_args()
 
@@ -91,7 +90,7 @@ plotkwargs = {}
 if args.extraset is not None:
     plotkwargs['set'] = args.extraset
 
-plot = mrcal.show_splined_model_surface(model, args.ixy,
+plot = mrcal.show_splined_model_surface(model, args.xy,
 
                                         imager_domain = not args.spline_index_domain,
                                         extratitle    = args.extratitle,
