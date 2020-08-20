@@ -13,11 +13,8 @@ SYNOPSIS
                                             **optimization_inputs)
 
     if icam_extrinsics >= 0:
-        i_state_extrinsics = mrcal.state_index_camera_rt(icam_extrinsics,
-                                                         **optimization_inputs)
-
-    Nintrinsics = mrcal.lensmodel_num_params(optimization_inputs['lensmodel'])
-    intrinsics_data = p[i_state:i_state+Nintrinsics]
+        extrinsics_rt_fromref_at_calibration_time = \
+            optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
 
 When calibrating cameras, each observations is associated with some camera
 intrinsics (lens parameters) and some camera extrinsics (geometry). Those two
