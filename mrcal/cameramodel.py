@@ -889,7 +889,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- intrinsics: a (lensmodel, intrinsics_data) to set
+- intrinsics: a (lensmodel, intrinsics_data) if we're setting; None if we're
+  getting
 
 - imagersize: optional iterable of length 2. The (width,height) for the size of
   the imager. If omitted, I use the imagersize already stored in this object.
@@ -914,6 +915,7 @@ tuple where
 
 - intrinsics_data is a numpy array of shape
   (mrcal.lensmodel_num_params(lensmodel),)
+
         '''
 
         # This is a getter
@@ -1008,8 +1010,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- rt: a numpy array of shape (6,). The rt transformation TO the reference
-  coordinate system
+- rt: if we're setting: a numpy array of shape (6,). The rt transformation TO
+  the reference coordinate system. If we're getting: None
 
 RETURNED VALUE
 
@@ -1042,8 +1044,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- rt: a numpy array of shape (6,). The rt transformation FROM the reference
-  coordinate system
+- rt: if we're setting: a numpy array of shape (6,). The rt transformation FROM
+  the reference coordinate system. If we're getting: None
 
 RETURNED VALUE
 
@@ -1119,8 +1121,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- Rt: a numpy array of shape (4,3). The Rt transformation TO the reference
-  coordinate system
+- Rt: if we're setting: a numpy array of shape (4,3). The Rt transformation TO
+  the reference coordinate system. If we're getting: None
 
 RETURNED VALUE
 
@@ -1153,8 +1155,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- Rt: a numpy array of shape (4,3). The Rt transformation FROM the reference
-  coordinate system
+- Rt: if we're setting: a numpy array of shape (4,3). The Rt transformation FROM
+  the reference coordinate system. If we're getting: None
 
 RETURNED VALUE
 
