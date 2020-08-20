@@ -2490,9 +2490,9 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_measurements_regularization, METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
 
-      PYMETHODDEF_ENTRY(,lensmodel_meta,         METH_VARARGS),
-      PYMETHODDEF_ENTRY(,lensmodel_num_params,           METH_VARARGS),
-      PYMETHODDEF_ENTRY(,supported_lensmodels,   METH_NOARGS),
+      PYMETHODDEF_ENTRY(,lensmodel_meta,           METH_VARARGS),
+      PYMETHODDEF_ENTRY(,lensmodel_num_params,     METH_VARARGS),
+      PYMETHODDEF_ENTRY(,supported_lensmodels,     METH_NOARGS),
       PYMETHODDEF_ENTRY(,knots_for_splined_models, METH_VARARGS),
       PYMETHODDEF_ENTRY(,project_stereographic,    METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,unproject_stereographic,  METH_VARARGS | METH_KEYWORDS),
