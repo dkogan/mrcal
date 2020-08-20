@@ -73,8 +73,8 @@ int main(int argc, char* argv[] )
     iarg++;
 
     if(iarg >= argc)
-        problem_details = ((mrcal_problem_details_t) { .do_optimize_intrinsics_core        = true,
-                                                       .do_optimize_intrinsics_distortions = true,
+        problem_details = ((mrcal_problem_details_t) { .do_optimize_intrinsics_core       = true,
+                                                       .do_optimize_intrinsics_distortions= true,
                                                        .do_optimize_extrinsics            = true,
                                                        .do_optimize_frames                = true,
                                                        .do_optimize_calobject_warp        = true,
