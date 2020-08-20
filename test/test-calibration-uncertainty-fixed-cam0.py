@@ -104,7 +104,7 @@ lensmodel   = models_ref[0].intrinsics()[0]
 lensmodel = 'LENSMODEL_OPENCV4'
 for m in models_ref:
     m.intrinsics( intrinsics = (lensmodel, m.intrinsics()[1][:8]))
-Nintrinsics = mrcal.num_lens_params(lensmodel)
+Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
 Ncameras = len(models_ref)
 Ncameras_extrinsics = Ncameras

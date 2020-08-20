@@ -67,7 +67,7 @@ def _validateIntrinsics(imagersize,
     intrinsics = i[1]
 
     # If this fails, I keep the exception and let it fall through
-    Nintrinsics_want = mrcal.num_lens_params(lensmodel)
+    Nintrinsics_want = mrcal.lensmodel_num_params(lensmodel)
 
     try:
         Nintrinsics_have = len(intrinsics)

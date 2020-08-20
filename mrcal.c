@@ -271,7 +271,7 @@ bool model_supports_projection_behind_camera( const mrcal_lensmodel_t m )
     return meta.can_project_behind_camera;
 }
 
-static int LENSMODEL_SPLINED_STEREOGRAPHIC__num_lens_params(const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
+static int LENSMODEL_SPLINED_STEREOGRAPHIC__lensmodel_num_params(const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
         // I have two surfaces: one for x and another for y
@@ -280,7 +280,7 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__num_lens_params(const mrcal_LENSMODE
         // and I have a core
         4;
 }
-int mrcal_num_lens_params(const mrcal_lensmodel_t m)
+int mrcal_lensmodel_num_params(const mrcal_lensmodel_t m)
 {
     switch(m.type)
     {
@@ -288,7 +288,7 @@ int mrcal_num_lens_params(const mrcal_lensmodel_t m)
         case MRCAL_##s: return n;
 
 #define CASE_NUM_WITHCONFIG(s,n)                                        \
-        case MRCAL_##s: return s##__num_lens_params(&m.s##__config);
+        case MRCAL_##s: return s##__lensmodel_num_params(&m.s##__config);
 
         MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_NUM_NOCONFIG )
         MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_NUM_WITHCONFIG )
@@ -308,7 +308,7 @@ int get_num_distortions_optimization_params(mrcal_problem_details_t problem_deta
     if( !problem_details.do_optimize_intrinsics_distortions )
         return 0;
 
-    int N = mrcal_num_lens_params(lensmodel);
+    int N = mrcal_lensmodel_num_params(lensmodel);
     if(modelHasCore_fxfycxcy(lensmodel))
         N -= 4; // ignoring fx,fy,cx,cy
     return N;
@@ -868,7 +868,7 @@ void _project_point_parametric( // outputs
         }
         else
         {
-            int Nintrinsics = mrcal_num_lens_params(lensmodel);
+            int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
             _mrcal_project_internal_opencv( q, dq_dp,
                                             dq_dintrinsics_nocore,
                                             p, 1, intrinsics, Nintrinsics);
@@ -901,7 +901,7 @@ void _project_point_parametric( // outputs
     }
     else if( lensmodel.type == MRCAL_LENSMODEL_CAHVOR )
     {
-        int NdistortionParams = mrcal_num_lens_params(lensmodel) - 4;
+        int NdistortionParams = mrcal_lensmodel_num_params(lensmodel) - 4;
 
         // I perturb p, and then apply the focal length, center pixel stuff
         // normally
@@ -1638,7 +1638,7 @@ void project( // out
     const int Npoints =
         calibration_object_width_n ?
         calibration_object_width_n*calibration_object_height_n : 1;
-    const int Nintrinsics = mrcal_num_lens_params(lensmodel);
+    const int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
 
     // I need to compose two transformations
     //
@@ -2369,7 +2369,7 @@ bool mrcal_project( // out
         return _mrcal_project_internal_cahvore(q, p, N, intrinsics);
     }
 
-    int Nintrinsics = mrcal_num_lens_params(lensmodel);
+    int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
 
     // Special-case for opencv/pinhole and projection-only. cvProjectPoints2 and
     // project() have a lot of overhead apparently, and calling either in a loop
@@ -2636,7 +2636,7 @@ static int pack_solver_state_intrinsics( // out
 {
     int i_state = 0;
 
-    int Nintrinsics  = mrcal_num_lens_params(lensmodel);
+    int Nintrinsics  = mrcal_lensmodel_num_params(lensmodel);
     int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
     int Ndistortions = Nintrinsics - Ncore;
 
@@ -2806,7 +2806,7 @@ static int unpack_solver_state_intrinsics( // out
         !problem_details.do_optimize_intrinsics_distortions )
         return 0;
 
-    const int Nintrinsics = mrcal_num_lens_params(lensmodel);
+    const int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     const int Ncore       = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
 
     int i_state = 0;
@@ -2912,7 +2912,7 @@ static void unpack_solver_state( // out
 {
     int i_state = unpack_solver_state_intrinsics(intrinsics_all,
                                                  p, lensmodel, problem_details,
-                                                 mrcal_num_lens_params(lensmodel),
+                                                 mrcal_lensmodel_num_params(lensmodel),
                                                  Ncameras_intrinsics);
 
     if( problem_details.do_optimize_extrinsics )
@@ -4646,7 +4646,7 @@ bool mrcal_optimizer_callback(// out
                                                    calibration_object_height_n,
                                                    problem_details,
                                                    lensmodel);
-    int Nintrinsics = mrcal_num_lens_params(lensmodel);
+    int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     int N_j_nonzero = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
                                            observations_board, Nobservations_board,
                                            observations_point, Nobservations_point,
@@ -4873,7 +4873,7 @@ mrcal_optimize( // out
                                                            lensmodel,
                                                            calibration_object_width_n,
                                                            calibration_object_height_n),
-        .Nintrinsics                = mrcal_num_lens_params(lensmodel)};
+        .Nintrinsics                = mrcal_lensmodel_num_params(lensmodel)};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
     const int Nstate = mrcal_num_state(Ncameras_intrinsics, Ncameras_extrinsics,

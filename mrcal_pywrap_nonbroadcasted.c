@@ -806,7 +806,7 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
     return result;
 }
 
-static PyObject* num_lens_params(PyObject* NPY_UNUSED(self),
+static PyObject* lensmodel_num_params(PyObject* NPY_UNUSED(self),
                                  PyObject* args)
 {
     PyObject* result = NULL;
@@ -819,7 +819,7 @@ static PyObject* num_lens_params(PyObject* NPY_UNUSED(self),
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
 
-    int Nparams = mrcal_num_lens_params(lensmodel);
+    int Nparams = mrcal_lensmodel_num_params(lensmodel);
 
     result = Py_BuildValue("i", Nparams);
 
@@ -1145,7 +1145,7 @@ static bool optimize_validate_args( // out
     if(!parse_lensmodel_from_arg(mrcal_lensmodel_type, lensmodel))
         return false;
 
-    int NlensParams = mrcal_num_lens_params(*mrcal_lensmodel_type);
+    int NlensParams = mrcal_lensmodel_num_params(*mrcal_lensmodel_type);
     if( NlensParams != PyArray_DIMS(intrinsics)[1] )
     {
         BARF("intrinsics.shape[1] MUST be %d. Instead got %ld",
@@ -2458,8 +2458,8 @@ static const char optimizer_callback_docstring[] =
 static const char lensmodel_meta_docstring[] =
 #include "lensmodel_meta.docstring.h"
     ;
-static const char num_lens_params_docstring[] =
-#include "num_lens_params.docstring.h"
+static const char lensmodel_num_params_docstring[] =
+#include "lensmodel_num_params.docstring.h"
     ;
 static const char supported_lensmodels_docstring[] =
 #include "supported_lensmodels.docstring.h"
@@ -2491,7 +2491,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,lensmodel_meta,         METH_VARARGS),
-      PYMETHODDEF_ENTRY(,num_lens_params,           METH_VARARGS),
+      PYMETHODDEF_ENTRY(,lensmodel_num_params,           METH_VARARGS),
       PYMETHODDEF_ENTRY(,supported_lensmodels,   METH_NOARGS),
       PYMETHODDEF_ENTRY(,knots_for_splined_models, METH_VARARGS),
       PYMETHODDEF_ENTRY(,project_stereographic,    METH_VARARGS | METH_KEYWORDS),

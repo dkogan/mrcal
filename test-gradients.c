@@ -193,7 +193,7 @@ int main(int argc, char* argv[] )
         // There is no core
         problem_details.do_optimize_intrinsics_core = false;
 
-    int Nintrinsics = mrcal_num_lens_params(lensmodel);
+    int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     int Ndistortion = Nintrinsics;
     if(modelHasCore_fxfycxcy(lensmodel))
         Ndistortion -= 4;

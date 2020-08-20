@@ -16,7 +16,7 @@ SYNOPSIS
         i_state_extrinsics = mrcal.state_index_camera_rt(icam_extrinsics,
                                                          **optimization_inputs)
 
-    Nintrinsics = mrcal.num_lens_params(optimization_inputs['lensmodel'])
+    Nintrinsics = mrcal.lensmodel_num_params(optimization_inputs['lensmodel'])
     intrinsics_data = p[i_state:i_state+Nintrinsics]
 
 When calibrating cameras, each observations is associated with some camera

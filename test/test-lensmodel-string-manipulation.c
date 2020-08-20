@@ -121,10 +121,10 @@ int main(int argc, char* argv[])
     confirm( modelHasCore_fxfycxcy((mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC}));
 
 
-    confirm_eq_int(mrcal_num_lens_params((mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_CAHVOR}),  9);
-    confirm_eq_int(mrcal_num_lens_params((mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_OPENCV8}), 12);
+    confirm_eq_int(mrcal_lensmodel_num_params((mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_CAHVOR}),  9);
+    confirm_eq_int(mrcal_lensmodel_num_params((mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_OPENCV8}), 12);
 
-    confirm_eq_int(mrcal_num_lens_params((mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC,
+    confirm_eq_int(mrcal_lensmodel_num_params((mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC,
                                                       .LENSMODEL_SPLINED_STEREOGRAPHIC__config =
                                                       { .order     = 3,
                                                         .Nx        = 30,

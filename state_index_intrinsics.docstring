@@ -13,7 +13,7 @@ SYNOPSIS
     i_state = mrcal.state_index_intrinsics(i_camera_intrinsics,
                                            **optimization_inputs)
 
-    Nintrinsics = mrcal.num_lens_params(optimization_inputs['lensmodel'])
+    Nintrinsics = mrcal.lensmodel_num_params(optimization_inputs['lensmodel'])
     intrinsics_data = p[i_state:i_state+Nintrinsics]
 
 The optimization algorithm sees its world described in one, big vector of state.
@@ -27,7 +27,7 @@ vector. The intrinsics are stored contiguously. They consist of a 4-element
 "intrinsics core" (focallength-x, focallength-y, centerpixel-x, centerpixel-y)
 followed by a lensmodel-specific vector of "distortions". The number of
 intrinsics elements (including the core) for a particular lens model can be
-queried with mrcal.num_lens_params(lensmodel).
+queried with mrcal.lensmodel_num_params(lensmodel).
 
 In order to determine the variable mapping, we need quite a bit of context. If
 we have the full set of inputs to the optimization function, we can pass in

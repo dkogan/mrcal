@@ -107,7 +107,7 @@ for i in intrinsics:
 
     q,dq_dp,dq_di = mrcal.project(p, *i, get_gradients=True)
 
-    Nintrinsics = mrcal.num_lens_params(i[0])
+    Nintrinsics = mrcal.lensmodel_num_params(i[0])
     testutils.confirm_equal(dq_di.shape[-1], Nintrinsics,
                             msg=f"{i[0]}: Nintrinsics match for {i[0]}")
     if Nintrinsics != dq_di.shape[-1]:

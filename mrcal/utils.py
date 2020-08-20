@@ -1690,7 +1690,7 @@ broadcasts on p_cam only. We accept
 
 - intrinsics_data: a numpy array of shape (Nintrinsics,) where Nintrinsics is
   the number of parameters in the intrinsics vector for this lens model,
-  returned by mrcal.num_lens_params(lensmodel). This is required if and only if
+  returned by mrcal.lensmodel_num_params(lensmodel). This is required if and only if
   model is None
 
 - extrinsics_rt_fromref: a numpy array of shape (6,) or None. This is an rt

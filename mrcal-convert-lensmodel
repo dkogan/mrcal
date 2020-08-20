@@ -156,7 +156,7 @@ import mrcal
 
 lensmodel_to = args.to
 try:
-    Ndistortions = mrcal.num_lens_params(lensmodel_to) - 4
+    Ndistortions = mrcal.lensmodel_num_params(lensmodel_to) - 4
 except:
     print(f"Unknown lens model: '{lensmodel_to}'", file=sys.stderr)
     sys.exit(1)

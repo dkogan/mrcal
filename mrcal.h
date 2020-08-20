@@ -46,7 +46,7 @@ typedef struct
 
 // names of the lens models, intrinsic parameter counts. A parameter count of
 // <=0 means the parameter count is dynamic and will be computed by
-// mrcal_num_lens_params(). This also implies that this model has some
+// mrcal_lensmodel_num_params(). This also implies that this model has some
 // configuration that affects the parameter count
 #define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                    \
     _(LENSMODEL_PINHOLE, 4)                                           \
@@ -211,7 +211,7 @@ mrcal_lensmodel_t        mrcal_lensmodel_from_name             ( const char* nam
 mrcal_lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
 
 mrcal_lensmodel_meta_t mrcal_lensmodel_meta                    ( const mrcal_lensmodel_t m );
-int                mrcal_num_lens_params                   ( const mrcal_lensmodel_t m );
+int                mrcal_lensmodel_num_params                   ( const mrcal_lensmodel_t m );
 int                mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
                                                              mrcal_lensmodel_t m );
 const char* const* mrcal_supported_lensmodel_names         ( void ); // NULL-terminated array of char* strings

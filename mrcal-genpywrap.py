@@ -47,7 +47,7 @@ bool validate_lensmodel(// out; valid if we returned true
         return false;
     }
 
-    int NlensParams = mrcal_num_lens_params(*lensmodel);
+    int NlensParams = mrcal_lensmodel_num_params(*lensmodel);
     if( NlensParams != Nintrinsics_in_arg )
     {
         PyErr_Format(PyExc_RuntimeError,
@@ -153,7 +153,7 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              cookie->Nintrinsics = mrcal_num_lens_params(cookie->lensmodel);
+              cookie->Nintrinsics = mrcal_lensmodel_num_params(cookie->lensmodel);
               _mrcal_precompute_lensmodel_data(&cookie->precomputed, cookie->lensmodel);
               return true;
 ''',
@@ -246,7 +246,7 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                                "_project(MRCAL_LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients");
                   return false;
               }
-              cookie->Nintrinsics = mrcal_num_lens_params(cookie->lensmodel);
+              cookie->Nintrinsics = mrcal_lensmodel_num_params(cookie->lensmodel);
               _mrcal_precompute_lensmodel_data(&cookie->precomputed, cookie->lensmodel);
               return true;
 ''',

@@ -40,7 +40,7 @@ lensmodel   = models_ref[0].intrinsics()[0]
 lensmodel = 'LENSMODEL_OPENCV4'
 for m in models_ref:
     m.intrinsics( intrinsics = (lensmodel, m.intrinsics()[1][:8]))
-Nintrinsics = mrcal.num_lens_params(lensmodel)
+Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
 Ncameras = len(models_ref)
 Ncameras_extrinsics = Ncameras - 1
@@ -140,7 +140,7 @@ mrcal.optimize(**baseline,
 Nframes     = len(frames_ref)
 Ncameras    = len(intrinsics_ref)
 lensmodel   = baseline['lensmodel']
-Nintrinsics = mrcal.num_lens_params(lensmodel)
+Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
 Nmeasurements_boards         = mrcal.num_measurements_boards(**baseline)
 Nmeasurements_regularization = mrcal.num_measurements_regularization(**baseline)
