@@ -396,6 +396,9 @@ def check_uncertainties_at(q0, distance):
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
+    if len(args):
+        print(f"Regularization bias for distance={'inf' if atinfinity else distance}: {q_sampled_mean - q0} pixels")
+
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
                                          q_sampled-q_sampled_mean), axis=-4 )
 
