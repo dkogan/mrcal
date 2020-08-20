@@ -554,20 +554,34 @@ A sample valid .cameramodel file:
                  valid_intrinsics_region = None ):
         r'''Initialize a new camera-model object
 
+SYNOPSIS
+
+    # reading from a file on disk
+    model0 = mrcal.cameramodel('xxx.cameramodel')
+
+    # using discrete arguments
+    model1 = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
+                                              np.array((fx,fy,cx,cy))),
+                                imagersize = (640,480) )
+
+    # using a optimization_inputs dict
+    model2 = mrcal.cameramodel( optimization_inputs = optimization_inputs,
+                                icam_intrinsics     = 0 )
+
 We can initialize using one of several methods, depending on which arguments are
 given. The arguments for the methods we're not using MUST all be None. Methods:
 
 - Read a file on disk. The filename should be given in the 'file_or_model'
-  argument
+  argument (possibly as a poitional argument)
 
 - Read a python 'file' object. Similarly, the opened file should be given in the
-  'file_or_model' argument
+  'file_or_model' argument (possibly as a poitional argument)
 
 - Copy an existing cameramodel object. Pass the object in the 'file_or_model'
-  argument.
+  argument (possibly as a poitional argument)
 
 - Read discrete arguments. The components of this model (intrinsics, extrinsics,
-  etc) can be passed-in separetely via separate arguments
+  etc) can be passed-in separetely via separate keyword arguments
 
 - optimization_inputs. If we have an optimization_inputs dict to store, this
   alone may be passed-in, and all the model components can be read from it.
@@ -578,48 +592,55 @@ ARGUMENTS
   object or from an existing cameramodel object to copy. If reading a filename,
   and the filename is xxx.cahvor, then we assume the legacy cahvor file format
   instead of the usual .cameramodel. If the filename is '-' we read standard
-  input (both .cahvor and .cameramodel supported)
+  input (both .cahvor and .cameramodel supported). This may be given as a
+  positional argument. Everything else may be given only as keyword arguments.
 
 - intrinsics: a tuple (lensmodel, intrinsics_data). If given, 'imagersize' is
-  also required.
+  also required. This may be given only as a keyword argument.
 
 - imagersize: tuple (width,height) for the size of the imager. If given,
-  'intrinsics' is also required
+  'intrinsics' is also required. This may be given only as a keyword argument.
 
 - extrinsics_Rt_toref: numpy array of shape (4,3) describing the Rt
   transformation FROM the camera coordinate system TO the reference coordinate
   system. Exclusive with the other 'extrinsics_...' arguments. If given,
   'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
-  arguments are given, an identity transformation is set
+  arguments are given, an identity transformation is set. This may be given only
+  as a keyword argument.
 
 - extrinsics_Rt_fromref: numpy array of shape (4,3) describing the Rt
   transformation FROM the reference coordinate system TO the camera coordinate
   system. Exclusive with the other 'extrinsics_...' arguments. If given,
   'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
-  arguments are given, an identity transformation is set
+  arguments are given, an identity transformation is set. This may be given only
+  as a keyword argument.
 
 - extrinsics_rt_toref: numpy array of shape (6,) describing the rt
   transformation FROM the camera coordinate system TO the reference coordinate
   system. Exclusive with the other 'extrinsics_...' arguments. If given,
   'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
-  arguments are given, an identity transformation is set
+  arguments are given, an identity transformation is set. This may be given only
+  as a keyword argument.
 
 - extrinsics_rt_fromref: numpy array of shape (6,) describing the rt
   transformation FROM the reference coordinate system TO the camera coordinate
   system. Exclusive with the other 'extrinsics_...' arguments. If given,
   'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
-  arguments are given, an identity transformation is set
+  arguments are given, an identity transformation is set. This may be given only
+  as a keyword argument.
 
 - optimization_inputs: a dict of arguments to mrcal.optimize() at the optimum.
   These contain all the information needed to populate the camera model (and
-  more!). If given, 'icam_intrinsics' is also required
+  more!). If given, 'icam_intrinsics' is also required. This may be given only
+  as a keyword argument.
 
 - icam_intrinsics: integer identifying this camera in the solve defined by
-  'optimization_inputs'. If given, 'optimization_inputs' is required
+  'optimization_inputs'. If given, 'optimization_inputs' is required. This may
+  be given only as a keyword argument.
 
 - valid_intrinsics_region': numpy array of shape (N,2). Defines a closed contour
   in the imager pixel space. Points inside this contour are assumed to have
-  'valid' intrinsics.
+  'valid' intrinsics. This may be given only as a keyword argument.
 
         '''
 
