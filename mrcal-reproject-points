@@ -26,7 +26,6 @@ y pixel coords. Comments are allowed, and start with the '#' character.
 
 '''
 
-from __future__ import print_function
 
 import sys
 import argparse

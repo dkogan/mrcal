@@ -16,7 +16,6 @@ single model. The output is written to standard out in mrcal-native format
 
 '''
 
-from __future__ import print_function
 
 import sys
 import argparse

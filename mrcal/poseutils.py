@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-from __future__ import print_function
 
 import numpy as np
 import numpysane as nps

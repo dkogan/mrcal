@@ -12,7 +12,6 @@ the calibration object poses used in computing the calibration
 
 '''
 
-from __future__ import print_function
 
 import sys
 import argparse
