@@ -1952,11 +1952,13 @@ def _options_heatmap_with_contours( # update these
               legend = "", # needed to force contour labels
               using = imagergrid_using(imagersize, gridn_width, gridn_height),
 
-              # I plot 2 times:
+              # I plot 3 times:
               # - to make the heat map
               # - to make the contours
+              # - to make the contour labels
               _with=np.array(('image',
-                              'lines nosurface')))
+                              'lines nosurface',
+                              'labels boxed nosurface')))
 
 
 def show_projection_uncertainty(model,
