@@ -97,9 +97,6 @@ def parse_args():
                         but can be used even if the original optimization_inputs
                         aren't available, and it produces results that have the
                         same extrinsics as the input model''')
-    parser.add_argument('--verbose',
-                        action='store_true',
-                        help='''Report the solver details''')
     parser.add_argument('--viz',
                         action='store_true',
                         help='''Visualize the differences between the input and output models''')
@@ -188,7 +185,7 @@ if not args.sampled:
 
     optimization_inputs['lensmodel']  = lensmodel_to
     optimization_inputs['intrinsics'] = intrinsics_to_values
-    optimization_inputs['verbose']    = args.verbose
+    optimization_inputs['verbose']    = False
 
     stats = mrcal.optimize(**optimization_inputs,
                            skip_outlier_rejection = False)
@@ -337,7 +334,7 @@ else:
         stats = mrcal.optimize(**optimization_inputs,
                                # No outliers. I have the points that I have
                                skip_outlier_rejection            = True,
-                               verbose                           = args.verbose)
+                               verbose                           = False)
         err_rms = stats['rms_reproj_error__pixels']
         print(f"RMS error of this solution: {err_rms} pixels.",
               file=sys.stderr)
