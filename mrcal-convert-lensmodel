@@ -97,6 +97,12 @@ def parse_args():
                         but can be used even if the original optimization_inputs
                         aren't available, and it produces results that have the
                         same extrinsics as the input model''')
+    parser.add_argument('--gridn',
+                        type=int,
+                        default = (60,40),
+                        nargs = 2,
+                        help='''How densely we should sample the imager if --sampled. By default we use a
+                        60x40 grid''')
     parser.add_argument('--viz',
                         action='store_true',
                         help='''Visualize the differences between the input and output models''')
@@ -130,9 +136,13 @@ def parse_args():
 
 args = parse_args()
 
-if not args.sampled and (args.where is not None or args.radius is not None):
-    print("--where and --radius only make sense without --sampled", file=sys.stderr)
-    sys.exit(1)
+if not args.sampled:
+    if args.where is not None or args.radius is not None:
+        print("--where and --radius only make sense with --sampled", file=sys.stderr)
+        sys.exit(1)
+    if args.gridn is not None:
+        print("--gridn only makes sense with --sampled", file=sys.stderr)
+        sys.exit(1)
 
 if args.to == 'LENSMODEL_CAHVORE':
     print("LENSMODEL_CAHVORE models aren't supported at this time: its gradients aren't implemented",
@@ -200,6 +210,9 @@ if not args.sampled:
     m_to.extrinsics_rt_fromref(m.extrinsics_rt_fromref())
 
 else:
+
+    # Sampled solve. I grid the imager, unproject and fit
+
     dims = m.imagersize()
     if dims is None:
         sys.stderr.write("Warning: imager size not available. Using centerpixel*2\n")
@@ -224,8 +237,7 @@ else:
     #    using the new model
 
     ### I sample the pixels in an NxN grid
-    Nx = 80
-    Ny = 60
+    Nx,Ny = args.gridn
 
 
     qx = np.linspace(0, dims[0]-1, Nx)
