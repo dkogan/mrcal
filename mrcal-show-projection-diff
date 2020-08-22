@@ -107,11 +107,6 @@ def parse_args():
                         --vectorfield. Multiple distances are especially useful
                         if we have uncertainties: the most confident distance
                         will be found, and displayed.''')
-    parser.add_argument('--observations',
-                        action='store_true',
-                        default=False,
-                        help='''If given, I show where the chessboard corners were observed at calibration
-                        time. These should correspond to the low-diff regions.''')
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
@@ -130,6 +125,11 @@ def parse_args():
                         min(width,height)/6 if --no-uncertainties. To fit with
                         data across the whole imager in either case, pass in a
                         very large radius''')
+    parser.add_argument('--observations',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I show where the chessboard corners were observed at calibration
+                        time. These should correspond to the low-diff regions.''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=4,
