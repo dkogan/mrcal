@@ -2287,7 +2287,6 @@ into a variable, even if you're not going to be doing anything with this object
     return plot
 
 
-
 def report_residual_statistics( observations, reprojection_error,
                                 imagersize,
                                 gridn_width  = 20,
