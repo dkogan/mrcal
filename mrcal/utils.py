@@ -1915,6 +1915,49 @@ Returns a tuple:
     return p_cam_calobjects[~idx_outliers,:], p_cam_calobjects[idx_outliers,:]
 
 
+def _options_heatmap_with_contours( # update these
+                                    plotoptions,
+
+                                    contour_max, contour_increment,
+                                    imagersize, gridn_width, gridn_height):
+    r'''Update plotoptions, return curveoptions for a contoured heat map'''
+
+
+    if 'set' not in plotoptions:
+        plotoptions['set'] = []
+    elif not isinstance(plotoptions['set'], list):
+        plotoptions['set'] = [plotoptions['set']]
+    if 'unset' not in plotoptions:
+        plotoptions['unset'] = []
+    elif not isinstance(plotoptions['unset'], list):
+        plotoptions['unset'] = [plotoptions['unset']]
+
+    plotoptions['set'].extend( ['view equal xy',
+                                'view map',
+                                'contour base',
+                                'key box opaque',
+                                'style textbox opaque',
+                                f'cntrparam levels incremental {contour_max},{contour_increment},0'] )
+
+    plotoptions['_3d']     = True
+    plotoptions['_xrange'] = [0,             imagersize[0]]
+    plotoptions['_yrange'] = [imagersize[1], 0]
+    plotoptions['cbrange'] = [0,             contour_max]
+    plotoptions['ascii']   = True # needed for imagergrid_using to work
+
+    plotoptions['unset'].extend(['grid'])
+
+    return \
+        dict( tuplesize=3,
+              legend = "", # needed to force contour labels
+              using = imagergrid_using(imagersize, gridn_width, gridn_height),
+
+              # I plot 2 times:
+              # - to make the heat map
+              # - to make the contours
+              _with=np.array(('image',
+                              'lines nosurface')))
+
 
 def show_projection_uncertainty(model,
                                 gridn_width  = 60,
@@ -2046,28 +2089,15 @@ into a variable, even if you're not going to be doing anything with this object
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if 'set' not in kwargs:
-        kwargs['set'] = []
-    elif type(kwargs['set']) is not list:
-        kwargs['set'] = [kwargs['set']]
+    curveoptions = \
+        _options_heatmap_with_contours( # update these plot options
+                                        kwargs,
 
-    kwargs['set'].extend(['view equal xy',
-                          'view map',
-                          'contour surface',
-                          'key box opaque',
-                          f'cntrparam levels incremental {cbmax},-0.2,0'])
+                                        cbmax,-0.1,
+                                        model.imagersize(),
+                                        gridn_width, gridn_height)
 
-    plot_data_args = [(err,
-                       dict( tuplesize=3,
-                             legend = "", # needed to force contour labels
-                             using = imagergrid_using(model.imagersize(), gridn_width, gridn_height),
-
-                             # Currently "with image" can't produce contours. I work around this, by
-                             # plotting the data a second time. Yuck.
-                             # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-                             _with=np.array(('image','lines nosurface'),),
-
-))]
+    plot_data_args = [(err, curveoptions)]
 
     valid_intrinsics_region = model.valid_intrinsics_region()
     if valid_intrinsics_region is not None:
@@ -2100,16 +2130,7 @@ into a variable, even if you're not going to be doing anything with this object
                                            _with  = 'points nocontour',
                                            legend = 'outliers')) )
 
-    plot = \
-        gp.gnuplotlib(_3d=1,
-                      unset='grid',
-
-                      _xrange=[0,W],
-                      _yrange=[H,0],
-                      cbrange=[0,cbmax],
-                      ascii=1,
-                      **kwargs)
-
+    plot = gp.gnuplotlib(**kwargs)
     plot.plot(*plot_data_args)
     return plot
 
@@ -2631,37 +2652,21 @@ into a variable, even if you're not going to be doing anything with this object
 
     if mode == 'heatmap':
 
-        if 'set' not in kwargs:
-            kwargs['set'] = []
-        elif type(kwargs['set']) is not list:
-            kwargs['set'] = [kwargs['set']]
-        kwargs['set'].extend([ 'view equal xy',
-                               'view map',
-                               'contour surface',
-                               'cntrparam levels incremental {},-1,0'.format(cbmax)])
+        curveoptions = \
+            _options_heatmap_with_contours( # update these plot options
+                                            kwargs,
 
+                                            cbmax,-1,
+                                            imagersize,
+                                            gridn_width, gridn_height)
         delta = dgrid-grid
 
         # shape: gridn_height,gridn_width. Because numpy (and thus gnuplotlib) want it that
         # way
         distortion = nps.mag(delta)
 
-        # Currently "with image" can't produce contours. I work around this, by
-        # plotting the data a second time.
-        # Yuck.
-        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot = gp.gnuplotlib(_3d=1,
-                             unset='grid',
-                             _xrange=[0,W],
-                             _yrange=[H,0],
-                             cbrange=[0,cbmax],
-                             ascii=1,
-                             **kwargs)
-        plot.plot(distortion,
-                  tuplesize=3,
-                  _with=np.array(('image','lines nosurface'),),
-                  legend = "", # needed to force contour labels
-                  using = imagergrid_using(imagersize, gridn_width, gridn_height))
+        plot = gp.gnuplotlib( **kwargs)
+        plot.plot(distortion, **curveoptions)
         return plot
 
     else:
@@ -3834,34 +3839,16 @@ into a variable, even if you're not going to be doing anything with this object
                     tuplesize=5)) ]
 
     else:
-        if 'set' not in kwargs:
-            kwargs['set'] = []
-        elif type(kwargs['set']) is not list:
-            kwargs['set'] = [kwargs['set']]
-        kwargs['set'].extend(['view equal xy',
-                              'view map',
-                              'contour surface',
-                              'key box opaque',
-                              'cntrparam levels incremental 4,-0.5,0'])
-        plot = \
-            gp.gnuplotlib(_3d=1,
-                          unset='grid',
-                          _xrange=[0,W],
-                          _yrange=[H,0],
-                          cbrange=[0,cbmax],
-                          ascii=1,
-                          **kwargs)
+        curveoptions = \
+            _options_heatmap_with_contours( # update these plot options
+                                            kwargs,
 
-        # Currently "with image" can't produce contours. I work around this, by
-        # plotting the data a second time.
-        # Yuck.
-        # https://sourceforge.net/p/gnuplot/mailman/message/36371128/
-        plot_data_args = [ (difflen,
-                            dict( tuplesize=3,
-                                  _with=np.array(('image','lines nosurface'),),
-                                  legend = "", # needed to force contour labels
-                                  using = imagergrid_using(imagersizes[0], gridn_width, gridn_height)
-                            )) ]
+                                            cbmax, -0.5,
+                                            imagersizes[0],
+                                            gridn_width, gridn_height)
+        plot = gp.gnuplotlib(**kwargs)
+        plot_data_args = [ (difflen, curveoptions) ]
+
 
     valid_region0 = models[0].valid_intrinsics_region()
     if valid_region0 is not None:
