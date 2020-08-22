@@ -4985,7 +4985,7 @@ mrcal_optimize( // out
                               solver_context->beforeStep->x,
                               observed_pixel_uncertainty,
                               verbose) &&
-                 ({MSG("Threw out some outliers (have a total %d now); going again", stats.Noutliers); true;}));
+                 ({MSG("Threw out some outliers (have a total of %d now); going again", stats.Noutliers); true;}));
 
         // Done. I have the final state. I spit it back out
         unpack_solver_state( intrinsics,         // Ncameras_intrinsics of these
