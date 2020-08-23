@@ -471,27 +471,10 @@ int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
             N += 6;
     }
 
-    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
-    {
-        if(problem_details.do_optimize_intrinsics_core)
-            N += Ncameras_intrinsics * 2;
-
-        if(problem_details.do_optimize_intrinsics_distortions)
-        {
-            const int Nx = lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx;
-            const int Ny = lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny;
-            N += Ncameras_intrinsics * 2 *
-                ( (Nx-2)*(Ny-2)*5 + // middle block
-                  (Nx-2)*2     *4 + // top, bottom
-                  (Ny-2)*2     *4 + // left, right
-                  4            *3); // corners
-        }
-    }
-    else
-        N +=
-            Ncameras_intrinsics *
-            num_regularization_terms_percamera(problem_details,
-                                               lensmodel);
+    N +=
+        Ncameras_intrinsics *
+        num_regularization_terms_percamera(problem_details,
+                                           lensmodel);
 
     return N;
 }
@@ -4156,333 +4139,52 @@ void optimizer_callback(// input state
 
             if( ctx->problem_details.do_optimize_intrinsics_distortions)
             {
-                if(ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+                for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
                 {
-                    // The control points are in a numpy-style contiguous array
-                    // of shape (Ny,Nx,2)
-                    const int Nx = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx;
-                    const int Ny = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny;
+                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
 
-                    // For each point I penalize deviations between it and the
-                    // mean of its neighbors using a + pattern. On the sides I
-                    // only have 4 points from the +. In the corners I only have
-                    // 3 points from the +. This pulls the solution towards a
-                    // plane (ANY perfect plane has cost 0)
-
+                    // This maybe should live elsewhere, but I put it here
+                    // for now. Various distortion coefficients have
+                    // different meanings, and should be regularized in
+                    // different ways. Specific logic follows
                     double scale = scale_regularization_distortion;
 
-                    // center block
-                    for(int ixy=0; ixy<2; ixy++)
-                        for(int j=1; j<Ny-1; j++)
-                            for(int i=1; i<Nx-1; i++)
-                            {
-                                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-
-                                int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                                const double* var0 =
-                                    &intrinsics_all
-                                      [i_cam_intrinsics]
-                                      [Ncore + (j*Nx+i)*2 + ixy];
-
-                                double mean_neighbors =
-                                    ( var0[-2*Nx] +
-                                      var0[-2   ] +
-                                      var0[ 2   ] +
-                                      var0[ 2*Nx] ) / 4.;
-                                double err = scale * (mean_neighbors - var0[0]);
-
-                                x[iMeasurement]  = err;
-                                norm2_error     += err*err;
-
-                                STORE_JACOBIAN( ivar0 - 2*Nx,
-                                                0.25 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 - 2,
-                                                0.25 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0,
-                                                -1.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2,
-                                                0.25 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2*Nx,
-                                                0.25 * scale * SCALE_DISTORTION);
-                                iMeasurement++;
-                                if(dump_regularizaton_details)
-                                    MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                            }
-
-                    // sides
-                    for(int ixy=0; ixy<2; ixy++)
+                    if( MRCAL_LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
+                        ctx->lensmodel.type >= MRCAL_LENSMODEL_OPENCV8 &&
+                        5 <= j && j <= 7 )
                     {
-                        int i,j;
-
-                        for(i=1; i<Nx-1; i++)
-                        {
-                            j = 0;
-                            {
-                                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                                const double* var0 =
-                                    &intrinsics_all
-                                    [i_cam_intrinsics]
-                                    [Ncore + (j*Nx+i)*2 + ixy];
-
-                                double mean_neighbors =
-                                    ( var0[ -2   ] +
-                                      var0[  2   ] +
-                                      var0[  2*Nx] ) / 3.;
-                                double err = scale * (mean_neighbors - var0[0]);
-
-                                x[iMeasurement]  = err;
-                                norm2_error     += err*err;
-
-                                STORE_JACOBIAN( ivar0,       -1.0     * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 - 2,    1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2,    1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2*Nx, 1.0/3.0 * scale * SCALE_DISTORTION);
-                                iMeasurement++;
-                                if(dump_regularizaton_details)
-                                    MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                            }
-                            j = Ny-1;
-                            {
-                                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                                const double* var0 =
-                                    &intrinsics_all
-                                    [i_cam_intrinsics]
-                                    [Ncore + (j*Nx+i)*2 + ixy];
-
-                                double mean_neighbors =
-                                    ( var0[ -2*Nx] +
-                                      var0[ -2   ] +
-                                      var0[  2   ] ) / 3.;
-                                double err = scale * (mean_neighbors - var0[0]);
-
-                                x[iMeasurement]  = err;
-                                norm2_error     += err*err;
-
-                                STORE_JACOBIAN( ivar0,           -1.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 - 2*Nx, 1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 - 2,    1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2,    1.0/3.0 * scale * SCALE_DISTORTION);
-                                iMeasurement++;
-                                if(dump_regularizaton_details)
-                                    MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                            }
-                        }
-
-                        for(j=1; j<Ny-1; j++)
-                        {
-                            i = 0;
-                            {
-                                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                                const double* var0 =
-                                    &intrinsics_all
-                                    [i_cam_intrinsics]
-                                    [Ncore + (j*Nx+i)*2 + ixy];
-
-                                double mean_neighbors =
-                                    ( var0[ -2*Nx] +
-                                      var0[  2   ] +
-                                      var0[  2*Nx] ) / 3.;
-                                double err = scale * (mean_neighbors - var0[0]);
-
-                                x[iMeasurement]  = err;
-                                norm2_error     += err*err;
-
-                                STORE_JACOBIAN( ivar0,           -1.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 - 2*Nx, 1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2,    1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2*Nx, 1.0/3.0 * scale * SCALE_DISTORTION);
-                                iMeasurement++;
-                                if(dump_regularizaton_details)
-                                    MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                            }
-                            i = Nx-1;
-                            {
-                                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                                const double* var0 =
-                                    &intrinsics_all
-                                    [i_cam_intrinsics]
-                                    [Ncore + (j*Nx+i)*2 + ixy];
-
-                                double mean_neighbors =
-                                    ( var0[ -2*Nx] +
-                                      var0[ -2   ] +
-                                      var0[  2*Nx] ) / 3.;
-                                double err = scale * (mean_neighbors - var0[0]);
-
-                                x[iMeasurement]  = err;
-                                norm2_error     += err*err;
-
-                                STORE_JACOBIAN( ivar0,           -1.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 - 2*Nx, 1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 - 2,    1.0/3.0 * scale * SCALE_DISTORTION);
-                                STORE_JACOBIAN( ivar0 + 2*Nx, 1.0/3.0 * scale * SCALE_DISTORTION);
-                                iMeasurement++;
-                                if(dump_regularizaton_details)
-                                    MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                            }
-                        }
+                        // The radial distortion in opencv is x_distorted =
+                        // x*scale where r2 = norm2(xy - xyc) and
+                        //
+                        // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+                        //
+                        // Note that k2,k3 are tangential (NOT radial)
+                        // distortion components. Note that the r6 factor in
+                        // the numerator is only present for
+                        // >=MRCAL_LENSMODEL_OPENCV5. Note that the denominator
+                        // is only present for >= MRCAL_LENSMODEL_OPENCV8. The
+                        // danger with a rational model is that it's
+                        // possible to get into a situation where scale ~
+                        // 0/0 ~ 1. This would have very poorly behaved
+                        // derivatives. If all the rational coefficients are
+                        // ~0, then the denominator is always ~1, and this
+                        // problematic case can't happen. I favor that by
+                        // regularizing the coefficients in the denominator
+                        // more strongly
+                        scale *= 5.;
                     }
 
-                    // corners
-                    int i,j;
+                    double err       = scale*intrinsics_all[i_cam_intrinsics][j+Ncore];
+                    x[iMeasurement]  = err;
+                    norm2_error     += err*err;
 
-                    for(int ixy=0; ixy<2; ixy++)
-                    {
-                        i=0;
-                        j=0;
-                        {
-                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                            int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                            const double* var0 =
-                                &intrinsics_all
-                                [i_cam_intrinsics]
-                                [Ncore + (j*Nx+i)*2 + ixy];
+                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
+                                    scale * SCALE_DISTORTION );
 
-                            double mean_neighbors =
-                                ( var0[  2   ] +
-                                  var0[  2*Nx] ) / 2.;
-                            double err = scale * (mean_neighbors - var0[0]);
+                    iMeasurement++;
+                    if(dump_regularizaton_details)
+                        MSG("regularization distortion: %g; norm2: %g", err, err*err);
 
-                            x[iMeasurement]  = err;
-                            norm2_error     += err*err;
-
-                            STORE_JACOBIAN( ivar0,       -1.0 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0 + 2,    0.5 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0 + 2*Nx, 0.5 * scale * SCALE_DISTORTION);
-                            iMeasurement++;
-                            if(dump_regularizaton_details)
-                                MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                        }
-                        i=Nx-1;
-                        j=0;
-                        {
-                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                            int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                            const double* var0 =
-                                &intrinsics_all
-                                [i_cam_intrinsics]
-                                [Ncore + (j*Nx+i)*2 + ixy];
-
-                            double mean_neighbors =
-                                ( var0[-2   ] +
-                                  var0[ 2*Nx] ) / 2.;
-                            double err = scale * (mean_neighbors - var0[0]);
-
-                            x[iMeasurement]  = err;
-                            norm2_error     += err*err;
-
-                            STORE_JACOBIAN( ivar0 - 2,    0.5 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0,       -1.0 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0 + 2*Nx, 0.5 * scale * SCALE_DISTORTION);
-                            iMeasurement++;
-                            if(dump_regularizaton_details)
-                                MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                        }
-                        i=0;
-                        j=Ny-1;
-                        {
-                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                            int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                            const double* var0 =
-                                &intrinsics_all
-                                [i_cam_intrinsics]
-                                [Ncore + (j*Nx+i)*2 + ixy];
-
-                            double mean_neighbors =
-                                ( var0[-2*Nx] +
-                                  var0[ 2   ] ) / 2.;
-                            double err = scale * (mean_neighbors - var0[0]);
-
-                            x[iMeasurement]  = err;
-                            norm2_error     += err*err;
-
-                            STORE_JACOBIAN( ivar0 - 2*Nx, 0.5 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0,       -1.0 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0 + 2,    0.5 * scale * SCALE_DISTORTION);
-                            iMeasurement++;
-                            if(dump_regularizaton_details)
-                                MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                        }
-                        i=Nx-1;
-                        j=Ny-1;
-                        {
-                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                            int ivar0 = i_var_intrinsics + Ncore_state + (j*Nx+i)*2 + ixy;
-                            const double* var0 =
-                                &intrinsics_all
-                                [i_cam_intrinsics]
-                                [Ncore + (j*Nx+i)*2 + ixy];
-
-                            double mean_neighbors =
-                                ( var0[ -2*Nx] +
-                                  var0[ -2   ] ) / 2.;
-                            double err = scale * (mean_neighbors - var0[0]);
-
-                            x[iMeasurement]  = err;
-                            norm2_error     += err*err;
-
-                            STORE_JACOBIAN( ivar0 - 2*Nx, 0.5 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0 - 2,    0.5 * scale * SCALE_DISTORTION);
-                            STORE_JACOBIAN( ivar0,       -1.0 * scale * SCALE_DISTORTION);
-                            iMeasurement++;
-                            if(dump_regularizaton_details)
-                                MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                        }
-                    }
-
-                }
-                else
-                {
-                    for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
-                    {
-                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
-
-                        // This maybe should live elsewhere, but I put it here
-                        // for now. Various distortion coefficients have
-                        // different meanings, and should be regularized in
-                        // different ways. Specific logic follows
-                        double scale = scale_regularization_distortion;
-
-                        if( MRCAL_LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
-                            ctx->lensmodel.type >= MRCAL_LENSMODEL_OPENCV8 &&
-                            5 <= j && j <= 7 )
-                        {
-                            // The radial distortion in opencv is x_distorted =
-                            // x*scale where r2 = norm2(xy - xyc) and
-                            //
-                            // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
-                            //
-                            // Note that k2,k3 are tangential (NOT radial)
-                            // distortion components. Note that the r6 factor in
-                            // the numerator is only present for
-                            // >=MRCAL_LENSMODEL_OPENCV5. Note that the denominator
-                            // is only present for >= MRCAL_LENSMODEL_OPENCV8. The
-                            // danger with a rational model is that it's
-                            // possible to get into a situation where scale ~
-                            // 0/0 ~ 1. This would have very poorly behaved
-                            // derivatives. If all the rational coefficients are
-                            // ~0, then the denominator is always ~1, and this
-                            // problematic case can't happen. I favor that by
-                            // regularizing the coefficients in the denominator
-                            // more strongly
-                            scale *= 5.;
-                        }
-
-                        double err       = scale*intrinsics_all[i_cam_intrinsics][j+Ncore];
-                        x[iMeasurement]  = err;
-                        norm2_error     += err*err;
-
-                        STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
-                                        scale * SCALE_DISTORTION );
-
-                        iMeasurement++;
-                        if(dump_regularizaton_details)
-                            MSG("regularization distortion: %g; norm2: %g", err, err*err);
-                    }
                 }
             }
 
