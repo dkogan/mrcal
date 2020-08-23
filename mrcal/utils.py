@@ -3682,7 +3682,7 @@ into a variable, even if you're not going to be doing anything with this object
         if len(models) > 2:
             raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
                             format(len(models)))
-        if len(distance) > 1:
+        if not isinstance(distance,float) and len(distance) > 1:
             raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
 
 
@@ -3822,10 +3822,9 @@ into a variable, even if you're not going to be doing anything with this object
                              cbrange=[0,cbmax],
                              **kwargs)
 
-        q0      = nps.clump(q0,      n=2)
-        q1      = nps.clump(q1,      n=2)
-        diff    = nps.clump(diff,    n=2)
-        difflen = nps.clump(difflen, n=2)
+        q0      = nps.clump(q0,      n=len(q0     .shape)-1)
+        diff    = nps.clump(diff,    n=len(diff   .shape)-1)
+        difflen = nps.clump(difflen, n=len(difflen.shape)  )
 
         plot_data_args = \
             [ (q0  [:,0], q0  [:,1],
