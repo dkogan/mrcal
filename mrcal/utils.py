@@ -3754,7 +3754,7 @@ into a variable, even if you're not going to be doing anything with this object
 
         q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
                                                      v[0,...] * distance),
-                           lensmodels[1], intrinsics_data[1])
+                            lensmodels[1], intrinsics_data[1])
         # shape (len(distance),Nheight,Nwidth,2)
         q1 = nps.atleast_dims(q1, -4)
 
