@@ -3312,11 +3312,12 @@ report a full Rt transformation with the t component set to 0
     weights = nps.clump(weights, n = len(weights.shape)-2)
 
     i_nan_v0 = ~np.isfinite(v0)
-    i_nan_v1 = ~np.isfinite(v1)
     v0[i_nan_v0] = 0.
     weights[i_nan_v0[...,0]] = 0.0
     weights[i_nan_v0[...,1]] = 0.0
     weights[i_nan_v0[...,2]] = 0.0
+
+    i_nan_v1 = ~np.isfinite(v1)
     v1[i_nan_v1] = 0.
     weights[..., i_nan_v1[...,0]] = 0.0
     weights[..., i_nan_v1[...,1]] = 0.0
@@ -3328,30 +3329,26 @@ report a full Rt transformation with the t component set to 0
     if np.count_nonzero(i)<3:
         raise Exception("Focus region contained too few points")
 
-    v0_cut = v0     [...,i, :]
-    v1_cut = v1     [    i, :]
-    wcut   = weights[...,i   ]
-
-    if not atinfinity:
-        p0     = v0
-        p0_cut = v0_cut
+    v0_cut  = v0     [...,i, :]
+    v1_cut  = v1     [    i, :]
+    weights = weights[...,i   ]
 
     def residual_jacobian_rt(rt):
 
         # rtp0 has shape (...,N,3)
         rtp0, drtp0_dr, drtp0_dt, _ = \
-            mrcal.transform_point_rt(rt, p0_cut,
+            mrcal.transform_point_rt(rt, v0_cut,
                                      get_gradients = True)
 
         # shape (...,N,3,6)
         drtp0_drt = nps.glue( drtp0_dr, drtp0_dt, axis=-1)
 
-        # inner(a,b) ~ cos(x) ~ 1 - x^2/2
+        # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
         # Each of these has shape (...,N)
         mag_rtp0 = nps.mag(rtp0)
         inner    = nps.inner(rtp0, v1_cut)
         th2      = 2.* (1.0 - inner / mag_rtp0)
-        x        = th2 * wcut
+        x        = th2 * weights
 
         # shape (...,N,6)
         dmag_rtp0_drt = nps.matmult( nps.dummy(rtp0, -2),   # shape (...,N,1,3)
@@ -3371,7 +3368,7 @@ report a full Rt transformation with the t component set to 0
             (nps.dummy(inner,    -1) * dmag_rtp0_drt - \
              nps.dummy(mag_rtp0, -1) * dinner_drt) / \
              nps.dummy(mag_rtp0*mag_rtp0, -1) * \
-             nps.dummy(wcut,-1)
+             nps.dummy(weights,-1)
         return x.ravel(), nps.clump(J, n=len(J.shape)-1)
 
 
@@ -3383,11 +3380,11 @@ report a full Rt transformation with the t component set to 0
             mrcal.rotate_point_r(r, v0_cut,
                                  get_gradients = True)
 
-        # inner(a,b) ~ cos(x) ~ 1 - x^2/2
+        # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
         # Each of these has shape (N)
         inner = nps.inner(rv0, v1_cut)
         th2   = 2.* (1.0 - inner)
-        x     = th2 * wcut
+        x     = th2 * weights
 
         # shape (N,3)
         dinner_dr = nps.matmult( nps.dummy(v1_cut, -2), # shape (N,1,3)
@@ -3395,7 +3392,7 @@ report a full Rt transformation with the t component set to 0
                                  # matmult has shape (N,1,3)
                                )[:,0,:]
 
-        J = -2. * dinner_dr * nps.dummy(wcut,-1)
+        J = -2. * dinner_dr * nps.dummy(weights,-1)
         return x, J
 
 
@@ -3414,8 +3411,6 @@ report a full Rt transformation with the t component set to 0
 
     # # gradient check
     # import gnuplotlib as gp
-    # p0     = v0
-    # p0_cut = v0_cut
     # rt0 = np.random.random(6)*1e-3
     # x0,J0 = residual_jacobian_rt(rt0)
     # drt = np.random.random(6)*1e-7
