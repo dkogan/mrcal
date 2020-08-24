@@ -140,9 +140,6 @@ if not args.sampled:
     if args.where is not None or args.radius is not None:
         print("--where and --radius only make sense with --sampled", file=sys.stderr)
         sys.exit(1)
-    if args.gridn is not None:
-        print("--gridn only makes sense with --sampled", file=sys.stderr)
-        sys.exit(1)
 
 if args.to == 'LENSMODEL_CAHVORE':
     print("LENSMODEL_CAHVORE models aren't supported at this time: its gradients aren't implemented",
