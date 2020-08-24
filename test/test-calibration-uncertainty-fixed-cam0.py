@@ -58,7 +58,7 @@ import mrcal
 import testutils
 import copy
 
-from test_calibration_helpers import optimize,sample_dqref,sorted_eig
+from test_calibration_helpers import sample_dqref,sorted_eig
 
 import re
 if   re.search("fixed-cam0",   sys.argv[0]): fixedframes = False
@@ -189,37 +189,37 @@ Nsamples = 90
 # sys.exit()
 
 
-def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True, **kwargs):
+def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True):
     if apply_noise:
-        dqref, observations_perturbed = sample_dqref(observations_ref,
-                                                     pixel_uncertainty_stdev)
+        _, observations_perturbed = sample_dqref(observations_ref,
+                                                 pixel_uncertainty_stdev)
     else:
         observations_perturbed = observations_ref.copy()
-        dqref                  = observations_perturbed[...,:2]*0
 
-    intrinsics_solved,extrinsics_solved,frames_solved,_, \
-    idx_outliers, \
-    _,  _, _, \
-    optimization_inputs =           \
-        optimize(intrinsics_ref, extrinsics_ref, frames_ref, observations_perturbed,
-                 indices_frame_camintrinsics_camextrinsics,
-                 lensmodel,
-                 imagersizes,
-                 object_spacing, object_width_n, object_height_n,
-                 pixel_uncertainty_stdev,
-                 calobject_warp                    = calobject_warp_ref,
-                 do_optimize_intrinsics_core       = True,
-                 do_optimize_intrinsics_distortions= True,
-                 do_optimize_extrinsics            = True,
-                 do_optimize_frames                = do_optimize_frames,
-                 do_optimize_calobject_warp        = True,
-                 skip_outlier_rejection            = True,
-                 skip_regularization               = True,
-                 **kwargs)
-    return \
-        intrinsics_solved,extrinsics_solved,frames_solved,\
-        dqref, observations_perturbed, \
-        optimization_inputs
+    optimization_inputs = \
+        dict( intrinsics                                = copy.deepcopy(intrinsics_ref),
+              extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_ref),
+              frames_rt_toref                           = copy.deepcopy(frames_ref),
+              points                                    = None,
+              observations_board                        = observations_perturbed,
+              indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+              observations_point                        = None,
+              indices_point_camintrinsics_camextrinsics = None,
+              lensmodel                                 = lensmodel,
+              calobject_warp                            = copy.deepcopy(calobject_warp_ref),
+              imagersizes                               = imagersizes,
+              calibration_object_spacing                = object_spacing,
+              verbose                                   = False,
+              observed_pixel_uncertainty                = pixel_uncertainty_stdev,
+              do_optimize_frames                        = do_optimize_frames,
+              do_optimize_intrinsics_core               = True,
+              do_optimize_intrinsics_distortions        = True,
+              do_optimize_extrinsics                    = True,
+              do_optimize_calobject_warp                = True,
+              skip_regularization                       = True)
+    mrcal.optimize(**optimization_inputs,
+                   skip_outlier_rejection = True)
+    return optimization_inputs
 
 
 # I want to treat the extrinsics arrays as if all the camera transformations are
@@ -236,7 +236,7 @@ else:
 # storing the models. If the optimization is looking only at the input data,
 # then this will be identical to models_ref. But if we also have regularization,
 # this will move us off-center
-ii,ee,ff,_,_,optimization_inputs = \
+optimization_inputs = \
     sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
                                   apply_noise=False)
 
@@ -324,11 +324,11 @@ frames_sampled     = np.zeros( (Nsamples,Nframes, 6),            dtype=float )
 
 for isample in range(Nsamples):
     print(f"Sampling {isample}/{Nsamples}")
-    ii,ee,ff = sample_reoptimized_parameters(do_optimize_frames = not fixedframes)[:3]
+    optimization_inputs = sample_reoptimized_parameters(do_optimize_frames = not fixedframes)
 
-    intrinsics_sampled[isample,...] = ii
-    extrinsics_sampled[isample,...] = ee
-    frames_sampled    [isample,...] = ff
+    intrinsics_sampled[isample,...] = optimization_inputs['intrinsics']
+    extrinsics_sampled[isample,...] = optimization_inputs['extrinsics_rt_fromref']
+    frames_sampled    [isample,...] = optimization_inputs['frames_rt_toref']
 
 
 def check_uncertainties_at(q0, distance):

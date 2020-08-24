@@ -20,7 +20,7 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 
-from test_calibration_helpers import optimize,sample_dqref
+from test_calibration_helpers import sample_dqref
 
 # I want the RNG to be deterministic
 np.random.seed(0)
@@ -118,57 +118,52 @@ intrinsics = np.zeros((Ncameras,Nintrinsics), dtype=float)
 intrinsics[:,:4] = intrinsics_data
 intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 
-# Simpler pre-solves
-intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
-idx_outliers, \
-p_packed, x, rmserr, _ = \
-    optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
-             indices_frame_camintrinsics_camextrinsics,
-             lensmodel,
-             imagersizes,
-             object_spacing, object_width_n, object_height_n,
-             pixel_uncertainty_stdev,
-             do_optimize_extrinsics            = True,
-             do_optimize_frames                = True,
-             skip_outlier_rejection            = False)
-observations[idx_outliers, 2] = -1
-
-intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
-idx_outliers, \
-p_packed, x, rmserr, _ = \
-    optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
-             indices_frame_camintrinsics_camextrinsics,
-             lensmodel,
-             imagersizes,
-             object_spacing, object_width_n, object_height_n,
-             pixel_uncertainty_stdev,
-             do_optimize_intrinsics_core       = True,
-             do_optimize_extrinsics            = True,
-             do_optimize_frames                = True,
-             skip_outlier_rejection            = False)
-observations[idx_outliers, 2] = -1
-
-# Complete final solve
-calobject_warp = np.array((0.001, 0.001))
-intrinsics, extrinsics_rt_fromref, frames_rt_toref, calobject_warp, \
-idx_outliers, \
-p_packed, x, rmserr, \
 optimization_inputs = \
-    optimize(intrinsics, extrinsics_rt_fromref, frames_rt_toref, observations,
-             indices_frame_camintrinsics_camextrinsics,
-             lensmodel,
-             imagersizes,
-             object_spacing, object_width_n, object_height_n,
-             pixel_uncertainty_stdev,
-             calobject_warp                    = calobject_warp,
-             do_optimize_intrinsics_core       = True,
-             do_optimize_intrinsics_distortions= True,
-             do_optimize_extrinsics            = True,
-             do_optimize_frames                = True,
-             do_optimize_calobject_warp        = True,
-             skip_outlier_rejection            = False)
-observations[idx_outliers, 2] = -1
+    dict( intrinsics                                = intrinsics,
+          extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+          frames_rt_toref                           = frames_rt_toref,
+          points                                    = None,
+          observations_board                        = observations,
+          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+          observations_point                        = None,
+          indices_point_camintrinsics_camextrinsics = None,
+          lensmodel                                 = lensmodel,
+          calobject_warp                            = None,
+          imagersizes                               = imagersizes,
+          calibration_object_spacing                = object_spacing,
+          verbose                                   = False,
+          observed_pixel_uncertainty                = pixel_uncertainty_stdev,
+          skip_regularization                       = False)
 
+# Solve this thing incrementally
+optimization_inputs['do_optimize_intrinsics_core']        = False
+optimization_inputs['do_optimize_intrinsics_distortions'] = False
+optimization_inputs['do_optimize_extrinsics']             = True
+optimization_inputs['do_optimize_frames']                 = True
+optimization_inputs['do_optimize_calobject_warp']         = False
+mrcal.optimize(**optimization_inputs,
+               skip_outlier_rejection = False)
+
+optimization_inputs['do_optimize_intrinsics_core']        = True
+optimization_inputs['do_optimize_intrinsics_distortions'] = False
+optimization_inputs['do_optimize_extrinsics']             = True
+optimization_inputs['do_optimize_frames']                 = True
+optimization_inputs['do_optimize_calobject_warp']         = False
+mrcal.optimize(**optimization_inputs,
+               skip_outlier_rejection = False)
+
+optimization_inputs['do_optimize_intrinsics_core']        = True
+optimization_inputs['do_optimize_intrinsics_distortions'] = True
+optimization_inputs['do_optimize_extrinsics']             = True
+optimization_inputs['do_optimize_frames']                 = True
+optimization_inputs['do_optimize_calobject_warp']         = True
+
+optimization_inputs['calobject_warp'] = np.array((0.001, 0.001))
+stats = mrcal.optimize(**optimization_inputs,
+                       skip_outlier_rejection = False)
+
+x      = stats['x']
+rmserr = stats['rms_reproj_error__pixels']
 
 
 ############# Calibration computed. Now I see how well I did
@@ -176,8 +171,6 @@ models_solved = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
                          icam_intrinsics     = i )
       for i in range(Ncameras)]
-for i in range(1,Ncameras):
-    models_solved[i].extrinsics_rt_fromref( extrinsics_rt_fromref[i-1,:] )
 
 # if 0:
 #     for i in range(1,Ncameras):
@@ -188,7 +181,7 @@ testutils.confirm_equal(rmserr, 0,
                         eps = 2.5,
                         msg = "Converged to a low RMS error")
 
-testutils.confirm_equal( calobject_warp,
+testutils.confirm_equal( optimization_inputs['calobject_warp'],
                          calobject_warp_ref,
                          eps = 2e-3,
                          msg = "Recovered the calibration object shape" )
@@ -221,7 +214,7 @@ for icam in range(1,len(models_ref)):
                              msg = f"Recovered extrinsic rotation for camera {icam}")
 
 Rt_frame_err = \
-    mrcal.compose_Rt( mrcal.Rt_from_rt(frames_rt_toref),
+    mrcal.compose_Rt( mrcal.Rt_from_rt(optimization_inputs['frames_rt_toref']),
                       mrcal.invert_Rt(Rt_cam0_board_ref) )
 
 testutils.confirm_equal( np.max(nps.mag(Rt_frame_err[..., 3,:])),
