@@ -323,7 +323,7 @@ extrinsics_sampled = np.zeros( (Nsamples,Ncameras_extrinsics,6), dtype=float )
 frames_sampled     = np.zeros( (Nsamples,Nframes, 6),            dtype=float )
 
 for isample in range(Nsamples):
-    print(f"Sampling {isample}/{Nsamples}")
+    print(f"Sampling {isample+1}/{Nsamples}")
     optimization_inputs = sample_reoptimized_parameters(do_optimize_frames = not fixedframes)
 
     intrinsics_sampled[isample,...] = optimization_inputs['intrinsics']
