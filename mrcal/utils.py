@@ -1773,14 +1773,14 @@ else:                    we return an array of shape (...)
     intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
 
     istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
-    istate_frames     = mrcal.state_index_frame_rt  (0,               **optimization_inputs)
+    istate_frames     = mrcal.state_index_frames  (0,               **optimization_inputs)
 
     if icam_extrinsics < 0:
         extrinsics_rt_fromref = None
         istate_extrinsics     = None
     else:
         extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
-        istate_extrinsics     = mrcal.state_index_camera_rt (icam_extrinsics, **optimization_inputs)
+        istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
 
     frames_rt_toref = None
     if optimization_inputs.get('do_optimize_frames'):
@@ -5549,11 +5549,11 @@ A list of 'set' directives passable as plot options to gnuplotlib
 
     try:    istate0.append(mrcal.state_index_intrinsics    (0, **optimization_inputs))
     except: pass
-    try:    istate0.append(mrcal.state_index_camera_rt     (0, **optimization_inputs))
+    try:    istate0.append(mrcal.state_index_extrinsics    (0, **optimization_inputs))
     except: pass
-    try:    istate0.append(mrcal.state_index_frame_rt      (0, **optimization_inputs))
+    try:    istate0.append(mrcal.state_index_frames        (0, **optimization_inputs))
     except: pass
-    try:    istate0.append(mrcal.state_index_point         (0, **optimization_inputs))
+    try:    istate0.append(mrcal.state_index_points        (0, **optimization_inputs))
     except: pass
     try:    istate0.append(mrcal.state_index_calobject_warp(   **optimization_inputs))
     except: pass

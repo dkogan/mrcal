@@ -10,8 +10,8 @@ SYNOPSIS
     mrcal.unpack_state(p, **optimization_inputs)
 
     i_frame = 1
-    i_state = mrcal.state_index_frame_rt(i_frame,
-                                         **optimization_inputs)
+    i_state = mrcal.state_index_frames(i_frame,
+                                       **optimization_inputs)
 
     frames_rt_toref = p[i_state:i_state+6]
 

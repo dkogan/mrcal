@@ -516,52 +516,76 @@ SYNOPSIS
           > left.opencv4.cameramodel
 
       ... lots of output as the solve runs ...
-      libdogleg at dogleg.c:1064: success! took 10 iterations
-      RMS error of the solution: 3.40256580058 pixels.
+      RMS error of this solution: 3.40256580058 pixels.
 
-      ... a plot pops up showing the vector field of the difference ...
+      ... a plot pops up showing the differences ...
 
 DESCRIPTION
-    This is a tool to convert a given camera model from one lens model to
-    another. The input and output models have identical extrinsics and an
-    identical intrinsic core (focal lengths, center pixel coords).
-
-    this isn't actually very useful. I should change ALL the intrinsics;
-    core and all The ONLY differing part is the distortion coefficients.
-
     While the lens models all exist to solve the same problem, the different
-    representations don't map to one another perfectly, so this tool seeks
-    to find the best fit only. It does this by sampling a number of points
-    in the imager, converting them to observation vectors in the camera
-    coordinate system (using the given camera model), and then fitting a new
-    camera model (with a different distortions) that matches the observation
-    vectors to the source imager coordinates.
+    representations don't map to one another perfectly, and this tool seeks
+    to find the best-fitting parameters of the desired lens model. There are
+    two ways to do that:
 
-    Note that the lens model implementations are usually optimized in the
-    'undistort' direction, not the 'distort' direction, so the step of
-    converting the target imager coordinates to observation vectors can be
-    slow. This is highly dependent on the camera model specifically. CAHVORE
-    especially is glacial. This can be mitigated somewhat by a better
-    implementation, but in the meantime, please be patient.
+    1. If the given cameramodel file contains optimization_inputs, then we
+    have all the data that was used to compute this model in the first
+    place, and we can re-run the original optimization, using the new lens
+    model. This is the default behavior. If the input model doesn't have
+    optimization_inputs, an error will result.
 
-    Camera models have originally been computed by a calibration procedure
-    that takes as input a number of point observations, and the resulting
-    models are only valid in an area where those observations were
-    available; it's an extrapolation everywhere else. This is generally OK,
-    and we try to cover the whole imager when calibrating cameras. Models
-    with high distortions (CAHVORE, OPENCV >= 8) generally have
-    quickly-increasing effects towards the edges of the imager, and the
-    distortions represented by these models at the extreme edges of the
-    imager are often not reliable, since the initial calibration data is
-    rarely available at the extreme edges. Thus using points at the extreme
-    edges to fit another model is often counterproductive, and I provide the
-    --where and --radius commandline options for this case. We use data in a
-    circular region of the imager. This region is centered on the point
-    given by --where (or at the center of the imager, if omitted). The
-    radius of this region is given by --radius. If '--radius 0' is given, I
-    use ALL the data. A radius<0 can be used to set the size of the no-data
-    margin at the corners; in this case I'll use sqrt(width^2 + height^2) -
-    abs(radius)
+    2. We can sample lots of points on the imager, unproject them to
+    observation vectors in the camera coordinate system, and then fit the
+    new camera model to project these vectors back to pixel coordinates,
+    minimizing the projection differences. Select this mode by passing
+    --sampled.
+
+    The first method is preferred. Since camera models (lens parameters AND
+    geometry) are computed off observations of a known object, the
+    confidence of the resulting projections varies widely in different areas
+    of the space being projected. The first method uses the original data,
+    so it implicitly respects these uncertainties 100%. The second method,
+    however, doesn't have any of the uncertainty information, so it cannot
+    respect it.
+
+    As usual, the lens parameters have some extrinsics baked-in. At this
+    time the two methods handle this differently:
+
+    1. If we're re-optimizing the original inputs we currently reoptimize
+    EVERYTHING: intrinsics and extrinsics. Thus models generated in this way
+    are NOT drop-in replacements for the original models: the extrinsics
+    must be re-computed afterwards. The model I output will contain the
+    original extrinsics (since I have nothing else), but they will no longer
+    be right. In the future I may add an option to constrain the fit to
+    preserve the extrinsics, thus making the results a drop-in replacement
+
+    2. If we're matching up sampled projections, we don't have enough
+    information to separate the intrinsics from the implied extrinsics, so
+    the results ARE a drop-in replacement for the origin model.
+
+    If we're using option 2 (optimizing sampled projections) we need to
+    consider that the model we're trying to fit will not fit the original
+    model in all parts of the imager. Usually this is a factor when
+    converting wide-angle lenses to use a leaner model: a decent fit will be
+    available at the center, with more and more divergence as we move
+    towards the edges. We handle this with the --where and --radius options
+    to allow the user to choose the area of the imager that is used for the
+    fit. This region is centered on the point given by --where (or at the
+    center of the imager, if omitted). The radius of this region is given by
+    --radius. If '--radius 0' is given, I use ALL the data. A radius<0 can
+    be used to set the size of the no-data margin at the corners; in this
+    case I'll use
+
+        r = sqrt(width^2 + height^2)/2. - abs(radius)
+
+    There's a balance to strike here. A larger radius means that we'll try
+    to fit as well as we can in a larger area. This might mean that we won't
+    fit well anywhere, we we won't do terribly anywhere, either. A smaller
+    area means that we give up on the outer regions entirely (resulting in
+    very poor fits there), but we'll be able to fit much better in the areas
+    that remain. Generally empirical testing is required to find a good
+    compromise: pass --viz to see the resulting differences. Note that
+    --radius and --where applies only if we're optimizing sampled
+    reprojections; if we're using the original optimization inputs, the
+    options are illegal.
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -570,13 +594,16 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help           show this help message and exit
-      --verbose            Report the solver details
-      --viz                Visualize the difference
-      --where WHERE WHERE  I use a subset of the imager to compute the fit. The active region is a circle centered on this point. If omitted, we will focus on the center of the
-                           imager
-      --radius RADIUS      I use a subset of the imager to compute the fit. The active region is a circle with a radius given by this parameter. If radius == 0, I'll use the
-                           whole imager for the fit. If radius < 0, this parameter specifies the width of the region at the corners that I should ignore: I will use sqrt(width^2
-                           + height^2) - abs(radius). This is valid ONLY if we're focusing at the center of the imager. By default I ignore a large-ish chunk area at the corners.
+      --sampled            Instead of solving the original calibration problem using the new lens model, use sampled imager points. This produces biased results, but can be used
+                           even if the original optimization_inputs aren't available, and it produces results that have the same extrinsics as the input model
+      --gridn GRIDN GRIDN  How densely we should sample the imager if --sampled. By default we use a 60x40 grid
+      --viz                Visualize the differences between the input and output models
+      --where WHERE WHERE  Valid only if --sampled. I use a subset of the imager to compute the fit. The active region is a circle centered on this point. If omitted, we will
+                           focus on the center of the imager
+      --radius RADIUS      Valid only if --sampled. I use a subset of the imager to compute the fit. The active region is a circle with a radius given by this parameter. If
+                           radius == 0, I'll use the whole imager for the fit. If radius < 0, this parameter specifies the width of the region at the corners that I should
+                           ignore: I will use sqrt(width^2 + height^2)/2. - abs(radius). This is valid ONLY if we're focusing at the center of the imager. By default I ignore a
+                           large-ish chunk area at the corners.
 
 
 #+END_EXAMPLE
@@ -627,7 +654,7 @@ NAME
     a splined lens model
 
 SYNOPSIS
-      $ mrcal-show-splined-model-surface cam.cameramodel 0
+      $ mrcal-show-splined-model-surface cam.cameramodel x
       ... a plot pops up showing the surface
 
 DESCRIPTION
@@ -650,7 +677,7 @@ DESCRIPTION
 OPTIONS
   POSITIONAL ARGUMENTS
       model                 Input camera model. If "-' is given, we read standard input
-      {0,1}                 Whether we're looking at the x surface (0) or the y surface (1)
+      {x,y}                 Whether we're looking at the x surface or the y surface
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
@@ -698,8 +725,8 @@ OPTIONS
                             If given, I make a 3D plot of uncertainties and chessboard observations. With this option I ignore --distance, --isotropic, --observations. This
                             option makes a 3D x-y-distance plot instead of the 2D uncertainty contours we get normally
       --gridn GRIDN GRIDN   How densely we should sample the imager. By default we use a 60x40 grid (or a (15,10) grid if --observations-xydist)
-      --distance DISTANCE   By default we display the projection uncertainty infinitely away from the camera. If we want to look closer in, the desired observation distance can
-                            be given in this argument
+      --distance DISTANCE   By default we display the projection uncertainty infinitely far away from the camera. If we want to look closer in, the desired observation distance
+                            can be given in this argument
       --isotropic           By default I display the expected value of the projection error in the worst possible direction of this error. If we want to plot the RMS of the worst
                             and best directions, pass --isotropic. If we assume the errors will apply evenly in all directions, then we can use this metric, which is potentially
                             easier to compute
@@ -716,47 +743,85 @@ OPTIONS
 #+BEGIN_EXAMPLE
 NAME
     mrcal-show-projection-diff - Visualize the difference in projection
-    between some models
+    between N models
 
 SYNOPSIS
       $ mrcal-show-projection-diff before.cameramodel after.cameramodel
       ... a plot pops up showing how these two models differ in their projections
 
 DESCRIPTION
-    If we're given exactly 2 models then I show the projection DIFFERENCE. I
-    show this as either a vector field or a heat map. If N > 2 then a vector
-    field isn't possible and we show a heat map of the STANDARD DEVIATION of
-    the differences.
+    It is often useful to compare the projection behavior of two camera
+    models. For instance, one may want to evaluate the quality of a
+    calibration by comparing the results of two different chessboard dances.
+    Or one may want to evaluate the stability of the intrinsics in response
+    to mechanical or thermal stresses. This tool makes these comparisons,
+    and produces a visualization of the results.
 
-    This routine takes into account the potential variability of camera
-    rotation by fitting this implied camera rotation to align the models as
-    much as possible. This is required because a camera pitch/yaw motion
-    looks a lot like a shift in the camera optical axis (cx,cy). So I could
-    be comparing two sets of intrinsics that both represent the same lens
-    faithfully, but imply different rotations: the rotation would be
-    compensated for by a shift in cx,cy. If I compare the two sets of
-    intrinsics by IGNORING the rotations, the cx,cy difference would produce
-    a large diff despite both models being right.
+    In the most common case we're given exactly 2 models to compare. We then
+    show the projection DIFFERENCE as either a vector field or a heat map.
+    If we're given more than 2 models then a vector field isn't possible and
+    we show a heat map of the STANDARD DEVIATION of all the differences.
 
-    The implied rotation is fit using a subset of the imager data:
+    What are we showing? Broadly, we grid the imager, unproject each point
+    in the grid from one camera to produce a world point, reproject it to
+    the other camera, and look at the resulting pixel difference in this
+    reprojection.
 
-      if --radius < 0 (the default):
-         I fit a compensating rotation using a "reasonable" area in the center of
-         the imager. I use --radius = min(width,height)/6.
+    When comparing multiple cameras, usually the lens intrinsics differ a
+    bit, and the implied origin of the camera coordinate systems and their
+    orientation differ also. These geometric uncertainties are baked into
+    the intrinsics. So when we project "the same world point" we must apply
+    a geometric transformation to compensate for the difference in the
+    geometry of the two cameras. This transformation is unknown, but we can
+    estimate it by fitting projections across the imager: the "right"
+    transformation would result in apparent low projection diffs in a wide
+    area.
 
-      if --radius > 0:
-         I use observation vectors within --radius pixels of --where. To use ALL the
-         data, pass in a very large --radius.
+    This transformation is computed by intrinsics_implied_Rt10(), and some
+    details of its operation are significant:
 
-      if --radius == 0:
-         I do NOT fit a compensating rotation. Rationale: with radius == 0, I have
-         no fitting data, so I do not fit anything at all.
+    - The imager area we use for the fit - Which world points we're looking
+    at
 
-      if --where is omitted (the default):
-         --where is at the center of the imager
+    In most practical usages, we would not expect a good fit everywhere in
+    the imager: areas where no chessboards were observed will not fit well,
+    for instance. From the point of view of the fit we perform, those
+    ill-fitting areas should be treated as outliers, and they should NOT be
+    a part of the solve. How do we specify the well-fitting area? The best
+    way is to use the model uncertainties: these can be used to emphasize
+    the confident regions of the imager. This is the default behavior. If
+    uncertainties aren't available, or if we want a faster solve, pass
+    --no-uncertainties. The well-fitting region can then be passed using
+    --where and --radius to indicate the circle in the imager we care about.
 
-    Generally the computation isn't very sensitive to choices of --radius
-    and --where, so omitting these is recommended.
+    If using uncertainties then we utilize all the data in the imager by
+    default. if --no-uncertainties, then the defaults are to use a more
+    reasonable circle of radius min(width,height)/6 at the center of the
+    imager. Usually this is sufficiently correct, and we don't need to mess
+    with it. If we aren't guided to the correct focus region, the
+    implied-by-the-intrinsics solve will try to fit lots of outliers, which
+    would result in an incorrect transformation, which in turn would produce
+    overly-high reported diffs. A common case when this happens is if the
+    chessboard observations used in the calibration were concentrated to the
+    side of the image (off-center), no uncertainties were used, and --where
+    was not pointed to that area.
+
+    If we KNOW that there is no geometric difference between our cameras,
+    and we thus should look at the intrinsics differences only, then we
+    don't need to estimate the transformation. Indicate this case by passing
+    --radius 0
+
+    Unlike the projection operation, the diff operation is NOT invariant
+    under geometric scaling: if we look at the projection difference for two
+    points at different locations along a single observation ray, there will
+    be a variation in the observed diff. This is due to the geometric
+    difference in the two cameras. If the models differed only in their
+    intrinsics parameters, then this would not happen. Thus we need to know
+    how far from the camera to look, and this is specified by --distance. By
+    default we look out to infinity. If we care about the projection
+    difference at some other distance, pass that here. Generally the most
+    confident distance will be where the chessboards were observed at
+    calibration time.
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -764,12 +829,19 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we report a 60x40 grid
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we use a 60x40 grid
+      --distance DISTANCE   By default we display the projection diff for points infinitely far away from the camera. If we want to look closer in, the desired observation
+                            distance can be given in this argument. We can also fit multiple distances at the same time by passing them here in a comma-separated, whitespace-less
+                            list. If multiple distances are given, we fit the implied-by-the-intrinsics transformation using ALL the distances, but we display the best-fitting
+                            difference for each point. Only one distance is supported if --vectorfield. Multiple distances are especially useful if we have uncertainties: the
+                            most confident distance will be found, and displayed.
       --where WHERE WHERE   Center of the region of interest for this diff. It is usually impossible for the models to match everywhere, but focusing on a particular area can
                             work better. The implied rotation will be fit to match as large as possible an area centered on this argument. If omitted, we will focus on the center
                             of the imager
-      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT fit an implied rotation at all. If omitted or <0, we use a "reasonable value: min(width,height)/6.
-                            To fit with data across the WHOLE imager: pass in a very large radius
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT fit an implied rotation at all. If omitted or <0, we use a "reasonable" value: the whole imager if
+                            we're using uncertainties, or min(width,height)/6 if --no-uncertainties. To fit with data across the whole imager in either case, pass in a very large
+                            radius
+      --observations        If given, I show where the chessboard corners were observed at calibration time. These should correspond to the low-diff regions.
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
@@ -777,6 +849,8 @@ OPTIONS
                             glance
       --vectorscale VECTORSCALE
                             If plotting a vectorfield, scale all the vectors by this factor. Useful to improve legibility if the vectors are too small to see
+      --no-uncertainties    By default we use the uncertainties in the model to weigh the diff. This will focus the diff on the confident region in the models without --where or
+                            --radius. The computation will run faster with --no-uncertainties, but the default --where and --radius may need to be adjusted
       --hardcopy HARDCOPY   Write the output to disk, instead of making an interactive plot
       --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
 

@@ -10,8 +10,8 @@ SYNOPSIS
     mrcal.unpack_state(p, **optimization_inputs)
 
     i_point = 1
-    i_state = mrcal.state_index_point(i_point,
-                                      **optimization_inputs)
+    i_state = mrcal.state_index_points(i_point,
+                                       **optimization_inputs)
 
     point_reference = p[i_state:i_state+3]
 

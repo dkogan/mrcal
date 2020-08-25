@@ -2968,25 +2968,25 @@ int mrcal_state_index_intrinsics(int i_cam_intrinsics,
 {
     return i_cam_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel);
 }
-int mrcal_state_index_camera_rt(int i_cam_extrinsics, int Ncameras_intrinsics,
-                                mrcal_problem_details_t problem_details,
-                                mrcal_lensmodel_t lensmodel)
+int mrcal_state_index_extrinsics(int i_cam_extrinsics, int Ncameras_intrinsics,
+                                 mrcal_problem_details_t problem_details,
+                                 mrcal_lensmodel_t lensmodel)
 {
     int i = mrcal_num_intrinsics_optimization_params(problem_details, lensmodel)*Ncameras_intrinsics;
     return i + i_cam_extrinsics*6;
 }
-int mrcal_state_index_frame_rt(int i_frame, int Ncameras_intrinsics, int Ncameras_extrinsics,
-                               mrcal_problem_details_t problem_details,
-                               mrcal_lensmodel_t lensmodel)
+int mrcal_state_index_frames(int i_frame, int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel)
 {
     return
         Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel) +
         (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
         i_frame * 6;
 }
-int mrcal_state_index_point(int i_point, int Nframes, int Ncameras_intrinsics, int Ncameras_extrinsics,
-                            mrcal_problem_details_t problem_details,
-                            mrcal_lensmodel_t lensmodel)
+int mrcal_state_index_points(int i_point, int Nframes, int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel)
 {
     return
         Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel) +
@@ -3376,7 +3376,7 @@ void optimizer_callback(// input state
     {
         if( i_camera_extrinsics < 0 ) continue;
 
-        const int i_var_camera_rt = mrcal_state_index_camera_rt(i_camera_extrinsics, ctx->Ncameras_intrinsics, ctx->problem_details, ctx->lensmodel);
+        const int i_var_camera_rt = mrcal_state_index_extrinsics(i_camera_extrinsics, ctx->Ncameras_intrinsics, ctx->problem_details, ctx->lensmodel);
         if(ctx->problem_details.do_optimize_extrinsics)
             unpack_solver_state_extrinsics_one(&camera_rt[i_camera_extrinsics], &packed_state[i_var_camera_rt]);
         else
@@ -3397,7 +3397,7 @@ void optimizer_callback(// input state
 
         // Some of these are bogus if problem_details says they're inactive
         const int i_var_frame_rt =
-            mrcal_state_index_frame_rt(i_frame,
+            mrcal_state_index_frames(i_frame,
                                        ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                        ctx->problem_details, ctx->lensmodel);
 
@@ -3409,7 +3409,7 @@ void optimizer_callback(// input state
 
         const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                           ctx->problem_details, ctx->lensmodel);
         // invalid if i_cam_extrinsics < 0, but unused in that case
-        const int i_var_camera_rt  = mrcal_state_index_camera_rt (i_cam_extrinsics, ctx->Ncameras_intrinsics, ctx->problem_details, ctx->lensmodel);
+        const int i_var_camera_rt  = mrcal_state_index_extrinsics (i_cam_extrinsics, ctx->Ncameras_intrinsics, ctx->problem_details, ctx->lensmodel);
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
@@ -3696,8 +3696,8 @@ void optimizer_callback(// input state
             // structure
             const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                              ctx->problem_details, ctx->lensmodel);
             // invalid if i_cam_extrinsics < 0, but unused in that case
-            const int i_var_camera_rt  = mrcal_state_index_camera_rt (i_cam_extrinsics, ctx->Ncameras_intrinsics,    ctx->problem_details, ctx->lensmodel);
-            const int i_var_point      = mrcal_state_index_point     (i_point, ctx->Nframes,
+            const int i_var_camera_rt  = mrcal_state_index_extrinsics (i_cam_extrinsics, ctx->Ncameras_intrinsics,    ctx->problem_details, ctx->lensmodel);
+            const int i_var_point      = mrcal_state_index_points     (i_point, ctx->Nframes,
                                                                       ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                                                       ctx->problem_details, ctx->lensmodel);
 
@@ -3766,8 +3766,8 @@ void optimizer_callback(// input state
 
         const int i_var_intrinsics = mrcal_state_index_intrinsics(i_cam_intrinsics,                              ctx->problem_details, ctx->lensmodel);
         // invalid if i_cam_extrinsics < 0, but unused in that case
-        const int i_var_camera_rt  = mrcal_state_index_camera_rt (i_cam_extrinsics, ctx->Ncameras_intrinsics,    ctx->problem_details, ctx->lensmodel);
-        const int i_var_point      = mrcal_state_index_point     (i_point, ctx->Nframes,
+        const int i_var_camera_rt  = mrcal_state_index_extrinsics (i_cam_extrinsics, ctx->Ncameras_intrinsics,    ctx->problem_details, ctx->lensmodel);
+        const int i_var_point      = mrcal_state_index_points     (i_point, ctx->Nframes,
                                                                   ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                                                   ctx->problem_details, ctx->lensmodel);
         mrcal_point3_t point;

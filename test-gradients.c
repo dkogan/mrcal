@@ -303,15 +303,15 @@ int main(int argc, char* argv[] )
     printf("## Extrinsics: %d variables per camera for all cameras except camera 0 (%d total). Starts at variable %d\n",
            (problem_details.do_optimize_extrinsics ? 6                     : 0),
            (problem_details.do_optimize_extrinsics ? 6*Ncameras_extrinsics : 0),
-           mrcal_state_index_camera_rt(0, Ncameras_intrinsics, problem_details, lensmodel));
+           mrcal_state_index_extrinsics(0, Ncameras_intrinsics, problem_details, lensmodel));
     printf("## Frames: %d variables per frame (%d total). Starts at variable %d\n",
            (problem_details.do_optimize_frames ? 6         : 0),
            (problem_details.do_optimize_frames ? 6*Nframes : 0),
-           mrcal_state_index_frame_rt(0, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
+           mrcal_state_index_frames(0, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
     printf("## Discrete points: %d variables per point (%d total). Starts at variable %d\n",
            (problem_details.do_optimize_frames ? 3                        : 0),
            (problem_details.do_optimize_frames ? 3*(Npoints-Npoints_fixed) : 0),
-           mrcal_state_index_point(0, Nframes, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
+           mrcal_state_index_points(0, Nframes, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
     printf("## calobject_warp: %d variables. Starts at variable %d\n",
            (problem_details.do_optimize_calobject_warp ? 2 : 0),
            mrcal_state_index_calobject_warp(Npoints-Npoints_fixed,

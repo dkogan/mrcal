@@ -245,10 +245,10 @@ M = np.linalg.solve( nps.matmult(nps.transpose(J0),J0),
                      nps.transpose(J0[:Nmeasurements_boards, :]) ) * w
 dp_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
 
-istate0_frames         = mrcal.state_index_frame_rt (0, **baseline)
+istate0_frames         = mrcal.state_index_frames (0, **baseline)
 istate0_calobject_warp = mrcal.state_index_calobject_warp(**baseline)
 try:
-    istate0_extrinsics = mrcal.state_index_camera_rt(0, **baseline)
+    istate0_extrinsics = mrcal.state_index_extrinsics(0, **baseline)
 except:
     istate0_extrinsics = istate0_frames
 

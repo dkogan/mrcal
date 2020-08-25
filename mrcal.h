@@ -498,18 +498,18 @@ void mrcal_free_context(void** ctx);
 int mrcal_state_index_intrinsics(int i_cam_intrinsics,
                                  mrcal_problem_details_t problem_details,
                                  mrcal_lensmodel_t lensmodel);
-int mrcal_state_index_camera_rt(int i_cam_extrinsics,
-                                int Ncameras_intrinsics,
-                                mrcal_problem_details_t problem_details,
-                                mrcal_lensmodel_t lensmodel);
-int mrcal_state_index_frame_rt(int i_frame,
-                               int Ncameras_intrinsics, int Ncameras_extrinsics,
-                               mrcal_problem_details_t problem_details,
-                               mrcal_lensmodel_t lensmodel);
-int mrcal_state_index_point(int i_point, int Nframes,
-                            int Ncameras_intrinsics, int Ncameras_extrinsics,
-                            mrcal_problem_details_t problem_details,
-                            mrcal_lensmodel_t lensmodel);
+int mrcal_state_index_extrinsics(int i_cam_extrinsics,
+                                 int Ncameras_intrinsics,
+                                 mrcal_problem_details_t problem_details,
+                                 mrcal_lensmodel_t lensmodel);
+int mrcal_state_index_frames(int i_frame,
+                             int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel);
+int mrcal_state_index_points(int i_point, int Nframes,
+                             int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel);
 int mrcal_state_index_calobject_warp(int Npoints_variable,
                                      int Nframes,
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
