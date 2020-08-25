@@ -27,7 +27,10 @@ vector. The intrinsics are stored contiguously. They consist of a 4-element
 "intrinsics core" (focallength-x, focallength-y, centerpixel-x, centerpixel-y)
 followed by a lensmodel-specific vector of "distortions". The number of
 intrinsics elements (including the core) for a particular lens model can be
-queried with mrcal.lensmodel_num_params(lensmodel).
+queried with mrcal.lensmodel_num_params(lensmodel). Note that
+do_optimize_intrinsics_core and do_optimize_intrinsics_distortions can be used
+to lock down one or both of those quantities, which would omit them from the
+optimization vector.
 
 In order to determine the variable mapping, we need quite a bit of context. If
 we have the full set of inputs to the optimization function, we can pass in

@@ -1903,6 +1903,29 @@ static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject
                                callback_state_index_intrinsics);
 }
 
+static int callback_num_states_intrinsics(int i,
+                                          int Ncameras_intrinsics,
+                                          int Ncameras_extrinsics,
+                                          int Nframes,
+                                          int Npoints,
+                                          int Npoints_fixed,
+                                          int Nobservations_board,
+                                          int Nobservations_point,
+                                          int calibration_object_width_n,
+                                          int calibration_object_height_n,
+                                          mrcal_lensmodel_t lensmodel,
+                                          mrcal_problem_details_t problem_details)
+{
+    return mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                       problem_details, lensmodel);
+}
+static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_num_states_intrinsics);
+}
+
 static int callback_state_index_extrinsics(int i,
                                            int Ncameras_intrinsics,
                                            int Ncameras_extrinsics,
@@ -1933,6 +1956,29 @@ static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject
     return state_index_generic(self, args, kwargs,
                                "i_cam_extrinsics",
                                callback_state_index_extrinsics);
+}
+
+static int callback_num_states_extrinsics(int i,
+                                          int Ncameras_intrinsics,
+                                          int Ncameras_extrinsics,
+                                          int Nframes,
+                                          int Npoints,
+                                          int Npoints_fixed,
+                                          int Nobservations_board,
+                                          int Nobservations_point,
+                                          int calibration_object_width_n,
+                                          int calibration_object_height_n,
+                                          mrcal_lensmodel_t lensmodel,
+                                          mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_details);
+}
+static PyObject* num_states_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_num_states_extrinsics);
 }
 
 static int callback_state_index_frames(int i,
@@ -1966,6 +2012,29 @@ static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kw
     return state_index_generic(self, args, kwargs,
                                "i_frame",
                                callback_state_index_frames);
+}
+
+static int callback_num_states_frames(int i,
+                                      int Ncameras_intrinsics,
+                                      int Ncameras_extrinsics,
+                                      int Nframes,
+                                      int Npoints,
+                                      int Npoints_fixed,
+                                      int Nobservations_board,
+                                      int Nobservations_point,
+                                      int calibration_object_width_n,
+                                      int calibration_object_height_n,
+                                      mrcal_lensmodel_t lensmodel,
+                                      mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_num_states_frames(Nframes, problem_details);
+}
+static PyObject* num_states_frames(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_num_states_frames);
 }
 
 static int callback_state_index_points(int i,
@@ -2002,6 +2071,29 @@ static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kw
                                callback_state_index_points);
 }
 
+static int callback_num_states_points(int i,
+                                       int Ncameras_intrinsics,
+                                       int Ncameras_extrinsics,
+                                       int Nframes,
+                                       int Npoints,
+                                       int Npoints_fixed,
+                                       int Nobservations_board,
+                                       int Nobservations_point,
+                                       int calibration_object_width_n,
+                                       int calibration_object_height_n,
+                                       mrcal_lensmodel_t lensmodel,
+                                       mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_num_states_points(Npoints - Npoints_fixed, problem_details);
+}
+static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_num_states_points);
+}
+
 static int callback_state_index_calobject_warp(int i,
                                                int Ncameras_intrinsics,
                                                int Ncameras_extrinsics,
@@ -2028,6 +2120,29 @@ static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyOb
     return state_index_generic(self, args, kwargs,
                                NULL,
                                callback_state_index_calobject_warp);
+}
+
+static int callback_num_states_calobject_warp(int i,
+                                              int Ncameras_intrinsics,
+                                              int Ncameras_extrinsics,
+                                              int Nframes,
+                                              int Npoints,
+                                              int Npoints_fixed,
+                                              int Nobservations_board,
+                                              int Nobservations_point,
+                                              int calibration_object_width_n,
+                                              int calibration_object_height_n,
+                                              mrcal_lensmodel_t lensmodel,
+                                              mrcal_problem_details_t problem_details)
+{
+    return
+        mrcal_num_states_calobject_warp(problem_details);
+}
+static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_num_states_calobject_warp);
 }
 
 static int callback_num_measurements_all(int i,
@@ -2422,6 +2537,21 @@ static const char state_index_points_docstring[] =
 static const char state_index_calobject_warp_docstring[] =
 #include "state_index_calobject_warp.docstring.h"
     ;
+static const char num_states_intrinsics_docstring[] =
+#include "num_states_intrinsics.docstring.h"
+    ;
+static const char num_states_extrinsics_docstring[] =
+#include "num_states_extrinsics.docstring.h"
+    ;
+static const char num_states_frames_docstring[] =
+#include "num_states_frames.docstring.h"
+    ;
+static const char num_states_points_docstring[] =
+#include "num_states_points.docstring.h"
+    ;
+static const char num_states_calobject_warp_docstring[] =
+#include "num_states_calobject_warp.docstring.h"
+    ;
 static const char pack_state_docstring[] =
 #include "pack_state.docstring.h"
     ;
@@ -2482,6 +2612,11 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, state_index_frames,              METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_points,              METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_calobject_warp,      METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_states_intrinsics,           METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_states_extrinsics,           METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_states_frames,               METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_states_points,               METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_states_calobject_warp,       METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, pack_state,                      METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, unpack_state,                    METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_measurements_all,            METH_VARARGS | METH_KEYWORDS),

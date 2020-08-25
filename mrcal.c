@@ -2968,41 +2968,93 @@ int mrcal_state_index_intrinsics(int i_cam_intrinsics,
 {
     return i_cam_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel);
 }
+
+int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
+                                mrcal_problem_details_t problem_details,
+                                mrcal_lensmodel_t lensmodel)
+{
+    return
+        Ncameras_intrinsics *
+        mrcal_num_intrinsics_optimization_params(problem_details, lensmodel);
+}
+
 int mrcal_state_index_extrinsics(int i_cam_extrinsics, int Ncameras_intrinsics,
                                  mrcal_problem_details_t problem_details,
                                  mrcal_lensmodel_t lensmodel)
 {
-    int i = mrcal_num_intrinsics_optimization_params(problem_details, lensmodel)*Ncameras_intrinsics;
-    return i + i_cam_extrinsics*6;
+    return
+        mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                    problem_details,
+                                    lensmodel) +
+        (problem_details.do_optimize_extrinsics ? (i_cam_extrinsics*6) : 0);
 }
+
+int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
+                                mrcal_problem_details_t problem_details)
+{
+    return problem_details.do_optimize_extrinsics ? (6*Ncameras_extrinsics) : 0;
+}
+
 int mrcal_state_index_frames(int i_frame, int Ncameras_intrinsics, int Ncameras_extrinsics,
                              mrcal_problem_details_t problem_details,
                              mrcal_lensmodel_t lensmodel)
 {
     return
-        Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel) +
-        (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
-        i_frame * 6;
+        mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                    problem_details,
+                                    lensmodel) +
+        mrcal_num_states_extrinsics(Ncameras_extrinsics,
+                                    problem_details) +
+        (problem_details.do_optimize_frames ? (i_frame*6) : 0);
 }
+
+int mrcal_num_states_frames(int Nframes,
+                            mrcal_problem_details_t problem_details)
+{
+    return problem_details.do_optimize_frames ? (6*Nframes) : 0;
+}
+
 int mrcal_state_index_points(int i_point, int Nframes, int Ncameras_intrinsics, int Ncameras_extrinsics,
                              mrcal_problem_details_t problem_details,
                              mrcal_lensmodel_t lensmodel)
 {
     return
-        Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel) +
-        (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
-        (Nframes * 6) +
-        i_point*3;
+        mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                    problem_details,
+                                    lensmodel) +
+        mrcal_num_states_extrinsics(Ncameras_extrinsics,
+                                    problem_details) +
+        mrcal_num_states_frames    (Nframes,
+                                    problem_details) +
+        (problem_details.do_optimize_frames ? (i_point*3) : 0);
 }
+
+int mrcal_num_states_points(int Npoints_variable,
+                            mrcal_problem_details_t problem_details)
+{
+    return problem_details.do_optimize_frames ? (Npoints_variable*3) : 0;
+}
+
 int mrcal_state_index_calobject_warp(int Npoints_variable,
                                      int Nframes, int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      mrcal_problem_details_t problem_details,
                                      mrcal_lensmodel_t lensmodel)
 {
     return
-        Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel) +
-        (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
-        (problem_details.do_optimize_frames     ? (Nframes*6 + Npoints_variable*3)   : 0);
+        mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                    problem_details,
+                                    lensmodel) +
+        mrcal_num_states_extrinsics(Ncameras_extrinsics,
+                                    problem_details) +
+        mrcal_num_states_frames    (Nframes,
+                                    problem_details) +
+        mrcal_num_states_points    (Npoints_variable,
+                                    problem_details);
+}
+
+int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details)
+{
+    return problem_details.do_optimize_calobject_warp ? 2 : 0;
 }
 
 // Reports the icam_extrinsics corresponding to a given icam_intrinsics. On

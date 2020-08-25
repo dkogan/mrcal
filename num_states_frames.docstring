@@ -1,4 +1,4 @@
-Return the index in the optimization vector of the position of point i
+Get the number of calibration object pose parameters in the optimization vector
 
 SYNOPSIS
 
@@ -9,21 +9,23 @@ SYNOPSIS
     p = mrcal.optimizer_callback(**optimization_inputs)[0]
     mrcal.unpack_state(p, **optimization_inputs)
 
-    i_point = 1
-    i_state = mrcal.state_index_points(i_point,
-                                       **optimization_inputs)
+    i_state0 = mrcal.state_index_frames(0, **optimization_inputs)
+    Nstates  = mrcal.num_states_frames (   **optimization_inputs)
 
-    point = p[i_state:i_state+3]
+    frames_rt_toref_all = p[i_state0:i_state0+Nstates]
 
 The optimization algorithm sees its world described in one, big vector of state.
 The optimizer doesn't know or care about the meaning of each element of this
 vector, but for later analysis, it is useful to know what's what. The
-mrcal.state_index_...() functions report where particular items end up in the
-state vector.
+mrcal.num_states_...() functions report how many variables in the optimization
+vector are taken up by each particular kind of measurement.
 
-THIS function reports the beginning of the i-th point in the state vector. The
-points are stored contiguously as a 3-element coordinates in the reference
-frame.
+THIS function reports how many variables are used to represent ALL the frame
+poses. Here a "frame" is a pose of the observed calibration object at some
+instant in time. The frames are stored contiguously as an "rt transformation": a
+3-element rotation represented as a Rodrigues vector followed by a 3-element
+translation. These transform points represented in the internal calibration
+object coordinate system to the reference coordinate system.
 
 In order to determine the variable mapping, we need quite a bit of context. If
 we have the full set of inputs to the optimization function, we can pass in
@@ -34,8 +36,6 @@ explicit arguments take precedence. If any array size is not specified, it is
 assumed to be 0. Thus most arguments are optional.
 
 ARGUMENTS
-
-- i_point: an integer indicating which point we're asking about
 
 - **kwargs: if the optimization inputs are available, they can be passed-in as
   kwargs. These inputs contain everything this function needs to operate. If we
@@ -69,5 +69,4 @@ ARGUMENTS
 
 RETURNED VALUE
 
-The integer reporting the location in the state vector where the contiguous
-block of variables for point i_point begins
+The integer reporting the variable count of frames in the state vector
