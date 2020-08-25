@@ -1369,7 +1369,7 @@ void _project_point_splined( // outputs
     //   u = xy_unit * tan(th/2) * 2
     //
     // I compute the normalized (focal-length = 1) projection, and
-    // use that to look-up the x and y focal length scalings
+    // use that to look-up deltau
 
     // th is the angle between the observation and the projection
     // center
