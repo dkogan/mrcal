@@ -1,4 +1,4 @@
-Return how many measurements we have from calibration object observations
+Return the index of the start of the regularization measurements
 
 SYNOPSIS
 
@@ -8,25 +8,26 @@ SYNOPSIS
 
     x = mrcal.optimizer_callback(**optimization_inputs)[1]
 
-    Nmeas   = mrcal.num_measurements_boards (   **optimization_inputs)
-    i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs)
+    Nmeas   = mrcal.num_measurements_regularization( **optimization_inputs)
+    i_meas0 = mrcal.measurement_index_regularization(**optimization_inputs)
 
-    x_boards_all = x[i_meas0:i_meas0+Nmeas]
+    x_regularization = x[i_meas0:i_meas0+Nmeas]
 
 The optimization algorithm tries to minimize the norm of a "measurements" vector
 x. The optimizer doesn't know or care about the meaning of each element of this
 vector, but for later analysis, it is useful to know what's what. The
-mrcal.num_measurements_...() functions report how many measurements are produced
-by particular items.
+mrcal.measurement_index_...() functions report where particular items end up in
+the vector of measurements.
 
-THIS function reports how many measurements come from the observations of the
-calibration object. When solving calibration problems, most if not all of the
-measurements will come from these observations. These are stored contiguously.
+THIS function reports the index in the measurement vector where the
+regularization terms begin. These don't model physical effects, but guide the
+solver away from obviously-incorrect solutions, and resolve ambiguities. This
+helps the solver converge to the right solution, quickly.
 
-In order to determine the layout, we need quite a bit of context. If we have
-the full set of inputs to the optimization function, we can pass in those (as
-shown in the example above). Or we can pass the individual arguments that are
-needed (see ARGUMENTS section for the full list). If the optimization inputs and
+In order to determine the layout, we need quite a bit of context. If we have the
+full set of inputs to the optimization function, we can pass in those (as shown
+in the example above). Or we can pass the individual arguments that are needed
+(see ARGUMENTS section for the full list). If the optimization inputs and
 explicitly-given arguments conflict about the size of some array, the explicit
 arguments take precedence. If any array size is not specified, it is assumed to
 be 0. Thus most arguments are optional.
@@ -71,5 +72,5 @@ ARGUMENTS
 
 RETURNED VALUE
 
-The integer reporting how many elements of the measurement vector x come from
-the calibration object observations
+The integer reporting where in the measurement vector the regularization terms
+start

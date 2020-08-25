@@ -461,6 +461,25 @@ bool mrcal_optimizer_callback(// out
                              int calibration_object_height_n);
 
 
+int mrcal_measurement_index_boards(int i_observation_board,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n);
+int mrcal_num_measurements_boards(int Nobservations_board,
+                                  int calibration_object_width_n,
+                                  int calibration_object_height_n);
+int mrcal_measurement_index_points(int i_observation_point,
+                                   int Nobservations_board,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n);
+int mrcal_num_measurements_points(int Nobservations_point);
+int mrcal_measurement_index_regularization(int Nobservations_board,
+                                           int Nobservations_point,
+                                           int calibration_object_width_n,
+                                           int calibration_object_height_n);
+int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
+                                          mrcal_problem_details_t problem_details,
+                                          mrcal_lensmodel_t lensmodel);
+
 int mrcal_num_measurements_all(int Ncameras_intrinsics,
                                int Nobservations_board,
                                int Nobservations_point,
@@ -468,13 +487,7 @@ int mrcal_num_measurements_all(int Ncameras_intrinsics,
                                int calibration_object_height_n,
                                mrcal_problem_details_t problem_details,
                                mrcal_lensmodel_t lensmodel);
-int mrcal_num_measurements_boards(int Nobservations_board,
-                                  int calibration_object_width_n,
-                                  int calibration_object_height_n);
-int mrcal_num_measurements_points(int Nobservations_point);
-int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
-                                          mrcal_problem_details_t problem_details,
-                                          mrcal_lensmodel_t lensmodel);
+
 int mrcal_num_state(int Ncameras_intrinsics, int Ncameras_extrinsics,
                     int Nframes, int Npoints_variable,
                     mrcal_problem_details_t problem_details,

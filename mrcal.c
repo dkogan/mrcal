@@ -358,21 +358,56 @@ static int num_regularization_terms_percamera(mrcal_problem_details_t problem_de
     return N;
 }
 
+int mrcal_measurement_index_boards(int i_observation_board,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n)
+{
+    // *2 because I have separate x and y measurements
+    return
+        0 +
+        i_observation_board *
+        calibration_object_width_n*calibration_object_height_n *
+        2;
+}
+
 int mrcal_num_measurements_boards(int Nobservations_board,
                                   int calibration_object_width_n,
                                   int calibration_object_height_n)
 {
-    // *2 because I have separate x and y measurements
+    return mrcal_measurement_index_boards( Nobservations_board,
+                                           calibration_object_width_n,
+                                           calibration_object_height_n);
+}
+
+int mrcal_measurement_index_points(int i_observation_point,
+                                   int Nobservations_board,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n)
+{
+    // 3: x,y measurements, range normalization
     return
-        Nobservations_board *
-        calibration_object_width_n*calibration_object_height_n *
-        2;
+        mrcal_num_measurements_boards(Nobservations_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n) +
+        i_observation_point * 3;
 }
 
 int mrcal_num_measurements_points(int Nobservations_point)
 {
     // 3: x,y measurements, range normalization
     return Nobservations_point * 3;
+}
+
+int mrcal_measurement_index_regularization(int Nobservations_board,
+                                           int Nobservations_point,
+                                           int calibration_object_width_n,
+                                           int calibration_object_height_n)
+{
+    return
+        mrcal_num_measurements_boards(Nobservations_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n) +
+        mrcal_num_measurements_points(Nobservations_point);
 }
 
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
