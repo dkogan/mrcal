@@ -1892,6 +1892,25 @@ static int callback_state_index_intrinsics(int i,
                                            mrcal_lensmodel_t lensmodel,
                                            mrcal_problem_details_t problem_details)
 {
+    if(Ncameras_intrinsics == 0 ||
+       (!problem_details.do_optimize_intrinsics_core &&
+        !problem_details.do_optimize_intrinsics_core) )
+    {
+        BARF("No intrinsics are being optimized, so no state index can be returned");
+        return -1;
+    }
+    if( i < 0 )
+    {
+        BARF( "i_cam_intrinsics must be given, and must refer to a valid camera: must have icam_intrinsics>=0. Instead got %d",
+              i);
+        return -1;
+    }
+    if( i >= Ncameras_intrinsics)
+    {
+        BARF( "i_cam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              Ncameras_intrinsics-1,i);
+        return -1;
+    }
     return mrcal_state_index_intrinsics(i,
                                         problem_details,
                                         lensmodel);
@@ -1939,7 +1958,19 @@ static int callback_state_index_extrinsics(int i,
                                            mrcal_lensmodel_t lensmodel,
                                            mrcal_problem_details_t problem_details)
 {
-    if( i < 0 || i >= Ncameras_extrinsics)
+    if(Ncameras_extrinsics == 0 ||
+       !problem_details.do_optimize_extrinsics )
+    {
+        BARF("No extrinsics are being optimized, so no state index can be returned");
+        return -1;
+    }
+    if( i < 0 )
+    {
+        BARF( "i_cam_extrinsics must be given, and must refer to a valid camera: must have icam_extrinsics>=0. Instead got %d",
+              i);
+        return -1;
+    }
+    if( i >= Ncameras_extrinsics)
     {
         BARF( "i_cam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
               Ncameras_extrinsics-1,i);
@@ -1994,9 +2025,21 @@ static int callback_state_index_frames(int i,
                                        mrcal_lensmodel_t lensmodel,
                                        mrcal_problem_details_t problem_details)
 {
-    if( i < 0 || i >= Nframes)
+    if(Nframes == 0 ||
+       !problem_details.do_optimize_frames )
     {
-        BARF( "i_frames must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+        BARF("No frames are being optimized, so no state index can be returned");
+        return -1;
+    }
+    if( i < 0 )
+    {
+        BARF( "i_frame must be given, and must refer to a valid frame: must have i_frame>=0. Instead got %d",
+              i);
+        return -1;
+    }
+    if( i >= Nframes)
+    {
+        BARF( "i_frame must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
               Nframes-1,i);
         return -1;
     }
@@ -2050,10 +2093,22 @@ static int callback_state_index_points(int i,
                                        mrcal_lensmodel_t lensmodel,
                                        mrcal_problem_details_t problem_details)
 {
-    if( i < 0 || i >= Npoints-Npoints_fixed)
+    if(Npoints - Npoints_fixed <= 0 ||
+       !problem_details.do_optimize_frames )
     {
-        BARF( "i_frames must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              Nframes-1,i);
+        BARF("No points are being optimized, so no state index can be returned");
+        return -1;
+    }
+    if( i < 0 )
+    {
+        BARF( "i_point must be given, and must refer to a valid point: must have i_point>=0. Instead got %d",
+              i);
+        return -1;
+    }
+    if( i >= Npoints-Npoints_fixed)
+    {
+        BARF( "i_point must refer to a valid point, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+              Npoints-Npoints_fixed-1, i);
         return -1;
     }
     return
