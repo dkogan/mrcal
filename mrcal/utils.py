@@ -5599,17 +5599,14 @@ A list of 'set' directives passable as plot options to gnuplotlib
 
     '''
 
-    Nmeas = []
+    imeas0 = []
 
-    try:    Nmeas.append(mrcal.num_measurements_boards(**optimization_inputs))
+    try:    imeas0.append(mrcal.measurement_index_boards        (0, **optimization_inputs))
     except: pass
-    try:    Nmeas.append(mrcal.num_measurements_points(**optimization_inputs))
+    try:    imeas0.append(mrcal.measurement_index_points        (0, **optimization_inputs))
     except: pass
-    try:    Nmeas.append(mrcal.num_measurements_regularization(**optimization_inputs))
+    try:    imeas0.append(mrcal.measurement_index_regularization(0, **optimization_inputs))
     except: pass
 
-    imeas0 = [0]
-    for i in range(len(Nmeas)-1):
-        imeas0.append(imeas0[-1] + Nmeas[i])
+    return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0]
 
-    return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0[1:]]
