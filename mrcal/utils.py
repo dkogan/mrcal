@@ -5506,3 +5506,110 @@ applied
 
     Hq = nps.matmult( nps.dummy(q, -2), nps.transpose(H[..., :,:2]))[..., 0, :] + H[..., 2]
     return Hq[..., :2] / Hq[..., (2,)]
+
+
+def plotoptions_state_boundaries(**optimization_inputs):
+    r'''Return the 'set' plot options for gnuplotlib to show the state boundaries
+
+SYNOPSIS
+
+    import numpy as np
+    import gnuplotlib as gp
+    import mrcal
+
+    model               = mrcal.cameramodel('xxx.cameramodel')
+    optimization_inputs = model.optimization_inputs()
+
+    J = mrcal.optimizer_callback(**optimization_inputs)[2]
+
+    gp.plot( np.sum(np.abs(J.toarray()), axis=-2),
+             _set = mrcal.plotoptions_state_boundaries(**optimization_inputs) )
+
+    # a plot pops up showing the magnitude of the effects of each element of the
+    # packed state (as seen by the optimizer), with boundaries between the
+    # different state variables denoted
+
+When plotting the state vector (or anything relating to it, such as rows of the
+Jacobian), it is usually very useful to infer at a glance the meaning of each
+part of the plot. This function returns a list of 'set' directives passable to
+gnuplotlib that show the boundaries inside the state vector.
+
+ARGUMENTS
+
+**optimization_inputs: a dict() of arguments passable to mrcal.optimize() and
+mrcal.optimizer_callback(). These define the full optimization problem, and can
+be obtained from the optimization_inputs() method of mrcal.cameramodel
+
+RETURNED VALUE
+
+A list of 'set' directives passable as plot options to gnuplotlib
+
+    '''
+    istate0 = []
+
+    try:    istate0.append(mrcal.state_index_intrinsics    (0, **optimization_inputs))
+    except: pass
+    try:    istate0.append(mrcal.state_index_camera_rt     (0, **optimization_inputs))
+    except: pass
+    try:    istate0.append(mrcal.state_index_frame_rt      (0, **optimization_inputs))
+    except: pass
+    try:    istate0.append(mrcal.state_index_point         (0, **optimization_inputs))
+    except: pass
+    try:    istate0.append(mrcal.state_index_calobject_warp(   **optimization_inputs))
+    except: pass
+
+    return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in istate0]
+
+
+def plotoptions_measurement_boundaries(**optimization_inputs):
+    r'''Return the 'set' plot options for gnuplotlib to show the measurement boundaries
+
+SYNOPSIS
+
+    import numpy as np
+    import gnuplotlib as gp
+    import mrcal
+
+    model               = mrcal.cameramodel('xxx.cameramodel')
+    optimization_inputs = model.optimization_inputs()
+
+    x = mrcal.optimizer_callback(**optimization_inputs)[1]
+
+    gp.plot( np.abs(x),
+             _set = mrcal.plotoptions_measurement_boundaries(**optimization_inputs) )
+
+    # a plot pops up showing the magnitude of each measurement, with boundaries
+    # between the different measurements denoted
+
+When plotting the measurement vector (or anything relating to it, such as
+columns of the Jacobian), it is usually very useful to infer at a glance the
+meaning of each part of the plot. This function returns a list of 'set'
+directives passable to gnuplotlib that show the boundaries inside the
+measurement vector.
+
+ARGUMENTS
+
+**optimization_inputs: a dict() of arguments passable to mrcal.optimize() and
+mrcal.optimizer_callback(). These define the full optimization problem, and can
+be obtained from the optimization_inputs() method of mrcal.cameramodel
+
+RETURNED VALUE
+
+A list of 'set' directives passable as plot options to gnuplotlib
+
+    '''
+
+    Nmeas = []
+
+    try:    Nmeas.append(mrcal.num_measurements_boards(**optimization_inputs))
+    except: pass
+    try:    Nmeas.append(mrcal.num_measurements_points(**optimization_inputs))
+    except: pass
+    try:    Nmeas.append(mrcal.num_measurements_regularization(**optimization_inputs))
+    except: pass
+
+    imeas0 = [0]
+    for i in range(len(Nmeas)-1):
+        imeas0.append(imeas0[-1] + Nmeas[i])
+
+    return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0[1:]]
