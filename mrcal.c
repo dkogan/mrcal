@@ -3311,11 +3311,11 @@ bool markOutliers(// output, input
 typedef struct
 {
     // these are all UNPACKED
-    const double*       intrinsics; // Ncameras_intrinsics * NlensParams of these
-    const mrcal_pose_t*       extrinsics_fromref; // Ncameras_extrinsics of these. Transform FROM the reference frame
-    const mrcal_pose_t*       frames_toref;     // Nframes of these.    Transform TO the reference frame
-    const mrcal_point3_t*     points;     // Npoints of these.    In the reference frame
-    const mrcal_point2_t*     calobject_warp; // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+    const double*         intrinsics;         // Ncameras_intrinsics * NlensParams of these
+    const mrcal_pose_t*   extrinsics_fromref; // Ncameras_extrinsics of these. Transform FROM the reference frame
+    const mrcal_pose_t*   frames_toref;       // Nframes of these.    Transform TO the reference frame
+    const mrcal_point3_t* points;             // Npoints of these.    In the reference frame
+    const mrcal_point2_t* calobject_warp;     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
 
     // in
     int Ncameras_intrinsics, Ncameras_extrinsics, Nframes;
@@ -4471,9 +4471,9 @@ bool mrcal_optimizer_callback(// out
         .Npoints_fixed              = Npoints_fixed,
         .observations_board         = observations_board,
         .observations_board_pool    = observations_board_pool,
-        .Nobservations_board         = Nobservations_board,
+        .Nobservations_board        = Nobservations_board,
         .observations_point         = observations_point,
-        .Nobservations_point         = Nobservations_point,
+        .Nobservations_point        = Nobservations_point,
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
