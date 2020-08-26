@@ -3502,6 +3502,7 @@ def show_projection_diff(models,
                          use_uncertainties= True,
                          focus_center     = None,
                          focus_radius     = -1.,
+                         implied_Rt10     = None,
 
                          vectorfield      = False,
                          vectorscale      = 1.0,
@@ -3640,6 +3641,11 @@ ARGUMENTS
   to use the identity. This would mean there're no geometric differences, and
   we're comparing the intrinsics only
 
+- implied_Rt10: optional Rt transformation (numpy array of shape (4,3)). If
+  given, I use the given value for the implied-by-the-intrinsics transformation
+  instead of fitting it. If omitted, I computed the transformation. Exclusive
+  with focus_center, focus_radius. Valid only if exactly two models are given.
+
 - vectorfield: optional boolean, defaulting to False. By default we produce a
   heat map of the projection differences. If vectorfield: we produce a vector
   field instead. This is more busy, and is often less clear at first glance, but
@@ -3684,6 +3690,14 @@ into a variable, even if you're not going to be doing anything with this object
                             format(len(models)))
         if not isinstance(distance,float) and len(distance) > 1:
             raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
+
+    if implied_Rt10 is not None:
+        if len(models) != 2:
+            raise Exception("implied_Rt10 may be given ONLY if I have exactly two models")
+        if focus_center is not None:
+            raise Exception("implied_Rt10 is given, so focus_center, focus_radius shouldn't be")
+
+        use_uncertainties = False
 
 
     imagersizes = np.array([model.imagersize() for model in models])
@@ -3733,7 +3747,10 @@ into a variable, even if you're not going to be doing anything with this object
     if len(models) == 2:
         # Two models. Take the difference and call it good
 
-        if focus_radius == 0:
+        if implied_Rt10 is not None:
+            # I already have the transformation, so no nee to compute it
+            pass
+        elif focus_radius == 0:
             implied_Rt10 = mrcal.identity_Rt()
         else:
             # weights has shape (len(distance),Nh,Nw))
@@ -3771,7 +3788,7 @@ into a variable, even if you're not going to be doing anything with this object
             v1 = v[i1,...]
 
             if focus_radius == 0:
-                R = np.eye(3)
+                implied_Rt10 = mrcal.identity_Rt()
             else:
 
                 if uncertainties is not None:
