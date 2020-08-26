@@ -112,19 +112,19 @@ def parse_args():
                         nargs=2,
                         help='''Center of the region of interest for this diff. It is usually impossible for
                         the models to match everywhere, but focusing on a
-                        particular area can work better. The implied rotation
-                        will be fit to match as large as possible an area
-                        centered on this argument. If omitted, we will focus on
-                        the center of the imager''')
+                        particular area can work better. The implied
+                        transformation will be fit to match as large as possible
+                        an area centered on this argument. If omitted, we will
+                        focus on the center of the imager''')
     parser.add_argument('--radius',
                         type=float,
                         default=-1.,
-                        help='''Radius of the region of interest. If ==0, we do NOT fit an implied rotation
-                        at all. If omitted or <0, we use a "reasonable" value:
-                        the whole imager if we're using uncertainties, or
-                        min(width,height)/6 if --no-uncertainties. To fit with
-                        data across the whole imager in either case, pass in a
-                        very large radius''')
+                        help='''Radius of the region of interest. If ==0, we do NOT fit an implied
+                        transformation at all. If omitted or <0, we use a
+                        "reasonable" value: the whole imager if we're using
+                        uncertainties, or min(width,height)/6 if
+                        --no-uncertainties. To fit with data across the whole
+                        imager in either case, pass in a very large radius''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
