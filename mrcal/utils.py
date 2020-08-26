@@ -3676,6 +3676,31 @@ into a variable, even if you're not going to be doing anything with this object
 
     import gnuplotlib as gp
 
+    if 'title' not in kwargs:
+        if implied_Rt10 is not None:
+            title_note = "using given extrinsics transform"
+        elif focus_radius == 0:
+            title_note = "using an identity extrinsics transform"
+        else:
+            distance_string = "infinity" if distance is None else f"distance={distance}"
+
+            using_uncertainties_string = f"{'' if use_uncertainties else 'not '}using uncertainties"
+            title_note = f"computing the extrinsics transform {using_uncertainties_string} from data at {distance_string}"
+
+        # should say something about the focus too, but it's already too long
+        # elif focus_radius > 2*(W+H):
+        #     where = "extrinsics transform fitted everywhere"
+        # else:
+        #     where = "extrinsics transform fit looking at {} with radius {}". \
+        #         format('the imager center' if focus_center is None else focus_center,
+        #                focus_radius)
+
+        title = f"Diff looking at {len(models)} models, {title_note}"
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+
     if distance is None:
         atinfinity = True
         distance   = 1.0
@@ -3816,21 +3841,6 @@ into a variable, even if you're not going to be doing anything with this object
         difflen = np.sqrt(np.mean( np.min(nps.norm2(grids-q0),
                                           axis=-3),
                                    axis=0))
-
-
-    if 'title' not in kwargs:
-        if focus_radius == 0:
-            where = "NOT fitting an implied-by-the-intrinsics transformation"
-        elif focus_radius > 2*(W+H):
-            where = "implied-by-the-intrinsics transformation fitted everywhere"
-        else:
-            where = "implied-by-the-intrinsics transformation fit looking at {} with radius {}". \
-                format('the imager center' if focus_center is None else focus_center,
-                       focus_radius)
-        title = "Diff looking at {} models; {}".format(len(models), where)
-        if extratitle is not None:
-            title += ": " + extratitle
-        kwargs['title'] = title
 
     if vectorfield:
         plot = gp.gnuplotlib(square=1,
