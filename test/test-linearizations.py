@@ -154,19 +154,20 @@ J0 = J0.toarray()
 # First a very basic gradient check. Looking at an arbitrary camera's
 # intrinsics. The test-gradients tool does this much more thoroughly
 optimization_inputs = copy.deepcopy(baseline)
-delta       = np.random.randn(Nintrinsics*Ncameras) * 1e-3
-optimization_inputs['intrinsics'] += delta.reshape(Ncameras,Nintrinsics)
-p1,x1,J1 = mrcal.optimizer_callback(**optimization_inputs)[:3]
+dp_packed           = np.random.randn(len(p0)) * 1e-9
+
+mrcal.ingest_packed_state(p0 + dp_packed,
+                          **optimization_inputs)
+
+x1 = mrcal.optimizer_callback(**optimization_inputs)[1]
+
 dx_observed = x1 - x0
 
-J0_unpacked = J0.copy()
-mrcal.pack_state(J0_unpacked, **baseline)
-
-dx_predicted = nps.inner(J0_unpacked[:, :Nintrinsics*Ncameras], delta)
+dx_predicted = nps.inner(J0, dp_packed)
 testutils.confirm_equal( dx_predicted, dx_observed,
-                         eps = 1e-3,
+                         eps = 1e-1,
                          worstcase = True,
-                         relative = True,
+                         relative  = True,
                          msg = "Trivial, sanity-checking gradient check")
 
 
