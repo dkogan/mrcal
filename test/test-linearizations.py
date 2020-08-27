@@ -146,7 +146,8 @@ Nmeasurements_boards         = mrcal.num_measurements_boards(**baseline)
 Nmeasurements_regularization = mrcal.num_measurements_regularization(**baseline)
 pixel_uncertainty_stdev      = baseline['observed_pixel_uncertainty']
 
-p0,x0,J0 = mrcal.optimizer_callback(**baseline)[:3]
+p0,x0,J0 = mrcal.optimizer_callback(no_factorization = True,
+                                    **baseline)[:3]
 J0 = J0.toarray()
 
 
@@ -159,7 +160,9 @@ dp_packed           = np.random.randn(len(p0)) * 1e-9
 mrcal.ingest_packed_state(p0 + dp_packed,
                           **optimization_inputs)
 
-x1 = mrcal.optimizer_callback(**optimization_inputs)[1]
+x1 = mrcal.optimizer_callback(no_factorization = True,
+                              no_jacobian      = True,
+                              **optimization_inputs)[1]
 
 dx_observed = x1 - x0
 
@@ -201,7 +204,8 @@ optimization_inputs = copy.deepcopy(baseline)
 optimization_inputs['observations_board'] = observations_perturbed
 
 mrcal.optimize(**optimization_inputs, skip_outlier_rejection=True)
-p1,x1,J1 = mrcal.optimizer_callback(**optimization_inputs)[:3]
+p1,x1,J1 = mrcal.optimizer_callback(no_factorization = True,
+                                    **optimization_inputs)[:3]
 J1 = J1.toarray()
 
 dx_observed = x1-x0
