@@ -1069,6 +1069,10 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(skip_regularization,                int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             int,            0,       "p",  ,                                  NULL,           -1,         {})
 
+#define OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(_) \
+    _(no_jacobian,                        int,               0,    "p",  ,                                  NULL,           -1,         {}) \
+    _(no_factorization,                   int,               0,    "p",  ,                                  NULL,           -1,         {})
+
 
 // Using this for both optimize() and optimizer_callback()
 static bool optimize_validate_args( // out
@@ -1077,6 +1081,7 @@ static bool optimize_validate_args( // out
                                     // in
                                     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
                                     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
+                                    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
 
                                     void* dummy __attribute__((unused)))
 {
@@ -1093,6 +1098,7 @@ static bool optimize_validate_args( // out
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
     OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
     OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
+    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
@@ -1315,22 +1321,45 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
+    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
 
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
 
-    char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
-                         NULL};
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+    if(is_optimize)
+    {
+        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                             NULL};
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
 
-                                     keywords,
+                                         keywords,
 
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-        goto done;
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+            goto done;
+    }
+    else
+    {
+        // optimizer_callback
+        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                             OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(NAMELIST)
+                             NULL};
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSECODE),
+
+                                         keywords,
+
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG)
+                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSEARG) NULL))
+            goto done;
+    }
 
     // Some of my input arguments can be empty (None). The code all assumes that
     // everything is a properly-dimensioned numpy array, with "empty" meaning
@@ -1371,8 +1400,12 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     if( !optimize_validate_args(&mrcal_lensmodel_type,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                                OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
                                 NULL))
         goto done;
+
+    // Can't compute a factorization without a jacobian. That's what we're factoring
+    if(!no_factorization) no_jacobian = false;
 
     {
         int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
@@ -1558,9 +1591,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                                    calibration_object_width_n,
                                                    calibration_object_height_n);
 
-            PyArrayObject* P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
-            PyArrayObject* I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
-            PyArrayObject* X = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_DOUBLE);
+            PyArrayObject* P = NULL;
+            PyArrayObject* I = NULL;
+            PyArrayObject* X = NULL;
 
             cholmod_sparse Jt = {
                 .nrow   = Nstate,
@@ -1571,17 +1604,25 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 .xtype  = CHOLMOD_REAL,
                 .dtype  = CHOLMOD_DOUBLE,
                 .sorted = 1,
-                .packed = 1,
-                .p = PyArray_DATA(P),
-                .i = PyArray_DATA(I),
-                .x = PyArray_DATA(X) };
+                .packed = 1 };
+
+            if(!no_jacobian)
+            {
+                // above I made sure that no_jacobian was false if !no_factorization
+                P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
+                I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
+                X = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_DOUBLE);
+                Jt.p = PyArray_DATA(P);
+                Jt.i = PyArray_DATA(I);
+                Jt.x = PyArray_DATA(X);
+            }
 
             if(!mrcal_optimizer_callback( // out
                                          c_p_packed_final,
                                          Nstate*sizeof(double),
                                          c_x_final,
                                          Nmeasurements*sizeof(double),
-                                         &Jt,
+                                         no_jacobian ? NULL : &Jt,
 
                                          // in
                                          c_intrinsics,
@@ -1614,38 +1655,58 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
 
 
-            PyObject* factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
-            if(factorization == NULL)
+            PyObject* factorization;
+            if(no_factorization)
             {
-                // Couldn't compute factorization. I don't barf, but set the
-                // factorization to None
                 factorization = Py_None;
                 Py_INCREF(factorization);
-                PyErr_Clear();
             }
+            else
+            {
+                // above I made sure that no_jacobian was false if !no_factorization
+                factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
+                if(factorization == NULL)
+                {
+                    // Couldn't compute factorization. I don't barf, but set the
+                    // factorization to None
+                    factorization = Py_None;
+                    Py_INCREF(factorization);
+                    PyErr_Clear();
+                }
+            }
+
+            PyObject* jacobian;
+            if(no_jacobian)
+            {
+                jacobian = Py_None;
+                Py_INCREF(jacobian);
+            }
+            else
+                jacobian = csr_from_cholmod_sparse(&Jt,
+                                                   (PyObject*)P,
+                                                   (PyObject*)I,
+                                                   (PyObject*)X);
 
             result = PyTuple_New(4);
             PyTuple_SET_ITEM(result, 0, (PyObject*)p_packed_final);
             PyTuple_SET_ITEM(result, 1, (PyObject*)x_final);
-            PyTuple_SET_ITEM(result, 2, csr_from_cholmod_sparse(&Jt,
-                                                                (PyObject*)P,
-                                                                (PyObject*)I,
-                                                                (PyObject*)X));
+            PyTuple_SET_ITEM(result, 2, jacobian);
             PyTuple_SET_ITEM(result, 3, factorization);
 
             for(int i=0; i<PyTuple_Size(result); i++)
                 Py_INCREF(PyTuple_GET_ITEM(result,i));
-            Py_DECREF(P);
-            Py_DECREF(I);
-            Py_DECREF(X);
+            Py_XDECREF(P);
+            Py_XDECREF(I);
+            Py_XDECREF(X);
         }
     }
 
  done:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
+    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
 #pragma GCC diagnostic pop
 
     if(x_final) Py_DECREF(x_final);

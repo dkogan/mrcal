@@ -5649,14 +5649,17 @@ SYNOPSIS
     model               = mrcal.cameramodel('xxx.cameramodel')
     optimization_inputs = model.optimization_inputs()
 
-    p0,x0,J = mrcal.optimizer_callback(**optimization_inputs)[:3]
+    p0,x0,J = mrcal.optimizer_callback(no_factorization = True,
+                                       **optimization_inputs)[:3]
 
     dp = np.random.randn(len(p0)) * 1e-9
 
     mrcal.ingest_packed_state(p0 + dp,
                               **optimization_inputs)
 
-    x1 = mrcal.optimizer_callback(**optimization_inputs)[1]
+    x1 = mrcal.optimizer_callback(no_factorization = True,
+                                  no_jacobian      = True,
+                                  **optimization_inputs)[1]
 
     dx_observed  = x1 - x0
     dx_predicted = nps.inner(J, dp_packed)

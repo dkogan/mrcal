@@ -2,39 +2,39 @@ Call the optimization callback function
 
 SYNOPSIS
 
-    p_packed,x,J_packed,factorization = \
-      mrcal.optimizer_callback( intrinsics_data,
-                                extrinsics_rt_fromref,
-                                frames_rt_toref, points
-                                observations_board, indices_frame_camintrinsics_camextrinsics,
-                                observations_point, indices_point_camintrinsics_camextrinsics_flags,
+    model               = mrcal.cameramodel('xxx.cameramodel')
 
-                                lensmodel,
-                                imagersizes                       = imagersizes,
-                                observed_pixel_uncertainty        = observed_pixel_uncertainty,
-                                do_optimize_intrinsics_core       = True,
-                                do_optimize_intrinsics_distortions= True,
-                                calibration_object_spacing        = object_spacing,
-                                point_min_range                   = 0.1,
-                                point_max_range                   = 100.0,
-                                skip_regularization               = False,
-                                verbose                           = False)
+    optimization_inputs = model.optimization_inputs()
+
+    p_packed,x,J_packed,factorization = \
+      mrcal.optimizer_callback( **optimization_inputs )
 
 The main optimization routine in mrcal.optimize() searches for optimal
 parameters by repeatedly calling a function to evaluate each hypothethical
 parameter set. This evaluation function is available by itself here, separated
 from the optimization loop. The arguments are largely the same as those to
-mrcal.optimize(), but the inputs are all read-only
+mrcal.optimize(), but the inputs are all read-only. Some arguments that have
+meaning in calls to optimize() have no meaning in calls to optimizer_callback().
+These are accepted, and effectively ignored. Currently these are:
+
+- skip_outlier_rejection
 
 ARGUMENTS
 
 This function accepts lots of arguments, but they're the same as the arguments
-to mrcal.optimize() so please see that documentation for details. Some arguments
-that have meaning in calls to optimize() have no meaning in calls to
-optimizer_callback(). These are accepted, and effectively ignored. Currently
-these are:
+to mrcal.optimize() so please see that documentation for details. Arguments
+accepted by optimizer_callback() on top of those in optimize():
 
-- skip_outlier_rejection
+- no_jacobian: optional boolean defaulting to False. If True, we do not compute
+  a jacobian, which would speed up this function. We then return None in its
+  place. if no_jacobian and not no_factorization then we still compute and
+  return a jacobian, since it's needed for the factorization
+
+- no_factorization: optional boolean defaulting to False. If True, we do not
+  compute a cholesky factorization of JtJ, which would speed up this function.
+  We then return None in its place. if no_jacobian and not no_factorization then
+  we still compute and return a jacobian, since it's needed for the
+  factorization
 
 RETURNED VALUES
 
