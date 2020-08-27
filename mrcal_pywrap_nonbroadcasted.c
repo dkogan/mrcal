@@ -1069,9 +1069,6 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(skip_regularization,                int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             int,            0,       "p",  ,                                  NULL,           -1,         {})
 
-#define OPTIMIZE_ARGUMENTS_ALL(_) \
-    OPTIMIZE_ARGUMENTS_REQUIRED(_) \
-    OPTIMIZE_ARGUMENTS_OPTIONAL(_)
 
 // Using this for both optimize() and optimizer_callback()
 static bool optimize_validate_args( // out
@@ -1094,7 +1091,8 @@ static bool optimize_validate_args( // out
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
@@ -1315,7 +1313,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
     SET_SIGINT();
 
-    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE);
+    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
@@ -1703,7 +1702,9 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
 
     PyObject* result = NULL;
 
-    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
+
     int i = -1;
 
     int Ncameras_intrinsics = -1;
@@ -1796,7 +1797,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-        OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
         return true;
     }
@@ -2358,7 +2360,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     PyObject*      result = NULL;
     PyArrayObject* p      = NULL;
 
-    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
@@ -2427,7 +2430,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-        OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
         return true;
     }
@@ -2525,7 +2529,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     PyObject* result          = NULL;
     int       icam_intrinsics = -1;
 
-    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
@@ -2569,7 +2574,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-        OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
         return true;
     }
