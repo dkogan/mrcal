@@ -1059,8 +1059,8 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp, NPY_DOUBLE, {2}) \
     _(Npoints_fixed,                      int,            0,       "i",  ,                                  NULL,           -1,         {})  \
-    _(do_optimize_intrinsics_core,         PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
-    _(do_optimize_intrinsics_distortions,  PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_intrinsics_core,        PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_intrinsics_distortions, PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_extrinsics,             PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_frames,                 PyObject*,      Py_True, "O",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_calobject_warp,         PyObject*,      Py_False,"O",  ,                                  NULL,           -1,         {})  \
@@ -2746,8 +2746,8 @@ static const char unproject_stereographic_docstring[] =
 #include "unproject_stereographic.docstring.h"
     ;
 static PyMethodDef methods[] =
-    { PYMETHODDEF_ENTRY(,optimize,                 METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,optimizer_callback,        METH_VARARGS | METH_KEYWORDS),
+    { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, state_index_intrinsics,          METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_extrinsics,          METH_VARARGS | METH_KEYWORDS),
