@@ -112,14 +112,10 @@ do {                                                                    \
                                                         function_prefix ## name ## _docstring}
 
 
-static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
-
-                                          // These are allowed to be NULL; If
-                                          // so, I'll use the data in Jt. THE Jt
-                                          // STILL OWNS THE DATA
-                                          PyObject* P,
+// steals the references to P,I,X
+static PyObject* csr_from_cholmod_sparse( PyObject* P,
                                           PyObject* I,
-                                          PyObject* X)
+                                          PyObject* X )
 {
     // I do the Python equivalent of this;
     // scipy.sparse.csr_matrix((data, indices, indptr))
@@ -143,20 +139,8 @@ static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
 
     // Here I'm assuming specific types in my cholmod arrays. I tried to
     // static_assert it, but internally cholmod uses void*, so I can't do that
-    if(P == NULL) P = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->ncol + 1}), NPY_INT32,  Jt->p);
-    else Py_INCREF(P);
-
-    if(I == NULL) I = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_INT32,  Jt->i);
-    else Py_INCREF(I);
-
-    if(X == NULL) X = PyArray_SimpleNewFromData(1, ((npy_intp[]){Jt->nzmax   }), NPY_DOUBLE, Jt->x);
-    else Py_INCREF(X);
-
     PyObject* MatrixDef = PyTuple_Pack(3, X, I, P);
     args                = PyTuple_Pack(1, MatrixDef);
-    Py_DECREF(P);
-    Py_DECREF(I);
-    Py_DECREF(X);
     Py_DECREF(MatrixDef);
 
     if(NULL == (result = PyObject_CallObject(method, args)))
@@ -197,7 +181,6 @@ static PyObject* csr_from_cholmod_sparse( cholmod_sparse* Jt,
     Py_XDECREF(module);
     Py_XDECREF(method);
     Py_XDECREF(args);
-
 
     return result;
 }
@@ -1682,22 +1665,18 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 Py_INCREF(jacobian);
             }
             else
-                jacobian = csr_from_cholmod_sparse(&Jt,
-                                                   (PyObject*)P,
+            {
+                // steals references to P,I,X. These are now held by the jacobian
+                jacobian = csr_from_cholmod_sparse((PyObject*)P,
                                                    (PyObject*)I,
                                                    (PyObject*)X);
+            }
 
-            result = PyTuple_New(4);
-            PyTuple_SET_ITEM(result, 0, (PyObject*)p_packed_final);
-            PyTuple_SET_ITEM(result, 1, (PyObject*)x_final);
-            PyTuple_SET_ITEM(result, 2, jacobian);
-            PyTuple_SET_ITEM(result, 3, factorization);
-
-            for(int i=0; i<PyTuple_Size(result); i++)
-                Py_INCREF(PyTuple_GET_ITEM(result,i));
-            Py_XDECREF(P);
-            Py_XDECREF(I);
-            Py_XDECREF(X);
+            result = PyTuple_Pack(4,
+                                  (PyObject*)p_packed_final,
+                                  (PyObject*)x_final,
+                                  jacobian,
+                                  factorization);
         }
     }
 
