@@ -5637,3 +5637,110 @@ A list of 'set' directives passable as plot options to gnuplotlib
 
     return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0]
 
+
+def ingest_packed_state(p_packed,
+                        **optimization_inputs):
+    r'''Read a given packed state into optimization_inputs
+
+SYNOPSIS
+
+    # A simple gradient check
+
+    model               = mrcal.cameramodel('xxx.cameramodel')
+    optimization_inputs = model.optimization_inputs()
+
+    p0,x0,J = mrcal.optimizer_callback(**optimization_inputs)[:3]
+
+    dp = np.random.randn(len(p0)) * 1e-9
+
+    mrcal.ingest_packed_state(p0 + dp,
+                              **optimization_inputs)
+
+    x1 = mrcal.optimizer_callback(**optimization_inputs)[1]
+
+    dx_observed  = x1 - x0
+    dx_predicted = nps.inner(J, dp_packed)
+
+This is the converse of mrcal.optimizer_callback(). One thing
+mrcal.optimizer_callback() does is to convert the expanded (intrinsics,
+extrinsics, ...) arrays into a 1-dimensional scaled optimization vector
+p_packed. mrcal.ingest_packed_state() allows updates to p_packed to be absorbed
+back into the (intrinsics, extrinsics, ...) arrays for further evaluation with
+mrcal.optimizer_callback() and others.
+
+ARGUMENTS
+
+- p_packed: a numpy array of shape (Nstate,) containing the input packed state
+
+- **optimization_inputs: a dict() of arguments passable to mrcal.optimize() and
+  mrcal.optimizer_callback(). The arrays in this dict are updated
+
+
+RETURNED VALUE
+
+None
+
+    '''
+
+    intrinsics     = optimization_inputs.get("intrinsics")
+    extrinsics     = optimization_inputs.get("extrinsics_rt_fromref")
+    frames         = optimization_inputs.get("frames_rt_toref")
+    points         = optimization_inputs.get("points")
+    calobject_warp = optimization_inputs.get("calobject_warp")
+
+    Npoints_fixed  = optimization_inputs.get('Npoints_fixed', 0)
+
+    Nvars_intrinsics     = mrcal.num_states_intrinsics    (**optimization_inputs)
+    Nvars_extrinsics     = mrcal.num_states_extrinsics    (**optimization_inputs)
+    Nvars_frames         = mrcal.num_states_frames        (**optimization_inputs)
+    Nvars_points         = mrcal.num_states_points        (**optimization_inputs)
+    Nvars_calobject_warp = mrcal.num_states_calobject_warp(**optimization_inputs)
+
+    Nvars_expected = \
+        Nvars_intrinsics + \
+        Nvars_extrinsics + \
+        Nvars_frames     + \
+        Nvars_points     + \
+        Nvars_calobject_warp
+
+    if p_packed.ravel().size != Nvars_expected:
+        raise Exception(f"Mismatched array size: p_packed.size={p_packed.ravel().size} while the optimization problem expects {Nvars_expected}")
+
+    p = p_packed.copy()
+    mrcal.unpack_state(p, **optimization_inputs)
+
+
+    if optimization_inputs.get('do_optimize_intrinsics_core') or \
+       optimization_inputs.get('do_optimize_intrinsics_distortions'):
+
+        iunpacked0,iunpacked1 = None,None # everything by default
+
+        lensmodel    = optimization_inputs['lensmodel']
+        has_core     = mrcal.lensmodel_meta(lensmodel)['has_core']
+        Ncore        = 4 if has_core else 0
+        Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
+
+        if not optimization_inputs.get('do_optimize_intrinsics_core'):
+            iunpacked0 = Ncore
+        if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+            iunpacked1 = -Ndistortions
+
+        ivar0 = mrcal.state_index_intrinsics(0, **optimization_inputs)
+        intrinsics[:, iunpacked0:iunpacked1].ravel()[:] = \
+            p[ ivar0:Nvars_intrinsics ]
+
+    if optimization_inputs.get('do_optimize_extrinsics'):
+        ivar0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
+        extrinsics.ravel()[:] = p[ivar0:ivar0+Nvars_extrinsics]
+
+    if optimization_inputs.get('do_optimize_frames'):
+        ivar0 = mrcal.state_index_frames(0, **optimization_inputs)
+        frames.ravel()[:] = p[ivar0:ivar0+Nvars_frames]
+
+    if optimization_inputs.get('do_optimize_frames'):
+        ivar0 = mrcal.state_index_points(0, **optimization_inputs)
+        points.ravel()[:-Npoints_fixed*3] = p[ivar0:ivar0+Nvars_points]
+
+    if optimization_inputs.get('do_optimize_calobject_warp'):
+        ivar0 = mrcal.state_index_calobject_warp(**optimization_inputs)
+        calobject_warp.ravel()[:] = p[ivar0:ivar0+Nvars_calobject_warp]
