@@ -49,10 +49,10 @@ def print_green(x):
     sys.stdout.write("\x1b[32m" + test_location() + ": " + x + "\x1b[0m\n")
 
 
-def relative_scale(a,b, eps = 1e-8):
+def relative_scale(a,b, eps = 1e-6):
     return (np.abs(a) + np.abs(b)) / 2 + eps
 
-def relative_diff(a,b, eps = 1e-8):
+def relative_diff(a,b, eps = 1e-6):
     return (a - b) / relative_scale(a,b, eps)
 
 def confirm_equal(x, xref, msg='', eps=1e-6,
