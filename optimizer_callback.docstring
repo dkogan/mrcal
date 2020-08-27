@@ -29,7 +29,12 @@ mrcal.optimize(), but the inputs are all read-only
 ARGUMENTS
 
 This function accepts lots of arguments, but they're the same as the arguments
-to mrcal.optimize() so please see that documentation for details
+to mrcal.optimize() so please see that documentation for details. Some arguments
+that have meaning in calls to optimize() have no meaning in calls to
+optimizer_callback(). These are accepted, and effectively ignored. Currently
+these are:
+
+- skip_outlier_rejection
 
 RETURNED VALUES
 

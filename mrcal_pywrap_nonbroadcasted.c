@@ -1043,7 +1043,7 @@ static PyObject* unproject_stereographic(PyObject* self,
 
 
 
-#define OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)                                  \
+#define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
     _(extrinsics_rt_fromref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics_rt_fromref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(frames_rt_toref,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames_rt_toref,             NPY_DOUBLE, {-1 COMMA  6       } ) \
@@ -1055,7 +1055,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(lensmodel,                          PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT32,    {-1 COMMA 2        } )
 
-#define OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
+#define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp, NPY_DOUBLE, {2}) \
     _(Npoints_fixed,                      int,            0,       "i",  ,                                  NULL,           -1,         {})  \
@@ -1068,14 +1068,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
-    _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
-
-#define OPTIMIZERCALLBACK_ARGUMENTS_ALL(_) \
-    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_) \
-    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_)
-
-#define OPTIMIZE_ARGUMENTS_REQUIRED(_) OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(_)
-#define OPTIMIZE_ARGUMENTS_OPTIONAL(_) OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(_) \
+    _(skip_regularization,                PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
 
 #define OPTIMIZE_ARGUMENTS_ALL(_) \
@@ -1103,7 +1096,7 @@ static bool optimize_validate_args( // out
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+    OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
 #pragma GCC diagnostic pop
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
@@ -1324,45 +1317,23 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
     SET_SIGINT();
 
-    // define a superset of the variables: the ones used in optimize()
-    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
+    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE);
 
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
 
-    if( is_optimize )
-    {
-        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
-                             NULL};
-        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+    char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
 
-                                         keywords,
+                                     keywords,
 
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-            goto done;
-    }
-    else
-    {
-        char* keywords[] = { OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
-                             OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
-                             NULL};
-        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
-
-                                         keywords,
-
-                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
-                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-            goto done;
-
-        skip_outlier_rejection = Py_True;
-    }
-
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+        goto done;
 
     // Some of my input arguments can be empty (None). The code all assumes that
     // everything is a properly-dimensioned numpy array, with "empty" meaning
@@ -1676,8 +1647,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
  done:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
     if(x_final) Py_DECREF(x_final);
@@ -1734,7 +1705,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
 
     PyObject* result = NULL;
 
-    OPTIMIZERCALLBACK_ARGUMENTS_ALL(ARG_DEFINE) ;
+    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
     int i = -1;
 
     int Ncameras_intrinsics = -1;
@@ -1745,7 +1716,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     int Nobservations_point = -1;
 
     char* keywords[] = { (char*)argname,
-                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
 
                          "Ncameras_intrinsics",
                          "Ncameras_extrinsics",
@@ -1753,7 +1724,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                          "Npoints",
                          "Nobservations_board",
                          "Nobservations_point",
-                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
     char** keywords_noargname = &keywords[1];
 
@@ -1764,40 +1735,40 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                                          "|" // everything is optional. I apply
                                              // logic down the line to get what
                                              // I need
-                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE)
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
                                          "iiiiii"
-                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
 
                                          keywords,
 
                                          &i,
-                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                          &Ncameras_intrinsics,
                                          &Ncameras_extrinsics,
                                          &Nframes,
                                          &Npoints,
                                          &Nobservations_board,
                                          &Nobservations_point,
-                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
     else
     {
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
                                          "iiiiii"
-                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
 
                                          keywords_noargname,
 
-                                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                          &Ncameras_intrinsics,
                                          &Ncameras_extrinsics,
                                          &Nframes,
                                          &Npoints,
                                          &Nobservations_board,
                                          &Nobservations_point,
-                                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
 
@@ -1827,7 +1798,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-        OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+        OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
 #pragma GCC diagnostic pop
         return true;
     }
@@ -1872,8 +1843,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
  done:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
     return result;
@@ -2389,7 +2360,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     PyObject*      result = NULL;
     PyArrayObject* p      = NULL;
 
-    OPTIMIZERCALLBACK_ARGUMENTS_ALL(ARG_DEFINE) ;
+    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
@@ -2399,7 +2370,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     int Nobservations_point  = -1;
 
     char* keywords[] = { "p",
-                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
 
                          "Ncameras_intrinsics",
                          "Ncameras_extrinsics",
@@ -2407,7 +2378,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                          "Npoints",
                          "Nobservations_board",
                          "Nobservations_point",
-                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
@@ -2415,21 +2386,21 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                                      "|" // everything is optional. I apply
                                      // logic down the line to get what
                                      // I need
-                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE)
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
                                      "iiiiii"
-                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
 
                                      keywords,
 
                                      PyArray_Converter, &p,
-                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                      &Ncameras_intrinsics,
                                      &Ncameras_extrinsics,
                                      &Nframes,
                                      &Npoints,
                                      &Nobservations_board,
                                      &Nobservations_point,
-                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
     if(lensmodel == NULL)
@@ -2458,7 +2429,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-        OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+        OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
 #pragma GCC diagnostic pop
         return true;
     }
@@ -2534,8 +2505,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
  done:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
     Py_XDECREF(p);
@@ -2556,7 +2527,7 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     PyObject* result          = NULL;
     int       icam_intrinsics = -1;
 
-    OPTIMIZERCALLBACK_ARGUMENTS_ALL(ARG_DEFINE) ;
+    OPTIMIZE_ARGUMENTS_ALL(ARG_DEFINE) ;
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
@@ -2564,13 +2535,13 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     int Nobservations_point  = -1;
 
     char* keywords[] = { "icam_intrinsics",
-                         OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
 
                          "Ncameras_intrinsics",
                          "Ncameras_extrinsics",
                          "Nobservations_board",
                          "Nobservations_point",
-                         OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(NAMELIST)
+                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
@@ -2578,19 +2549,19 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
                                      "|" // everything is optional. I apply
                                      // logic down the line to get what
                                      // I need
-                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSECODE)
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
                                      "iiii"
-                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSECODE),
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
 
                                      keywords,
 
                                      &icam_intrinsics,
-                                     OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(PARSEARG)
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                      &Ncameras_intrinsics,
                                      &Ncameras_extrinsics,
                                      &Nobservations_board,
                                      &Nobservations_point,
-                                     OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
@@ -2600,7 +2571,7 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-        OPTIMIZERCALLBACK_ARGUMENTS_ALL(CHECK_LAYOUT) ;
+        OPTIMIZE_ARGUMENTS_ALL(CHECK_LAYOUT) ;
 #pragma GCC diagnostic pop
         return true;
     }
@@ -2648,8 +2619,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
  done:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZERCALLBACK_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    OPTIMIZERCALLBACK_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
+    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
     return result;
