@@ -128,14 +128,14 @@ TESTS :=						\
   test/test-optimizer-callback.py			\
   test/test-basic-sfm.py				\
   test/test-calibration-basic.py			\
-  test/test-calibration-uncertainty-fixed-cam0.py	\
-  test/test-calibration-uncertainty-fixed-frames.py	\
+  test/test-calibration-uncertainty.py___fixed-cam0	\
+  test/test-calibration-uncertainty.py___fixed-frames	\
   test/test-linearizations.py				\
   test/test-lensmodel-string-manipulation		\
   test/test-CHOLMOD-factorization.py
 
 test check: all
-	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $t || SOMEFAILED=1; ) test -z "$$SOMEFAILED" || echo "SOME TEST SETS FAILED!"; test -z "$$SOMEFAILED" && echo "ALL TEST SETS PASSED!"
+	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst ___, ,$t) || SOMEFAILED=1; ) test -z "$$SOMEFAILED" || echo "SOME TEST SETS FAILED!"; test -z "$$SOMEFAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: test check
 
 include /usr/include/mrbuild/Makefile.common.footer

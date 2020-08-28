@@ -23,14 +23,16 @@ This test checks two different types of calibrations:
   But together, the motion of the extrinsics and the intrinsics should map it to
   the same pixel in the end.
 
-The calibration type is selected by the filename of the script we run. The
-expectation is that we have symlinks pointing to this script, and the
-calibration type can be chosen by running the correct symlink
+The calibration type is selected by the an argument "fixed-cam0" or
+"fixed-frames". Exactly one must appear
 
 ARGUMENTS
 
-By default (no arguments) we run the test and report success/failure as usual.
-To test stuff pass any/all of these in any order:
+By default (one argument only) we run the test and report success/failure as
+usual. To test stuff, pass more arguments
+
+- fixed-cam0/fixed-frames: what defines the reference coordinate system (see
+  above). Exactly one of these must appear
 
 - show-distribution: plot the observed/predicted distributions of the projected
   points
@@ -60,18 +62,27 @@ import copy
 
 from test_calibration_helpers import sample_dqref,sorted_eig
 
-import re
-if   re.search("fixed-cam0",   sys.argv[0]): fixedframes = False
-elif re.search("fixed-frames", sys.argv[0]): fixedframes = True
-else:
-    raise Exception("This script should contain either 'fixed-cam0' or 'fixed-frames' in the filename")
-
 args = set(sys.argv[1:])
 
-known_args = set(('show-distribution', 'study', 'write-models'))
+known_args = set(('fixed-cam0', 'fixed-frames', 'show-distribution', 'study', 'write-models'))
 
 if not all(arg in known_args for arg in args):
     raise Exception(f"Unknown argument given. I know about {known_args}")
+
+have_fixed_cam0   = 'fixed-cam0'   in args
+have_fixed_frames = 'fixed-frames' in args
+
+if (    have_fixed_cam0 and     have_fixed_frames) or \
+   (not have_fixed_cam0 and not have_fixed_frames):
+    raise Exception("Exactly one of ('fixed-cam0','fixed-frames') must be given as an argument")
+
+fixedframes = have_fixed_frames
+
+# if more than just fixed-cam0/fixed-frames, we're interactively debugging
+# stuff. So print more, and do a repl
+do_debug = len(args) > 1
+
+
 
 import tempfile
 import atexit
@@ -396,7 +407,7 @@ def check_uncertainties_at(q0, distance):
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
-    if len(args):
+    if do_debug:
         print(f"Regularization bias for distance={'inf' if atinfinity else distance}: {q_sampled_mean - q0} pixels")
 
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
@@ -472,7 +483,7 @@ def check_uncertainties_at(q0, distance):
 q_sampled,Var_dq = check_uncertainties_at(q0, 5.)
 check_uncertainties_at(q0, None)
 
-if len(args) == 0:
+if not do_debug:
     testutils.finish()
 
 

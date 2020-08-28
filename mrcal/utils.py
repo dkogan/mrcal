@@ -1479,7 +1479,7 @@ to the solved parameters. And then propagating the noise on the parameters
 through projection.
 
 The below derivation is double-checked via simulated noise in
-test-calibration-uncertainty-fixed-cam0.py
+test-calibration-uncertainty.py
 
 The uncertainties can be visualized with the mrcal-show-projection-uncertainty
 tool.
