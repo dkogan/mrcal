@@ -131,21 +131,21 @@ for kwargs in all_test_kwargs:
         del kwargs['outlier_indices']
 
     x,J = mrcal.optimizer_callback( intrinsics_data,
-                                   nps.atleast_dims(extrinsics_rt_fromref, -2),
-                                   frames_rt_toref, points,
-                                   observations_copy, indices_frame_camintrinsics_camextrinsics,
-                                   observations_point,
-                                   indices_point_camintrinsics_camextrinsics,
+                                    nps.atleast_dims(extrinsics_rt_fromref, -2),
+                                    frames_rt_toref, points,
+                                    observations_copy, indices_frame_camintrinsics_camextrinsics,
+                                    observations_point,
+                                    indices_point_camintrinsics_camextrinsics,
 
-                                   lensmodel,
-                                   imagersizes                       = imagersizes,
-                                   calibration_object_spacing        = 0.1,
-                                   point_min_range                   = 1.0,
-                                   point_max_range                   = 1000.0,
-                                   verbose                           = False,
-                                   calobject_warp                    = np.array((1e-3, 2e-3)),
+                                    lensmodel,
+                                    imagersizes                       = imagersizes,
+                                    calibration_object_spacing        = 0.1,
+                                    point_min_range                   = 1.0,
+                                    point_max_range                   = 1000.0,
+                                    verbose                           = False,
+                                    calobject_warp                    = np.array((1e-3, 2e-3)),
 
-                                   **kwargs)[1:3]
+                                    **kwargs)[1:3]
     J = J.toarray()
 
     if False:
