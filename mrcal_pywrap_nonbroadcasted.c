@@ -1905,7 +1905,7 @@ static int callback_state_index_intrinsics(int i,
 {
     if(Ncameras_intrinsics == 0 ||
        (!problem_details.do_optimize_intrinsics_core &&
-        !problem_details.do_optimize_intrinsics_core) )
+        !problem_details.do_optimize_intrinsics_distortions) )
     {
         BARF("No intrinsics are being optimized, so no state index can be returned");
         return -1;
