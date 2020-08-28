@@ -1246,6 +1246,7 @@ def _projection_uncertainty( p_cam,
                              extrinsics_rt_fromref, frames_rt_toref,
                              factorization, Jpacked, optimization_inputs,
                              istate_intrinsics, istate_extrinsics, istate_frames,
+                             slice_optimized_intrinsics,
                              Nmeasurements_observations,
                              observed_pixel_uncertainty,
                              what):
@@ -1261,7 +1262,6 @@ def _projection_uncertainty( p_cam,
     Nstate = Jpacked.shape[-1]
     dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
-    Nintrinsics = intrinsics_data.shape[-1]
     if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
 
     if extrinsics_rt_fromref is not None:
@@ -1307,25 +1307,28 @@ def _projection_uncertainty( p_cam,
         mrcal.project( p_cam, lensmodel, intrinsics_data,
                        get_gradients = True)
 
-    dq_dpief[..., :,istate_intrinsics:istate_intrinsics+Nintrinsics] = \
-        dq_dintrinsics
+    if istate_intrinsics is not None:
+        dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
+        Nintrinsics = dq_dintrinsics_optimized.shape[-1]
+        dq_dpief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+            dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
         _, dpcam_dr, dpcam_dt, dpcam_dpref = \
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
 
-        dq_dpief[..., :,istate_extrinsics:istate_extrinsics+3] = \
+        dq_dpief[..., istate_extrinsics:istate_extrinsics+3] = \
             nps.matmult(dq_dpcam, dpcam_dr)
-        dq_dpief[..., :,istate_extrinsics+3:istate_extrinsics+6] = \
+        dq_dpief[..., istate_extrinsics+3:istate_extrinsics+6] = \
             nps.matmult(dq_dpcam, dpcam_dt)
 
         if frames_rt_toref is not None:
-            dq_dpief[..., :,istate_frames:istate_frames+Nframes*6] = \
+            dq_dpief[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
     else:
         if frames_rt_toref is not None:
-            dq_dpief[..., :,istate_frames:istate_frames+Nframes*6] = \
+            dq_dpief[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpref_dframes)
 
     # Make dq_dpief use the packed state. I call "unpack_state" because the
@@ -1343,6 +1346,7 @@ def _projection_uncertainty_rotationonly( p_cam,
                                           extrinsics_rt_fromref, frames_rt_toref,
                                           factorization, Jpacked, optimization_inputs,
                                           istate_intrinsics, istate_extrinsics, istate_frames,
+                                          slice_optimized_intrinsics,
                                           Nmeasurements_observations,
                                           observed_pixel_uncertainty,
                                           what):
@@ -1358,7 +1362,6 @@ def _projection_uncertainty_rotationonly( p_cam,
     Nstate = Jpacked.shape[-1]
     dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
-    Nintrinsics = intrinsics_data.shape[-1]
     if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
 
     if extrinsics_rt_fromref is not None:
@@ -1393,14 +1396,17 @@ def _projection_uncertainty_rotationonly( p_cam,
         mrcal.project( p_cam, lensmodel, intrinsics_data,
                        get_gradients = True)
 
-    dq_dpief[..., :,istate_intrinsics:istate_intrinsics+Nintrinsics] = \
-        dq_dintrinsics
+    if istate_intrinsics is not None:
+        dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
+        Nintrinsics = dq_dintrinsics_optimized.shape[-1]
+        dq_dpief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+            dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
         _, dpcam_dr, dpcam_dpref = \
             mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
                                  get_gradients = True)
-        dq_dpief[..., :,istate_extrinsics:istate_extrinsics+3] = \
+        dq_dpief[..., istate_extrinsics:istate_extrinsics+3] = \
             nps.matmult(dq_dpcam, dpcam_dr)
 
         if frames_rt_toref is not None:
@@ -1409,13 +1415,13 @@ def _projection_uncertainty_rotationonly( p_cam,
 
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dpief[..., :,istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_dpief[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
     else:
         if frames_rt_toref is not None:
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dpief[..., :,istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_dpief[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
 
     # Make dq_dpief use the packed state. I call "unpack_state" because the
@@ -1754,8 +1760,6 @@ else:                    we return an array of shape (...)
 
     if not optimization_inputs.get('do_optimize_extrinsics'):
         raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
-    if not optimization_inputs.get('do_optimize_intrinsics_core') or not optimization_inputs.get('do_optimize_intrinsics_distortions'):
-        raise Exception("Computing uncertainty if !do_optimize_intrinsics_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
     Jpacked,factorization = \
         mrcal.optimizer_callback( **optimization_inputs )[2:]
@@ -1775,9 +1779,28 @@ else:                    we return an array of shape (...)
     icam_intrinsics = model.icam_intrinsics()
     icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
 
-    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
+    intrinsics_data   = optimization_inputs['intrinsics'][icam_intrinsics]
 
-    istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
+    if not optimization_inputs.get('do_optimize_intrinsics_core') and \
+       not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+        istate_intrinsics          = None
+        slice_optimized_intrinsics = None
+    else:
+        istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
+
+        i0,i1 = None,None # everything by default
+
+        has_core     = mrcal.lensmodel_meta(lensmodel)['has_core']
+        Ncore        = 4 if has_core else 0
+        Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
+
+        if not optimization_inputs.get('do_optimize_intrinsics_core'):
+            i0 = Ncore
+        if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+            i1 = -Ndistortions
+
+        slice_optimized_intrinsics  = slice(i0,i1)
+
     istate_frames     = mrcal.state_index_frames    (0,               **optimization_inputs)
 
     if icam_extrinsics < 0:
@@ -1808,6 +1831,7 @@ else:                    we return an array of shape (...)
                                     extrinsics_rt_fromref, frames_rt_toref,
                                     factorization, Jpacked, optimization_inputs,
                                     istate_intrinsics, istate_extrinsics, istate_frames,
+                                    slice_optimized_intrinsics,
                                     Nmeasurements_observations,
                                     observed_pixel_uncertainty,
                                     what)
@@ -1818,6 +1842,7 @@ else:                    we return an array of shape (...)
                                                  extrinsics_rt_fromref, frames_rt_toref,
                                                  factorization, Jpacked, optimization_inputs,
                                                  istate_intrinsics, istate_extrinsics, istate_frames,
+                                                 slice_optimized_intrinsics,
                                                  Nmeasurements_observations,
                                                  observed_pixel_uncertainty,
                                                  what)
