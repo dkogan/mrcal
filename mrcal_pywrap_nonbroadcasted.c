@@ -1062,6 +1062,7 @@ static bool optimize_validate_args( // out
                                     mrcal_lensmodel_t* mrcal_lensmodel_type,
 
                                     // in
+                                    bool is_optimize, // or optimizer_callback
                                     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
                                     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
                                     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
@@ -1257,14 +1258,11 @@ static bool optimize_validate_args( // out
         i_cam_extrinsics_last = i_cam_extrinsics;
     }
 
-    if( !skip_outlier_rejection)
+    if( is_optimize && !skip_outlier_rejection && observed_pixel_uncertainty <= 0.0 )
     {
         // The pixel uncertainty is used and must be valid
-        if( observed_pixel_uncertainty <= 0.0 )
-        {
-            BARF("!skip_outlier_rejection, so observed_pixel_uncertainty MUST be a valid float > 0");
-            return false;
-        }
+        BARF("!skip_outlier_rejection, so observed_pixel_uncertainty MUST be a valid float > 0");
+        return false;
     }
 
     return true;
@@ -1381,6 +1379,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     // Check the arguments for optimize(). If optimizer_callback, then the other
     // stuff is defined, but it all has valid, default values
     if( !optimize_validate_args(&mrcal_lensmodel_type,
+                                is_optimize,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
                                 OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
