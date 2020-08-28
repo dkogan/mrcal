@@ -1141,16 +1141,15 @@ broadcasting
     return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
 
 
-def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
+def _projection_uncertainty_make_output( factorization, Jpacked, dq_dpief_packed,
                                          Nmeasurements_observations,
-                                         observed_pixel_uncertainty,
-                                         what ):
+                                         observed_pixel_uncertainty, what ):
     r'''Helper for projection uncertainty functions
 
     The given factorization uses the packed, unitless state: p*.
 
-    The given J uses the packed, unitless state: p*. The given J applies to all
-    observations. The leading Nmeasurements_observations rows of J apply to the
+    The given Jpacked uses the packed, unitless state: p*. Jpacked applies to
+    all observations. The leading Nmeasurements_observations rows apply to the
     observations of the calibration object, and we use just those for the input
     noise propagation. if Nmeasurements_observations is None: assume that ALL
     the measurements come from the calibration object observations; a simplifed
@@ -1166,6 +1165,8 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
     concludes that
 
       Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+
+    where p* and J* are the UNITLESS state and the jacobian respectively.
 
     In the special case where all the measurements come from
     observations, this simplifies to
@@ -1197,7 +1198,7 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
 
       Var(q) = dq/dp[ief] S D inv(J*tJ*) D St dq/dp[ief]t
 
-      1. solve( inv(J*tJ*), D St dq/dp[ief]t)
+      1. solve( J*tJ*, D St dq/dp[ief]t)
          The result has shape (Nstate,2)
 
       2. pre-multiply by dq/dp[ief] S D
@@ -1208,7 +1209,7 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
 
       Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
 
-      1. solve( inv(J*tJ*), D St dq/dp[ief]t)
+      1. solve( J*tJ*, D St dq/dp[ief]t)
          The result has shape (Nstate,2)
 
       2. Pre-multiply by J*[observations]
@@ -1228,7 +1229,7 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
         # I see no python way to do matrix multiplication with sparse matrices,
         # so I have my own routine in C. AND the C routine does the outer
         # product, so there's no big temporary expression. It's much faster
-        Var_dq = mrcal._mrcal_broadcasted._A_Jt_J_At(A, J.indptr, J.indices, J.data,
+        Var_dq = mrcal._mrcal_broadcasted._A_Jt_J_At(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
                                                      Nleading_rows_J = Nmeasurements_observations)
     else:
         # No regularization. Use the simplified expression
@@ -1243,7 +1244,7 @@ def _projection_uncertainty_make_output( factorization, J, dq_dpief_packed,
 def _projection_uncertainty( p_cam,
                              lensmodel, intrinsics_data,
                              extrinsics_rt_fromref, frames_rt_toref,
-                             factorization, J, optimization_inputs,
+                             factorization, Jpacked, optimization_inputs,
                              istate_intrinsics, istate_extrinsics, istate_frames,
                              Nmeasurements_observations,
                              observed_pixel_uncertainty,
@@ -1257,7 +1258,7 @@ def _projection_uncertainty( p_cam,
 
     '''
 
-    Nstate = J.shape[-1]
+    Nstate = Jpacked.shape[-1]
     dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     Nintrinsics = intrinsics_data.shape[-1]
@@ -1327,9 +1328,11 @@ def _projection_uncertainty( p_cam,
             dq_dpief[..., :,istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpref_dframes)
 
+    # Make dq_dpief use the packed state. I call "unpack_state" because the
+    # state is in the denominator
     mrcal.unpack_state(dq_dpief, **optimization_inputs)
     return \
-        _projection_uncertainty_make_output( factorization, J,
+        _projection_uncertainty_make_output( factorization, Jpacked,
                                              dq_dpief, Nmeasurements_observations,
                                              observed_pixel_uncertainty,
                                              what)
@@ -1338,7 +1341,7 @@ def _projection_uncertainty( p_cam,
 def _projection_uncertainty_rotationonly( p_cam,
                                           lensmodel, intrinsics_data,
                                           extrinsics_rt_fromref, frames_rt_toref,
-                                          factorization, J, optimization_inputs,
+                                          factorization, Jpacked, optimization_inputs,
                                           istate_intrinsics, istate_extrinsics, istate_frames,
                                           Nmeasurements_observations,
                                           observed_pixel_uncertainty,
@@ -1352,7 +1355,7 @@ def _projection_uncertainty_rotationonly( p_cam,
 
     '''
 
-    Nstate = J.shape[-1]
+    Nstate = Jpacked.shape[-1]
     dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     Nintrinsics = intrinsics_data.shape[-1]
@@ -1415,9 +1418,11 @@ def _projection_uncertainty_rotationonly( p_cam,
                 dq_dpief[..., :,istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
 
+    # Make dq_dpief use the packed state. I call "unpack_state" because the
+    # state is in the denominator
     mrcal.unpack_state(dq_dpief, **optimization_inputs)
     return \
-        _projection_uncertainty_make_output( factorization, J,
+        _projection_uncertainty_make_output( factorization, Jpacked,
                                              dq_dpief, Nmeasurements_observations,
                                              observed_pixel_uncertainty,
                                              what)
@@ -1752,7 +1757,7 @@ else:                    we return an array of shape (...)
     if not optimization_inputs.get('do_optimize_intrinsics_core') or not optimization_inputs.get('do_optimize_intrinsics_distortions'):
         raise Exception("Computing uncertainty if !do_optimize_intrinsics_... not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for (possibly partially) fixed intrinsics like they already do for fixed frames")
 
-    J,factorization = \
+    Jpacked,factorization = \
         mrcal.optimizer_callback( **optimization_inputs )[2:]
 
     if factorization is None:
@@ -1773,7 +1778,7 @@ else:                    we return an array of shape (...)
     intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
 
     istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
-    istate_frames     = mrcal.state_index_frames  (0,               **optimization_inputs)
+    istate_frames     = mrcal.state_index_frames    (0,               **optimization_inputs)
 
     if icam_extrinsics < 0:
         extrinsics_rt_fromref = None
@@ -1801,7 +1806,7 @@ else:                    we return an array of shape (...)
             _projection_uncertainty(p_cam,
                                     lensmodel, intrinsics_data,
                                     extrinsics_rt_fromref, frames_rt_toref,
-                                    factorization, J, optimization_inputs,
+                                    factorization, Jpacked, optimization_inputs,
                                     istate_intrinsics, istate_extrinsics, istate_frames,
                                     Nmeasurements_observations,
                                     observed_pixel_uncertainty,
@@ -1811,7 +1816,7 @@ else:                    we return an array of shape (...)
             _projection_uncertainty_rotationonly(p_cam,
                                                  lensmodel, intrinsics_data,
                                                  extrinsics_rt_fromref, frames_rt_toref,
-                                                 factorization, J, optimization_inputs,
+                                                 factorization, Jpacked, optimization_inputs,
                                                  istate_intrinsics, istate_extrinsics, istate_frames,
                                                  Nmeasurements_observations,
                                                  observed_pixel_uncertainty,
