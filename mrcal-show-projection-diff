@@ -8,31 +8,48 @@ SYNOPSIS
   ... a plot pops up showing how these two models differ in their projections
 
 It is often useful to compare the projection behavior of two camera models. For
-instance, one may want to evaluate the quality of a calibration by comparing the
-results of two different chessboard dances. Or one may want to evaluate the
-stability of the intrinsics in response to mechanical or thermal stresses. This
-tool makes these comparisons, and produces a visualization of the results.
+instance, one may want to validate a calibration by comparing the results of two
+different chessboard dances. Or one may want to evaluate the stability of the
+intrinsics in response to mechanical or thermal stresses. This tool makes these
+comparisons, and produces a visualization of the results.
 
-In the most common case we're given exactly 2 models to compare. We then show
-the projection DIFFERENCE as either a vector field or a heat map. If we're given
-more than 2 models then a vector field isn't possible and we show a heat map of
-the STANDARD DEVIATION of all the differences.
+In the most common case we're given exactly 2 models to compare, and we show the
+xy differences in projection at each point (as a heat map or as a vector field).
+If we're given more than 2 models, we show the STANDARD DEVIATION of all the
+differences instead (as a heat map).
 
-What are we showing? Broadly, we grid the imager, unproject each point in the
-grid from one camera to produce a world point, reproject it to the other camera,
-and look at the resulting pixel difference in this reprojection.
+How are we computing the differences? The details are in the docstring of
+mrcal.projection_diff(). Broadly, we do this:
 
-When comparing multiple cameras, usually the lens intrinsics differ a bit, and
-the implied origin of the camera coordinate systems and their orientation differ
-also. These geometric uncertainties are baked into the intrinsics. So when we
-project "the same world point" we must apply a geometric transformation to
-compensate for the difference in the geometry of the two cameras. This
-transformation is unknown, but we can estimate it by fitting projections across
-the imager: the "right" transformation would result in apparent low projection
-diffs in a wide area.
+- grid the imager
+- unproject each point in the grid from one camera to produce a world point
+- apply a transformation we compute to match up the two camera geometries
+- reproject the transformed points to the other camera
+- look at the resulting pixel difference in the reprojection
 
-This transformation is computed by implied_Rt10__from_unprojections(), and some
-details of its operation are significant:
+When looking at multiple cameras, their lens intrinsics differ. Less obviously,
+the position and orientation of the camera coordinate system in respect to the
+physical camera housing differ also. These geometric uncertainties are baked
+into the intrinsics. So when we project "the same world point" into both
+cameras, we must apply a geometric transformation because we want to be
+comparing projections of world points (relative to the camera housing), not
+projections relative to the (floating) camera coordinate systems. This
+transformation is unknown, but we can estimate it in one of several ways:
+
+- If we KNOW that there is no geometric difference between our cameras, and we
+  thus should look at the intrinsics differences only, we assuming that
+  implied_Rt10 = identity. Indicate this case by passing --radius 0
+
+- If we know that our models came from different interpretations of the same
+  board dance (using different lens models or optimization parameters, for
+  instance), we can use the geometry of the cameras and frames to compute
+  implied_Rt10. Indicate this case by passing --same-dance
+
+- Otherwise, we fit projections across the imager: the "right" transformation
+  would result in apparent low projection differences in a wide area.
+
+This fitted transformation is computed by implied_Rt10__from_unprojections(),
+and some details of its operation are significant:
 
 - The imager area we use for the fit
 - Which world points we're looking at
@@ -59,17 +76,13 @@ is if the chessboard observations used in the calibration were concentrated to
 the side of the image (off-center), no uncertainties were used, and --where was
 not pointed to that area.
 
-If we KNOW that there is no geometric difference between our cameras, and we
-thus should look at the intrinsics differences only, then we don't need to
-estimate the transformation. Indicate this case by passing --radius 0
-
 Unlike the projection operation, the diff operation is NOT invariant under
 geometric scaling: if we look at the projection difference for two points at
 different locations along a single observation ray, there will be a variation in
 the observed diff. This is due to the geometric difference in the two cameras.
-If the models differed only in their intrinsics parameters, then this would not
-happen. Thus we need to know how far from the camera to look, and this is
-specified by --distance. By default we look out to infinity. If we care about
+If the models differed only in their intrinsics parameters, then this variation
+would not appear. Thus we need to know how far from the camera to look, and this
+is specified by --distance. By default we look out to infinity. If we care about
 the projection difference at some other distance, pass that here. Generally the
 most confident distance will be where the chessboards were observed at
 calibration time.
@@ -125,6 +138,15 @@ def parse_args():
                         uncertainties, or min(width,height)/6 if
                         --no-uncertainties. To fit with data across the whole
                         imager in either case, pass in a very large radius''')
+    parser.add_argument('--same-dance',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I assume that the given models all came from the same calibration
+                        dance, and I can thus compute implied_Rt10
+                        geometrically, instead of fitting projections. Valid
+                        only if we're given exactly two models. Exclusive with
+                        --where and --radius (those control the fit that we skip
+                        with --same-dance)''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
@@ -202,16 +224,62 @@ else:
     if len(distance) > 1 and args.vectorfield:
         raise Exception("--distance can support at most one value if --vectorfield. Not clear how to plot otherwise")
 
+if len(args.models) > 2:
+    if args.vectorfield:
+        raise Exception("--vectorfield works only with exactly 2 models")
+    if args.same_dance:
+        raise Exception("--same-dance works only with exactly 2 models")
 
+if args.same_dance and \
+   (args.where is not None or args.radius >= 0):
+    raise Exception("--same-dance is exclusive with --where and --radius")
 
 
 import mrcal
+import numpy as np
+import numpysane as nps
+
 
 plotkwargs_extra = {}
 if args.extraset is not None:
     plotkwargs_extra['set'] = args.extraset
 
 models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
+
+
+if args.same_dance:
+
+    # I need to make sure to pick the same inlier set when choosing the frame
+    # observations. I pick the intersection of the two
+    i_f_ci_ce = [model.optimization_inputs()['indices_frame_camintrinsics_camextrinsics'] \
+                 for model in models]
+    if i_f_ci_ce[0].shape != i_f_ci_ce[1].shape or \
+       not np.all(i_f_ci_ce[0] == i_f_ci_ce[1]):
+        raise Exception("--same-dance means that the two models must have an identical indices_frame_camintrinsics_camextrinsics, but they do not")
+
+    obs = [model.optimization_inputs()['observations_board'] \
+                 for model in models]
+    if obs[0].shape != obs[1].shape or \
+       not np.all(obs[0][...,:2] == obs[1][...,:2]):
+        raise Exception("--same-dance means that the two models must have an identical observations_board[...,:2], but they do not")
+
+    idx_inliers = [ nps.clump(obs[i][ i_f_ci_ce[i][:,1] == models[i].icam_intrinsics(),
+                                      :,
+                                      :,
+                                      2] > 0, n=-2) \
+                    for i in range(len(models)) ]
+
+    calobjects = \
+        [ mrcal.hypothesis_corner_positions(model.icam_intrinsics(),
+                                            **model.optimization_inputs(),
+                                            idx_inliers = idx_inliers[0]*idx_inliers[1] )[0] \
+          for model in models ]
+
+    implied_Rt10 = mrcal.align3d_procrustes(calobjects[1], calobjects[0])
+
+else:
+    implied_Rt10 = None
+
 
 plot = mrcal.show_projection_diff(models,
                                   args.gridn[0], args.gridn[1],
@@ -220,6 +288,7 @@ plot = mrcal.show_projection_diff(models,
                                   use_uncertainties = not args.no_uncertainties,
                                   focus_center      = args.where,
                                   focus_radius      = args.radius,
+                                  implied_Rt10      = implied_Rt10,
                                   vectorfield       = args.vectorfield,
                                   vectorscale       = args.vectorscale,
                                   hardcopy          = args.hardcopy,
