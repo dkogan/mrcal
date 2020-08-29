@@ -3525,58 +3525,64 @@ def _densify_polyline(p, spacing):
     return p1
 
 
-def show_projection_diff(models,
-                         gridn_width  = 60,
-                         gridn_height = None,
+def projection_diff(models,
+                    gridn_width  = 60,
+                    gridn_height = None,
 
-                         observations = False,
-                         distance     = None,
+                    distance     = None,
 
-                         use_uncertainties= True,
-                         focus_center     = None,
-                         focus_radius     = -1.,
-                         implied_Rt10     = None,
-
-                         vectorfield      = False,
-                         vectorscale      = 1.0,
-                         extratitle       = None,
-                         cbmax            = 4,
-                         **kwargs):
-    r'''Visualize the difference in projection between N models
+                    use_uncertainties= True,
+                    focus_center     = None,
+                    focus_radius     = -1.,
+                    implied_Rt10     = None):
+    r'''Compute the difference in projection between N models
 
 SYNOPSIS
 
     models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
                mrcal.cameramodel('cam0-dance1.cameramodel') )
 
-    mrcal.show_projection_diff(models)
+    difference,_,q0,_ = mrcal.projection_diff(models)
 
-    ... A plot pops up displaying the projection difference between the two
-    ... cameras
+    print(q0.shape)
+    ==> (40,60)
+
+    print(difference.shape)
+    ==> (40,60)
+
+    # The differences are computed across a grid. 'q0' is the pixel centers of
+    # each grid cell. 'difference' is the projection variation between the two
+    # models at each cell
 
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to evaluate the quality of a calibration by comparing the
 results of two different chessboard dances. Or one may want to evaluate the
 stability of the intrinsics in response to mechanical or thermal stresses. This
-function makes these comparisons, and produces a visualization of the results.
+function makes these comparisons, and returns the results.
+mrcal.show_projection_diff() does this and ALSO produces a visualization.
 
-In the most common case we're given exactly 2 models to compare. We then show
-the projection DIFFERENCE as either a vector field or a heat map. If we're given
-more than 2 models then a vector field isn't possible and we show a heat map of
-the STANDARD DEVIATION of all the differences.
+In the most common case we're given exactly 2 models to compare, and we can
+compute the xy differences at each point. If we're given more than 2 models, we
+compute the STANDARD DEVIATION of all the differences instead.
 
-What are we showing? Broadly, we grid the imager, unproject each point in the
-grid from one camera to produce a world point, reproject it to the other camera,
-and look at the resulting pixel difference in this reprojection.
+We do this:
 
-When comparing multiple cameras, usually the lens intrinsics differ a bit, and
-the implied origin of the camera coordinate systems and their orientation differ
-also. These geometric uncertainties are baked into the intrinsics. So when we
-project "the same world point" we must apply a geometric transformation to
-compensate for the difference in the geometry of the two cameras. This
+- grid the imager
+- unproject each point in the grid from one camera to produce a world point
+- apply a transformation we compute to match up the two camera geometries
+- reproject the transformed points to the other camera
+- look at the resulting pixel difference in the reprojection
+
+When looking at multiple cameras, their lens intrinsics differ. Less obviously,
+the position and orientation of the camera coordinate system in respect to the
+physical camera housing differ also. These geometric uncertainties are baked
+into the intrinsics. So when we project "the same world point" into both
+cameras, we must apply a geometric transformation because we want to be
+comparing projections of world points (relative to the camera housing), not
+projections relative to the (floating) camera coordinate systems. This
 transformation is unknown, but we can estimate it by fitting projections across
 the imager: the "right" transformation would result in apparent low projection
-diffs in a wide area.
+differences in a wide area.
 
 This transformation is computed by intrinsics_implied_Rt10(), and some details
 of its operation are significant:
@@ -3616,16 +3622,269 @@ Unlike the projection operation, the diff operation is NOT invariant under
 geometric scaling: if we look at the projection difference for two points at
 different locations along a single observation ray, there will be a variation in
 the observed diff. This is due to the geometric difference in the two cameras.
-If the models differed only in their intrinsics parameters, then this would not
-happen. Thus we need to know how far from the camera to look, and this is
-specified by the "distance" argument. By default (distance = None) we look out
-to infinity. If we care about the projection difference at some other distance,
-pass that here. Multiple distances can be passed in an iterable. We'll then fit
-the implied-by-the-intrinsics transformation using all the distances, and we'll
-display the best-fitting difference for each pixel. Multiple distances aren't
-supported if vectorfield (not clear how to plot, otherwise). Generally the most
+If the models differed only in their intrinsics parameters, then this variation
+would not appear. Thus we need to know how far from the camera to look, and this
+is specified by the "distance" argument. By default (distance = None) we look
+out to infinity. If we care about the projection difference at some other
+distance, pass that here. Multiple distances can be passed in an iterable. We'll
+then fit the implied-by-the-intrinsics transformation using all the distances,
+and we'll display the best-fitting difference for each pixel. Generally the most
 confident distance will be where the chessboards were observed at calibration
 time.
+
+ARGUMENTS
+
+- models: iterable of mrcal.cameramodel objects we're comparing. Usually there
+  will be 2 of these, but more than 2 is possible. The intrinsics are used; the
+  extrinsics are NOT.
+
+- gridn_width: optional value, defaulting to 60. How many points along the
+  horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+- distance: optional value, defaulting to None. The projection difference varies
+  depending on the range to the observed world points, with the queried range
+  set in this 'distance' argument. If None (the default) we look out to
+  infinity. We can compute the implied-by-the-intrinsics transformation off
+  multiple distances if they're given here as an iterable. This is especially
+  useful if we have uncertainties, since then we'll emphasize the best-fitting
+  distances.
+
+- use_uncertainties: optional boolean, defaulting to True. If True we use the
+  whole imager to fit the implied-by-the-intrinsics transformation, using the
+  uncertainties to emphasize the confident regions. If False, it is important to
+  select the confident region using the focus_center and focus_radius arguments.
+  If use_uncertainties is True, but that data isn't available, we report a
+  warning, and try to proceed without.
+
+- focus_center: optional array of shape (2,); the imager center by default. Used
+  to indicate that the implied-by-the-intrinsics transformation should use only
+  those pixels a distance focus_radius from focus_center. This is intended to be
+  used if no uncertainties are available, and we need to manually select the
+  focus region.
+
+- focus_radius: optional value. If use_uncertainties then the default is LARGE,
+  to use the whole imager. Else the default is min(width,height)/6. Used to
+  indicate that the implied-by-the-intrinsics transformation should use only
+  those pixels a distance focus_radius from focus_center. This is intended to be
+  used if no uncertainties are available, and we need to manually select the
+  focus region. Pass focus_radius=0 to avoid computing the transformation, and
+  to use the identity. This would mean there're no geometric differences, and
+  we're comparing the intrinsics only
+
+- implied_Rt10: optional Rt transformation (numpy array of shape (4,3)). If
+  given, I use the given value for the implied-by-the-intrinsics transformation
+  instead of fitting it. If omitted, I compute the transformation. Exclusive
+  with focus_center, focus_radius. Valid only if exactly two models are given.
+
+RETURNED VALUE
+
+A tuple
+
+- difflen: a numpy array of shape (gridn_height,gridn_width) containing the
+  magnitude of differences at each cell, or the standard deviation of
+  differences if len(models)>1. if len(models)==1: this is nps.mag(diff)
+
+- diff: a numpy array of shape (gridn_height,gridn_width,2) containing the
+  vector of differences at each cell. If len(models)>1 this isn't well-defined,
+  and we set this to None
+
+- q0: a numpy array of shape (gridn_height,gridn_width,2) containing the pixel
+  coordinates of each grid cell
+
+- implied_Rt10: the geometric Rt transformation in an array of shape (...,4,3).
+  This is either whatever was passed into this function (if anything was), or
+  the identity if focus_radius==0 or the fitted results. if len(models)>1: this
+  is an array of shape (len(models)-1,4,3), with slice i representing the
+  transformation between camera 0 and camera i+1.
+
+    '''
+
+    if implied_Rt10 is not None:
+        if len(models) != 2:
+            raise Exception("implied_Rt10 may be given ONLY if I have exactly two models")
+        if focus_center is not None:
+            raise Exception("implied_Rt10 is given, so focus_center, focus_radius shouldn't be")
+
+        use_uncertainties = False
+
+    if distance is None:
+        atinfinity = True
+        distance   = 1.0
+    else:
+        atinfinity = False
+        distance   = nps.atleast_dims(np.array(distance), -1)
+        distance   = nps.mv(distance.ravel(), -1,-4)
+
+    imagersizes = np.array([model.imagersize() for model in models])
+    if np.linalg.norm(np.std(imagersizes, axis=-2)) != 0:
+        raise Exception("The diff function needs all the imager dimensions to match. Instead got {}". \
+                        format(imagersizes))
+    W,H=imagersizes[0]
+
+    lensmodels      = [model.intrinsics()[0] for model in models]
+    intrinsics_data = [model.intrinsics()[1] for model in models]
+
+    # v  shape (Ncameras,Nheight,Nwidth,3)
+    # q0 shape (         Nheight,Nwidth,2)
+    v,q0 = sample_imager_unproject(gridn_width, gridn_height,
+                                   W, H,
+                                   lensmodels, intrinsics_data,
+                                   normalize = True)
+
+    if focus_radius == 0:
+        use_uncertainties = False
+
+    if use_uncertainties:
+        try:
+            # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
+            uncertainties = \
+                [ mrcal.projection_uncertainty(v[i] * distance,
+                                               models[i],
+                                               atinfinity = atinfinity,
+                                               what       = 'worstdirection-stdev') \
+                  for i in range(len(models)) ]
+        except Exception as e:
+            print(f"WARNING: show_projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic\nException: {e}",
+                  file = sys.stderr)
+            use_uncertainties = False
+            uncertainties     = None
+    else:
+        use_uncertainties = False
+        uncertainties     = None
+
+    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+    if focus_radius < 0:
+        if use_uncertainties:
+            focus_radius = max(W,H) * 100 # whole imager
+        else:
+            focus_radius = min(W,H)/6.
+
+    if len(models) == 2:
+        # Two models. Take the difference and call it good
+
+        if implied_Rt10 is not None:
+            # I already have the transformation, so no need to compute it
+            pass
+        elif focus_radius == 0:
+            implied_Rt10 = mrcal.identity_Rt()
+        else:
+            # weights has shape (len(distance),Nh,Nw))
+            if uncertainties is not None:
+                weights = 1.0 / (uncertainties[0]*uncertainties[1])
+            else:
+                weights = None
+
+            # weight may be inf or nan. intrinsics_implied_Rt10() will clean
+            # those up, as well as any inf/nan in v (from failed unprojections)
+            implied_Rt10 = \
+                intrinsics_implied_Rt10(q0,
+                                        v[0,...] * distance,
+                                        v[1,...],
+                                        weights,
+                                        atinfinity,
+                                        focus_center, focus_radius)
+
+        q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
+                                                     v[0,...] * distance),
+                            lensmodels[1], intrinsics_data[1])
+        # shape (len(distance),Nheight,Nwidth,2)
+        q1 = nps.atleast_dims(q1, -4)
+
+        diff    = q1 - q0
+        difflen = nps.mag(diff)
+        difflen = np.min( difflen, axis=-3)
+    else:
+
+        # Many models. Look at the stdev
+        def get_implied_Rt10( i0, i1,
+                              focus_center, focus_radius):
+            v0 = v[i0,...]
+            v1 = v[i1,...]
+
+            if focus_radius == 0:
+                return mrcal.identity_Rt()
+
+            if uncertainties is not None:
+                weights = 1.0 / (uncertainties[i0]*uncertainties[i1])
+            else:
+                weights = None
+
+            return \
+                intrinsics_implied_Rt10(q0, v0*distance, v1,
+                                        weights, atinfinity,
+                                        focus_center, focus_radius)
+        def get_reprojections(q0, implied_Rt10,
+                              lensmodel, intrinsics_data):
+            q1 = mrcal.project(mrcal.transform_point_Rt(implied_Rt10,
+                                                        v[0,...]*distance),
+                               lensmodel, intrinsics_data)
+            # returning shape (len(distance),Nheight,Nwidth,2)
+            return nps.atleast_dims(q1, -4)
+
+        implied_Rt10 = nps.cat(*[ get_implied_Rt10(0,i,
+                                                   focus_center, focus_radius) \
+                                  for i in range(1,len(v))])
+
+        # shape (Ncameras-1,len(distance),Nheight,Nwidth,2)
+        grids = nps.cat(*[get_reprojections(q0, implied_Rt10[i-1],
+                                            lensmodels[i], intrinsics_data[i]) \
+                          for i in range(1,len(v))])
+
+        diff    = None
+        difflen = np.sqrt(np.mean( np.min(nps.norm2(grids-q0),
+                                          axis=-3),
+                                   axis=0))
+
+    return difflen, diff, q0, implied_Rt10
+
+
+def show_projection_diff(models,
+                         gridn_width  = 60,
+                         gridn_height = None,
+
+                         observations = False,
+                         distance     = None,
+
+                         use_uncertainties= True,
+                         focus_center     = None,
+                         focus_radius     = -1.,
+                         implied_Rt10     = None,
+
+                         vectorfield      = False,
+                         vectorscale      = 1.0,
+                         extratitle       = None,
+                         cbmax            = 4,
+                         **kwargs):
+    r'''Visualize the difference in projection between N models
+
+SYNOPSIS
+
+    models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
+               mrcal.cameramodel('cam0-dance1.cameramodel') )
+
+    mrcal.show_projection_diff(models)
+
+    # A plot pops up displaying the projection difference between the two models
+
+It is often useful to compare the projection behavior of two camera models. For
+instance, one may want to evaluate the quality of a calibration by comparing the
+results of two different chessboard dances. Or one may want to evaluate the
+stability of the intrinsics in response to mechanical or thermal stresses. This
+function makes these comparisons, and produces a visualization of the results.
+mrcal.projection_diff() computes the differences, and returns the results
+WITHOUT making plots.
+
+In the most common case we're given exactly 2 models to compare. We then show
+the projection DIFFERENCE as either a vector field or a heat map. If we're given
+more than 2 models, then a vector field isn't possible and we show a heat map of
+the STANDARD DEVIATION of all the differences.
+
+The details of how the comparison is computed, and the meaning of the arguments
+controlling this, are in the docstring of mrcal.projection_diff().
 
 ARGUMENTS
 
@@ -3676,7 +3935,7 @@ ARGUMENTS
 
 - implied_Rt10: optional Rt transformation (numpy array of shape (4,3)). If
   given, I use the given value for the implied-by-the-intrinsics transformation
-  instead of fitting it. If omitted, I computed the transformation. Exclusive
+  instead of fitting it. If omitted, I compute the transformation. Exclusive
   with focus_center, focus_radius. Valid only if exactly two models are given.
 
 - vectorfield: optional boolean, defaulting to False. By default we produce a
@@ -3733,149 +3992,28 @@ into a variable, even if you're not going to be doing anything with this object
             title += ": " + extratitle
         kwargs['title'] = title
 
-
-    if distance is None:
-        atinfinity = True
-        distance   = 1.0
-    else:
-        atinfinity = False
-        distance   = nps.atleast_dims(np.array(distance), -1)
-        distance   = nps.mv(distance.ravel(), -1,-4)
-
     if vectorfield:
         if len(models) > 2:
             raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
                             format(len(models)))
-        if not isinstance(distance,float) and len(distance) > 1:
+        if not (distance is None or \
+                isinstance(distance,float) or \
+                len(distance) == 1):
             raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
 
-    if implied_Rt10 is not None:
-        if len(models) != 2:
-            raise Exception("implied_Rt10 may be given ONLY if I have exactly two models")
-        if focus_center is not None:
-            raise Exception("implied_Rt10 is given, so focus_center, focus_radius shouldn't be")
-
-        use_uncertainties = False
-
-
-    imagersizes = np.array([model.imagersize() for model in models])
-    if np.linalg.norm(np.std(imagersizes, axis=-2)) != 0:
-        raise Exception("The diff function needs all the imager dimensions to match. Instead got {}". \
-                        format(imagersizes))
-    W,H=imagersizes[0]
-
-    lensmodels      = [model.intrinsics()[0] for model in models]
-    intrinsics_data = [model.intrinsics()[1] for model in models]
-
-    # v  shape (Ncameras,Nheight,Nwidth,3)
-    # q0 shape (         Nheight,Nwidth,2)
-    v,q0 = sample_imager_unproject(gridn_width, gridn_height,
-                                   W, H,
-                                   lensmodels, intrinsics_data,
-                                   normalize = True)
-
-    if focus_radius == 0:
-        use_uncertainties = False
-
-    if use_uncertainties:
-        try:
-            # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
-            uncertainties = \
-                [ mrcal.projection_uncertainty(v[i] * distance,
-                                               models[i],
-                                               atinfinity = atinfinity,
-                                               what       = 'worstdirection-stdev') \
-                  for i in range(len(models)) ]
-        except Exception as e:
-            print(f"WARNING: show_projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic\nException: {e}",
-                  file = sys.stderr)
-            use_uncertainties = False
-            uncertainties     = None
-    else:
-        use_uncertainties = False
-        uncertainties     = None
-
-    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
-    if focus_radius < 0:
-        if use_uncertainties:
-            focus_radius = max(W,H) * 100 # whole imager
-        else:
-            focus_radius = min(W,H)/6.
-
-    if len(models) == 2:
-        # Two models. Take the difference and call it good
-
-        if implied_Rt10 is not None:
-            # I already have the transformation, so no nee to compute it
-            pass
-        elif focus_radius == 0:
-            implied_Rt10 = mrcal.identity_Rt()
-        else:
-            # weights has shape (len(distance),Nh,Nw))
-            if uncertainties is not None:
-                weights = 1.0 / (uncertainties[0]*uncertainties[1])
-            else:
-                weights = None
-
-            # weight may be inf or nan. intrinsics_implied_Rt10() will clean
-            # those up, as well as any inf/nan in v (from failed unprojections)
-            implied_Rt10 = \
-                intrinsics_implied_Rt10(q0,
-                                        v[0,...] * distance,
-                                        v[1,...],
-                                        weights,
-                                        atinfinity,
-                                        focus_center, focus_radius)
-
-        q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
-                                                     v[0,...] * distance),
-                            lensmodels[1], intrinsics_data[1])
-        # shape (len(distance),Nheight,Nwidth,2)
-        q1 = nps.atleast_dims(q1, -4)
-
-        diff    = q1 - q0
-        difflen = nps.mag(diff)
-        difflen = np.min( difflen, axis=-3)
-    else:
-
-        # Many models. Look at the stdev
-        def get_reprojections(q0, i0, i1,
-                              focus_center, focus_radius,
-                              lensmodel, intrinsics_data):
-            v0 = v[i0,...]
-            v1 = v[i1,...]
-
-            if focus_radius == 0:
-                implied_Rt10 = mrcal.identity_Rt()
-            else:
-
-                if uncertainties is not None:
-                    weights = 1.0 / (uncertainties[i0]*uncertainties[i1])
-                else:
-                    weights = None
-
-                implied_Rt10 = \
-                    intrinsics_implied_Rt10(q0, v0*distance, v1,
-                                            weights, atinfinity,
-                                            focus_center, focus_radius)
-            q1 = mrcal.project(mrcal.transform_point_Rt(implied_Rt10,
-                                                        v0*distance),
-                               lensmodel, intrinsics_data)
-            # returning shape (len(distance),Nheight,Nwidth,2)
-            return nps.atleast_dims(q1, -4)
-
-        # shape (Ncameras-1,len(distance),Nheight,Nwidth,2)
-        grids = nps.cat(*[get_reprojections(q0,
-                                            0, i,
-                                            focus_center, focus_radius,
-                                            lensmodels[i], intrinsics_data[i]) \
-                          for i in range(1,len(v))])
-
-        difflen = np.sqrt(np.mean( np.min(nps.norm2(grids-q0),
-                                          axis=-3),
-                                   axis=0))
-
+    # Now do all the actual work
+    difflen,diff,q0,implied_Rt10 = projection_diff(models,
+                                                   gridn_width, gridn_height,
+                                                   distance,
+                                                   use_uncertainties,
+                                                   focus_center,focus_radius,
+                                                   implied_Rt10)
     if vectorfield:
+
+        # The projection_diff() call made sure they're the same for all the
+        # models
+        W,H=models[0].imagersize()
+
         plot = gp.gnuplotlib(square=1,
                              _xrange=[0,W],
                              _yrange=[H,0],
@@ -3899,7 +4037,7 @@ into a variable, even if you're not going to be doing anything with this object
                                             kwargs,
 
                                             cbmax, -0.5,
-                                            imagersizes[0],
+                                            models[0].imagersize(),
                                             gridn_width, gridn_height)
         plot = gp.gnuplotlib(**kwargs)
         plot_data_args = [ (difflen, curveoptions) ]
@@ -3927,10 +4065,10 @@ into a variable, even if you're not going to be doing anything with this object
         # straight lines will not remain straight. I thus resample the polyline
         # more densely.
         v1 = mrcal.unproject(_densify_polyline(valid_region1, spacing = 50),
-                             lensmodels[1], intrinsics_data[1])
+                             *models[1].intrinsics())
         valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(implied_Rt10),
                                                                  v1 ),
-                                       lensmodels[0], intrinsics_data[0] )
+                                       *models[0].intrinsics() )
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
