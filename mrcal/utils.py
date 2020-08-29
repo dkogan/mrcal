@@ -3573,15 +3573,15 @@ SYNOPSIS
     # models at each cell
 
 It is often useful to compare the projection behavior of two camera models. For
-instance, one may want to evaluate the quality of a calibration by comparing the
-results of two different chessboard dances. Or one may want to evaluate the
-stability of the intrinsics in response to mechanical or thermal stresses. This
-function makes these comparisons, and returns the results.
-mrcal.show_projection_diff() does this and ALSO produces a visualization.
+instance, one may want to validate a calibration by comparing the results of two
+different chessboard dances. Or one may want to evaluate the stability of the
+intrinsics in response to mechanical or thermal stresses. This function makes
+these comparisons, and returns the results. mrcal.show_projection_diff() ALSO
+produces a visualization.
 
-In the most common case we're given exactly 2 models to compare, and we can
-compute the xy differences at each point. If we're given more than 2 models, we
-compute the STANDARD DEVIATION of all the differences instead.
+In the most common case we're given exactly 2 models to compare, and we compute
+the xy differences in projection at each point. If we're given more than 2
+models, we compute the STANDARD DEVIATION of all the differences instead.
 
 We do this:
 
