@@ -1900,7 +1900,10 @@ Returns a tuple:
     object_spacing      = optimization_inputs['calibration_object_spacing']
     calobject_warp      = optimization_inputs['calobject_warp']
     # shape (Nh,Nw,3)
-    full_object         = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing)
+    full_object         = mrcal.ref_calibration_object(object_width_n,
+                                                       object_height_n,
+                                                       object_spacing,
+                                                       calobject_warp)
 
     # all the frames, extrinsics at calibration time
     frames_rt_toref       = optimization_inputs['frames_rt_toref']
