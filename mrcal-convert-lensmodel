@@ -167,6 +167,7 @@ import numpy as np
 import numpysane as nps
 import cv2
 import time
+import copy
 
 import mrcal
 
@@ -207,61 +208,36 @@ if not args.sampled:
         raise Exception("optimization_inputs not available in this model, so only sampled fits are possible. Pass --sampled")
 
 
-
-    # stuff to get the calibration object points in the camera coordinate system
-    icam_extrinsics = mrcal.corresponding_icam_extrinsics(m.icam_intrinsics(),
-                                                          **optimization_inputs)
-    i_f_ci_ce = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-    # the frames observed by THIS camera
-    iframes_observed = i_f_ci_ce[i_f_ci_ce[:,2] == icam_extrinsics,
-                                 0]
-    calibration_object_height_n,calibration_object_width_n = \
-        optimization_inputs['observations_board'].shape[-3:-1]
-
-    def get_calobject_points_in_cam_coords():
-        # shape (Nframes,4,3)
-        Rt_cam_frames = mrcal.Rt_from_rt(optimization_inputs['frames_rt_toref'][iframes_observed])
-        if icam_extrinsics >= 0:
-            Rt_cam_frames = \
-                mrcal.compose_Rt( mrcal.Rt_from_rt(optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]),
-                                  Rt_cam_frames )
-        # shape (Nh,Nw,3)
-        calobject = \
-            mrcal.ref_calibration_object(calibration_object_width_n,calibration_object_height_n,
-                                         optimization_inputs['calibration_object_spacing'],
-                                         optimization_inputs['calobject_warp'])
-        # shape (N,3)
-        # the calibration object in the camera coord system
-        return \
-            nps.clump( mrcal.transform_point_Rt(nps.mv(Rt_cam_frames, -3, -5),
-                                                calobject),
-                       n = 3)
-
-
-
-
-
-
     intrinsics_core = intrinsics_from[1][:4]
     distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3
     intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
                                      axis=-2)
 
-
     optimization_inputs['lensmodel']  = lensmodel_to
     optimization_inputs['intrinsics'] = intrinsics_to_values
     optimization_inputs['verbose']    = False
 
-    # I estimate the Rt10 between the two cameras (from,to) by looking at the
-    # final positions (in cam coords) of the calibration object corners in the
-    # two solves
-    calobject0 = get_calobject_points_in_cam_coords()
+    optimization_inputs_before = copy.deepcopy(optimization_inputs)
 
     stats = mrcal.optimize(**optimization_inputs,
                            skip_outlier_rejection = False)
 
-    calobject1 = get_calobject_points_in_cam_coords()
+    # I pick the inlier set using the post-solve inliers/outliers. The solve
+    # could add some outliers, but it won't take any away, so the union of the
+    # before/after inlier sets is just the post-solve set
+    observations_board = optimization_inputs['observations_board']
+    i_f_ci_ce          = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    idx_observations = i_f_ci_ce[:,1] == m.icam_intrinsics()
+    idx_inliers1 = nps.clump(observations_board[idx_observations,:,:,2] > 0, n=-2)
 
+    calobject0,_ = \
+        mrcal.board_observations_at_calibration_time(m.icam_intrinsics(),
+                                                     **optimization_inputs_before,
+                                                     idx_inliers = idx_inliers1 )
+    calobject1,_ = \
+        mrcal.board_observations_at_calibration_time(m.icam_intrinsics(),
+                                                     **optimization_inputs,
+                                                     idx_inliers = idx_inliers1 )
     implied_Rt10 = mrcal.align3d_procrustes(calobject1, calobject0)
 
     # And for the purposes of visualization, it'd be nice to have a reference
