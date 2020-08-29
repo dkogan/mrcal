@@ -132,7 +132,8 @@ TESTS :=						\
   test/test-calibration-uncertainty.py___fixed-frames	\
   test/test-linearizations.py				\
   test/test-lensmodel-string-manipulation		\
-  test/test-CHOLMOD-factorization.py
+  test/test-CHOLMOD-factorization.py			\
+  test/test-projection-diff.py
 
 test check: all
 	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst ___, ,$t) || SOMEFAILED=1; ) test -z "$$SOMEFAILED" || echo "SOME TEST SETS FAILED!"; test -z "$$SOMEFAILED" && echo "ALL TEST SETS PASSED!"
