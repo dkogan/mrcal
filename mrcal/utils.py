@@ -1851,13 +1851,17 @@ else:                    we return an array of shape (...)
                                                  what)
 
 
-def board_observations_at_calibration_time(model):
+def board_observations_at_calibration_time(icam_intrinsics,
+                                           idx_inliers = None,
+                                           **optimization_inputs):
     '''Reports the 3D chessboard points observed by a model at calibration time
 
 SYNOPSIS
 
     model = mrcal.cameramodel("xxx.cameramodel")
-    pcam_inliers, pcam_outliers = board_observations_at_calibration_time(model)
+    pcam_inliers, pcam_outliers = \
+        board_observations_at_calibration_time(model.icam_intrinsics(),
+                                               **model.optimization_inputs())
 
     print(pcam_inliers.shape)
     ===> (1234, 3)
@@ -1873,8 +1877,17 @@ I report the inlier and outlier points separately, in a tuple.
 
 ARGUMENTS
 
-- model: a mrcal.cameramodel object being queried. This object MUST contain
-  optimization_inputs since these contain the data we're using
+- icam_intrinsics: an integer specifying which intrinsic camera in the
+  optimization_inputs we're looking at
+
+- **optimization_inputs: a dict() of arguments passable to mrcal.optimize() and
+  mrcal.optimizer_callback(). We use the geometric data. This dict is obtainable
+  from a cameramodel object by calling cameramodel.optimization_inputs()
+
+- idx_inliers: optional numpy array of shape (N,object_width*object_height) or
+  None to pick the outliers automatically. N indexes the observations FOR THIS
+  CAMERA (see the code for an explanation). This argument is available to pick
+  common inliers from two separate solves.
 
 RETURNED VALUE
 
@@ -1888,17 +1901,14 @@ Returns a tuple:
 
     '''
 
-    optimization_inputs = model.optimization_inputs()
-    if optimization_inputs is None:
-        return Exception("The given model doesn't contain optimization_inputs, so this function doesn't have any data to work with")
-
-    if optimization_inputs.get('observations_board') is None:
+    observations_board = optimization_inputs.get('observations_board')
+    if observations_board is None:
         return Exception("No board observations available")
 
-    object_width_n      = optimization_inputs['observations_board'].shape[-2]
-    object_height_n     = optimization_inputs['observations_board'].shape[-3]
+    object_width_n      = observations_board.shape[-2]
+    object_height_n     = observations_board.shape[-3]
     object_spacing      = optimization_inputs['calibration_object_spacing']
-    calobject_warp      = optimization_inputs['calobject_warp']
+    calobject_warp      = optimization_inputs.get('calobject_warp')
     # shape (Nh,Nw,3)
     full_object         = mrcal.ref_calibration_object(object_width_n,
                                                        object_height_n,
@@ -1909,22 +1919,12 @@ Returns a tuple:
     frames_rt_toref       = optimization_inputs['frames_rt_toref']
     extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref']
 
-    # which calibration-time camera we're looking at
-    icam_intrinsics = model.icam_intrinsics()
-
-
-    observations_board                        = optimization_inputs['observations_board']
     indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
     idx                                       = indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
 
-    # which calibration-time extrinsic camera we're looking at. Currently this
-    # whole thing only works with stationary cameras, so my icam_intrinsics is
-    # guaranteed to correspond to a single icam_extrinsics. If somehow this
-    # isn't true, I barf
-    icam_extrinsics = indices_frame_camintrinsics_camextrinsics[idx,2][0]
-    if np.max( np.abs( indices_frame_camintrinsics_camextrinsics[idx,2] - icam_extrinsics) ) != 0:
-        raise Exception(f"icam_intrinsics MUST correspond to a single icam_extrinsics, but here there're multiples!")
-    # calibration-time extrinsics for THIS camera
+    icam_extrinsics = \
+        mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
+
     if icam_extrinsics >= 0:
         extrinsics_rt_fromref = extrinsics_rt_fromref[icam_extrinsics]
     else:
@@ -1940,15 +1940,15 @@ Returns a tuple:
     Rt_cam_frame = mrcal.compose_Rt( mrcal.Rt_from_rt( extrinsics_rt_fromref),
                                      mrcal.Rt_from_rt( frames_rt_toref ) )
 
-    # shape (Nframes, Nboardpoints)
-    idx_outliers = nps.clump(observations_board[idx,:,:,2] < 0, n=-2)
+    if idx_inliers is None:
+        idx_inliers = nps.clump(observations_board[idx,:,:,2] > 0, n=-2)
 
     # shape (Nframes, Nboardpoints, 3)
     p_cam_calobjects = mrcal.transform_point_Rt( nps.mv(Rt_cam_frame, -3, -4),
                                                  nps.clump(full_object, n=2) )
 
     # shape (Ninliers,3), (Noutliers,3)
-    return p_cam_calobjects[~idx_outliers,:], p_cam_calobjects[idx_outliers,:]
+    return p_cam_calobjects[idx_inliers,:], p_cam_calobjects[~idx_inliers,:]
 
 
 def _options_heatmap_with_contours( # update these
@@ -2147,7 +2147,8 @@ into a variable, even if you're not going to be doing anything with this object
 
     if observations:
         p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-            board_observations_at_calibration_time(model)
+            board_observations_at_calibration_time(model.icam_intrinsics(),
+                                                   **model.optimization_inputs())
         q_cam_calobjects_inliers = \
             mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
         q_cam_calobjects_outliers = \
@@ -2247,7 +2248,8 @@ into a variable, even if you're not going to be doing anything with this object
 
 
     p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-        board_observations_at_calibration_time(model)
+        board_observations_at_calibration_time(model.icam_intrinsics(),
+                                               **model.optimization_inputs())
     q_cam_calobjects_inliers = \
         mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
     q_cam_calobjects_outliers = \
@@ -4114,7 +4116,8 @@ into a variable, even if you're not going to be doing anything with this object
             m = models[i]
 
             p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-                board_observations_at_calibration_time(m)
+                board_observations_at_calibration_time(m.icam_intrinsics(),
+                                                       **m.optimization_inputs())
             q_cam_calobjects_inliers = \
                 mrcal.project( p_cam_calobjects_inliers, *m.intrinsics() )
             q_cam_calobjects_outliers = \
