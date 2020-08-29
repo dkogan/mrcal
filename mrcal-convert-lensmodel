@@ -231,13 +231,13 @@ if not args.sampled:
     idx_inliers1 = nps.clump(observations_board[idx_observations,:,:,2] > 0, n=-2)
 
     calobject0,_ = \
-        mrcal.board_observations_at_calibration_time(m.icam_intrinsics(),
-                                                     **optimization_inputs_before,
-                                                     idx_inliers = idx_inliers1 )
+        mrcal.hypothesis_corner_positions(m.icam_intrinsics(),
+                                          **optimization_inputs_before,
+                                          idx_inliers = idx_inliers1 )
     calobject1,_ = \
-        mrcal.board_observations_at_calibration_time(m.icam_intrinsics(),
-                                                     **optimization_inputs,
-                                                     idx_inliers = idx_inliers1 )
+        mrcal.hypothesis_corner_positions(m.icam_intrinsics(),
+                                          **optimization_inputs,
+                                          idx_inliers = idx_inliers1 )
     implied_Rt10 = mrcal.align3d_procrustes(calobject1, calobject0)
 
     # And for the purposes of visualization, it'd be nice to have a reference

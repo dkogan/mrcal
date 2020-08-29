@@ -1851,27 +1851,26 @@ else:                    we return an array of shape (...)
                                                  what)
 
 
-def board_observations_at_calibration_time(icam_intrinsics,
-                                           idx_inliers = None,
-                                           **optimization_inputs):
-    '''Reports the 3D chessboard points observed by a model at calibration time
+def hypothesis_corner_positions(icam_intrinsics,
+                                idx_inliers = None,
+                                **optimization_inputs):
+    '''Reports the 3D chessboard points observed by a camera at calibration time
 
 SYNOPSIS
 
     model = mrcal.cameramodel("xxx.cameramodel")
     pcam_inliers, pcam_outliers = \
-        board_observations_at_calibration_time(model.icam_intrinsics(),
-                                               **model.optimization_inputs())
+        hypothesis_corner_positions(model.icam_intrinsics(),
+                                    **model.optimization_inputs())
 
     print(pcam_inliers.shape)
     ===> (1234, 3)
 
-Uncertainty is based on calibration-time observations, so it is useful for
-analysis to get an array of those observations. This function returns all
-non-outlier chessboard corner points observed at calibration time, in the CAMERA
-coordinate system. Since I report camera-relative points, the results are
-applicable even if the camera was moved post-calibration, and the extrinsics
-have changed.
+The optimization routine generates hypothetical observations from a set of
+parameters being evaluated, trying to match these hypothetical observations with
+real ones. To facilitate analysis, this routine produces hypothetical
+coordinates of the chessboard corners being observed in the coordinate system of
+the observing camera.
 
 I report the inlier and outlier points separately, in a tuple.
 
@@ -2147,8 +2146,8 @@ into a variable, even if you're not going to be doing anything with this object
 
     if observations:
         p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-            board_observations_at_calibration_time(model.icam_intrinsics(),
-                                                   **model.optimization_inputs())
+            hypothesis_corner_positions(model.icam_intrinsics(),
+                                        **model.optimization_inputs())
         q_cam_calobjects_inliers = \
             mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
         q_cam_calobjects_outliers = \
@@ -2248,8 +2247,8 @@ into a variable, even if you're not going to be doing anything with this object
 
 
     p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-        board_observations_at_calibration_time(model.icam_intrinsics(),
-                                               **model.optimization_inputs())
+        hypothesis_corner_positions(model.icam_intrinsics(),
+                                    **model.optimization_inputs())
     q_cam_calobjects_inliers = \
         mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
     q_cam_calobjects_outliers = \
@@ -4116,8 +4115,8 @@ into a variable, even if you're not going to be doing anything with this object
             m = models[i]
 
             p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-                board_observations_at_calibration_time(m.icam_intrinsics(),
-                                                       **m.optimization_inputs())
+                hypothesis_corner_positions(m.icam_intrinsics(),
+                                            **m.optimization_inputs())
             q_cam_calobjects_inliers = \
                 mrcal.project( p_cam_calobjects_inliers, *m.intrinsics() )
             q_cam_calobjects_outliers = \
