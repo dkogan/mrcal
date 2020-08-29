@@ -732,6 +732,9 @@ SYNOPSIS
     # q is an array of pixel coordinates of all the chessboard corners over all
     # the cameras and all the instances in time
 
+Note: This function returns dense observations, which is probably not what you
+want. Consider using mrcal.hypothesis_corner_positions() instead.
+
 A camera calibration based on observations of a known object consists of
 minimizing the difference between observed pixels and the projections of the
 object using a hypothetical set of parameters. These hypothetical projections
