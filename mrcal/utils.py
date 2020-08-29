@@ -347,7 +347,7 @@ We return a tuple:
                    0 ))
     board_reference = \
         mrcal.ref_calibration_object(object_width_n,object_height_n,
-                                         object_spacing,calobject_warp) - \
+                                     object_spacing,calobject_warp) - \
         board_translation
 
     # Transformation from the board returned by ref_calibration_object() to
@@ -757,7 +757,7 @@ into a variable, even if you're not going to be doing anything with this object
 
 
         calobject_ref = ref_calibration_object(object_width_n, object_height_n,
-                                                   object_spacing, calobject_warp)
+                                               object_spacing, calobject_warp)
 
         Rf = mrcal.R_from_r(frames_rt_toref[..., :3])
         Rf = nps.mv(Rf,                       0, -4)
@@ -4385,17 +4385,17 @@ from the filename.
 
 
 def chessboard_observations(Nw, Nh, globs=('*',), corners_cache_vnl=None, jobs=1,
-                                exclude_images=set(),
-                                weighted=True,
-                                keep_level=False):
+                            exclude_images=set(),
+                            weighted=True,
+                            keep_level=False):
     r'''Compute the chessboard observations and returns them in a usable form
 
 SYNOPSIS
 
   observations, indices_frame_camera, paths = \
       mrcal.chessboard_observations(10, 10,
-                                        ('frame*-cam0.jpg','frame*-cam1.jpg'),
-                                        "corners.vnl")
+                                    ('frame*-cam0.jpg','frame*-cam1.jpg'),
+                                    "corners.vnl")
 
 The input to a calibration problem is a set of images of a calibration object
 from different angles and positions. This function ingests these images, and
