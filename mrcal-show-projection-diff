@@ -31,8 +31,8 @@ transformation is unknown, but we can estimate it by fitting projections across
 the imager: the "right" transformation would result in apparent low projection
 diffs in a wide area.
 
-This transformation is computed by intrinsics_implied_Rt10(), and some details
-of its operation are significant:
+This transformation is computed by implied_Rt10__from_unprojections(), and some
+details of its operation are significant:
 
 - The imager area we use for the fit
 - Which world points we're looking at

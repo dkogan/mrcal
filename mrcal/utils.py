@@ -3183,11 +3183,11 @@ The mask that indicates whether each point is within the region
     return mask
 
 
-def intrinsics_implied_Rt10(q0, v0, v1,
-                            weights      = None,
-                            atinfinity   = True,
-                            focus_center = np.zeros((2,), dtype=float),
-                            focus_radius = 1.0e8):
+def implied_Rt10__from_unprojections(q0, v0, v1,
+                                     weights      = None,
+                                     atinfinity   = True,
+                                     focus_center = np.zeros((2,), dtype=float),
+                                     focus_radius = 1.0e8):
 
     r'''Compute the implied-by-the-intrinsics transformation to fit two cameras' projections
 
@@ -3207,7 +3207,7 @@ SYNOPSIS
                                       lensmodels, intrinsics_data,
                                       normalize = True)
     implied_Rt10 = \
-        mrcal.intrinsics_implied_Rt10(q0, v[0,...], v[1,...])
+        mrcal.implied_Rt10__from_unprojections(q0, v[0,...], v[1,...])
 
     q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10, v[0,...]),
                         *models[1].intrinsics())
@@ -3598,8 +3598,8 @@ transformation is unknown, but we can estimate it by fitting projections across
 the imager: the "right" transformation would result in apparent low projection
 differences in a wide area.
 
-This transformation is computed by intrinsics_implied_Rt10(), and some details
-of its operation are significant:
+This transformation is computed by implied_Rt10__from_unprojections(), and some
+details of its operation are significant:
 
 - The imager area we use for the fit
 - Which world points we're looking at
@@ -3792,15 +3792,16 @@ A tuple
             else:
                 weights = None
 
-            # weight may be inf or nan. intrinsics_implied_Rt10() will clean
-            # those up, as well as any inf/nan in v (from failed unprojections)
+            # weight may be inf or nan. implied_Rt10__from_unprojections() will
+            # clean those up, as well as any inf/nan in v (from failed
+            # unprojections)
             implied_Rt10 = \
-                intrinsics_implied_Rt10(q0,
-                                        v[0,...] * distance,
-                                        v[1,...],
-                                        weights,
-                                        atinfinity,
-                                        focus_center, focus_radius)
+                implied_Rt10__from_unprojections(q0,
+                                                 v[0,...] * distance,
+                                                 v[1,...],
+                                                 weights,
+                                                 atinfinity,
+                                                 focus_center, focus_radius)
 
         q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
                                                      v[0,...] * distance),
@@ -3828,9 +3829,9 @@ A tuple
                 weights = None
 
             return \
-                intrinsics_implied_Rt10(q0, v0*distance, v1,
-                                        weights, atinfinity,
-                                        focus_center, focus_radius)
+                implied_Rt10__from_unprojections(q0, v0*distance, v1,
+                                                 weights, atinfinity,
+                                                 focus_center, focus_radius)
         def get_reprojections(q0, implied_Rt10,
                               lensmodel, intrinsics_data):
             q1 = mrcal.project(mrcal.transform_point_Rt(implied_Rt10,

@@ -300,10 +300,10 @@ def projection_diff(models_ref, max_dist_from_center, fit_implied_Rt = True):
 
 
     implied_Rt10 = \
-        mrcal.intrinsics_implied_Rt10(q0,
-                                      v[0,...], v[1,...],
-                                      focus_center = focus_center,
-                                      focus_radius = focus_radius)
+        mrcal.implied_Rt10__from_unprojections(q0,
+                                               v[0,...], v[1,...],
+                                               focus_center = focus_center,
+                                               focus_radius = focus_radius)
 
     q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
                                                  v[0,...]),
