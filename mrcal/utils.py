@@ -3477,6 +3477,13 @@ report a full Rt transformation with the t component set to 0
                                            f_scale = (1.0e-1 * np.pi/180.)**2., # 0.1 deg^2
                                            # max_nfev=1,
                                            args=(residual_jacobian_r,),
+
+                                           # Without this, the optimization was
+                                           # ending too quickly, and I was
+                                           # seeing not-quite-optimal solutions.
+                                           # Especially for
+                                           # very-nearly-identical rotations
+                                           gtol = None,
                                            verbose=0)
         Rt = np.zeros((4,3), dtype=float)
         Rt[:3,:] = mrcal.R_from_r(res.x)
@@ -3495,6 +3502,13 @@ report a full Rt transformation with the t component set to 0
                                            f_scale = (1.0e-1 * np.pi/180.)**2., # 0.1 deg^2
                                            # max_nfev=1,
                                            args=(residual_jacobian_rt,),
+
+                                           # Without this, the optimization was
+                                           # ending too quickly, and I was
+                                           # seeing not-quite-optimal solutions.
+                                           # Especially for
+                                           # very-nearly-identical rotations
+                                           gtol = None,
                                            verbose=0)
         return mrcal.Rt_from_rt(res.x)
 
