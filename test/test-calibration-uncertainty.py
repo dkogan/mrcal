@@ -42,9 +42,6 @@ success/failure as usual. To test stuff, pass more arguments
 - show-distribution: plot the observed/predicted distributions of the projected
   points
 
-- study: compute a grid of the predicted worst-direction distributions across
-  the imager and for different depths
-
 - write-models: write the produced models to disk. The files on disk can then be
   processed with the cmdline tools
 
@@ -71,7 +68,7 @@ args = set(sys.argv[1:])
 
 known_args = set(('fixed-cam0', 'fixed-frames',
                   'opencv4', 'opencv8', 'splined',
-                  'show-distribution', 'study', 'write-models'))
+                  'show-distribution', 'write-models'))
 
 if not all(arg in known_args for arg in args):
     raise Exception(f"Unknown argument given. I know about {known_args}")
@@ -140,10 +137,9 @@ Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 imagersizes = nps.cat( *[m.imagersize() for m in models_ref] )
 
 Ncameras = len(models_ref)
-Ncameras_extrinsics = Ncameras
-if not fixedframes: Ncameras_extrinsics -= 1
 
 Nframes  = 50
+Nsamples = 90
 
 models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
 models_ref[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
@@ -154,7 +150,11 @@ pixel_uncertainty_stdev = 1.5
 object_spacing          = 0.1
 object_width_n          = 10
 object_height_n         = 9
-calobject_warp_ref      = np.array((0.002, -0.005))
+
+# These are perfect
+intrinsics_ref         = nps.cat( *[m.intrinsics()[1]         for m in models_ref] )
+extrinsics_ref_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref] )
+calobject_warp_ref     = np.array((0.002, -0.005))
 
 # shapes (Nframes, Ncameras, Nh, Nw, 2),
 #        (Nframes, 4,3)
@@ -165,6 +165,7 @@ q_ref,Rt_cam0_board_ref = \
                                             np.array((-2,   0,  4.0,  0.,  0.,  0.)),
                                             np.array((2.5, 2.5, 2.0, 40., 30., 30.)),
                                             Nframes)
+frames_ref             = mrcal.rt_from_Rt(Rt_cam0_board_ref)
 
 ############# I have perfect observations in q_ref. I corrupt them by noise
 # weight has shape (Nframes, Ncameras, Nh, Nw),
@@ -179,16 +180,6 @@ observations_ref = nps.clump( nps.glue(q_ref,
                                        nps.dummy(weight,-1),
                                        axis=-1),
                               n=2)
-
-# These are perfect
-intrinsics_ref = nps.cat( *[m.intrinsics()[1]         for m in models_ref] )
-if fixedframes:
-    extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref] )
-else:
-    extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref[1:]] )
-if extrinsics_ref.size == 0:
-    extrinsics_ref = np.zeros((0,6), dtype=float)
-frames_ref     = mrcal.rt_from_Rt(Rt_cam0_board_ref)
 
 
 # Dense observations. All the cameras see all the boards
@@ -211,7 +202,6 @@ if not fixedframes:
 
 ###########################################################################
 # Now I apply pixel noise, and look at the effects on the resulting calibration.
-Nsamples = 90
 
 
 # p = mrcal.show_calibration_geometry(models_ref,
@@ -222,67 +212,49 @@ Nsamples = 90
 # sys.exit()
 
 
-def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True):
-    if apply_noise:
-        _, observations_perturbed = sample_dqref(observations_ref,
-                                                 pixel_uncertainty_stdev)
-    else:
-        observations_perturbed = observations_ref.copy()
+# I now reoptimize the perfect-observations problem. Without regularization,
+# this is a no-op. With regularization, this will move us a certain amount (that
+# the test will evaluate). Then I look at noise-induced motions off this
+# optimization optimume
+optimization_inputs_baseline = \
+    dict( intrinsics                                = copy.deepcopy(intrinsics_ref),
+          extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_ref_mounted if fixedframes else extrinsics_ref_mounted[1:,:]),
+          frames_rt_toref                           = copy.deepcopy(frames_ref),
+          points                                    = None,
+          observations_board                        = observations_ref,
+          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+          observations_point                        = None,
+          indices_point_camintrinsics_camextrinsics = None,
+          lensmodel                                 = lensmodel,
+          calobject_warp                            = copy.deepcopy(calobject_warp_ref),
+          imagersizes                               = imagersizes,
+          calibration_object_spacing                = object_spacing,
+          verbose                                   = False,
+          observed_pixel_uncertainty                = pixel_uncertainty_stdev,
+          do_optimize_frames                        = not fixedframes,
+          do_optimize_intrinsics_core               = False if 'splined' in args else True,
+          do_optimize_intrinsics_distortions        = True,
+          do_optimize_extrinsics                    = True,
+          do_optimize_calobject_warp                = True,
+          skip_regularization                       = False,
+          skip_outlier_rejection                    = True)
+mrcal.optimize(**optimization_inputs_baseline)
 
-    optimization_inputs = \
-        dict( intrinsics                                = copy.deepcopy(intrinsics_ref),
-              extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_ref),
-              frames_rt_toref                           = copy.deepcopy(frames_ref),
-              points                                    = None,
-              observations_board                        = observations_perturbed,
-              indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
-              observations_point                        = None,
-              indices_point_camintrinsics_camextrinsics = None,
-              lensmodel                                 = lensmodel,
-              calobject_warp                            = copy.deepcopy(calobject_warp_ref),
-              imagersizes                               = imagersizes,
-              calibration_object_spacing                = object_spacing,
-              verbose                                   = False,
-              observed_pixel_uncertainty                = pixel_uncertainty_stdev,
-              do_optimize_frames                        = do_optimize_frames,
-              do_optimize_intrinsics_core               = False if 'splined' in args else True,
-              do_optimize_intrinsics_distortions        = True,
-              do_optimize_extrinsics                    = True,
-              do_optimize_calobject_warp                = True,
-              skip_regularization                       = False)
-
-    mrcal.optimize(**optimization_inputs,
-                   skip_outlier_rejection = True)
-    return optimization_inputs
-
-
-# I want to treat the extrinsics arrays as if all the camera transformations are
-# stored there
-if fixedframes:
-    extrinsics_ref_mounted = extrinsics_ref
-else:
-    extrinsics_ref_mounted = \
-        nps.glue( np.zeros((6,), dtype=float),
-                  extrinsics_ref,
-                  axis = -2)
-
-# And rebuild a new set of models, BUT, running the optimizer (no noise) before
-# storing the models. If the optimization is looking only at the input data,
-# then this will be identical to models_ref. But if we also have regularization,
-# this will move us off-center
-optimization_inputs = \
-    sample_reoptimized_parameters(do_optimize_frames = not fixedframes,
-                                  apply_noise=False)
-
-models_ref_optimized = \
-    [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
+models_baseline = \
+    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
                          icam_intrinsics     = i) \
       for i in range(Ncameras) ]
 
+# These are at the optimum
+intrinsics_baseline         = nps.cat( *[m.intrinsics()[1]         for m in models_baseline] )
+extrinsics_baseline_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_baseline] )
+frames_baseline             = optimization_inputs_baseline['frames_rt_toref']
+calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
+
 if 'write-models' in args:
     for i in range(Ncameras):
-        models_ref          [i].write(f"/tmp/models-ref-camera{i}.cameramodel")
-        models_ref_optimized[i].write(f"/tmp/models-ref-optimized-camera{i}.cameramodel")
+        models_ref     [i].write(f"/tmp/models-ref-camera{i}.cameramodel")
+        models_baseline[i].write(f"/tmp/models-baseline-camera{i}.cameramodel")
     sys.exit()
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
@@ -297,7 +269,7 @@ q0 = imagersizes[0]/3.
 for icam in (0,3):
     # I move the extrinsics of a model, write it to disk, and make sure the same
     # uncertainties come back
-    model_moved = mrcal.cameramodel(models_ref_optimized[icam])
+    model_moved = mrcal.cameramodel(models_baseline[icam])
     model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
     model_moved.write(f'{workdir}/out.cameramodel')
     model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
@@ -310,12 +282,12 @@ for icam in (0,3):
                             icam_extrinsics_read,
                             msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
-    pcam = mrcal.unproject( q0, *models_ref_optimized[icam].intrinsics(),
+    pcam = mrcal.unproject( q0, *models_baseline[icam].intrinsics(),
                             normalize = True)
 
     Var_dq_ref = \
         mrcal.projection_uncertainty( pcam * 1.0,
-                                      model = models_ref_optimized[icam] )
+                                      model = models_baseline[icam] )
     Var_dq_moved_written_read = \
         mrcal.projection_uncertainty( pcam * 1.0,
                                       model = model_read )
@@ -327,7 +299,7 @@ for icam in (0,3):
 
     Var_dq_inf_ref = \
         mrcal.projection_uncertainty( pcam * 1.0,
-                                      model = models_ref_optimized[icam],
+                                      model = models_baseline[icam],
                                       atinfinity = True )
     Var_dq_inf_moved_written_read = \
         mrcal.projection_uncertainty( pcam * 1.0,
@@ -344,7 +316,7 @@ for icam in (0,3):
     # invariant, so I don't check that
     Var_dq_inf_far_ref = \
         mrcal.projection_uncertainty( pcam * 100.0,
-                                      model = models_ref_optimized[icam],
+                                      model = models_baseline[icam],
                                       atinfinity = True )
     testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
                             eps = 0.001,
@@ -352,48 +324,40 @@ for icam in (0,3):
                             relative  = True,
                             msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
 
-intrinsics_sampled = np.zeros( (Nsamples,Ncameras,Nintrinsics),  dtype=float )
-extrinsics_sampled = np.zeros( (Nsamples,Ncameras_extrinsics,6), dtype=float )
-frames_sampled     = np.zeros( (Nsamples,Nframes, 6),            dtype=float )
+intrinsics_sampled         = np.zeros( (Nsamples,Ncameras,Nintrinsics), dtype=float )
+extrinsics_sampled_mounted = np.zeros( (Nsamples,Ncameras,6),           dtype=float )
+frames_sampled             = np.zeros( (Nsamples,Nframes, 6),           dtype=float )
 
 for isample in range(Nsamples):
     print(f"Sampling {isample+1}/{Nsamples}")
-    optimization_inputs = sample_reoptimized_parameters(do_optimize_frames = not fixedframes)
+
+    optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
+    optimization_inputs['observations_board'] = \
+        sample_dqref(observations_ref, pixel_uncertainty_stdev)[1]
+    mrcal.optimize(**optimization_inputs)
 
     intrinsics_sampled[isample,...] = optimization_inputs['intrinsics']
-    extrinsics_sampled[isample,...] = optimization_inputs['extrinsics_rt_fromref']
     frames_sampled    [isample,...] = optimization_inputs['frames_rt_toref']
-
-
-def check_uncertainties_at(q0, distance):
-
-    # distance of "None" means I'll simulate a large distance, but compare
-    # against a special-case distance of "infinity"
-    if distance is None:
-        distance    = 1e4
-        atinfinity  = True
-        distancestr = "infinity"
+    if fixedframes:
+        extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
     else:
-        atinfinity  = False
-        distancestr = str(distance)
+        # the remaining row is already 0
+        extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
 
-    # I come up with ONE global point per camera. And I project that one point for
-    # each sample
-    # shape (Ncameras, 3)
-    v0_cam = mrcal.unproject(q0, lensmodel, intrinsics_ref,
-                             normalize = True)
+
+def apply_implied_Rt10__mean_frames(p0_cam):
 
     # shape (Ncameras, 3). In the ref coord system
     p0_ref = \
-        mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_ref_mounted),
-                                  v0_cam * distance )
+        mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_baseline_mounted),
+                                  p0_cam )
 
     if fixedframes:
         p0_frames = p0_ref
     else:
         # shape (Nframes, Ncameras, 3)
         # The point in the coord system of all the frames
-        p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_ref),-2),
+        p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_baseline),-2),
                                               p0_ref)
 
 
@@ -401,49 +365,62 @@ def check_uncertainties_at(q0, distance):
     # Now I have the projected point in the coordinate system of the frames. I
     # project that back to each sampled camera, and gather the projection statistics
     if fixedframes:
-        extrinsics_sampled_mounted = extrinsics_sampled
-        p0_sampleref               = p0_ref
+        p1_ref = p0_frames
+
     else:
-        # I want to treat the extrinsics arrays as if ALL the camera
-        # transformations are stored there. Cam0 is at the reference, so prepend
-        # its identity transformation
-        extrinsics_sampled_mounted = \
-            nps.glue( np.zeros((Nsamples,1,6), dtype=float),
-                      extrinsics_sampled,
-                      axis = -2)
-
-        # shape (Nsamples, Nframes, Ncameras, 3)
-        p0_sampleref_allframes = mrcal.transform_point_rt( nps.dummy(frames_sampled, -2),
-                                                           p0_frames )
         # shape (Nsamples, Ncameras, 3)
-        p0_sampleref = np.mean(p0_sampleref_allframes, axis=-3)
+        p1_ref = np.mean( mrcal.transform_point_rt( nps.dummy(frames_sampled, -2),
+                                                    p0_frames ),
+                          axis = -3)
 
+    return \
+        mrcal.transform_point_rt(extrinsics_sampled_mounted,
+                                 p1_ref)
+
+
+def check_uncertainties_at(q0, distance):
+
+    # distance of "None" means I'll simulate a large distance, but compare
+    # against a special-case distance of "infinity"
+    if distance is None:
+        distance    = 1e5
+        atinfinity  = True
+        distancestr = "infinity"
+    else:
+        atinfinity  = False
+        distancestr = str(distance)
+
+    # shape (Ncameras,3)
+    p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
+                             normalize = True) * distance
+
+    # shape (Nsamples, Ncameras, 2)
+    p1_cam = apply_implied_Rt10__mean_frames(p0_cam)
 
     # shape (Nsamples, Ncameras, 2)
     q_sampled = \
-        mrcal.project( \
-            mrcal.transform_point_rt(extrinsics_sampled_mounted,
-                                     p0_sampleref),
-            lensmodel,
-            intrinsics_sampled )
+        mrcal.project( p1_cam,
+                       lensmodel, intrinsics_sampled )
 
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
-    if do_debug:
-        print(f"Regularization bias for distance={'inf' if atinfinity else distance}: {q_sampled_mean - q0} pixels")
 
+    # shape (Ncameras, 2,2)
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
                                          q_sampled-q_sampled_mean), axis=-4 )
 
+    # shape (Ncameras)
     worst_direction_stdev_observed = mrcal.worst_direction_stdev(Var_dq_observed)
 
+    # shape (Ncameras, 2,2)
     Var_dq = \
         nps.cat(*[ mrcal.projection_uncertainty( \
-            v0_cam[icam] * (distance if not atinfinity else 1.0),
+            p0_cam[icam],
             atinfinity = atinfinity,
-            model      = models_ref_optimized[icam]) \
+            model      = models_baseline[icam]) \
                    for icam in range(Ncameras) ])
+    # shape (Ncameras)
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
 
@@ -512,77 +489,6 @@ if not do_debug:
 
 import gnuplotlib as gp
 
-if 'study' in args:
-    gridn_width  = 16
-    gridn_height = 12
-    # shape (gridn_height,gridn_width,2)
-    qxy = mrcal.sample_imager(gridn_width, gridn_height, *imagersizes[0])
-
-    ranges = np.linspace(1,30,10)
-
-    # shape (gridn_height,gridn_width,Nranges,3)
-    pcam = \
-        nps.dummy(nps.cat(*[mrcal.unproject( qxy, *models_ref_optimized[icam].intrinsics(),
-                                             normalize = True) for icam in range(Ncameras)]), -2) * \
-        nps.dummy(ranges, -1)
-
-    # shape (Ncameras, gridn_height, gridn_width, Nranges, 2,2)
-    Var_dq_grid = \
-        nps.cat(*[ mrcal.projection_uncertainty( \
-            pcam[icam],
-            model = models_ref_optimized[icam] ) \
-                   for icam in range(Ncameras) ])
-    # shape (Ncameras, gridn_height, gridn_width, Nranges)
-    worst_direction_stdev_grid = mrcal.worst_direction_stdev(Var_dq_grid)
-
-    # shape (Ncameras, gridn_height, gridn_width, 2,2)
-    Var_dq_infinity = \
-        nps.cat(*[ mrcal.projection_uncertainty( \
-            pcam[icam,:,:,0,:], # any range works here
-            atinfinity = True,
-            model = models_ref_optimized[icam] ) \
-                   for icam in range(Ncameras) ])
-
-    # shape (Ncameras, gridn_height, gridn_width)
-    worst_direction_stdev_infinity = mrcal.worst_direction_stdev(Var_dq_infinity)
-
-
-    # Can plot like this:
-    if 0:
-        grid__x_y_ranges = \
-            np.meshgrid(qxy[0,:,0],
-                        qxy[:,0,1],
-                        ranges,
-                        indexing = 'ij')
-        grid__x_y = \
-            np.meshgrid(qxy[0,:,0],
-                        qxy[:,0,1],
-                        indexing = 'ij')
-        icam = 0
-
-        gp.plot( *[g.ravel() for g in grid__x_y_ranges],
-                 nps.xchg(worst_direction_stdev_grid[icam],0,1).ravel(),
-                 nps.xchg(worst_direction_stdev_grid[icam],0,1).ravel(),
-                 tuplesize = 5,
-                 _with = 'points pt 7 ps variable palette',
-                 _3d = True,
-                 squarexy = True,
-                 xlabel = 'pixel x',
-                 ylabel = 'pixel y',
-                 zlabel = 'range',
-                 wait = True)
-
-        gp.plot( *[g.ravel() for g in grid__x_y],
-                 nps.xchg(worst_direction_stdev_infinity[icam],0,1).ravel(),
-                 nps.xchg(worst_direction_stdev_infinity[icam],0,1).ravel(),
-                 tuplesize = 4,
-                 _with = 'points pt 7 ps variable palette',
-                 square = True,
-                 yinv   = True,
-                 xlabel = 'pixel x',
-                 ylabel = 'pixel y')
-
-
 def get_cov_plot_args(q, Var, what):
 
     l,v   = sorted_eig(Var)
@@ -619,7 +525,7 @@ def make_plot(icam, **kwargs):
             (q0,
              dict(tuplesize = -2,
                   _with     = 'points pt 1 ps 2',
-                  legend    = 'Nominal center point. Regularization may bias the distribution off this point')))
+                  legend    = 'Baseline center point')))
     return p
 
 if 'show-distribution' in args:
