@@ -249,7 +249,8 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True):
               do_optimize_intrinsics_distortions        = True,
               do_optimize_extrinsics                    = True,
               do_optimize_calobject_warp                = True,
-              skip_regularization                       = True)
+              skip_regularization                       = False)
+
     mrcal.optimize(**optimization_inputs,
                    skip_outlier_rejection = True)
     return optimization_inputs
