@@ -1225,7 +1225,7 @@ void mrcal_unproject_stereographic( // output
     for(int i=0; i<N; i++)
     {
         mrcal_point2_t u = {.x = (q[i].x - cx) / fx,
-                      .y = (q[i].y - cy) / fy};
+                            .y = (q[i].y - cy) / fy};
 
         double norm2u = u.x*u.x + u.y*u.y;
         if(dv_dq)
@@ -1236,8 +1236,8 @@ void mrcal_unproject_stereographic( // output
                                         .y = -u.y/2.0/fy};
         }
         v[i] = (mrcal_point3_t){ .x = u.x,
-                           .y = u.y,
-                           .z = 1. - 1./4. * norm2u };
+                                 .y = u.y,
+                                 .z = 1. - 1./4. * norm2u };
     }
 }
 
@@ -1304,10 +1304,10 @@ void _mrcal_precompute_lensmodel_data(mrcal_projection_precomputed_t* precompute
 }
 
 bool mrcal_knots_for_splined_models( // buffers must hold at least
-                                         // config->Nx and config->Ny values
-                                         // respectively
-                                         double* ux, double* uy,
-                                         mrcal_lensmodel_t lensmodel)
+                                     // config->Nx and config->Ny values
+                                     // respectively
+                                     double* ux, double* uy,
+                                     mrcal_lensmodel_t lensmodel)
 {
     if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
