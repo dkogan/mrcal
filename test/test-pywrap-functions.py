@@ -16,13 +16,13 @@ import mrcal
 import testutils
 
 
-model_splined = mrcal.cameramodel(f"{testdir}/data/cam.splined.cameramodel")
+model_splined = mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel")
 ux,uy = mrcal.knots_for_splined_models(model_splined.intrinsics()[0])
 testutils.confirm_equal(ux,
-                        np.array([-2.7502006 , -2.38350719, -2.01681377, -1.65012036, -1.28342695, -0.91673353, -0.55004012, -0.18334671,  0.18334671,  0.55004012,  0.91673353,  1.28342695,  1.65012036,  2.01681377,  2.38350719,  2.7502006 ]),
+                        np.array([-1.33234678,-1.15470054,-0.9770543,-0.79940807,-0.62176183,-0.44411559,-0.26646936,-0.08882312,0.08882312,0.26646936,0.44411559,0.62176183,0.79940807,0.9770543,1.15470054,1.33234678]),
                         msg=f"knots_for_splined_models ux")
 testutils.confirm_equal(uy,
-                        np.array([-2.38350719, -2.01681377, -1.65012036, -1.28342695, -0.91673353, -0.55004012, -0.18334671,  0.18334671,  0.55004012,  0.91673353,  1.28342695,  1.65012036,  2.01681377,  2.38350719]),
+                        np.array([-0.88823118,-0.71058495,-0.53293871,-0.35529247,-0.17764624,0.,0.17764624,0.35529247,0.53293871,0.71058495,0.88823118]),
                         msg=f"knots_for_splined_models uy")
 
 
@@ -32,8 +32,8 @@ meta_ref = {'has_core': 1,
             'can_project_behind_camera': 1,
             'order': 3,
             'Nx': 16,
-            'Ny': 14,
-            'fov_x_deg': 200}
+            'Ny': 11,
+            'fov_x_deg': 120}
 testutils.confirm_equal(meta, meta_ref,
                         msg="lensmodel_meta() keys")
 

@@ -70,7 +70,7 @@ r"""
 import numpy as np
 import mrcal
 import time
-m = mrcal.cameramodel('test/data/cam.splined.cameramodel')
+m = mrcal.cameramodel('test/data/cam0.splined.cameramodel')
 v = np.random.random((2000,3000,3))
 v[..., 2] += 10.
 t0 = time.time()

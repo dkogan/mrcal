@@ -18,7 +18,7 @@ import mrcal
 import testutils
 
 
-model       = mrcal.cameramodel(f"{testdir}/data/cam.splined.cameramodel")
+model       = mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel")
 gridn_width = 50
 
 # Compare the model to itself. I should get 0 diff and identity transform
@@ -34,7 +34,7 @@ testutils.confirm_equal( difflen.shape[0], int(round( model.imagersize()[1] / mo
                          msg = "Expected number of rows" )
 
 testutils.confirm_equal( difflen*0, difflen,
-                         eps = 0.02,
+                         eps = 0.04,
                          worstcase = True,
                          relative  = False,
                          msg = "diff(model,model) at infinity should be 0")
