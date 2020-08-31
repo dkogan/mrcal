@@ -756,10 +756,6 @@ ARGUMENTS
             if Nargs['optimization_inputs'] != 2:
                 raise Exception("optimization_input given. Must have gotten 'optimization_input' AND 'icam_intrinsics'")
 
-
-            icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                                                  **optimization_inputs)
-
             self.intrinsics( ( optimization_inputs['lensmodel'],
                                optimization_inputs['intrinsics'][icam_intrinsics] ),
                             optimization_inputs['imagersizes'][icam_intrinsics],
