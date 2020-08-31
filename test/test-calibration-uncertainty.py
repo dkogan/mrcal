@@ -23,16 +23,21 @@ This test checks two different types of calibrations:
   But together, the motion of the extrinsics and the intrinsics should map it to
   the same pixel in the end.
 
-The calibration type is selected by the an argument "fixed-cam0" or
-"fixed-frames". Exactly one must appear
+The calibration type is selected by an argument "fixed-cam0" or "fixed-frames".
+Exactly one of the two must appear.
+
+The lens model we're looking at must appear: either "opencv4" or "opencv8" or
+"splined"
 
 ARGUMENTS
 
-By default (one argument only) we run the test and report success/failure as
-usual. To test stuff, pass more arguments
+By default (fixed-...,lensmodel arguments only) we run the test and report
+success/failure as usual. To test stuff, pass more arguments
 
 - fixed-cam0/fixed-frames: what defines the reference coordinate system (see
   above). Exactly one of these must appear
+
+- opencv4/opencv8/splined: which camera model we're looking at
 
 - show-distribution: plot the observed/predicted distributions of the projected
   points
@@ -64,23 +69,31 @@ from test_calibration_helpers import sample_dqref,sorted_eig
 
 args = set(sys.argv[1:])
 
-known_args = set(('fixed-cam0', 'fixed-frames', 'show-distribution', 'study', 'write-models'))
+known_args = set(('fixed-cam0', 'fixed-frames',
+                  'opencv4', 'opencv8', 'splined',
+                  'show-distribution', 'study', 'write-models'))
 
 if not all(arg in known_args for arg in args):
     raise Exception(f"Unknown argument given. I know about {known_args}")
 
-have_fixed_cam0   = 'fixed-cam0'   in args
-have_fixed_frames = 'fixed-frames' in args
-
-if (    have_fixed_cam0 and     have_fixed_frames) or \
-   (not have_fixed_cam0 and not have_fixed_frames):
+Nargs_fixed = 0
+if 'fixed-cam0'   in args: Nargs_fixed += 1
+if 'fixed-frames' in args: Nargs_fixed += 1
+if Nargs_fixed != 1:
     raise Exception("Exactly one of ('fixed-cam0','fixed-frames') must be given as an argument")
+fixedframes = 'fixed-frames' in args
 
-fixedframes = have_fixed_frames
+Nargs_lensmodel = 0
+if 'opencv4' in args: Nargs_lensmodel += 1
+if 'opencv8' in args: Nargs_lensmodel += 1
+if 'splined' in args: Nargs_lensmodel += 1
+if Nargs_lensmodel != 1:
+    raise Exception("Exactly one of ('opencv4','opencv8','splined') must be given as an argument")
+
 
 # if more than just fixed-cam0/fixed-frames, we're interactively debugging
 # stuff. So print more, and do a repl
-do_debug = len(args) > 1
+do_debug = len(args) > 2
 
 
 
@@ -103,19 +116,28 @@ np.random.seed(0)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-models_ref = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-               mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-               mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
-               mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
+if 'opencv4' in args or 'opencv8' in args:
+    models_ref = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+                   mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+                   mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
+                   mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
 
-imagersizes = nps.cat( *[m.imagersize() for m in models_ref] )
+    if 'opencv4' in args:
+        # I have opencv8 models_ref, but I truncate to opencv4 models_ref
+        for m in models_ref:
+            m.intrinsics( intrinsics = ('LENSMODEL_OPENCV4', m.intrinsics()[1][:8]))
+elif 'splined' in args:
+    models_ref = ( mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
+                   mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
+                   mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel"),
+                   mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel") )
+else:
+    raise Exception("Unknown lens being tested")
+
 lensmodel   = models_ref[0].intrinsics()[0]
-# I have opencv8 models_ref, but let me truncate to opencv4 models_ref to keep this
-# simple and fast
-lensmodel = 'LENSMODEL_OPENCV4'
-for m in models_ref:
-    m.intrinsics( intrinsics = (lensmodel, m.intrinsics()[1][:8]))
+
 Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
+imagersizes = nps.cat( *[m.imagersize() for m in models_ref] )
 
 Ncameras = len(models_ref)
 Ncameras_extrinsics = Ncameras
@@ -223,7 +245,7 @@ def sample_reoptimized_parameters(do_optimize_frames, apply_noise=True):
               verbose                                   = False,
               observed_pixel_uncertainty                = pixel_uncertainty_stdev,
               do_optimize_frames                        = do_optimize_frames,
-              do_optimize_intrinsics_core               = True,
+              do_optimize_intrinsics_core               = False if 'splined' in args else True,
               do_optimize_intrinsics_distortions        = True,
               do_optimize_extrinsics                    = True,
               do_optimize_calobject_warp                = True,

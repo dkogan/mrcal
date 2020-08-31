@@ -128,8 +128,8 @@ TESTS :=						\
   test/test-optimizer-callback.py			\
   test/test-basic-sfm.py				\
   test/test-calibration-basic.py			\
-  test/test-calibration-uncertainty.py___fixed-cam0	\
-  test/test-calibration-uncertainty.py___fixed-frames	\
+  test/test-calibration-uncertainty.py___fixed-cam0___opencv4	\
+  test/test-calibration-uncertainty.py___fixed-frames___opencv4	\
   test/test-linearizations.py				\
   test/test-lensmodel-string-manipulation		\
   test/test-CHOLMOD-factorization.py			\
