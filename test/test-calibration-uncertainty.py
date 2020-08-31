@@ -589,15 +589,12 @@ def get_cov_plot_args(q, Var, what):
     l0,l1 = l
     v0,v1 = nps.transpose(v)
 
-    major       = np.sqrt(l0)
-    minor       = np.sqrt(l1)
-    isotropic   = np.sqrt( np.trace(Var) / 2. )
+    major = np.sqrt(l0)
+    minor = np.sqrt(l1)
 
     return \
       ((q[0], q[1], 2*major, 2*minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
-        dict(_with='ellipses', tuplesize=5, legend=f'{what} 1-sigma, full covariance')),
-       (q[0], q[1], 2.*isotropic, 2.*isotropic,
-        dict(_with='ellipses dt 2', tuplesize=4, legend=f'{what} 1-sigma; isotropic')))
+        dict(_with='ellipses', tuplesize=5, legend=f'{what} 1-sigma, full covariance')),)
 
 def get_point_cov_plot_args(q, what):
     q_mean  = np.mean(q,axis=-2)
