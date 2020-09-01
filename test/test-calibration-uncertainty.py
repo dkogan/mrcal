@@ -39,6 +39,9 @@ success/failure as usual. To test stuff, pass more arguments
 
 - opencv4/opencv8/splined: which camera model we're looking at
 
+- no-sampling: don't do the sampling analysis. useful for splined models where
+  this is really slow
+
 - show-distribution: plot the observed/predicted distributions of the projected
   points
 
@@ -68,6 +71,7 @@ args = set(sys.argv[1:])
 
 known_args = set(('fixed-cam0', 'fixed-frames',
                   'opencv4', 'opencv8', 'splined',
+                  'no-sampling',
                   'show-distribution', 'write-models'))
 
 if not all(arg in known_args for arg in args):
@@ -403,6 +407,11 @@ for icam in (0,3):
                             worstcase = True,
                             relative  = True,
                             msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
+
+if 'no-sampling' in args:
+    testutils.finish()
+    sys.exit()
+
 
 intrinsics_sampled         = np.zeros( (Nsamples,Ncameras,Nintrinsics), dtype=float )
 extrinsics_sampled_mounted = np.zeros( (Nsamples,Ncameras,6),           dtype=float )
