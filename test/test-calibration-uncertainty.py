@@ -138,8 +138,11 @@ imagersizes = nps.cat( *[m.imagersize() for m in models_ref] )
 
 Ncameras = len(models_ref)
 
-Nframes  = 50
-Nsamples = 90
+Nframes          = 50
+Nsamples         = 90
+sample_via_diffs = False
+distances        = (5, None)
+
 
 models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
 models_ref[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
@@ -328,6 +331,9 @@ intrinsics_sampled         = np.zeros( (Nsamples,Ncameras,Nintrinsics), dtype=fl
 extrinsics_sampled_mounted = np.zeros( (Nsamples,Ncameras,6),           dtype=float )
 frames_sampled             = np.zeros( (Nsamples,Nframes, 6),           dtype=float )
 
+if sample_via_diffs:
+    implied_Rt10 = np.zeros((Nsamples, Ncameras, len(distances), 4,3), dtype=float)
+
 for isample in range(Nsamples):
     print(f"Sampling {isample+1}/{Nsamples}")
 
@@ -343,6 +349,18 @@ for isample in range(Nsamples):
     else:
         # the remaining row is already 0
         extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
+
+    if sample_via_diffs:
+        for icam in range(Ncameras):
+            for idistance in range(len(distances)):
+                implied_Rt10[isample,icam,idistance,...] = \
+                    mrcal.projection_diff( (models_baseline[icam],
+                                            mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                                                              icam_intrinsics = icam)),
+                                           distance = distances[idistance],
+                                           use_uncertainties = False,
+                                           focus_center      = None,
+                                           focus_radius      = 1000.)[3]
 
 
 def apply_implied_Rt10__mean_frames(p0_cam):
@@ -378,7 +396,9 @@ def apply_implied_Rt10__mean_frames(p0_cam):
                                  p1_ref)
 
 
-def check_uncertainties_at(q0, distance):
+def check_uncertainties_at(q0, idistance):
+
+    distance = distances[idistance]
 
     # distance of "None" means I'll simulate a large distance, but compare
     # against a special-case distance of "infinity"
@@ -395,7 +415,15 @@ def check_uncertainties_at(q0, distance):
                              normalize = True) * distance
 
     # shape (Nsamples, Ncameras, 2)
-    p1_cam = apply_implied_Rt10__mean_frames(p0_cam)
+    if not sample_via_diffs:
+        p1_cam = apply_implied_Rt10__mean_frames(p0_cam)
+    else:
+        p1_cam = np.zeros((Nsamples, Ncameras, 3), dtype=float)
+
+        for isample in range(Nsamples):
+            for icam in range (Ncameras):
+                p1_cam[isample, icam, ...] = \
+                    mrcal.transform_point_Rt( implied_Rt10[isample,icam,idistance,...], p0_cam[icam] )
 
     # shape (Nsamples, Ncameras, 2)
     q_sampled = \
@@ -480,8 +508,9 @@ def check_uncertainties_at(q0, distance):
     return q_sampled,Var_dq
 
 
-q_sampled,Var_dq = check_uncertainties_at(q0, 5.)
-check_uncertainties_at(q0, None)
+q_sampled,Var_dq = check_uncertainties_at(q0, 0)
+for idistance in range(1,len(distances)):
+    check_uncertainties_at(q0, idistance)
 
 if not do_debug:
     testutils.finish()
