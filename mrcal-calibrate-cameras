@@ -516,7 +516,7 @@ def make_cameramodels(optimization_inputs):
                                 optimization_inputs = optimization_inputs,
                 icam_intrinsics     = i_camera ) \
 
-             for i_camera in range(len(optimize_kwargs['intrinsics'])) ]
+             for i_camera in range(len(optimization_inputs['intrinsics'])) ]
 
 
 def solve_initial(args, seedmodels, imagersizes,
@@ -776,7 +776,7 @@ else:
 print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp",
       file=sys.stderr)
 
-optimize_kwargs = \
+optimization_inputs = \
     dict( intrinsics                                = intrinsics_data,
           extrinsics_rt_fromref                     = extrinsics_rt_fromref,
           frames_rt_toref                           = frames_rt_toref,
@@ -801,16 +801,16 @@ optimize_kwargs = \
 # If we're skipping the regularization step, I do EVERYTHING else before the
 # final regularization-free step. Turning that off allows the solution to
 # wander, and I want to help it as much as possible to not do that
-if optimize_kwargs['skip_regularization']:
-    optimize_kwargs['skip_regularization'] = False
+if optimization_inputs['skip_regularization']:
+    optimization_inputs['skip_regularization'] = False
     stats = mrcal.optimize(skip_outlier_rejection = False,
                            verbose                = False,
-                           **optimize_kwargs)
-    optimize_kwargs['skip_regularization'] = True
+                           **optimization_inputs)
+    optimization_inputs['skip_regularization'] = True
 
 stats = mrcal.optimize(skip_outlier_rejection = False,
                        verbose                = args.verbose_solver,
-                       **optimize_kwargs)
+                       **optimization_inputs)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
@@ -833,10 +833,10 @@ if calobject_warp is not None:
 
 print(report)
 
-models = make_cameramodels(optimize_kwargs)
+models = make_cameramodels(optimization_inputs)
 
 # shape (Nframes,Ncameras,Nheight,Nwidth,2)
-projected = mrcal.project_boards(**optimize_kwargs)
+projected = mrcal.project_boards(**optimization_inputs)
 
 # Each has shape (Nobservations,Nheight,Nwidth,2)
 reproj_err_including_outliers, reproj_err_0_for_outliers = \
