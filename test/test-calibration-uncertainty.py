@@ -452,10 +452,11 @@ def check_uncertainties_at(q0, idistance):
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
 
-    testutils.confirm_equal(q_sampled_mean,
-                            nps.matmult(np.ones((Ncameras,1)), q0),
-                            eps = 0.5,
-                            msg = f"Sampled projections cluster around the sample point at distance = {distancestr}")
+    testutils.confirm_equal( nps.mag(q_sampled_mean - q0) / worst_direction_stdev_observed,
+                             0,
+                             eps = 0.2,
+                             worstcase = True,
+                             msg = f"Sampled projections cluster around the sample point at distance = {distancestr}")
 
     # I accept 20% error. This is plenty good-enough. And I can get tighter matches
     # if I grab more samples
