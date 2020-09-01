@@ -363,7 +363,7 @@ for isample in range(Nsamples):
                                            focus_radius      = 1000.)[3]
 
 
-def apply_implied_Rt10__mean_frames(p0_cam):
+def apply_implied_Rt10__mean_frames(p0_cam, frames_query, extrinsics_query_mounted):
 
     # shape (Ncameras, 3). In the ref coord system
     p0_ref = \
@@ -387,12 +387,12 @@ def apply_implied_Rt10__mean_frames(p0_cam):
 
     else:
         # shape (Nsamples, Ncameras, 3)
-        p1_ref = np.mean( mrcal.transform_point_rt( nps.dummy(frames_sampled, -2),
+        p1_ref = np.mean( mrcal.transform_point_rt( nps.dummy(frames_query, -2),
                                                     p0_frames ),
                           axis = -3)
 
     return \
-        mrcal.transform_point_rt(extrinsics_sampled_mounted,
+        mrcal.transform_point_rt(extrinsics_query_mounted,
                                  p1_ref)
 
 
@@ -416,23 +416,49 @@ def check_uncertainties_at(q0, idistance):
 
     # shape (Nsamples, Ncameras, 2)
     if not sample_via_diffs:
-        p1_cam = apply_implied_Rt10__mean_frames(p0_cam)
+        p1_cam = apply_implied_Rt10__mean_frames(p0_cam,
+                                                 frames_sampled,
+                                                 extrinsics_sampled_mounted)
     else:
         p1_cam = np.zeros((Nsamples, Ncameras, 3), dtype=float)
 
         for isample in range(Nsamples):
             for icam in range (Ncameras):
                 p1_cam[isample, icam, ...] = \
-                    mrcal.transform_point_Rt( implied_Rt10[isample,icam,idistance,...], p0_cam[icam] )
+                    mrcal.transform_point_Rt( implied_Rt10[isample,icam,idistance,...],
+                                              p0_cam[icam] )
 
     # shape (Nsamples, Ncameras, 2)
     q_sampled = \
         mrcal.project( p1_cam,
                        lensmodel, intrinsics_sampled )
 
-
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
+
+
+    if not sample_via_diffs:
+        p1_cam_ref = apply_implied_Rt10__mean_frames(p0_cam,
+                                                     frames_ref,
+                                                     extrinsics_ref_mounted)
+    else:
+        p1_cam_ref = np.zeros((Ncameras, 3), dtype=float)
+        for icam in range (Ncameras):
+            implied_Rt10_ref = \
+                mrcal.projection_diff( (models_baseline[icam],
+                                        models_ref[icam]),
+                                       distance = distance,
+                                       use_uncertainties = False,
+                                       focus_center      = None,
+                                       focus_radius      = 1000.)[3]
+
+            p1_cam_ref[icam] = \
+                mrcal.transform_point_Rt( implied_Rt10_ref, p0_cam[icam] )
+
+    # shape (Ncameras, 2)
+    q0_ref = \
+        mrcal.project( p1_cam_ref,
+                       lensmodel, intrinsics_ref )
 
     # shape (Ncameras, 2,2)
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
@@ -506,10 +532,10 @@ def check_uncertainties_at(q0, idistance):
             # symmetric. Thus the eigenvectors are orthogonal, so any angle offset
             # in v0 will be exactly the same in v1
 
-    return q_sampled,Var_dq
+    return q_sampled,q0_ref,Var_dq
 
 
-q_sampled,Var_dq = check_uncertainties_at(q0, 0)
+q_sampled,q0_ref,Var_dq = check_uncertainties_at(q0, 0)
 for idistance in range(1,len(distances)):
     check_uncertainties_at(q0, idistance)
 
@@ -554,8 +580,16 @@ def make_plot(icam, **kwargs):
             *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Propagating intrinsics, extrinsics uncertainties"),
             (q0,
              dict(tuplesize = -2,
-                  _with     = 'points pt 1 ps 2',
-                  legend    = 'Baseline center point')))
+                  _with     = 'points pt 3 ps 3',
+                  legend    = 'Baseline center point')),
+            (q0_ref[icam],
+             dict(tuplesize = -2,
+                  _with     = 'points pt 3 ps 3',
+                  legend    = 'Reference center point')),
+            (q_sampled_mean,
+             dict(tuplesize = -2,
+                  _with     = 'points pt 3 ps 3',
+                  legend    = 'Sampled mean')))
     return p
 
 if 'show-distribution' in args:
