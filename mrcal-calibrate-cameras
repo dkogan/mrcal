@@ -657,6 +657,13 @@ def solve_initial(args, seedmodels, imagersizes,
 
     extrinsics_rt_fromref = mrcal.rt_from_Rt(extrinsics_Rt_fromref)
 
+    # splined models have a core, but those variables are largely redundant with
+    # the spline parameters. So I run another pre-solve to get reasonable values
+    # for the core, and then I lock it down
+    do_optimize_intrinsics_core = not args.skip_intrinsics_solve
+    if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel):
+        do_optimize_intrinsics_core = False
+
     optimization_inputs = \
         dict( intrinsics                                = intrinsics_data,
               extrinsics_rt_fromref                     = extrinsics_rt_fromref,
@@ -669,7 +676,7 @@ def solve_initial(args, seedmodels, imagersizes,
               lensmodel                                 = lensmodel,
               imagersizes                               = imagersizes,
               calobject_warp                            = None,
-              do_optimize_intrinsics_core               = not args.skip_intrinsics_solve,
+              do_optimize_intrinsics_core               = do_optimize_intrinsics_core,
               do_optimize_intrinsics_distortions        = not args.skip_intrinsics_solve,
               do_optimize_extrinsics                    = not args.skip_extrinsics_solve,
               do_optimize_frames                        = True,
