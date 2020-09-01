@@ -657,20 +657,31 @@ def solve_initial(args, seedmodels, imagersizes,
 
     extrinsics_rt_fromref = mrcal.rt_from_Rt(extrinsics_Rt_fromref)
 
-    stats = mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, None,
-                           observations, indices_frame_camintrinsics_camextrinsics,
-                           None, None,
-                           lensmodel,
-                           imagersizes                       = imagersizes,
-                           observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
-                           do_optimize_intrinsics_core       = not args.skip_intrinsics_solve,
-                           do_optimize_intrinsics_distortions= not args.skip_intrinsics_solve,
-                           do_optimize_extrinsics            = not args.skip_extrinsics_solve,
-                           calibration_object_spacing        = args.object_spacing,
-                           skip_outlier_rejection            = args.skip_outlier_rejection,
-                           skip_regularization               = False,
-                           verbose                           = False)
-    return intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, stats
+    optimization_inputs = \
+        dict( intrinsics                                = intrinsics_data,
+              extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+              frames_rt_toref                           = frames_rt_toref,
+              points                                    = None,
+              observations_board                        = observations,
+              indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+              observations_point                        = None,
+              indices_point_camintrinsics_camextrinsics = None,
+              lensmodel                                 = lensmodel,
+              imagersizes                               = imagersizes,
+              calobject_warp                            = None,
+              do_optimize_intrinsics_core               = not args.skip_intrinsics_solve,
+              do_optimize_intrinsics_distortions        = not args.skip_intrinsics_solve,
+              do_optimize_extrinsics                    = not args.skip_extrinsics_solve,
+              do_optimize_frames                        = True,
+              do_optimize_calobject_warp                = False,
+              calibration_object_spacing                = args.object_spacing,
+              skip_outlier_rejection                    = args.skip_outlier_rejection,
+              observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
+              skip_regularization                       = False,
+              verbose                                   = False)
+
+    mrcal.optimize( **optimization_inputs )
+    return optimization_inputs
 
 
 
@@ -758,15 +769,10 @@ imagersizes = np.array([get_imagersize_one(icamera,
                                            seedmodels) for icamera in range(Ncameras)],
                        dtype=np.int32)
 
-intrinsics_data,extrinsics_rt_fromref,frames_rt_toref,stats = \
+optimization_inputs = \
     solve_initial(args, seedmodels,
                   imagersizes,
                   observations, indices_frame_camera)
-
-indices_frame_camintrinsics_camextrinsics = \
-    nps.glue(indices_frame_camera,
-             indices_frame_camera[:,(1,)]-1,
-             axis=-1)
 
 if args.optimize_calobject_warp:
     calobject_warp = np.array((0,0), dtype=float)
@@ -776,41 +782,26 @@ else:
 print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp",
       file=sys.stderr)
 
-optimization_inputs = \
-    dict( intrinsics                                = intrinsics_data,
-          extrinsics_rt_fromref                     = extrinsics_rt_fromref,
-          frames_rt_toref                           = frames_rt_toref,
-          points                                    = None,
-          observations_board                        = observations,
-          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
-          observations_point                        = None,
-          indices_point_camintrinsics_camextrinsics = None,
-          lensmodel                                 = args.lensmodel,
-
-          imagersizes                               = imagersizes,
-          calobject_warp                            = calobject_warp,
-          do_optimize_intrinsics_core               = not args.skip_intrinsics_solve,
-          do_optimize_intrinsics_distortions        = not args.skip_intrinsics_solve,
-          do_optimize_extrinsics                    = not args.skip_extrinsics_solve,
-          do_optimize_frames                        = True,
-          do_optimize_calobject_warp                = args.optimize_calobject_warp,
-          calibration_object_spacing                = args.object_spacing,
-          skip_regularization                       = args.skip_regularization,
-          observed_pixel_uncertainty                = args.observed_pixel_uncertainty)
+optimization_inputs['calobject_warp']             = calobject_warp
+optimization_inputs['do_optimize_calobject_warp'] = args.optimize_calobject_warp
+optimization_inputs['skip_regularization']        = args.skip_regularization
+optimization_inputs['observed_pixel_uncertainty'] = args.observed_pixel_uncertainty
+optimization_inputs['skip_outlier_rejection']     = args.skip_outlier_rejection
+optimization_inputs['verbose']                    = args.verbose_solver
 
 # If we're skipping the regularization step, I do EVERYTHING else before the
 # final regularization-free step. Turning that off allows the solution to
 # wander, and I want to help it as much as possible to not do that
 if optimization_inputs['skip_regularization']:
-    optimization_inputs['skip_regularization'] = False
-    stats = mrcal.optimize(skip_outlier_rejection = False,
-                           verbose                = False,
-                           **optimization_inputs)
-    optimization_inputs['skip_regularization'] = True
+    optimization_inputs['skip_regularization']    = False
+    optimization_inputs['verbose']                = False
 
-stats = mrcal.optimize(skip_outlier_rejection = False,
-                       verbose                = args.verbose_solver,
-                       **optimization_inputs)
+    stats = mrcal.optimize(**optimization_inputs)
+
+    optimization_inputs['skip_regularization']    = True
+    optimization_inputs['verbose']                = args.verbose_solver
+
+stats = mrcal.optimize(**optimization_inputs)
 sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
 report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
@@ -1504,7 +1495,7 @@ plots_projection_uncertainty = [None] * Ncameras
 def show_projection_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     global plots_projection_uncertainty
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
+    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
     for i_camera in i_camera_all:
         plots_projection_uncertainty[i_camera] = \
             mrcal.show_projection_uncertainty(models[i_camera],
@@ -1516,7 +1507,7 @@ plots_projection_uncertainty_xydist = [None] * Ncameras
 def show_projection_uncertainty_xydist(i_camera = None, gridn_width = 15, gridn_height = 10, **kwargs):
 
     global plots_projection_uncertainty_xydist
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
+    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
     for i_camera in i_camera_all:
         plots_projection_uncertainty_xydist[i_camera] = \
             mrcal.show_projection_uncertainty_xydist(models[i_camera],
@@ -1527,7 +1518,7 @@ def show_projection_uncertainty_xydist(i_camera = None, gridn_width = 15, gridn_
 plots_valid_intrinsics_region = [None] * Ncameras
 def show_valid_intrinsics_region(i_camera = None, **kwargs):
     global plots_valid_intrinsics_region
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
+    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
     for i_camera in i_camera_all:
         plots_valid_intrinsics_region[i_camera] = \
             mrcal.show_valid_intrinsics_region(models[i_camera],
@@ -1538,7 +1529,7 @@ plots_projections = [None] * Ncameras
 def show_projection_behavior(mode, i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     global plots_projections
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
+    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
     for i_camera in i_camera_all:
         plots_projections[i_camera] = \
             mrcal.show_projection_behavior(models[i_camera],
@@ -1552,7 +1543,7 @@ plots_splined_model_surface = [None] * Ncameras
 def show_splined_model_surface(i_camera = None, xy='x', **kwargs):
 
     global plots_splined_model_surface
-    i_camera_all = (i_camera,) if i_camera is not None else range(len(intrinsics_data))
+    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
     for i_camera in i_camera_all:
         plots_splined_model_surface[i_camera] = \
             mrcal.show_splined_model_surface(models[i_camera], xy,
