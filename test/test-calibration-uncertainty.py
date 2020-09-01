@@ -269,6 +269,83 @@ if 'write-models' in args:
 q0 = imagersizes[0]/3.
 
 
+
+
+
+def apply_implied_Rt10__mean_frames(p0_cam, frames_query, extrinsics_query_mounted):
+
+    # shape (Ncameras, 3). In the ref coord system
+    p0_ref = \
+        mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_baseline_mounted),
+                                  p0_cam )
+
+    if fixedframes:
+        p0_frames = p0_ref
+    else:
+        # shape (Nframes, Ncameras, 3)
+        # The point in the coord system of all the frames
+        p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_baseline),-2),
+                                              p0_ref)
+
+
+    ###############################################################################
+    # Now I have the projected point in the coordinate system of the frames. I
+    # project that back to each sampled camera, and gather the projection statistics
+    if fixedframes:
+        p1_ref = p0_frames
+
+    else:
+        # shape (Nsamples, Ncameras, 3)
+        p1_ref = np.mean( mrcal.transform_point_rt( nps.dummy(frames_query, -2),
+                                                    p0_frames ),
+                          axis = -3)
+
+    return \
+        mrcal.transform_point_rt(extrinsics_query_mounted,
+                                 p1_ref)
+
+
+
+q0_ref = dict()
+for distance in distances:
+    # shape (Ncameras,3)
+    if not sample_via_diffs:
+        p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
+                                 normalize = True) * (1e5 if distance is None else distance)
+        p1_cam_ref = apply_implied_Rt10__mean_frames(p0_cam,
+                                                     frames_ref,
+                                                     extrinsics_ref_mounted)
+    else:
+        p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
+                                 normalize = True) * (1.0 if distance is None else distance)
+        p1_cam_ref = np.zeros((Ncameras, 3), dtype=float)
+        for icam in range (Ncameras):
+            implied_Rt10_ref = \
+                mrcal.projection_diff( (models_baseline[icam],
+                                        models_ref     [icam]),
+                                       distance = distance,
+                                       use_uncertainties = False,
+                                       focus_center      = None,
+                                       focus_radius      = 1000.)[3]
+            p1_cam_ref[icam] = \
+                mrcal.transform_point_Rt( implied_Rt10_ref, p0_cam[icam] )
+    # shape (Ncameras, 2)
+    q0_ref[distance] = \
+        mrcal.project( p1_cam_ref,
+                       lensmodel, intrinsics_ref )
+
+    # I check the bias for cameras 0,1,2. Camera 3 has q0 outside of the
+    # observed region, so regularization affects projections there dramatically
+    # (it's the only contributor to the projection behavior in that area)
+    for icam in range(Ncameras):
+        if icam == 3:
+            continue
+        testutils.confirm_equal(q0_ref[distance][icam],
+                                q0,
+                                eps = 0.1, # 0.1 pixels of regularization bias is all I tolerate
+                                worstcase = True,
+                                msg = f"Regularization bias for camera {icam} at distance={'infinity' if distance is None else distance}")
+
 for icam in (0,3):
     # I move the extrinsics of a model, write it to disk, and make sure the same
     # uncertainties come back
@@ -363,39 +440,6 @@ for isample in range(Nsamples):
                                            focus_radius      = 1000.)[3]
 
 
-def apply_implied_Rt10__mean_frames(p0_cam, frames_query, extrinsics_query_mounted):
-
-    # shape (Ncameras, 3). In the ref coord system
-    p0_ref = \
-        mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_baseline_mounted),
-                                  p0_cam )
-
-    if fixedframes:
-        p0_frames = p0_ref
-    else:
-        # shape (Nframes, Ncameras, 3)
-        # The point in the coord system of all the frames
-        p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_baseline),-2),
-                                              p0_ref)
-
-
-    ###############################################################################
-    # Now I have the projected point in the coordinate system of the frames. I
-    # project that back to each sampled camera, and gather the projection statistics
-    if fixedframes:
-        p1_ref = p0_frames
-
-    else:
-        # shape (Nsamples, Ncameras, 3)
-        p1_ref = np.mean( mrcal.transform_point_rt( nps.dummy(frames_query, -2),
-                                                    p0_frames ),
-                          axis = -3)
-
-    return \
-        mrcal.transform_point_rt(extrinsics_query_mounted,
-                                 p1_ref)
-
-
 def check_uncertainties_at(q0, idistance):
 
     distance = distances[idistance]
@@ -435,30 +479,6 @@ def check_uncertainties_at(q0, idistance):
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
-
-
-    if not sample_via_diffs:
-        p1_cam_ref = apply_implied_Rt10__mean_frames(p0_cam,
-                                                     frames_ref,
-                                                     extrinsics_ref_mounted)
-    else:
-        p1_cam_ref = np.zeros((Ncameras, 3), dtype=float)
-        for icam in range (Ncameras):
-            implied_Rt10_ref = \
-                mrcal.projection_diff( (models_baseline[icam],
-                                        models_ref[icam]),
-                                       distance = distance,
-                                       use_uncertainties = False,
-                                       focus_center      = None,
-                                       focus_radius      = 1000.)[3]
-
-            p1_cam_ref[icam] = \
-                mrcal.transform_point_Rt( implied_Rt10_ref, p0_cam[icam] )
-
-    # shape (Ncameras, 2)
-    q0_ref = \
-        mrcal.project( p1_cam_ref,
-                       lensmodel, intrinsics_ref )
 
     # shape (Ncameras, 2,2)
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
@@ -532,10 +552,10 @@ def check_uncertainties_at(q0, idistance):
             # symmetric. Thus the eigenvectors are orthogonal, so any angle offset
             # in v0 will be exactly the same in v1
 
-    return q_sampled,q0_ref,Var_dq
+    return q_sampled,Var_dq
 
 
-q_sampled,q0_ref,Var_dq = check_uncertainties_at(q0, 0)
+q_sampled,Var_dq = check_uncertainties_at(q0, 0)
 for idistance in range(1,len(distances)):
     check_uncertainties_at(q0, idistance)
 
@@ -582,7 +602,7 @@ def make_plot(icam, **kwargs):
              dict(tuplesize = -2,
                   _with     = 'points pt 3 ps 3',
                   legend    = 'Baseline center point')),
-            (q0_ref[icam],
+            (q0_ref[distances[0]][icam],
              dict(tuplesize = -2,
                   _with     = 'points pt 3 ps 3',
                   legend    = 'Reference center point')),
