@@ -513,7 +513,7 @@ def make_cameramodels(optimization_inputs):
 
     '''
     return [ mrcal.cameramodel( \
-                                optimization_inputs = optimization_inputs,
+                optimization_inputs = optimization_inputs,
                 icam_intrinsics     = i_camera ) \
 
              for i_camera in range(len(optimization_inputs['intrinsics'])) ]
