@@ -263,16 +263,13 @@ if args.same_dance:
        not np.all(obs[0][...,:2] == obs[1][...,:2]):
         raise Exception("--same-dance means that the two models must have an identical observations_board[...,:2], but they do not")
 
-    idx_inliers = [ nps.clump(obs[i][ i_f_ci_ce[i][:,1] == models[i].icam_intrinsics(),
-                                      :,
-                                      :,
-                                      2] > 0, n=-2) \
+    idx_inliers = [ obs[i][ ...,2] > 0 \
                     for i in range(len(models)) ]
 
     calobjects = \
         [ mrcal.hypothesis_corner_positions(model.icam_intrinsics(),
                                             **model.optimization_inputs(),
-                                            idx_inliers = idx_inliers[0]*idx_inliers[1] )[0] \
+                                            idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
           for model in models ]
 
     implied_Rt10 = mrcal.align3d_procrustes(calobjects[1], calobjects[0])

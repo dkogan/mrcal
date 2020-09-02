@@ -231,19 +231,17 @@ if not args.sampled:
     # I pick the inlier set using the post-solve inliers/outliers. The solve
     # could add some outliers, but it won't take any away, so the union of the
     # before/after inlier sets is just the post-solve set
-    observations_board = optimization_inputs['observations_board']
-    i_f_ci_ce          = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-    idx_observations = i_f_ci_ce[:,1] == m.icam_intrinsics()
-    idx_inliers1 = nps.clump(observations_board[idx_observations,:,:,2] > 0, n=-2)
+    idx_inliers1 = optimization_inputs['observations_board'][...,2] > 0
 
-    calobject0,_ = \
+    calobject0 = \
         mrcal.hypothesis_corner_positions(m.icam_intrinsics(),
                                           **optimization_inputs_before,
-                                          idx_inliers = idx_inliers1 )
-    calobject1,_ = \
+                                          idx_inliers = idx_inliers1 )[1]
+    calobject1 = \
         mrcal.hypothesis_corner_positions(m.icam_intrinsics(),
                                           **optimization_inputs,
-                                          idx_inliers = idx_inliers1 )
+                                          idx_inliers = idx_inliers1 )[1]
+
     implied_Rt10 = mrcal.align3d_procrustes(calobject1, calobject0)
 
     # And for the purposes of visualization, it'd be nice to have a reference
