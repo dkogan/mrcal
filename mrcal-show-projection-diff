@@ -255,13 +255,12 @@ if args.same_dance:
                  for model in models]
     if i_f_ci_ce[0].shape != i_f_ci_ce[1].shape or \
        not np.all(i_f_ci_ce[0] == i_f_ci_ce[1]):
-        raise Exception("--same-dance means that the two models must have an identical indices_frame_camintrinsics_camextrinsics, but they do not")
+        raise Exception(f"--same-dance means that the two models must have an identical indices_frame_camintrinsics_camextrinsics, but they do not. Shapes {i_f_ci_ce[0].shape},{i_f_ci_ce[1].shape}")
 
     obs = [model.optimization_inputs()['observations_board'] \
                  for model in models]
-    if obs[0].shape != obs[1].shape or \
-       not np.all(obs[0][...,:2] == obs[1][...,:2]):
-        raise Exception("--same-dance means that the two models must have an identical observations_board[...,:2], but they do not")
+    if obs[0].shape != obs[1].shape:
+        raise Exception(f"--same-dance means that the two models must have an identically-laid-out observations_board, but they do not. Shapes {obs[0].shape},{obs[1].shape}")
 
     idx_inliers = [ obs[i][ ...,2] > 0 \
                     for i in range(len(models)) ]
