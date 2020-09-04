@@ -401,7 +401,7 @@ scipy.sparse.csr_matrix respectively.
 
                  int32_t Nstate = dims_slice__A[1];
 
-                 const double* A   = (const double* )data_slice__A;
+                 const double*   A = (const double* )data_slice__A;
                  const int32_t* Jp = (const int32_t*)data_slice__Jp;
                  const int32_t* Ji = (const int32_t*)data_slice__Ji;
                  const double*  Jx = (const double* )data_slice__Jx;
