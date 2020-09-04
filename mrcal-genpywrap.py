@@ -434,4 +434,73 @@ scipy.sparse.csr_matrix respectively.
 '''},
 )
 
+m.function( "apply_homography",
+            r'''Apply a homogeneous-coordinate homography to a set of 2d points
+
+SYNOPSIS
+
+    print( H.shape )
+    ===> (3,3)
+
+    print( q0.shape )
+    ===> (100, 2)
+
+    q1 = mrcal.apply_homography(H10, q0)
+
+    print( q1.shape )
+    ===> (100, 2)
+
+A homography maps from pixel coordinates observed in one camera to pixel
+coordinates in another. For points represented in homogeneous coordinates ((k*x,
+k*y, k) to represent a pixel (x,y) for any k) a homography is a linear map H.
+Since homogeneous coordinates are unique only up-to-scale, the homography matrix
+H is also unique up to scale.
+
+If two pinhole cameras are observing a planar surface, there exists a homography
+that relates observations of the plane in the two cameras.
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- H: an array of shape (..., 3,3). This is the homography matrix. This is unique
+  up-to-scale, so a homography H is functionally equivalent to k*H for any
+  non-zero scalar k
+
+- q: an array of shape (..., 2). The pixel coordinates we are mapping
+
+RETURNED VALUE
+
+An array of shape (..., 2) containing the pixels q after the homography was
+applied
+
+    ''',
+
+            args_input       = ('H', 'v'),
+            prototype_input  = ((3,3), (2,)),
+            prototype_output = (2,),
+
+
+            Ccode_slice_eval = \
+                { np.float64:
+                 r'''
+
+#define H(a,b) *(double*)(&((char*)data_slice__H     )[ strides_slice__H     [0]*a + strides_slice__H[1]*b ])
+#define v(a)   *(double*)(&((char*)data_slice__v     )[ strides_slice__v     [0]*a ])
+#define out(a) *(double*)(&((char*)data_slice__output)[ strides_slice__output[0]*a ])
+
+                 double x = H(0,0)*v(0) + H(0,1)*v(1) + H(0,2);
+                 double y = H(1,0)*v(0) + H(1,1)*v(1) + H(1,2);
+                 double z = H(2,0)*v(0) + H(2,1)*v(1) + H(2,2);
+
+                 out(0) = x/z;
+                 out(1) = y/z;
+                 return true;
+
+#undef H
+#undef v
+#undef out
+'''},
+)
+
 m.write()
