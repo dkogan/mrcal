@@ -601,10 +601,12 @@ This array can be passed to mrcal.transform_image()
         else:
             R_to_from = None
 
-        return nps.cat( *cv2.initUndistortRectifyMap(cameraMatrix_from, distortion_coeffs,
-                                                     R_to_from,
-                                                     cameraMatrix_to, tuple(output_shape),
-                                                     cv2.CV_32FC1) )
+        return nps.glue( *[ nps.dummy(arr,-1) for arr in \
+                            cv2.initUndistortRectifyMap(cameraMatrix_from, distortion_coeffs,
+                                                        R_to_from,
+                                                        cameraMatrix_to, tuple(output_shape),
+                                                        cv2.CV_32FC1)],
+                         axis = -1)
 
     W_from,H_from = model_from.imagersize()
     W_to,  H_to   = model_to.  imagersize()
@@ -640,10 +642,11 @@ This array can be passed to mrcal.transform_image()
         v = nps.matmult( v, nps.transpose(A_from_to) )
 
     else:
-        R_to_from = Rt_to_from[:3,:]
-        if np.trace(R_to_from) < 3. - 1e-12:
-            # rotation isn't identity. apply
-            v = nps.matmult(v, R_to_from)
+        if Rt_to_from is not None:
+            R_to_from = Rt_to_from[:3,:]
+            if np.trace(R_to_from) < 3. - 1e-12:
+                # rotation isn't identity. apply
+                v = nps.matmult(v, R_to_from)
 
     mapxy = mrcal.project( v, lensmodel_from, intrinsics_data_from )
 
