@@ -23,8 +23,9 @@ BuildRequires: libminimath-devel
 BuildRequires: mrbuild >= 1.4
 BuildRequires: mrbuild-tools >= 1.4
 
-# I need to run the python stuff in order to build the manpages
-BuildRequires: numpysane >= 0.24
+# I need to run the python stuff in order to build the manpages and to generate
+# the npsp wrappers
+BuildRequires: numpysane >= 0.25
 BuildRequires: gnuplotlib >= 0.28-3
 BuildRequires: opencv-python36
 BuildRequires: python36-scipy

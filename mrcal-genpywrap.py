@@ -434,22 +434,17 @@ scipy.sparse.csr_matrix respectively.
 '''},
 )
 
+
 apply_homography_body = \
 r'''
-#define H(a,b) *({ctype}*)(&((char*)data_slice__H     )[ strides_slice__H     [0]*a + strides_slice__H[1]*b ])
-#define v(a)   *({ctype}*)(&((char*)data_slice__v     )[ strides_slice__v     [0]*a ])
-#define out(a) *({ctype}*)(&((char*)data_slice__output)[ strides_slice__output[0]*a ])
-
-                 {ctype} x = H(0,0)*v(0) + H(0,1)*v(1) + H(0,2);
-                 {ctype} y = H(1,0)*v(0) + H(1,1)*v(1) + H(1,2);
-                 {ctype} z = H(2,0)*v(0) + H(2,1)*v(1) + H(2,2);
-
-                 out(0) = x/z;
-                 out(1) = y/z;
-                 return true;
-#undef H
-#undef v
-#undef out
+    ctype__v xyz[3] = {
+        item__H(0,0)*item__v(0) + item__H(0,1)*item__v(1) + item__H(0,2),
+        item__H(1,0)*item__v(0) + item__H(1,1)*item__v(1) + item__H(1,2),
+        item__H(2,0)*item__v(0) + item__H(2,1)*item__v(1) + item__H(2,2)
+     };
+     item__output(0) = xyz[0]/xyz[2];
+     item__output(1) = xyz[1]/xyz[2];
+     return true;
 '''
 m.function( "apply_homography",
             r'''Apply a homogeneous-coordinate homography to a set of 2d points
@@ -497,10 +492,9 @@ applied
             prototype_input  = ((3,3), (2,)),
             prototype_output = (2,),
 
-
             Ccode_slice_eval = \
-                { np.float64: apply_homography_body.format(ctype = "double"),
-                  np.float32: apply_homography_body.format(ctype = "float") },
+                { np.float64: apply_homography_body,
+                  np.float32: apply_homography_body },
 )
 
 m.write()
