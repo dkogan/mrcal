@@ -16,6 +16,7 @@ BuildRequires: python36-numpy
 BuildRequires: python2-numpy
 # For the non-global parameters
 BuildRequires: libdogleg-devel >= 0.15.3
+BuildRequires: suitesparse-devel >= 4.1.0
 BuildRequires: lapack-devel
 BuildRequires: python36-devel
 BuildRequires: python36-libs
