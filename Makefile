@@ -3,7 +3,7 @@ PYTHON_VERSION_FOR_EXTENSIONS := 3
 include /usr/include/mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
-ABI_VERSION  := 0
+ABI_VERSION  := 1
 TAIL_VERSION := 0
 
 LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc
