@@ -1222,7 +1222,7 @@ def _projection_uncertainty_make_output( factorization, Jpacked, dq_dpief_packed
     '''
 
     # shape (2,Nstate)
-    A = factorization.solve_JtJ_x_b( dq_dpief_packed )
+    A = factorization.solve_xt_JtJ_bt( dq_dpief_packed )
     if Nmeasurements_observations is not None:
         # I have regularization. Use the more complicated expression
 

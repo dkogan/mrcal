@@ -483,7 +483,7 @@ static PyObject* CHOLMOD_factorization_str(CHOLMOD_factorization* self)
 }
 
 static PyObject*
-CHOLMOD_factorization_solve_JtJ_x_b(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
+CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
@@ -606,13 +606,13 @@ CHOLMOD_factorization_solve_JtJ_x_b(CHOLMOD_factorization* self, PyObject* args,
 static const char CHOLMOD_factorization_docstring[] =
 #include "CHOLMOD_factorization.docstring.h"
     ;
-static const char CHOLMOD_factorization_solve_JtJ_x_b_docstring[] =
-#include "CHOLMOD_factorization_solve_JtJ_x_b.docstring.h"
+static const char CHOLMOD_factorization_solve_xt_JtJ_bt_docstring[] =
+#include "CHOLMOD_factorization_solve_xt_JtJ_bt.docstring.h"
     ;
 
 static PyMethodDef CHOLMOD_factorization_methods[] =
     {
-        PYMETHODDEF_ENTRY(CHOLMOD_factorization_, solve_JtJ_x_b, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(CHOLMOD_factorization_, solve_xt_JtJ_bt, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 

@@ -23,7 +23,7 @@ SYNOPSIS
           [ 3. -8.]]
 
     F  = mrcal.CHOLMOD_factorization(Jsparse)
-    xt = F.solve_JtJ_x_b(bt)
+    xt = F.solve_xt_JtJ_bt(bt)
     print(nps.transpose(xt))
     ===> [[ 0.02199662  0.33953751] 
           [ 0.31725888  0.46982516] 
@@ -38,17 +38,15 @@ The core of the mrcal optimizer is a sparse linear least squares solver using
 CHOLMOD to solve a large, sparse linear system. CHOLMOD is a C library, but it
 is sometimes useful to invoke it from Python.
 
-The CHOLMOD_factorization class factors a matrix JtJ, and the
-CHOLMOD_factorization.JtJ_x_b() method uses that factorization to efficiently
-solve the linear equation JtJ x = b.
+The CHOLMOD_factorization class factors a matrix JtJ, and this method uses that
+factorization to efficiently solve the linear equation JtJ x = b. The usual
+linear algebra conventions refer to column vectors, but numpy generally deals
+with row vectors, so I talk about solving the equivalent transposed problem: xt
+JtJ = bt. The difference is purely notational.
 
-numpy and all of mrcal use a row-major convention for matrix storage, while
-CHOLMOD uses a column-major convention. Thus the inputs and outputs of this
-function (b and x) are specified as row-major transposes: we pass in bt and we
-get back xt.
-
-As many vectors b as we'd like may be given at one time. The dimensions of the
-returned array x will match the dimensions of the given array b.
+As many vectors b as we'd like may be given at one time (in rows of bt). The
+dimensions of the returned array xt will match the dimensions of the given array
+bt.
 
 Broadcasting is supported: any leading dimensions will be processed correctly,
 as long as bt has shape (..., Nstate)
@@ -70,4 +68,3 @@ RETURNED VALUE
 
 The transpose of the solution array x, in a numpy array of the same shape as the
 input bt
-

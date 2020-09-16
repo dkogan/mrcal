@@ -38,7 +38,7 @@ testutils.confirm_equal(Jdense,
 bt  = np.array(((1., 5., 3.), (2., -2., -8)))
 
 F  = mrcal.CHOLMOD_factorization(Jsparse)
-xt = F.solve_JtJ_x_b(bt)
+xt = F.solve_xt_JtJ_bt(bt)
 
 JtJ    = nps.matmult(nps.transpose(Jdense), Jdense)
 xt_ref = nps.transpose(np.linalg.solve(JtJ, nps.transpose(bt)))
@@ -47,6 +47,6 @@ testutils.confirm_equal(xt, xt_ref,
                         relative  = True,
                         worstcase = True,
                         eps       = 1e-6,
-                        msg       = "solve_JtJ_x_b produces the correct result")
+                        msg       = "solve_xt_JtJ_bt produces the correct result")
 
 testutils.finish()
