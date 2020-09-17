@@ -1217,9 +1217,7 @@ static bool optimize_validate_args( // out
             return false;
         }
     }
-    int i_point_last = -1;
-    i_cam_intrinsics_last = -1;
-    i_cam_extrinsics_last = -1;
+
     for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
     {
         int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
@@ -1245,17 +1243,6 @@ static bool optimize_validate_args( // out
                          Ncameras_extrinsics-1, i_cam_extrinsics, i_observation);
             return false;
         }
-        // And then I check monotonicity
-        if( i_point < i_point_last )
-        {
-            BARF("i_point MUST be monotonically increasing in indices_point_camintrinsics_camextrinsics. Instead row %d of indices_point_camintrinsics_camextrinsics has i_point=%d after previously seeing i_point=%d",
-                         i_observation, i_point, i_point_last);
-            return false;
-        }
-
-        i_point_last          = i_point;
-        i_cam_intrinsics_last = i_cam_intrinsics;
-        i_cam_extrinsics_last = i_cam_extrinsics;
     }
 
     if( is_optimize && !skip_outlier_rejection && observed_pixel_uncertainty <= 0.0 )

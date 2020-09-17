@@ -168,6 +168,9 @@ REQUIRED ARGUMENTS
   indices_frame_camintrinsics_camextrinsics, but for observations of discrete
   points.
 
+  The indices can appear in any order. No monotonicity is required. This array
+  contains 32-bit integers.
+
 - lensmodel: a string such as
 
   LENSMODEL_PINHOLE
