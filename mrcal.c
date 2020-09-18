@@ -3505,7 +3505,7 @@ void optimizer_callback(// input state
         mrcal_point3_t dq_drframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
         mrcal_point3_t dq_dtframe        [ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
         mrcal_point2_t dq_dcalobject_warp[ctx->calibration_object_width_n*ctx->calibration_object_height_n][2];
-        mrcal_point2_t pt_hypothesis     [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
+        mrcal_point2_t q_hypothesis      [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
         // I get the intrinsics gradients in separate arrays, possibly sparsely.
         // All the data lives in dq_dintrinsics_pool_double[], with the other data
         // indicating the meaning of the values in the pool.
@@ -3523,7 +3523,7 @@ void optimizer_callback(// input state
 
         int splined_intrinsics_grad_irun = 0;
 
-        project(pt_hypothesis,
+        project(q_hypothesis,
 
                 ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
                   dq_dintrinsics_pool_double : NULL,
@@ -3556,8 +3556,8 @@ void optimizer_callback(// input state
             i_pt < ctx->calibration_object_width_n*ctx->calibration_object_height_n;
             i_pt++, i_feature++)
         {
-            const mrcal_point3_t* pt_observed = &ctx->observations_board_pool[i_feature];
-            double weight = pt_observed->z;
+            const mrcal_point3_t* qx_qy_w__observed = &ctx->observations_board_pool[i_feature];
+            double weight = qx_qy_w__observed->z;
 
             if(weight >= 0.0)
             {
@@ -3565,7 +3565,7 @@ void optimizer_callback(// input state
                 // gradient and store them
                 for( int i_xy=0; i_xy<2; i_xy++ )
                 {
-                    const double err = (pt_hypothesis[i_pt].xy[i_xy] - pt_observed->xyz[i_xy]) * weight;
+                    const double err = (q_hypothesis[i_pt].xy[i_xy] - qx_qy_w__observed->xyz[i_xy]) * weight;
 
                     if( ctx->reportFitMsg )
                     {
@@ -3774,8 +3774,8 @@ void optimizer_callback(// input state
             ctx->problem_details.do_optimize_frames &&
             i_point < ctx->Npoints - ctx->Npoints_fixed;
 
-        const mrcal_point3_t* pt_observed = &observation->px;
-        double weight = pt_observed->z;
+        const mrcal_point3_t* qx_qy_w__observed = &observation->px;
+        double weight = qx_qy_w__observed->z;
 
         if(weight < 0.0)
         {
@@ -3857,13 +3857,14 @@ void optimizer_callback(// input state
         const int i_var_point      = mrcal_state_index_points     (i_point, ctx->Nframes,
                                                                   ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                                                   ctx->problem_details, ctx->lensmodel);
-        mrcal_point3_t point;
+        mrcal_point3_t point_ref;
         if(use_position_from_state)
-            unpack_solver_state_point_one(&point, &packed_state[i_var_point]);
+            unpack_solver_state_point_one(&point_ref, &packed_state[i_var_point]);
         else
-            point = ctx->points[i_point];
+            point_ref = ctx->points[i_point];
 
 
+#warning "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
         double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics)];
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy                             = NULL;
@@ -3878,8 +3879,8 @@ void optimizer_callback(// input state
         // warning. I silence it here
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
-        mrcal_point2_t pt_hypothesis;
-        project(&pt_hypothesis,
+        mrcal_point2_t q_hypothesis;
+        project(&q_hypothesis,
 
                 ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
                 dq_dintrinsics_pool_double : NULL,
@@ -3902,7 +3903,7 @@ void optimizer_callback(// input state
                 // I only have the point position, so the 'rt' memory
                 // points 3 back. The fake "r" here will not be
                 // referenced
-                (mrcal_pose_t*)(&point.xyz[-3]),
+                (mrcal_pose_t*)(&point_ref.xyz[-3]),
                 NULL,
 
                 i_cam_extrinsics < 0,
@@ -3914,7 +3915,7 @@ void optimizer_callback(// input state
         // gradient and store them
         for( int i_xy=0; i_xy<2; i_xy++ )
         {
-            const double err = (pt_hypothesis.xy[i_xy] - pt_observed->xyz[i_xy])*weight;
+            const double err = (q_hypothesis.xy[i_xy] - qx_qy_w__observed->xyz[i_xy])*weight;
 
             if(Jt) Jrowptr[iMeasurement] = iJacobian;
             x[iMeasurement] = err;
@@ -4038,12 +4039,12 @@ void optimizer_callback(// input state
         if(i_cam_extrinsics < 0)
         {
             double distsq =
-                point.x*point.x +
-                point.y*point.y +
-                point.z*point.z;
+                point_ref.x*point_ref.x +
+                point_ref.y*point_ref.y +
+                point_ref.z*point_ref.z;
             double penalty, dpenalty_ddistsq;
             if(model_supports_projection_behind_camera(ctx->lensmodel) ||
-               point.z > 0.0)
+               point_ref.z > 0.0)
                 get_penalty(&penalty, &dpenalty_ddistsq, distsq);
             else
             {
@@ -4059,9 +4060,9 @@ void optimizer_callback(// input state
             {
                 double scale = 2.0 * dpenalty_ddistsq * SCALE_POSITION_POINT;
                 STORE_JACOBIAN3( i_var_point,
-                                 scale*point.x,
-                                 scale*point.y,
-                                 scale*point.z );
+                                 scale*point_ref.x,
+                                 scale*point_ref.y,
+                                 scale*point_ref.z );
             }
 
             iMeasurement++;
@@ -4078,7 +4079,7 @@ void optimizer_callback(// input state
                            camera_rt[i_cam_extrinsics].r.xyz);
 
             mrcal_point3_t pcam;
-            mul_vec3_gen33t_vout(point.xyz, Rc, pcam.xyz);
+            mul_vec3_gen33t_vout(point_ref.xyz, Rc, pcam.xyz);
             add_vec(3, pcam.xyz, camera_rt[i_cam_extrinsics].t.xyz);
 
             double distsq =
@@ -4107,9 +4108,9 @@ void optimizer_callback(// input state
                 double d_ptcamx_dr[3];
                 double d_ptcamy_dr[3];
                 double d_ptcamz_dr[3];
-                mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*0], d_ptcamx_dr );
-                mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*1], d_ptcamy_dr );
-                mul_vec3_gen33_vout( point.xyz, &d_Rc_rc[9*2], d_ptcamz_dr );
+                mul_vec3_gen33_vout( point_ref.xyz, &d_Rc_rc[9*0], d_ptcamx_dr );
+                mul_vec3_gen33_vout( point_ref.xyz, &d_Rc_rc[9*1], d_ptcamy_dr );
+                mul_vec3_gen33_vout( point_ref.xyz, &d_Rc_rc[9*2], d_ptcamz_dr );
 
                 STORE_JACOBIAN3( i_var_camera_rt + 0,
                                  SCALE_ROTATION_CAMERA*
