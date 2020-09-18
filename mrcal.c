@@ -4013,13 +4013,11 @@ void optimizer_callback(// input state
                          // SIGNED distance. <0 means "behind the camera"
                          const double distsq)
         {
-            const double scale = 1e0;
-
             const double maxsq = ctx->problem_constants->point_max_range*ctx->problem_constants->point_max_range;
             if(distsq > maxsq)
             {
-                *penalty = scale * (distsq/maxsq - 1.0);
-                *dpenalty_ddistsq = scale*(1. / maxsq);
+                *penalty = weight * (distsq/maxsq - 1.0);
+                *dpenalty_ddistsq = weight*(1. / maxsq);
                 return;
             }
 
@@ -4027,8 +4025,8 @@ void optimizer_callback(// input state
             if(distsq < minsq)
             {
                 // too close OR behind the camera
-                *penalty = scale*(1.0 - distsq/minsq);
-                *dpenalty_ddistsq = scale*(-1. / minsq);
+                *penalty = weight*(1.0 - distsq/minsq);
+                *dpenalty_ddistsq = weight*(-1. / minsq);
                 return;
             }
 
