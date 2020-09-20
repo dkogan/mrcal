@@ -435,6 +435,10 @@ the gradients (u=R(x),du/dR,du/dx):
 
     """
 
+    # Should do this nicer in the C code. But for the time being, this will do
+    R = np.ascontiguousarray(R)
+    x = np.ascontiguousarray(x)
+
     if not get_gradients:
         return _poseutils._rotate_point_R(R,x)
     return _poseutils._rotate_point_R_withgrad(R,x)
