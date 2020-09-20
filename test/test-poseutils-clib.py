@@ -12,7 +12,7 @@ import mrcal
 import cv2
 from testutils import *
 
-import mrcal._poseutils as poseutils
+import mrcal._poseutils as _poseutils
 
 def grad(f, x, step=1e-6):
     r'''Computes df/dx at x
@@ -166,20 +166,20 @@ rt1_ref= nps.glue(r1_ref, t1_ref, axis=-1)
 
 
 
-confirm_equal( poseutils.identity_R(),
+confirm_equal( mrcal.identity_R(),
                np.eye(3),
                msg='identity_R')
-confirm_equal( poseutils.identity_Rt(),
+confirm_equal( mrcal.identity_Rt(),
                nps.glue(np.eye(3), np.zeros((3,),), axis=-2),
                msg='identity_Rt')
-confirm_equal( poseutils.identity_r(),
+confirm_equal( mrcal.identity_r(),
                np.zeros((3,)),
                msg='identity_r')
-confirm_equal( poseutils.identity_rt(),
+confirm_equal( mrcal.identity_rt(),
                np.zeros((6,)),
                msg='identity_rt')
 
-y, J_R, J_x = poseutils._rotate_point_R_withgrad(R0_ref, x)
+y, J_R, J_x = mrcal.rotate_point_R(R0_ref, x, get_gradients=True)
 J_R_ref = grad(lambda R: nps.matmult(x, nps.transpose(R)),
                R0_ref)
 J_x_ref = R0_ref
@@ -193,7 +193,7 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_R J_x')
 
-y, J_r, J_x = poseutils._rotate_point_r_withgrad(r0_ref, x)
+y, J_r, J_x = mrcal.rotate_point_r(r0_ref, x, get_gradients=True)
 J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r))),
                r0_ref)
 J_x_ref = grad(lambda x: nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
@@ -208,7 +208,7 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_r J_x')
 
-y, J_R, J_t, J_x = poseutils._transform_point_Rt_withgrad(Rt0_ref, x)
+y, J_R, J_t, J_x = mrcal.transform_point_Rt(Rt0_ref, x, get_gradients=True)
 J_R_ref = grad(lambda R: nps.matmult(x, nps.transpose(R))+t0_ref,
                R0_ref)
 J_t_ref = np.identity(3)
@@ -226,7 +226,7 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_Rt J_x')
 
-y, J_r, J_t, J_x = poseutils._transform_point_rt_withgrad(rt0_ref, x)
+y, J_r, J_t, J_x = mrcal.transform_point_rt(rt0_ref, x, get_gradients=True)
 J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r)))+t0_ref,
                r0_ref)
 J_t_ref = np.identity(3)
@@ -247,7 +247,7 @@ confirm_equal( J_x,
 
 
 
-r, J_R = poseutils._r_from_R_withgrad(R0_ref)
+r, J_R = mrcal.r_from_R(R0_ref, get_gradients=True)
 J_R_ref = grad(r_from_R,
                R0_ref)
 confirm_equal( r,
@@ -260,7 +260,7 @@ confirm_equal( J_R,
 r   = np.eye(3, dtype=float)[:,0]
 J_R = np.zeros((3,3,3), dtype=float).transpose()
 R1_ref_noncontiguous = nps.glue(R1_ref, np.ones((3,1), dtype=float), axis=-1)[:,:3]
-poseutils._r_from_R_withgrad(R1_ref_noncontiguous, out=(r,J_R))
+_poseutils._r_from_R_withgrad(R1_ref_noncontiguous, out=(r,J_R))
 J_R_ref = grad(r_from_R,
                R1_ref)
 confirm_equal( r,
@@ -272,7 +272,7 @@ confirm_equal( J_R,
 
 # Do it again, actually calling opencv. This is both a test, and shows how to
 # migrate old code
-r, J_R = poseutils._r_from_R_withgrad(R0_ref)
+r, J_R = mrcal.r_from_R(R0_ref, get_gradients=True)
 rref,J_R_ref = cv2.Rodrigues(R0_ref)
 confirm_equal( r,
                rref,
@@ -290,7 +290,7 @@ confirm_equal( r,
 
 
 
-R, J_r = poseutils._R_from_r_withgrad(r0_ref)
+R, J_r = mrcal.R_from_r(r0_ref, get_gradients=True)
 J_r_ref = grad(R_from_r,
                r0_ref)
 confirm_equal( R,
@@ -303,7 +303,7 @@ confirm_equal( J_r,
 R   = np.zeros((3,3),   dtype=float).transpose()
 J_r = np.zeros((3,3,3), dtype=float).transpose()
 r1_ref_noncontiguous = nps.outer(r1_ref,np.ones((3,),dtype=float)).transpose()[0,:]
-poseutils._R_from_r_withgrad(r1_ref_noncontiguous, out=(R,J_r))
+_poseutils._R_from_r_withgrad(r1_ref_noncontiguous, out=(R,J_r))
 J_r_ref = grad(R_from_r,
                r1_ref)
 confirm_equal( R,
@@ -315,7 +315,7 @@ confirm_equal( J_r,
 
 # Do it again, actually calling opencv. This is both a test, and shows how to
 # migrate old code
-R, J_r = poseutils._R_from_r_withgrad(r0_ref)
+R, J_r = mrcal.R_from_r(r0_ref, get_gradients=True)
 Rref,J_r_ref = cv2.Rodrigues(r0_ref)
 J_r_ref = nps.transpose(J_r_ref) # fix opencv's weirdness. Now shape=(9,3)
 J_r_ref = J_r_ref.reshape(3,3,3)
@@ -328,32 +328,71 @@ confirm_equal( J_r,
 
 
 
-rt = poseutils.rt_from_Rt(Rt0_ref)
+rt = mrcal.rt_from_Rt(Rt0_ref)
 confirm_equal( rt,
                rt0_ref,
                msg='rt_from_Rt result')
 
-Rt = poseutils.Rt_from_rt(rt0_ref)
+rt, J_R = mrcal.rt_from_Rt(Rt0_ref, get_gradients = True)
+J_R_ref = grad(r_from_R,
+               Rt0_ref[:3,:])
+confirm_equal( rt,
+               rt0_ref,
+               msg='rt_from_Rt result')
+confirm_equal( J_R,
+               J_R_ref,
+               msg='rt_from_Rt grad result')
+
+Rt = mrcal.Rt_from_rt(rt0_ref)
 confirm_equal( Rt,
                Rt0_ref,
                msg='Rt_from_rt result')
 
-Rt = poseutils.invert_Rt(Rt0_ref)
+Rt, J_r = mrcal.Rt_from_rt(rt0_ref, get_gradients = True)
+J_r_ref = grad(R_from_r,
+               rt0_ref[:3])
+confirm_equal( Rt,
+               Rt0_ref,
+               msg='Rt_from_rt result')
+confirm_equal( J_r,
+               J_r_ref,
+               msg='Rt_from_rt grad result')
+
+Rt = mrcal.invert_Rt(Rt0_ref)
 confirm_equal( Rt,
                invert_Rt(Rt0_ref),
                msg='invert_Rt result')
 
-rt = poseutils.invert_rt(rt0_ref)
+rt = mrcal.invert_rt(rt0_ref)
 confirm_equal( rt,
                invert_rt(rt0_ref),
                msg='invert_rt result')
 
-Rt2 = poseutils._compose_Rt(Rt0_ref, Rt1_ref)
+rt,dt_dr,dt_dt = mrcal.invert_rt(rt0_ref, get_gradients = True)
+drt_drt_ref = grad(invert_rt,
+                   rt0_ref)
+confirm_equal( rt,
+               invert_rt(rt0_ref),
+               msg='invert_rt with grad result')
+confirm_equal( dt_dr,
+               drt_drt_ref[3:,:3],
+               msg='invert_rt dt/dr result')
+confirm_equal( dt_dt,
+               drt_drt_ref[3:,3:],
+               msg='invert_rt dt/dt result')
+confirm_equal( -np.eye(3),
+               drt_drt_ref[:3,:3],
+               msg='invert_rt dr/dr assumption')
+confirm_equal( np.zeros((3,3)),
+               drt_drt_ref[:3,3:],
+               msg='invert_rt dr/dt assumption')
+
+Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref)
 confirm_equal( Rt2,
                compose_Rt(Rt0_ref, Rt1_ref),
                msg='compose_Rt result')
 
-rt2,dr2_dr0,dr2_dr1,dt2_dr0,dt2_dt1 = poseutils._compose_rt_withgrad(rt0_ref, rt1_ref)
+rt2,dr2_dr0,dr2_dr1,dt2_dr0,dt2_dt1 = mrcal.compose_rt(rt0_ref, rt1_ref, get_gradients=True)
 dr2_dr0_ref = grad(lambda r0: compose_rt( nps.glue(r0,rt0_ref[3:], axis=-1), rt1_ref)[:3], rt0_ref[:3])
 dr2_dr1_ref = grad(lambda r1: compose_rt( rt0_ref, nps.glue(r1,rt1_ref[3:], axis=-1))[:3], rt1_ref[:3])
 dt2_dr0_ref = grad(lambda r0: compose_rt( nps.glue(r0,rt0_ref[3:], axis=-1), rt1_ref)[3:], rt0_ref[:3])

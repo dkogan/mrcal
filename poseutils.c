@@ -286,21 +286,24 @@ void mrcal_R_from_r_noncontiguous( // outputs
 }
 
 // Convert a transformation representation from Rt to rt. This is mostly a
-// convenience functions since 99% of the work is done by mrcal_r_from_R(). No
-// gradients available here. If you need gradients, call mrcal_r_from_R()
-// directly
-void mrcal_rt_from_Rt_noncontiguous( // output
-                      double* rt,  // (6) vector
-                      int rt_stride0, // in bytes. <= 0 means "contiguous"
+// convenience functions since 99% of the work is done by mrcal_r_from_R().
+void mrcal_rt_from_Rt_noncontiguous(   // output
+                      double* rt,      // (6) vector
+                      int rt_stride0,  // in bytes. <= 0 means "contiguous"
+                      double* J_R,     // (3,3,3) array. Gradient. May be NULL
+                      // No J_t. It's always the identity
+                      int J_R_stride0, // in bytes. <= 0 means "contiguous"
+                      int J_R_stride1, // in bytes. <= 0 means "contiguous"
+                      int J_R_stride2, // in bytes. <= 0 means "contiguous"
 
                       // input
-                      const double* Rt, // (4,3) array
+                      const double* Rt,  // (4,3) array
                       int Rt_stride0,    // in bytes. <= 0 means "contiguous"
                       int Rt_stride1     // in bytes. <= 0 means "contiguous"
                      )
 {
     mrcal_r_from_R_noncontiguous(rt,rt_stride0,
-                                 NULL,0,0,0,
+                                 J_R, J_R_stride0,J_R_stride1,J_R_stride2,
                                  Rt, Rt_stride0, Rt_stride1);
 
     if(Rt_stride0 > 0) Rt_stride0 /= sizeof(Rt[0]);
@@ -315,13 +318,16 @@ void mrcal_rt_from_Rt_noncontiguous( // output
 }
 
 // Convert a transformation representation from Rt to rt. This is mostly a
-// convenience functions since 99% of the work is done by mrcal_R_from_r(). No
-// gradients available here. If you need gradients, call mrcal_R_from_r()
-// directly
-void mrcal_Rt_from_rt_noncontiguous( // output
-                      double* Rt, // (4,3) array
-                      int Rt_stride0, // in bytes. <= 0 means "contiguous"
-                      int Rt_stride1, // in bytes. <= 0 means "contiguous"
+// convenience functions since 99% of the work is done by mrcal_R_from_r().
+void mrcal_Rt_from_rt_noncontiguous(   // output
+                      double* Rt,      // (4,3) array
+                      int Rt_stride0,  // in bytes. <= 0 means "contiguous"
+                      int Rt_stride1,  // in bytes. <= 0 means "contiguous"
+                      double* J_r,     // (3,3,3) array. Gradient. May be NULL
+                      // No J_t. It's just the identity
+                      int J_r_stride0, // in bytes. <= 0 means "contiguous"
+                      int J_r_stride1, // in bytes. <= 0 means "contiguous"
+                      int J_r_stride2, // in bytes. <= 0 means "contiguous"
 
                       // input
                       const double* rt, // (6) vector
@@ -329,8 +335,8 @@ void mrcal_Rt_from_rt_noncontiguous( // output
                      )
 {
     mrcal_R_from_r_noncontiguous(Rt,Rt_stride0,Rt_stride1,
-                   NULL,  0,0,0,
-                   rt, rt_stride0);
+                                 J_r, J_r_stride0,J_r_stride1,J_r_stride2,
+                                 rt, rt_stride0);
 
 
     if(Rt_stride0 > 0) Rt_stride0 /= sizeof(Rt[0]);
@@ -367,8 +373,13 @@ void mrcal_invert_Rt( // output
 // Invert an rt transformation
 //
 // b = rotate(a) + t  -> a = invrotate(b) - invrotate(t)
+//
+// drout_drin is not returned: it is always -I
+// drout_dtin is not returned: it is always 0
 void mrcal_invert_rt( // output
-                     double* rt_out, // (6) array
+                     double* rt_out,     // (6) array
+                     double* dtout_drin, // (3,3) array
+                     double* dtout_dtin, // (3,3) array
 
                      // input
                      const double* rt_in // (6) array
@@ -380,7 +391,8 @@ void mrcal_invert_rt( // output
         rt_out[i] = -rt_in[i];
 
     mrcal_rotate_point_r( &rt_out[3],
-                          NULL, NULL,
+                          dtout_drin,
+                          dtout_dtin,
 
                           // input
                           rt_out,
@@ -388,6 +400,10 @@ void mrcal_invert_rt( // output
                           );
     for(int i=0; i<3; i++)
         rt_out[3+i] *= -1.;
+
+    if(dtout_dtin)
+        for(int i=0; i<9; i++)
+            dtout_dtin[i] *= -1.;
 }
 
 

@@ -66,8 +66,7 @@ def R_from_r(r, get_gradients=False):
 
 SYNOPSIS
 
-    r  = rotation_axis * rotation_magnitude
-
+    r = rotation_axis * rotation_magnitude
     R = mrcal.R_from_r(r)
 
 Given a rotation specified as a Rodrigues vector (a unit rotation axis scaled by
@@ -96,7 +95,7 @@ If not get_gradients: we return an array of rotation matrices. Each broadcasted
 slice has shape (3,3)
 
 If get_gradients: we return a tuple of arrays containing the rotation matrices
-and the gradients (R, dR/dr):
+and the gradient (R, dR/dr):
 
 1. The rotation matrix. Each broadcasted slice has shape (3,3). This is a valid
    rotation: matmult(R,transpose(R)) = I, det(R) = 1
@@ -110,6 +109,242 @@ and the gradients (R, dR/dr):
     if get_gradients:
         return _poseutils._R_from_r_withgrad(r)
     return _poseutils._R_from_r(r)
+
+def rt_from_Rt(Rt, get_gradients=False):
+    """Compute an rt transformation from a Rt transformation
+
+SYNOPSIS
+
+    Rt = nps.glue(rotation_matrix,translation, axis=-2)
+
+    print(Rt.shape)
+    ===>
+    (4,3)
+
+    rt = mrcal.rt_from_Rt(Rt)
+
+    print(rt.shape)
+    ===>
+    (6,)
+
+    translation        = rt[3:]
+    rotation_magnitude = nps.mag(rt[:3])
+    rotation_axis      = rt[:3] / rotation_magnitude
+
+Converts an Rt transformation to an rt transformation. Both specify a rotation
+and translation. An Rt transformation is a (4,3) array formed by nps.glue(R,t,
+axis=-2) where R is a (3,3) rotation matrix and t is a (3,) translation vector.
+An rt transformation is a (6,) array formed by nps.glue(r,t, axis=-1) where r is
+a (3,) Rodrigues vector and t is a (3,) translation vector.
+
+Applied to a point x the transformed result is rotate(x)+t. Given a matrix R,
+the rotation is defined by a matrix multiplication. x and t are stored as a row
+vector (that's how numpy stores 1-dimensional arrays), but the multiplication
+works as if x was a column vector (to match linear algebra conventions). See the
+docs for mrcal._transform_point_Rt() for more detail.
+
+By default this function returns the rt transformations only. If we also want
+gradients, pass get_gradients=True. Logic:
+
+    if not get_gradients: return rt
+    else:                 return (rt, dr/dR)
+
+Note that the translation gradient isn't returned: it is always the identity
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- Rt: array of shape (4,3). This matrix defines the transformation. Rt[:3,:] is
+  a rotation matrix; Rt[3,:] is a translation. It is assumed that the rotation
+  matrix is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
+  is not checked
+
+- get_gradients: optional boolean. By default (get_gradients=False) we return an
+  array of rt transformations. Otherwise we return a tuple of arrays of rt
+  transformations and their gradients.
+
+RETURNED VALUE
+
+If not get_gradients: we return the rt transformation. Each broadcasted slice
+has shape (6,). rt[:3] is a rotation defined as a Rodrigues vector; rt[3:] is a
+translation.
+
+If get_gradients: we return a tuple of arrays containing the rt transformation
+and the gradient (rt, dr/dR):
+
+1. The rt transformation. Each broadcasted slice has shape (6,)
+
+2. The gradient dr/dR. Each broadcasted slice has shape (3,3,3). The first
+   dimension selects the element of r, and the last two dimension select the
+   element of R
+
+    """
+    if get_gradients:
+        return _poseutils._rt_from_Rt_withgrad(Rt)
+    return _poseutils._rt_from_Rt(Rt)
+
+def Rt_from_rt(rt, get_gradients=False):
+    """Compute an Rt transformation from a rt transformation
+
+SYNOPSIS
+
+    r  = rotation_axis * rotation_magnitude
+    rt = nps.glue(r,t, axis=-1)
+
+    print(rt.shape)
+    ===>
+    (6,)
+
+    Rt = mrcal.Rt_from_rt(rt)
+
+    print(Rt.shape)
+    ===>
+    (4,3)
+
+    translation     = Rt[3,:]
+    rotation_matrix = Rt[:3,:]
+
+Converts an rt transformation to an Rt transformation. Both specify a rotation
+and translation. An Rt transformation is a (4,3) array formed by nps.glue(R,t,
+axis=-2) where R is a (3,3) rotation matrix and t is a (3,) translation vector.
+An rt transformation is a (6,) array formed by nps.glue(r,t, axis=-1) where r is
+a (3,) Rodrigues vector and t is a (3,) translation vector.
+
+Applied to a point x the transformed result is rotate(x)+t. Given a matrix R,
+the rotation is defined by a matrix multiplication. x and t are stored as a row
+vector (that's how numpy stores 1-dimensional arrays), but the multiplication
+works as if x was a column vector (to match linear algebra conventions). See the
+docs for mrcal._transform_point_Rt() for more detail.
+
+By default this function returns the Rt transformations only. If we also want
+gradients, pass get_gradients=True. Logic:
+
+    if not get_gradients: return Rt
+    else:                 return (Rt, dR/dr)
+
+Note that the translation gradient isn't returned: it is always the identity
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- rt: array of shape (6,). This vector defines the input transformation. rt[:3]
+  is a rotation defined as a Rodrigues vector; rt[3:] is a translation.
+
+- get_gradients: optional boolean. By default (get_gradients=False) we return an
+  array of Rt transformations. Otherwise we return a tuple of arrays of Rt
+  transformations and their gradients.
+
+RETURNED VALUE
+
+If not get_gradients: we return the Rt transformation. Each broadcasted slice
+has shape (4,3). Rt[:3,:] is a rotation matrix; Rt[3,:] is a translation. The
+matrix R is a valid rotation: matmult(R,transpose(R)) = I and det(R) = 1
+
+If get_gradients: we return a tuple of arrays containing the Rt transformation
+and the gradient (Rt, dR/dr):
+
+1. The Rt transformation. Each broadcasted slice has shape (4,3,)
+
+2. The gradient dR/dr. Each broadcasted slice has shape (3,3,3). The first two
+   dimensions select the element of R, and the last dimension selects the
+   element of r
+
+    """
+    if get_gradients:
+        return _poseutils._Rt_from_rt_withgrad(rt)
+    return _poseutils._Rt_from_rt(rt)
+
+def invert_rt(rt, get_gradients=False):
+    """Invert an rt transformation
+
+SYNOPSIS
+
+    r    = rotation_axis * rotation_magnitude
+    rt01 = nps.glue(r,t, axis=-1)
+
+    print(rt01.shape)
+    ===>
+    (6,)
+
+    rt10 = mrcal.invert_rt(rt01)
+
+    print(x1.shape)
+    ===>
+    (3,)
+
+    x0 = mrcal.transform_point_rt(rt01, x1)
+
+    print( nps.norm2( x1 - \
+                      mrcal.transform_point_rt(rt10, x0) ))
+    ===>
+    0
+
+Given an rt transformation to convert a point representated in coordinate system
+1 to coordinate system 0 (let's call it rt01), returns a transformation that
+does the reverse: converts a representation in coordinate system 0 to coordinate
+system 1 (let's call it rt10).
+
+Thus if you have a point in coordinate system 1 (let's call it x1), we can
+convert it to a representation in system 0, and then back. And we'll get the
+same thing out:
+
+  x1 == mrcal.transform_point_rt( mrcal.invert_rt(rt01),
+          mrcal.transform_point_rt( rt01, x1 ))
+
+An rt transformation represents a rotation and a translation. It is a (6,) array
+formed by nps.glue(r,t, axis=-1) where r is a (3,) Rodrigues vector and t is a
+(3,) translation vector.
+
+Applied to a point x the transformed result is rotate(x)+t. x and t are stored
+as a row vector (that's how numpy stores 1-dimensional arrays). See the docs for
+mrcal._transform_point_rt() for more detail.
+
+By default this function returns the rt transformation only. If we also want
+gradients, pass get_gradients=True. Logic:
+
+    if not get_gradients: return rt
+    else:                 return (rt, dtout_drin, dtout_dtin)
+
+Note that:
+
+- drout/drin is not returned: it is always -I
+- drout/dtin is not returned: it is always 0
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- rt: array of shape (6,). This vector defines the input transformation. rt[:3]
+  is a rotation defined as a Rodrigues vector; rt[3:] is a translation.
+
+- get_gradients: optional boolean. By default (get_gradients=False) we return an
+  array of rt translation. Otherwise we return a tuple of arrays of rt
+  translations and their gradients.
+
+RETURNED VALUE
+
+If not get_gradients: we return an array of rt transformation(s). Each
+broadcasted slice has shape (6,)
+
+If get_gradients: we return a tuple of arrays containing the rt transformation(s)
+and the gradients (rt, dtout/drin, dtout/dtin)
+
+1. The rt transformation. Each broadcasted slice has shape (6,)
+
+2. The gradient dtout/drin. Each broadcasted slice has shape (3,3). The first
+   dimension selects elements of tout, and the last dimension selects elements
+   of rin
+
+3. The gradient dtout/dtin. Each broadcasted slice has shape (3,3). The first
+   dimension selects elements of tout, and the last dimension selects elements
+   of tin
+
+    """
+    if get_gradients:
+        return _poseutils._invert_rt_withgrad(rt)
+    return _poseutils._invert_rt(rt)
 
 
 def compose_Rt(*Rt):
@@ -166,7 +401,6 @@ An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
 
     """
     return reduce( _poseutils._compose_Rt, Rt, _poseutils.identity_Rt() )
-
 
 def compose_rt(*rt, get_gradients=False):
     r"""Compose rt transformations
@@ -281,7 +515,7 @@ Note that:
             raise Exception("compose_rt(get_gradients=True) is supported only if exactly 2 inputs are given")
         return _poseutils._compose_rt_withgrad(*rt)
 
-    return _poseutils.rt_from_Rt( compose_Rt( *[_poseutils.Rt_from_rt(_rt) for _rt in rt] ) )
+    return _poseutils._rt_from_Rt( compose_Rt( *[_poseutils._Rt_from_rt(_rt) for _rt in rt] ) )
 
 def rotate_point_r(r, x, get_gradients=False):
     r"""Rotate point(s) using a Rodrigues vector

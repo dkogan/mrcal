@@ -97,29 +97,35 @@ void mrcal_R_from_r_noncontiguous( // outputs
                     );
 
 // Convert a transformation representation from Rt to rt. This is mostly a
-// convenience functions since 99% of the work is done by mrcal_r_from_R(). No
-// gradients available here. If you need gradients, call mrcal_r_from_R()
-// directly
-#define mrcal_rt_from_Rt(rt,Rt) mrcal_rt_from_Rt_noncontiguous(rt,0,Rt,0,0)
-void mrcal_rt_from_Rt_noncontiguous( // output
-                      double* rt,     // (6) vector
-                      int rt_stride0,    // in bytes. <= 0 means "contiguous"
+// convenience functions since 99% of the work is done by mrcal_r_from_R().
+#define mrcal_rt_from_Rt(rt,Rt) mrcal_rt_from_Rt_noncontiguous(rt,0,NULL,0,0,0,Rt,0,0)
+void mrcal_rt_from_Rt_noncontiguous(   // output
+                      double* rt,      // (6) vector
+                      int rt_stride0,  // in bytes. <= 0 means "contiguous"
+                      double* J_R,     // (3,3,3) array. Gradient. May be NULL
+                      // No J_t. It's always the identity
+                      int J_R_stride0, // in bytes. <= 0 means "contiguous"
+                      int J_R_stride1, // in bytes. <= 0 means "contiguous"
+                      int J_R_stride2, // in bytes. <= 0 means "contiguous"
 
                       // input
-                      const double* Rt,
-                      int Rt_stride0, // in bytes. <= 0 means "contiguous"
-                      int Rt_stride1  // in bytes. <= 0 means "contiguous"
+                      const double* Rt,  // (4,3) array
+                      int Rt_stride0,    // in bytes. <= 0 means "contiguous"
+                      int Rt_stride1     // in bytes. <= 0 means "contiguous"
                      );
 
 // Convert a transformation representation from Rt to rt. This is mostly a
-// convenience functions since 99% of the work is done by mrcal_R_from_r(). No
-// gradients available here. If you need gradients, call mrcal_R_from_r()
-// directly
-#define mrcal_Rt_from_rt(Rt,rt) mrcal_Rt_from_rt_noncontiguous(Rt,0,0,rt,0)
-void mrcal_Rt_from_rt_noncontiguous( // output
-                      double* Rt,     // (4,3) array
-                      int Rt_stride0, // in bytes. <= 0 means "contiguous"
-                      int Rt_stride1, // in bytes. <= 0 means "contiguous"
+// convenience functions since 99% of the work is done by mrcal_R_from_r().
+#define mrcal_Rt_from_rt(Rt,rt) mrcal_Rt_from_rt_noncontiguous(Rt,0,0,NULL,0,0,0,rt,0)
+void mrcal_Rt_from_rt_noncontiguous(   // output
+                      double* Rt,      // (4,3) array
+                      int Rt_stride0,  // in bytes. <= 0 means "contiguous"
+                      int Rt_stride1,  // in bytes. <= 0 means "contiguous"
+                      double* J_r,     // (3,3,3) array. Gradient. May be NULL
+                      // No J_t. It's just the identity
+                      int J_r_stride0, // in bytes. <= 0 means "contiguous"
+                      int J_r_stride1, // in bytes. <= 0 means "contiguous"
+                      int J_r_stride2, // in bytes. <= 0 means "contiguous"
 
                       // input
                       const double* rt, // (6) vector
@@ -139,8 +145,13 @@ void mrcal_invert_Rt( // output
 // Invert an rt transformation
 //
 // b = rotate(a) + t  -> a = invrotate(b) - invrotate(t)
+//
+// drout_drin is not returned: it is always -I
+// drout_dtin is not returned: it is always 0
 void mrcal_invert_rt( // output
-                     double* rt_out, // (6) array
+                     double* rt_out,     // (6) array
+                     double* dtout_drin, // (3,3) array
+                     double* dtout_dtin, // (3,3) array
 
                      // input
                      const double* rt_in // (6) array
