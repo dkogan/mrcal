@@ -11,9 +11,6 @@ Source0:        https://github.jpl.nasa.gov/maritime-robotics/mrcal/archive/%{ve
 
 BuildRequires: python36-numpy
 
-# need this too for the /usr/include/numpy link. It points to the same place as
-# the link in python36-numpy would point to, if they bothered to make one
-BuildRequires: python2-numpy
 # For the non-global parameters
 BuildRequires: libdogleg-devel >= 0.15.3
 BuildRequires: suitesparse-devel >= 4.1.0
