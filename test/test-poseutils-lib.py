@@ -9,6 +9,8 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 # I import the LOCAL mrcal since that's what I'm testing
 sys.path[:0] = f"{testdir}/..",
 import mrcal
+import mrcal._poseutils as _poseutils
+
 import cv2
 from testutils import *
 
@@ -444,6 +446,13 @@ rt2 = mrcal.compose_rt(rt0_ref, rt1_ref, out = out6)
 confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
                msg='compose_rt result')
+
+# _compose_rt() is not excercised by the python library, so I explicitly test it
+# here
+rt2 = _poseutils._compose_rt(rt0_ref, rt1_ref, out=out6)
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt result; calling _compose_rt() directly')
 
 rt2,dr2_dr0,dr2_dr1,dt2_dr0,dt2_dt1 = \
     mrcal.compose_rt(rt0_ref, rt1_ref, get_gradients=True,
