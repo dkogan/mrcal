@@ -209,6 +209,12 @@ confirm_equal( mrcal.identity_rt(out=out6),
                np.zeros((6,)),
                msg='identity_rt')
 
+y = \
+    mrcal.rotate_point_R(R0_ref, x, out = out3)
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref)),
+               msg='rotate_point_R result')
+
 y, J_R, J_x = \
     mrcal.rotate_point_R(R0_ref, x, get_gradients=True,
                          out = (out3,out333,out33))
@@ -225,6 +231,11 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_R J_x')
 
+y = mrcal.rotate_point_r(r0_ref, x, out = out3)
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
+               msg='rotate_point_r result')
+
 y, J_r, J_x = mrcal.rotate_point_r(r0_ref, x, get_gradients=True,
                                    out = (out3, out33, out33a))
 J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r))),
@@ -240,6 +251,11 @@ confirm_equal( J_r,
 confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_r J_x')
+
+y = mrcal.transform_point_Rt(Rt0_ref, x, out = out3)
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
+               msg='transform_point_Rt result')
 
 y, J_R, J_t, J_x = mrcal.transform_point_Rt(Rt0_ref, x, get_gradients=True,
                                             out = (out3, out333, out33, out33a))
@@ -259,6 +275,11 @@ confirm_equal( J_t,
 confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_Rt J_x')
+
+y = mrcal.transform_point_rt(rt0_ref, x, out = out3)
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
+               msg='transform_point_rt result')
 
 y, J_r, J_t, J_x = mrcal.transform_point_rt(rt0_ref, x, get_gradients=True,
                                             out = (out3,out33,out33a,out33b))
@@ -282,6 +303,11 @@ confirm_equal( J_x,
 
 
 
+r = mrcal.r_from_R(R0_ref, out = out3)
+confirm_equal( r,
+               r0_ref,
+               msg='r_from_R result')
+
 r, J_R = mrcal.r_from_R(R0_ref, get_gradients=True,
                         out = (out3,out333))
 J_R_ref = grad(r_from_R,
@@ -292,20 +318,6 @@ confirm_equal( r,
 confirm_equal( J_R,
                J_R_ref,
                msg='r_from_R J_R')
-
-r   = np.eye(3, dtype=float)[:,0]
-J_R = np.zeros((3,3,3), dtype=float).transpose()
-r,J_R =mrcal.r_from_R(R1_ref,
-                      get_gradients = True,
-                      out = (out3,out333))
-J_R_ref = grad(r_from_R,
-               R1_ref)
-confirm_equal( r,
-               r1_ref,
-               msg='r_from_R non-contiguous result')
-confirm_equal( J_R,
-               J_R_ref,
-               msg='r_from_R non-contiguous J_R')
 
 # Do it again, actually calling opencv. This is both a test, and shows how to
 # migrate old code
@@ -328,6 +340,11 @@ confirm_equal( r,
 
 
 
+R = mrcal.R_from_r(r0_ref, out = out33)
+confirm_equal( R,
+               R0_ref,
+               msg='R_from_r result')
+
 R, J_r = mrcal.R_from_r(r0_ref, get_gradients=True,
                         out = (out33,out333))
 J_r_ref = grad(R_from_r,
@@ -338,20 +355,6 @@ confirm_equal( R,
 confirm_equal( J_r,
                J_r_ref,
                msg='R_from_r J_r')
-
-R   = np.zeros((3,3),   dtype=float).transpose()
-J_r = np.zeros((3,3,3), dtype=float).transpose()
-(R,J_r) =mrcal.R_from_r(r1_ref,
-                        get_gradients = True,
-                        out = (out33,out333))
-J_r_ref = grad(R_from_r,
-               r1_ref)
-confirm_equal( R,
-               R1_ref,
-               msg='R_from_r non-contiguous result')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='R_from_r non-contiguous J_r')
 
 # Do it again, actually calling opencv. This is both a test, and shows how to
 # migrate old code
@@ -369,8 +372,7 @@ confirm_equal( J_r,
 
 
 
-rt = mrcal.rt_from_Rt(Rt0_ref,
-                      out = out6)
+rt = mrcal.rt_from_Rt(Rt0_ref, out = out6)
 confirm_equal( rt,
                rt0_ref,
                msg='rt_from_Rt result')
@@ -386,8 +388,7 @@ confirm_equal( J_R,
                J_R_ref,
                msg='rt_from_Rt grad result')
 
-Rt = mrcal.Rt_from_rt(rt0_ref,
-                      out=out43)
+Rt = mrcal.Rt_from_rt(rt0_ref, out=out43)
 confirm_equal( Rt,
                Rt0_ref,
                msg='Rt_from_rt result')
@@ -403,14 +404,12 @@ confirm_equal( J_r,
                J_r_ref,
                msg='Rt_from_rt grad result')
 
-Rt = mrcal.invert_Rt(Rt0_ref,
-                     out=out43)
+Rt = mrcal.invert_Rt(Rt0_ref, out=out43)
 confirm_equal( Rt,
                invert_Rt(Rt0_ref),
                msg='invert_Rt result')
 
-rt = mrcal.invert_rt(rt0_ref,
-                     out=out6)
+rt = mrcal.invert_rt(rt0_ref, out=out6)
 confirm_equal( rt,
                invert_rt(rt0_ref),
                msg='invert_rt result')
@@ -440,6 +439,11 @@ Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,
 confirm_equal( Rt2,
                compose_Rt(Rt0_ref, Rt1_ref),
                msg='compose_Rt result')
+
+rt2 = mrcal.compose_rt(rt0_ref, rt1_ref, out = out6)
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt result')
 
 rt2,dr2_dr0,dr2_dr1,dt2_dr0,dt2_dt1 = \
     mrcal.compose_rt(rt0_ref, rt1_ref, get_gradients=True,
