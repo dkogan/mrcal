@@ -9,7 +9,7 @@ from functools import reduce
 
 from . import _poseutils
 
-def r_from_R(R, get_gradients=False):
+def r_from_R(R, get_gradients=False, out=None):
     r"""Compute a Rodrigues vector from a rotation matrix
 
 SYNOPSIS
@@ -41,6 +41,13 @@ ARGUMENTS
   array of Rodrigues vectors. Otherwise we return a tuple of arrays of Rodrigues
   vectors and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of Rodrigues vector(s). Each
@@ -58,10 +65,10 @@ and the gradients (r, dr/dR)
     """
 
     if get_gradients:
-        return _poseutils._r_from_R_withgrad(R)
-    return _poseutils._r_from_R(R)
+        return _poseutils._r_from_R_withgrad(R, out=out)
+    return _poseutils._r_from_R(R, out=out)
 
-def R_from_r(r, get_gradients=False):
+def R_from_r(r, get_gradients=False, out=None):
     r"""Compute a rotation matrix from a Rodrigues vector
 
 SYNOPSIS
@@ -89,6 +96,13 @@ ARGUMENTS
   array of rotation matrices. Otherwise we return a tuple of arrays of rotation
   matrices and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of rotation matrices. Each broadcasted
@@ -107,10 +121,10 @@ and the gradient (R, dR/dr):
     """
 
     if get_gradients:
-        return _poseutils._R_from_r_withgrad(r)
-    return _poseutils._R_from_r(r)
+        return _poseutils._R_from_r_withgrad(r, out=out)
+    return _poseutils._R_from_r(r, out=out)
 
-def rt_from_Rt(Rt, get_gradients=False):
+def rt_from_Rt(Rt, get_gradients=False, out=None):
     """Compute an rt transformation from a Rt transformation
 
 SYNOPSIS
@@ -164,6 +178,13 @@ ARGUMENTS
   array of rt transformations. Otherwise we return a tuple of arrays of rt
   transformations and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return the rt transformation. Each broadcasted slice
@@ -181,10 +202,10 @@ and the gradient (rt, dr/dR):
 
     """
     if get_gradients:
-        return _poseutils._rt_from_Rt_withgrad(Rt)
-    return _poseutils._rt_from_Rt(Rt)
+        return _poseutils._rt_from_Rt_withgrad(Rt, out=out)
+    return _poseutils._rt_from_Rt(Rt, out=out)
 
-def Rt_from_rt(rt, get_gradients=False):
+def Rt_from_rt(rt, get_gradients=False, out=None):
     """Compute an Rt transformation from a rt transformation
 
 SYNOPSIS
@@ -236,6 +257,13 @@ ARGUMENTS
   array of Rt transformations. Otherwise we return a tuple of arrays of Rt
   transformations and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return the Rt transformation. Each broadcasted slice
@@ -253,10 +281,10 @@ and the gradient (Rt, dR/dr):
 
     """
     if get_gradients:
-        return _poseutils._Rt_from_rt_withgrad(rt)
-    return _poseutils._Rt_from_rt(rt)
+        return _poseutils._Rt_from_rt_withgrad(rt, out=out)
+    return _poseutils._Rt_from_rt(rt, out=out)
 
-def invert_Rt(Rt):
+def invert_Rt(Rt, out=None):
     """Invert an Rt transformation
 
 SYNOPSIS
@@ -311,13 +339,20 @@ ARGUMENTS
   matrix is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
   is not checked
 
+- out: optional argument specifying the destination. By default, a new numpy
+  array is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
+  given, we return the same array passed in. This is the standard behavior
+  provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 The inverse Rt transformation in an array of shape (4,3).
-"""
-    return _poseutils._invert_Rt(Rt)
 
-def invert_rt(rt, get_gradients=False):
+    """
+    return _poseutils._invert_Rt(Rt, out=out)
+
+def invert_rt(rt, get_gradients=False, out=None):
     """Invert an rt transformation
 
 SYNOPSIS
@@ -384,6 +419,13 @@ ARGUMENTS
   array of rt translation. Otherwise we return a tuple of arrays of rt
   translations and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of rt transformation(s). Each
@@ -404,11 +446,10 @@ and the gradients (rt, dtout/drin, dtout/dtin)
 
     """
     if get_gradients:
-        return _poseutils._invert_rt_withgrad(rt)
-    return _poseutils._invert_rt(rt)
+        return _poseutils._invert_rt_withgrad(rt, out=out)
+    return _poseutils._invert_rt(rt, out=out)
 
-
-def compose_Rt(*Rt):
+def compose_Rt(*Rt, out=None):
     r"""Compose Rt transformations
 
 SYNOPSIS
@@ -456,14 +497,21 @@ ARGUMENTS
   transformations, but any number could be given here. Each broadcasted slice
   has shape (4,3).
 
+- out: optional argument specifying the destination. By default, a new numpy
+  array is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
+  given, we return the same array passed in. This is the standard behavior
+  provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
 
     """
-    return reduce( _poseutils._compose_Rt, Rt, _poseutils.identity_Rt() )
+    Rt1onwards = reduce( _poseutils._compose_Rt, Rt[1:], _poseutils.identity_Rt() )
+    return _poseutils._compose_Rt(Rt[0], Rt1onwards, out=out)
 
-def compose_rt(*rt, get_gradients=False):
+def compose_rt(*rt, get_gradients=False, out=None):
     r"""Compose rt transformations
 
 SYNOPSIS
@@ -535,6 +583,13 @@ ARGUMENTS
   composed transformations and their gradients. Gradient reporting is only
   supported when exactly two transformations are given
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of composed rt transformations. Each
@@ -573,12 +628,17 @@ Note that:
 
     if get_gradients:
         if len(rt) != 2:
-            raise Exception("compose_rt(get_gradients=True) is supported only if exactly 2 inputs are given")
-        return _poseutils._compose_rt_withgrad(*rt)
+            raise Exception("compose_rt(..., get_gradients=True) is supported only if exactly 2 inputs are given")
+        return _poseutils._compose_rt_withgrad(*rt, out=out)
 
-    return _poseutils._rt_from_Rt( compose_Rt( *[_poseutils._Rt_from_rt(_rt) for _rt in rt] ) )
+    # I convert them all to Rt and compose for efficiency. Otherwise each
+    # internal composition will convert to Rt, compose, and then convert back to
+    # rt. The way I'm doing it I convert to rt just once, at the end. This will
+    # save operations if I'm composing more than 2 transformations
+    Rt = compose_Rt(*[_poseutils._Rt_from_rt(_rt) for _rt in rt])
+    return _poseutils._rt_from_Rt( Rt, out=out)
 
-def rotate_point_r(r, x, get_gradients=False):
+def rotate_point_r(r, x, get_gradients=False, out=None):
     r"""Rotate point(s) using a Rodrigues vector
 
 SYNOPSIS
@@ -631,6 +691,13 @@ ARGUMENTS
   array of rotated points. Otherwise we return a tuple of arrays of rotated
   points and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of rotated point(s). Each broadcasted
@@ -653,10 +720,10 @@ A tuple (u=r(x),du/dr,du/dx):
 
     """
     if not get_gradients:
-        return _poseutils._rotate_point_r(r,x)
-    return _poseutils._rotate_point_r_withgrad(r,x)
+        return _poseutils._rotate_point_r(r,x, out=out)
+    return _poseutils._rotate_point_r_withgrad(r,x, out=out)
 
-def rotate_point_R(R, x, get_gradients=False):
+def rotate_point_R(R, x, get_gradients=False, out=None):
     r"""Rotate point(s) using a rotation matrix
 
 SYNOPSIS
@@ -710,6 +777,13 @@ ARGUMENTS
   array of rotated points. Otherwise we return a tuple of arrays of rotated
   points and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of rotated point(s). Each broadcasted
@@ -731,10 +805,10 @@ the gradients (u=R(x),du/dR,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._rotate_point_R(R,x)
-    return _poseutils._rotate_point_R_withgrad(R,x)
+        return _poseutils._rotate_point_R(R,x, out=out)
+    return _poseutils._rotate_point_R_withgrad(R,x, out=out)
 
-def transform_point_rt(rt, x, get_gradients=False):
+def transform_point_rt(rt, x, get_gradients=False, out=None):
     r"""Transform point(s) using an rt transformation
 
 SYNOPSIS
@@ -792,6 +866,13 @@ ARGUMENTS
   array of transformed points. Otherwise we return a tuple of arrays of
   transformed points and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of transformed point(s). Each
@@ -817,10 +898,10 @@ gradients (u=rt(x),du/dr,du/dt,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._transform_point_rt(rt,x)
-    return _poseutils._transform_point_rt_withgrad(rt,x)
+        return _poseutils._transform_point_rt(rt,x, out=out)
+    return _poseutils._transform_point_rt_withgrad(rt,x, out=out)
 
-def transform_point_Rt(Rt, x, get_gradients=False):
+def transform_point_Rt(Rt, x, get_gradients=False, out=None):
     r"""Transform point(s) using an Rt transformation
 
 SYNOPSIS
@@ -879,6 +960,13 @@ ARGUMENTS
   array of transformed points. Otherwise we return a tuple of arrays of
   transformed points and their gradients.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the same
+  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 If not get_gradients: we return an array of transformed point(s). Each
@@ -904,8 +992,8 @@ gradients (u=Rt(x),du/dR,du/dt,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._transform_point_Rt(Rt,x)
-    return _poseutils._transform_point_Rt_withgrad(Rt,x)
+        return _poseutils._transform_point_Rt(Rt,x, out=out)
+    return _poseutils._transform_point_Rt_withgrad(Rt,x, out=out)
 
 @nps.broadcast_define( ((4,),),
                        (3,3) )

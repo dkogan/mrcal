@@ -29,7 +29,10 @@ SYNOPSIS
     [[1. 0. 0.]
      [0. 1. 0.]
      [0. 0. 1.]]
-""",
+
+As with all the poseutils functions, the output can be written directly into a
+(possibly-non-contiguous) array, by specifying the destination in the 'out'
+kwarg """,
 
             args_input       = (),
             prototype_input  = (),
@@ -52,7 +55,10 @@ SYNOPSIS
     print( mrcal.identity_r() )
     ===>
     [0. 0. 0.]
-""",
+
+As with all the poseutils functions, the output can be written directly into a
+(possibly-non-contiguous) array, by specifying the destination in the 'out'
+kwarg""",
 
             args_input       = (),
             prototype_input  = (),
@@ -77,7 +83,10 @@ SYNOPSIS
      [0. 1. 0.]
      [0. 0. 1.]
      [0. 0. 0.]]
-""",
+
+As with all the poseutils functions, the output can be written directly into a
+(possibly-non-contiguous) array, by specifying the destination in the 'out'
+kwarg""",
 
             args_input       = (),
             prototype_input  = (),
@@ -100,7 +109,10 @@ SYNOPSIS
     print( mrcal.identity_rt() )
     ===>
     [0. 0. 0. 0. 0. 0.]
-""",
+
+As with all the poseutils functions, the output can be written directly into a
+(possibly-non-contiguous) array, by specifying the destination in the 'out'
+kwarg""",
 
             args_input       = (),
             prototype_input  = (),
