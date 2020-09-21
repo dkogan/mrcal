@@ -186,6 +186,13 @@ Rt1_ref = base[2,:4,:3,2]
 base[1,3,:6,1]= nps.glue(r1_ref, t1_ref, axis=-1)
 rt1_ref = base[1,3,:6,1]
 
+# the implementation has a separate path for tiny R, so I test it separately
+base[1,5,0:3,1] = np.array((-2.e-18, 3.e-19, -5.e-18))
+r0_ref_tiny = base[1,5,0:3,1]
+
+base[5,:3,:3,2] = R_from_r(r0_ref_tiny)
+R0_ref_tiny = base[5,:3,:3,2]
+
 
 
 out333 = base[:3, :3,   :3,   3]
@@ -357,6 +364,23 @@ confirm_equal( R,
 confirm_equal( J_r,
                J_r_ref,
                msg='R_from_r J_r')
+
+# the implementation has a separate path for tiny R, so I test it separately
+R = mrcal.R_from_r(r0_ref_tiny, out = out33)
+confirm_equal( R,
+               R0_ref_tiny,
+               msg='R_from_r result for tiny r0')
+
+R, J_r = mrcal.R_from_r(r0_ref_tiny, get_gradients=True,
+                        out = (out33,out333))
+J_r_ref = grad(R_from_r,
+               r0_ref_tiny)
+confirm_equal( R,
+               R0_ref_tiny,
+               msg='R_from_r result for tiny r0')
+confirm_equal( J_r,
+               J_r_ref,
+               msg='R_from_r J_r for tiny r0')
 
 # Do it again, actually calling opencv. This is both a test, and shows how to
 # migrate old code
