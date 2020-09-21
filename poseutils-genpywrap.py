@@ -38,10 +38,9 @@ SYNOPSIS
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    for(int i=0; i<3; i++)
-        for(int j=0; j<3; j++)
-            *(double*)(data_slice__output + i*strides_slice__output[0] + j*strides_slice__output[1]) =
-                 (i==j) ? 1.0 : 0.0;
+    mrcal_identity_R_noncontiguous( (double*)data_slice__output,
+                                    strides_slice__output[0],
+                                    strides_slice__output[1] );
     return true;
 '''})
 
@@ -62,8 +61,8 @@ SYNOPSIS
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    for(int i=0; i<3; i++)
-        *(double*)(data_slice__output + i*strides_slice__output[0]) = 0.0;
+    mrcal_identity_r_noncontiguous( (double*)data_slice__output,
+                                    strides_slice__output[0] );
     return true;
 '''})
 
@@ -87,12 +86,9 @@ SYNOPSIS
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    for(int i=0; i<3; i++)
-        for(int j=0; j<3; j++)
-            *(double*)(data_slice__output + i*strides_slice__output[0] + j*strides_slice__output[1]) =
-                 (i==j) ? 1.0 : 0.0;
-    for(int j=0; j<3; j++)
-        *(double*)(data_slice__output + 3*strides_slice__output[0] + j*strides_slice__output[1]) = 0.0;
+    mrcal_identity_Rt_noncontiguous( (double*)data_slice__output,
+                                     strides_slice__output[0],
+                                     strides_slice__output[1] );
     return true;
 '''})
 
@@ -113,8 +109,8 @@ SYNOPSIS
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    for(int i=0; i<6; i++)
-        *(double*)(data_slice__output + i*strides_slice__output[0]) = 0.0;
+    mrcal_identity_rt_noncontiguous( (double*)data_slice__output,
+                                     strides_slice__output[0] );
     return true;
 '''})
 
@@ -132,16 +128,17 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_R( (double*)data_slice__output,
-                          NULL,NULL,
-                          (const double*)data_slice__R,
-                          (const double*)data_slice__x );
+    mrcal_rotate_point_R_noncontiguous( (double*)data_slice__output,
+                                        strides_slice__output[0],
+                                        NULL,0,0,0,
+                                        NULL,0,0,
+                                        (const double*)data_slice__R,
+                                        strides_slice__R[0],
+                                        strides_slice__R[1],
+                                        (const double*)data_slice__x,
+                                        strides_slice__x[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_rotate_point_R_withgrad",
@@ -158,17 +155,22 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_R( (double*)data_slice__output0,
-                          (double*)data_slice__output1,
-                          (double*)data_slice__output2,
-                          (const double*)data_slice__R,
-                          (const double*)data_slice__x );
+    mrcal_rotate_point_R_noncontiguous( (double*)data_slice__output0,
+                                        strides_slice__output0[0],
+                                        (double*)data_slice__output1,
+                                        strides_slice__output1[0],
+                                        strides_slice__output1[1],
+                                        strides_slice__output1[2],
+                                        (double*)data_slice__output2,
+                                        strides_slice__output2[0],
+                                        strides_slice__output2[1],
+                                        (const double*)data_slice__R,
+                                        strides_slice__R[0],
+                                        strides_slice__R[1],
+                                        (const double*)data_slice__x,
+                                        strides_slice__x[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_rotate_point_r",
@@ -184,16 +186,16 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_r( (double*)data_slice__output,
-                          NULL,NULL,
-                          (const double*)data_slice__r,
-                          (const double*)data_slice__x );
+    mrcal_rotate_point_r_noncontiguous( (double*)data_slice__output,
+                                        strides_slice__output[0],
+                                        NULL,0,0,
+                                        NULL,0,0,
+                                        (const double*)data_slice__r,
+                                        strides_slice__r[0],
+                                        (const double*)data_slice__x,
+                                        strides_slice__x[0]);
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_rotate_point_r_withgrad",
@@ -209,17 +211,20 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_r( (double*)data_slice__output0,
-                          (double*)data_slice__output1,
-                          (double*)data_slice__output2,
-                          (const double*)data_slice__r,
-                          (const double*)data_slice__x );
+    mrcal_rotate_point_r_noncontiguous( (double*)data_slice__output0,
+                                        strides_slice__output0[0],
+                                        (double*)data_slice__output1,
+                                        strides_slice__output1[0],
+                                        strides_slice__output1[1],
+                                        (double*)data_slice__output2,
+                                        strides_slice__output2[0],
+                                        strides_slice__output2[1],
+                                        (const double*)data_slice__r,
+                                        strides_slice__r[0],
+                                        (const double*)data_slice__x,
+                                        strides_slice__x[0]);
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_transform_point_Rt",
@@ -235,16 +240,18 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_Rt( (double*)data_slice__output,
-                              NULL,NULL,NULL,
-                              (const double*)data_slice__Rt,
-                              (const double*)data_slice__x );
+    mrcal_transform_point_Rt_noncontiguous( (double*)data_slice__output,
+                                            strides_slice__output[0],
+                                            NULL,0,0,0,
+                                            NULL,0,0,
+                                            NULL,0,0,
+                                            (const double*)data_slice__Rt,
+                                            strides_slice__Rt[0],
+                                            strides_slice__Rt[1],
+                                            (const double*)data_slice__x,
+                                            strides_slice__x[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_transform_point_Rt_withgrad",
@@ -260,18 +267,25 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_Rt( (double*)data_slice__output0,
-                              (double*)data_slice__output1,
-                              (double*)data_slice__output2,
-                              (double*)data_slice__output3,
-                              (const double*)data_slice__Rt,
-                              (const double*)data_slice__x );
+    mrcal_transform_point_Rt_noncontiguous( (double*)data_slice__output0,
+                                            strides_slice__output0[0],
+                                            (double*)data_slice__output1,
+                                            strides_slice__output1[0],
+                                            strides_slice__output1[1],
+                                            strides_slice__output1[2],
+                                            (double*)data_slice__output2,
+                                            strides_slice__output2[0],
+                                            strides_slice__output2[1],
+                                            (double*)data_slice__output3,
+                                            strides_slice__output3[0],
+                                            strides_slice__output3[1],
+                                            (const double*)data_slice__Rt,
+                                            strides_slice__Rt[0],
+                                            strides_slice__Rt[1],
+                                            (const double*)data_slice__x,
+                                            strides_slice__x[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_transform_point_rt",
@@ -287,16 +301,17 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_rt( (double*)data_slice__output,
-                              NULL,NULL,NULL,
-                              (const double*)data_slice__rt,
-                              (const double*)data_slice__x );
+    mrcal_transform_point_rt_noncontiguous( (double*)data_slice__output,
+                                            strides_slice__output[0],
+                                            NULL,0,0,
+                                            NULL,0,0,
+                                            NULL,0,0,
+                                            (const double*)data_slice__rt,
+                                            strides_slice__rt[0],
+                                            (const double*)data_slice__x,
+                                            strides_slice__x[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_transform_point_rt_withgrad",
@@ -312,18 +327,23 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_rt( (double*)data_slice__output0,
-                              (double*)data_slice__output1,
-                              (double*)data_slice__output2,
-                              (double*)data_slice__output3,
-                              (const double*)data_slice__rt,
-                              (const double*)data_slice__x );
+    mrcal_transform_point_rt_noncontiguous( (double*)data_slice__output0,
+                                            strides_slice__output0[0],
+                                            (double*)data_slice__output1,
+                                            strides_slice__output1[0],
+                                            strides_slice__output1[1],
+                                            (double*)data_slice__output2,
+                                            strides_slice__output2[0],
+                                            strides_slice__output2[1],
+                                            (double*)data_slice__output3,
+                                            strides_slice__output3[0],
+                                            strides_slice__output3[1],
+                                            (const double*)data_slice__rt,
+                                            strides_slice__rt[0],
+                                            (const double*)data_slice__x,
+                                            strides_slice__x[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_r_from_R",
@@ -507,14 +527,12 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_Rt( (double*)data_slice__output,
-                     (const double*)data_slice__Rt );
+    mrcal_invert_Rt_noncontiguous( (double*)data_slice__output,
+                                   strides_slice__output[0], strides_slice__output[1],
+                                   (const double*)data_slice__Rt,
+                                   strides_slice__Rt[0], strides_slice__Rt[1] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_invert_rt",
@@ -530,15 +548,14 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_rt( (double*)data_slice__output,
-                     NULL,NULL,
-                     (const double*)data_slice__rt );
+    mrcal_invert_rt_noncontiguous( (double*)data_slice__output,
+                                   strides_slice__output[0],
+                                   NULL,0,0,
+                                   NULL,0,0,
+                                   (const double*)data_slice__rt,
+                                   strides_slice__rt[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_invert_rt_withgrad",
@@ -554,16 +571,16 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_rt( (double*)data_slice__output0,
-                     (double*)data_slice__output1,
-                     (double*)data_slice__output2,
-                     (const double*)data_slice__rt );
+    mrcal_invert_rt_noncontiguous( (double*)data_slice__output0,
+                                   strides_slice__output0[0],
+                                   (double*)data_slice__output1,
+                                   strides_slice__output1[0], strides_slice__output1[1],
+                                   (double*)data_slice__output2,
+                                   strides_slice__output2[0], strides_slice__output2[1],
+                                   (const double*)data_slice__rt,
+                                   strides_slice__rt[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.function( "_compose_Rt",
@@ -583,15 +600,47 @@ for that function for details. This internal function differs from compose_Rt():
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_compose_Rt( (double*)data_slice__output,
-                      (const double*)data_slice__Rt0,
-                      (const double*)data_slice__Rt1 );
+    mrcal_compose_Rt_noncontiguous( (double*)data_slice__output,
+                                    strides_slice__output[0], strides_slice__output[1],
+                                    (const double*)data_slice__Rt0,
+                                    strides_slice__Rt0[0], strides_slice__Rt0[1],
+                                    (const double*)data_slice__Rt1,
+                                    strides_slice__Rt1[0], strides_slice__Rt1[1] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
+)
+
+m.function( "_compose_rt",
+            """Compose two rt transformations
+
+This is an internal function. You probably want mrcal.compose_rt(). See the docs
+for that function for details. This internal function differs from compose_rt():
+
+- It supports exactly two arguments, while compose_rt() can compose N
+  transformations
+
+- It never reports gradients
+""",
+
+            args_input       = ('rt0', 'rt1'),
+            prototype_input  = ((6,), (6,)),
+            prototype_output = (6,),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_rt_noncontiguous( (double*)data_slice__output,
+                                    strides_slice__output[0],
+                                    NULL,0,0,
+                                    NULL,0,0,
+                                    NULL,0,0,
+                                    NULL,0,0,
+                                    (const double*)data_slice__rt0,
+                                    strides_slice__rt0[0],
+                                    (const double*)data_slice__rt1,
+                                    strides_slice__rt1[0] );
+    return true;
+'''},
 )
 
 m.function( "_compose_rt_withgrad",
@@ -618,19 +667,22 @@ dt/dt0 is not returned: it is always the identity matrix
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_compose_rt( (double*)data_slice__output0,
-                      (double*)data_slice__output1,
-                      (double*)data_slice__output2,
-                      (double*)data_slice__output3,
-                      (double*)data_slice__output4,
-                      (const double*)data_slice__rt0,
-                      (const double*)data_slice__rt1 );
+    mrcal_compose_rt_noncontiguous( (double*)data_slice__output0,
+                                    strides_slice__output0[0],
+                                    (double*)data_slice__output1,
+                                    strides_slice__output1[0], strides_slice__output1[1],
+                                    (double*)data_slice__output2,
+                                    strides_slice__output2[0], strides_slice__output2[1],
+                                    (double*)data_slice__output3,
+                                    strides_slice__output3[0], strides_slice__output3[1],
+                                    (double*)data_slice__output4,
+                                    strides_slice__output4[0], strides_slice__output4[1],
+                                    (const double*)data_slice__rt0,
+                                    strides_slice__rt0[0],
+                                    (const double*)data_slice__rt1,
+                                    strides_slice__rt1[0] );
     return true;
 '''},
-            Ccode_validate = r'''
-            return \
-              CHECK_CONTIGUOUS_AND_SETERROR_ALL();
-'''
 )
 
 m.write()

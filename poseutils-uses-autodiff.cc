@@ -1,4 +1,5 @@
 #include "autodiff.hh"
+#include "strides.h"
 
 template<int N>
 static void
@@ -98,93 +99,97 @@ r_from_R_core(// output
 }
 
 extern "C"
-void mrcal_rotate_point_r( // output
-                          double* x_out, // (3) array
-                          double* J_r,   // (3,3) array. May be NULL
-                          double* J_x,   // (3,3) array. May be NULL
+void mrcal_rotate_point_r_noncontiguous( // output
+                                        double* x_out,      // (3,) array
+                                        int x_out_stride0,  // in bytes. <= 0 means "contiguous"
+                                        double* J_r,        // (3,3) array. May be NULL
+                                        int J_r_stride0,    // in bytes. <= 0 means "contiguous"
+                                        int J_r_stride1,    // in bytes. <= 0 means "contiguous"
+                                        double* J_x,        // (3,3) array. May be NULL
+                                        int J_x_stride0,    // in bytes. <= 0 means "contiguous"
+                                        int J_x_stride1,    // in bytes. <= 0 means "contiguous"
 
-                          // input
-                          const double* r,
-                          const double* x_in
-                         )
+                                        // input
+                                        const double* r,    // (3,) array. May be NULL
+                                        int r_stride0,      // in bytes. <= 0 means "contiguous"
+                                        const double* x_in, // (3,) array. May be NULL
+                                        int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                         )
 {
+    init_stride_1D(x_out, 3);
+    init_stride_2D(J_r,   3,3);
+    init_stride_2D(J_x,   3,3);
+    init_stride_1D(r,     3);
+    init_stride_1D(x_in,  3);
+
     if(J_r == NULL && J_x == NULL)
     {
-        vec_withgrad_t<0, 3> rg   (r);
-        vec_withgrad_t<0, 3> x_ing(x_in);
+        vec_withgrad_t<0, 3> rg   (r,    -1, r_stride0);
+        vec_withgrad_t<0, 3> x_ing(x_in, -1, x_in_stride0);
         vec_withgrad_t<0, 3> x_outg;
         rotate_point_r_core<0>(x_outg.v,
                                rg.v, x_ing.v);
-        x_outg.extract_value(x_out);
+        x_outg.extract_value(x_out, x_out_stride0);
     }
     else if(J_r != NULL && J_x == NULL)
     {
-        vec_withgrad_t<3, 3> rg   (r, 0);
-        vec_withgrad_t<3, 3> x_ing(x_in);
+        vec_withgrad_t<3, 3> rg   (r,     0, r_stride0);
+        vec_withgrad_t<3, 3> x_ing(x_in, -1, x_in_stride0);
         vec_withgrad_t<3, 3> x_outg;
         rotate_point_r_core<3>(x_outg.v,
                                rg.v, x_ing.v);
-        x_outg.extract_value(x_out);
-        x_outg.extract_grad (J_r, 0, 3);
+        x_outg.extract_value(x_out, x_out_stride0);
+        x_outg.extract_grad (J_r, 0, 3, 0, J_r_stride0, J_r_stride1);
     }
     else if(J_r == NULL && J_x != NULL)
     {
-        vec_withgrad_t<3, 3> rg   (r);
-        vec_withgrad_t<3, 3> x_ing(x_in, 0);
+        vec_withgrad_t<3, 3> rg   (r,   -1, r_stride0);
+        vec_withgrad_t<3, 3> x_ing(x_in, 0, x_in_stride0);
         vec_withgrad_t<3, 3> x_outg;
         rotate_point_r_core<3>(x_outg.v,
                                rg.v, x_ing.v);
-        x_outg.extract_value(x_out);
-        x_outg.extract_grad (J_x, 0, 3);
+        x_outg.extract_value(x_out, x_out_stride0);
+        x_outg.extract_grad (J_x, 0, 3, 0, J_x_stride0,J_x_stride1);
     }
     else
     {
-        vec_withgrad_t<6, 3> rg   (r,    0);
-        vec_withgrad_t<6, 3> x_ing(x_in, 3);
+        vec_withgrad_t<6, 3> rg   (r,    0, r_stride0);
+        vec_withgrad_t<6, 3> x_ing(x_in, 3, x_in_stride0);
         vec_withgrad_t<6, 3> x_outg;
         rotate_point_r_core<6>(x_outg.v,
                                rg.v, x_ing.v);
-        x_outg.extract_value(x_out);
-        x_outg.extract_grad (J_r, 0, 3);
-        x_outg.extract_grad (J_x, 3, 3);
+        x_outg.extract_value(x_out, x_out_stride0);
+        x_outg.extract_grad (J_r, 0, 3, 0, J_r_stride0, J_r_stride1);
+        x_outg.extract_grad (J_x, 3, 3, 0, J_x_stride0, J_x_stride1);
     }
 }
 
 extern "C"
 void mrcal_r_from_R_noncontiguous( // output
-                    double* r,     // (3,) vector
-                    int r_stride0, // in bytes. <= 0 means "contiguous"
-                    double* J,     // (3,3,3) array. Gradient. May be NULL
-                    int J_stride0, // in bytes. <= 0 means "contiguous"
-                    int J_stride1, // in bytes. <= 0 means "contiguous"
-                    int J_stride2, // in bytes. <= 0 means "contiguous"
+                                  double* r,       // (3,) vector
+                                  int r_stride0,   // in bytes. <= 0 means "contiguous"
+                                  double* J,       // (3,3,3) array. Gradient. May be NULL
+                                  int J_stride0,   // in bytes. <= 0 means "contiguous"
+                                  int J_stride1,   // in bytes. <= 0 means "contiguous"
+                                  int J_stride2,   // in bytes. <= 0 means "contiguous"
 
-                    // input
-                    const double* R, // (3,3) array
-                    int R_stride0,   // in bytes. <= 0 means "contiguous"
-                    int R_stride1    // in bytes. <= 0 means "contiguous"
-                   )
+                                  // input
+                                  const double* R, // (3,3) array
+                                  int R_stride0,   // in bytes. <= 0 means "contiguous"
+                                  int R_stride1    // in bytes. <= 0 means "contiguous"
+                                   )
 {
-    if(R_stride0 > 0) R_stride0 /= sizeof(R[0]);
-    else              R_stride0 =  3;
-    if(R_stride1 > 0) R_stride1 /= sizeof(R[0]);
-    else              R_stride1 =  1;
-    if(J_stride0 > 0) J_stride0 /= sizeof(J[0]);
-    else              J_stride0 =  3*3;
-    if(J_stride1 > 0) J_stride1 /= sizeof(J[0]);
-    else              J_stride1 =  3;
-    if(J_stride2 > 0) J_stride2 /= sizeof(J[0]);
-    else              J_stride2 =  1;
-    if(r_stride0 > 0) r_stride0 /= sizeof(r[0]);
-    else              r_stride0 =  1;
+    init_stride_1D(r, 3);
+    init_stride_3D(J, 3,3,3);
+    init_stride_2D(R, 3,3);
 
     if(J == NULL)
     {
         vec_withgrad_t<0, 3> rg;
         vec_withgrad_t<0, 9> Rg;
-        Rg.init_vars(&R[0*R_stride0], 0,3, -1, R_stride1);
-        Rg.init_vars(&R[1*R_stride0], 3,3, -1, R_stride1);
-        Rg.init_vars(&R[2*R_stride0], 6,3, -1, R_stride1);
+        Rg.init_vars(&P2(R,0,0), 0,3, -1, R_stride1);
+        Rg.init_vars(&P2(R,1,0), 3,3, -1, R_stride1);
+        Rg.init_vars(&P2(R,2,0), 6,3, -1, R_stride1);
 
         r_from_R_core<0>(rg.v, Rg.v);
         rg.extract_value(r, r_stride0);
@@ -193,9 +198,9 @@ void mrcal_r_from_R_noncontiguous( // output
     {
         vec_withgrad_t<9, 3> rg;
         vec_withgrad_t<9, 9> Rg;
-        Rg.init_vars(&R[0*R_stride0], 0,3, 0, R_stride1);
-        Rg.init_vars(&R[1*R_stride0], 3,3, 3, R_stride1);
-        Rg.init_vars(&R[2*R_stride0], 6,3, 6, R_stride1);
+        Rg.init_vars(&P2(R,0,0), 0,3, 0, R_stride1);
+        Rg.init_vars(&P2(R,1,0), 3,3, 3, R_stride1);
+        Rg.init_vars(&P2(R,2,0), 6,3, 6, R_stride1);
 
         r_from_R_core<9>(rg.v, Rg.v);
         rg.extract_value(r, r_stride0);
@@ -203,8 +208,8 @@ void mrcal_r_from_R_noncontiguous( // output
         // J is dr/dR of shape (3,3,3). autodiff.h has a gradient of shape
         // (3,9): the /dR part is flattened. I pull it out in 3 chunks that scan
         // the middle dimension. So I fill in J[:,0,:] then J[:,1,:] then J[:,2,:]
-        rg.extract_grad(&J[0*J_stride1], 0,3, 0,3,J_stride0,J_stride2);
-        rg.extract_grad(&J[1*J_stride1], 3,3, 0,3,J_stride0,J_stride2);
-        rg.extract_grad(&J[2*J_stride1], 6,3, 0,3,J_stride0,J_stride2);
+        rg.extract_grad(&P3(J,0,0,0), 0,3, 0,J_stride0,J_stride2,3);
+        rg.extract_grad(&P3(J,0,1,0), 3,3, 0,J_stride0,J_stride2,3);
+        rg.extract_grad(&P3(J,0,2,0), 6,3, 0,J_stride0,J_stride2,3);
     }
 }

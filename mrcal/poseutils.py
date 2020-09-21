@@ -315,7 +315,7 @@ RETURNED VALUE
 
 The inverse Rt transformation in an array of shape (4,3).
 """
-    return mrcal._invert_Rt(Rt)
+    return _poseutils._invert_Rt(Rt)
 
 def invert_rt(rt, get_gradients=False):
     """Invert an rt transformation
@@ -730,10 +730,6 @@ the gradients (u=R(x),du/dR,du/dx):
 
     """
 
-    # Should do this nicer in the C code. But for the time being, this will do
-    R = np.ascontiguousarray(R)
-    x = np.ascontiguousarray(x)
-
     if not get_gradients:
         return _poseutils._rotate_point_R(R,x)
     return _poseutils._rotate_point_R_withgrad(R,x)
@@ -819,10 +815,6 @@ gradients (u=rt(x),du/dr,du/dt,du/dx):
    element of x
 
     """
-
-    # Should do this nicer in the C code. But for the time being, this will do
-    rt = np.ascontiguousarray(rt)
-    x  = np.ascontiguousarray(x)
 
     if not get_gradients:
         return _poseutils._transform_point_rt(rt,x)
@@ -910,10 +902,6 @@ gradients (u=Rt(x),du/dR,du/dt,du/dx):
    element of x
 
     """
-
-    # Should do this nicer in the C code. But for the time being, this will do
-    Rt = np.ascontiguousarray(Rt)
-    x  = np.ascontiguousarray(x)
 
     if not get_gradients:
         return _poseutils._transform_point_Rt(Rt,x)

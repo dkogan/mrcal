@@ -7,6 +7,7 @@
 
 #include <math.h>
 #include <string.h>
+#include "strides.h"
 
 template<int NGRAD, int NVEC> struct vec_withgrad_t;
 
@@ -155,11 +156,7 @@ struct vec_withgrad_t
     vec_withgrad_t() {}
 
     void init_vars(const double* x_in, int ivar0, int Nvars, int i_gradvec0 = -1,
-
-                   // stride of the input, in the number of elements. Note: THIS
-                   // IS DIFFERENT FROM THE USER-FACING FUNCTIONS THAT USE
-                   // STRIDES IN BYTES
-                   int stride = 1)
+                   int stride = sizeof(double))
     {
         // Initializes vector entries ivar0..ivar0+Nvars-1 inclusive using the
         // data in x_in[]. x_in[0] corresponds to vector entry ivar0. If
@@ -171,36 +168,33 @@ struct vec_withgrad_t
         memset((char*)&v[ivar0], 0, Nvars*sizeof(v[0]));
         for(int i=ivar0; i<ivar0+Nvars; i++)
         {
-            v[i].x = x_in[ (i-ivar0)*stride ];
+            v[i].x = _P1(x_in,stride,  i-ivar0);
             if(i_gradvec0 >= 0)
                 v[i].j[i_gradvec0+i-ivar0] = 1.0;
         }
     }
 
-    vec_withgrad_t(const double* x_in, int i_gradvec0 = -1)
+    vec_withgrad_t(const double* x_in, int i_gradvec0 = -1,
+                   int stride = sizeof(double))
     {
-        init_vars(x_in, 0, NVEC, i_gradvec0);
+        init_vars(x_in, 0, NVEC, i_gradvec0, stride);
     }
 
     void extract_value(double* out,
-                       // stride, in the number of elements. Note: THIS
-                       // IS DIFFERENT FROM THE USER-FACING FUNCTIONS THAT USE
-                       // STRIDES IN BYTES
-                       int stride = 1,
+                       int stride = sizeof(double),
                        int ivar0 = 0, int Nvars = NVEC) const
     {
         for(int i=ivar0; i<ivar0+Nvars; i++)
-            out[(i-ivar0)*stride] = v[i].x;
+            _P1(out,stride, i-ivar0) = v[i].x;
     }
     void extract_grad(double* J,
                       int i_gradvec0, int N_gradout,
-                      int ivar0 = 0, int Nvars = NVEC,
-                      int stride_var = -1, int stride_grad = 1) const
+                      int ivar0,
+                      int J_stride0, int J_stride1,
+                      int Nvars = NVEC) const
     {
-        if(stride_var <= 0) stride_var = N_gradout;
-
         for(int i=ivar0; i<ivar0+Nvars; i++)
             for(int j=0; j<N_gradout; j++)
-                J[(i-ivar0)*stride_var + j*stride_grad] = v[i].j[i_gradvec0+j];
+                _P2(J,J_stride0,J_stride1, i-ivar0,j) = v[i].j[i_gradvec0+j];
     }
 };
