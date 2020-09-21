@@ -575,22 +575,47 @@ m.function( "_invert_rt_withgrad",
 
 This is an internal function. You probably want mrcal.invert_rt(). See the docs
 for that function for details.
+
+Note that the C library returns limited gradients:
+
+- It returns dtout_drin,dtout_dtin only because
+
+- drout_drin always -I
+- drout_dtin always 0
+
+THIS function combines these into a full drtout_drtin array
+
 """,
             args_input       = ('rt',),
             prototype_input  = ((6,),),
-            prototype_output = ((6,), (3,3), (3,3)),
+            prototype_output = ((6,), (6,6)),
 
+            # output1 is drtout/drtin = [ drout/drin drout/dtin ]
+            #                           [ dtout/drin dtout/dtin ]
+            #
+            #                         = [     -I        0       ]
+            #                           [ dtout/drin dtout/dtin ]
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
     mrcal_invert_rt_noncontiguous( (double*)data_slice__output0,
                                    strides_slice__output0[0],
-                                   (double*)data_slice__output1,
+
+                                   &item__output1(3,0),
                                    strides_slice__output1[0], strides_slice__output1[1],
-                                   (double*)data_slice__output2,
-                                   strides_slice__output2[0], strides_slice__output2[1],
+
+                                   &item__output1(3,3),
+                                   strides_slice__output1[0], strides_slice__output1[1],
+
                                    (const double*)data_slice__rt,
                                    strides_slice__rt[0] );
+    for(int i=0; i<3; i++)
+        for(int j=0; j<6; j++)
+            item__output1(i,j) = 0;
+    item__output1(0,0) = -1.;
+    item__output1(1,1) = -1.;
+    item__output1(2,2) = -1.;
+
     return true;
 '''},
 )

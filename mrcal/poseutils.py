@@ -401,12 +401,20 @@ By default this function returns the rt transformation only. If we also want
 gradients, pass get_gradients=True. Logic:
 
     if not get_gradients: return rt
-    else:                 return (rt, dtout_drin, dtout_dtin)
+    else:                 return (rt, drtout_drtin)
 
-Note that:
+Note that the poseutils C API returns only
 
-- drout/drin is not returned: it is always -I
-- drout/dtin is not returned: it is always 0
+- dtout_drin
+- dtout_dtin
+
+because
+
+- drout_drin is always -I
+- drout_dtin is always 0
+
+This Python function, however fills in those constants to return the full (and
+more convenient) arrays.
 
 This function supports broadcasting fully.
 
@@ -432,17 +440,13 @@ If not get_gradients: we return an array of rt transformation(s). Each
 broadcasted slice has shape (6,)
 
 If get_gradients: we return a tuple of arrays containing the rt transformation(s)
-and the gradients (rt, dtout/drin, dtout/dtin)
+and the gradients (rt, drtout/drtin)
 
 1. The rt transformation. Each broadcasted slice has shape (6,)
 
-2. The gradient dtout/drin. Each broadcasted slice has shape (3,3). The first
-   dimension selects elements of tout, and the last dimension selects elements
-   of rin
-
-3. The gradient dtout/dtin. Each broadcasted slice has shape (3,3). The first
-   dimension selects elements of tout, and the last dimension selects elements
-   of tin
+2. The gradient drtout/drtin. Each broadcasted slice has shape (6,6). The first
+   dimension selects elements of rtout, and the last dimension selects elements
+   of rtin
 
     """
     if get_gradients:

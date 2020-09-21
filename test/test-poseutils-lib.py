@@ -204,6 +204,7 @@ out33c = base[3,   6:9, :3,   2]
 out33d = base[4,   :3,  :3,   2]
 out3   = base[1,  3,    6:9,  1]
 out6   = base[1,  4,    :6,   1]
+out66  = base[5,3:9,    3:9,  2]
 
 confirm_equal( mrcal.identity_R(out=out33),
                np.eye(3),
@@ -440,25 +441,16 @@ confirm_equal( rt,
                invert_rt(rt0_ref),
                msg='invert_rt result')
 
-rt,dt_dr,dt_dt = mrcal.invert_rt(rt0_ref, get_gradients = True,
-                                 out=(out6,out33,out33a))
+rt,drt_drt  = mrcal.invert_rt(rt0_ref, get_gradients = True,
+                                 out=(out6,out66))
 drt_drt_ref = grad(invert_rt,
                    rt0_ref)
 confirm_equal( rt,
                invert_rt(rt0_ref),
                msg='invert_rt with grad result')
-confirm_equal( dt_dr,
-               drt_drt_ref[3:,:3],
-               msg='invert_rt dt/dr result')
-confirm_equal( dt_dt,
-               drt_drt_ref[3:,3:],
-               msg='invert_rt dt/dt result')
-confirm_equal( -np.eye(3),
-               drt_drt_ref[:3,:3],
-               msg='invert_rt dr/dr assumption')
-confirm_equal( np.zeros((3,3)),
-               drt_drt_ref[:3,3:],
-               msg='invert_rt dr/dt assumption')
+confirm_equal( drt_drt,
+               drt_drt_ref,
+               msg='invert_rt drt/drt result')
 
 Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,
                        out=out43)
