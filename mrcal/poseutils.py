@@ -256,6 +256,67 @@ and the gradient (Rt, dR/dr):
         return _poseutils._Rt_from_rt_withgrad(rt)
     return _poseutils._Rt_from_rt(rt)
 
+def invert_Rt(Rt):
+    """Invert an Rt transformation
+
+SYNOPSIS
+
+    Rt01 = nps.glue(rotation_matrix,translation, axis=-2)
+
+    print(Rt01.shape)
+    ===>
+    (4,3)
+
+    Rt10 = mrcal.invert_Rt(Rt01)
+
+    print(x1.shape)
+    ===>
+    (3,)
+
+    x0 = mrcal.transform_point_Rt(Rt01, x1)
+
+    print( nps.norm2( x1 - \
+                      mrcal.transform_point_Rt(Rt10, x0) ))
+    ===>
+    0
+
+Given an Rt transformation to convert a point representated in coordinate system
+1 to coordinate system 0 (let's call it Rt01), returns a transformation that
+does the reverse: converts a representation in coordinate system 0 to coordinate
+system 1 (let's call it Rt10).
+
+Thus if you have a point in coordinate system 1 (let's call it x1), we can
+convert it to a representation in system 0, and then back. And we'll get the
+same thing out:
+
+  x1 == mrcal.transform_point_Rt( mrcal.invert_Rt(Rt01),
+          mrcal.transform_point_Rt( Rt01, x1 ))
+
+An Rt transformation represents a rotation and a translation. It is a (4,3)
+array formed by nps.glue(R,t, axis=-2) where R is a (3,3) rotation matrix and t
+is a (3,) translation vector.
+
+Applied to a point x the transformed result is rotate(x)+t. Given a matrix R,
+the rotation is defined by a matrix multiplication. x and t are stored as a row
+vector (that's how numpy stores 1-dimensional arrays), but the multiplication
+works as if x was a column vector (to match linear algebra conventions). See the
+docs for mrcal._transform_point_Rt() for more detail.
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- Rt: array of shape (4,3). This matrix defines the transformation. Rt[:3,:] is
+  a rotation matrix; Rt[3,:] is a translation. It is assumed that the rotation
+  matrix is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
+  is not checked
+
+RETURNED VALUE
+
+The inverse Rt transformation in an array of shape (4,3).
+"""
+    return mrcal._invert_Rt(Rt)
+
 def invert_rt(rt, get_gradients=False):
     """Invert an rt transformation
 
