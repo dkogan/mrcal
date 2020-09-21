@@ -205,6 +205,7 @@ out33d = base[4,   :3,  :3,   2]
 out3   = base[1,  3,    6:9,  1]
 out6   = base[1,  4,    :6,   1]
 out66  = base[5,3:9,    3:9,  2]
+out66a = base[6,3:9,    3:9,  2]
 
 confirm_equal( mrcal.identity_R(out=out33),
                np.eye(3),
@@ -470,29 +471,21 @@ confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
                msg='compose_rt result; calling _compose_rt() directly')
 
-rt2,dr2_dr0,dr2_dr1,dt2_dr0,dt2_dt1 = \
+rt2,drt2_drt0,drt2_drt1 = \
     mrcal.compose_rt(rt0_ref, rt1_ref, get_gradients=True,
-                     out = (out6, out33, out33a, out33b, out33c))
+                     out = (out6, out66, out66a))
 
-dr2_dr0_ref = grad(lambda r0: compose_rt( nps.glue(r0,rt0_ref[3:], axis=-1), rt1_ref)[:3], rt0_ref[:3])
-dr2_dr1_ref = grad(lambda r1: compose_rt( rt0_ref, nps.glue(r1,rt1_ref[3:], axis=-1))[:3], rt1_ref[:3])
-dt2_dr0_ref = grad(lambda r0: compose_rt( nps.glue(r0,rt0_ref[3:], axis=-1), rt1_ref)[3:], rt0_ref[:3])
-dt2_dt1_ref = grad(lambda t1: compose_rt( rt0_ref, nps.glue(rt1_ref[:3],t1, axis=-1))[3:], rt0_ref[3:])
+drt2_drt0_ref = grad(lambda rt0: compose_rt( rt0, rt1_ref), rt0_ref)
+drt2_drt1_ref = grad(lambda rt1: compose_rt( rt0_ref, rt1), rt1_ref)
 confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
                msg='compose_rt result')
-confirm_equal( dr2_dr0,
-               dr2_dr0_ref,
-               msg='compose_rt dr2_dr0')
-confirm_equal( dr2_dr1,
-               dr2_dr1_ref,
-               msg='compose_rt dr2_dr1')
-confirm_equal( dt2_dr0,
-               dt2_dr0_ref,
-               msg='compose_rt dt2_dr0')
-confirm_equal( dt2_dt1,
-               dt2_dt1_ref,
-               msg='compose_rt dt2_dt1')
+confirm_equal( drt2_drt0,
+               drt2_drt0_ref,
+               msg='compose_rt drt2_drt0')
+confirm_equal( drt2_drt1,
+               drt2_drt1_ref,
+               msg='compose_rt drt2_drt1')
 
 Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,Rt0_ref,
                        out=out43)

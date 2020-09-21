@@ -681,7 +681,7 @@ for that function for details. This internal function differs from compose_rt():
 )
 
 m.function( "_compose_rt_withgrad",
-            """Compose two rt transformations; return (rt,dr/dr0,dr/dr1,dt/dr0,dt/dt1)
+            """Compose two rt transformations; return (rt,drt/drt0,drt/drt1)
 
 This is an internal function. You probably want mrcal.compose_rt(). See the docs
 for that function for details. This internal function differs from compose_rt():
@@ -691,33 +691,72 @@ for that function for details. This internal function differs from compose_rt():
 
 - It always reports gradients
 
-dr/dt0 is not returned: it is always 0
-dr/dt1 is not returned: it is always 0
-dt/dr1 is not returned: it is always 0
-dt/dt0 is not returned: it is always the identity matrix
+Note that the C library returns limited gradients:
+
+- dr/dt0 is not returned: it is always 0
+- dr/dt1 is not returned: it is always 0
+- dt/dr1 is not returned: it is always 0
+- dt/dt0 is not returned: it is always the identity matrix
+
+THIS function combines these into the full drtout_drt0,drtout_drt1 arrays
+
 """,
 
             args_input       = ('rt0', 'rt1'),
             prototype_input  = ((6,), (6,)),
-            prototype_output = ((6,), (3,3),(3,3),(3,3),(3,3)),
+            prototype_output = ((6,), (6,6),(6,6)),
+
+            # output1 is drt/drt0 = [ dr/dr0 dr/dt0 ]
+            #                       [ dt/dr0 dt/dt0 ]
+            #
+            #                     = [ dr/dr0   0    ]
+            #                       [ dt/dr0   I    ]
+            #
+            # output2 is drt/drt1 = [ dr/dr1 dr/dt1 ]
+            #                       [ dt/dr1 dt/dt1 ]
+            #
+            #                     = [ dr/dr1   0    ]
+            #                       [   0    dt/dt1 ]
 
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
     mrcal_compose_rt_noncontiguous( (double*)data_slice__output0,
                                     strides_slice__output0[0],
-                                    (double*)data_slice__output1,
+
+                                    // dr/dr0
+                                    &item__output1(0,0),
                                     strides_slice__output1[0], strides_slice__output1[1],
-                                    (double*)data_slice__output2,
+
+                                    // dr/dr1
+                                    &item__output2(0,0),
                                     strides_slice__output2[0], strides_slice__output2[1],
-                                    (double*)data_slice__output3,
-                                    strides_slice__output3[0], strides_slice__output3[1],
-                                    (double*)data_slice__output4,
-                                    strides_slice__output4[0], strides_slice__output4[1],
+
+                                    // dt/dr0
+                                    &item__output1(3,0),
+                                    strides_slice__output1[0], strides_slice__output1[1],
+
+                                    // dt/dt1
+                                    &item__output2(3,3),
+                                    strides_slice__output2[0], strides_slice__output2[1],
+
                                     (const double*)data_slice__rt0,
                                     strides_slice__rt0[0],
                                     (const double*)data_slice__rt1,
                                     strides_slice__rt1[0] );
+    for(int i=0; i<3; i++)
+        for(int j=0; j<3; j++)
+        {
+            item__output1(i,  j+3) = 0;
+            item__output1(i+3,j+3) = 0;
+            item__output2(i,  j+3) = 0;
+            item__output2(i+3,j  ) = 0;
+        }
+
+    item__output1(3,3) = 1.;
+    item__output1(4,4) = 1.;
+    item__output1(5,5) = 1.;
+
     return true;
 '''},
 )

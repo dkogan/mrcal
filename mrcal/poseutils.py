@@ -544,7 +544,7 @@ SYNOPSIS
     print( [arr.shape for arr in mrcal.compose_rt(rt21,rt10,
                                                   get_gradients = True)] )
     ===>
-    [(6,), (3,3), (3,3), (3,3), (3,3)]
+    [(6,), (6,6), (6,6)]
 
 Given some number (2 or more, presumably) of rt transformations, returns their
 composition. An rt transformation is a (6,) array formed by nps.glue(r,t,
@@ -564,14 +564,24 @@ want gradients, pass get_gradients=True. This is supported ONLY if we have
 EXACTLY 2 transformations to compose. Logic:
 
     if not get_gradients: return rt=compose(rt0,rt1)
-    else:                 return (rt=compose(rt0,rt1), dr/dr0,dr/dr1,dt/dr0,dt/dt1)
+    else:                 return (rt=compose(rt0,rt1), dr/drt0,dr/drt1)
 
-Note that:
+Note that the poseutils C API returns only
 
-- dr/dt0 is not returned: it is always 0
-- dr/dt1 is not returned: it is always 0
-- dt/dr1 is not returned: it is always 0
-- dt/dt0 is not returned: it is always the identity matrix
+- dr_dr0
+- dr_dr1
+- dt_dr0
+- dt_dt1
+
+because
+
+- dr/dt0 is always 0
+- dr/dt1 is always 0
+- dt/dr1 is always 0
+- dt/dt0 is always the identity matrix
+
+This Python function, however fills in those constants to return the full (and
+more convenient) arrays.
 
 This function supports broadcasting fully, so we can compose lots of
 transformations at the same time.
@@ -601,32 +611,17 @@ broadcasted slice has shape (4,3)
 
 If get_gradients: we return a tuple of arrays containing the composed
 transformations and the gradients (rt=compose(rt0,rt1),
-dr/dr0,dr/dr1,dt/dr0,dt/dt1):
+drt/drt0,drt/drt1):
 
 1. The composed transformation. Each broadcasted slice has shape (6,)
 
-2. The gradient dr/dr0. Each broadcasted slice has shape (3,3). The first
-   dimension selects the element of r, and the last dimension selects the
-   element of r0
+2. The gradient drt/dr0. Each broadcasted slice has shape (6,6). The first
+   dimension selects the element of rt, and the last dimension selects the
+   element of rt0
 
-3. The gradient dr/dr1. Each broadcasted slice has shape (3,3). The first
-   dimension selects the element of r, and the last dimension selects the
-   element of r1
-
-4. The gradient dt/dr0. Each broadcasted slice has shape (3,3). The first
-   dimension selects the element of t, and the last dimension selects the
-   element of r0
-
-5. The gradient dt/dt1. Each broadcasted slice has shape (3,3). The first
-   dimension selects the element of t, and the last dimension selects the
-   element of t1
-
-Note that:
-
-- dr/dt0 is not returned: it is always 0
-- dr/dt1 is not returned: it is always 0
-- dt/dr1 is not returned: it is always 0
-- dt/dt0 is not returned: it is always the identity matrix
+3. The gradient drt/drt1. Each broadcasted slice has shape (6,6). The first
+   dimension selects the element of rt, and the last dimension selects the
+   element of rt1
 
     """
 
