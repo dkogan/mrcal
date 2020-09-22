@@ -256,7 +256,6 @@ the docs for that function for details.
                                             strides_slice__output[0],
                                             NULL,0,0,0,
                                             NULL,0,0,
-                                            NULL,0,0,
                                             (const double*)data_slice__Rt,
                                             strides_slice__Rt[0],
                                             strides_slice__Rt[1],
@@ -274,7 +273,7 @@ the docs for that function for details.
 """,
             args_input       = ('Rt', 'x'),
             prototype_input  = ((4,3), (3,)),
-            prototype_output = ((3,), (3,3,3), (3,3), (3,3)),
+            prototype_output = ((3,), (3,4,3), (3,3)),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -288,9 +287,6 @@ the docs for that function for details.
                                             (double*)data_slice__output2,
                                             strides_slice__output2[0],
                                             strides_slice__output2[1],
-                                            (double*)data_slice__output3,
-                                            strides_slice__output3[0],
-                                            strides_slice__output3[1],
                                             (const double*)data_slice__Rt,
                                             strides_slice__Rt[0],
                                             strides_slice__Rt[1],
@@ -317,7 +313,6 @@ the docs for that function for details.
                                             strides_slice__output[0],
                                             NULL,0,0,
                                             NULL,0,0,
-                                            NULL,0,0,
                                             (const double*)data_slice__rt,
                                             strides_slice__rt[0],
                                             (const double*)data_slice__x,
@@ -334,7 +329,7 @@ the docs for that function for details.
 """,
             args_input       = ('rt', 'x'),
             prototype_input  = ((6,), (3,)),
-            prototype_output = ((3,), (3,3), (3,3), (3,3)),
+            prototype_output = ((3,), (3,6), (3,3)),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -347,9 +342,6 @@ the docs for that function for details.
                                             (double*)data_slice__output2,
                                             strides_slice__output2[0],
                                             strides_slice__output2[1],
-                                            (double*)data_slice__output3,
-                                            strides_slice__output3[0],
-                                            strides_slice__output3[1],
                                             (const double*)data_slice__rt,
                                             strides_slice__rt[0],
                                             (const double*)data_slice__x,

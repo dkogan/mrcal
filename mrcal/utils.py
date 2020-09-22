@@ -1287,17 +1287,12 @@ def _projection_uncertainty( p_cam,
         # already have p_ref, so I don't actually need to compute the value; I just
         # need the gradients
 
-        # dprefallframes_dframesr has shape (..., Nframes,3,3)
+        # dprefallframes_dframes has shape (..., Nframes,3,6)
         _, \
-        dprefallframes_dframesr, \
-        dprefallframes_dframest, \
+        dprefallframes_dframes, \
         _ = mrcal.transform_point_rt( frames_rt_toref, p_frames,
                                       get_gradients = True)
 
-        # shape (..., Nframes,3,6)
-        dprefallframes_dframes = nps.glue(dprefallframes_dframesr,
-                                          dprefallframes_dframest,
-                                          axis=-1)
         # shape (..., 3,6*Nframes)
         # /Nframes because I compute the mean over all the frames
         dpref_dframes = nps.clump( nps.mv(dprefallframes_dframes, -3, -2),
@@ -1314,14 +1309,12 @@ def _projection_uncertainty( p_cam,
             dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
-        _, dpcam_dr, dpcam_dt, dpcam_dpref = \
+        _, dpcam_drt, dpcam_dpref = \
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
 
-        dq_dpief[..., istate_extrinsics:istate_extrinsics+3] = \
-            nps.matmult(dq_dpcam, dpcam_dr)
-        dq_dpief[..., istate_extrinsics+3:istate_extrinsics+6] = \
-            nps.matmult(dq_dpcam, dpcam_dt)
+        dq_dpief[..., istate_extrinsics:istate_extrinsics+6] = \
+            nps.matmult(dq_dpcam, dpcam_drt)
 
         if frames_rt_toref is not None:
             dq_dpief[..., istate_frames:istate_frames+Nframes*6] = \
@@ -3421,12 +3414,9 @@ report a full Rt transformation with the t component set to 0
     def residual_jacobian_rt(rt):
 
         # rtp0 has shape (...,N,3)
-        rtp0, drtp0_dr, drtp0_dt, _ = \
+        rtp0, drtp0_drt, _ = \
             mrcal.transform_point_rt(rt, v0_cut,
                                      get_gradients = True)
-
-        # shape (...,N,3,6)
-        drtp0_drt = nps.glue( drtp0_dr, drtp0_dt, axis=-1)
 
         # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
         # Each of these has shape (...,N)

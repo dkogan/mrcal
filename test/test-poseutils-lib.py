@@ -196,12 +196,14 @@ R0_ref_tiny = base[5,:3,:3,2]
 
 
 out333 = base[:3, :3,   :3,   3]
+out343 = base[:3,3:7,   :3,   3]
 out43  = base[2,  4:8,  :3,   2]
 out33  = base[2,  8:11, :3,   2]
 out33a = base[3,    :3, :3,   2]
 out33b = base[3,   3:6, :3,   2]
 out33c = base[3,   6:9, :3,   2]
 out33d = base[4,   :3,  :3,   2]
+out36  = base[6,   :3,  :6,   2]
 out3   = base[1,  3,    6:9,  1]
 out6   = base[1,  4,    :6,   1]
 out66  = base[5,3:9,    3:9,  2]
@@ -268,21 +270,17 @@ confirm_equal( y,
                nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
                msg='transform_point_Rt result')
 
-y, J_R, J_t, J_x = mrcal.transform_point_Rt(Rt0_ref, x, get_gradients=True,
-                                            out = (out3, out333, out33, out33a))
-J_R_ref = grad(lambda R: nps.matmult(x, nps.transpose(R))+t0_ref,
-               R0_ref)
-J_t_ref = np.identity(3)
+y, J_Rt, J_x = mrcal.transform_point_Rt(Rt0_ref, x, get_gradients=True,
+                                        out = (out3, out343, out33))
+J_Rt_ref = grad(lambda Rt: nps.matmult(x, nps.transpose(Rt[:3,:])) + Rt[3,:],
+                Rt0_ref)
 J_x_ref = R0_ref
 confirm_equal( y,
                nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
                msg='transform_point_Rt result')
-confirm_equal( J_R,
-               J_R_ref,
-               msg='transform_point_Rt J_R')
-confirm_equal( J_t,
-               J_t_ref,
-               msg='transform_point_Rt J_t')
+confirm_equal( J_Rt,
+               J_Rt_ref,
+               msg='transform_point_Rt J_Rt')
 confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_Rt J_x')
@@ -292,22 +290,18 @@ confirm_equal( y,
                nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
                msg='transform_point_rt result')
 
-y, J_r, J_t, J_x = mrcal.transform_point_rt(rt0_ref, x, get_gradients=True,
-                                            out = (out3,out33,out33a,out33b))
-J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r)))+t0_ref,
-               r0_ref)
-J_t_ref = np.identity(3)
+y, J_rt, J_x = mrcal.transform_point_rt(rt0_ref, x, get_gradients=True,
+                                        out = (out3,out36,out33a))
+J_rt_ref = grad(lambda rt: nps.matmult(x, nps.transpose(R_from_r(rt[:3])))+rt[3:],
+                rt0_ref)
 J_x_ref = grad(lambda x: nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
                x)
 confirm_equal( y,
                nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
                msg='transform_point_rt result')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='transform_point_rt J_r')
-confirm_equal( J_t,
-               J_t_ref,
-               msg='transform_point_rt J_t')
+confirm_equal( J_rt,
+               J_rt_ref,
+               msg='transform_point_rt J_rt')
 confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt J_x')

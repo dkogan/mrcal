@@ -246,13 +246,10 @@ void mrcal_rotate_point_R_noncontiguous( // output
 void mrcal_transform_point_Rt_noncontiguous( // output
                                             double* x_out,      // (3,) array
                                             int x_out_stride0,  // in bytes. <= 0 means "contiguous"
-                                            double* J_R,        // (3,3,3) array. May be NULL
-                                            int J_R_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_R_stride1,    // in bytes. <= 0 means "contiguous"
-                                            int J_R_stride2,    // in bytes. <= 0 means "contiguous"
-                                            double* J_t,        // (3,3) array. May be NULL
-                                            int J_t_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_t_stride1,    // in bytes. <= 0 means "contiguous"
+                                            double* J_Rt,       // (3,4,3) array. May be NULL
+                                            int J_Rt_stride0,   // in bytes. <= 0 means "contiguous"
+                                            int J_Rt_stride1,   // in bytes. <= 0 means "contiguous"
+                                            int J_Rt_stride2,   // in bytes. <= 0 means "contiguous"
                                             double* J_x,        // (3,3) array. May be NULL
                                             int J_x_stride0,    // in bytes. <= 0 means "contiguous"
                                             int J_x_stride1,    // in bytes. <= 0 means "contiguous"
@@ -265,37 +262,33 @@ void mrcal_transform_point_Rt_noncontiguous( // output
                                             int x_in_stride0    // in bytes. <= 0 means "contiguous"
                                              )
 {
-    // I want R*x + t
-    // First R*x
-    mrcal_rotate_point_R_noncontiguous(x_out, x_out_stride0,
-                                       J_R,   J_R_stride0,   J_R_stride1, J_R_stride2,
-                                       J_x,   J_x_stride0,   J_x_stride1,
-                                       Rt,    Rt_stride0,    Rt_stride1,
-                                       x_in,  x_in_stride0);
-
     init_stride_1D(x_out, 3);
-    // init_stride_3D(J_R,   3,3,3 );
-    // init_stride_2D(J_t,   3,3 );
+    init_stride_3D(J_Rt,  3,4,3 );
     // init_stride_2D(J_x,   3,3 );
     init_stride_2D(Rt,    4,3 );
     // init_stride_1D(x_in,  3 );
 
+    // I want R*x + t
+    // First R*x
+    mrcal_rotate_point_R_noncontiguous(x_out, x_out_stride0,
+                                       J_Rt,  J_Rt_stride0,  J_Rt_stride1, J_Rt_stride2,
+                                       J_x,   J_x_stride0,   J_x_stride1,
+                                       Rt,    Rt_stride0,    Rt_stride1,
+                                       x_in,  x_in_stride0);
+
     // And now +t. The J_R, J_x gradients are unaffected. J_t is identity
     for(int i=0; i<3; i++)
         P1(x_out,i) += P2(Rt,3,i);
-    if(J_t)
-        mrcal_identity_R_noncontiguous(J_t, J_t_stride0, J_t_stride1);
+    if(J_Rt)
+        mrcal_identity_R_noncontiguous(&P3(J_Rt,0,3,0), J_Rt_stride0, J_Rt_stride2);
 }
 
 void mrcal_transform_point_rt_noncontiguous( // output
                                             double* x_out,      // (3,) array
                                             int x_out_stride0,  // in bytes. <= 0 means "contiguous"
-                                            double* J_r,        // (3,3) array. May be NULL
-                                            int J_r_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_r_stride1,    // in bytes. <= 0 means "contiguous"
-                                            double* J_t,        // (3,3) array. May be NULL
-                                            int J_t_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_t_stride1,    // in bytes. <= 0 means "contiguous"
+                                            double* J_rt,       // (3,6) array. May be NULL
+                                            int J_rt_stride0,   // in bytes. <= 0 means "contiguous"
+                                            int J_rt_stride1,   // in bytes. <= 0 means "contiguous"
                                             double* J_x,        // (3,3) array. May be NULL
                                             int J_x_stride0,    // in bytes. <= 0 means "contiguous"
                                             int J_x_stride1,    // in bytes. <= 0 means "contiguous"
@@ -307,26 +300,25 @@ void mrcal_transform_point_rt_noncontiguous( // output
                                             int x_in_stride0    // in bytes. <= 0 means "contiguous"
                                              )
 {
-    // I want rotate(x) + t
-    // First rotate(x)
-    mrcal_rotate_point_r_noncontiguous(x_out, x_out_stride0,
-                                       J_r,   J_r_stride0,   J_r_stride1,
-                                       J_x,   J_x_stride0,   J_x_stride1,
-                                       rt,    rt_stride0,
-                                       x_in,  x_in_stride0);
-
     init_stride_1D(x_out, 3);
-    // init_stride_2D(J_r,   3,3 );
-    // init_stride_2D(J_t,   3,3 );
+    init_stride_2D(J_rt,  3,6);
     // init_stride_2D(J_x,   3,3 );
     init_stride_1D(rt,    6 );
     // init_stride_1D(x_in,  3 );
 
+    // I want rotate(x) + t
+    // First rotate(x)
+    mrcal_rotate_point_r_noncontiguous(x_out, x_out_stride0,
+                                       J_rt,  J_rt_stride0,  J_rt_stride1,
+                                       J_x,   J_x_stride0,   J_x_stride1,
+                                       rt,    rt_stride0,
+                                       x_in,  x_in_stride0);
+
     // And now +t. The J_r, J_x gradients are unaffected. J_t is identity
     for(int i=0; i<3; i++)
         P1(x_out,i) += P1(rt,i+3);
-    if(J_t)
-        mrcal_identity_R_noncontiguous(J_t, J_t_stride0, J_t_stride1);
+    if(J_rt)
+        mrcal_identity_R_noncontiguous(&P2(J_rt,0,3), J_rt_stride0, J_rt_stride1);
 }
 
 // The implementations of mrcal_r_from_R and mrcal_R_from_r are based on opencv.

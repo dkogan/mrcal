@@ -77,17 +77,14 @@ void mrcal_rotate_point_r_noncontiguous( // output
                                          );
 
 // Apply a transformation to a point
-#define mrcal_transform_point_Rt(x_out,J_R,J_t,J_x,Rt,x_in) mrcal_transform_point_Rt_noncontiguous(x_out,0,J_R,0,0,0,J_t,0,0,J_x,0,0,Rt,0,0,x_in,0)
+#define mrcal_transform_point_Rt(x_out,J_Rt,J_x,Rt,x_in) mrcal_transform_point_Rt_noncontiguous(x_out,0,J_Rt,0,0,0,J_x,0,0,Rt,0,0,x_in,0)
 void mrcal_transform_point_Rt_noncontiguous( // output
                                             double* x_out,      // (3,) array
                                             int x_out_stride0,  // in bytes. <= 0 means "contiguous"
-                                            double* J_R,        // (3,3,3) array. May be NULL
-                                            int J_R_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_R_stride1,    // in bytes. <= 0 means "contiguous"
-                                            int J_R_stride2,    // in bytes. <= 0 means "contiguous"
-                                            double* J_t,        // (3,3) array. May be NULL
-                                            int J_t_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_t_stride1,    // in bytes. <= 0 means "contiguous"
+                                            double* J_Rt,       // (3,4,3) array. May be NULL
+                                            int J_Rt_stride0,   // in bytes. <= 0 means "contiguous"
+                                            int J_Rt_stride1,   // in bytes. <= 0 means "contiguous"
+                                            int J_Rt_stride2,   // in bytes. <= 0 means "contiguous"
                                             double* J_x,        // (3,3) array. May be NULL
                                             int J_x_stride0,    // in bytes. <= 0 means "contiguous"
                                             int J_x_stride1,    // in bytes. <= 0 means "contiguous"
@@ -100,16 +97,13 @@ void mrcal_transform_point_Rt_noncontiguous( // output
                                             int x_in_stride0    // in bytes. <= 0 means "contiguous"
                                              );
 
-#define mrcal_transform_point_rt(x_out,J_r,J_t,J_x,rt,x_in) mrcal_transform_point_rt_noncontiguous(x_out,0,J_r,0,0,J_t,0,0,J_x,0,0,rt,0,x_in,0)
+#define mrcal_transform_point_rt(x_out,J_rt,J_x,rt,x_in) mrcal_transform_point_rt_noncontiguous(x_out,0,J_rt,0,0,J_x,0,0,rt,0,x_in,0)
 void mrcal_transform_point_rt_noncontiguous( // output
                                             double* x_out,      // (3,) array
                                             int x_out_stride0,  // in bytes. <= 0 means "contiguous"
-                                            double* J_r,        // (3,3) array. May be NULL
-                                            int J_r_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_r_stride1,    // in bytes. <= 0 means "contiguous"
-                                            double* J_t,        // (3,3) array. May be NULL
-                                            int J_t_stride0,    // in bytes. <= 0 means "contiguous"
-                                            int J_t_stride1,    // in bytes. <= 0 means "contiguous"
+                                            double* J_rt,       // (3,6) array. May be NULL
+                                            int J_rt_stride0,   // in bytes. <= 0 means "contiguous"
+                                            int J_rt_stride1,   // in bytes. <= 0 means "contiguous"
                                             double* J_x,        // (3,3) array. May be NULL
                                             int J_x_stride0,    // in bytes. <= 0 means "contiguous"
                                             int J_x_stride1,    // in bytes. <= 0 means "contiguous"
@@ -154,8 +148,7 @@ void mrcal_R_from_r_noncontiguous( // outputs
                                   int r_stride0    // in bytes. <= 0 means "contiguous"
                                    );
 
-// Convert a transformation representation from Rt to rt. This is mostly a
-// convenience functions since 99% of the work is done by mrcal_r_from_R().
+// Convert a transformation representation from Rt to rt
 #define mrcal_rt_from_Rt(rt,Rt) mrcal_rt_from_Rt_noncontiguous(rt,0,NULL,0,0,0,Rt,0,0)
 void mrcal_rt_from_Rt_noncontiguous(   // output
                                     double* rt,      // (6,) vector
@@ -172,8 +165,7 @@ void mrcal_rt_from_Rt_noncontiguous(   // output
                                     int Rt_stride1     // in bytes. <= 0 means "contiguous"
                                        );
 
-// Convert a transformation representation from Rt to rt. This is mostly a
-// convenience functions since 99% of the work is done by mrcal_R_from_r().
+// Convert a transformation representation from Rt to rt
 #define mrcal_Rt_from_rt(Rt,rt) mrcal_Rt_from_rt_noncontiguous(Rt,0,0,NULL,0,0,0,rt,0)
 void mrcal_Rt_from_rt_noncontiguous(   // output
                                     double* Rt,      // (4,3) array

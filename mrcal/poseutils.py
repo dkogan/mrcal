@@ -831,7 +831,7 @@ SYNOPSIS
             for arr in mrcal.transform_point_rt(rt, x,
                                                 get_gradients = True)] )
     ===>
-    [(10,3), (10,3,3), (10,3,3), (10,3,3)]
+    [(10,3), (10,3,6), (10,3,3)]
 
 Transform point(s) by an rt transformation: a (6,) array formed by
 nps.glue(r,t, axis=-1) where r is a (3,) Rodrigues vector and t is a (3,)
@@ -849,7 +849,7 @@ By default this function returns the transformed points only. If we also want
 gradients, pass get_gradients=True. Logic:
 
     if not get_gradients: return u=rt(x)
-    else:                 return (u=rt(x),du/dr,du/dt,du/dx)
+    else:                 return (u=rt(x),du/drt,du/dx)
 
 This function supports broadcasting fully, so we can transform lots of points at
 the same time and/or apply lots of different transformations at the same time
@@ -878,19 +878,15 @@ If not get_gradients: we return an array of transformed point(s). Each
 broadcasted slice has shape (3,)
 
 If get_gradients: we return a tuple of arrays of transformed points and the
-gradients (u=rt(x),du/dr,du/dt,du/dx):
+gradients (u=rt(x),du/drt,du/dx):
 
 1. The transformed point(s). Each broadcasted slice has shape (3,)
 
-2. The gradient du/dr. Each broadcasted slice has shape (3,3). The first
+2. The gradient du/drt. Each broadcasted slice has shape (3,6). The first
    dimension selects the element of u, and the last dimension selects the
-   element of r
+   element of rt
 
-3. The gradient du/dt. Each broadcasted slice has shape (3,3). The first
-   dimension selects the element of u, and the last dimension selects the
-   element of t
-
-4. The gradient du/dx. Each broadcasted slice has shape (3,3). The first
+3. The gradient du/dx. Each broadcasted slice has shape (3,3). The first
    dimension selects the element of u, and the last dimension selects the
    element of x
 
@@ -923,7 +919,7 @@ SYNOPSIS
             for arr in mrcal.transform_point_Rt(Rt, x,
                                                 get_gradients = True)] )
     ===>
-    [(10,3), (10,3,3,3), (10,3,3), (10,3,3)]
+    [(10,3), (10,3,4,3), (10,3,3)]
 
 Transform point(s) by an Rt transformation: a (4,3) array formed by
 nps.glue(R,t, axis=-2) where R is a (3,3) rotation matrix and t is a (3,)
@@ -941,7 +937,7 @@ By default this function returns the transformed points only. If we also want
 gradients, pass get_gradients=True. Logic:
 
     if not get_gradients: return u=Rt(x)
-    else:                 return (u=Rt(x),du/dR,du/dt,du/dx)
+    else:                 return (u=Rt(x),du/dRt,du/dx)
 
 This function supports broadcasting fully, so we can transform lots of points at
 the same time and/or apply lots of different transformations at the same time
@@ -972,19 +968,15 @@ If not get_gradients: we return an array of transformed point(s). Each
 broadcasted slice has shape (3,)
 
 If get_gradients: we return a tuple of arrays of transformed points and the
-gradients (u=Rt(x),du/dR,du/dt,du/dx):
+gradients (u=Rt(x),du/dRt,du/dx):
 
 1. The transformed point(s). Each broadcasted slice has shape (3,)
 
-2. The gradient du/dR. Each broadcasted slice has shape (3,3,3). The first
+2. The gradient du/dRt. Each broadcasted slice has shape (3,4,3). The first
    dimension selects the element of u, and the last 2 dimensions select the
-   element of R
+   element of Rt
 
-3. The gradient du/dt. Each broadcasted slice has shape (3,3). The first
-   dimension selects the element of u, and the last dimension selects the
-   element of t
-
-4. The gradient du/dx. Each broadcasted slice has shape (3,3). The first
+3. The gradient du/dx. Each broadcasted slice has shape (3,3). The first
    dimension selects the element of u, and the last dimension selects the
    element of x
 
