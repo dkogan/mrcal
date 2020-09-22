@@ -242,7 +242,7 @@ if not args.sampled:
                                           **optimization_inputs,
                                           idx_inliers = idx_inliers1 )[1]
 
-    implied_Rt10 = mrcal.align3d_procrustes(calobject1, calobject0)
+    implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobject1, calobject0)
 
     # And for the purposes of visualization, it'd be nice to have a reference
     # distance. I use the mean observation distance

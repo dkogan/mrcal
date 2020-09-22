@@ -271,7 +271,7 @@ if args.same_dance:
                                             idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
           for model in models ]
 
-    implied_Rt10 = mrcal.align3d_procrustes(calobjects[1], calobjects[0])
+    implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobjects[1], calobjects[0])
 
 else:
     implied_Rt10 = None

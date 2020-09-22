@@ -46,18 +46,16 @@ noise = np.array([[0.00035356, 0.00043613, 0.00006606],
 
 Tp = nps.matmult( p, nps.transpose(R) ) + t
 Rt_fit = \
-    mrcal.align3d_procrustes(Tp + noise,
-                             p)
+    mrcal.align_procrustes_points_Rt01(Tp + noise,
+                                       p)
 R_fit = Rt_fit[:3, :]
 t_fit = Rt_fit[ 3, :]
 testutils.confirm_equal( R_fit, R, eps=1e-2, msg='Procrustes fit R' )
 testutils.confirm_equal( t_fit, t, eps=1e-2, msg='Procrustes fit t' )
 
 R_fit_vectors = \
-    mrcal.align3d_procrustes(nps.matmult( p, nps.transpose(R) ) + \
-                             noise,
-                             p,
-                             vectors = True)
+    mrcal.align_procrustes_vectors_R01(nps.matmult( p, nps.transpose(R) ) + noise,
+                                       p)
 testutils.confirm_equal( R_fit_vectors, R, eps=1e-2, msg='Procrustes fit R (vectors)' )
 
 

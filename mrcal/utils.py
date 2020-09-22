@@ -10,79 +10,23 @@ import warnings
 
 import mrcal
 
-@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
-                       (4,3), )
-def _align3d_procrustes_points(A, B, w):
-    A = nps.transpose(A)
-    B = nps.transpose(B)
-
-    # I process Mt instead of M to not need to transpose anything later, and to
-    # end up with contiguous-memory results
-    Mt = nps.matmult(              (A - np.mean(A, axis=-1)[..., np.newaxis])*w,
-                      nps.transpose(B - np.mean(B, axis=-1)[..., np.newaxis]))
-    V,S,Ut = np.linalg.svd(Mt)
-
-    R = nps.matmult(V, Ut)
-
-    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
-    # is not a physical rotation. I compensate by negating the least-important
-    # pair of singular vectors
-    if np.linalg.det(R) < 0:
-        V[:,2] *= -1
-        R = nps.matmult(V, Ut)
-
-    # Now that I have my optimal R, I compute the optimal t. From before:
-    #
-    #   t = mean(a) - R mean(b)
-    t = np.mean(A, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(B, axis=-1)[..., np.newaxis] )
-
-    return nps.glue( R, t.ravel(), axis=-2)
-
-
-@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
-                       (3,3), )
-def _align3d_procrustes_vectors(A, B, w):
-    A = nps.transpose(A)
-    B = nps.transpose(B)
-
-    # I process Mt instead of M to not need to transpose anything later, and to
-    # end up with contiguous-memory results
-    Mt = nps.matmult( A*w, nps.transpose(B) )
-    V,S,Ut = np.linalg.svd(Mt)
-
-    R = nps.matmult(V, Ut)
-
-    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
-    # is not a physical rotation. I compensate by negating the least-important
-    # pair of singular vectors
-    if np.linalg.det(R) < 0:
-        V[:,2] *= -1
-        R = nps.matmult(V, Ut)
-
-    return R
-
-
-# I use _align3d_procrustes_...() to do the work. Those are separate functions
-# with separate broadcasting prototypes
-def align3d_procrustes(A, B,
-                       weights = None,
-                       vectors = False):
-    r"""Compute a transformation to align sets of points in different coordinate systems
+def align_procrustes_points_Rt01(p0, p1, weights=None):
+    r"""Compute a rigid transformation to align two point clouds
 
 SYNOPSIS
 
-    print(points0)
+    print(points0.shape)
     ===>
     (100,3)
 
-    print(points1)
+    print(points1.shape)
     ===>
     (100,3)
 
-    Rt10 = mrcal.align3d_procrustes(points1, points0)
+    Rt01 = mrcal.align_procrustes_points_Rt01(points0, points1)
 
-    print( np.sum(nps.norm2(mrcal.transform_point_Rt(Rt10, points0) -
-                            points1)) )
+    print( np.sum(nps.norm2(mrcal.transform_point_Rt(Rt01, points1) -
+                            points0)) )
     ===>
     [The fit error from applying the optimal transformation. If the two point
      clouds match up, this will be small]
@@ -98,43 +42,137 @@ We return a transformation that minimizes the sum 2-norm of the misalignment:
 
     cost = sum( norm2( w[i] (a[i] - transform(b[i])) ))
 
-By default we are aligning sets of POINTS, and we return an Rt transformation (a
-(4,3) array formed by nps.glue(R,t, axis=-2) where R is a (3,3) rotation matrix
-and t is a (3,) translation vector).
+We return an Rt transformation to map points in set 1 to points in set 0.
 
-We can also align a set of UNIT VECTORS to compute an optimal rotation matrix R
-by passing vectors=True. The input vectors MUST be normalized
-
-Broadcasting is fully supported by this function.
+A similar computation can be performed to instead align a set of UNIT VECTORS to
+compute an optimal rotation matrix R by calling align_procrustes_vectors_R01().
 
 ARGUMENTS
 
-- A: an array of shape (..., N, 3). Each row is a point (or vector) in the
-  coordinate system we're transforming TO
+- p0: an array of shape (..., N, 3). Each row is a point in the coordinate
+  system we're transforming TO
 
-- B: an array of shape (..., N, 3). Each row is a point (or vector) in the
-  coordinate system we're transforming FROM
+- p1: an array of shape (..., N, 3). Each row is a point in the coordinate
+  system we're transforming FROM
 
 - weights: optional array of shape (..., N). Specifies the relative weight of
   each point. If omitted, all the given points are weighted equally
 
-- vectors: optional boolean. By default (vectors=False) we're aligning POINTS
-  and we return an Rt transformation. If vectors: we align VECTORS and we return
-  a rotation matrix
+RETURNED VALUES
+
+The Rt transformation in an array of shape (4,3). We return the optimal
+transformation to align the given point clouds. The transformation maps points
+TO coord system 0 FROM coord system 1.
+
+    """
+
+    if weights is None:
+        weights = np.ones(p0.shape[:-1], dtype=float)
+
+    p0 = nps.transpose(p0)
+    p1 = nps.transpose(p1)
+
+    # I process Mt instead of M to not need to transpose anything later, and to
+    # end up with contiguous-memory results
+    Mt = nps.matmult(              (p0 - np.mean(p0, axis=-1)[..., np.newaxis])*w,
+                      nps.transpose(p1 - np.mean(p1, axis=-1)[..., np.newaxis]))
+    V,S,Ut = np.linalg.svd(Mt)
+
+    R = nps.matmult(V, Ut)
+
+    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
+    # is not a physical rotation. I compensate by negating the least-important
+    # pair of singular vectors
+    if np.linalg.det(R) < 0:
+        V[:,2] *= -1
+        R = nps.matmult(V, Ut)
+
+    # Now that I have my optimal R, I compute the optimal t. From before:
+    #
+    #   t = mean(a) - R mean(b)
+    t = np.mean(p0, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(p1, axis=-1)[..., np.newaxis] )
+
+    return nps.glue( R, t.ravel(), axis=-2)
+
+
+def align_procrustes_vectors_R01(v0, v1, weights=None):
+    r"""Compute a rotation to align two sets of direction vectors
+
+SYNOPSIS
+
+    print(vectors0.shape)
+    ===>
+    (100,3)
+
+    print(vectors1.shape)
+    ===>
+    (100,3)
+
+    R01 = mrcal.align_procrustes_vectors_R01(vectors0, vectors1)
+
+    print( np.mean(1. - nps.inner(mrcal.rotate_point_R(R01, vectors1),
+                                  vectors0)) )
+    ===>
+    [The fit error from applying the optimal rotation. If the two sets of
+     vectors match up, this will be small]
+
+Given two sets of normalized direction vectors in 3D (stored in numpy arrays of
+shape (N,3)), we find the optimal rotation to align them. This is done with a
+well-known direct method. See:
+
+- https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem
+- https://en.wikipedia.org/wiki/Kabsch_algorithm
+
+We return a rotation that minimizes the weighted sum of the cosine of the
+misalignment:
+
+    cost = -sum( w[i] inner(a[i], rotate(b[i])) )
+
+We return a rotation to map vectors in set 1 to vectors in set 0.
+
+A similar computation can be performed to instead align a set of POINTS to
+compute an optimal transformation Rt by calling align_procrustes_points_Rt01().
+
+ARGUMENTS
+
+- v0: an array of shape (..., N, 3). Each row is a vector in the coordinate
+  system we're transforming TO
+
+- v1: an array of shape (..., N, 3). Each row is a vector in the coordinate
+  system we're transforming FROM
+
+- weights: optional array of shape (..., N). Specifies the relative weight of
+  each vector. If omitted, everything is weighted equally
 
 RETURNED VALUES
 
-We return the optimal transformation to align the given point (or vector)
-clouds. The transformation maps points TO coord system A FROM coord system B. If
-not vectors (the default) we return an Rt transformation in a (4,3) array. If
-vectors: we return a rotation matrix in a (3,3) array
+The rotation matrix in an array of shape (3,3). We return the optimal rotation
+to align the given vector sets. The rotation maps vectors TO coord system 0 FROM
+coord system 1.
 
     """
-    if weights is None:
-        weights = np.ones(A.shape[:-1], dtype=float)
 
-    if vectors: return _align3d_procrustes_vectors(A,B,weights)
-    else:       return _align3d_procrustes_points (A,B,weights)
+    if weights is None:
+        weights = np.ones(v0.shape[:-1], dtype=float)
+
+    v0 = nps.transpose(v0)
+    v1 = nps.transpose(v1)
+
+    # I process Mt instead of M to not need to transpose anything later, and to
+    # end up with contiguous-memory results
+    Mt = nps.matmult( v0*w, nps.transpose(v1) )
+    V,S,Ut = np.linalg.svd(Mt)
+
+    R = nps.matmult(V, Ut)
+
+    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
+    # is not a physical rotation. I compensate by negating the least-important
+    # pair of singular vectors
+    if np.linalg.det(R) < 0:
+        V[:,2] *= -1
+        R = nps.matmult(V, Ut)
+
+    return R
 
 
 def ref_calibration_object(W, H, object_spacing, calobject_warp=None):
@@ -5141,7 +5179,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                 B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt1[:3,:])) + Rt1[3,:],
                              axis = -2)
 
-        return mrcal.align3d_procrustes(A, B)
+        return mrcal.align_procrustes_points_Rt01(A, B)
 
 
     def compute_connectivity_matrix():
@@ -5444,7 +5482,7 @@ system FROM the calibration object coordinate system.
         # transform both to shape = (N*N, 3)
         obj          = nps.clump(obj,  n=2)
         mean_obj_ref = nps.clump(mean_obj_ref, n=2)
-        return mrcal.align3d_procrustes( mean_obj_ref, obj )
+        return mrcal.align_procrustes_points_Rt01( mean_obj_ref, obj )
 
 
 
@@ -5625,7 +5663,7 @@ We return a tuple:
     # to their camera. I can move around the two sets of point clouds to try to
     # match them up, and this will give me an estimate of the relative pose of
     # the two cameras in respect to each other. I need to set up the
-    # correspondences, and align3d_procrustes() does the rest
+    # correspondences, and align_procrustes_points_Rt01() does the rest
     #
     # I get transformations that map points in camera-cami coord system to 0th
     # camera coord system. Rt have dimensions (N-1,4,3)
