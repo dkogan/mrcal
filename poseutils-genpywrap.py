@@ -303,7 +303,7 @@ the docs for that function for details.
 m.function( "_transform_point_rt",
             """Transform a point using an rt transformation
 
-This is an internal function. You probably want mrcal.transform_point_Rt(). See
+This is an internal function. You probably want mrcal.transform_point_rt(). See
 the docs for that function for details.
 """,
             args_input       = ('rt', 'x'),
@@ -329,7 +329,7 @@ the docs for that function for details.
 m.function( "_transform_point_rt_withgrad",
             """Transform a point using an rt transformation; report the result and gradients
 
-This is an internal function. You probably want mrcal.transform_point_Rt(). See
+This is an internal function. You probably want mrcal.transform_point_rt(). See
 the docs for that function for details.
 """,
             args_input       = ('rt', 'x'),
