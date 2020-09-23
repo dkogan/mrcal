@@ -8,7 +8,7 @@ SYNOPSIS
 
     x,J = mrcal.optimizer_callback(**optimization_inputs)[1:3]
 
-    Nmeas   = mrcal.num_measurements_all(**optimization_inputs)
+    Nmeas   = mrcal.num_measurements(**optimization_inputs)
 
     print(x.shape[0] - Nmeas)
     ===>

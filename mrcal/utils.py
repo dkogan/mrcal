@@ -1850,7 +1850,7 @@ else:                    we return an array of shape (...)
 
 
     Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
-    if Nmeasurements_observations == mrcal.num_measurements_all(**optimization_inputs):
+    if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
         # Note the special-case where I'm using all the observations
         Nmeasurements_observations = None
 

@@ -419,13 +419,13 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
         num_regularization_terms_percamera(problem_details, lensmodel);
 }
 
-int mrcal_num_measurements_all(int Ncameras_intrinsics,
-                               int Nobservations_board,
-                               int Nobservations_point,
-                               int calibration_object_width_n,
-                               int calibration_object_height_n,
-                               mrcal_problem_details_t problem_details,
-                               mrcal_lensmodel_t lensmodel)
+int mrcal_num_measurements(int Ncameras_intrinsics,
+                           int Nobservations_board,
+                           int Nobservations_point,
+                           int calibration_object_width_n,
+                           int calibration_object_height_n,
+                           mrcal_problem_details_t problem_details,
+                           mrcal_lensmodel_t lensmodel)
 {
     return
         mrcal_num_measurements_boards( Nobservations_board,
@@ -4427,13 +4427,13 @@ bool mrcal_optimizer_callback(// out
         goto done;
     }
 
-    int Nmeasurements = mrcal_num_measurements_all(Ncameras_intrinsics,
-                                                   Nobservations_board,
-                                                   Nobservations_point,
-                                                   calibration_object_width_n,
-                                                   calibration_object_height_n,
-                                                   problem_details,
-                                                   lensmodel);
+    int Nmeasurements = mrcal_num_measurements(Ncameras_intrinsics,
+                                               Nobservations_board,
+                                               Nobservations_point,
+                                               calibration_object_width_n,
+                                               calibration_object_height_n,
+                                               problem_details,
+                                               lensmodel);
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     int N_j_nonzero = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
                                            observations_board, Nobservations_board,
@@ -4646,13 +4646,13 @@ mrcal_optimize( // out
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
         .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
-        .Nmeasurements              = mrcal_num_measurements_all(Ncameras_intrinsics,
-                                                                 Nobservations_board,
-                                                                 Nobservations_point,
-                                                                 calibration_object_width_n,
-                                                                 calibration_object_height_n,
-                                                                 problem_details,
-                                                                 lensmodel),
+        .Nmeasurements              = mrcal_num_measurements(Ncameras_intrinsics,
+                                                             Nobservations_board,
+                                                             Nobservations_point,
+                                                             calibration_object_width_n,
+                                                             calibration_object_height_n,
+                                                             problem_details,
+                                                             lensmodel),
         .N_j_nonzero                = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
                                                            observations_board, Nobservations_board,
                                                            observations_point, Nobservations_point,

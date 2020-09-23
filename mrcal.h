@@ -480,13 +480,13 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
                                           mrcal_problem_details_t problem_details,
                                           mrcal_lensmodel_t lensmodel);
 
-int mrcal_num_measurements_all(int Ncameras_intrinsics,
-                               int Nobservations_board,
-                               int Nobservations_point,
-                               int calibration_object_width_n,
-                               int calibration_object_height_n,
-                               mrcal_problem_details_t problem_details,
-                               mrcal_lensmodel_t lensmodel);
+int mrcal_num_measurements(int Ncameras_intrinsics,
+                           int Nobservations_board,
+                           int Nobservations_point,
+                           int calibration_object_width_n,
+                           int calibration_object_height_n,
+                           mrcal_problem_details_t problem_details,
+                           mrcal_lensmodel_t lensmodel);
 
 int mrcal_num_state(int Ncameras_intrinsics, int Ncameras_extrinsics,
                     int Nframes, int Npoints_variable,
