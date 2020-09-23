@@ -325,10 +325,10 @@ int mrcal_num_intrinsics_optimization_params(mrcal_problem_details_t problem_det
     return N;
 }
 
-int mrcal_num_state(int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                    int Npoints_variable,
-                    mrcal_problem_details_t problem_details,
-                    mrcal_lensmodel_t lensmodel)
+int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                     int Npoints_variable,
+                     mrcal_problem_details_t problem_details,
+                     mrcal_lensmodel_t lensmodel)
 {
     return
         // camera extrinsics
@@ -4416,10 +4416,10 @@ bool mrcal_optimizer_callback(// out
     }
 
 
-    const int Nstate = mrcal_num_state(Ncameras_intrinsics, Ncameras_extrinsics,
-                                       Nframes, Npoints-Npoints_fixed,
-                                       problem_details,
-                                       lensmodel);
+    const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                                        Nframes, Npoints-Npoints_fixed,
+                                        problem_details,
+                                        lensmodel);
     if( buffer_size_p_packed != Nstate*(int)sizeof(double) )
     {
         MSG("The buffer passed to fill-in p_packed has the wrong size. Needed exactly %d bytes, but got %d bytes",
@@ -4664,10 +4664,10 @@ mrcal_optimize( // out
         .Nintrinsics                = mrcal_lensmodel_num_params(lensmodel)};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
-    const int Nstate = mrcal_num_state(Ncameras_intrinsics, Ncameras_extrinsics,
-                                       Nframes, Npoints-Npoints_fixed,
-                                       problem_details,
-                                       lensmodel);
+    const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                                        Nframes, Npoints-Npoints_fixed,
+                                        problem_details,
+                                        lensmodel);
 
     if( p_packed_final != NULL &&
         buffer_size_p_packed_final != Nstate*(int)sizeof(double) )

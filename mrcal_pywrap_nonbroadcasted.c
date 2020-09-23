@@ -1448,9 +1448,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         // input
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
-        int Nstate = mrcal_num_state(Ncameras_intrinsics, Ncameras_extrinsics,
-                                     Nframes, Npoints-Npoints_fixed,
-                                     problem_details, mrcal_lensmodel_type);
+        int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                                      Nframes, Npoints-Npoints_fixed,
+                                      problem_details, mrcal_lensmodel_type);
 
         // both optimize() and optimizer_callback() use this
         p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
@@ -2495,10 +2495,10 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     }
 
     int Nstate =
-        mrcal_num_state(Ncameras_intrinsics, Ncameras_extrinsics,
-                        Nframes, Npoints - Npoints_fixed,
-                        problem_details,
-                        mrcal_lensmodel_type);
+        mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                         Nframes, Npoints - Npoints_fixed,
+                         problem_details,
+                         mrcal_lensmodel_type);
 
     if( dims[ndim-1] != Nstate )
     {

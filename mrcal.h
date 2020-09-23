@@ -488,10 +488,10 @@ int mrcal_num_measurements(int Ncameras_intrinsics,
                            mrcal_problem_details_t problem_details,
                            mrcal_lensmodel_t lensmodel);
 
-int mrcal_num_state(int Ncameras_intrinsics, int Ncameras_extrinsics,
-                    int Nframes, int Npoints_variable,
-                    mrcal_problem_details_t problem_details,
-                    mrcal_lensmodel_t lensmodel);
+int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                     int Nframes, int Npoints_variable,
+                     mrcal_problem_details_t problem_details,
+                     mrcal_lensmodel_t lensmodel);
 int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
                           const mrcal_observation_board_t* observations_board,
                           int Nobservations_board,
