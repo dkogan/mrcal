@@ -1437,9 +1437,13 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             {.point_min_range = point_min_range,
              .point_max_range = point_max_range};
 
-        int Nmeasurements = mrcal_num_measurements(Ncameras_intrinsics, Nobservations_board, Nobservations_point,
+        int Nmeasurements = mrcal_num_measurements(Nobservations_board,
+                                                   Nobservations_point,
                                                    calibration_object_width_n,
                                                    calibration_object_height_n,
+                                                   Ncameras_intrinsics, Ncameras_extrinsics,
+                                                   Nframes,
+                                                   Npoints, Npoints_fixed,
                                                    problem_details,
                                                    mrcal_lensmodel_type);
 
@@ -1551,14 +1555,17 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         {
             // we're wrapping mrcal_optimizer_callback()
 
-            int N_j_nonzero = mrcal_num_j_nonzero(Ncameras_intrinsics, Ncameras_extrinsics,
-                                                   c_observations_board, Nobservations_board,
-                                                   c_observations_point, Nobservations_point,
-                                                   Npoints, Npoints_fixed,
-                                                   problem_details,
-                                                   mrcal_lensmodel_type,
-                                                   calibration_object_width_n,
-                                                   calibration_object_height_n);
+            int N_j_nonzero = mrcal_num_j_nonzero(Nobservations_board,
+                                                  Nobservations_point,
+                                                  calibration_object_width_n,
+                                                  calibration_object_height_n,
+                                                  Ncameras_intrinsics, Ncameras_extrinsics,
+                                                  Nframes,
+                                                  Npoints, Npoints_fixed,
+                                                  c_observations_board,
+                                                  c_observations_point,
+                                                  problem_details,
+                                                  mrcal_lensmodel_type);
 
             PyArrayObject* P = NULL;
             PyArrayObject* I = NULL;
@@ -1909,6 +1916,9 @@ static int callback_state_index_intrinsics(int i,
         return -1;
     }
     return mrcal_state_index_intrinsics(i,
+                                        Ncameras_intrinsics, Ncameras_extrinsics,
+                                        Nframes,
+                                        Npoints, Npoints_fixed,
                                         problem_details,
                                         lensmodel);
 }
@@ -1975,7 +1985,9 @@ static int callback_state_index_extrinsics(int i,
     }
     return
         mrcal_state_index_extrinsics(i,
-                                     Ncameras_intrinsics,
+                                     Ncameras_intrinsics, Ncameras_extrinsics,
+                                     Nframes,
+                                     Npoints, Npoints_fixed,
                                      problem_details,
                                      lensmodel);
 }
@@ -2042,8 +2054,9 @@ static int callback_state_index_frames(int i,
     }
     return
         mrcal_state_index_frames(i,
-                                 Ncameras_intrinsics,
-                                 Ncameras_extrinsics,
+                                 Ncameras_intrinsics, Ncameras_extrinsics,
+                                 Nframes,
+                                 Npoints, Npoints_fixed,
                                  problem_details,
                                  lensmodel);
 }
@@ -2110,9 +2123,9 @@ static int callback_state_index_points(int i,
     }
     return
         mrcal_state_index_points(i,
+                                 Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
-                                 Ncameras_intrinsics,
-                                 Ncameras_extrinsics,
+                                 Npoints, Npoints_fixed,
                                  problem_details,
                                  lensmodel);
 }
@@ -2160,12 +2173,11 @@ static int callback_state_index_calobject_warp(int i,
                                                mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_state_index_calobject_warp(Npoints, Npoints_fixed,
-                                         Nframes,
-                                         Ncameras_intrinsics,
-                                         Ncameras_extrinsics,
-                                         problem_details,
-                                         lensmodel);
+        mrcal_state_index_calobject_warp( Ncameras_intrinsics, Ncameras_extrinsics,
+                                          Nframes,
+                                          Npoints, Npoints_fixed,
+                                          problem_details,
+                                          lensmodel);
 }
 static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2212,6 +2224,8 @@ static int callback_measurement_index_boards(int i,
 {
     return
         mrcal_measurement_index_boards(i,
+                                       Nobservations_board,
+                                       Nobservations_point,
                                        calibration_object_width_n,
                                        calibration_object_height_n);
 }
@@ -2263,6 +2277,7 @@ static int callback_measurement_index_points(int i,
     return
         mrcal_measurement_index_points(i,
                                        Nobservations_board,
+                                       Nobservations_point,
                                        calibration_object_width_n,
                                        calibration_object_height_n);
 }
@@ -2336,7 +2351,9 @@ static int callback_num_measurements_regularization(int i,
                                                     mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_num_measurements_regularization(Ncameras_intrinsics,
+        mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
+                                              Nframes,
+                                              Npoints, Npoints_fixed,
                                               problem_details,
                                               lensmodel);
 }
@@ -2362,11 +2379,13 @@ static int callback_num_measurements_all(int i,
                                          mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_num_measurements(Ncameras_intrinsics,
-                               Nobservations_board,
+        mrcal_num_measurements(Nobservations_board,
                                Nobservations_point,
                                calibration_object_width_n,
                                calibration_object_height_n,
+                               Ncameras_intrinsics, Ncameras_extrinsics,
+                               Nframes,
+                               Npoints, Npoints_fixed,
                                problem_details,
                                lensmodel);
 }

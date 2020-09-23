@@ -462,6 +462,8 @@ bool mrcal_optimizer_callback(// out
 
 
 int mrcal_measurement_index_boards(int i_observation_board,
+                                   int Nobservations_board,
+                                   int Nobservations_point,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n);
 int mrcal_num_measurements_boards(int Nobservations_board,
@@ -469,6 +471,7 @@ int mrcal_num_measurements_boards(int Nobservations_board,
                                   int calibration_object_height_n);
 int mrcal_measurement_index_points(int i_observation_point,
                                    int Nobservations_board,
+                                   int Nobservations_point,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n);
 int mrcal_num_measurements_points(int Nobservations_point);
@@ -476,15 +479,19 @@ int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int Nobservations_point,
                                            int calibration_object_width_n,
                                            int calibration_object_height_n);
-int mrcal_num_measurements_regularization(int Ncameras_intrinsics,
+int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                          int Nframes,
+                                          int Npoints, int Npoints_fixed,
                                           mrcal_problem_details_t problem_details,
                                           mrcal_lensmodel_t lensmodel);
 
-int mrcal_num_measurements(int Ncameras_intrinsics,
-                           int Nobservations_board,
+int mrcal_num_measurements(int Nobservations_board,
                            int Nobservations_point,
                            int calibration_object_width_n,
                            int calibration_object_height_n,
+                           int Ncameras_intrinsics, int Ncameras_extrinsics,
+                           int Nframes,
+                           int Npoints, int Npoints_fixed,
                            mrcal_problem_details_t problem_details,
                            mrcal_lensmodel_t lensmodel);
 
@@ -493,16 +500,17 @@ int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
                      int Npoints, int Npoints_fixed,
                      mrcal_problem_details_t problem_details,
                      mrcal_lensmodel_t lensmodel);
-int mrcal_num_j_nonzero( int Ncameras_intrinsics, int Ncameras_extrinsics,
-                          const mrcal_observation_board_t* observations_board,
-                          int Nobservations_board,
-                          const mrcal_observation_point_t* observations_point,
-                          int Nobservations_point,
-                          int Npoints, int Npoints_fixed,
-                          mrcal_problem_details_t problem_details,
-                          mrcal_lensmodel_t lensmodel,
-                          int calibration_object_width_n,
-                          int calibration_object_height_n);
+int mrcal_num_j_nonzero(int Nobservations_board,
+                        int Nobservations_point,
+                        int calibration_object_width_n,
+                        int calibration_object_height_n,
+                        int Ncameras_intrinsics, int Ncameras_extrinsics,
+                        int Nframes,
+                        int Npoints, int Npoints_fixed,
+                        const mrcal_observation_board_t* observations_board,
+                        const mrcal_observation_point_t* observations_point,
+                        mrcal_problem_details_t problem_details,
+                        mrcal_lensmodel_t lensmodel);
 
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
 // this is void
@@ -510,32 +518,41 @@ void mrcal_free_context(void** ctx);
 
 
 int mrcal_state_index_intrinsics(int i_cam_intrinsics,
+                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                 int Nframes,
+                                 int Npoints, int Npoints_fixed,
                                  mrcal_problem_details_t problem_details,
                                  mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
                                 mrcal_problem_details_t problem_details,
                                 mrcal_lensmodel_t lensmodel);
 int mrcal_state_index_extrinsics(int i_cam_extrinsics,
-                                 int Ncameras_intrinsics,
+                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                 int Nframes,
+                                 int Npoints, int Npoints_fixed,
                                  mrcal_problem_details_t problem_details,
                                  mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
                                 mrcal_problem_details_t problem_details);
 int mrcal_state_index_frames(int i_frame,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             int Nframes,
+                             int Npoints, int Npoints_fixed,
                              mrcal_problem_details_t problem_details,
                              mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_frames(int Nframes,
                             mrcal_problem_details_t problem_details);
-int mrcal_state_index_points(int i_point, int Nframes,
+int mrcal_state_index_points(int i_point,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             int Nframes,
+                             int Npoints, int Npoints_fixed,
                              mrcal_problem_details_t problem_details,
                              mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_points(int Npoints, int Npoints_fixed,
                             mrcal_problem_details_t problem_details);
-int mrcal_state_index_calobject_warp(int Npoints, int Npoints_fixed,
+int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
-                                     int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                     int Npoints, int Npoints_fixed,
                                      mrcal_problem_details_t problem_details,
                                      mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details);
