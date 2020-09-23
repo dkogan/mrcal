@@ -326,10 +326,12 @@ int mrcal_num_intrinsics_optimization_params(mrcal_problem_details_t problem_det
 }
 
 int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                     int Npoints_variable,
+                     int Npoints, int Npoints_fixed,
                      mrcal_problem_details_t problem_details,
                      mrcal_lensmodel_t lensmodel)
 {
+    int Npoints_variable = Npoints - Npoints_fixed;
+
     return
         // camera extrinsics
         (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
@@ -2751,10 +2753,13 @@ void mrcal_pack_solver_state_vector( // out, in
 
                                      // in
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                     int Nframes, int Npoints_variable,
+                                     int Nframes,
+                                     int Npoints, int Npoints_fixed,
                                      mrcal_problem_details_t problem_details,
                                      const mrcal_lensmodel_t lensmodel)
 {
+    int Npoints_variable = Npoints - Npoints_fixed;
+
     int i_state = 0;
 
     i_state += pack_solver_state_intrinsics( p, p,
@@ -2958,10 +2963,13 @@ void mrcal_unpack_solver_state_vector( // out, in
 
                                        // in
                                        int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                       int Nframes, int Npoints_variable,
+                                       int Nframes,
+                                       int Npoints, int Npoints_fixed,
                                        mrcal_problem_details_t problem_details,
                                        const mrcal_lensmodel_t lensmodel)
 {
+    int Npoints_variable = Npoints - Npoints_fixed;
+
     int i_state = unpack_solver_state_intrinsics(&p[modelHasCore_fxfycxcy(lensmodel) &&
                                                     !problem_details.do_optimize_intrinsics_core ? -4 : 0],
                                                  p, lensmodel, problem_details,
@@ -3064,13 +3072,14 @@ int mrcal_state_index_points(int i_point, int Nframes, int Ncameras_intrinsics, 
         (problem_details.do_optimize_frames ? (i_point*3) : 0);
 }
 
-int mrcal_num_states_points(int Npoints_variable,
+int mrcal_num_states_points(int Npoints, int Npoints_fixed,
                             mrcal_problem_details_t problem_details)
 {
+    int Npoints_variable = Npoints - Npoints_fixed;
     return problem_details.do_optimize_frames ? (Npoints_variable*3) : 0;
 }
 
-int mrcal_state_index_calobject_warp(int Npoints_variable,
+int mrcal_state_index_calobject_warp(int Npoints, int Npoints_fixed,
                                      int Nframes, int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      mrcal_problem_details_t problem_details,
                                      mrcal_lensmodel_t lensmodel)
@@ -3083,7 +3092,7 @@ int mrcal_state_index_calobject_warp(int Npoints_variable,
                                     problem_details) +
         mrcal_num_states_frames    (Nframes,
                                     problem_details) +
-        mrcal_num_states_points    (Npoints_variable,
+        mrcal_num_states_points    (Npoints, Npoints_fixed,
                                     problem_details);
 }
 
@@ -3413,7 +3422,7 @@ void optimizer_callback(// input state
 
     mrcal_point2_t calobject_warp_local = {};
     const int i_var_calobject_warp =
-        mrcal_state_index_calobject_warp(ctx->Npoints - ctx->Npoints_fixed,
+        mrcal_state_index_calobject_warp(ctx->Npoints, ctx->Npoints_fixed,
                                          ctx->Nframes,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->problem_details, ctx->lensmodel);
@@ -4417,7 +4426,7 @@ bool mrcal_optimizer_callback(// out
 
 
     const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
-                                        Nframes, Npoints-Npoints_fixed,
+                                        Nframes, Npoints, Npoints_fixed,
                                         problem_details,
                                         lensmodel);
     if( buffer_size_p_packed != Nstate*(int)sizeof(double) )
@@ -4665,7 +4674,7 @@ mrcal_optimize( // out
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
     const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
-                                        Nframes, Npoints-Npoints_fixed,
+                                        Nframes, Npoints, Npoints_fixed,
                                         problem_details,
                                         lensmodel);
 

@@ -1449,7 +1449,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
-                                      Nframes, Npoints-Npoints_fixed,
+                                      Nframes, Npoints, Npoints_fixed,
                                       problem_details, mrcal_lensmodel_type);
 
         // both optimize() and optimizer_callback() use this
@@ -2137,7 +2137,7 @@ static int callback_num_states_points(int i,
                                        mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_num_states_points(Npoints - Npoints_fixed, problem_details);
+        mrcal_num_states_points(Npoints, Npoints_fixed, problem_details);
 }
 static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2160,7 +2160,7 @@ static int callback_state_index_calobject_warp(int i,
                                                mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_state_index_calobject_warp(Npoints - Npoints_fixed,
+        mrcal_state_index_calobject_warp(Npoints, Npoints_fixed,
                                          Nframes,
                                          Ncameras_intrinsics,
                                          Ncameras_extrinsics,
@@ -2496,7 +2496,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
 
     int Nstate =
         mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
-                         Nframes, Npoints - Npoints_fixed,
+                         Nframes, Npoints, Npoints_fixed,
                          problem_details,
                          mrcal_lensmodel_type);
 
@@ -2513,7 +2513,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         {
             mrcal_pack_solver_state_vector( x,
                                             Ncameras_intrinsics, Ncameras_extrinsics,
-                                            Nframes, Npoints-Npoints_fixed,
+                                            Nframes, Npoints, Npoints_fixed,
                                             problem_details, mrcal_lensmodel_type);
             x = &x[Nstate];
         }
@@ -2522,7 +2522,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         {
             mrcal_unpack_solver_state_vector( x,
                                               Ncameras_intrinsics, Ncameras_extrinsics,
-                                              Nframes, Npoints-Npoints_fixed,
+                                              Nframes, Npoints, Npoints_fixed,
                                               problem_details, mrcal_lensmodel_type);
             x = &x[Nstate];
         }

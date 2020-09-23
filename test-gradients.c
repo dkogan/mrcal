@@ -314,7 +314,7 @@ int main(int argc, char* argv[] )
            mrcal_state_index_points(0, Nframes, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
     printf("## calobject_warp: %d variables. Starts at variable %d\n",
            (problem_details.do_optimize_calobject_warp ? 2 : 0),
-           mrcal_state_index_calobject_warp(Npoints-Npoints_fixed,
+           mrcal_state_index_calobject_warp(Npoints, Npoints_fixed,
                                             Nframes, Ncameras_intrinsics,Ncameras_extrinsics, problem_details, lensmodel));
     int Nmeasurements_boards         = mrcal_num_measurements_boards(Nobservations_board,
                                                                      calibration_object_width_n,
