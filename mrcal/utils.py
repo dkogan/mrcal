@@ -74,7 +74,7 @@ TO coord system 0 FROM coord system 1.
 
     # I process Mt instead of M to not need to transpose anything later, and to
     # end up with contiguous-memory results
-    Mt = nps.matmult(              (p0 - np.mean(p0, axis=-1)[..., np.newaxis])*w,
+    Mt = nps.matmult(              (p0 - np.mean(p0, axis=-1)[..., np.newaxis])*weights,
                       nps.transpose(p1 - np.mean(p1, axis=-1)[..., np.newaxis]))
     V,S,Ut = np.linalg.svd(Mt)
 
@@ -160,7 +160,7 @@ coord system 1.
 
     # I process Mt instead of M to not need to transpose anything later, and to
     # end up with contiguous-memory results
-    Mt = nps.matmult( v0*w, nps.transpose(v1) )
+    Mt = nps.matmult( v0*weights, nps.transpose(v1) )
     V,S,Ut = np.linalg.svd(Mt)
 
     R = nps.matmult(V, Ut)
