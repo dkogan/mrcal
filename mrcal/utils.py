@@ -1517,12 +1517,14 @@ tool.
 
 DERIVATION
 
-The pixel observations seen by the calibration tool are noisy. I assume they are
-zero-mean, independent and gaussian, with some known standard deviation
-observed_pixel_uncertainty. I treat the x and y coordinates of the observations
-as two independent measurements.
+I solve the calibration problem using Ordinary Least Squares, minimizing the
+discrepancies between pixel observations and their predictions. The pixel
+observations are noisy, and I assume they are zero-mean, independent and
+normally-distributed. I treat the x and y coordinates of the observations as two
+independent measurements. Thus I minimize a cost function norm2(x). I choose the
+weights on the measurements x to get homoscedasticity, and thus the optimal
+parameter vector is the maximum-likelihood estimate of the true solution.
 
-I minimize a cost function E = norm2(x) where x is the vector of measurements.
 Some elements of x depend on the pixel observations, and some don't
 (regularization). We care about the measurements that depend on pixel
 observations. These are a weighted reprojection error:
@@ -1530,17 +1532,22 @@ observations. These are a weighted reprojection error:
     x[i] = w[i] (q[i] - qref[i])
 
 where w[i] is the weight, q[i] is the predicted x or y projection of point i,
-and qref[i] is the observation. The weight comes from the vision algorithm that
-produced the pixel observation qref[i]. We're minimizing norm2(x), so we're
-trying to get the discrepancies between the predictions and observations to 0.
+and qref[i] is the observation.
 
-Uncertain measurements (high Var(qref[i])) are weighted less (lower w[i]), so
-the noise on qref[i] (on x and on y separately) is assumed to be mean-0 gaussian
-with stdev observed_pixel_uncertainty/w[i]. Thus the noise on x[i] has stdev
-observed_pixel_uncertainty. I apply a perturbation to the observations,
-reoptimize (assuming everything is linear) and look what happens to the state p.
-I start out at an optimum p*:
+The vision algorithm that produced the pixel observation qref[i] knows how
+precisely it was able to localize qref[i], and can report some sense of
+Var(qref[i]). I assume that we have some baseline Var(qref[i]) =
+observed_pixel_uncertainty^2, and that the corner finder reports a scale factor
+for each point: Var(qref[i]) = (k[i] observed_pixel_uncertainty)^2. I set w[i] =
+1. / k[i], so Var(x[i]) = observed_pixel_uncertainty^2 for all i, and we get
+homoscedasticity: an even error distribution on each measurement. This makes
+conceptual sense also: low-accuracy qref[i] are weighted less in the
+optimization.
 
+I apply a perturbation to the observations qref, reoptimize (assuming everything
+is linear) and look what happens to the state p. I start out at an optimum p*:
+
+    E = norm2(x)
     dE/dp (p=p*) = 2 Jt x (p=p*) = 0
 
 I perturb the inputs:
@@ -1551,13 +1558,13 @@ And I reoptimize:
 
     dE/ddp ~ ( x + J dp + dx/dqref dqref)t J = 0
 
-I started at an optimum, so Jt x = 0, and
+I started at an optimum, so Jt x = 0, and thus
 
-    -Jt dx/dqref dqref = JtJ dp
+    JtJ dp = -Jt dx/dqref dqref
 
 As stated above, for reprojection errors I have
 
-    x[observations] = W ( q - qref)
+    x[observations] = W (q - qref)
 
 where W is diag(w), a diagonal matrix of observation weights. Some elements of x
 don't depend on the observations (let's assume these are trailing elements of
@@ -1566,12 +1573,12 @@ x), so
     dx/dqref = [ -W ]
                [  0 ]
 
-and
+and thus
 
-    J[observations]t W dqref = JtJ dp
+    JtJ dp = J[observations]t W dqref
 
-So if I perturb my input observation vector qref by dqref, the resulting
-effect on the parameters is dp = M dqref. Where
+So if I perturb my input observation vector qref by dqref, the resulting effect
+on the optimal parameters is dp = M dqref. Where
 
     M = inv(JtJ) J[observations]t W
 
@@ -1597,49 +1604,63 @@ J[observations] = J and
            = observed_pixel_uncertainty^2 inv(JtJ) JtJ inv(JtJ)
            = observed_pixel_uncertainty^2 inv(JtJ)
 
-Remember that this is the variance of the full optimization state p. This
-contains the intrinsics and extrinsics of ALL the cameras. And it contains ALL
-the poses of observed chessboards, and everything else, like the chessboard warp
-terms, for instance.
+This is the variance of the full optimization state p. This contains the
+intrinsics and extrinsics of ALL the cameras. And it contains ALL the poses of
+observed chessboards, and everything else, like the chessboard warp terms.
+
+Note that this does not explicitly depend on W. However, the weight is a part of
+the jacobian J. If we were to lose our faith that our measurements are precise,
+then Var(qref[i]) would go up, w[i] would go down, x[i] would go down and thus J
+would go down as well. And as a result, Var(p) would increase, as expected.
 
 Ultimately the parameters are used in a projection operation. So given a point
 in camera coordinates pcam, I project it onto the image plane:
 
     q = project(pcam, intrinsics)
 
-Propagating the uncertainties from this expression is insufficient, however. In
-the real world, the camera is mounted in some rigid housing, and we want to know
-the projection uncertainty of points in respect to that housing. The camera
-coordinate system has its origin somewhere inside, with some more-or-less square
-orientation. But the exact pose of the camera coordinates inside that housing is
-a random quantity, just like the lens parameters. And as the pose of the camera
-coordinates in respect to the camera housing moves, so do the coordinates (in
-the camera coordinate system) of any world point.
+Propagating the uncertainties from this expression alone is insufficient. We
+want to know the projection uncertainty of points in the world coordinate
+system, while the above projects points in the local camera coordinate system.
+And on top of that, the transform between this local coordinate system and the
+world is not fixed: it's an unknown random quantity, just like the lens
+parameters. THE ORIGIN AND ORIENTATION OF THE LOCAL CAMERA COORDINATE SYSTEM
+INSIDE THE CAMERA HOUSING ARE RANDOM VARIABLES.
 
-Thus I want to look at the uncertainties of projection of a world point, but how
-do I define the "world" coordinate system? All the coordinate systems I have are
-noisy and floating. I use the poses of the observed chessboards in aggregate to
-define the world. These are the most stationary thing I have.
+I use the poses of the observed chessboards in aggregate to define the world,
+since these are the most stationary thing I have.
 
-Let pf[frame] represent a point in the coordinate system of ONE chessboard
-observation. My optimization state p contains the pose of each one, so I can map
-this to the reference coordinate system of the optimization:
+Let's look at ONE observed chessboard frame: frame i. I want to know the
+uncertainty at a pixel coordinate q0. I unproject to the camera coordinate
+system, and then transform to the reference coord system and then to the framei
+coordinate system:
 
-    pref[frame] = transform( rt_frame[frame], pf[frame] )
+  pcam0 = unproject(intrinsics0, q0)
+  pf0   = T_fr0[i] T_rc0 pcam0
 
-I can do this for each frame. And if I'm representing the same world point, I
-can compute the mean for each frame to get
+Here T_ab is a transformation of a point from coord system b to the same point
+being represented in coord system a. Using homogeneous coordinates T can contain
+both a rotation and a translation, and remain linear:
 
-    pref = mean( pref[frame] )
+  T = [R t]
+      [0 1]
 
-Then I use the camera extrinsics (also in my optimization vector) to map this to
-camera coordinates:
+I perturb my optimization state, which changes all the geometric trasformations
+and the intrinsics. But the framei coordinate system is an estimate of the
+global coordinate system, so I transform and project that point back to look at
+the deviation:
 
-    pcam = transform( rt_camera[icamera], pref )
+  pcam1 = T_cr1 T_rf1[i] T_fr0[i] T_rc0 pcam0
+  q1    = project(intrinsics1,  pcam1)
 
-And NOW I can project
+And q1-q0 then represents my uncertainty. How do I combine all the different
+estimates from the different chessboard observations? I can take the mean of all
+the q1 I get from each frame to use mean(q1)-q0 as the uncertainty. I will
+linearize the projection, so everything is linear, and I will have
 
-    q = project(pcam, intrinsics)
+  T_r1r0 = mean( T_rf1[i] T_rf0[i] )
+
+This "T" is not a valid transformation since mean(R) is not a rotation matrix.
+But for small perturbations, this should be close-enough.
 
 I computed Var(p) earlier, which contains the variance of ALL the optimization
 parameters together. The noise on the chessboard poses is coupled to the noise
@@ -1649,8 +1670,8 @@ together to propagate the uncertainty.
 Let's define some variables:
 
 - p_i: the intrinsics of a camera
-- p_e: the extrinsics of that camera
-- p_f: ALL the chessboard poses
+- p_e: the extrinsics of that camera (T_cr)
+- p_f: ALL the chessboard poses (T_fr)
 - p_ief: the concatenation of p_i, p_e and p_f
 
 I have
@@ -1680,17 +1701,14 @@ number of stationary cameras by observing a moving object. If we're instead
 moving the cameras, then there're multiple extrinsics vectors for each set of
 intrinsics, and it's not clear what projection uncertainty even means.
 
-We're almost done. How do we get pf[frame] to begin with? By transforming and
-unprojecting in reverse from what's described above. If we're starting with a
-pixel observation q, and we want to know how uncertain this measurement was, we
-unproject q to pcam, transform that to pref and then to pf.
-
-Note a surprising consequence of this: projecting k*pcam in camera coordinates
-always maps to the same pixel coordinate q for any non-zero scalar k. The
-uncertainty DOES depend on k, for instance. If a calibration was computed with
+Note a surprising consequence of all this: projecting k*pcam in camera
+coordinates always maps to the same pixel coordinate q for any non-zero scalar
+k. However, the uncertainty DOES depend on k. If a calibration was computed with
 lots of chessboard observations at some distance from the camera, then the
 uncertainty of projections at THAT distance will be much lower than the
-uncertanties of projections at any other distance.
+uncertanties of projections at any other distance. And as we get closer and
+closer to the camera, the uncertainty grows to infinity as the translation
+uncertainty in the extrinsics begins to dominate.
 
 Alright, so we have Var(q). We could claim victory at that point. But it'd be
 nice to convert Var(q) into a single number that describes my projection
