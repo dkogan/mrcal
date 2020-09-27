@@ -65,9 +65,14 @@ transformation to align the given point clouds. The transformation maps points
 TO coord system 0 FROM coord system 1.
 
     """
-
     if weights is None:
         weights = np.ones(p0.shape[:-1], dtype=float)
+    return _align_procrustes_points_Rt01(p0,p1,weights)
+
+
+@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
+                       (4,3), )
+def _align_procrustes_points_Rt01(p0, p1, weights):
 
     p0 = nps.transpose(p0)
     p1 = nps.transpose(p1)
@@ -154,6 +159,12 @@ coord system 1.
 
     if weights is None:
         weights = np.ones(v0.shape[:-1], dtype=float)
+    return _align_procrustes_vectors_R01(v0,v1,weights)
+
+
+@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
+                       (3,3), )
+def _align_procrustes_vectors_R01(v0, v1, weights):
 
     v0 = nps.transpose(v0)
     v1 = nps.transpose(v1)
