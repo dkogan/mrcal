@@ -316,16 +316,15 @@ def apply_implied_Rt10__mean_frames(p0_cam,
 q0_ref = dict()
 for distance in distances:
     # shape (Ncameras,3)
+    p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
+                             normalize = True) * (1e5 if distance is None else distance)
+
     if not sample_via_diffs:
-        p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
-                                 normalize = True) * (1e5 if distance is None else distance)
         p1_cam_ref = apply_implied_Rt10__mean_frames(p0_cam,
                                                      extrinsics_ref_mounted,
                                                      frames_ref,
                                                      calobject_warp_ref)
     else:
-        p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
-                                 normalize = True) * (1.0 if distance is None else distance)
         p1_cam_ref = np.zeros((Ncameras, 3), dtype=float)
         for icam in range (Ncameras):
             implied_Rt10_ref = \
