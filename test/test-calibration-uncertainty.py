@@ -276,7 +276,10 @@ q0 = imagersizes[0]/3.
 
 
 
-def apply_implied_Rt10__mean_frames(p0_cam, frames_query, extrinsics_query_mounted):
+def apply_implied_Rt10__mean_frames(p0_cam,
+                                    extrinsics_query_mounted,
+                                    frames_query,
+                                    calobject_warp_query):
 
     # shape (Ncameras, 3). In the ref coord system
     p0_ref = \
@@ -317,8 +320,9 @@ for distance in distances:
         p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
                                  normalize = True) * (1e5 if distance is None else distance)
         p1_cam_ref = apply_implied_Rt10__mean_frames(p0_cam,
+                                                     extrinsics_ref_mounted,
                                                      frames_ref,
-                                                     extrinsics_ref_mounted)
+                                                     calobject_warp_ref)
     else:
         p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
                                  normalize = True) * (1.0 if distance is None else distance)
@@ -416,6 +420,7 @@ if 'no-sampling' in args:
 intrinsics_sampled         = np.zeros( (Nsamples,Ncameras,Nintrinsics), dtype=float )
 extrinsics_sampled_mounted = np.zeros( (Nsamples,Ncameras,6),           dtype=float )
 frames_sampled             = np.zeros( (Nsamples,Nframes, 6),           dtype=float )
+calobject_warp_sampled     = np.zeros( (Nsamples, 2),                   dtype=float )
 
 if sample_via_diffs:
     implied_Rt10 = np.zeros((Nsamples, Ncameras, len(distances), 4,3), dtype=float)
@@ -428,8 +433,9 @@ for isample in range(Nsamples):
         sample_dqref(observations_ref, pixel_uncertainty_stdev)[1]
     mrcal.optimize(**optimization_inputs)
 
-    intrinsics_sampled[isample,...] = optimization_inputs['intrinsics']
-    frames_sampled    [isample,...] = optimization_inputs['frames_rt_toref']
+    intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
+    frames_sampled        [isample,...] = optimization_inputs['frames_rt_toref']
+    calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
     if fixedframes:
         extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
     else:
@@ -470,8 +476,9 @@ def check_uncertainties_at(q0, idistance):
     # shape (Nsamples, Ncameras, 2)
     if not sample_via_diffs:
         p1_cam = apply_implied_Rt10__mean_frames(p0_cam,
+                                                 extrinsics_sampled_mounted,
                                                  frames_sampled,
-                                                 extrinsics_sampled_mounted)
+                                                 calobject_warp_sampled)
     else:
         p1_cam = np.zeros((Nsamples, Ncameras, 3), dtype=float)
 
