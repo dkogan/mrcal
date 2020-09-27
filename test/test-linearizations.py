@@ -189,7 +189,7 @@ testutils.confirm_equal( dE_predicted, dE,
 # At the optimum dE/dp = 0 -> xtJ = 0
 xtJ0 = nps.inner(nps.transpose(J0),x0)
 testutils.confirm_equal( xtJ0, 0,
-                         eps = 1e-5,
+                         eps = 1e-4,
                          worstcase = True,
                          msg = "dE/dp = 0 at the optimum: original")
 
@@ -216,7 +216,7 @@ w           = np.ravel(nps.mv(nps.cat(w,w),0,-1)) # each weight controls x,y
 
 xtJ1 = nps.inner(nps.transpose(J0),x0)
 testutils.confirm_equal( xtJ1, 0,
-                         eps = 1e-5,
+                         eps = 1e-4,
                          worstcase = True,
                          msg = "dE/dp = 0 at the optimum: perturbed")
 
