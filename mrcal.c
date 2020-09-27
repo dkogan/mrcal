@@ -1958,11 +1958,6 @@ void project( // out
             mrcal_point3_t* p_dq_dt;
             if(!camera_at_identity) p_dq_dt = dq_dtcamera;
             else                    p_dq_dt = dq_dtframe;
-            if(!p_dq_dt)
-            {
-                MSG("we were asked for the calobject gradient, but not the tframe gradient. this isn't supported");
-                assert(0);
-            }
             double d[] =
                 { p_dq_dt[0].xyz[0] * Rj[0*3 + 2] +
                   p_dq_dt[0].xyz[1] * Rj[1*3 + 2] +
@@ -1983,8 +1978,8 @@ void project( // out
     int runlen = (lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
         (lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
         0;
-    if( !calibration_object_width_n )
-    {
+    if( calibration_object_width_n == 0 )
+    { // projecting discrete points
         mrcal_point3_t p =
             propagate_extrinsics( &(mrcal_point3_t){},
                                   camera_at_identity ? NULL : &gg,
@@ -1993,7 +1988,7 @@ void project( // out
                         p_dq_dfxy, p_dq_dintrinsics_nocore,
                         gradient_sparse_meta ? gradient_sparse_meta->pool : NULL,
                         runlen,
-                        dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, dq_dcalobject_warp,
+                        dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, NULL,
 
                         &p,
                         intrinsics, lensmodel,
@@ -2001,7 +1996,7 @@ void project( // out
                         camera_at_identity, Rj);
     }
     else
-    {
+    { // projecting a chessboard
         int i_pt = 0;
          // The calibration object has a simple grid geometry
         for(int y = 0; y<calibration_object_height_n; y++)
@@ -2035,17 +2030,31 @@ void project( // out
                     propagate_extrinsics( &pt_ref,
                                           camera_at_identity ? NULL : &gg,
                                           Rj, d_Rj_rj, &joint_rt[3]);
+
+                mrcal_point3_t* dq_drcamera_here        = dq_drcamera        ? &dq_drcamera        [2*i_pt] : NULL;
+                mrcal_point3_t* dq_dtcamera_here        = dq_dtcamera        ? &dq_dtcamera        [2*i_pt] : NULL;
+                mrcal_point3_t* dq_drframe_here         = dq_drframe         ? &dq_drframe         [2*i_pt] : NULL;
+                mrcal_point3_t* dq_dtframe_here         = dq_dtframe         ? &dq_dtframe         [2*i_pt] : NULL;
+                mrcal_point2_t* dq_dcalobject_warp_here = dq_dcalobject_warp ? &dq_dcalobject_warp [2*i_pt] : NULL;
+
+                mrcal_point3_t dq_dtcamera_here_dummy[2];
+                mrcal_point3_t dq_dtframe_here_dummy [2];
+                if(dq_dcalobject_warp)
+                {
+                    // I need all translation gradients to be available to
+                    // compute the calobject_warp gradients (see the end of the
+                    // project_point() function above). So I compute those even
+                    // if the caller didn't ask for them
+                    if(!dq_dtcamera_here) dq_dtcamera_here = dq_dtcamera_here_dummy;
+                    if(!dq_dtframe_here)  dq_dtframe_here  = dq_dtframe_here_dummy;
+                }
+
                 project_point(&q[i_pt],
                               p_dq_dfxy ? &p_dq_dfxy[i_pt] : NULL,
                               p_dq_dintrinsics_nocore ? &p_dq_dintrinsics_nocore[2*(Nintrinsics-4)*i_pt] : NULL,
                               gradient_sparse_meta ? &gradient_sparse_meta->pool[i_pt*runlen*2] : NULL,
                               runlen,
-                              dq_drcamera        ? &dq_drcamera       [2*i_pt] : NULL,
-                              dq_dtcamera        ? &dq_dtcamera       [2*i_pt] : NULL,
-                              dq_drframe         ? &dq_drframe        [2*i_pt] : NULL,
-                              dq_dtframe         ? &dq_dtframe        [2*i_pt] : NULL,
-                              dq_dcalobject_warp ? &dq_dcalobject_warp[2*i_pt] : NULL,
-
+                              dq_drcamera_here, dq_dtcamera_here, dq_drframe_here, dq_dtframe_here, dq_dcalobject_warp_here,
                               &p,
                               intrinsics, lensmodel,
                               &dpt_ref2_dwarp,
