@@ -632,9 +632,11 @@ def check_uncertainties_at(q0_baseline, idistance):
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
 
-    testutils.confirm_equal( nps.mag(q_sampled_mean - q0_baseline) / worst_direction_stdev_observed,
+    # q_sampled should be evenly distributed around q0_baseline. So this can get
+    # tighter and tighter with higher Nsamples
+    testutils.confirm_equal( nps.mag(q_sampled_mean - q0_baseline),
                              0,
-                             eps = 0.2,
+                             eps = 0.15,
                              worstcase = True,
                              msg = f"Sampled projections cluster around the sample point at distance = {distancestr}")
 
