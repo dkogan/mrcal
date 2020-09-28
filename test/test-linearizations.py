@@ -219,7 +219,7 @@ w           = observations_perturbed[...,2]
 w[w < 0]    = 0 # outliers have weight=0
 w           = np.ravel(nps.mv(nps.cat(w,w),0,-1)) # each weight controls x,y
 
-xtJ1 = nps.inner(nps.transpose(J0),x0)
+xtJ1 = nps.inner(nps.transpose(J1),x1)
 testutils.confirm_equal( xtJ1, 0,
                          eps = 1e-4,
                          worstcase = True,
