@@ -273,7 +273,7 @@ if 'write-models' in args:
 # have fixed frames, so using the reference coordinate system gives me that
 # consistency. Note that I look at q0 for each camera separately, so I'm going
 # to evaluate a different world point for each camera
-q0 = imagersizes[0]/3.
+q0_baseline = imagersizes[0]/3.
 
 
 
@@ -417,7 +417,7 @@ for distance in distances:
     if not sample_via_diffs:
         # shape (Ncameras, 2)
         q0_ref[distance] = \
-            reproject_perturbed__mean_frames(q0,
+            reproject_perturbed__mean_frames(q0_baseline,
                                              1e5 if distance is None else distance,
 
                                              intrinsics_baseline,
@@ -431,7 +431,7 @@ for distance in distances:
                                              calobject_warp_ref)
     else:
         # shape (Ncameras,3)
-        p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
+        p0_cam = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
                                  normalize = True) * (1e5 if distance is None else distance)
         p1_cam_ref = np.zeros((Ncameras, 3), dtype=float)
         for icam in range (Ncameras):
@@ -457,7 +457,7 @@ for distance in distances:
         if icam == 3:
             continue
         testutils.confirm_equal(q0_ref[distance][icam],
-                                q0,
+                                q0_baseline,
                                 eps = 0.1,
                                 worstcase = True,
                                 msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
@@ -478,7 +478,7 @@ for icam in (0,3):
                             icam_extrinsics_read,
                             msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
-    pcam = mrcal.unproject( q0, *models_baseline[icam].intrinsics(),
+    pcam = mrcal.unproject( q0_baseline, *models_baseline[icam].intrinsics(),
                             normalize = True)
 
     Var_dq_ref = \
@@ -563,7 +563,7 @@ for isample in range(Nsamples):
                                            focus_radius      = 1000.)[3]
 
 
-def check_uncertainties_at(q0, idistance):
+def check_uncertainties_at(q0_baseline, idistance):
 
     distance = distances[idistance]
 
@@ -578,14 +578,14 @@ def check_uncertainties_at(q0, idistance):
         distancestr = str(distance)
 
     # shape (Ncameras,3)
-    p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
+    p0_cam = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
                              normalize = True) * distance
 
     # shape (Nsamples, Ncameras, 2)
     if not sample_via_diffs:
         # shape (Nsamples, Ncameras, 2)
         q_sampled = \
-            reproject_perturbed__mean_frames(q0,
+            reproject_perturbed__mean_frames(q0_baseline,
                                              distance,
 
                                              intrinsics_baseline,
@@ -632,7 +632,7 @@ def check_uncertainties_at(q0, idistance):
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
 
-    testutils.confirm_equal( nps.mag(q_sampled_mean - q0) / worst_direction_stdev_observed,
+    testutils.confirm_equal( nps.mag(q_sampled_mean - q0_baseline) / worst_direction_stdev_observed,
                              0,
                              eps = 0.2,
                              worstcase = True,
@@ -689,9 +689,9 @@ def check_uncertainties_at(q0, idistance):
     return q_sampled,Var_dq
 
 
-q_sampled,Var_dq = check_uncertainties_at(q0, 0)
+q_sampled,Var_dq = check_uncertainties_at(q0_baseline, 0)
 for idistance in range(1,len(distances)):
-    check_uncertainties_at(q0, idistance)
+    check_uncertainties_at(q0_baseline, idistance)
 
 if not do_debug:
     testutils.finish()
@@ -732,7 +732,7 @@ def make_plot(icam, **kwargs):
                   tuplesize = 2)),
             *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed"),
             *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Propagating intrinsics, extrinsics uncertainties"),
-            (q0,
+            (q0_baseline,
              dict(tuplesize = -2,
                   _with     = 'points pt 3 ps 3',
                   legend    = 'Baseline center point')),
