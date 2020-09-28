@@ -5962,15 +5962,24 @@ None
         Nvars_points     + \
         Nvars_calobject_warp
 
+    # Defaults MUST match those in OPTIMIZER_ARGUMENTS_OPTIONAL in
+    # mrcal_pywrap_nonbroadcasted.c. Or better yet, this whole function should
+    # come from the C code instead of being reimplemented here in Python
+    do_optimize_intrinsics_core        = optimization_inputs.get('do_optimize_intrinsics_core',        True)
+    do_optimize_intrinsics_distortions = optimization_inputs.get('do_optimize_intrinsics_distortions', True)
+    do_optimize_extrinsics             = optimization_inputs.get('do_optimize_extrinsics',             True)
+    do_optimize_frames                 = optimization_inputs.get('do_optimize_frames',                 True)
+    do_optimize_calobject_warp         = optimization_inputs.get('do_optimize_calobject_warp',         False)
+
+
     if p_packed.ravel().size != Nvars_expected:
         raise Exception(f"Mismatched array size: p_packed.size={p_packed.ravel().size} while the optimization problem expects {Nvars_expected}")
 
     p = p_packed.copy()
     mrcal.unpack_state(p, **optimization_inputs)
 
-
-    if optimization_inputs.get('do_optimize_intrinsics_core') or \
-       optimization_inputs.get('do_optimize_intrinsics_distortions'):
+    if do_optimize_intrinsics_core or \
+       do_optimize_intrinsics_distortions:
 
         try:    ivar0 = mrcal.state_index_intrinsics(0, **optimization_inputs)
         except: ivar0 = None
@@ -5982,34 +5991,35 @@ None
             Ncore        = 4 if has_core else 0
             Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
 
-            if not optimization_inputs.get('do_optimize_intrinsics_core'):
+            if not do_optimize_intrinsics_core:
                 iunpacked0 = Ncore
-            if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+            if not do_optimize_intrinsics_distortions:
                 iunpacked1 = -Ndistortions
 
             intrinsics[:, iunpacked0:iunpacked1].ravel()[:] = \
                 p[ ivar0:Nvars_intrinsics ]
 
-    if optimization_inputs.get('do_optimize_extrinsics'):
+    if do_optimize_extrinsics:
         try:    ivar0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
         except: ivar0 = None
         if ivar0 is not None:
             extrinsics.ravel()[:] = p[ivar0:ivar0+Nvars_extrinsics]
 
-    if optimization_inputs.get('do_optimize_frames'):
+    if do_optimize_frames:
         try:    ivar0 = mrcal.state_index_frames(0, **optimization_inputs)
         except: ivar0 = None
         if ivar0 is not None:
             frames.ravel()[:] = p[ivar0:ivar0+Nvars_frames]
 
-    if optimization_inputs.get('do_optimize_frames'):
+    if do_optimize_frames:
         try:    ivar0 = mrcal.state_index_points(0, **optimization_inputs)
         except: ivar0 = None
         if ivar0 is not None:
             points.ravel()[:-Npoints_fixed*3] = p[ivar0:ivar0+Nvars_points]
 
-    if optimization_inputs.get('do_optimize_calobject_warp'):
+    if do_optimize_calobject_warp:
         try:    ivar0 = mrcal.state_index_calobject_warp(**optimization_inputs)
         except: ivar0 = None
         if ivar0 is not None:
             calobject_warp.ravel()[:] = p[ivar0:ivar0+Nvars_calobject_warp]
+
