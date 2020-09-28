@@ -25,7 +25,7 @@
 //   p0,x0,J0 = mrcal.optimizer_callback(**optimization_inputs)[:3]
 //   J0 = J0.toarray()
 //   ss = np.sum(np.abs(J0), axis=-2)
-//   gp.plot(ss)
+//   gp.plot(ss, _set=mrcal.plotoptions_state_boundaries(**optimization_inputs))
 //
 // This visualizes the overall effect of each variable. If the scales aren't
 // tuned properly, some variables will have orders of magnitude stronger
@@ -4257,6 +4257,10 @@ void optimizer_callback(// input state
         //
         //   normal_regularization_distortion_error_sq  = (scale*normal_centerpixel_offset)^2
         //   normal_regularization_centerpixel_error_sq = (scale*normal_distortion_value  )^2
+        //
+        // Regularization introduces a bias to the solution. The
+        // test-calibration-uncertainty test measures it, and barfs if it is too
+        // high. The constants should be adjusted if that test fails.
         const bool dump_regularizaton_details = false;
 
         int    Nmeasurements_regularization_distortion  = ctx->Ncameras_intrinsics*(ctx->Nintrinsics-Ncore);
@@ -4277,7 +4281,7 @@ void optimizer_callback(// input state
 
         double scale_regularization_distortion =
             ({
-                double normal_distortion_value = 0.2;
+                double normal_distortion_value = 2.0;
 
                 double expected_regularization_distortion_error_sq_noscale =
                     (double)Nmeasurements_regularization_distortion *
@@ -4294,7 +4298,7 @@ void optimizer_callback(// input state
             });
         double scale_regularization_centerpixel =
             ({
-                double normal_centerpixel_offset = 50.0;
+                double normal_centerpixel_offset = 500.0;
 
                 double expected_regularization_centerpixel_error_sq_noscale =
                     (double)Nmeasurements_regularization_centerpixel *
