@@ -300,13 +300,13 @@ def reproject_perturbed__mean_frames(q, distance,
                                      query_calobject_warp):
 
     # shape (Ncameras, 3)
-    p0_cam = mrcal.unproject(q, lensmodel, baseline_intrinsics,
-                             normalize = True) * distance
+    p0_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                                      normalize = True) * distance
 
     # shape (Ncameras, 3)
     p0_ref = \
         mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
-                                  p0_cam )
+                                  p0_cam_baseline )
 
     if fixedframes:
         p1_ref = p0_ref
@@ -335,7 +335,7 @@ def reproject_perturbed__mean_frames(q, distance,
 def reproject_perturbed__fit_Rt(q, distance,
 
                                 # shape (Ncameras,3)
-                                p0_cam,
+                                p0_cam_baseline,
                                 # shape (Ncameras, Nintrinsics)
                                 baseline_intrinsics,
                                 # shape (Ncameras, 6)
@@ -355,8 +355,8 @@ def reproject_perturbed__fit_Rt(q, distance,
                                 query_calobject_warp):
 
     # shape (Ncameras, 3)
-    p0_cam = mrcal.unproject(q, lensmodel, baseline_intrinsics,
-                             normalize = True) * distance
+    p0_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                                      normalize = True) * distance
 
     # use the new method where I compute a best-fit rotation to fit frames,
     # instead of the aphysical mean-frame-points "rotation"
@@ -398,7 +398,7 @@ def reproject_perturbed__fit_Rt(q, distance,
     # shape (Ncameras, 3). In the ref coord system
     p0_ref = \
         mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
-                                  p0_cam )
+                                  p0_cam_baseline )
 
     # shape (Nsamples,Ncameras,3)
     p1_ref = \
@@ -431,8 +431,8 @@ for distance in distances:
                                              calobject_warp_ref)
     else:
         # shape (Ncameras,3)
-        p0_cam = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
-                                 normalize = True) * (1e5 if distance is None else distance)
+        p0_cam_baseline = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
+                                          normalize = True) * (1e5 if distance is None else distance)
         p1_cam_ref = np.zeros((Ncameras, 3), dtype=float)
         for icam in range (Ncameras):
             implied_Rt10_ref = \
@@ -442,8 +442,8 @@ for distance in distances:
                                        use_uncertainties = False,
                                        focus_center      = None,
                                        focus_radius      = 1000.)[3]
-            p1_cam_ref[icam] = \
-                mrcal.transform_point_Rt( implied_Rt10_ref, p0_cam[icam] )
+            mrcal.transform_point_Rt( implied_Rt10_ref, p0_cam_baseline[icam],
+                                      out = p1_cam_ref[icam] )
 
         # shape (Ncameras, 2)
         q0_ref[distance] = \
@@ -578,8 +578,8 @@ def check_uncertainties_at(q0_baseline, idistance):
         distancestr = str(distance)
 
     # shape (Ncameras,3)
-    p0_cam = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
-                             normalize = True) * distance
+    p0_cam_baseline = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
+                                      normalize = True) * distance
 
     # shape (Nsamples, Ncameras, 2)
     if not sample_via_diffs:
@@ -604,7 +604,7 @@ def check_uncertainties_at(q0_baseline, idistance):
             for icam in range (Ncameras):
                 p1_cam[isample, icam, ...] = \
                     mrcal.transform_point_Rt( implied_Rt10[isample,icam,idistance,...],
-                                              p0_cam[icam] )
+                                              p0_cam_baseline[icam] )
 
         # shape (Nsamples, Ncameras, 2)
         q_sampled = \
@@ -624,7 +624,7 @@ def check_uncertainties_at(q0_baseline, idistance):
     # shape (Ncameras, 2,2)
     Var_dq = \
         nps.cat(*[ mrcal.projection_uncertainty( \
-            p0_cam[icam],
+            p0_cam_baseline[icam],
             atinfinity = atinfinity,
             model      = models_baseline[icam]) \
                    for icam in range(Ncameras) ])
