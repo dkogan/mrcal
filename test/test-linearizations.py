@@ -128,10 +128,8 @@ baseline = \
          imagersizes                               = imagersizes,
          calibration_object_spacing                = object_spacing,
          skip_regularization                       = False,
-         observed_pixel_uncertainty                = pixel_uncertainty_stdev,
-         verbose                                   = False )
+         observed_pixel_uncertainty                = pixel_uncertainty_stdev,)
 
-# p,J are packed
 mrcal.optimize(**baseline,
                skip_outlier_rejection = True)
 
@@ -173,6 +171,13 @@ testutils.confirm_equal( dx_predicted, dx_observed,
                          relative  = True,
                          msg = "Trivial, sanity-checking gradient check")
 
+if 0:
+    import gnuplotlib as gp
+    gp.plot( nps.cat(dx_predicted, dx_observed,),
+             _with='lines',
+             legend=np.arange(2),
+             _set = mrcal.plotoptions_measurement_boundaries(**optimization_inputs),
+             wait=1)
 
 ###########################################################################
 # We're supposed to be at the optimum. E = norm2(x) ~ norm2(x0 + J dp) =
@@ -262,20 +267,20 @@ slice_extrinsics = slice(istate0_extrinsics, istate0_frames)
 slice_frames     = slice(istate0_frames, istate0_calobject_warp)
 
 # These thresholds look terrible. And they are. But I'm pretty sure this is
-# working properly. Look at the plots
-#
-# plot_dp = gp.gnuplotlib( title = "dp predicted,observed",
-#                          _set  = (f"arrow nohead from {istate0_frames},graph 0         to {istate0_frames},graph 1",
-#                                   f"arrow nohead from {istate0_calobject_warp},graph 0 to {istate0_calobject_warp},graph 1") + \
-#                                   () if istate0_extrinsics is None else \
-#                                   (f"arrow nohead from {istate0_extrinsics},graph 0 to {istate0_extrinsics},graph 1",))
-# plot_dp.plot( (nps.cat(dp_observed,dp_predicted),
-#                dict(legend = np.array(('observed','predicted')),
-#                     _with  = 'lines')),
-#               (dp_observed-dp_predicted,
-#                dict(legend = "err",
-#                     _with  = "lines lw 2",
-#                     y2=1)))
+# working properly. Look at the plots:
+if 0:
+    import gnuplotlib as gp
+    plot_dp = gp.gnuplotlib( title = "dp predicted,observed",
+                             _set  = mrcal.plotoptions_state_boundaries(**optimization_inputs))
+    plot_dp.plot( (nps.cat(dp_observed,dp_predicted),
+                   dict(legend = np.array(('observed','predicted')),
+                        _with  = 'linespoints')),
+                  (dp_observed-dp_predicted,
+                   dict(legend = "err",
+                        _with  = "lines lw 2",
+                        y2=1)))
+    plot_dp.wait()
+
 testutils.confirm_equal( dp_predicted[slice_intrinsics],
                          dp_observed [slice_intrinsics],
                          percentile = 80,
