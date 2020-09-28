@@ -458,9 +458,9 @@ for distance in distances:
             continue
         testutils.confirm_equal(q0_ref[distance][icam],
                                 q0,
-                                eps = 0.1, # 0.1 pixels of regularization bias is all I tolerate
+                                eps = 0.1,
                                 worstcase = True,
-                                msg = f"Regularization bias for camera {icam} at distance={'infinity' if distance is None else distance}")
+                                msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
 
 for icam in (0,3):
     # I move the extrinsics of a model, write it to disk, and make sure the same
