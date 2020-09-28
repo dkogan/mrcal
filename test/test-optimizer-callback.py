@@ -148,6 +148,7 @@ for kwargs in all_test_kwargs:
                                     **kwargs)[1:3]
     J = J.toarray()
 
+    # Set this to True to store the current values as the "true" values
     if False:
         np.save(f"{testdir}/data/test-optimizer-callback-ref-x-{itest}.npy", x)
         np.save(f"{testdir}/data/test-optimizer-callback-ref-J-{itest}.npy", J)
