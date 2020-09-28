@@ -144,8 +144,11 @@ Ncameras = len(models_ref)
 
 Nframes          = 50
 Nsamples         = 90
-sample_via_diffs = False
 distances        = (5, None)
+
+# Use a diff-based computation of implied_Rt10; disabled by default.. In a
+# perfect world it would match the mean-frames computation.
+sample_via_diffs = False
 
 
 models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
@@ -220,9 +223,9 @@ if not fixedframes:
 
 
 # I now reoptimize the perfect-observations problem. Without regularization,
-# this is a no-op. With regularization, this will move us a certain amount (that
-# the test will evaluate). Then I look at noise-induced motions off this
-# optimization optimume
+# this is a no-op: I'm already at the optimum. With regularization, this will
+# move us a certain amount (that the test will evaluate). Then I look at
+# noise-induced motions off this optimization optimum
 optimization_inputs_baseline = \
     dict( intrinsics                                = copy.deepcopy(intrinsics_ref),
           extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_ref_mounted if fixedframes else extrinsics_ref_mounted[1:,:]),
@@ -276,55 +279,160 @@ q0 = imagersizes[0]/3.
 
 
 
-def apply_implied_Rt10__mean_frames(p0_cam,
-                                    extrinsics_query_mounted,
-                                    frames_query,
-                                    calobject_warp_query):
+def reproject_perturbed__mean_frames(q, distance,
 
-    # shape (Ncameras, 3). In the ref coord system
+                                     # shape (Ncameras, Nintrinsics)
+                                     baseline_intrinsics,
+                                     # shape (Ncameras, 6)
+                                     baseline_rt_cam_ref,
+                                     # shape (Nframes, 6)
+                                     baseline_rt_ref_frame,
+                                     # shape (2)
+                                     baseline_calobject_warp,
+
+                                     # shape (..., Ncameras, Nintrinsics)
+                                     query_intrinsics,
+                                     # shape (..., Ncameras, 6)
+                                     query_rt_cam_ref,
+                                     # shape (..., Nframes, 6)
+                                     query_rt_ref_frame,
+                                     # shape (..., 2)
+                                     query_calobject_warp):
+
+    # shape (Ncameras, 3)
+    p0_cam = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                             normalize = True) * distance
+
+    # shape (Ncameras, 3)
     p0_ref = \
-        mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_baseline_mounted),
+        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
                                   p0_cam )
 
     if fixedframes:
-        p0_frames = p0_ref
+        p1_ref = p0_ref
     else:
         # shape (Nframes, Ncameras, 3)
         # The point in the coord system of all the frames
-        p0_frames = mrcal.transform_point_rt( nps.dummy(mrcal.invert_rt(frames_baseline),-2),
-                                              p0_ref)
+        p0_frames = mrcal.transform_point_rt( \
+            nps.dummy(mrcal.invert_rt(baseline_rt_ref_frame),-2),
+            p0_ref)
 
-
-    ###############################################################################
-    # Now I have the projected point in the coordinate system of the frames. I
-    # project that back to each sampled camera, and gather the projection statistics
-    if fixedframes:
-        p1_ref = p0_frames
-
-    else:
-        # shape (Nsamples, Ncameras, 3)
-        p1_ref = np.mean( mrcal.transform_point_rt( nps.dummy(frames_query, -2),
+        # shape (..., Ncameras, 3)
+        p1_ref = np.mean( mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame, -2),
                                                     p0_frames ),
                           axis = -3)
 
+    # shape (..., Ncameras, 3)
+    p1_cam = \
+        mrcal.transform_point_rt(query_rt_cam_ref, p1_ref)
+
+    # shape (..., Ncameras, 2)
+    q1 = mrcal.project(p1_cam, lensmodel, query_intrinsics)
+
+    return q1
+
+
+def reproject_perturbed__fit_Rt(q, distance,
+
+                                # shape (Ncameras,3)
+                                p0_cam,
+                                # shape (Ncameras, Nintrinsics)
+                                baseline_intrinsics,
+                                # shape (Ncameras, 6)
+                                baseline_rt_cam_ref,
+                                # shape (Nframes, 6)
+                                baseline_rt_ref_frame,
+                                # shape (2)
+                                baseline_calobject_warp,
+
+                                # shape (..., Ncameras, Nintrinsics)
+                                query_intrinsics,
+                                # shape (..., Ncameras, 6)
+                                query_rt_cam_ref,
+                                # shape (..., Nframes, 6)
+                                query_rt_ref_frame,
+                                # shape (..., 2)
+                                query_calobject_warp):
+
+    # shape (Ncameras, 3)
+    p0_cam = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                             normalize = True) * distance
+
+    # use the new method where I compute a best-fit rotation to fit frames,
+    # instead of the aphysical mean-frame-points "rotation"
+
+    calobject_height,calobject_width = optimization_inputs_baseline['observations_board'].shape[1:3]
+
+    # shape (Nsamples, Nh, Nw, 3)
+    calibration_object_query = \
+        nps.cat(*[ mrcal.ref_calibration_object(calobject_width, calobject_height,
+                                                optimization_inputs_baseline['calibration_object_spacing'],
+                                                calobject_warp=calobject_warp) \
+                   for calobject_warp in query_calobject_warp] )
+
+    # shape (Nsamples, Nframes, Nh, Nw, 3)
+    pcorners_ref_query = \
+        mrcal.transform_point_rt( nps.dummy(nps.dummy(query_rt_ref_frame, -2), -2),
+                                  nps.dummy(calibration_object_query, -4))
+
+
+    # shape (Nh, Nw, 3)
+    calibration_object_ref = \
+        mrcal.ref_calibration_object(calobject_width, calobject_height,
+                                     optimization_inputs_baseline['calibration_object_spacing'],
+                                     calobject_warp=calobject_warp_ref)
+    # frames_ref.shape is (Nframes, 6)
+
+    # shape (Nframes, Nh, Nw, 3)
+    pcorners_ref_ref = \
+        mrcal.transform_point_rt( nps.dummy(nps.dummy(frames_ref, -2), -2),
+                                  calibration_object_ref)
+
+    # shape (Nsamples,4,3)
+    Rt_qr = mrcal.align_procrustes_points_Rt01(# shape (Nsamples,N,3)
+                                               nps.mv(nps.clump(nps.mv(pcorners_ref_query, -1,0),n=-3),0,-1),
+
+                                               # shape (N,3)
+                                               nps.clump(pcorners_ref_ref, n=3))
+
+    # shape (Ncameras, 3). In the ref coord system
+    p0_ref = \
+        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
+                                  p0_cam )
+
+    # shape (Nsamples,Ncameras,3)
+    p1_ref = \
+        mrcal.transform_point_Rt(nps.mv(Rt_qr,-3,-4),
+                                 p0_ref)
+
     return \
-        mrcal.transform_point_rt(extrinsics_query_mounted,
+        mrcal.transform_point_rt(query_rt_cam_ref,
                                  p1_ref)
 
 
 
 q0_ref = dict()
 for distance in distances:
-    # shape (Ncameras,3)
-    p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
-                             normalize = True) * (1e5 if distance is None else distance)
 
     if not sample_via_diffs:
-        p1_cam_ref = apply_implied_Rt10__mean_frames(p0_cam,
-                                                     extrinsics_ref_mounted,
-                                                     frames_ref,
-                                                     calobject_warp_ref)
+        # shape (Ncameras, 2)
+        q0_ref[distance] = \
+            reproject_perturbed__mean_frames(q0,
+                                             1e5 if distance is None else distance,
+
+                                             intrinsics_baseline,
+                                             extrinsics_baseline_mounted,
+                                             frames_baseline,
+                                             calobject_warp_baseline,
+
+                                             intrinsics_ref,
+                                             extrinsics_ref_mounted,
+                                             frames_ref,
+                                             calobject_warp_ref)
     else:
+        # shape (Ncameras,3)
+        p0_cam = mrcal.unproject(q0, lensmodel, intrinsics_baseline,
+                                 normalize = True) * (1e5 if distance is None else distance)
         p1_cam_ref = np.zeros((Ncameras, 3), dtype=float)
         for icam in range (Ncameras):
             implied_Rt10_ref = \
@@ -336,10 +444,11 @@ for distance in distances:
                                        focus_radius      = 1000.)[3]
             p1_cam_ref[icam] = \
                 mrcal.transform_point_Rt( implied_Rt10_ref, p0_cam[icam] )
-    # shape (Ncameras, 2)
-    q0_ref[distance] = \
-        mrcal.project( p1_cam_ref,
-                       lensmodel, intrinsics_ref )
+
+        # shape (Ncameras, 2)
+        q0_ref[distance] = \
+            mrcal.project( p1_cam_ref,
+                           lensmodel, intrinsics_ref )
 
     # I check the bias for cameras 0,1,2. Camera 3 has q0 outside of the
     # observed region, so regularization affects projections there dramatically
@@ -474,10 +583,20 @@ def check_uncertainties_at(q0, idistance):
 
     # shape (Nsamples, Ncameras, 2)
     if not sample_via_diffs:
-        p1_cam = apply_implied_Rt10__mean_frames(p0_cam,
-                                                 extrinsics_sampled_mounted,
-                                                 frames_sampled,
-                                                 calobject_warp_sampled)
+        # shape (Nsamples, Ncameras, 2)
+        q_sampled = \
+            reproject_perturbed__mean_frames(q0,
+                                             distance,
+
+                                             intrinsics_baseline,
+                                             extrinsics_baseline_mounted,
+                                             frames_baseline,
+                                             calobject_warp_baseline,
+
+                                             intrinsics_sampled,
+                                             extrinsics_sampled_mounted,
+                                             frames_sampled,
+                                             calobject_warp_sampled)
     else:
         p1_cam = np.zeros((Nsamples, Ncameras, 3), dtype=float)
 
@@ -487,10 +606,10 @@ def check_uncertainties_at(q0, idistance):
                     mrcal.transform_point_Rt( implied_Rt10[isample,icam,idistance,...],
                                               p0_cam[icam] )
 
-    # shape (Nsamples, Ncameras, 2)
-    q_sampled = \
-        mrcal.project( p1_cam,
-                       lensmodel, intrinsics_sampled )
+        # shape (Nsamples, Ncameras, 2)
+        q_sampled = \
+            mrcal.project( p1_cam,
+                           lensmodel, intrinsics_sampled )
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
