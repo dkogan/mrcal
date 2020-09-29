@@ -356,11 +356,17 @@ def reproject_perturbed__fit_Rt(q, distance,
     calobject_height,calobject_width = optimization_inputs_baseline['observations_board'].shape[1:3]
 
     # shape (Nsamples, Nh, Nw, 3)
-    calibration_object_query = \
-        nps.cat(*[ mrcal.ref_calibration_object(calobject_width, calobject_height,
-                                                optimization_inputs_baseline['calibration_object_spacing'],
-                                                calobject_warp=query_calobject_warp) \
-                   for calobject_warp in query_calobject_warp] )
+    if query_calobject_warp.ndim > 1:
+        calibration_object_query = \
+            nps.cat(*[ mrcal.ref_calibration_object(calobject_width, calobject_height,
+                                                    optimization_inputs_baseline['calibration_object_spacing'],
+                                                    calobject_warp=calobject_warp) \
+                       for calobject_warp in query_calobject_warp] )
+    else:
+        calibration_object_query = \
+            mrcal.ref_calibration_object(calobject_width, calobject_height,
+                                         optimization_inputs_baseline['calibration_object_spacing'],
+                                         calobject_warp=query_calobject_warp)
 
     # shape (Nsamples, Nframes, Nh, Nw, 3)
     pcorners_ref_query = \
@@ -408,7 +414,10 @@ def reproject_perturbed__fit_Rt(q, distance,
         mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
 
     # shape (..., Ncameras, 2)
-    return mrcal.project(p_cam_query, lensmodel, query_intrinsics)
+    q1 = mrcal.project(p_cam_query, lensmodel, query_intrinsics)
+
+    if q1.shape[-3] == 1: q1 = q1[0,:,:]
+    return q1
 
 
 q0_true = dict()
