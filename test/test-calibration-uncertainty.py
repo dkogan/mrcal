@@ -146,11 +146,6 @@ Nframes          = 50
 Nsamples         = 90
 distances        = (5, None)
 
-# Use a diff-based computation of implied_Rt10; disabled by default.. In a
-# perfect world it would match the mean-frames computation.
-sample_via_diffs = False
-
-
 models_true[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
 models_true[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
 models_true[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
@@ -298,6 +293,12 @@ def reproject_perturbed__mean_frames(q, distance,
                                      query_rt_ref_frame,
                                      # shape (..., 2)
                                      query_calobject_warp):
+    r'''Reproject by computing the mean in the space of frames
+
+This is what the uncertainty computation does. It's effectively using an
+aphysical rotation
+
+    '''
 
     # shape (Ncameras, 3)
     p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
@@ -349,6 +350,8 @@ def reproject_perturbed__fit_Rt(q, distance,
                                 query_rt_ref_frame,
                                 # shape (..., 2)
                                 query_calobject_warp):
+    r'''Reproject by explicitly computing Rt via a procrustes fit
+    '''
 
     # use the new method where I compute a best-fit rotation to fit frames,
     # instead of the aphysical mean-frame-points "rotation"
@@ -420,44 +423,94 @@ def reproject_perturbed__fit_Rt(q, distance,
     return q1
 
 
+# The others broadcast implicitly, while THIS main function really cannot handle
+# outer dimensions, and needs an explicit broadcasting loop
+@nps.broadcast_define(((2,), (),
+                       ('Ncameras', 'Nintrinsics'),
+                       ('Ncameras', 6),
+                       ('Nframes', 6),
+                       (2,),
+                       ('Ncameras', 'Nintrinsics'),
+                       ('Ncameras', 6),
+                       ('Nframes', 6),
+                       (2,),),
+                      ('Ncameras',2))
+def reproject_perturbed__diff(q, distance,
+                              # shape (Ncameras, Nintrinsics)
+                              baseline_intrinsics,
+                              # shape (Ncameras, 6)
+                              baseline_rt_cam_ref,
+                              # shape (Nframes, 6)
+                              baseline_rt_ref_frame,
+                              # shape (2)
+                              baseline_calobject_warp,
+
+                              # shape (Ncameras, Nintrinsics)
+                              query_intrinsics,
+                              # shape (Ncameras, 6)
+                              query_rt_cam_ref,
+                              # shape (Nframes, 6)
+                              query_rt_ref_frame,
+                              # shape (2)
+                              query_calobject_warp):
+    r'''Reproject by using the "diff" method to compute a rotation
+
+    '''
+
+    # shape (Ncameras, 3)
+    p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                                     normalize = True) * distance
+    p_cam_query = np.zeros((Ncameras, 3), dtype=float)
+    for icam in range (Ncameras):
+
+        # This method only cares about the intrinsics
+        model_baseline = \
+            mrcal.cameramodel( intrinsics = (lensmodel, baseline_intrinsics[icam]),
+                               imagersize = imagersizes[0] )
+        model_query = \
+            mrcal.cameramodel( intrinsics = (lensmodel, query_intrinsics[icam]),
+                               imagersize = imagersizes[0] )
+
+        implied_Rt10_query = \
+            mrcal.projection_diff( (model_baseline,
+                                    model_query),
+                                   distance = distance,
+                                   use_uncertainties = False,
+                                   focus_center      = None,
+                                   focus_radius      = 1000.)[3]
+        mrcal.transform_point_Rt( implied_Rt10_query, p_cam_baseline[icam],
+                                  out = p_cam_query[icam] )
+
+    # shape (Ncameras, 2)
+    return \
+        mrcal.project( p_cam_query,
+                       lensmodel, query_intrinsics)
+
+
+# Which implementation we're using. Use the method that matches the uncertainty
+# computation. Thus the sampled ellipsoids should match the ellipsoids reported
+# by the uncertianty method
+reproject_perturbed = reproject_perturbed__mean_frames
+
+
+
 q0_true = dict()
 for distance in distances:
 
-    if not sample_via_diffs:
-        # shape (Ncameras, 2)
-        q0_true[distance] = \
-            reproject_perturbed__mean_frames(q0_baseline,
-                                             1e5 if distance is None else distance,
+    # shape (Ncameras, 2)
+    q0_true[distance] = \
+        reproject_perturbed(q0_baseline,
+                            1e5 if distance is None else distance,
 
-                                             intrinsics_baseline,
-                                             extrinsics_baseline_mounted,
-                                             frames_baseline,
-                                             calobject_warp_baseline,
+                            intrinsics_baseline,
+                            extrinsics_baseline_mounted,
+                            frames_baseline,
+                            calobject_warp_baseline,
 
-                                             intrinsics_true,
-                                             extrinsics_true_mounted,
-                                             frames_true,
-                                             calobject_warp_true)
-    else:
-        # shape (Ncameras,3)
-        p_cam_baseline = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
-                                         normalize = True) * (1e5 if distance is None else distance)
-        p_cam_true = np.zeros((Ncameras, 3), dtype=float)
-        for icam in range (Ncameras):
-            implied_Rt10_true = \
-                mrcal.projection_diff( (models_baseline[icam],
-                                        models_true    [icam]),
-                                       distance = distance,
-                                       use_uncertainties = False,
-                                       focus_center      = None,
-                                       focus_radius      = 1000.)[3]
-            mrcal.transform_point_Rt( implied_Rt10_true, p_cam_baseline[icam],
-                                      out = p_cam_true[icam] )
-
-        # shape (Ncameras, 2)
-        q0_true[distance] = \
-            mrcal.project( p_cam_true,
-                           lensmodel, intrinsics_true)
+                            intrinsics_true,
+                            extrinsics_true_mounted,
+                            frames_true,
+                            calobject_warp_true)
 
     # I check the bias for cameras 0,1,2. Camera 3 has q0 outside of the
     # observed region, so regularization affects projections there dramatically
@@ -539,9 +592,6 @@ extrinsics_sampled_mounted = np.zeros( (Nsamples,Ncameras,6),           dtype=fl
 frames_sampled             = np.zeros( (Nsamples,Nframes, 6),           dtype=float )
 calobject_warp_sampled     = np.zeros( (Nsamples, 2),                   dtype=float )
 
-if sample_via_diffs:
-    implied_Rt10 = np.zeros((Nsamples, Ncameras, len(distances), 4,3), dtype=float)
-
 for isample in range(Nsamples):
     print(f"Sampling {isample+1}/{Nsamples}")
 
@@ -558,18 +608,6 @@ for isample in range(Nsamples):
     else:
         # the remaining row is already 0
         extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
-
-    if sample_via_diffs:
-        for icam in range(Ncameras):
-            for idistance in range(len(distances)):
-                implied_Rt10[isample,icam,idistance,...] = \
-                    mrcal.projection_diff( (models_baseline[icam],
-                                            mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                                              icam_intrinsics = icam)),
-                                           distance = distances[idistance],
-                                           use_uncertainties = False,
-                                           focus_center      = None,
-                                           focus_radius      = 1000.)[3]
 
 
 def check_uncertainties_at(q0_baseline, idistance):
@@ -591,34 +629,19 @@ def check_uncertainties_at(q0_baseline, idistance):
                                      normalize = True) * distance
 
     # shape (Nsamples, Ncameras, 2)
-    if not sample_via_diffs:
-        # shape (Nsamples, Ncameras, 2)
-        q_sampled = \
-            reproject_perturbed__mean_frames(q0_baseline,
-                                             distance,
+    q_sampled = \
+        reproject_perturbed(q0_baseline,
+                            distance,
 
-                                             intrinsics_baseline,
-                                             extrinsics_baseline_mounted,
-                                             frames_baseline,
-                                             calobject_warp_baseline,
+                            intrinsics_baseline,
+                            extrinsics_baseline_mounted,
+                            frames_baseline,
+                            calobject_warp_baseline,
 
-                                             intrinsics_sampled,
-                                             extrinsics_sampled_mounted,
-                                             frames_sampled,
-                                             calobject_warp_sampled)
-    else:
-        p_cam_sampled = np.zeros((Nsamples, Ncameras, 3), dtype=float)
-
-        for isample in range(Nsamples):
-            for icam in range (Ncameras):
-                mrcal.transform_point_Rt( implied_Rt10[isample,icam,idistance,...],
-                                          p_cam_baseline[icam],
-                                          out = p_cam_sampled[isample, icam, ...] )
-
-        # shape (Nsamples, Ncameras, 2)
-        q_sampled = \
-            mrcal.project( p_cam_sampled,
-                           lensmodel, intrinsics_sampled )
+                            intrinsics_sampled,
+                            extrinsics_sampled_mounted,
+                            frames_sampled,
+                            calobject_warp_sampled)
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
