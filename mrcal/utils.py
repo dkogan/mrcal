@@ -1537,8 +1537,9 @@ weights on the measurements x to get homoscedasticity, and thus the optimal
 parameter vector is the maximum-likelihood estimate of the true solution.
 
 Some elements of x depend on the pixel observations, and some don't
-(regularization). We care about the measurements that depend on pixel
-observations. These are a weighted reprojection error:
+(regularization: often needed to help convergence; small-enough to stay close to
+the minimum-likelihood result). We care about the measurements that depend on
+pixel observations. These are a weighted reprojection error:
 
     x[i] = w[i] (q[i] - qref[i])
 
@@ -3592,6 +3593,7 @@ report a full Rt transformation with the t component set to 0
                                            # seeing not-quite-optimal solutions.
                                            # Especially for
                                            # very-nearly-identical rotations
+                                           # requires scipy >= 1.3.0
                                            gtol = None,
                                            verbose=0)
         Rt = np.zeros((4,3), dtype=float)
