@@ -1706,7 +1706,14 @@ void project( // out
     double _joint_rt[6];
     double* joint_rt;
 
+    // The caller has an odd-looking array reference [-3]. This is intended, but
+    // the compiler throws a warning. I silence it here. gcc-10 produces a very
+    // strange-looking warning that was reported to the maintainers:
+    // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=97261
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
     mrcal_pose_t frame_rt_validr = {.t = frame_rt->t};
+#pragma GCC diagnostic pop
     if(calibration_object_width_n) frame_rt_validr.r = frame_rt->r;
 
     if(!camera_at_identity)
