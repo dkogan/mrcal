@@ -28,6 +28,13 @@ Given a shape-(...,3) array of points in the camera frame (x,y aligned with the
 imager coords, z 'forward') and an intrinsic model, this function computes the
 projection, optionally with gradients.
 
+Projecting out-of-bounds points (beyond the field of view) returns undefined
+values. Generally things remain continuous even as we move off the imager
+domain. Pinhole-like projections will work normally if projecting a point behind
+the camera. Splined projections clamp to the nearest spline segment: the
+projection will fly off to infinity quickly since we're extrapolating a
+polynomial, but the function will remain continuous.
+
 Broadcasting is fully supported across v and intrinsics_data
 
 ARGUMENTS

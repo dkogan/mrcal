@@ -1384,6 +1384,11 @@ void _project_point_splined( // outputs
                             uint16_t Nx, uint16_t Ny,
                             double segments_per_u)
 {
+    // projections out-of-bounds will yield SOME value (function remains
+    // continuous as we move out-of-bounds), but it wont be particularly
+    // meaningful
+
+
     // stereographic projection:
     //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
     //   u = xy_unit * tan(th/2) * 2
@@ -1437,8 +1442,7 @@ void _project_point_splined( // outputs
 
     double ix = u.x*segments_per_u + (double)(Nx-1)/2.;
     double iy = u.y*segments_per_u + (double)(Ny-1)/2.;
-#warning need to bounds-check
-    int ix0, iy0;
+
     mrcal_point2_t deltau;
     double ddeltau_dux[2];
     double ddeltau_duy[2];
@@ -1455,20 +1459,16 @@ void _project_point_splined( // outputs
 
     if( spline_order == 3 )
     {
-        ix0 = (int)ix;
-        iy0 = (int)iy;
-        if(ix0 < 1){
-            ix0 = 1;
-        }
-        if(ix0 > Nx-3){
-            ix0 = Nx-3;
-        }
-        if(iy0 < 1){
-            iy0 = 1;
-        }
-        if(iy0 > Ny-3){
-            iy0 = Ny-3;
-        }
+        int ix0 = (int)ix;
+        int iy0 = (int)iy;
+
+        // If out-of-bounds, clamp to the nearest valid spline segment. The
+        // projection will fly off to infinity quickly (we're extrapolating a
+        // polynomial), but at least it'll stay continuous
+        if(     ix0 < 1)    ix0 = 1;
+        else if(ix0 > Nx-3) ix0 = Nx-3;
+        if(     iy0 < 1)    iy0 = 1;
+        else if(iy0 > Ny-3) iy0 = Ny-3;
 
         *ivar0 =
             4 + // skip the core
@@ -1487,20 +1487,16 @@ void _project_point_splined( // outputs
     }
     else if( spline_order == 2 )
     {
-        ix0 = (int)(ix + 0.5);
-        iy0 = (int)(iy + 0.5);
-        if(ix0 < 1){
-            ix0 = 1;
-        }
-        if(ix0 > Nx-2){
-            ix0 = Nx-2;
-        }
-        if(iy0 < 1){
-            iy0 = 1;
-        }
-        if(iy0 > Ny-2){
-            iy0 = Ny-2;
-        }
+        int ix0 = (int)(ix + 0.5);
+        int iy0 = (int)(iy + 0.5);
+
+        // If out-of-bounds, clamp to the nearest valid spline segment. The
+        // projection will fly off to infinity quickly (we're extrapolating a
+        // polynomial), but at least it'll stay continuous
+        if(     ix0 < 1)    ix0 = 1;
+        else if(ix0 > Nx-2) ix0 = Nx-2;
+        if(     iy0 < 1)    iy0 = 1;
+        else if(iy0 > Ny-2) iy0 = Ny-2;
 
         *ivar0 =
             4 + // skip the core
@@ -2392,6 +2388,13 @@ bool _mrcal_project_internal( // out
 // we're not interested in gradients.
 //
 // This function supports CAHVORE distortions if we don't ask for gradients
+//
+// Projecting out-of-bounds points (beyond the field of view) returns undefined
+// values. Generally things remain continuous even as we move off the imager
+// domain. Pinhole-like projections will work normally if projecting a point
+// behind the camera. Splined projections clamp to the nearest spline segment:
+// the projection will fly off to infinity quickly since we're extrapolating a
+// polynomial, but the function will remain continuous.
 bool mrcal_project( // out
                    mrcal_point2_t* q,
 
