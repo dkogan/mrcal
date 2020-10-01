@@ -130,22 +130,25 @@ for kwargs in all_test_kwargs:
             nps.clump(observations_copy, n=3)[i,2] = -1.
         del kwargs['outlier_indices']
 
-    x,J = mrcal.optimizer_callback( intrinsics_data,
-                                    nps.atleast_dims(extrinsics_rt_fromref, -2),
-                                    frames_rt_toref, points,
-                                    observations_copy, indices_frame_camintrinsics_camextrinsics,
-                                    observations_point,
-                                    indices_point_camintrinsics_camextrinsics,
+    optimization_inputs = \
+        dict( intrinsics                                = intrinsics_data,
+              extrinsics_rt_fromref                     = nps.atleast_dims(extrinsics_rt_fromref, -2),
+              frames_rt_toref                           = frames_rt_toref,
+              points                                    = points,
+              observations_board                        = observations_copy,
+              indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+              observations_point                        = observations_point,
+              indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
+              lensmodel                                 = lensmodel,
+              calobject_warp                            = np.array((1e-3, 2e-3)),
+              imagersizes                               = imagersizes,
+              calibration_object_spacing                = 0.1,
+              point_min_range                           = 1.0,
+              point_max_range                           = 1000.0,
+              verbose                                   = False,
+              **kwargs )
 
-                                    lensmodel,
-                                    imagersizes                       = imagersizes,
-                                    calibration_object_spacing        = 0.1,
-                                    point_min_range                   = 1.0,
-                                    point_max_range                   = 1000.0,
-                                    verbose                           = False,
-                                    calobject_warp                    = np.array((1e-3, 2e-3)),
-
-                                    **kwargs)[1:3]
+    x,J = mrcal.optimizer_callback( **optimization_inputs )[1:3]
     J = J.toarray()
 
     # Set this to True to store the current values as the "true" values
