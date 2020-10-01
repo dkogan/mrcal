@@ -151,6 +151,10 @@ for kwargs in all_test_kwargs:
     x,J = mrcal.optimizer_callback( **optimization_inputs )[1:3]
     J = J.toarray()
 
+    # I compare full-state J so that I can change SCALE_... without breaking the
+    # test
+    mrcal.pack_state(J, **optimization_inputs)
+
     # Set this to True to store the current values as the "true" values
     if False:
         np.save(f"{testdir}/data/test-optimizer-callback-ref-x-{itest}.npy", x)
