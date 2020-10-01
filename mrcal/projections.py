@@ -12,7 +12,8 @@ import mrcal
 
 
 def project(v, lensmodel, intrinsics_data,
-            get_gradients = False):
+            get_gradients = False,
+            out           = None):
     r'''Projects a set of 3D camera-frame points to the imager
 
 SYNOPSIS
@@ -58,6 +59,13 @@ ARGUMENTS
 - get_gradients: optional boolean that defaults to False. Whether we should
   compute and report the gradients. This affects what we return
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
+  array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 if not get_gradients:
@@ -73,17 +81,19 @@ if get_gradients: we return a tuple:
     respect to the intrinsics
 
 The unprojected observation vector of shape (..., 3).
+
     '''
 
     # Internal function must have a different argument order so
     # that all the broadcasting stuff is in the leading arguments
     if not get_gradients:
-        return mrcal._mrcal_broadcasted._project(v, intrinsics_data, lensmodel=lensmodel)
-    return mrcal._mrcal_broadcasted._project_withgrad(v, intrinsics_data, lensmodel=lensmodel)
+        return mrcal._mrcal_broadcasted._project(v, intrinsics_data, lensmodel=lensmodel, out=out)
+    return mrcal._mrcal_broadcasted._project_withgrad(v, intrinsics_data, lensmodel=lensmodel, out=out)
 
 
 def unproject(q, lensmodel, intrinsics_data,
-              normalize = False):
+              normalize = False,
+              out       = None):
     r'''Unprojects pixel coordinates to observation vectors
 
 SYNOPSIS
@@ -126,6 +136,13 @@ ARGUMENTS
 - normalize: optional boolean defaults to False. If True: normalize the output
   vectors
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
+  array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
 RETURNED VALUE
 
 The unprojected observation vector of shape (..., 3). These are NOT normalized
@@ -136,7 +153,7 @@ by default. To get normalized vectors, pass normalize=True
     if lensmodel != 'LENSMODEL_CAHVORE':
         # Main path. Internal function must have a different argument order so
         # that all the broadcasting stuff is in the leading arguments
-        v = mrcal._mrcal_broadcasted._unproject(q, intrinsics_data, lensmodel=lensmodel)
+        v = mrcal._mrcal_broadcasted._unproject(q, intrinsics_data, lensmodel=lensmodel, out=out)
         if normalize:
             v /= nps.dummy(nps.mag(v), -1)
         return v
@@ -148,6 +165,9 @@ by default. To get normalized vectors, pass normalize=True
     if q.size == 0:
         s = q.shape
         return np.zeros(s[:-1] + (3,))
+
+    if out is not None:
+        raise Exception("unproject(..., out) is unsupported if out is not None and lensmodel == 'LENSMODEL_CAHVORE'")
 
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
