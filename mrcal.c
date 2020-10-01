@@ -539,8 +539,8 @@ int mrcal_num_j_nonzero(int Nobservations_board,
 // focal-length scales
 static
 void sample_bspline_surface_cubic(double* out,
-                                  double* dout_dx,
-                                  double* dout_dy,
+                                  double* dout_dx, // may be NULL
+                                  double* dout_dy, // may be NULL
                                   double* ABCDx_ABCDy,
 
                                   double x, double y,
@@ -613,13 +613,15 @@ void sample_bspline_surface_cubic(double* out,
     // and y. By returning ABCD[xy] and not the cartesian products, I make
     // smaller temporary data arrays
     interp(out,     ABCDx,     ABCDy);
-    interp(dout_dx, ABCDgradx, ABCDy);
-    interp(dout_dy, ABCDx,     ABCDgrady);
+    if(dout_dx)
+        interp(dout_dx, ABCDgradx, ABCDy);
+    if(dout_dy)
+        interp(dout_dy, ABCDx,     ABCDgrady);
 }
 static
 void sample_bspline_surface_quadratic(double* out,
-                                      double* dout_dx,
-                                      double* dout_dy,
+                                      double* dout_dx, // may be NULL
+                                      double* dout_dy, // may be NULL
                                       double* ABCx_ABCy,
 
                                       double x, double y,
@@ -686,8 +688,10 @@ void sample_bspline_surface_quadratic(double* out,
     // and y. By returning ABC[xy] and not the cartesian products, I make
     // smaller temporary data arrays
     interp(out,     ABCx,     ABCy);
-    interp(dout_dx, ABCgradx, ABCy);
-    interp(dout_dy, ABCx,     ABCgrady);
+    if(dout_dx)
+        interp(dout_dx, ABCgradx, ABCy);
+    if(dout_dy)
+        interp(dout_dy, ABCx,     ABCgrady);
 }
 
 typedef struct
@@ -1443,6 +1447,12 @@ void _project_point_splined( // outputs
     const double cx = intrinsics[2];
     const double cy = intrinsics[3];
 
+    bool need_any_dq_drt =
+        !( dq_drcamera == NULL &&
+           dq_dtcamera == NULL &&
+           dq_drframe  == NULL &&
+           dq_dtframe  == NULL );
+
     if( spline_order == 3 )
     {
         ix0 = (int)ix;
@@ -1465,7 +1475,9 @@ void _project_point_splined( // outputs
             2*( (iy0-1)*Nx +
                 (ix0-1) );
 
-        sample_bspline_surface_cubic(deltau.xy, ddeltau_dux, ddeltau_duy,
+        sample_bspline_surface_cubic(deltau.xy,
+                                     need_any_dq_drt ? ddeltau_dux : NULL,
+                                     need_any_dq_drt ? ddeltau_duy : NULL,
                                      grad_ABCDx_ABCDy,
                                      ix - ix0, iy - iy0,
 
@@ -1495,7 +1507,9 @@ void _project_point_splined( // outputs
             2*( (iy0-1)*Nx +
                 (ix0-1) );
 
-        sample_bspline_surface_quadratic(deltau.xy, ddeltau_dux, ddeltau_duy,
+        sample_bspline_surface_quadratic(deltau.xy,
+                                         need_any_dq_drt ? ddeltau_dux : NULL,
+                                         need_any_dq_drt ? ddeltau_duy : NULL,
                                          grad_ABCDx_ABCDy,
                                          ix - ix0, iy - iy0,
 
@@ -1508,14 +1522,6 @@ void _project_point_splined( // outputs
         MSG("I only support spline order==2 or 3. Somehow got %d. This is a bug. Barfing",
             spline_order);
         assert(0);
-    }
-
-
-    // convert ddeltau_dixy to ddeltau_duxy
-    for(int i=0; i<2; i++)
-    {
-        ddeltau_dux[i] *= segments_per_u;
-        ddeltau_duy[i] *= segments_per_u;
     }
 
     // u = stereographic(p)
@@ -1534,6 +1540,16 @@ void _project_point_splined( // outputs
         // xy = fxy * distort(xy)/distort(z) + cxy
         dq_dfxy->x = u.x + deltau.x;
         dq_dfxy->y = u.y + deltau.y;
+    }
+
+    if(!need_any_dq_drt) return;
+
+
+    // convert ddeltau_dixy to ddeltau_duxy
+    for(int i=0; i<2; i++)
+    {
+        ddeltau_dux[i] *= segments_per_u;
+        ddeltau_duy[i] *= segments_per_u;
     }
 
     void propagate_extrinsics( mrcal_point3_t* dq_deee,
