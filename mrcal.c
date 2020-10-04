@@ -331,20 +331,18 @@ int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
                      mrcal_problem_details_t problem_details,
                      mrcal_lensmodel_t lensmodel)
 {
-    int Npoints_variable = Npoints - Npoints_fixed;
-
     return
-        // camera extrinsics
-        (problem_details.do_optimize_extrinsics ? (Ncameras_extrinsics * 6) : 0) +
-
-        // frame poses, individual observed points
-        (problem_details.do_optimize_frames ? (Nframes * 6 + Npoints_variable * 3) : 0) +
-
-        // camera intrinsics
-        (Ncameras_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel)) +
-
-        // warp
-        (problem_details.do_optimize_calobject_warp ? 2 : 0);
+        mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                    problem_details,
+                                    lensmodel) +
+        mrcal_num_states_extrinsics(Ncameras_extrinsics,
+                                    problem_details) +
+        mrcal_num_states_frames(Nframes,
+                                problem_details) +
+        mrcal_num_states_points(Npoints, Npoints_fixed,
+                                problem_details) +
+        mrcal_num_states_calobject_warp( problem_details,
+                                         Nobservations_board);
 }
 
 static int num_regularization_terms_percamera(mrcal_problem_details_t problem_details,
