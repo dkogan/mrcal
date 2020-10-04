@@ -17,7 +17,7 @@ SYNOPSIS
                             point_min_range                   = 0.1,
                             point_max_range                   = 100.0,
                             skip_outlier_rejection            = False,
-                            skip_regularization               = False,
+                            do_apply_regularization           = True,
                             verbose                           = False)
 
 This is a flexible implementation of a calibration system core that uses sparse
@@ -221,8 +221,8 @@ OPTIONAL ARGUMENTS
   outliers. The outliers we get on input (observations_board[...,2] < 0) are
   honered regardless. Defaults to False
 
-- skip_regularization: if True, don't include regularization terms in the
-  solver. Defaults to False
+- do_apply_regularization: if False, don't include regularization terms in the
+  solver. Defaults to True
 
 - observed_pixel_uncertainty: Required if !skip_outlier_rejection. The standard
   deviation of x and y pixel coordinates of the input observations. The

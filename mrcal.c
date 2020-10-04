@@ -350,7 +350,7 @@ int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
 static int num_regularization_terms_percamera(mrcal_problem_details_t problem_details,
                                               mrcal_lensmodel_t lensmodel)
 {
-    if(problem_details.do_skip_regularization)
+    if(!problem_details.do_apply_regularization)
         return 0;
 
     // distortions
@@ -4265,7 +4265,7 @@ void optimizer_callback(// input state
 
     // regularization terms for the intrinsics. I favor smaller distortion
     // parameters
-    if(!ctx->problem_details.do_skip_regularization &&
+    if(ctx->problem_details.do_apply_regularization &&
        modelHasCore_fxfycxcy(ctx->lensmodel) &&
        ( ctx->problem_details.do_optimize_intrinsics_distortions ||
          ctx->problem_details.do_optimize_intrinsics_core
@@ -4939,7 +4939,7 @@ mrcal_optimize( // out
             ctx.reportFitMsg = "After";
 #warning hook this up
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
-            if(!problem_details.do_skip_regularization)
+            if(problem_details.do_apply_regularization)
             {
                 double norm2_err_regularization = 0;
                 int    Nmeasurements_regularization =

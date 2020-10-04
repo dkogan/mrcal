@@ -127,7 +127,7 @@ baseline = \
          do_optimize_extrinsics                    = True,
          imagersizes                               = imagersizes,
          calibration_object_spacing                = object_spacing,
-         skip_regularization                       = False,
+         do_apply_regularization                   = True,
          observed_pixel_uncertainty                = pixel_uncertainty_stdev,)
 
 mrcal.optimize(**baseline,

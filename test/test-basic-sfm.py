@@ -166,7 +166,7 @@ stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
                         do_optimize_extrinsics            = True,
                         do_optimize_frames                = True,
                         skip_outlier_rejection            = True,
-                        skip_regularization               = False,
+                        do_apply_regularization           = True,
                         verbose                           = False)
 
 # Got a solution. How well do they fit?

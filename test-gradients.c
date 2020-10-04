@@ -78,7 +78,7 @@ int main(int argc, char* argv[] )
                                                        .do_optimize_extrinsics            = true,
                                                        .do_optimize_frames                = true,
                                                        .do_optimize_calobject_warp        = true,
-                                                       .do_skip_regularization            = false});
+                                                       .do_apply_regularization           = true});
     else
         for(; iarg < argc; iarg++)
         {

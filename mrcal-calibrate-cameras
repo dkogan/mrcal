@@ -557,7 +557,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_optimize_intrinsics_distortions= False,
                                calibration_object_spacing        = args.object_spacing,
                                skip_outlier_rejection            = True,
-                               skip_regularization               = True,
+                               do_apply_regularization           = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
@@ -572,7 +572,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_optimize_intrinsics_distortions= False,
                                calibration_object_spacing        = args.object_spacing,
                                skip_outlier_rejection            = True,
-                               skip_regularization               = True,
+                               do_apply_regularization           = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
 
@@ -684,7 +684,7 @@ def solve_initial(args, seedmodels, imagersizes,
               calibration_object_spacing                = args.object_spacing,
               skip_outlier_rejection                    = args.skip_outlier_rejection,
               observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
-              skip_regularization                       = False,
+              do_apply_regularization                   = True,
               verbose                                   = False)
 
     mrcal.optimize( **optimization_inputs )
@@ -791,7 +791,7 @@ print("vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp",
 
 optimization_inputs['calobject_warp']             = calobject_warp
 optimization_inputs['do_optimize_calobject_warp'] = args.optimize_calobject_warp
-optimization_inputs['skip_regularization']        = args.skip_regularization
+optimization_inputs['do_apply_regularization']    = not args.skip_regularization
 optimization_inputs['observed_pixel_uncertainty'] = args.observed_pixel_uncertainty
 optimization_inputs['skip_outlier_rejection']     = args.skip_outlier_rejection
 optimization_inputs['verbose']                    = args.verbose_solver
@@ -799,13 +799,13 @@ optimization_inputs['verbose']                    = args.verbose_solver
 # If we're skipping the regularization step, I do EVERYTHING else before the
 # final regularization-free step. Turning that off allows the solution to
 # wander, and I want to help it as much as possible to not do that
-if optimization_inputs['skip_regularization']:
-    optimization_inputs['skip_regularization']    = False
+if not optimization_inputs['do_apply_regularization']:
+    optimization_inputs['do_apply_regularization']= True
     optimization_inputs['verbose']                = False
 
     stats = mrcal.optimize(**optimization_inputs)
 
-    optimization_inputs['skip_regularization']    = True
+    optimization_inputs['do_apply_regularization']= False
     optimization_inputs['verbose']                = args.verbose_solver
 
 stats = mrcal.optimize(**optimization_inputs)

@@ -133,7 +133,7 @@ optimization_inputs = \
           calibration_object_spacing                = object_spacing,
           verbose                                   = False,
           observed_pixel_uncertainty                = pixel_uncertainty_stdev,
-          skip_regularization                       = False)
+          do_apply_regularization                   = True)
 
 # Solve this thing incrementally
 optimization_inputs['do_optimize_intrinsics_core']        = False

@@ -1050,7 +1050,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            int,            0,       "p",  ,                                  NULL,           -1,         {})  \
-    _(skip_regularization,                int,            0,       "p",  ,                                  NULL,           -1,         {})  \
+    _(do_apply_regularization,            int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(skip_outlier_rejection,             int,            0,       "p",  ,                                  NULL,           -1,         {})
 
 #define OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(_) \
@@ -1431,7 +1431,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
               .do_optimize_extrinsics            = do_optimize_extrinsics,
               .do_optimize_frames                = do_optimize_frames,
               .do_optimize_calobject_warp        = do_optimize_calobject_warp,
-              .do_skip_regularization            = skip_regularization
+              .do_apply_regularization           = do_apply_regularization
             };
 
         mrcal_problem_constants_t problem_constants =
@@ -1817,7 +1817,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
           .do_optimize_extrinsics            = do_optimize_extrinsics,
           .do_optimize_frames                = do_optimize_frames,
           .do_optimize_calobject_warp        = do_optimize_calobject_warp,
-          .do_skip_regularization            = skip_regularization
+          .do_apply_regularization           = do_apply_regularization
         };
 
     mrcal_lensmodel_t mrcal_lensmodel_type;
@@ -2462,7 +2462,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
           .do_optimize_extrinsics            = do_optimize_extrinsics,
           .do_optimize_frames                = do_optimize_frames,
           .do_optimize_calobject_warp        = do_optimize_calobject_warp,
-          .do_skip_regularization            = skip_regularization
+          .do_apply_regularization           = do_apply_regularization
         };
 
     mrcal_lensmodel_t mrcal_lensmodel_type;

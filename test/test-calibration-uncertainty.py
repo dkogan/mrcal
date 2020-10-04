@@ -241,7 +241,7 @@ optimization_inputs_baseline = \
           do_optimize_intrinsics_distortions        = True,
           do_optimize_extrinsics                    = True,
           do_optimize_calobject_warp                = True,
-          skip_regularization                       = False,
+          do_apply_regularization                   = True,
           skip_outlier_rejection                    = True)
 mrcal.optimize(**optimization_inputs_baseline)
 

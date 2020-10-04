@@ -170,10 +170,10 @@ typedef struct
     // For models that have a core, these are all the non-core parameters. For
     // models that do not, these are ALL the parameters
     bool do_optimize_intrinsics_distortions : 1;
-    bool do_optimize_extrinsics            : 1;
-    bool do_optimize_frames                : 1;
-    bool do_skip_regularization            : 1;
-    bool do_optimize_calobject_warp        : 1;
+    bool do_optimize_extrinsics             : 1;
+    bool do_optimize_frames                 : 1;
+    bool do_apply_regularization            : 1;
+    bool do_optimize_calobject_warp         : 1;
 } mrcal_problem_details_t;
 
 typedef struct
