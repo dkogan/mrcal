@@ -1045,7 +1045,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(do_optimize_intrinsics_distortions, int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_extrinsics,             int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_frames,                 int,            1,       "p",  ,                                  NULL,           -1,         {})  \
-    _(do_optimize_calobject_warp,         int,            0,       "p",  ,                                  NULL,           -1,         {})  \
+    _(do_optimize_calobject_warp,         int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
@@ -1070,13 +1070,6 @@ static bool optimize_validate_args( // out
 
                                     void* dummy __attribute__((unused)))
 {
-    if(do_optimize_calobject_warp &&
-       IS_NULL(calobject_warp))
-    {
-        BARF("if(do_optimize_calobject_warp) then calobject_warp MUST be given as an array to seed the optimization and to receive the results");
-        return false;
-    }
-
     static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
 
 #pragma GCC diagnostic push
@@ -1105,12 +1098,20 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    // calibration_object_spacing must be > 0 OR we have to not be using a
-    // calibration board
-    if( Nobservations_board > 0 && calibration_object_spacing <= 0.0 )
+    if( Nobservations_board > 0)
     {
-        BARF("We have board observations, so calibration_object_spacing MUST be a valid float > 0");
-        return false;
+        if( calibration_object_spacing <= 0.0 )
+        {
+            BARF("We have board observations, so calibration_object_spacing MUST be a valid float > 0");
+            return false;
+        }
+
+        if(do_optimize_calobject_warp &&
+           IS_NULL(calobject_warp))
+        {
+            BARF("do_optimize_calobject_warp is True, so calobject_warp MUST be given as an array to seed the optimization and to receive the results");
+            return false;
+        }
     }
 
     int Nobservations_point = PyArray_DIMS(observations_point)[0];

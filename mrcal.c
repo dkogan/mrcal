@@ -4713,19 +4713,24 @@ mrcal_optimize( // out
                 int calibration_object_width_n,
                 int calibration_object_height_n)
 {
-    if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
+    if( Nobservations_board > 0 )
     {
-        MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
-        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+        if( problem_details.do_optimize_calobject_warp && calobject_warp == NULL )
+        {
+            MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
+            return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+        }
     }
+    else
+        problem_details.do_optimize_calobject_warp = false;
 
     if(!modelHasCore_fxfycxcy(lensmodel))
         problem_details.do_optimize_intrinsics_core = false;
 
     if(!problem_details.do_optimize_intrinsics_core        &&
        !problem_details.do_optimize_intrinsics_distortions &&
-       !problem_details.do_optimize_extrinsics            &&
-       !problem_details.do_optimize_frames                &&
+       !problem_details.do_optimize_extrinsics             &&
+       !problem_details.do_optimize_frames                 &&
        !problem_details.do_optimize_calobject_warp)
     {
         MSG("Warning: Not optimizing any of our variables");

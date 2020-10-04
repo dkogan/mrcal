@@ -51,14 +51,10 @@ ARGUMENTS
   do_optimize_intrinsics_distortions
   do_optimize_extrinsics
   do_optimize_frames
+  do_optimize_calobject_warp
   do_apply_regularization
 
   optional booleans; default to True. These specify what we're optimizing. See
-  the documentation for mrcal.optimize() for details
-
-- do_optimize_calobject_warp
-
-  optional boolean; defaults to False. Specifies more optimization details. See
   the documentation for mrcal.optimize() for details
 
 - Ncameras_intrinsics

@@ -5971,7 +5971,7 @@ None
     do_optimize_intrinsics_distortions = optimization_inputs.get('do_optimize_intrinsics_distortions', True)
     do_optimize_extrinsics             = optimization_inputs.get('do_optimize_extrinsics',             True)
     do_optimize_frames                 = optimization_inputs.get('do_optimize_frames',                 True)
-    do_optimize_calobject_warp         = optimization_inputs.get('do_optimize_calobject_warp',         False)
+    do_optimize_calobject_warp         = optimization_inputs.get('do_optimize_calobject_warp',         True)
 
 
     if p_packed.ravel().size != Nvars_expected:
