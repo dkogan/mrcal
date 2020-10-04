@@ -17,7 +17,7 @@ mrcal.optimize(), but the inputs are all read-only. Some arguments that have
 meaning in calls to optimize() have no meaning in calls to optimizer_callback().
 These are accepted, and effectively ignored. Currently these are:
 
-- skip_outlier_rejection
+- do_apply_outlier_rejection
 
 ARGUMENTS
 

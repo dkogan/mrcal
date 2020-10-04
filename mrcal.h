@@ -368,7 +368,7 @@ mrcal_optimize( // out
                 // inversely with the weight.
                 //
                 // z<0 indicates that this is an outlier. This is respected on
-                // input (even if skip_outlier_rejection). New outliers are
+                // input (even if !do_apply_outlier_rejection). New outliers are
                 // marked with z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
                 int Nobservations_board,
@@ -385,7 +385,7 @@ mrcal_optimize( // out
                 bool verbose,
                 // Whether to try to find NEW outliers. The outliers given on
                 // input are respected regardless
-                const bool skip_outlier_rejection,
+                const bool do_apply_outlier_rejection,
 
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,

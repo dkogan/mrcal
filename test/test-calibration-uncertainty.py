@@ -242,7 +242,7 @@ optimization_inputs_baseline = \
           do_optimize_extrinsics                    = True,
           do_optimize_calobject_warp                = True,
           do_apply_regularization                   = True,
-          skip_outlier_rejection                    = True)
+          do_apply_outlier_rejection                = False)
 mrcal.optimize(**optimization_inputs_baseline)
 
 models_baseline = \

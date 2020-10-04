@@ -165,7 +165,7 @@ stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
                         do_optimize_intrinsics_distortions= False,
                         do_optimize_extrinsics            = True,
                         do_optimize_frames                = True,
-                        skip_outlier_rejection            = True,
+                        do_apply_outlier_rejection        = False,
                         do_apply_regularization           = True,
                         verbose                           = False)
 

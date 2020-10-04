@@ -1051,7 +1051,7 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_regularization,            int,            1,       "p",  ,                                  NULL,           -1,         {})  \
-    _(skip_outlier_rejection,             int,            0,       "p",  ,                                  NULL,           -1,         {})
+    _(do_apply_outlier_rejection,         int,            1,       "p",  ,                                  NULL,           -1,         {})
 
 #define OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(_) \
     _(no_jacobian,                        int,               0,    "p",  ,                                  NULL,           -1,         {}) \
@@ -1246,10 +1246,10 @@ static bool optimize_validate_args( // out
         }
     }
 
-    if( is_optimize && !skip_outlier_rejection && observed_pixel_uncertainty <= 0.0 )
+    if( is_optimize && do_apply_outlier_rejection && observed_pixel_uncertainty <= 0.0 )
     {
         // The pixel uncertainty is used and must be valid
-        BARF("!skip_outlier_rejection, so observed_pixel_uncertainty MUST be a valid float > 0");
+        BARF("do_apply_outlier_rejection, so observed_pixel_uncertainty MUST be a valid float > 0");
         return false;
     }
 
@@ -1495,7 +1495,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
                                 false,
                                 verbose,
-                                skip_outlier_rejection,
+                                do_apply_outlier_rejection,
                                 mrcal_lensmodel_type,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,

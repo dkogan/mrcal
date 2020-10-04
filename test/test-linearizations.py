@@ -131,7 +131,7 @@ baseline = \
          observed_pixel_uncertainty                = pixel_uncertainty_stdev,)
 
 mrcal.optimize(**baseline,
-               skip_outlier_rejection = True)
+               do_apply_outlier_rejection = False)
 
 
 # Done setting up. I'll be looking at tiny motions off the baseline
@@ -208,7 +208,7 @@ dqref,observations_perturbed = sample_dqref(baseline['observations_board'],
 optimization_inputs = copy.deepcopy(baseline)
 optimization_inputs['observations_board'] = observations_perturbed
 
-mrcal.optimize(**optimization_inputs, skip_outlier_rejection=True)
+mrcal.optimize(**optimization_inputs, do_apply_outlier_rejection=False)
 p1,x1,J1 = mrcal.optimizer_callback(no_factorization = True,
                                     **optimization_inputs)[:3]
 J1 = J1.toarray()

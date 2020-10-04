@@ -556,7 +556,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_optimize_intrinsics_core       = False,
                                do_optimize_intrinsics_distortions= False,
                                calibration_object_spacing        = args.object_spacing,
-                               skip_outlier_rejection            = True,
+                               do_apply_outlier_rejection        = False,
                                do_apply_regularization           = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
@@ -571,7 +571,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_optimize_intrinsics_core       = True,
                                do_optimize_intrinsics_distortions= False,
                                calibration_object_spacing        = args.object_spacing,
-                               skip_outlier_rejection            = True,
+                               do_apply_outlier_rejection        = False,
                                do_apply_regularization           = False,
                                verbose                           = False)
         sys.stderr.write("^^^^^^^^^^^^^^^^^^^^ RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
@@ -682,7 +682,7 @@ def solve_initial(args, seedmodels, imagersizes,
               do_optimize_frames                        = True,
               do_optimize_calobject_warp                = False,
               calibration_object_spacing                = args.object_spacing,
-              skip_outlier_rejection                    = args.skip_outlier_rejection,
+              do_apply_outlier_rejection                = not args.skip_outlier_rejection,
               observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
               do_apply_regularization                   = True,
               verbose                                   = False)
@@ -793,7 +793,7 @@ optimization_inputs['calobject_warp']             = calobject_warp
 optimization_inputs['do_optimize_calobject_warp'] = args.optimize_calobject_warp
 optimization_inputs['do_apply_regularization']    = not args.skip_regularization
 optimization_inputs['observed_pixel_uncertainty'] = args.observed_pixel_uncertainty
-optimization_inputs['skip_outlier_rejection']     = args.skip_outlier_rejection
+optimization_inputs['do_apply_outlier_rejection'] = not args.skip_outlier_rejection
 optimization_inputs['verbose']                    = args.verbose_solver
 
 # If we're skipping the regularization step, I do EVERYTHING else before the
@@ -821,7 +821,7 @@ measurements_0_for_outliers = \
     reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
 worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(measurements_0_for_outliers, n=3) )))
 report += "Worst reprojection error (by measurement): {:.01f} pixels\n".format(worst_point_err)
-if not args.skip_outlier_rejection:
+if args.do_apply_outlier_rejection:
     report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
         format(stats['Noutliers'],
                args.object_height_n*args.object_width_n*len(observations),

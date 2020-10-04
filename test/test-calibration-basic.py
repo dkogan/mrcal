@@ -142,7 +142,7 @@ optimization_inputs['do_optimize_extrinsics']             = True
 optimization_inputs['do_optimize_frames']                 = True
 optimization_inputs['do_optimize_calobject_warp']         = False
 mrcal.optimize(**optimization_inputs,
-               skip_outlier_rejection = False)
+               do_apply_outlier_rejection = True)
 
 optimization_inputs['do_optimize_intrinsics_core']        = True
 optimization_inputs['do_optimize_intrinsics_distortions'] = False
@@ -150,7 +150,7 @@ optimization_inputs['do_optimize_extrinsics']             = True
 optimization_inputs['do_optimize_frames']                 = True
 optimization_inputs['do_optimize_calobject_warp']         = False
 mrcal.optimize(**optimization_inputs,
-               skip_outlier_rejection = False)
+               do_apply_outlier_rejection = True)
 
 testutils.confirm_equal( mrcal.num_states_intrinsics(**optimization_inputs),
                          4*Ncameras,
@@ -187,7 +187,7 @@ optimization_inputs['do_optimize_calobject_warp']         = True
 
 optimization_inputs['calobject_warp'] = np.array((0.001, 0.001))
 stats = mrcal.optimize(**optimization_inputs,
-                       skip_outlier_rejection = False)
+                       do_apply_outlier_rejection = True)
 
 x      = stats['x']
 rmserr = stats['rms_reproj_error__pixels']
