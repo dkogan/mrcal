@@ -3159,7 +3159,9 @@ int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extri
 int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
                                     int Nobservations_board)
 {
-    return problem_details.do_optimize_calobject_warp ? 2 : 0;
+    if(problem_details.do_optimize_calobject_warp && Nobservations_board>0)
+        return 2;
+    return 0;
 }
 
 // Reports the icam_extrinsics corresponding to a given icam_intrinsics. On
