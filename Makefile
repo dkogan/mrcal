@@ -137,7 +137,7 @@ TESTS :=						\
   test/test-projection-diff.py
 
 test check: all
-	@$(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst ___, ,$t) || SOMEFAILED=1; ) test -z "$$SOMEFAILED" || echo "SOME TEST SETS FAILED!"; test -z "$$SOMEFAILED" && echo "ALL TEST SETS PASSED!"
+	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst ___, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: test check
 
 include /usr/include/mrbuild/Makefile.common.footer
