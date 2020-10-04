@@ -60,6 +60,7 @@ ARGUMENTS
   Nframes
   Npoints
   Npoints_fixed
+  Nobservations_board
 
   optional integers; default to 0. These specify the sizes of various arrays in
   the optimization. See the documentation for mrcal.optimize() for details

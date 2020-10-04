@@ -1455,7 +1455,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
-                                      Nframes, Npoints, Npoints_fixed,
+                                      Nframes, Npoints, Npoints_fixed, Nobservations_board,
                                       problem_details, mrcal_lensmodel_type);
 
         // both optimize() and optimizer_callback() use this
@@ -1920,7 +1920,7 @@ static int callback_state_index_intrinsics(int i,
     return mrcal_state_index_intrinsics(i,
                                         Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
-                                        Npoints, Npoints_fixed,
+                                        Npoints, Npoints_fixed, Nobservations_board,
                                         problem_details,
                                         lensmodel);
 }
@@ -1989,7 +1989,7 @@ static int callback_state_index_extrinsics(int i,
         mrcal_state_index_extrinsics(i,
                                      Ncameras_intrinsics, Ncameras_extrinsics,
                                      Nframes,
-                                     Npoints, Npoints_fixed,
+                                     Npoints, Npoints_fixed, Nobservations_board,
                                      problem_details,
                                      lensmodel);
 }
@@ -2058,7 +2058,7 @@ static int callback_state_index_frames(int i,
         mrcal_state_index_frames(i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
-                                 Npoints, Npoints_fixed,
+                                 Npoints, Npoints_fixed, Nobservations_board,
                                  problem_details,
                                  lensmodel);
 }
@@ -2127,7 +2127,7 @@ static int callback_state_index_points(int i,
         mrcal_state_index_points(i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
-                                 Npoints, Npoints_fixed,
+                                 Npoints, Npoints_fixed, Nobservations_board,
                                  problem_details,
                                  lensmodel);
 }
@@ -2177,7 +2177,7 @@ static int callback_state_index_calobject_warp(int i,
     return
         mrcal_state_index_calobject_warp( Ncameras_intrinsics, Ncameras_extrinsics,
                                           Nframes,
-                                          Npoints, Npoints_fixed,
+                                          Npoints, Npoints_fixed, Nobservations_board,
                                           problem_details,
                                           lensmodel);
 }
@@ -2202,7 +2202,7 @@ static int callback_num_states_calobject_warp(int i,
                                               mrcal_problem_details_t problem_details)
 {
     return
-        mrcal_num_states_calobject_warp(problem_details);
+        mrcal_num_states_calobject_warp(problem_details, Nobservations_board);
 }
 static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2355,7 +2355,7 @@ static int callback_num_measurements_regularization(int i,
     return
         mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                               Nframes,
-                                              Npoints, Npoints_fixed,
+                                              Npoints, Npoints_fixed, Nobservations_board,
                                               problem_details,
                                               lensmodel);
 }
@@ -2517,7 +2517,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
 
     int Nstate =
         mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
-                         Nframes, Npoints, Npoints_fixed,
+                         Nframes, Npoints, Npoints_fixed, Nobservations_board,
                          problem_details,
                          mrcal_lensmodel_type);
 

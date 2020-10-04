@@ -488,7 +488,7 @@ int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int calibration_object_height_n);
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                           int Nframes,
-                                          int Npoints, int Npoints_fixed,
+                                          int Npoints, int Npoints_fixed, int Nobservations_board,
                                           mrcal_problem_details_t problem_details,
                                           mrcal_lensmodel_t lensmodel);
 
@@ -504,7 +504,7 @@ int mrcal_num_measurements(int Nobservations_board,
 
 int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
                      int Nframes,
-                     int Npoints, int Npoints_fixed,
+                     int Npoints, int Npoints_fixed, int Nobservations_board,
                      mrcal_problem_details_t problem_details,
                      mrcal_lensmodel_t lensmodel);
 int mrcal_num_j_nonzero(int Nobservations_board,
@@ -527,7 +527,7 @@ void mrcal_free_context(void** ctx);
 int mrcal_state_index_intrinsics(int icam_intrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
-                                 int Npoints, int Npoints_fixed,
+                                 int Npoints, int Npoints_fixed, int Nobservations_board,
                                  mrcal_problem_details_t problem_details,
                                  mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
@@ -536,7 +536,7 @@ int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
 int mrcal_state_index_extrinsics(int icam_extrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
-                                 int Npoints, int Npoints_fixed,
+                                 int Npoints, int Npoints_fixed, int Nobservations_board,
                                  mrcal_problem_details_t problem_details,
                                  mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
@@ -544,7 +544,7 @@ int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
 int mrcal_state_index_frames(int iframe,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
                              int Nframes,
-                             int Npoints, int Npoints_fixed,
+                             int Npoints, int Npoints_fixed, int Nobservations_board,
                              mrcal_problem_details_t problem_details,
                              mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_frames(int Nframes,
@@ -552,17 +552,18 @@ int mrcal_num_states_frames(int Nframes,
 int mrcal_state_index_points(int i_point,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
                              int Nframes,
-                             int Npoints, int Npoints_fixed,
+                             int Npoints, int Npoints_fixed, int Nobservations_board,
                              mrcal_problem_details_t problem_details,
                              mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_points(int Npoints, int Npoints_fixed,
                             mrcal_problem_details_t problem_details);
 int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
-                                     int Npoints, int Npoints_fixed,
+                                     int Npoints, int Npoints_fixed, int Nobservations_board,
                                      mrcal_problem_details_t problem_details,
                                      mrcal_lensmodel_t lensmodel);
-int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details);
+int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
+                                    int Nobservations_board);
 
 // packs/unpacks a vector
 void mrcal_pack_solver_state_vector( // out, in
