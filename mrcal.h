@@ -12,18 +12,18 @@
 typedef struct
 {
     // indexes the extrinsics array. -1 means "at coordinate system reference"
-    int  i_cam_extrinsics;
+    int  icam_extrinsics;
     // indexes the intrinsics array
-    int  i_cam_intrinsics;
-    int  i_frame;
+    int  icam_intrinsics;
+    int  iframe;
 } mrcal_observation_board_t;
 
 typedef struct
 {
     // indexes the extrinsics array. -1 means "at coordinate system reference"
-    int  i_cam_extrinsics;
+    int  icam_extrinsics;
     // indexes the intrinsics array
-    int  i_cam_intrinsics;
+    int  icam_intrinsics;
     int  i_point;
 
     // Observed pixel coordinates
@@ -524,7 +524,7 @@ int mrcal_num_j_nonzero(int Nobservations_board,
 void mrcal_free_context(void** ctx);
 
 
-int mrcal_state_index_intrinsics(int i_cam_intrinsics,
+int mrcal_state_index_intrinsics(int icam_intrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed,
@@ -533,7 +533,7 @@ int mrcal_state_index_intrinsics(int i_cam_intrinsics,
 int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
                                 mrcal_problem_details_t problem_details,
                                 mrcal_lensmodel_t lensmodel);
-int mrcal_state_index_extrinsics(int i_cam_extrinsics,
+int mrcal_state_index_extrinsics(int icam_extrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed,
@@ -541,7 +541,7 @@ int mrcal_state_index_extrinsics(int i_cam_extrinsics,
                                  mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
                                 mrcal_problem_details_t problem_details);
-int mrcal_state_index_frames(int i_frame,
+int mrcal_state_index_frames(int iframe,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
                              int Nframes,
                              int Npoints, int Npoints_fixed,

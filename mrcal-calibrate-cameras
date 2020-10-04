@@ -219,10 +219,10 @@ richer better-fitting model would reduce those errors. Past that, there should
 be no pattern to the errors. If the camera synchronization was broken, you'll
 see a bias in the error vectors, to compensate for the motion of the chessboard.
 
-Next do this for each camera in your calibration set (i_camera is an index
-counting up from 0):
+Next do this for each camera in your calibration set (icam is an index counting
+up from 0):
 
-    show_residuals_regional(i_camera)
+    show_residuals_regional(icam)
 
 Each of these will pop up 3 plots describing your distribution of errors. You
 get
@@ -514,9 +514,9 @@ def make_cameramodels(optimization_inputs):
     '''
     return [ mrcal.cameramodel( \
                 optimization_inputs = optimization_inputs,
-                icam_intrinsics     = i_camera ) \
+                icam_intrinsics     = icam ) \
 
-             for i_camera in range(len(optimization_inputs['intrinsics'])) ]
+             for icam in range(len(optimization_inputs['intrinsics'])) ]
 
 
 def solve_initial(args, seedmodels, imagersizes,
@@ -843,7 +843,7 @@ reproj_err_including_outliers, reproj_err_0_for_outliers = \
 
 
 
-def get_valid_intrinsics_region(model, i_camera,
+def get_valid_intrinsics_region(model, icam,
                                 ignore_outliers = True):
 
     '''THIS FUNCTION IS MADE UP. PLEASE FIX'''
@@ -853,7 +853,7 @@ def get_valid_intrinsics_region(model, i_camera,
 
 
     idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
-    idx[indices_frame_camera[:,1] != i_camera, ...] = False
+    idx[indices_frame_camera[:,1] != icam, ...] = False
     if ignore_outliers:
         idx[ observations[...,2] < 0.0 ] = False
 
@@ -921,15 +921,15 @@ note = \
     "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                            ' '.join(mrcal.shellquote(s) for s in sys.argv)) + \
     re.sub(r"^(.)", r"# \1", report, flags=re.M)
-for i_camera in range(len(models)):
+for icam in range(len(models)):
 
     filename_base = \
-        '{}/camera{}-{}'.format(args.outdir, i_camera//2, i_camera%2) \
+        '{}/camera{}-{}'.format(args.outdir, icam//2, icam%2) \
         if args.pairs \
-        else '{}/camera-{}'.format(args.outdir, i_camera)
+        else '{}/camera-{}'.format(args.outdir, icam)
 
     cameramodelfile = filename_base + '.cameramodel'
-    models[i_camera].write(cameramodelfile, note)
+    models[icam].write(cameramodelfile, note)
     print("Wrote {}".format(cameramodelfile))
 
 
@@ -949,19 +949,19 @@ Potential things to look at:
     show_calibration_geometry()
     show_residuals_observation_worst(i_observation_in_order_from_worst)
     show_residuals_observation(i_observation, vectorscale=20)
-    show_projection_uncertainty(i_camera)
-    show_projection_uncertainty_xydist(i_camera)
-    show_valid_intrinsics_region(i_camera)
-    show_residuals_vectorfield(    i_camera, show_all_reproj_errors=True)
-    show_residuals_heatmap(        i_camera)
-    show_residuals_directions(     i_camera)
-    show_residuals_histogram(      i_camera)
-    show_residuals_radial(         i_camera)
-    show_residuals_regional(       i_camera)
-    show_projection_behavior('heatmap',    i_camera)
-    show_projection_behavior('vectorfield',i_camera)
-    show_projection_behavior('radial',     i_camera)
-    show_splined_model_surface(    i_camera, xy)
+    show_projection_uncertainty(icam)
+    show_projection_uncertainty_xydist(icam)
+    show_valid_intrinsics_region(icam)
+    show_residuals_vectorfield(    icam, show_all_reproj_errors=True)
+    show_residuals_heatmap(        icam)
+    show_residuals_directions(     icam)
+    show_residuals_histogram(      icam)
+    show_residuals_radial(         icam)
+    show_residuals_regional(       icam)
+    show_projection_behavior('heatmap',    icam)
+    show_projection_behavior('vectorfield',icam)
+    show_projection_behavior('radial',     icam)
+    show_splined_model_surface(    icam, xy)
     stats
     i_observations_worst
     rms_reproj_err_including_outliers_perobservation
@@ -1019,9 +1019,9 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     else:
         raise Exception("observation should be a string (image path) or an integer; got type(observation) = {}".format(type(observation)))
 
-    obs              = nps.clump( observations[i_observation, ..., :2], n=2)
-    i_frame,i_camera = indices_frame_camera[i_observation]
-    reproj           = nps.clump( projected[i_frame,i_camera], n=2)
+    obs         = nps.clump( observations[i_observation, ..., :2], n=2)
+    iframe,icam = indices_frame_camera[i_observation]
+    reproj      = nps.clump( projected[iframe,icam], n=2)
 
     # Reprojection error per point. These may or may not have been thrown out as
     # outliers. And these may have been scaled in the measurement vector
@@ -1040,9 +1040,9 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     imagepath = paths[i_observation]
     plotkwargs = \
         dict(square=1,cbmin=0,
-             title='{}: i_observation={}, i_frame={}, i_camera={}, path={}, error_RMS_all_points={:.2f}, measurement_RMS_ignoring_outliers={:.2f}'. \
+             title='{}: i_observation={}, iframe={}, icam={}, path={}, error_RMS_all_points={:.2f}, measurement_RMS_ignoring_outliers={:.2f}'. \
                format( args.lensmodel,
-                       i_observation, i_frame, i_camera,
+                       i_observation, iframe, icam,
                        paths[i_observation],
                        rms_reproj_err_including_outliers_perobservation[i_observation],
                        rms_measurements_0_for_outliers_perobservation[i_observation]),
@@ -1052,7 +1052,7 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
         plotkwargs['rgbimage'] = imagepath
         plotkwargs['set']      = 'autoscale noextend'
     else:
-        W,H=imagersizes[i_camera]
+        W,H=imagersizes[icam]
         plotkwargs['xrange'] = [0,W-1]
         plotkwargs['yrange'] = [H-1,0]
 
@@ -1072,10 +1072,10 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
 def show_residuals_observation_worst(i, **kwargs):
     show_residuals_observation( i_observations_worst[i], **kwargs )
 
-def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors):
+def _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors):
     r'''Return the data used by the various show_residuals_...() functions'''
 
-    if i_camera < 0: i_camera = 0 # first camera by default
+    if icam < 0: icam = 0 # first camera by default
 
     # I have a bunch of errors in reproj_err_including_outliers. I need to pick out
     # - the ones for THIS camera (if requested)
@@ -1089,7 +1089,7 @@ def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_repr
 
     # all true by default, cutting out the last dimension: x,y
     idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
-    idx[indices_frame_camera[:,1] != i_camera, ...] = False
+    idx[indices_frame_camera[:,1] != icam, ...] = False
 
     if not show_all_reproj_errors:
         idx[ observations[...,2] < 0.0 ] = False
@@ -1099,39 +1099,39 @@ def _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_repr
 
     obs = observations[idx, ..., :2]
 
-    W,H=imagersizes[i_camera]
+    W,H=imagersizes[icam]
     if focus_center is None:
-        focus_center = (imagersizes[i_camera]-1.)/2.
+        focus_center = (imagersizes[icam]-1.)/2.
     if focus_radius == 0:
         # I use all the data
         pass
     else:
         if focus_radius < 0:
-            focus_radius = min(imagersizes[i_camera])/6
+            focus_radius = min(imagersizes[icam])/6
         idx = nps.norm2(obs - focus_center) < focus_radius*focus_radius
         obs = obs[idx, ...]
         err = err[idx, ...]
     # err,obs are now both of shape (N,2). Each slice is xy
 
     valid_intrinsics_region_plotarg = None
-    if i_camera >= 0:
+    if icam >= 0:
         valid_intrinsics_region_plotarg_3d = \
-            (models[i_camera].valid_intrinsics_region()[:,0],
-             models[i_camera].valid_intrinsics_region()[:,1],
-             np.zeros(models[i_camera].valid_intrinsics_region().shape[-2]),
+            (models[icam].valid_intrinsics_region()[:,0],
+             models[icam].valid_intrinsics_region()[:,1],
+             np.zeros(models[icam].valid_intrinsics_region().shape[-2]),
              dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region")) if models[i_camera].valid_intrinsics_region() is not None else None
+                  legend = "Valid-intrinsics region")) if models[icam].valid_intrinsics_region() is not None else None
         valid_intrinsics_region_plotarg_2d = \
-            (models[i_camera].valid_intrinsics_region()[:,0],
-             models[i_camera].valid_intrinsics_region()[:,1],
+            (models[icam].valid_intrinsics_region()[:,0],
+             models[icam].valid_intrinsics_region()[:,1],
              dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region")) if models[i_camera].valid_intrinsics_region() is not None else None
+                  legend = "Valid-intrinsics region")) if models[icam].valid_intrinsics_region() is not None else None
 
-    return i_camera,err,obs,W,H,focus_center,focus_radius,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
+    return icam,err,obs,W,H,focus_center,focus_radius,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
 
 
 plots_residuals_vectorfield = None
-def show_residuals_vectorfield(i_camera = 0, focus_center=None, focus_radius=0,
+def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
                                vectorscale = 1.0,
                                show_all_reproj_errors=False, **kwargs):
 
@@ -1140,7 +1140,7 @@ def show_residuals_vectorfield(i_camera = 0, focus_center=None, focus_radius=0,
     We plot a vectorfield, showing each observed point, and its reprojection
     discrepancy
 
-    i_camera is the camera in question. First camera by default
+    icam is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -1155,16 +1155,16 @@ def show_residuals_vectorfield(i_camera = 0, focus_center=None, focus_radius=0,
     if plots_residuals_vectorfield is None:
         plots_residuals_vectorfield = [None] * Ncameras
 
-    i_camera,err,obs, \
+    icam,err,obs, \
         W, \
         H, \
         focus_center, \
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
 
-    plots_residuals_vectorfield[i_camera] = \
+    plots_residuals_vectorfield[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
                        title = 'Fitted reprojection errors {}. Errors shown as vectors and colors'. \
@@ -1179,10 +1179,10 @@ def show_residuals_vectorfield(i_camera = 0, focus_center=None, focus_radius=0,
                             tuplesize=5))]
     if valid_intrinsics_region_plotarg_2d is not None:
         plot_data_args.append(valid_intrinsics_region_plotarg_2d)
-    plots_residuals_vectorfield[i_camera].plot(*plot_data_args)
+    plots_residuals_vectorfield[icam].plot(*plot_data_args)
 
 plots_residuals_heatmap = None
-def show_residuals_heatmap(i_camera = 0, focus_center=None, focus_radius=0,
+def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
                            vectorscale = 1.0,
                            show_all_reproj_errors=False, **kwargs):
 
@@ -1191,7 +1191,7 @@ def show_residuals_heatmap(i_camera = 0, focus_center=None, focus_radius=0,
     We plot each observed point, but instead of showing an error vector, we
     render a point that's color-coded with its error
 
-    i_camera is the camera in question. First camera by default
+    icam is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -1206,16 +1206,16 @@ def show_residuals_heatmap(i_camera = 0, focus_center=None, focus_radius=0,
     if plots_residuals_heatmap is None:
         plots_residuals_heatmap = [None] * Ncameras
 
-    i_camera,err,obs, \
+    icam,err,obs, \
         W, \
         H, \
         focus_center, \
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
 
-    plots_residuals_heatmap[i_camera] = \
+    plots_residuals_heatmap[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
                        title = 'Fitted reprojection errors {}. Errors shown as colors'. \
@@ -1228,10 +1228,10 @@ def show_residuals_heatmap(i_camera = 0, focus_center=None, focus_radius=0,
                              tuplesize=3))]
     if valid_intrinsics_region_plotarg_2d is not None:
         plot_data_args.append(valid_intrinsics_region_plotarg_2d)
-    plots_residuals_heatmap[i_camera].plot(*plot_data_args)
+    plots_residuals_heatmap[icam].plot(*plot_data_args)
 
 plots_residuals_directions = None
-def show_residuals_directions(i_camera = 0, focus_center=None, focus_radius=0,
+def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
                    vectorscale = 1.0,
                    show_all_reproj_errors=False, **kwargs):
 
@@ -1241,7 +1241,7 @@ def show_residuals_directions(i_camera = 0, focus_center=None, focus_radius=0,
     the color-coded direction of the error. The error magnitude is ignored. This
     is useful to see systematic patterns in the error surface
 
-    i_camera is the camera in question. First camera by default
+    icam is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -1257,16 +1257,16 @@ def show_residuals_directions(i_camera = 0, focus_center=None, focus_radius=0,
     if plots_residuals_directions is None:
         plots_residuals_directions = [None] * Ncameras
 
-    i_camera,err,obs, \
+    icam,err,obs, \
         W, \
         H, \
         focus_center, \
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
 
-    plots_residuals_directions[i_camera] = \
+    plots_residuals_directions[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
                        title = 'Fitted reprojection errors {}. Directions shown as colors. Magnitudes ignored'. \
@@ -1285,10 +1285,10 @@ def show_residuals_directions(i_camera = 0, focus_center=None, focus_radius=0,
                              tuplesize=3))]
     if valid_intrinsics_region_plotarg_2d is not None:
         plot_data_args.append(valid_intrinsics_region_plotarg_2d)
-    plots_residuals_directions[i_camera].plot(*plot_data_args)
+    plots_residuals_directions[icam].plot(*plot_data_args)
 
 plots_residuals_radial = None
-def show_residuals_radial(i_camera = 0, focus_center=None, focus_radius=0,
+def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
                           show_all_reproj_errors=False, **kwargs):
 
     r'''Visualize the optimized reprojection errors, looking at distance-from-center
@@ -1296,7 +1296,7 @@ def show_residuals_radial(i_camera = 0, focus_center=None, focus_radius=0,
     Plot residuals against distance from the center. If focus_center is not
     None, we use that; otherwise we use the imager center
 
-    i_camera is the camera in question. First camera by default
+    icam is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -1311,31 +1311,31 @@ def show_residuals_radial(i_camera = 0, focus_center=None, focus_radius=0,
     if plots_residuals_radial is None:
         plots_residuals_radial = [None] * Ncameras
 
-    i_camera,err,obs, \
+    icam,err,obs, \
         W, \
         H, \
         focus_center, \
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
 
     r = np.sqrt(nps.norm2(obs - focus_center))
-    plots_residuals_radial[i_camera] = \
+    plots_residuals_radial[icam] = \
         gp.gnuplotlib(
             title = 'Fitted reprojection errors shown against distance from {}. Data from {}'. \
             format( focus_center, 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
             xlabel = 'Distance from {} (pixels)'.format(focus_center),
             ylabel = 'Reprojection error (pixels). x and y components of error are counted separately',
             **kwargs)
-    plots_residuals_radial[i_camera]. \
+    plots_residuals_radial[icam]. \
         plot( nps.transpose(nps.cat(r,r)).ravel(),
               err.ravel(),
               _with='points')
 
 
 plots_residuals_regional = None
-def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
+def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
                             show_all_reproj_errors=False, **kwargs):
 
     r'''Visualize the optimized reprojection errors, broken up by region
@@ -1343,7 +1343,7 @@ def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
     Plots residuals grouped by discrete regions of the image. Useful to see
     specifically where the fit is poor
 
-    i_camera is the camera in question. First camera by default
+    icam is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -1358,23 +1358,23 @@ def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
     if plots_residuals_regional is None:
         plots_residuals_regional = [None] * Ncameras
 
-    i_camera,err,obs, \
+    icam,err,obs, \
         W, \
         H, \
         focus_center, \
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
 
 
-    if i_camera < 0:
-        raise Exception("Regional visualization for 'all' cameras at once isn't useful. Pass i_camera >= 0")
+    if icam < 0:
+        raise Exception("Regional visualization for 'all' cameras at once isn't useful. Pass icam >= 0")
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
         mrcal.report_residual_statistics(obs,err,
-                                         imagersizes[i_camera])
+                                         imagersizes[icam])
     def mkplot(x, title, **kwargs_here):
         kwargs_here.update(kwargs)
         if 'hardcopy' in kwargs_here:
@@ -1400,13 +1400,13 @@ def show_residuals_regional(i_camera = 0, focus_center=None, focus_radius=0,
         p.plot(*plot_data_args)
         return p
 
-    plots_residuals_regional[i_camera] = [ mkplot(np.abs(mean), 'abs(mean)'),
+    plots_residuals_regional[icam] = [ mkplot(np.abs(mean), 'abs(mean)'),
                                            mkplot(stdev,        'stdev'),
                                            mkplot(count,        'count', cbrange = (0, 20)) ]
 
 
 plots_residuals_histogram = None
-def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, binwidth=0.02,
+def show_residuals_histogram(icam = 0, focus_center=None, focus_radius=0, binwidth=0.02,
                              show_all_reproj_errors=False, **kwargs):
 
     r'''Visualize the histogram of the optimized reprojection errors
@@ -1415,7 +1415,7 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
     distribution. If the optimization was successful, and if
     observed_pixel_uncertainty was correct, the two should line up.
 
-    i_camera is the camera in question. First camera by default
+    icam is the camera in question. First camera by default
 
     if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
     INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
@@ -1430,14 +1430,14 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
     if plots_residuals_histogram is None:
         plots_residuals_histogram = [None] * Ncameras
 
-    i_camera,err,obs, \
+    icam,err,obs, \
         W, \
         H, \
         focus_center, \
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(i_camera, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
 
     x = err.ravel()
     N = len(x)
@@ -1488,73 +1488,73 @@ def show_residuals_histogram(i_camera = 0, focus_center=None, focus_radius=0, bi
     equations = [make_gaussian(sigma,title) for sigma,title in \
                  ( (sigma_expected, 'Normal distribution of residuals with expected stdev: {:.02f} pixels'.format(sigma_expected)),
                    (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
-    plots_residuals_histogram[i_camera] = \
+    plots_residuals_histogram[icam] = \
         gp.gnuplotlib(equation_above = equations,
                       title = 'Observed and expected distribution of fitted reprojection errors {}'. \
                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
                       xlabel = 'Reprojection error (pixels). x and y components of error are counted separately',
                       ylabel = 'Observed frequency',
                       **kwargs)
-    plots_residuals_histogram[i_camera].plot(x, histogram=1, binwidth=binwidth,)
+    plots_residuals_histogram[icam].plot(x, histogram=1, binwidth=binwidth,)
 
 
 plots_projection_uncertainty = [None] * Ncameras
-def show_projection_uncertainty(i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
+def show_projection_uncertainty(icam = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     global plots_projection_uncertainty
-    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
-    for i_camera in i_camera_all:
-        plots_projection_uncertainty[i_camera] = \
-            mrcal.show_projection_uncertainty(models[i_camera],
-                                              extratitle = "Camera {} with {}".format(i_camera, args.lensmodel),
+    icam_all = (icam,) if icam is not None else range(Ncameras)
+    for icam in icam_all:
+        plots_projection_uncertainty[icam] = \
+            mrcal.show_projection_uncertainty(models[icam],
+                                              extratitle = "Camera {} with {}".format(icam, args.lensmodel),
                                               gridn_width  = gridn_width,
                                               gridn_height = gridn_height,
                                               **kwargs)
 plots_projection_uncertainty_xydist = [None] * Ncameras
-def show_projection_uncertainty_xydist(i_camera = None, gridn_width = 15, gridn_height = 10, **kwargs):
+def show_projection_uncertainty_xydist(icam = None, gridn_width = 15, gridn_height = 10, **kwargs):
 
     global plots_projection_uncertainty_xydist
-    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
-    for i_camera in i_camera_all:
-        plots_projection_uncertainty_xydist[i_camera] = \
-            mrcal.show_projection_uncertainty_xydist(models[i_camera],
-                                                     extratitle = "Camera {} with {}".format(i_camera, args.lensmodel),
+    icam_all = (icam,) if icam is not None else range(Ncameras)
+    for icam in icam_all:
+        plots_projection_uncertainty_xydist[icam] = \
+            mrcal.show_projection_uncertainty_xydist(models[icam],
+                                                     extratitle = "Camera {} with {}".format(icam, args.lensmodel),
                                                      gridn_width  = gridn_width,
                                                      gridn_height = gridn_height,
                                                      **kwargs)
 plots_valid_intrinsics_region = [None] * Ncameras
-def show_valid_intrinsics_region(i_camera = None, **kwargs):
+def show_valid_intrinsics_region(icam = None, **kwargs):
     global plots_valid_intrinsics_region
-    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
-    for i_camera in i_camera_all:
-        plots_valid_intrinsics_region[i_camera] = \
-            mrcal.show_valid_intrinsics_region(models[i_camera],
-                                               title = "Valid-intrinsics region for camera {}".format(i_camera),
+    icam_all = (icam,) if icam is not None else range(Ncameras)
+    for icam in icam_all:
+        plots_valid_intrinsics_region[icam] = \
+            mrcal.show_valid_intrinsics_region(models[icam],
+                                               title = "Valid-intrinsics region for camera {}".format(icam),
                                                **kwargs)
 
 plots_projections = [None] * Ncameras
-def show_projection_behavior(mode, i_camera = None, gridn_width = 60, gridn_height = 40, **kwargs):
+def show_projection_behavior(mode, icam = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
     global plots_projections
-    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
-    for i_camera in i_camera_all:
-        plots_projections[i_camera] = \
-            mrcal.show_projection_behavior(models[i_camera],
+    icam_all = (icam,) if icam is not None else range(Ncameras)
+    for icam in icam_all:
+        plots_projections[icam] = \
+            mrcal.show_projection_behavior(models[icam],
                                            mode,
-                                           extratitle = "camera {}".format(i_camera),
+                                           extratitle = "camera {}".format(icam),
                                            gridn_width  = gridn_width,
                                            gridn_height = gridn_height,
                                            **kwargs)
 
 plots_splined_model_surface = [None] * Ncameras
-def show_splined_model_surface(i_camera = None, xy='x', **kwargs):
+def show_splined_model_surface(icam = None, xy='x', **kwargs):
 
     global plots_splined_model_surface
-    i_camera_all = (i_camera,) if i_camera is not None else range(Ncameras)
-    for i_camera in i_camera_all:
-        plots_splined_model_surface[i_camera] = \
-            mrcal.show_splined_model_surface(models[i_camera], xy,
-                                             extratitle = "camera {}".format(i_camera),
+    icam_all = (icam,) if icam is not None else range(Ncameras)
+    for icam in icam_all:
+        plots_splined_model_surface[icam] = \
+            mrcal.show_splined_model_surface(models[icam], xy,
+                                             extratitle = "camera {}".format(icam),
                                              **kwargs)
 
 plot_calibration_geometry = None

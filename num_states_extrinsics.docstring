@@ -27,7 +27,7 @@ translation. These transform points represented in the reference coordinate
 system to the coordinate system of the specific camera. Note that mrcal allows
 the reference coordinate system to be tied to a particular camera. In this case
 the extrinsics of that camera do not appear in the state vector at all, and
-i_camera_extrinsics == -1 in the indices_frame_camintrinsics_camextrinsics
+icam_extrinsics == -1 in the indices_frame_camintrinsics_camextrinsics
 array.
 
 In order to determine the variable mapping, we need quite a bit of context. If

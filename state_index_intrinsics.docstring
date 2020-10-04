@@ -9,8 +9,8 @@ SYNOPSIS
     p = mrcal.optimizer_callback(**optimization_inputs)[0]
     mrcal.unpack_state(p, **optimization_inputs)
 
-    i_camera_intrinsics = 1
-    i_state = mrcal.state_index_intrinsics(i_camera_intrinsics,
+    icam_intrinsics = 1
+    i_state = mrcal.state_index_intrinsics(icam_intrinsics,
                                            **optimization_inputs)
 
     Nintrinsics = mrcal.lensmodel_num_params(optimization_inputs['lensmodel'])
@@ -42,7 +42,7 @@ assumed to be 0. Thus most arguments are optional.
 
 ARGUMENTS
 
-- i_cam_intrinsics: an integer indicating which camera we're asking about
+- icam_intrinsics: an integer indicating which camera we're asking about
 
 - **kwargs: if the optimization inputs are available, they can be passed-in as
   kwargs. These inputs contain everything this function needs to operate. If we
@@ -74,4 +74,4 @@ ARGUMENTS
 RETURNED VALUE
 
 The integer reporting the location in the state vector where the contiguous
-block of intrinsics for camera i_cam_intrinsics begins
+block of intrinsics for camera icam_intrinsics begins

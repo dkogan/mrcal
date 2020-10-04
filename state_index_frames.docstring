@@ -9,8 +9,8 @@ SYNOPSIS
     p = mrcal.optimizer_callback(**optimization_inputs)[0]
     mrcal.unpack_state(p, **optimization_inputs)
 
-    i_frame = 1
-    i_state = mrcal.state_index_frames(i_frame,
+    iframe = 1
+    i_state = mrcal.state_index_frames(iframe,
                                        **optimization_inputs)
 
     frames_rt_toref = p[i_state:i_state+6]
@@ -38,7 +38,7 @@ assumed to be 0. Thus most arguments are optional.
 
 ARGUMENTS
 
-- i_frame: an integer indicating which frame we're asking about
+- iframe: an integer indicating which frame we're asking about
 
 - **kwargs: if the optimization inputs are available, they can be passed-in as
   kwargs. These inputs contain everything this function needs to operate. If we
@@ -70,4 +70,4 @@ ARGUMENTS
 RETURNED VALUE
 
 The integer reporting the location in the state vector where the contiguous
-block of variables for frame i_frame begins
+block of variables for frame iframe begins

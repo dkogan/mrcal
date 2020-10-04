@@ -9,8 +9,8 @@ SYNOPSIS
     p = mrcal.optimizer_callback(**optimization_inputs)[0]
     mrcal.unpack_state(p, **optimization_inputs)
 
-    i_camera_extrinsics = 1
-    i_state = mrcal.state_index_extrinsics(i_camera_extrinsics,
+    icam_extrinsics = 1
+    i_state = mrcal.state_index_extrinsics(icam_extrinsics,
                                            **optimization_inputs)
 
     extrinsics_rt_fromref = p[i_state:i_state+6]
@@ -28,7 +28,7 @@ translation. These transform points represented in the reference coordinate
 system to the coordinate system of the specific camera. Note that mrcal allows
 the reference coordinate system to be tied to a particular camera. In this case
 the extrinsics of that camera do not appear in the state vector at all, and
-i_camera_extrinsics == -1 in the indices_frame_camintrinsics_camextrinsics
+icam_extrinsics == -1 in the indices_frame_camintrinsics_camextrinsics
 array.
 
 In order to determine the variable mapping, we need quite a bit of context. If
@@ -41,7 +41,7 @@ assumed to be 0. Thus most arguments are optional.
 
 ARGUMENTS
 
-- i_cam_extrinsics: an integer indicating which camera we're asking about
+- icam_extrinsics: an integer indicating which camera we're asking about
 
 - **kwargs: if the optimization inputs are available, they can be passed-in as
   kwargs. These inputs contain everything this function needs to operate. If we
@@ -73,4 +73,4 @@ ARGUMENTS
 RETURNED VALUE
 
 The integer reporting the location in the state vector where the contiguous
-block of extrinsics for camera i_cam_extrinsics begins
+block of extrinsics for camera icam_extrinsics begins

@@ -51,10 +51,10 @@ points is all the discrete points being observed in the problem.
 
 indices_frame_camintrinsics_camextrinsics describes which board observations
 were made by which camera, and where this camera was. Each board observation is
-described by a tuple (i_frame,i_cam_intrinsics,i_cam_extrinsics). The board at
-frames_rt_toref[i_frame] was observed by camera
-intrinsics_data[i_cam_intrinsics], which was at
-extrinsics_rt_fromref[i_cam_extrinsics]
+described by a tuple (iframe,icam_intrinsics,icam_extrinsics). The board at
+frames_rt_toref[iframe] was observed by camera
+intrinsics_data[icam_intrinsics], which was at
+extrinsics_rt_fromref[icam_extrinsics]
 
 indices_point_camintrinsics_camextrinsics is the same thing for discrete points.
 
@@ -64,7 +64,7 @@ coordinate system. So
 
 - Ncameras_intrinsics = Ncameras_extrinsics+1
 - All entries in indices_frame_camintrinsics_camextrinsics have
-  i_cam_intrinsics = i_cam_extrinsics+1
+  icam_intrinsics = icam_extrinsics+1
 - frames_rt_toref, points describes the motion of the moving target we're
   observing
 
@@ -142,10 +142,10 @@ REQUIRED ARGUMENTS
 
 - indices_frame_camintrinsics_camextrinsics: array of dims (Nobservations_board,
   3). For each observation these are an
-  (i_frame,i_cam_intrinsics,i_cam_extrinsics) tuple. i_cam_extrinsics == -1
+  (iframe,icam_intrinsics,icam_extrinsics) tuple. icam_extrinsics == -1
   means this observation came from a camera in the reference coordinate system.
-  i_frame indexes the "frames_rt_toref" array, i_cam_intrinsics indexes the
-  "intrinsics_data" array, i_cam_extrinsics indexes the "extrinsics_rt_fromref"
+  iframe indexes the "frames_rt_toref" array, icam_intrinsics indexes the
+  "intrinsics_data" array, icam_extrinsics indexes the "extrinsics_rt_fromref"
   array
 
   All of the indices are guaranteed to be monotonic. This array contains 32-bit
@@ -166,7 +166,7 @@ REQUIRED ARGUMENTS
 
 - indices_point_camintrinsics_camextrinsics: array of dims (Nobservations_point,
   3). For each observation these are an
-  (i_point,i_cam_intrinsics,i_cam_extrinsics) tuple. Analogous to
+  (i_point,icam_intrinsics,icam_extrinsics) tuple. Analogous to
   indices_frame_camintrinsics_camextrinsics, but for observations of discrete
   points.
 

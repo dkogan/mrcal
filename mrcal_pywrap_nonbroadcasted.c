@@ -1138,61 +1138,61 @@ static bool optimize_validate_args( // out
     // make sure the indices arrays are valid: the data is monotonic and
     // in-range
     int Nframes = PyArray_DIMS(frames_rt_toref)[0];
-    int i_frame_last  = -1;
-    int i_cam_intrinsics_last = -1;
-    int i_cam_extrinsics_last = -1;
+    int iframe_last  = -1;
+    int icam_intrinsics_last = -1;
+    int icam_extrinsics_last = -1;
     for(int i_observation=0; i_observation<Nobservations_board; i_observation++)
     {
         // check for monotonicity and in-rangeness
-        int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int i_cam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int i_cam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        int iframe          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int icam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int icam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         // First I make sure everything is in-range
-        if(i_frame < 0 || i_frame >= Nframes)
+        if(iframe < 0 || iframe >= Nframes)
         {
-            BARF("i_frame MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
-                         Nframes-1, i_frame, i_observation);
+            BARF("iframe MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+                         Nframes-1, iframe, i_observation);
             return false;
         }
-        if(i_cam_intrinsics < 0 || i_cam_intrinsics >= Ncameras_intrinsics)
+        if(icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics)
         {
-            BARF("i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
-                         Ncameras_intrinsics-1, i_cam_intrinsics, i_observation);
+            BARF("icam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+                         Ncameras_intrinsics-1, icam_intrinsics, i_observation);
             return false;
         }
-        if(i_cam_extrinsics < -1 || i_cam_extrinsics >= Ncameras_extrinsics)
+        if(icam_extrinsics < -1 || icam_extrinsics >= Ncameras_extrinsics)
         {
-            BARF("i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
-                         Ncameras_extrinsics-1, i_cam_extrinsics, i_observation);
+            BARF("icam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_frame_camintrinsics_camextrinsics",
+                         Ncameras_extrinsics-1, icam_extrinsics, i_observation);
             return false;
         }
         // And then I check monotonicity
-        if(i_frame == i_frame_last)
+        if(iframe == iframe_last)
         {
-            if( i_cam_intrinsics < i_cam_intrinsics_last )
+            if( icam_intrinsics < icam_intrinsics_last )
             {
-                BARF("i_cam_intrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_intrinsics=%d after previously seeing i_cam_intrinsics=%d",
-                             i_observation, i_frame, i_cam_intrinsics, i_cam_intrinsics_last);
+                BARF("icam_intrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has icam_intrinsics=%d after previously seeing icam_intrinsics=%d",
+                             i_observation, iframe, icam_intrinsics, icam_intrinsics_last);
                 return false;
             }
-            if( i_cam_extrinsics < i_cam_extrinsics_last )
+            if( icam_extrinsics < icam_extrinsics_last )
             {
-                BARF("i_cam_extrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has i_cam_extrinsics=%d after previously seeing i_cam_extrinsics=%d",
-                             i_observation, i_frame, i_cam_extrinsics, i_cam_extrinsics_last);
+                BARF("icam_extrinsics MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d (frame %d) of indices_frame_camintrinsics_camextrinsics has icam_extrinsics=%d after previously seeing icam_extrinsics=%d",
+                             i_observation, iframe, icam_extrinsics, icam_extrinsics_last);
                 return false;
             }
         }
-        else if( i_frame < i_frame_last )
+        else if( iframe < iframe_last )
         {
-            BARF("i_frame MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d of indices_frame_camintrinsics_camextrinsics has i_frame=%d after previously seeing i_frame=%d",
-                         i_observation, i_frame, i_frame_last);
+            BARF("iframe MUST be monotonically increasing in indices_frame_camintrinsics_camextrinsics. Instead row %d of indices_frame_camintrinsics_camextrinsics has iframe=%d after previously seeing iframe=%d",
+                         i_observation, iframe, iframe_last);
             return false;
         }
 
-        i_frame_last          = i_frame;
-        i_cam_intrinsics_last = i_cam_intrinsics;
-        i_cam_extrinsics_last = i_cam_extrinsics;
+        iframe_last          = iframe;
+        icam_intrinsics_last = icam_intrinsics;
+        icam_extrinsics_last = icam_extrinsics;
     }
     int Npoints = PyArray_DIMS(points)[0];
     if( Npoints > 0 )
@@ -1223,8 +1223,8 @@ static bool optimize_validate_args( // out
     for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
     {
         int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int i_cam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int i_cam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        int icam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int icam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         // First I make sure everything is in-range
         if(i_point < 0 || i_point >= Npoints)
@@ -1233,16 +1233,16 @@ static bool optimize_validate_args( // out
                          Npoints-1, i_point, i_observation);
             return false;
         }
-        if(i_cam_intrinsics < 0 || i_cam_intrinsics >= Ncameras_intrinsics)
+        if(icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics)
         {
-            BARF("i_cam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
-                         Ncameras_intrinsics-1, i_cam_intrinsics, i_observation);
+            BARF("icam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
+                         Ncameras_intrinsics-1, icam_intrinsics, i_observation);
             return false;
         }
-        if(i_cam_extrinsics < -1 || i_cam_extrinsics >= Ncameras_extrinsics)
+        if(icam_extrinsics < -1 || icam_extrinsics >= Ncameras_extrinsics)
         {
-            BARF("i_cam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
-                         Ncameras_extrinsics-1, i_cam_extrinsics, i_observation);
+            BARF("icam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
+                         Ncameras_extrinsics-1, icam_extrinsics, i_observation);
             return false;
         }
     }
@@ -1266,13 +1266,13 @@ static void fill_c_observations_board(// out
 {
     for(int i_observation=0; i_observation<Nobservations_board; i_observation++)
     {
-        int i_frame          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int i_cam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int i_cam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        int iframe          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int icam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int icam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
-        c_observations_board[i_observation].i_cam_intrinsics = i_cam_intrinsics;
-        c_observations_board[i_observation].i_cam_extrinsics = i_cam_extrinsics;
-        c_observations_board[i_observation].i_frame          = i_frame;
+        c_observations_board[i_observation].icam_intrinsics = icam_intrinsics;
+        c_observations_board[i_observation].icam_extrinsics = icam_extrinsics;
+        c_observations_board[i_observation].iframe          = iframe;
     }
 }
 
@@ -1414,11 +1414,11 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
         {
             int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
-            int i_cam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
-            int i_cam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
+            int icam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+            int icam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
-            c_observations_point[i_observation].i_cam_intrinsics = i_cam_intrinsics;
-            c_observations_point[i_observation].i_cam_extrinsics = i_cam_extrinsics;
+            c_observations_point[i_observation].icam_intrinsics = icam_intrinsics;
+            c_observations_point[i_observation].icam_extrinsics = icam_extrinsics;
             c_observations_point[i_observation].i_point          = i_point;
 
             c_observations_point[i_observation].px = ((mrcal_point3_t*)PyArray_DATA(observations_point))[i_observation];
@@ -1907,13 +1907,13 @@ static int callback_state_index_intrinsics(int i,
     }
     if( i < 0 )
     {
-        BARF( "i_cam_intrinsics must be given, and must refer to a valid camera: must have icam_intrinsics>=0. Instead got %d",
+        BARF( "icam_intrinsics must be given, and must refer to a valid camera: must have icam_intrinsics>=0. Instead got %d",
               i);
         return -1;
     }
     if( i >= Ncameras_intrinsics)
     {
-        BARF( "i_cam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+        BARF( "icam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
               Ncameras_intrinsics-1,i);
         return -1;
     }
@@ -1927,7 +1927,7 @@ static int callback_state_index_intrinsics(int i,
 static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return state_index_generic(self, args, kwargs,
-                               "i_cam_intrinsics",
+                               "icam_intrinsics",
                                callback_state_index_intrinsics);
 }
 
@@ -1975,13 +1975,13 @@ static int callback_state_index_extrinsics(int i,
     }
     if( i < 0 )
     {
-        BARF( "i_cam_extrinsics must be given, and must refer to a valid camera: must have icam_extrinsics>=0. Instead got %d",
+        BARF( "icam_extrinsics must be given, and must refer to a valid camera: must have icam_extrinsics>=0. Instead got %d",
               i);
         return -1;
     }
     if( i >= Ncameras_extrinsics)
     {
-        BARF( "i_cam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+        BARF( "icam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
               Ncameras_extrinsics-1,i);
         return -1;
     }
@@ -1996,7 +1996,7 @@ static int callback_state_index_extrinsics(int i,
 static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return state_index_generic(self, args, kwargs,
-                               "i_cam_extrinsics",
+                               "icam_extrinsics",
                                callback_state_index_extrinsics);
 }
 
@@ -2044,13 +2044,13 @@ static int callback_state_index_frames(int i,
     }
     if( i < 0 )
     {
-        BARF( "i_frame must be given, and must refer to a valid frame: must have i_frame>=0. Instead got %d",
+        BARF( "iframe must be given, and must refer to a valid frame: must have iframe>=0. Instead got %d",
               i);
         return -1;
     }
     if( i >= Nframes)
     {
-        BARF( "i_frame must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
+        BARF( "iframe must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
               Nframes-1,i);
         return -1;
     }
@@ -2065,7 +2065,7 @@ static int callback_state_index_frames(int i,
 static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return state_index_generic(self, args, kwargs,
-                               "i_frame",
+                               "iframe",
                                callback_state_index_frames);
 }
 

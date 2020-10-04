@@ -796,13 +796,13 @@ into a variable, even if you're not going to be doing anything with this object
         #     return []
         # Nobservations = len(indices_frame_camera_board)
 
-        # if i_camera_highlight is not None:
+        # if icam_highlight is not None:
         #     i_observations_frames = [(i_observation,indices_frame_camera_board[i_observation,0]) \
         #                              for i_observation in range(Nobservations) \
-        #                              if indices_frame_camera_board[i_observation,1] == i_camera_highlight]
+        #                              if indices_frame_camera_board[i_observation,1] == icam_highlight]
 
-        #     i_observations, i_frames = nps.transpose(np.array(i_observations_frames))
-        #     frames_rt_toref = frames_rt_toref[i_frames, ...]
+        #     i_observations, iframes = nps.transpose(np.array(i_observations_frames))
+        #     frames_rt_toref = frames_rt_toref[iframes, ...]
 
 
         calobject_ref = ref_calibration_object(object_width_n, object_height_n,
@@ -815,12 +815,12 @@ into a variable, even if you're not going to be doing anything with this object
         # object in the cam0 coord system. shape=(Nframes, object_height_n, object_width_n, 3)
         calobject_cam0 = nps.matmult( calobject_ref, nps.transpose(Rf)) + tf
 
-        # if i_camera_highlight is not None:
+        # if icam_highlight is not None:
         #     # shape=(Nobservations, object_height_n, object_width_n, 2)
-        #     calobject_cam = nps.transform_point_Rt( models[i_camera_highlight].extrinsics_Rt_fromref(), calobject_cam0 )
+        #     calobject_cam = nps.transform_point_Rt( models[icam_highlight].extrinsics_Rt_fromref(), calobject_cam0 )
 
         #     print("double-check this. I don't broadcast over the intrinsics anymore")
-        #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, *models[i_camera_highlight].intrinsics())
+        #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, *models[icam_highlight].intrinsics())
         #     err = nps.clump(err, n=-3)
         #     rms = np.mag(err) / (object_height_n*object_width_n))
         #     # igood = rms <  0.4
@@ -836,7 +836,7 @@ into a variable, even if you're not going to be doing anything with this object
         # This will broadcast nicely
         calobject_cam0 = nps.clump( nps.mv(calobject_cam0, -1, -4), n=-2)
 
-        # if i_camera_highlight is not None:
+        # if icam_highlight is not None:
         #     calobject_curveopts = {'with':'lines palette', 'tuplesize': 4}
         # else:
         calobject_curveopts = {'with':'lines', 'tuplesize': 3}
@@ -4650,12 +4650,12 @@ which mrcal.optimize() expects
             corners_dir = os.path.dirname( corners_cache_vnl )
 
         def accum_files(f):
-            for i_camera in range(Ncameras):
-                g = globs[i_camera]
+            for icam in range(Ncameras):
+                g = globs[icam]
                 if g[0] != '/':
                     g = '*/' + g
                 if fnmatch.fnmatch(os.path.abspath(f), g):
-                    files_per_camera[i_camera].append(f)
+                    files_per_camera[icam].append(f)
                     return True
             return False
 
@@ -4813,12 +4813,12 @@ which mrcal.optimize() expects
         # filenames don't matter, and I just make sure I have at least one
         # image to look at
         min_num_images = 2 if len(files_per_camera) > 1 else 1
-        for i_camera in range(len(files_per_camera)):
-            N = len(files_per_camera[i_camera])
+        for icam in range(len(files_per_camera)):
+            N = len(files_per_camera[icam])
 
             if N < min_num_images:
                 raise Exception("Found too few ({}; need at least {}) images containing a calibration pattern in camera {}; glob '{}'". \
-                                format(N, min_num_images, i_camera, globs[i_camera]))
+                                format(N, min_num_images, icam, globs[icam]))
 
         return mapping,files_per_camera
 
@@ -4842,18 +4842,18 @@ which mrcal.optimize() expects
 
     i_observation = 0
 
-    i_frame_last = None
+    iframe_last = None
     index_frame  = -1
     for f in files_sorted:
         # The frame indices I return are consecutive starting from 0, NOT the
         # original frame numbers
-        i_frame,i_camera = file_framenocameraindex[f]
-        if i_frame_last == None or i_frame_last != i_frame:
+        iframe,icam = file_framenocameraindex[f]
+        if iframe_last == None or iframe_last != iframe:
             index_frame += 1
-            i_frame_last = i_frame
+            iframe_last = iframe
 
         indices_frame_camera = nps.glue(indices_frame_camera,
-                                        np.array((index_frame, i_camera), dtype=np.int32),
+                                        np.array((index_frame, icam), dtype=np.int32),
                                         axis=-2)
         observations = nps.glue(observations,
                                 mapping_file_corners[f],
@@ -4893,7 +4893,7 @@ SYNOPSIS
     (123, 4, 3)
 
     i_observation = 10
-    i_camera = indices_frame_camera[i_observation,1]
+    icam = indices_frame_camera[i_observation,1]
 
     # The calibration object in its reference coordinate system
     calobject = mrcal.ref_calibration_object(object_width_n,
@@ -4907,7 +4907,7 @@ SYNOPSIS
 
     # The pixel observations we would see if the calibration object pose was
     # where it was estimated to be
-    q = mrcal.project(pcam, *models[i_camera].intrinsics())
+    q = mrcal.project(pcam, *models[icam].intrinsics())
 
     # The reprojection error, comparing these hypothesis pixel observations from
     # what we actually observed. We estimated the calibration object pose from
@@ -4936,8 +4936,8 @@ call, which does all the work.
 ARGUMENTS
 
 - indices_frame_camera: an array of shape (Nobservations,2) and dtype
-  numpy.int32. Each row (i_frame,i_camera) represents an observation of a
-  calibration object by camera i_camera. i_frame is not used by this function
+  numpy.int32. Each row (iframe,icam) represents an observation of a
+  calibration object by camera icam. iframe is not used by this function
 
 - observations: an array of shape
   (Nobservations,object_height_n,object_width_n,3). Each observation corresponds
@@ -4957,7 +4957,7 @@ ARGUMENTS
   - a list of mrcal.cameramodel objects from which we use the intrinsics
   - a list of (lensmodel,intrinsics_data) tuples
 
-  These are indexed by i_camera from indices_frame_camera
+  These are indexed by icam from indices_frame_camera
 
 RETURNED VALUE
 
@@ -4985,13 +4985,13 @@ camera coordinate system FROM the calibration object coordinate system.
     # Reproject all the observations to a pinhole model
     observations = observations.copy()
     for i_observation in range(Nobservations):
-        i_camera = indices_frame_camera[i_observation,1]
+        icam = indices_frame_camera[i_observation,1]
 
         v = mrcal.unproject(observations[i_observation,...,:2],
-                            lensmodels[i_camera], intrinsics_data[i_camera])
+                            lensmodels[icam], intrinsics_data[icam])
         observations[i_observation,...,:2] = \
             mrcal.project(v, 'LENSMODEL_PINHOLE',
-                          intrinsics_data[i_camera][:4])
+                          intrinsics_data[icam][:4])
 
     # this wastes memory, but makes it easier to keep track of which data goes
     # with what
@@ -5004,10 +5004,10 @@ camera coordinate system FROM the calibration object coordinate system.
 
     for i_observation in range(Nobservations):
 
-        i_camera = indices_frame_camera[i_observation,1]
-        camera_matrix = np.array((( fx[i_camera], 0,            cx[i_camera]), \
-                                  ( 0,            fy[i_camera], cy[i_camera]), \
-                                  ( 0,            0,            1.)))
+        icam = indices_frame_camera[i_observation,1]
+        camera_matrix = np.array((( fx[icam], 0,        cx[icam]), \
+                                  ( 0,        fy[icam], cy[icam]), \
+                                  ( 0,        0,          1.)))
 
         # shape (Nh,Nw,3)
         d = observations[i_observation, ...]
@@ -5138,35 +5138,35 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
         # I traverse my observation list, and pick out observations from frames
         # that had data from both my cameras
-        i_frame_last = -1
+        iframe_last = -1
         d0  = None
         d1  = None
         Rt0 = None
         Rt1 = None
         for i_observation in range(Nobservations):
-            i_frame_this,i_camera_this = indices_frame_camera[i_observation, ...]
-            if i_frame_this != i_frame_last:
+            iframe_this,icam_this = indices_frame_camera[i_observation, ...]
+            if iframe_this != iframe_last:
                 d0  = None
                 d1  = None
                 Rt0 = None
                 Rt1 = None
-                i_frame_last = i_frame_this
+                iframe_last = iframe_this
 
             # The cameras appear in order. And above I made sure that icam_from >
             # icam_to, so I take advantage of that here
-            if i_camera_this == icam_to:
+            if icam_this == icam_to:
                 if Rt0 is not None:
-                    raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
-                                                                                            i_frame_this))
+                    raise Exception("Saw multiple camera{} observations in frame {}".format(icam_this,
+                                                                                            iframe_this))
                 Rt0 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d0  = observations[i_observation, ..., :2]
-            elif i_camera_this == icam_from:
+            elif icam_this == icam_from:
                 if Rt0 is None: # have camera1 observation, but not camera0
                     continue
 
                 if Rt1 is not None:
-                    raise Exception("Saw multiple camera{} observations in frame {}".format(i_camera_this,
-                                                                                            i_frame_this))
+                    raise Exception("Saw multiple camera{} observations in frame {}".format(icam_this,
+                                                                                            iframe_this))
                 Rt1 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d1  = observations[i_observation, ..., :2]
 
@@ -5375,7 +5375,7 @@ SYNOPSIS
     # observed by multiple cameras simultaneously, hence 123 > 87
 
     i_observation = 10
-    i_frame,i_camera = indices_frame_camera[i_observation, :]
+    iframe,icam = indices_frame_camera[i_observation, :]
 
     # The calibration object in its reference coordinate system
     calobject = mrcal.ref_calibration_object(object_width_n,
@@ -5384,19 +5384,19 @@ SYNOPSIS
 
     # The estimated calibration object points in the reference coordinate
     # system, for this one observation
-    pref = mrcal.transform_point_rt( frames_rt_toref[i_frame],
+    pref = mrcal.transform_point_rt( frames_rt_toref[iframe],
                                      calobject )
 
     # The estimated calibration object points in the camera coord system. Camera
     # 0 is at the reference
-    if i_camera >= 1:
-        pcam = mrcal.transform_point_Rt( extrinsics_Rt_fromref[i_camera-1],
+    if icam >= 1:
+        pcam = mrcal.transform_point_Rt( extrinsics_Rt_fromref[icam-1],
                                          pref )
     else:
         pcam = pref
 
     # The pixel observations we would see if the pose estimates were correct
-    q = mrcal.project(pcam, *models[i_camera].intrinsics())
+    q = mrcal.project(pcam, *models[icam].intrinsics())
 
     # The reprojection error, comparing these hypothesis pixel observations from
     # what we actually observed. This should be small
@@ -5446,8 +5446,8 @@ ARGUMENTS
   that data in this array
 
 - indices_frame_camera: an array of shape (Nobservations,2) and dtype
-  numpy.int32. Each row (i_frame,i_camera) represents an observation at time
-  instant i_frame of a calibration object by camera i_camera
+  numpy.int32. Each row (iframe,icam) represents an observation at time
+  instant iframe of a calibration object by camera icam
 
 - object_width_n: number of horizontal points in the calibration object grid
 
@@ -5476,13 +5476,13 @@ system FROM the calibration object coordinate system.
 
         def Rt_ref_frame__single_observation(i_observation):
             r'''Transform from the board coords to the reference coords'''
-            i_frame,i_camera = indices_frame_camera[i_observation, ...]
+            iframe,icam = indices_frame_camera[i_observation, ...]
 
             Rt_cam_frame = calobject_Rt_camera_frame[i_observation, :,:]
-            if i_camera == 0:
+            if icam == 0:
                 return Rt_cam_frame
 
-            return mrcal.compose_Rt( Rt_ref_cam[i_camera-1, ...], Rt_cam_frame)
+            return mrcal.compose_Rt( Rt_ref_cam[icam-1, ...], Rt_cam_frame)
 
 
         # frame poses should map FROM the frame coord system TO the ref coord
@@ -5520,13 +5520,13 @@ system FROM the calibration object coordinate system.
 
     frames_rt_toref = np.array(())
 
-    i_frame_current          = -1
+    iframe_current          = -1
     i_observation_framestart = -1;
 
     for i_observation in range(indices_frame_camera.shape[0]):
-        i_frame,i_camera = indices_frame_camera[i_observation, ...]
+        iframe,icam = indices_frame_camera[i_observation, ...]
 
-        if i_frame != i_frame_current:
+        if iframe != iframe_current:
             if i_observation_framestart >= 0:
                 Rt = Rt_ref_frame(i_observation_framestart,
                                   i_observation)
@@ -5535,7 +5535,7 @@ system FROM the calibration object coordinate system.
                                            axis=-2)
 
             i_observation_framestart = i_observation
-            i_frame_current          = i_frame
+            iframe_current          = iframe
 
     if i_observation_framestart >= 0:
         Rt = Rt_ref_frame(i_observation_framestart,
@@ -5621,8 +5621,8 @@ ARGUMENTS
   value for both the x and y focal length of ALL the cameras
 
 - indices_frame_camera: an array of shape (Nobservations,2) and dtype
-  numpy.int32. Each row (i_frame,i_camera) represents an observation of a
-  calibration object by camera i_camera. i_frame is not used by this function
+  numpy.int32. Each row (iframe,icam) represents an observation of a
+  calibration object by camera icam. iframe is not used by this function
 
 - observations: an array of shape
   (Nobservations,object_height_n,object_width_n,3). Each observation corresponds

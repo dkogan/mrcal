@@ -856,10 +856,10 @@ We return a dense numpy array of pixel observations of shape
     # loop over Ncameras. project() will broadcast over the points
     intrinsics = nps.atleast_dims(intrinsics, -2)
     Ncameras = intrinsics.shape[-2]
-    return nps.mv( nps.cat(*[mrcal.project( np.ascontiguousarray(object_cam[...,i_camera,:,:,:]),
+    return nps.mv( nps.cat(*[mrcal.project( np.ascontiguousarray(object_cam[...,icam,:,:,:]),
                                             lensmodel,
-                                            intrinsics[i_camera,:] ) for \
-                             i_camera in range(Ncameras)]),
+                                            intrinsics[icam,:] ) for \
+                             icam in range(Ncameras)]),
                    0,-4)
 
 
@@ -952,9 +952,9 @@ A tuple:
     err_zero_for_outliers = np.zeros((Nobservations,object_height_n,object_width_n,2))
 
     for i_observation in range(Nobservations):
-        i_frame, i_camera = indices_frame_camera[i_observation]
+        iframe, icam = indices_frame_camera[i_observation]
 
-        err = projected_boards[i_frame,i_camera] - observations_board[i_observation, ..., :2]
+        err = projected_boards[iframe,icam] - observations_board[i_observation, ..., :2]
 
         err_everything[i_observation] = err
 
