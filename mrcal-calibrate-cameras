@@ -823,7 +823,7 @@ measurements_0_for_outliers = \
     reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
 worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(measurements_0_for_outliers, n=3) )))
 report += "Worst reprojection error (by measurement): {:.01f} pixels\n".format(worst_point_err)
-if args.do_apply_outlier_rejection:
+if not args.skip_outlier_rejection:
     report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
         format(stats['Noutliers'],
                args.object_height_n*args.object_width_n*len(observations),
