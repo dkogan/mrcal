@@ -141,6 +141,13 @@ def parse_args():
                         action='store_true',
                         help='''Visualize the differences between the input and output models''')
 
+    parser.add_argument('--num-trials',
+                        type    = int,
+                        default = 1,
+                        help='''If given, run the solve more than once. Useful in case random initialization
+                        produces noticeably different results. By default we run
+                        just one trial, which hopefully should be enough''')
+
     parser.add_argument('to',
                         type=str,
                         help='The target lens model')
@@ -335,7 +342,7 @@ else:
     intrinsics_data_best       = None
     extrinsics_rt_fromref_best = None
 
-    for i in range(10): # this many trials
+    for i in range(args.num_trials):
         # random seed for the new intrinsics
         intrinsics_core = intrinsics_from[1][:4]
         distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3 # random initial seed
