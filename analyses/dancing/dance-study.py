@@ -395,6 +395,9 @@ for i_Nframes_far in range(Nfar_samples):
                                      what='worstdirection-stdev')
 
 
+guides = [ f"arrow nohead dashtype 3 from {args.range_near},graph 0 to {args.range_near},graph 1",
+           f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}" ]
+
 if args.Nfar is not None:
     title = f"Simulated {args.Ncameras} cameras. {args.Nnear} 'near' chessboard observations and {args.Nfar} 'far' observations."
 elif args.Nall is not None:
@@ -402,17 +405,21 @@ elif args.Nall is not None:
 else:
     title = f"Simulated {args.Ncameras} cameras. Have {args.Nnear} 'near' chessboard observations. Adding 'far' observations."
 
-if args.tilt_radius is not None:
-    title += f" board tilt radius: {args.tilt_radius} degrees"
+title += f" board tilt radius: {args.tilt_radius} degrees. "
+if args.Nfar is None or args.Nfar != 0:
+    title  += f"Ranges: {args.range_near}-{args.range_far}"
+    guides += f"arrow nohead dashtype 3 from {args.range_far}, graph 0 to {args.range_far}, graph 1",
+    legend = np.array([ f"Nfar = {str(i)}" for i in Nframes_far_samples])
+else:
+    title += f"Range: {args.range_near}"
+    legend = None
 
 gp.plot(range_samples,
         uncertainties,
-        legend = np.array([ f"Nfar = {str(i)}" for i in Nframes_far_samples]),
-        ymax   = 10.,
+        legend = legend,
+        yrange = (0, 10),
         _with  = 'lines',
-        _set = ( f"arrow nohead dashtype 3 from {args.range_near},graph 0 to {args.range_near},graph 1",
-                 f"arrow nohead dashtype 3 from {args.range_far}, graph 0 to {args.range_far}, graph 1",
-                 f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}"),
+        _set   = guides,
         unset  = 'grid',
         title  = title,
         xlabel = 'Range (m)',
