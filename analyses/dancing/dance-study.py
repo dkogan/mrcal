@@ -63,16 +63,12 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--range-near',
-                        default = 0.5,
+    parser.add_argument('--ranges',
+                        default = [0.5, 4.0],
                         type=float,
-                        help='''The "near" range to the calibration object to use in the synthetic data, in
-                        meters''')
-    parser.add_argument('--range-far',
-                        default = 4.0,
-                        type=float,
-                        help='''The "far" range to the calibration object to use in the synthetic data, in
-                        meters''')
+                        nargs = 2,
+                        help='''The "near" and "far" ranges to the calibration object to use in the synthetic
+                        data, in meters''')
     parser.add_argument('--Ncameras',
                         default = 1,
                         type=positive_int,
@@ -165,8 +161,8 @@ if args.Nall is not None and args.Nnear is not None:
 if args.Nfar is not None and args.Nnear is None:
     print("--Nfar requires --Nnear", file=sys.stderr)
     sys.exit(1)
-if args.range_near > args.range_far:
-    print("--range-near must be < --range-far", file=sys.stderr)
+if args.ranges[0] >= args.ranges[1]:
+    print("--ranges NEAR FAR must have NEAR<FAR", file=sys.stderr)
     sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
@@ -341,10 +337,10 @@ models_true = \
 
 
 Nrange_samples = 80
-range_sampled_min = args.range_near/10.
+range_sampled_min = args.ranges[0]/10.
 range_sampled_max = args.range_sampled_max
 if range_sampled_max is None:
-    range_sampled_max = args.range_far *10.
+    range_sampled_max = args.ranges[1] *10.
 range_samples = np.logspace( np.log10(range_sampled_min),
                              np.log10(range_sampled_max),
                              Nrange_samples)
@@ -368,11 +364,11 @@ uncertainties = np.zeros((Nfar_samples, Nrange_samples),
 
 q_true_near, Rt_cam0_board_true_near = \
     synthetic_board_observations(np.max(Nframes_near_samples),
-                                 args.range_near,
+                                 args.ranges[0],
                                  models_true)
 q_true_far , Rt_cam0_board_true_far  = \
     synthetic_board_observations(np.max(Nframes_far_samples),
-                                 args.range_far,
+                                 args.ranges[1],
                                  models_true)
 
 for i_Nframes_far in range(Nfar_samples):
@@ -406,7 +402,7 @@ for i_Nframes_far in range(Nfar_samples):
                                      what='worstdirection-stdev')
 
 
-guides = [ f"arrow nohead dashtype 3 from {args.range_near},graph 0 to {args.range_near},graph 1",
+guides = [ f"arrow nohead dashtype 3 from {args.ranges[0]},graph 0 to {args.ranges[0]},graph 1",
            f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}" ]
 
 if args.Nfar is not None:
@@ -418,11 +414,11 @@ else:
 
 title += f" board tilt radius: {args.tilt_radius} degrees. "
 if args.Nfar is None or args.Nfar != 0:
-    title  += f"Ranges: {args.range_near}-{args.range_far}"
-    guides += f"arrow nohead dashtype 3 from {args.range_far}, graph 0 to {args.range_far}, graph 1",
+    title  += f"Ranges: {args.ranges[0]}-{args.ranges[1]}"
+    guides += f"arrow nohead dashtype 3 from {args.ranges[1]}, graph 0 to {args.ranges[1]}, graph 1",
     legend = np.array([ f"Nfar = {str(i)}" for i in Nframes_far_samples])
 else:
-    title += f"Range: {args.range_near}"
+    title += f"Range: {args.ranges[0]}"
     legend = None
 
 gp.plot(range_samples,
