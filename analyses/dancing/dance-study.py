@@ -134,6 +134,13 @@ def parse_args():
                         help='''If given, I don't scan Nfar, but use the one value given here. Requires
                         --Nnear''')
 
+    parser.add_argument('--ymax',
+                        type=float,
+                        default = 10.0,
+                        help='''If given, use this as the upper extent of the uncertainty plot.''')
+    parser.add_argument('--range-sampled-max',
+                        type=float,
+                        help='''If given, use this as the upper bound of the ranges we scan.''')
     parser.add_argument('--explore',
                         action='store_true',
                         help='''Drop into a REPL at the end''')
@@ -334,8 +341,12 @@ models_true = \
 
 
 Nrange_samples = 80
-range_samples = np.logspace( np.log10(args.range_near/10.),
-                             np.log10(args.range_far *10.),
+range_sampled_min = args.range_near/10.
+range_sampled_max = args.range_sampled_max
+if range_sampled_max is None:
+    range_sampled_max = args.range_far *10.
+range_samples = np.logspace( np.log10(range_sampled_min),
+                             np.log10(range_sampled_max),
                              Nrange_samples)
 
 if args.Nfar is not None:
@@ -417,7 +428,7 @@ else:
 gp.plot(range_samples,
         uncertainties,
         legend = legend,
-        yrange = (0, 10),
+        yrange = (0, args.ymax),
         _with  = 'lines',
         _set   = guides,
         unset  = 'grid',
