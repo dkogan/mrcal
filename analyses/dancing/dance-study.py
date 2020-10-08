@@ -81,6 +81,13 @@ def parse_args():
                         default = 0.3,
                         type=positive_float,
                         help='How many meters between adjacent cameras in our synthetic world')
+    parser.add_argument('--tilt-radius',
+                        default=30.,
+                        type=float,
+                        help='''The radius of the uniform distribution used to sample the pitch and yaw of
+                        the chessboard observations, in degrees. The default is
+                        30, meaning that the chessboard pitch and yaw are
+                        sampled from [-30deg,30deg]''')
     parser.add_argument('--object-spacing',
                         default=0.077,
                         type=float,
@@ -122,6 +129,10 @@ def parse_args():
                         help='''If given, the number of "near" chessboard observations is kept constant, at
                         this value. Exclusive with --Nall. Either --Nall or
                         --Nnear are required''')
+    parser.add_argument('--Nfar',
+                        type=int,
+                        help='''If given, I don't scan Nfar, but use the one value given here. Requires
+                        --Nnear''')
 
     parser.add_argument('--explore',
                         action='store_true',
@@ -143,6 +154,9 @@ if args.Nall is None and args.Nnear is None:
     sys.exit(1)
 if args.Nall is not None and args.Nnear is not None:
     print("Exactly one of --Nall and --Nnear must be given", file=sys.stderr)
+    sys.exit(1)
+if args.Nfar is not None and args.Nnear is None:
+    print("--Nfar requires --Nnear", file=sys.stderr)
     sys.exit(1)
 if args.range_near > args.range_far:
     print("--range-near must be < --range-far", file=sys.stderr)
@@ -189,7 +203,9 @@ def synthetic_board_observations(Nframes, _range,
                                                 np.array((_range/3.*2.,
                                                           _range/3.*2.,
                                                           _range/10.,
-                                                          40., 30., 30.)),
+                                                          40.,
+                                                          args.tilt_radius,
+                                                          args.tilt_radius)),
                                                 Nframes)
 
     return q,Rt_cam0_board
@@ -319,12 +335,16 @@ pcam_samples = \
               nps.transpose(range_samples),
               axis = -1)
 
-Nfar_samples = 8
-
-if args.Nall is not None:
+if args.Nfar is not None:
+    Nfar_samples = 1
+    Nframes_far_samples  = np.array( (args.Nfar,),  dtype=int)
+    Nframes_near_samples = np.array( (args.Nnear,), dtype=int)
+elif args.Nall is not None:
+    Nfar_samples = 8
     Nframes_far_samples  = np.linspace(0, args.Nall,    Nfar_samples, dtype=int)
     Nframes_near_samples = args.Nall - Nframes_far_samples
 else:
+    Nfar_samples = 8
     Nframes_far_samples = np.linspace(0, args.Nnear*2, Nfar_samples, dtype=int)
     Nframes_near_samples = Nframes_far_samples*0 + args.Nnear
 
