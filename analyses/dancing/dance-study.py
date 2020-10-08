@@ -163,6 +163,8 @@ sys.path[:0] = '../..',
 import mrcal
 
 
+# I want the RNG to be deterministic
+np.random.seed(0)
 
 model_intrinsics = mrcal.cameramodel(args.model)
 
