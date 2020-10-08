@@ -414,9 +414,17 @@ We return a tuple:
         xyz_noiseradius = np.array( noiseradius_xyz_rpydeg[:3] )
         rpy_noiseradius = np.array( noiseradius_xyz_rpydeg[3:] ) * np.pi/180.
 
+        # I compute the full random block in one shot. This is useful for
+        # simulations that want to see identical poses when asking for N-1
+        # random poses and when asking for the first N-1 of a set of N random
+        # poses
+
+        # shape (Nframes,6)
+        randomblock = np.random.uniform(low=-1.0, high=1.0, size=(Nframes,6))
+
         # shape (Nframes,3)
-        xyz = xyz + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * xyz_noiseradius
-        rpy = rpy + np.random.uniform(low=-1.0, high=1.0, size=(Nframes,3)) * rpy_noiseradius
+        xyz = xyz + randomblock[:,:3] * xyz_noiseradius
+        rpy = rpy + randomblock[:,3:] * rpy_noiseradius
 
         roll,pitch,yaw = nps.transpose(rpy)
 
