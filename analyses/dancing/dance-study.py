@@ -123,6 +123,10 @@ def parse_args():
                         this value. Exclusive with --Nall. Either --Nall or
                         --Nnear are required''')
 
+    parser.add_argument('--explore',
+                        action='store_true',
+                        help='''Drop into a REPL at the end''')
+
     parser.add_argument('model',
                         type = str,
                         help='''Baseline camera model. I use the intrinsics from this model to generate
@@ -293,10 +297,7 @@ def solve(Nframes_near, Nframes_far):
     stats = mrcal.optimize(**optimization_inputs)
     print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
 
-    return \
-        [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
-                             icam_intrinsics     = icam ) \
-          for icam in range(args.Ncameras) ]
+    return optimization_inputs
 
 
 
@@ -311,7 +312,7 @@ pcam_samples = \
               nps.transpose(range_samples),
               axis = -1)
 
-Nfar_samples = 10
+Nfar_samples = 8
 
 if args.Nall is not None:
     Nframes_far_samples  = np.linspace(0, args.Nall,    Nfar_samples, dtype=int)
@@ -329,7 +330,12 @@ for i_Nframes_far in range(Nfar_samples):
     Nframes_far  = Nframes_far_samples [i_Nframes_far]
     Nframes_near = Nframes_near_samples[i_Nframes_far]
 
-    models_out = solve(Nframes_near, Nframes_far)
+    optimization_inputs = solve(Nframes_near, Nframes_far)
+
+    models_out = \
+        [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
+                             icam_intrinsics     = icam ) \
+          for icam in range(args.Ncameras) ]
 
     icam = 0
     uncertainties[i_Nframes_far] = \
@@ -338,25 +344,29 @@ for i_Nframes_far in range(Nfar_samples):
                                      what='worstdirection-stdev')
 
 
+if args.Nall is not None:
+    title = f"Simulated {args.Ncameras} cameras. Total {args.Nall} chessboard observations. Adding 'far' observations, removing 'near' observations"
+else:
+    title = f"Simulated {args.Ncameras} cameras. Have {args.Nnear} 'near' chessboard observations. Adding 'far' observations"
+
 gp.plot(range_samples,
         uncertainties,
-        legend = Nframes_far_samples,
-        ymax   = 10.)
+        legend = np.array([ f"Nfar = {str(i)}" for i in Nframes_far_samples]),
+        ymax   = 10.,
+        _with  = 'lines',
+        _set = ( f"arrow nohead dashtype 3 from {args.range_near},graph 0 to {args.range_near},graph 1",
+                 f"arrow nohead dashtype 3 from {args.range_far}, graph 0 to {args.range_far}, graph 1",
+                 f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}"),
+        unset  = 'grid',
+        title  = title,
+        xlabel = 'Range (m)',
+        ylabel = 'Expected worst-direction uncertainty (pixels)',
+        wait   = not args.explore)
 
-import IPython
-IPython.embed()
+if args.explore:
+    import IPython
+    IPython.embed()
 sys.exit()
-
-
-
-for i in range(args.Ncameras):
-    filename = f"/tmp/{i}.cameramodel"
-    print(f"writing {filename}")
-
-    model = mrcal.cameramodel( optimization_inputs = optimization_inputs,
-                               icam_intrinsics     = i )
-    model.write(filename)
-
 
 
 
