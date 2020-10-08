@@ -289,7 +289,13 @@ def solve(Nframes_near, Nframes_far,
               do_apply_outlier_rejection                = False)
 
 
-    if re.search("SPLINED", args.lensmodel):
+    if args.lensmodel is None:
+        lensmodel = model_intrinsics.intrinsics()[0]
+    else:
+        lensmodel = args.lensmodel
+    Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
+
+    if re.search("SPLINED", lensmodel):
         # I pre-optimize the core, and then lock it down
         optimization_inputs['lensmodel']                   = 'LENSMODEL_STEREOGRAPHIC'
         optimization_inputs['intrinsics']                  = intrinsics[:,:4].copy()
@@ -297,14 +303,17 @@ def solve(Nframes_near, Nframes_far,
         stats = mrcal.optimize(**optimization_inputs)
         print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
 
-        optimization_inputs['lensmodel']                   = args.lensmodel
-        Nintrinsics = mrcal.lensmodel_num_params(optimization_inputs['lensmodel'])
+        optimization_inputs['lensmodel']                   = lensmodel
         optimization_inputs['intrinsics']                  = nps.glue(optimization_inputs['intrinsics'],
                                                                       np.zeros((args.Ncameras,Nintrinsics-4),),axis=-1)
         optimization_inputs['do_optimize_intrinsics_core'] = False
     else:
-        optimization_inputs['lensmodel']                   = model_intrinsics.intrinsics()[0]
-        optimization_inputs['intrinsics']                  = intrinsics.copy()
+        optimization_inputs['lensmodel']                   = lensmodel
+        if not mrcal.lensmodel_meta(lensmodel)['has_core'] or \
+           not mrcal.lensmodel_meta(model_intrinsics.intrinsics()[0])['has_core']:
+            raise Exception("I'm assuming all the models here have a core. It's just lazy coding. If you see this, feel free to fix.")
+        optimization_inputs['intrinsics']                  = nps.glue(intrinsics[:,:4],
+                                                                      np.zeros((args.Ncameras,Nintrinsics-4),),axis=-1)
         optimization_inputs['do_optimize_intrinsics_core'] = True
 
     stats = mrcal.optimize(**optimization_inputs)
