@@ -383,10 +383,15 @@ for i_Nframes_far in range(Nfar_samples):
                                      what='worstdirection-stdev')
 
 
-if args.Nall is not None:
-    title = f"Simulated {args.Ncameras} cameras. Total {args.Nall} chessboard observations. Adding 'far' observations, removing 'near' observations"
+if args.Nfar is not None:
+    title = f"Simulated {args.Ncameras} cameras. {args.Nnear} 'near' chessboard observations and {args.Nfar} 'far' observations."
+elif args.Nall is not None:
+    title = f"Simulated {args.Ncameras} cameras. Total {args.Nall} chessboard observations. Adding 'far' observations, removing 'near' observations."
 else:
-    title = f"Simulated {args.Ncameras} cameras. Have {args.Nnear} 'near' chessboard observations. Adding 'far' observations"
+    title = f"Simulated {args.Ncameras} cameras. Have {args.Nnear} 'near' chessboard observations. Adding 'far' observations."
+
+if args.tilt_radius is not None:
+    title += f" board tilt radius: {args.tilt_radius} degrees"
 
 gp.plot(range_samples,
         uncertainties,
