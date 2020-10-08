@@ -166,51 +166,46 @@ import mrcal
 
 model_intrinsics = mrcal.cameramodel(args.model)
 
+calobject_warp_true_ref = np.array((0.002, -0.005))
 
-def solve(Nframes_near, Nframes_far):
 
-    calobject_warp_true = np.array((0.002, -0.005))
-
-    Nframes_all = Nframes_near + Nframes_far
+def synthetic_board_observations(Nframes, _range,
+                                 models_true):
 
     rad = (args.camera_spacing * (args.Ncameras-1)) / 2.
-    models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
-          for i in range(args.Ncameras) ]
 
-
-    # shapes (Nframes_all, Ncameras, Nh, Nw, 2),
-    #        (Nframes_all, 4,3)
-    q_true_near,Rt_cam0_board_true_near = \
+    # shapes (Nframes, Ncameras, Nh, Nw, 2),
+    #        (Nframes, 4,3)
+    q,Rt_cam0_board = \
         mrcal.make_synthetic_board_observations(models_true,
                                                 args.object_width_n,
                                                 args.object_height_n,
                                                 args.object_spacing,
-                                                calobject_warp_true,
-                                                np.array((rad, 0,  args.range_near,
+                                                calobject_warp_true_ref,
+                                                np.array((rad, 0,  _range,
                                                           0.,  0., 0.)),
-                                                np.array((args.range_near/3.*2.,
-                                                          args.range_near/3.*2.,
-                                                          args.range_near/10.,
+                                                np.array((_range/3.*2.,
+                                                          _range/3.*2.,
+                                                          _range/10.,
                                                           40., 30., 30.)),
-                                                Nframes_near)
-    q_true_far,Rt_cam0_board_true_far = \
-        mrcal.make_synthetic_board_observations(models_true,
-                                                args.object_width_n,
-                                                args.object_height_n,
-                                                args.object_spacing,
-                                                calobject_warp_true,
-                                                np.array((rad, 0,  args.range_far,
-                                                          0.,  0., 0.)),
-                                                np.array((args.range_far/3.*2.,
-                                                          args.range_far/3.*2.,
-                                                          args.range_far/10.,
-                                                          40., 30., 30.)),
-                                                Nframes_far)
+                                                Nframes)
+
+    return q,Rt_cam0_board
+
+
+def solve(Nframes_near, Nframes_far,
+          models_true,
+          q_true_near, Rt_cam0_board_true_near,
+          q_true_far,  Rt_cam0_board_true_far):
+
+    q_true_near             = q_true_near            [:Nframes_near]
+    Rt_cam0_board_true_near = Rt_cam0_board_true_near[:Nframes_near]
+    q_true_far              = q_true_far             [:Nframes_far ]
+    Rt_cam0_board_true_far  = Rt_cam0_board_true_far [:Nframes_far ]
+
+    calobject_warp_true = calobject_warp_true_ref.copy()
+
+    Nframes_all = Nframes_near + Nframes_far
 
     Rt_cam0_board_true = nps.glue( Rt_cam0_board_true_near,
                                    Rt_cam0_board_true_far,
@@ -301,6 +296,16 @@ def solve(Nframes_near, Nframes_far):
 
 
 
+
+models_true = \
+    [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                        imagersize          = model_intrinsics.imagersize(),
+                        extrinsics_rt_toref = np.array((0,0,0,
+                                                        i*args.camera_spacing,
+                                                        0,0), dtype=float) ) \
+      for i in range(args.Ncameras) ]
+
+
 Nrange_samples = 80
 range_samples = np.logspace( np.log10(args.range_near/10.),
                              np.log10(args.range_far *10.),
@@ -325,12 +330,24 @@ else:
 uncertainties = np.zeros((Nfar_samples, Nrange_samples),
                          dtype=float)
 
+q_true_near, Rt_cam0_board_true_near = \
+    synthetic_board_observations(np.max(Nframes_near_samples),
+                                 args.range_near,
+                                 models_true)
+q_true_far , Rt_cam0_board_true_far  = \
+    synthetic_board_observations(np.max(Nframes_far_samples),
+                                 args.range_far,
+                                 models_true)
+
 for i_Nframes_far in range(Nfar_samples):
 
     Nframes_far  = Nframes_far_samples [i_Nframes_far]
     Nframes_near = Nframes_near_samples[i_Nframes_far]
 
-    optimization_inputs = solve(Nframes_near, Nframes_far)
+    optimization_inputs = solve(Nframes_near, Nframes_far,
+                                models_true,
+                                q_true_near, Rt_cam0_board_true_near,
+                                q_true_far,  Rt_cam0_board_true_far)
 
     models_out = \
         [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
