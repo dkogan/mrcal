@@ -328,12 +328,6 @@ Nrange_samples = 80
 range_samples = np.logspace( np.log10(args.range_near/10.),
                              np.log10(args.range_far *10.),
                              Nrange_samples)
-# shape (N,3). Each row is (0,0,z)
-pcam_samples = \
-    nps.glue( nps.transpose(range_samples*0),
-              nps.transpose(range_samples*0),
-              nps.transpose(range_samples),
-              axis = -1)
 
 if args.Nfar is not None:
     Nfar_samples = 1
@@ -377,9 +371,18 @@ for i_Nframes_far in range(Nfar_samples):
           for icam in range(args.Ncameras) ]
 
     icam = 0
+    model = models_out[icam]
+
+    # shape (N,3)
+    # I sample the center of the imager
+    pcam_samples = \
+        mrcal.unproject( (model.imagersize() - 1.) / 2.,
+                         *model.intrinsics(),
+                         normalize = True) * nps.dummy(range_samples, -1)
+
     uncertainties[i_Nframes_far] = \
         mrcal.projection_uncertainty(pcam_samples,
-                                     models_out[icam],
+                                     model,
                                      what='worstdirection-stdev')
 
 
