@@ -9,13 +9,29 @@ SYNOPSIS
   ... this model
 
 
-A calibration process produces the best-fitting camera parameters and the
-uncertainty in these parameters. This tool examines the uncertainty in the
-intrinsics. The intrinsics are used to project points in space to pixel
-coordinates on the image plane. Thus the uncertainty in the intrinsics can be
-translated to uncertainty in projection. This tool plots the expected value of
-this projection error across the imager. Areas with a high expected projection
-error are unreliable for further work.
+A calibration process produces the best-fitting camera parameters. To use these
+parameters intelligently we must have some sense of uncertainty in these
+parameters. This tool examines the uncertainty of projection of points using a
+given camera model. The projection operation uses the intrinsics only, but the
+uncertainty must take into account the calibration-time extrinsics and the
+calibration-time chessboard poses as well. This tool visualizes the expected
+value of projection error across the imager. Areas with a high expected
+projection error are unreliable for further work.
+
+There are 3 modes of operation:
+
+- By default we look at projection of points some distance away from the camera
+  (given by --distance). We evaluate the uncertainty of these projections
+  everywhere across the imager, and display the results as a heatmap with
+  overlaid contours
+
+- With --observations-xydist we display a 3D plot showing the uncertainty
+  everywhere across the imager and at various distances. This contains a lot of
+  information, but that makes it challenging to interpret
+
+- With --vs-distance-at we evaluate the uncertainty along an observation ray
+  mapping to a single pixel. We show the uncertainty vs distances from the
+  camera along this ray
 
 See mrcal.projection_uncertainty() for a full description of the computation
 performed here
@@ -37,11 +53,23 @@ def parse_args():
     parser.add_argument('--observations-xydist',
                         action='store_true',
                         default=False,
-                        help='''If given, I make a 3D plot of uncertainties and chessboard observations. With
-                        this option I ignore --distance, --isotropic,
-                        --observations. This option makes a 3D x-y-distance plot
-                        instead of the 2D uncertainty contours we get
-                        normally''')
+                        help='''If given, we operate in a different mode: we make a 3D plot of uncertainties
+                        and chessboard observations instead of the 2D
+                        uncertainty contours we get normally. This is exclusive
+                        with --vs-distance-at, --distance, --isotropic,
+                        --observations.''')
+    parser.add_argument('--vs-distance-at',
+                        type=str,
+                        help='''If given, we operate in a different mode: we look at the projection
+                        uncertainty at one pixel, at different distances along
+                        that observation ray. This is different from the 2D
+                        uncertainty contours we get normally. This option takes
+                        a single argument: the "X,Y" pixel coordinate we care
+                        about, or "center" to look at the center of the imager
+                        or "centroid" to look at the center of the
+                        calibration-time chessboards. This is exclusive with
+                        --observations-xydist and --gridn and --distance and
+                        --observations and --cbmax''')
     parser.add_argument('--gridn',
                         type=int,
                         default = (60,40),
@@ -93,13 +121,45 @@ def parse_args():
 
 args  = parse_args()
 
+
+
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
-
-
-
-
+import numpy as np
 import mrcal
+
+
+if args.observations_xydist:
+    if args.vs_distance_at is not None or \
+       args.distance       is not None or \
+       args.isotropic                  or \
+       args.observations:
+        print("--observations-xydist is exclusive with --vs-distance-at and --distance and --isotropic and --observations",
+              file=sys.stderr)
+        sys.exit(1)
+
+if args.vs_distance_at is not None:
+    if args.observations_xydist  or \
+       args.distance is not None or \
+       args.observations:
+
+        print("--vs-distance-at is exclusive with --observations-xydist and --gridn and --distance and --observations and --cbmax",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if re.match('center$|centroid$', args.vs_distance_at):
+        pass
+    elif re.match('[0-9\.eEdD+-]+,[0-9\.eEdD+-]+$', args.vs_distance_at):
+        # pixel coordinate given
+        args.vs_distance_at = \
+            np.array([float(x) for x in args.vs_distance_at.split(',')])
+    else:
+        print("--vs-distance-at must be given 'center' or 'centroid' or X,Y (pixel coordinates)",
+              file=sys.stderr)
+        sys.exit(1)
+
+
+
 
 plotkwargs_extra = {}
 if args.extraset is not None:
@@ -111,7 +171,22 @@ if model.optimization_inputs() is None:
           file = sys.stderr)
     sys.exit()
 
-if not args.observations_xydist:
+if args.observations_xydist:
+    plot = mrcal.show_projection_uncertainty_xydist(model,
+                                                    args.gridn[0] // 4,
+                                                    args.gridn[1] // 4,
+                                                    hardcopy     = args.hardcopy,
+                                                    cbmax        = args.cbmax,
+                                                    extratitle   = args.extratitle,
+                                                    **plotkwargs_extra)
+elif args.vs_distance_at is not None:
+    plot = mrcal.show_projection_uncertainty_vs_distance(model,
+                                                         where        = args.vs_distance_at,
+                                                         isotropic    = args.isotropic,
+                                                         hardcopy     = args.hardcopy,
+                                                         extratitle   = args.extratitle,
+                                                         **plotkwargs_extra)
+else:
     plot = mrcal.show_projection_uncertainty(model,
                                              args.gridn[0], args.gridn[1],
                                              distance     = args.distance,
@@ -121,14 +196,6 @@ if not args.observations_xydist:
                                              cbmax        = args.cbmax,
                                              extratitle   = args.extratitle,
                                              **plotkwargs_extra)
-else:
-    plot = mrcal.show_projection_uncertainty_xydist(model,
-                                                    args.gridn[0] // 4,
-                                                    args.gridn[1] // 4,
-                                                    hardcopy     = args.hardcopy,
-                                                    cbmax        = args.cbmax,
-                                                    extratitle   = args.extratitle,
-                                                    **plotkwargs_extra)
 
 if args.hardcopy is None:
     plot.wait()

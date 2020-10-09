@@ -2295,7 +2295,6 @@ def show_projection_uncertainty_xydist(model,
                                        gridn_height = None,
 
                                        extratitle   = None,
-                                       hardcopy     = None,
                                        cbmax        = 3,
                                        **kwargs):
     r'''Visualize in 3D the uncertainty in camera projection
@@ -2437,6 +2436,152 @@ into a variable, even if you're not going to be doing anything with this object
                                 _with = 'points',
                                 legend = 'outliers')) )
     plot.plot( *plotargs )
+
+    return plot
+
+
+def show_projection_uncertainty_vs_distance(model,
+
+                                            where        = "centroid",
+                                            isotropic    = False,
+                                            extratitle   = None,
+                                            **kwargs):
+    r'''Visualize the uncertainty in camera projection along one observation ray
+
+SYNOPSIS
+
+    model = mrcal.cameramodel('xxx.cameramodel')
+
+    mrcal.show_projection_uncertainty_vs_distance(model)
+
+    ... A plot pops up displaying the expected projection uncertainty along an
+    ... observation ray at different distances from the camera
+
+This function is similar to show_projection_uncertainty(). That function
+displays the uncertainty at different locations along the imager, for one
+observation distance. Conversely, THIS function displays it in one location on
+the imager, but at different distances.
+
+This function uses the expected noise of the calibration-time observations to
+estimate the uncertainty of projection of the final model. At calibration time
+we estimate
+
+- The intrinsics (lens paramaters) of a number of cameras
+- The extrinsics (geometry) of a number of cameras in respect to some reference
+  coordinate system
+- The poses of observed chessboards, also in respect to some reference
+  coordinate system
+
+All the coordinate systems move around, and all 3 of these sets of data have
+some uncertainty. This tool takes into account all the uncertainties to report
+an estimated uncertainty metric. See the docstring for projection_uncertainty()
+for a detailed description of the computation.
+
+The curve produced by this function has a characteristic shape:
+
+- At low ranges, the camera translation dominates, and the uncertainty increases
+  to infinity, as the distance to the camera goes to 0
+
+- As we move away from the camera, the uncertainty drops to a minimum, at around
+  the distance where the chessboards were observed
+
+- Past the minimum, the uncertainty climbs to asymptotically approach the
+  uncertainty at infinity
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object being evaluated
+
+- where: optional value, defaulting to "centroid". Indicates the point on the
+  imager we're examining. May be one of
+
+  - "center": the center of the imager
+  - "centroid": the midpoint of all the chessboard corners observed at
+    calibration time
+  - A numpy array (x,y) indicating the pixel
+
+- isotropic: optional boolean, defaulting to False. We compute the full 2x2
+  covariance matrix of the projection. The 1-sigma contour implied by this
+  matrix is an ellipse, and we use the worst-case direction by default. If we
+  want the RMS size of the ellipse instead of the worst-direction size, pass
+  isotropic=True.
+
+- extratitle: optional string to include in the title of the resulting plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUE
+
+The gnuplotlib plot object. The plot disappears when this object is destroyed
+(by the garbage collection, for instance), so do save this returned plot object
+into a variable, even if you're not going to be doing anything with this object
+
+    '''
+
+    import gnuplotlib as gp
+
+    p_cam_observed_at_calibration_time = \
+        hypothesis_corner_positions(model.icam_intrinsics(),
+                                    **model.optimization_inputs())[1]
+
+    if   where == 'center':
+        q = (model.imagersize() - 1.) / 2.
+
+        vcam = mrcal.unproject(q, *model.intrinsics(),
+                               normalize = True)
+
+    elif where == 'centroid':
+        p    = np.mean(p_cam_observed_at_calibration_time, axis=-2)
+        vcam = p / nps.mag(p)
+
+        print(mrcal.project(vcam, *model.intrinsics()))
+
+    elif isinstance(where, np.ndarray):
+        q    = where
+        vcam = mrcal.unproject(q, *model.intrinsics(),
+                               normalize = True)
+    else:
+        raise Exception("'where' should be 'center' or an array specifying a pixel")
+
+    # shape (Ndistances)
+    distance_observed_at_calibration_time = \
+        nps.mag(p_cam_observed_at_calibration_time)
+    distance_min = np.min(distance_observed_at_calibration_time)
+    distance_max = np.max(distance_observed_at_calibration_time)
+
+    print(distance_min)
+    print(distance_max)
+
+    distances = np.logspace( np.log10(distance_min/5.),
+                             np.log10(distance_max*10.),
+                             80 )
+
+    # shape (Ndistances, 3)
+    pcam = vcam * nps.dummy(distances, -1)
+
+    # shape (Ndistances)
+    uncertainty = \
+        mrcal.projection_uncertainty( pcam,
+                                      model = model,
+                                      what  = 'rms-stdev' if isotropic else 'worstdirection-stdev')
+    if 'title' not in kwargs:
+        if not isotropic:
+            what_description = "Projection"
+        else:
+            what_description = "Isotropic projection"
+
+        title = f"{what_description} uncertainty (in pixels) based on calibration input noise at q = {where}"
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    plot = gp.gnuplotlib( xlabel   = 'Observation distance',
+                          ylabel   = 'Projection uncertainty (pixels)',
+                          _with    = 'lines',
+                          **kwargs )
+
+    plot.plot( distances, uncertainty )
 
     return plot
 
