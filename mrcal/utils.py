@@ -298,13 +298,13 @@ def synthesize_board_observations(models,
                                   object_spacing, calobject_warp,
                                   at_xyz_rpydeg, noiseradius_xyz_rpydeg,
                                   Nframes):
-    r'''Produce synthetic observations of a chessboard
+    r'''Produce synthetic chessboard observations
 
 SYNOPSIS
 
     models = [mrcal.cameramodel("0.cameramodel"),
               mrcal.cameramodel("1.cameramodel"),]
-    p,Rt_cam0_boardref = \
+    q,Rt_cam0_boardref = \
         mrcal.synthesize_board_observations(models,
 
                                             # board geometry
@@ -319,7 +319,7 @@ SYNOPSIS
                                             # How many frames we want
                                             100)
 
-    print(p.shape)
+    print(q.shape)
     ===> (100, 2, 12, 10, 2)
 
     print(Rt_cam0_boardref.shape)
@@ -370,40 +370,73 @@ RETURNED VALUES
 
 We return a tuple:
 
-- The point observations p:
-  array of shape (Nframes, Ncameras, object_height, object_width, 2)
-- The pose of the chessboards Rt_cam0_boardref:
-  array of shape (Nframes, 4,3). This transforms an object returned by
-  synthesize_board_observations() to the pose that was projected
+- q: an array of shape (Nframes, Ncameras, object_height, object_width, 2)
+  containing the pixel coordinates of the generated observations
+
+- Rt_cam0_boardref: an array of shape (Nframes, 4,3) containing the poses of the
+  chessboards. This transforms the object returned by ref_calibration_object()
+  to the pose that was projected
 
     '''
+
+
+    # Can visualize results with this script:
+    r'''
+    import sys
+    import numpy as np
+    import numpysane as nps
+    import mrcal
+
+    roll  = 0
+    pitch = 0
+    yaw   = 0
+
+    model = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
+                                             np.array((1000., 1000., 1000., 1000.,))),
+                               imagersize = np.array((2000,2000)) )
+    Rt_cam0_boardref = \
+        mrcal.synthesize_board_observations([model],
+                                            5,20,0.1,None,
+                                            np.array((0,0,3., roll, pitch, yaw)),
+                                            np.array((0,0,0., 0,0,0)),
+                                            1) [1]
+    mrcal.show_calibration_geometry( models_or_extrinsics_rt_fromref = np.zeros((1,1,6), dtype=float),
+                                     frames_rt_toref                 = mrcal.rt_from_Rt(Rt_cam0_boardref),
+                                     object_width_n                  = 20,
+                                     object_height_n                 = 5,
+                                     object_spacing                  = 0.1,
+                                     _set = 'xyplane 0',
+                                     wait = 1 )
+    '''
+
+
 
     Ncameras = len(models)
 
     # I move the board, and keep the cameras stationary.
     #
     # Camera coords: x,y with pixels, z forward
-    # Board coords:  x,y along. z forward (i.e. back towards the camera)
+    # Board coords:  x,y in-plane. z forward (i.e. back towards the camera)
     #                rotation around (x,y,z) is (pitch,yaw,roll)
     #                respectively
 
 
     # shape: (Nh,Nw,3)
     # The center of the board is at the origin (ignoring warping)
-    board_translation = \
+    board_center = \
         np.array(( (object_height_n-1)*object_spacing/2.,
                    (object_width_n -1)*object_spacing/2.,
                    0 ))
     board_reference = \
         mrcal.ref_calibration_object(object_width_n,object_height_n,
                                      object_spacing,calobject_warp) - \
-        board_translation
+        board_center
 
     # Transformation from the board returned by ref_calibration_object() to
     # the one I use here. It's a shift to move the origin to the center of the
     # board
     Rt_boardref_origboardref = mrcal.identity_Rt()
-    Rt_boardref_origboardref[3,:] = -board_translation
+    Rt_boardref_origboardref[3,:] = -board_center
 
     def get_observation_chunk():
         '''Get some number of observations. I make Nframes of them, but keep only the
@@ -469,7 +502,7 @@ We return a tuple:
                                                 board_reference )
 
         # I project everything. Shape: (Nframes,Ncameras,Nh,Nw,2)
-        p = \
+        q = \
           nps.mv( \
             nps.cat( \
               *[ mrcal.project( mrcal.transform_point_Rt(models[i].extrinsics_Rt_fromref(), boards_cam0),
@@ -480,22 +513,22 @@ We return a tuple:
         # I pick only those frames where all observations (over all the cameras) are
         # in view
         iframe = \
-            np.all(nps.clump(p,n=-4) >= 0, axis=-1)
+            np.all(nps.clump(q,n=-4) >= 0, axis=-1)
         for i in range(Ncameras):
             W,H = models[i].imagersize()
             iframe *= \
-                np.all(nps.clump(p[..., 0], n=-3) <= W-1, axis=-1) * \
-                np.all(nps.clump(p[..., 1], n=-3) <= H-1, axis=-1)
+                np.all(nps.clump(q[..., 0], n=-3) <= W-1, axis=-1) * \
+                np.all(nps.clump(q[..., 1], n=-3) <= H-1, axis=-1)
 
-        # p                has shape (Nframes_inview,Ncameras,Nh*Nw,2)
+        # q                has shape (Nframes_inview,Ncameras,Nh*Nw,2)
         # Rt_cam0_boardref has shape (Nframes_inview,4,3)
-        return p[iframe, ...], Rt_cam0_boardref[iframe, ...]
+        return q[iframe, ...], Rt_cam0_boardref[iframe, ...]
 
 
 
 
     # shape (Nframes_sofar,Ncameras,Nh,Nw,2)
-    p = np.zeros((0,
+    q = np.zeros((0,
                   Ncameras,
                   object_height_n,object_width_n,
                   2),
@@ -505,16 +538,16 @@ We return a tuple:
 
     # I keep creating data, until I get Nframes-worth of in-view observations
     while True:
-        p_here, Rt_cam0_boardref_here = get_observation_chunk()
+        q_here, Rt_cam0_boardref_here = get_observation_chunk()
 
-        p = nps.glue(p, p_here, axis=-5)
+        q = nps.glue(q, q_here, axis=-5)
         Rt_cam0_boardref = nps.glue(Rt_cam0_boardref, Rt_cam0_boardref_here, axis=-3)
-        if p.shape[0] >= Nframes:
-            p                = p               [:Nframes,...]
+        if q.shape[0] >= Nframes:
+            q                = q               [:Nframes,...]
             Rt_cam0_boardref = Rt_cam0_boardref[:Nframes,...]
             break
 
-    return p, mrcal.compose_Rt(Rt_cam0_boardref, Rt_boardref_origboardref)
+    return q, mrcal.compose_Rt(Rt_cam0_boardref, Rt_boardref_origboardref)
 
 
 def show_calibration_geometry(models_or_extrinsics_rt_fromref,
