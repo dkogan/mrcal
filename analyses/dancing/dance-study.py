@@ -25,13 +25,10 @@ sees all the points of all the chessboards). The chessboard come in two
 clusters: "near" and "far". Each cluster is centered straight ahead of the
 midpoint of all the cameras, with some random noise on the position and
 orientation. The distances from the center of the cameras to the center of the
-clusters are given by --range-near and --range-far. This tool solves the
-calibration problem, and generates uncertainty-vs-range curves. Each run of this
-tool generates a family of this curve, for different values of Nfar, the numbers
-of chessboard observations in the "far" cluster. If the user specifies --Nnear,
-then the "far" observations are added to the set of "near" observations. If the
-user instead specifies --Nall, the total number of observations is kept
-constant, and we remove a "near" observation for each "far" observation we add.
+clusters are given by --range. This tool solves the calibration problem, and
+generates uncertainty-vs-range curves. Each run of this tool generates a family
+of this curve, for different values of Nframes-far, the numbers of chessboard
+observations in the "far" cluster.
 
 '''
 
@@ -63,12 +60,6 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--ranges',
-                        default = [0.5, 4.0],
-                        type=float,
-                        nargs = 2,
-                        help='''The "near" and "far" ranges to the calibration object to use in the synthetic
-                        data, in meters''')
     parser.add_argument('--Ncameras',
                         default = 1,
                         type=positive_int,
@@ -77,13 +68,6 @@ def parse_args():
                         default = 0.3,
                         type=positive_float,
                         help='How many meters between adjacent cameras in our synthetic world')
-    parser.add_argument('--tilt-radius',
-                        default=30.,
-                        type=float,
-                        help='''The radius of the uniform distribution used to sample the pitch and yaw of
-                        the chessboard observations, in degrees. The default is
-                        30, meaning that the chessboard pitch and yaw are
-                        sampled from [-30deg,30deg]''')
     parser.add_argument('--object-spacing',
                         default=0.077,
                         type=float,
@@ -115,31 +99,94 @@ def parse_args():
                         given on the commandline. We may want to use a
                         parametric model to generate data (model on the
                         commandline), but a richer splined model to solve''')
-    parser.add_argument('--Nall',
-                        type=positive_int,
-                        help='''If given, the total number of chessboard observations is kept constant, at
-                        this value. Exclusive with --Nnear. Either --Nall or
-                        --Nnear are required''')
-    parser.add_argument('--Nnear',
-                        type=positive_int,
-                        help='''If given, the number of "near" chessboard observations is kept constant, at
-                        this value. Exclusive with --Nall. Either --Nall or
-                        --Nnear are required''')
-    parser.add_argument('--Nfar',
-                        type=int,
-                        help='''If given, I don't scan Nfar, but use the one value given here. Requires
-                        --Nnear''')
 
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,
                         help='''If given, use this as the upper extent of the uncertainty plot.''')
-    parser.add_argument('--range-sampled-max',
+    parser.add_argument('--uncertainty-at-range-sampled-min',
                         type=float,
-                        help='''If given, use this as the upper bound of the ranges we scan.''')
+                        help='''If given, use this as the lower bound of the ranges we look at when
+                        evaluating projection confidence''')
+    parser.add_argument('--uncertainty-at-range-sampled-max',
+                        type=float,
+                        help='''If given, use this as the upper bound of the ranges we look at when
+                        evaluating projection confidence''')
     parser.add_argument('--explore',
                         action='store_true',
                         help='''Drop into a REPL at the end''')
+
+    parser.add_argument('--scan-ranges',
+                        action='store_true',
+                        help='''Study the effect of range-to-camera on uncertainty. We will try out ranges
+                        between the two --ranges values. One range at a time
+                        will be evaluated. The number of frames is given in
+                        --Nframes. The one random radius of the board tilt is
+                        given in --tilt-radius. Exactly one of the --scan-...
+                        arguments must be given''')
+    parser.add_argument('--scan-tilts',
+                        action='store_true',
+                        help='''Study the effect of chessboard tilt on uncertainty. We will try out tilts
+                        between the two --tilt-radius values. One range at a
+                        time will be evaluated: given in --range. The number of
+                        frames is given in --Nframes. Exactly one of the
+                        --scan-... arguments must be given''')
+    parser.add_argument('--scan-num-far-constant-Nframes-near',
+                        action='store_true',
+                        help='''Study the effect of far-away chessboard observations added to a constant set
+                        of near chessboard observations. The "far" and "near"
+                        ranges are set by --range. Just like
+                        --scan-num-far-constant-Nframes-all, except here "far"
+                        observations are ADDED to "near" observations. The
+                        "near" and "far" ranges are given in --range. The number
+                        of "near" frames is given in --Nframes-near. Exactly one
+                        of the --scan-... arguments must be given''')
+    parser.add_argument('--scan-num-far-constant-Nframes-all',
+                        action='store_true',
+                        help='''Study the effect of far-away chessboard observations replacing existing
+                        "near" chessboard observations. The "far" and "near"
+                        ranges are set by --range. Just like
+                        --scan-num-far-constant-Nframes-near, except here "far"
+                        observations REPLACE existing "near" observations. The
+                        "near" and "far" ranges are given in --range. The number
+                        of total frames is given in --Nframes-all. Exactly one
+                        of the --scan-... arguments must be given''')
+
+    parser.add_argument('--range',
+                        default = '0.5,4.0',
+                        type=str,
+                        help='''if --scan-num-far-...: this is "NEAR,FAR"; specifying the near and far ranges
+                        to the chessboard to evaluate. if --scan-ranges this is
+                        "MIN,MAX"; specifying the extents of the ranges to
+                        evaluate. if --scan-tilts: this is RANGE, the one range
+                        of chessboards to evaluate''')
+    parser.add_argument('--tilt-radius',
+                        default='30.',
+                        type=str,
+                        help='''The radius of the uniform distribution used to sample the pitch and yaw of
+                        the chessboard observations, in degrees. The default is
+                        30, meaning that the chessboard pitch and yaw are
+                        sampled from [-30deg,30deg]. if --scan-tilts: this is
+                        TILT-MIN,TILT-MAX specifying the bounds of the two
+                        tilt-radius values to evaluate''')
+
+    parser.add_argument('--Nframes',
+                        type=positive_int,
+                        help='''Used if --scan-ranges or --scan-tilts. We look at this many frames in that
+                        case''')
+    parser.add_argument('--Nframes-near',
+                        type=positive_int,
+                        help='''Used if --scan-num-far-constant-Nframes-near. The number of "near" frames is
+                        given by this argument, while we look at the effect of
+                        adding more "far" frames.''')
+    parser.add_argument('--Nframes-all',
+                        type=positive_int,
+                        help='''Used if --scan-num-far-constant-Nframes-all. The number of "near"+"far"
+                        frames is given by this argument, while we look at the
+                        effect of replacing "near" frames with "far" frames.''')
+
+    parser.add_argument('--hardcopy',
+                        help='''Filename to plot into. If omitted, we make an interactive plot''')
 
     parser.add_argument('model',
                         type = str,
@@ -152,23 +199,19 @@ def parse_args():
 
 args = parse_args()
 
-if args.Nall is None and args.Nnear is None:
-    print("Exactly one of --Nall and --Nnear must be given", file=sys.stderr)
+Nscanargs = 0
+if args.scan_ranges:                        Nscanargs += 1
+if args.scan_tilts:                         Nscanargs += 1
+if args.scan_num_far_constant_Nframes_near: Nscanargs += 1
+if args.scan_num_far_constant_Nframes_all:  Nscanargs += 1
+
+if Nscanargs != 1:
+    print("Exactly one of --scan-... must be given", file=sys.stderr)
     sys.exit(1)
-if args.Nall is not None and args.Nnear is not None:
-    print("Exactly one of --Nall and --Nnear must be given", file=sys.stderr)
-    sys.exit(1)
-if args.Nfar is not None and args.Nnear is None:
-    print("--Nfar requires --Nnear", file=sys.stderr)
-    sys.exit(1)
-if args.ranges[0] >= args.ranges[1]:
-    print("--ranges NEAR FAR must have NEAR<FAR", file=sys.stderr)
-    sys.exit(1)
+
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
-
-
 
 
 import numpy as np
@@ -180,6 +223,99 @@ sys.path[:0] = '../..',
 import mrcal
 
 
+args.tilt_radius = [float(x) for x in args.tilt_radius.split(',')]
+args.range       = [float(x) for x in args.range.      split(',')]
+
+Nuncertainty_at_range_samples = 80
+uncertainty_at_range_sampled_min = args.uncertainty_at_range_sampled_min
+if uncertainty_at_range_sampled_min is None:
+    uncertainty_at_range_sampled_min = args.range[0]/10.
+uncertainty_at_range_sampled_max = args.uncertainty_at_range_sampled_max
+if uncertainty_at_range_sampled_max is None:
+    uncertainty_at_range_sampled_max = args.range[-1] *10.
+
+uncertainty_at_range_samples = \
+    np.logspace( np.log10(uncertainty_at_range_sampled_min),
+                 np.log10(uncertainty_at_range_sampled_max),
+                 Nuncertainty_at_range_samples)
+
+
+if   args.scan_ranges:
+    # --Nframes N
+    # --range MIN,MAX
+    # --tilt-radius TILT-RAD
+    if args.Nframes is None:
+        print("--scan-ranges requires --Nframes", file=sys.stderr)
+        sys.exit(1)
+    if len(args.range) != 2:
+        print("--scan-ranges requires --range with 2 arguments", file=sys.stderr)
+        sys.exit(1)
+    if len(args.tilt_radius) != 1:
+        print("--scan-ranges requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if args.Nframes_near is not None or args.Nframes_all is not None:
+        print("--scan-ranges does not use --Nframes-near or --Nframes-all", file=sys.stderr)
+        sys.exit(1)
+
+    args.tilt_radius = args.tilt_radius[0]
+elif args.scan_tilts:
+    # --Nframes N
+    # --range RANGE
+    # --tilt-radius TILT-RAD-MIN,TILT-RAD-MAX
+    if args.Nframes is None:
+        print("--scan-ranges requires --Nframes", file=sys.stderr)
+        sys.exit(1)
+    if len(args.range) != 1:
+        print("--scan-ranges requires --range with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if len(args.tilt_radius) != 2:
+        print("--scan-ranges requires --tilt-radius with 2 arguments", file=sys.stderr)
+        sys.exit(1)
+    if args.Nframes_near is not None or args.Nframes_all is not None:
+        print("--scan-tilts does not use --Nframes-near or --Nframes-all", file=sys.stderr)
+        sys.exit(1)
+
+    args.range = args.range[0]
+elif args.scan_num_far_constant_Nframes_near:
+    # --Nframes-near N
+    # --range RANGE-NEAR,RANGE-FAR
+    # --tilt-radius TILT-RAD
+    if args.Nframes_near is None:
+        print("--scan-num-far-constant-Nframes-near requires --Nframes-near", file=sys.stderr)
+        sys.exit(1)
+    if len(args.range) != 2:
+        print("--scan-num-far-constant-Nframes-near requires --range with 2 arguments", file=sys.stderr)
+        sys.exit(1)
+    if len(args.tilt_radius) != 1:
+        print("--scan-num-far-constant-Nframes-near requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if args.Nframes is not None or args.Nframes_all is not None:
+        print("--scan-num-far-constant-Nframes-near does not use --Nframes or --Nframes-all", file=sys.stderr)
+        sys.exit(1)
+
+    args.tilt_radius = args.tilt_radius[0]
+elif args.scan_num_far_constant_Nframes_all:
+    # --Nframes-all N
+    # --range RANGE-NEAR,RANGE-FAR
+    # --tilt-radius TILT-RAD
+    if args.Nframes_all is None:
+        print("--scan-num-far-constant-Nframes-all requires --Nframes-all", file=sys.stderr)
+        sys.exit(1)
+    if len(args.range) != 2:
+        print("--scan-num-far-constant-Nframes-all requires --range with 2 arguments", file=sys.stderr)
+        sys.exit(1)
+    if len(args.tilt_radius) != 1:
+        print("--scan-num-far-constant-Nframes-all requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if args.Nframes is not None or args.Nframes_near is not None:
+        print("--scan-num-far-constant-Nframes-all does not use --Nframes or --Nframes-near", file=sys.stderr)
+        sys.exit(1)
+
+    args.tilt_radius = args.tilt_radius[0]
+else:
+    raise Exception("getting here is a bug")
+
+
 # I want the RNG to be deterministic
 np.random.seed(0)
 
@@ -189,7 +325,8 @@ calobject_warp_true_ref = np.array((0.002, -0.005))
 
 
 def synthetic_board_observations(Nframes, _range,
-                                 models_true):
+                                 models_true,
+                                 tilt_radius):
 
     rad = (args.camera_spacing * (args.Ncameras-1)) / 2.
 
@@ -207,8 +344,8 @@ def synthetic_board_observations(Nframes, _range,
                                                           _range/3.*2.,
                                                           _range/10.,
                                                           40.,
-                                                          args.tilt_radius,
-                                                          args.tilt_radius)),
+                                                          tilt_radius,
+                                                          tilt_radius)),
                                                 Nframes)
 
     return q,Rt_cam0_board
@@ -221,8 +358,15 @@ def solve(Nframes_near, Nframes_far,
 
     q_true_near             = q_true_near            [:Nframes_near]
     Rt_cam0_board_true_near = Rt_cam0_board_true_near[:Nframes_near]
-    q_true_far              = q_true_far             [:Nframes_far ]
-    Rt_cam0_board_true_far  = Rt_cam0_board_true_far [:Nframes_far ]
+
+    if q_true_far is not None:
+        q_true_far              = q_true_far             [:Nframes_far ]
+        Rt_cam0_board_true_far  = Rt_cam0_board_true_far [:Nframes_far ]
+    else:
+        q_true_far              = np.zeros( (0,) + q_true_near.shape[1:],
+                                            dtype = q_true_near.dtype)
+        Rt_cam0_board_true_far  = np.zeros( (0,) + Rt_cam0_board_true_near.shape[1:],
+                                            dtype = Rt_cam0_board_true_near.dtype)
 
     calobject_warp_true = calobject_warp_true_ref.copy()
 
@@ -325,6 +469,66 @@ def solve(Nframes_near, Nframes_far,
     return optimization_inputs
 
 
+def eval_one_rangenear_tilt(models_true,
+                            range_near, range_far, tilt_radius,
+                            uncertainty_at_range_samples,
+                            Nframes_near_samples, Nframes_far_samples):
+
+    # I want the RNG to be deterministic
+    np.random.seed(0)
+
+    uncertainties = np.zeros((len(Nframes_far_samples),
+                              len(uncertainty_at_range_samples)),
+                             dtype=float)
+
+    q_true_near, Rt_cam0_board_true_near = \
+        synthetic_board_observations(np.max(Nframes_near_samples),
+                                     range_near,
+                                     models_true,
+                                     tilt_radius)
+    if range_far is not None:
+        q_true_far , Rt_cam0_board_true_far  = \
+            synthetic_board_observations(np.max(Nframes_far_samples),
+                                         range_far,
+                                         models_true,
+                                         tilt_radius)
+    else:
+        q_true_far             = None
+        Rt_cam0_board_true_far = None
+
+    for i_Nframes_far in range(len(Nframes_far_samples)):
+
+        Nframes_far  = Nframes_far_samples [i_Nframes_far]
+        Nframes_near = Nframes_near_samples[i_Nframes_far]
+
+        optimization_inputs = solve(Nframes_near, Nframes_far,
+                                    models_true,
+                                    q_true_near, Rt_cam0_board_true_near,
+                                    q_true_far,  Rt_cam0_board_true_far)
+
+        models_out = \
+            [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
+                                 icam_intrinsics     = icam ) \
+              for icam in range(args.Ncameras) ]
+
+        icam = 0
+        model = models_out[icam]
+
+        # shape (N,3)
+        # I sample the center of the imager
+        pcam_samples = \
+            mrcal.unproject( (model.imagersize() - 1.) / 2.,
+                             *model.intrinsics(),
+                             normalize = True) * \
+                             nps.dummy(uncertainty_at_range_samples, -1)
+
+        uncertainties[i_Nframes_far] = \
+            mrcal.projection_uncertainty(pcam_samples,
+                                         model,
+                                         what='worstdirection-stdev')
+
+    return uncertainties
+
 
 
 models_true = \
@@ -336,102 +540,116 @@ models_true = \
       for i in range(args.Ncameras) ]
 
 
-Nrange_samples = 80
-range_sampled_min = args.ranges[0]/10.
-range_sampled_max = args.range_sampled_max
-if range_sampled_max is None:
-    range_sampled_max = args.ranges[1] *10.
-range_samples = np.logspace( np.log10(range_sampled_min),
-                             np.log10(range_sampled_max),
-                             Nrange_samples)
 
-if args.Nfar is not None:
-    Nfar_samples = 1
-    Nframes_far_samples  = np.array( (args.Nfar,),  dtype=int)
-    Nframes_near_samples = np.array( (args.Nnear,), dtype=int)
-elif args.Nall is not None:
+if   args.scan_num_far_constant_Nframes_near or \
+     args.scan_num_far_constant_Nframes_all:
+
     Nfar_samples = 8
-    Nframes_far_samples  = np.linspace(0, args.Nall,    Nfar_samples, dtype=int)
-    Nframes_near_samples = args.Nall - Nframes_far_samples
+    if   args.scan_num_far_constant_Nframes_near:
+        Nframes_far_samples = np.linspace(0,
+                                          args.Nframes_near*2,
+                                          Nfar_samples, dtype=int)
+        Nframes_near_samples = Nframes_far_samples*0 + args.Nframes_near
+
+    else:
+        Nframes_far_samples  = np.linspace(0,
+                                           args.Nframes_all,
+                                           Nfar_samples, dtype=int)
+        Nframes_near_samples = args.Nframes_all - Nframes_far_samples
+
+
+    uncertainties = \
+        eval_one_rangenear_tilt(models_true,
+                                *args.range,
+                                args.tilt_radius,
+                                uncertainty_at_range_samples,
+                                Nframes_near_samples, Nframes_far_samples)
+
+    samples = Nframes_far_samples
+
+elif args.scan_ranges:
+    Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
+    Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    Nrange_samples = 8
+    range_samples = np.linspace(*args.range,
+                                Nrange_samples, dtype=float)
+    uncertainties = np.zeros((Nrange_samples, Nuncertainty_at_range_samples),
+                             dtype=float)
+    for i_range in range(Nrange_samples):
+        uncertainties[i_range] = \
+            eval_one_rangenear_tilt(models_true,
+                                    range_samples[i_range], None,
+                                    args.tilt_radius,
+                                    uncertainty_at_range_samples,
+                                    Nframes_near_samples, Nframes_far_samples)[0]
+
+    samples = range_samples
+
+elif args.scan_tilts:
+    Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
+    Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    Ntilt_rad_samples = 8
+    tilt_rad_samples = np.linspace(*args.tilt_radius,
+                                   Ntilt_rad_samples, dtype=float)
+    uncertainties = np.zeros((Ntilt_rad_samples, Nuncertainty_at_range_samples),
+                             dtype=float)
+    for i_tilt in range(Ntilt_rad_samples):
+        uncertainties[i_tilt] = \
+            eval_one_rangenear_tilt(models_true,
+                                    args.range, None,
+                                    tilt_rad_samples[i_tilt],
+                                    uncertainty_at_range_samples,
+                                    Nframes_near_samples, Nframes_far_samples)[0]
+
+    samples = tilt_rad_samples
+
 else:
-    Nfar_samples = 8
-    Nframes_far_samples = np.linspace(0, args.Nnear*2, Nfar_samples, dtype=int)
-    Nframes_near_samples = Nframes_far_samples*0 + args.Nnear
+    raise Exception("Getting here is a bug")
 
 
-uncertainties = np.zeros((Nfar_samples, Nrange_samples),
-                         dtype=float)
 
-q_true_near, Rt_cam0_board_true_near = \
-    synthetic_board_observations(np.max(Nframes_near_samples),
-                                 args.ranges[0],
-                                 models_true)
-q_true_far , Rt_cam0_board_true_far  = \
-    synthetic_board_observations(np.max(Nframes_far_samples),
-                                 args.ranges[1],
-                                 models_true)
-
-for i_Nframes_far in range(Nfar_samples):
-
-    Nframes_far  = Nframes_far_samples [i_Nframes_far]
-    Nframes_near = Nframes_near_samples[i_Nframes_far]
-
-    optimization_inputs = solve(Nframes_near, Nframes_far,
-                                models_true,
-                                q_true_near, Rt_cam0_board_true_near,
-                                q_true_far,  Rt_cam0_board_true_far)
-
-    models_out = \
-        [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
-                             icam_intrinsics     = icam ) \
-          for icam in range(args.Ncameras) ]
-
-    icam = 0
-    model = models_out[icam]
-
-    # shape (N,3)
-    # I sample the center of the imager
-    pcam_samples = \
-        mrcal.unproject( (model.imagersize() - 1.) / 2.,
-                         *model.intrinsics(),
-                         normalize = True) * nps.dummy(range_samples, -1)
-
-    uncertainties[i_Nframes_far] = \
-        mrcal.projection_uncertainty(pcam_samples,
-                                     model,
-                                     what='worstdirection-stdev')
-
-
-guides = [ f"arrow nohead dashtype 3 from {args.ranges[0]},graph 0 to {args.ranges[0]},graph 1",
-           f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}" ]
-
-if args.Nfar is not None:
-    title = f"Simulated {args.Ncameras} cameras. {args.Nnear} 'near' chessboard observations and {args.Nfar} 'far' observations."
-elif args.Nall is not None:
-    title = f"Simulated {args.Ncameras} cameras. Total {args.Nall} chessboard observations. Adding 'far' observations, removing 'near' observations."
+if isinstance(args.range, float):
+    guides = [ f"arrow nohead dashtype 3 from {args.range},graph 0 to {args.range},graph 1" ]
 else:
-    title = f"Simulated {args.Ncameras} cameras. Have {args.Nnear} 'near' chessboard observations. Adding 'far' observations."
+    guides = [ f"arrow nohead dashtype 3 from {r},graph 0 to {r},graph 1" for r in args.range ]
+guides.append(f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}")
 
-title += f" board tilt radius: {args.tilt_radius} degrees. "
-if args.Nfar is None or args.Nfar != 0:
-    title  += f"Ranges: {args.ranges[0]}-{args.ranges[1]}"
-    guides += f"arrow nohead dashtype 3 from {args.ranges[1]}, graph 0 to {args.ranges[1]}, graph 1",
-    legend = np.array([ f"Nfar = {str(i)}" for i in Nframes_far_samples])
+
+if   args.scan_num_far_constant_Nframes_near:
+    title = f"Simulated {args.Ncameras} cameras. Have {args.Nframes_near} 'near' chessboard observations. Adding 'far' observations."
+    legend_what = 'Nframes_far'
+elif args.scan_num_far_constant_Nframes_all:
+    title = f"Simulated {args.Ncameras} cameras. Total {args.Nframes_all} chessboard observations. Replacing 'near' observations with 'far' observations."
+    legend_what = 'Nframes_far'
+elif args.scan_ranges:
+    title = f"Simulated {args.Ncameras} cameras. Looking at displayed chessboards in the range {args.range}. Have {args.Nframes} chessboard observations."
+    legend_what = 'Range-to-chessboards'
+elif args.scan_tilts:
+    title = f"Simulated {args.Ncameras} cameras. Varying the chessboard tilt distribution; random radius {args.tilt_radius}. Have {args.Nframes} chessboard observations."
+    legend_what = 'Random chessboard tilt radius'
 else:
-    title += f"Range: {args.ranges[0]}"
-    legend = None
+    raise Exception("Getting here is a bug")
 
-gp.plot(range_samples,
+
+if samples.dtype.kind == 'i':
+    legend = np.array([ f"{legend_what} = {x}" for x in samples])
+else:
+    legend = np.array([ f"{legend_what} = {x:.1f}" for x in samples])
+
+gp.plot(uncertainty_at_range_samples,
         uncertainties,
-        legend = legend,
-        yrange = (0, args.ymax),
-        _with  = 'lines',
-        _set   = guides,
-        unset  = 'grid',
-        title  = title,
-        xlabel = 'Range (m)',
-        ylabel = 'Expected worst-direction uncertainty (pixels)',
-        wait   = not args.explore)
+        legend   = legend,
+        yrange   = (0, args.ymax),
+        _with    = 'lines',
+        _set     = guides,
+        unset    = 'grid',
+        title    = title,
+        xlabel   = 'Range (m)',
+        ylabel   = 'Expected worst-direction uncertainty (pixels)',
+        hardcopy = args.hardcopy,
+        wait     = not args.explore and args.hardcopy is None)
 
 if args.explore:
     import IPython
