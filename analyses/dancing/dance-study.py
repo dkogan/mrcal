@@ -333,20 +333,20 @@ def synthetic_board_observations(Nframes, _range,
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
     q,Rt_cam0_board = \
-        mrcal.make_synthetic_board_observations(models_true,
-                                                args.object_width_n,
-                                                args.object_height_n,
-                                                args.object_spacing,
-                                                calobject_warp_true_ref,
-                                                np.array((rad, 0,  _range,
-                                                          0.,  0., 0.)),
-                                                np.array((_range/3.*2.,
-                                                          _range/3.*2.,
-                                                          _range/10.,
-                                                          40.,
-                                                          tilt_radius,
-                                                          tilt_radius)),
-                                                Nframes)
+        mrcal.synthesize_board_observations(models_true,
+                                            args.object_width_n,
+                                            args.object_height_n,
+                                            args.object_spacing,
+                                            calobject_warp_true_ref,
+                                            np.array((rad, 0,  _range,
+                                                      0.,  0., 0.)),
+                                            np.array((_range/3.*2.,
+                                                      _range/3.*2.,
+                                                      _range/10.,
+                                                      40.,
+                                                      tilt_radius,
+                                                      tilt_radius)),
+                                            Nframes)
 
     return q,Rt_cam0_board
 

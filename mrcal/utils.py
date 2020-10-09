@@ -293,11 +293,11 @@ The calibration object geometry in a (H,W,3) array
     return full_object
 
 
-def make_synthetic_board_observations(models,
-                                      object_width_n,object_height_n,
-                                      object_spacing, calobject_warp,
-                                      at_xyz_rpydeg, noiseradius_xyz_rpydeg,
-                                      Nframes):
+def synthesize_board_observations(models,
+                                  object_width_n,object_height_n,
+                                  object_spacing, calobject_warp,
+                                  at_xyz_rpydeg, noiseradius_xyz_rpydeg,
+                                  Nframes):
     r'''Produce synthetic observations of a chessboard
 
 SYNOPSIS
@@ -305,19 +305,19 @@ SYNOPSIS
     models = [mrcal.cameramodel("0.cameramodel"),
               mrcal.cameramodel("1.cameramodel"),]
     p,Rt_cam0_boardref = \
-        mrcal.make_synthetic_board_observations(models,
+        mrcal.synthesize_board_observations(models,
 
-                                                # board geometry
-                                                10,12,0.1,None,
+                                            # board geometry
+                                            10,12,0.1,None,
 
-                                                # Mean board pose
-                                                at_xyz_rpydeg,
+                                            # Mean board pose
+                                            at_xyz_rpydeg,
 
-                                                # Noise radius of the board pose
-                                                noiseradius_xyz_rpydeg,
+                                            # Noise radius of the board pose
+                                            noiseradius_xyz_rpydeg,
 
-                                                # How many frames we want
-                                                100)
+                                            # How many frames we want
+                                            100)
 
     print(p.shape)
     ===> (100, 2, 12, 10, 2)
@@ -374,7 +374,7 @@ We return a tuple:
   array of shape (Nframes, Ncameras, object_height, object_width, 2)
 - The pose of the chessboards Rt_cam0_boardref:
   array of shape (Nframes, 4,3). This transforms an object returned by
-  make_synthetic_board_observations() to the pose that was projected
+  synthesize_board_observations() to the pose that was projected
 
     '''
 

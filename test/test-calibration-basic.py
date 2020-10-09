@@ -59,12 +59,12 @@ calobject_warp_ref      = np.array((0.002, -0.005))
 # shapes (Nframes, Ncameras, Nh, Nw, 2),
 #        (Nframes, 4,3)
 q_ref,Rt_cam0_board_ref = \
-    mrcal.make_synthetic_board_observations(models_ref,
-                                            object_width_n, object_height_n, object_spacing,
-                                            calobject_warp_ref,
-                                            np.array((-2,   0,  4.0,  0.,  0.,  0.)),
-                                            np.array((2.5, 2.5, 2.0, 40., 30., 30.)),
-                                            Nframes)
+    mrcal.synthesize_board_observations(models_ref,
+                                        object_width_n, object_height_n, object_spacing,
+                                        calobject_warp_ref,
+                                        np.array((-2,   0,  4.0,  0.,  0.,  0.)),
+                                        np.array((2.5, 2.5, 2.0, 40., 30., 30.)),
+                                        Nframes)
 frames_ref = mrcal.rt_from_Rt(Rt_cam0_board_ref)
 
 ############# I have perfect observations in q_ref. I corrupt them by noise
