@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 
-r'''Shows the calibration geometry defined by the camera extrinsics
+r'''Displays the calibration-time geometry: the cameras and the observed objects
 
 SYNOPSIS
 
   $ mrcal-show-calibration-geometry *.cameramodel
   ... a plot pops up showing the camera arrangement
 
-This allows us to visualize the relative geometry between several cameras and
-the calibration object poses used in computing the calibration
+This tool visualizes the relative geometry between several cameras and the
+calibration objects they observed when computing the calibration.
 
 '''
 
@@ -71,7 +71,6 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-
 import mrcal
 
 
