@@ -1263,7 +1263,10 @@ The optimization_inputs dict, or None if one isn't stored in this model.
 
         if self._optimization_inputs_string is None:
             return None
-        return _deserialize_optimization_inputs(self._optimization_inputs_string)
+        x = _deserialize_optimization_inputs(self._optimization_inputs_string)
+        if x['extrinsics_rt_fromref'] is None:
+            x['extrinsics_rt_fromref'] = np.zeros((0,6), dtype=float)
+        return x
 
 
     def icam_intrinsics(self):
