@@ -426,11 +426,11 @@ def solve(Nframes_near, Nframes_far,
               calibration_object_spacing                = args.object_spacing,
               verbose                                   = False,
               observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
-              do_optimize_frames                        = True,
+              # do_optimize_frames filled in later
+              # do_optimize_extrinsics filled in later
               # do_optimize_intrinsics_core filled in later
               do_optimize_intrinsics_distortions        = True,
-              do_optimize_extrinsics                    = True,
-              do_optimize_calobject_warp                = True,
+              do_optimize_calobject_warp                = False, # turn this on, and reoptimize later
               do_apply_regularization                   = True,
               do_apply_outlier_rejection                = False)
 
@@ -442,26 +442,54 @@ def solve(Nframes_near, Nframes_far,
     Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
     if re.search("SPLINED", lensmodel):
+
+        # These are already mostly right, So I lock them down while I seed the
+        # intrinsics
+        optimization_inputs['do_optimize_frames']          = False
+        optimization_inputs['do_optimize_extrinsics']      = False
+
         # I pre-optimize the core, and then lock it down
         optimization_inputs['lensmodel']                   = 'LENSMODEL_STEREOGRAPHIC'
         optimization_inputs['intrinsics']                  = intrinsics[:,:4].copy()
         optimization_inputs['do_optimize_intrinsics_core'] = True
+
         stats = mrcal.optimize(**optimization_inputs)
         print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
 
+        # core is good. Lock that down, and get an estimate for the control
+        # points
+        optimization_inputs['do_optimize_intrinsics_core'] = False
         optimization_inputs['lensmodel']                   = lensmodel
         optimization_inputs['intrinsics']                  = nps.glue(optimization_inputs['intrinsics'],
                                                                       np.zeros((args.Ncameras,Nintrinsics-4),),axis=-1)
-        optimization_inputs['do_optimize_intrinsics_core'] = False
+        stats = mrcal.optimize(**optimization_inputs)
+        print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
+
+        # Ready for a final reoptimization with the geometry
+        optimization_inputs['do_optimize_frames']          = True
+        optimization_inputs['do_optimize_extrinsics']      = True
+
     else:
         optimization_inputs['lensmodel']                   = lensmodel
         if not mrcal.lensmodel_meta(lensmodel)['has_core'] or \
            not mrcal.lensmodel_meta(model_intrinsics.intrinsics()[0])['has_core']:
             raise Exception("I'm assuming all the models here have a core. It's just lazy coding. If you see this, feel free to fix.")
-        optimization_inputs['intrinsics']                  = nps.glue(intrinsics[:,:4],
+
+        if lensmodel == model_intrinsics.intrinsics()[0]:
+            # Same model. Grab the intrinsics. They're 99% right
+            optimization_inputs['intrinsics']              = intrinsics.copy()
+        else:
+            # Different model. Grab the intrinsics core, optimize the rest
+            optimization_inputs['intrinsics']              = nps.glue(intrinsics[:,:4],
                                                                       np.zeros((args.Ncameras,Nintrinsics-4),),axis=-1)
         optimization_inputs['do_optimize_intrinsics_core'] = True
+        optimization_inputs['do_optimize_frames']          = True
+        optimization_inputs['do_optimize_extrinsics']      = True
 
+    stats = mrcal.optimize(**optimization_inputs)
+    print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
+
+    optimization_inputs['do_optimize_calobject_warp'] = True
     stats = mrcal.optimize(**optimization_inputs)
     print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
 
