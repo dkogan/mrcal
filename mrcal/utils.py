@@ -297,38 +297,62 @@ def synthesize_board_observations(models,
                                   object_width_n,object_height_n,
                                   object_spacing, calobject_warp,
                                   at_xyz_rpydeg, noiseradius_xyz_rpydeg,
-                                  Nframes):
+                                  Nframes,
+
+                                  which = 'all_cameras_must_see_full_board'):
     r'''Produce synthetic chessboard observations
 
 SYNOPSIS
 
     models = [mrcal.cameramodel("0.cameramodel"),
               mrcal.cameramodel("1.cameramodel"),]
+
+    # shapes (Nframes, Ncameras, object_height_n, object_width_n, 2) and
+    #        (Nframes, 4, 3)
     q,Rt_cam0_boardref = \
-        mrcal.synthesize_board_observations(models,
+        mrcal.synthesize_board_observations( \
+          models,
 
-                                            # board geometry
-                                            10,12,0.1,None,
+          # board geometry
+          10,12,0.1,None,
 
-                                            # Mean board pose
-                                            at_xyz_rpydeg,
+          # Mean board pose
+          at_xyz_rpydeg,
 
-                                            # Noise radius of the board pose
-                                            noiseradius_xyz_rpydeg,
+          # Noise radius of the board pose
+          noiseradius_xyz_rpydeg,
 
-                                            # How many frames we want
-                                            100)
+          # How many frames we want
+          100,
 
-    print(q.shape)
-    ===> (100, 2, 12, 10, 2)
+          which = 'some_cameras_must_see_half_board')
 
-    print(Rt_cam0_boardref.shape)
-    ===> (100, 4, 3)
+    # q now contains the synthetic pixel observations, but some of them will be
+    # out of view. I construct an (x,y,weight) observations array, as expected
+    # by the optimizer, and I set the weight for the out-of-view points to -1 to
+    # tell the optimizer to ignore those points
+
+
+    # Set the weights to 1 initially
+    # shape (Nframes, Ncameras, object_height_n, object_width_n, 3)
+    observations = nps.glue(q,
+                            np.ones( q.shape[:-1] + (1,) ),
+                            axis = -1)
+
+    # shape (Ncameras, 1, 1, 2)
+    imagersizes = nps.mv( nps.cat(*[ m.imagersize() for m in models ]),
+                          -2, -4 )
+
+    observations[ np.any( q              < 0, axis=-1 ), 2 ] = -1.
+    observations[ np.any( q-imagersizes >= 0, axis=-1 ), 2 ] = -1.
 
 Given a description of a calibration object and of the cameras observing it,
-produces pixel observations of the objects by those cameras. Exactly Nframes
-frames of data will be returned. In each frame ALL the cameras will see ALL the
-points in the calibration object
+produces perfect pixel observations of the objects by those cameras. We return a
+dense observation array: every corner observation from every chessboard pose
+will be reported for every camera. Some of these observations MAY be
+out-of-view, depending on the value of the 'which' argument; see description
+below. The example above demonstrates how to mark such out-of-bounds
+observations as outliers to tell the optimization to ignore these.
 
 The "models" provides the intrinsics and extrinsics.
 
@@ -354,7 +378,8 @@ ARGUMENTS
 
 - calobject_warp: a description of the calibration board warping. None means "no
   warping": the object is flat. Otherwise this is an array of shape (2,). See
-  the docs for ref_calibration_object() for a description.
+  the docs for ref_calibration_object() for the meaning of the values in this
+  array.
 
 - at_xyz_rpydeg: the nominal pose of the calibration object, in the reference
   coordinate system. This is an array of shape (6,): the position of the center
@@ -365,6 +390,22 @@ ARGUMENTS
   meaning as at_xyz_rpydeg
 
 - Nframes: how many frames of observations to return
+
+- which: a string, defaulting to 'all_cameras_must_see_full_board'. Controls the
+  requirements on the visibility of the returned points. Valid values:
+
+  - 'all_cameras_must_see_full_board': We return only those chessboard poses
+    that produce observations that are FULLY visible by ALL the cameras.
+
+  - 'some_cameras_must_see_full_board': We return only those chessboard poses
+    that produce observations that are FULLY visible by AT LEAST ONE camera.
+
+  - 'all_cameras_must_see_half_board': We return only those chessboard poses
+    that produce observations that are AT LEAST HALF visible by ALL the cameras.
+
+  - 'some_cameras_must_see_half_board': We return only those chessboard poses
+    that produce observations that are AT LEAST HALF visible by AT LEAST ONE
+    camera.
 
 RETURNED VALUES
 
@@ -409,7 +450,13 @@ We return a tuple:
                                      wait = 1 )
     '''
 
+    which_valid = ( 'all_cameras_must_see_full_board',
+                    'some_cameras_must_see_full_board',
+                    'all_cameras_must_see_half_board',
+                    'some_cameras_must_see_half_board', )
 
+    if not which in which_valid:
+        raise Exception(f"'which' argument must be one of {which_valid}")
 
     Ncameras = len(models)
 
@@ -439,8 +486,7 @@ We return a tuple:
     Rt_boardref_origboardref[3,:] = -board_center
 
     def get_observation_chunk():
-        '''Get some number of observations. I make Nframes of them, but keep only the
-        in-bounds ones'''
+        '''Make Nframes observations, and return them all, even the out-of-view ones'''
 
         xyz             = np.array( at_xyz_rpydeg         [:3] )
         rpy             = np.array( at_xyz_rpydeg         [3:] ) * np.pi/180.
@@ -501,7 +547,7 @@ We return a tuple:
                                                 # shape ( Nh,Nw,3)
                                                 board_reference )
 
-        # I project everything. Shape: (Nframes,Ncameras,Nh,Nw,2)
+        # I project full_board. Shape: (Nframes,Ncameras,Nh,Nw,2)
         q = \
           nps.mv( \
             nps.cat( \
@@ -510,22 +556,43 @@ We return a tuple:
                  for i in range(Ncameras) ]),
                   0,1 )
 
-        # I pick only those frames where all observations (over all the cameras) are
-        # in view
-        iframe = \
-            np.all(nps.clump(q,n=-4) >= 0, axis=-1)
+        return q,Rt_cam0_boardref
+
+    def cull_out_of_view(q,Rt_cam0_boardref,
+                         which):
+
+        # q                has shape (Nframes,Ncameras,Nh,Nw,2)
+        # Rt_cam0_boardref has shape (Nframes,4,3)
+
+        # I pick only those frames where at least one cameras sees the whole
+        # board
+
+        # shape (Nframes,Ncameras,Nh,Nw)
+        mask_visible = (q[..., 0] >= 0) * (q[..., 1] >= 0)
         for i in range(Ncameras):
             W,H = models[i].imagersize()
-            iframe *= \
-                np.all(nps.clump(q[..., 0], n=-3) <= W-1, axis=-1) * \
-                np.all(nps.clump(q[..., 1], n=-3) <= H-1, axis=-1)
+            mask_visible[:,i,...] *= \
+                (q[:,i,:,:,0] < W) * \
+                (q[:,i,:,:,1] < H)
+
+        # shape (Nframes, Ncameras)
+        Nvisible = np.count_nonzero(mask_visible, axis=(-1,-2) )
+
+        Nh,Nw = q.shape[2:4]
+        if   which == 'all_cameras_must_see_full_board':
+            iframe = np.all(Nvisible == Nh*Nw, axis=-1)
+        elif which == 'some_cameras_must_see_full_board':
+            iframe = np.any(Nvisible == Nh*Nw, axis=-1)
+        elif which == 'all_cameras_must_see_half_board':
+            iframe = np.all(Nvisible > Nh*Nw//2, axis=-1)
+        elif which == 'some_cameras_must_see_half_board':
+            iframe = np.any(Nvisible > Nh*Nw//2, axis=-1)
+        else:
+            raise Exception("Unknown 'which' argument. This is a bug. I checked for the valid options at the top of this function")
 
         # q                has shape (Nframes_inview,Ncameras,Nh*Nw,2)
         # Rt_cam0_boardref has shape (Nframes_inview,4,3)
         return q[iframe, ...], Rt_cam0_boardref[iframe, ...]
-
-
-
 
     # shape (Nframes_sofar,Ncameras,Nh,Nw,2)
     q = np.zeros((0,
@@ -539,6 +606,10 @@ We return a tuple:
     # I keep creating data, until I get Nframes-worth of in-view observations
     while True:
         q_here, Rt_cam0_boardref_here = get_observation_chunk()
+
+        q_here, Rt_cam0_boardref_here = \
+            cull_out_of_view(q_here, Rt_cam0_boardref_here,
+                             which)
 
         q = nps.glue(q, q_here, axis=-5)
         Rt_cam0_boardref = nps.glue(Rt_cam0_boardref, Rt_cam0_boardref_here, axis=-3)
