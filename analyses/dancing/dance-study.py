@@ -105,6 +105,14 @@ def parse_args():
                         parametric model to generate data (model on the
                         commandline), but a richer splined model to solve''')
 
+    parser.add_argument('--show-geometry-each-solve',
+                        action = 'store_true',
+                        help='''If given, display the camera, chessboard geometry after each solve. Used for
+                        debugging''')
+    parser.add_argument('--show-uncertainty-each-solve',
+                        action = 'store_true',
+                        help='''If given, display the uncertainty and observations after each solve. Used for
+                        debugging''')
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,
@@ -579,6 +587,14 @@ def eval_one_rangenear_tilt(models_true,
               for icam in range(args.Ncameras) ]
 
         model = models_out[args.icam_uncertainty]
+
+        if args.show_geometry_each_solve:
+            mrcal.show_calibration_geometry(models_out,
+                                            wait = True)
+        if args.show_uncertainty_each_solve:
+            mrcal.show_projection_uncertainty(model,
+                                              observations= True,
+                                              wait        = True)
 
         # shape (N,3)
         # I sample the center of the imager
