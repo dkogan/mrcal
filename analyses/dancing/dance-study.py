@@ -345,10 +345,10 @@ def solve(Nframes_near, Nframes_far,
         q_true_far              = q_true_far             [:Nframes_far ]
         Rt_cam0_board_true_far  = Rt_cam0_board_true_far [:Nframes_far ]
     else:
-        q_true_far              = np.zeros( (0,) + q_true_far.shape[1:],
-                                            dtype = q_true_far.dtype)
-        Rt_cam0_board_true_far  = np.zeros( (0,) + Rt_cam0_board_true_far.shape[1:],
-                                            dtype = Rt_cam0_board_true_far.dtype)
+        q_true_far              = np.zeros( (0,) + q_true_near.shape[1:],
+                                            dtype = q_true_near.dtype)
+        Rt_cam0_board_true_far  = np.zeros( (0,) + Rt_cam0_board_true_near.shape[1:],
+                                            dtype = Rt_cam0_board_true_near.dtype)
 
     calobject_warp_true = calobject_warp_true_ref.copy()
 
