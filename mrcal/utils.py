@@ -296,7 +296,8 @@ The calibration object geometry in a (H,W,3) array
 def synthesize_board_observations(models,
                                   object_width_n,object_height_n,
                                   object_spacing, calobject_warp,
-                                  at_xyz_rpydeg, noiseradius_xyz_rpydeg,
+                                  rt_ref_boardcenter,
+                                  rt_ref_boardcenter__noiseradius,
                                   Nframes,
 
                                   which = 'all_cameras_must_see_full_board'):
@@ -316,11 +317,9 @@ SYNOPSIS
           # board geometry
           10,12,0.1,None,
 
-          # Mean board pose
-          at_xyz_rpydeg,
-
-          # Noise radius of the board pose
-          noiseradius_xyz_rpydeg,
+          # mean board pose and the radius of the added uniform noise
+          rt_ref_boardcenter,
+          rt_ref_boardcenter__noiseradius,
 
           # How many frames we want
           100,
@@ -356,12 +355,16 @@ observations as outliers to tell the optimization to ignore these.
 
 The "models" provides the intrinsics and extrinsics.
 
-The calibration objects are nominally have pose at_xyz_rpydeg in the reference
-coordinate system, with each pose perturbed uniformly with radius
-noiseradius_xyz_rpydeg. I'd like control over roll,pitch,yaw, so this isn't a
-normal rt transformation.
+The calibration objects are nominally have pose rt_ref_boardcenter in the
+reference coordinate system, with each pose perturbed uniformly with radius
+rt_ref_boardcenter__noiseradius. This is slightly nonstandard since here I'm
+placing the board origin at its center instead of the corner (as
+mrcal.ref_calibration_object() does). But this is more appropriate to the usage
+of this function. The returned Rt_cam0_boardref transformation DOES use the
+normal corner-referenced board geometry
 
-Returns the point observations and the poses of the chessboards
+Returns the point observations and the chessboard poses that produced these
+observations.
 
 ARGUMENTS
 
@@ -381,13 +384,13 @@ ARGUMENTS
   the docs for ref_calibration_object() for the meaning of the values in this
   array.
 
-- at_xyz_rpydeg: the nominal pose of the calibration object, in the reference
-  coordinate system. This is an array of shape (6,): the position of the center
-  of the object, followed by the roll-pitch-yaw orientation, in degrees
+- rt_ref_boardcenter: the nominal pose of the calibration object, in the
+  reference coordinate system. This is an rt transformation from a
+  center-referenced calibration object to the reference coordinate system
 
-- noiseradius_xyz_rpydeg: the deviation-from-nominal for the chessboard for each
-  frame. This is the uniform distribution radius; the elements have the same
-  meaning as at_xyz_rpydeg
+- rt_ref_boardcenter__noiseradius: the deviation-from-nominal for the chessboard
+  pose for each frame. I add uniform noise to rt_ref_boardcenter, with each
+  element sampled independently, with the radius given here.
 
 - Nframes: how many frames of observations to return
 
@@ -423,14 +426,7 @@ We return a tuple:
 
     # Can visualize results with this script:
     r'''
-    import sys
-    import numpy as np
-    import numpysane as nps
-    import mrcal
-
-    roll  = 0
-    pitch = 0
-    yaw   = 0
+    r = np.array((30, 0, 0,), dtype=float) * np.pi/180.
 
     model = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
                                              np.array((1000., 1000., 1000., 1000.,))),
@@ -438,7 +434,7 @@ We return a tuple:
     Rt_cam0_boardref = \
         mrcal.synthesize_board_observations([model],
                                             5,20,0.1,None,
-                                            np.array((0,0,3., roll, pitch, yaw)),
+                                            nps.glue(r, np.array((0,0,3.)), axis=-1),
                                             np.array((0,0,0., 0,0,0)),
                                             1) [1]
     mrcal.show_calibration_geometry( models_or_extrinsics_rt_fromref = np.zeros((1,1,6), dtype=float),
@@ -464,9 +460,6 @@ We return a tuple:
     #
     # Camera coords: x,y with pixels, z forward
     # Board coords:  x,y in-plane. z forward (i.e. back towards the camera)
-    #                rotation around (x,y,z) is (pitch,yaw,roll)
-    #                respectively
-
 
     # shape: (Nh,Nw,3)
     # The center of the board is at the origin (ignoring warping)
@@ -488,11 +481,6 @@ We return a tuple:
     def get_observation_chunk():
         '''Make Nframes observations, and return them all, even the out-of-view ones'''
 
-        xyz             = np.array( at_xyz_rpydeg         [:3] )
-        rpy             = np.array( at_xyz_rpydeg         [3:] ) * np.pi/180.
-        xyz_noiseradius = np.array( noiseradius_xyz_rpydeg[:3] )
-        rpy_noiseradius = np.array( noiseradius_xyz_rpydeg[3:] ) * np.pi/180.
-
         # I compute the full random block in one shot. This is useful for
         # simulations that want to see identical poses when asking for N-1
         # random poses and when asking for the first N-1 of a set of N random
@@ -501,44 +489,9 @@ We return a tuple:
         # shape (Nframes,6)
         randomblock = np.random.uniform(low=-1.0, high=1.0, size=(Nframes,6))
 
-        # shape (Nframes,3)
-        xyz = xyz + randomblock[:,:3] * xyz_noiseradius
-        rpy = rpy + randomblock[:,3:] * rpy_noiseradius
-
-        roll,pitch,yaw = nps.transpose(rpy)
-
-        sr,cr = np.sin(roll), np.cos(roll)
-        sp,cp = np.sin(pitch),np.cos(pitch)
-        sy,cy = np.sin(yaw),  np.cos(yaw)
-
-        Rp = np.zeros((Nframes,3,3), dtype=float)
-        Ry = np.zeros((Nframes,3,3), dtype=float)
-        Rr = np.zeros((Nframes,3,3), dtype=float)
-
-        Rp[:,0,0] =   1
-        Rp[:,1,1] =  cp
-        Rp[:,2,1] =  sp
-        Rp[:,1,2] = -sp
-        Rp[:,2,2] =  cp
-
-        Ry[:,1,1] =   1
-        Ry[:,0,0] =  cy
-        Ry[:,2,0] =  sy
-        Ry[:,0,2] = -sy
-        Ry[:,2,2] =  cy
-
-        Rr[:,2,2] =   1
-        Rr[:,0,0] =  cr
-        Rr[:,1,0] =  sr
-        Rr[:,0,1] = -sr
-        Rr[:,1,1] =  cr
-
-        # I didn't think about the order too hard; it might be backwards. It
-        # also doesn't really matter. shape (Nframes,3,3)
-        R = nps.matmult(Rr, Ry, Rp)
-
         # shape(Nframes,4,3)
-        Rt_cam0_boardref = nps.glue(R, nps.dummy(xyz, -2), axis=-2)
+        Rt_cam0_boardref = \
+            mrcal.Rt_from_rt( rt_ref_boardcenter + randomblock * rt_ref_boardcenter__noiseradius )
 
         # shape = (Nframes, Nh,Nw,3)
         boards_cam0 = mrcal.transform_point_Rt( # shape (Nframes, 1,1,4,3)
