@@ -451,6 +451,21 @@ def solve(Nframes_near, Nframes_far,
     return optimization_inputs
 
 
+def observation_centroid(optimization_inputs, icam):
+    r'''mean pixel coordinate of all non-outlier points seen by a given camera'''
+
+    ifcice       = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    observations = optimization_inputs['observations_board']
+
+    # pick the camera I want
+    observations = observations[ifcice[:,1] == icam]
+
+    # ignore outliers
+    q = observations[ (observations[...,2] > 0), :2]
+
+    return np.mean(q, axis=-2)
+
+
 def eval_one_rangenear_tilt(models_true,
                             range_near, range_far, tilt_radius,
                             uncertainty_at_range_samples,
@@ -521,7 +536,7 @@ def eval_one_rangenear_tilt(models_true,
         # shape (N,3)
         # I sample the center of the imager
         pcam_samples = \
-            mrcal.unproject( (model.imagersize() - 1.) / 2.,
+            mrcal.unproject( observation_centroid(optimization_inputs,
                                                   args.icam_uncertainty),
                              *model.intrinsics(),
                              normalize = True) * \
