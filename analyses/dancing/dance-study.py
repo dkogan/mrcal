@@ -352,6 +352,10 @@ def synthetic_board_observations(Nframes, _range,
 
 def solve(Nframes_near, Nframes_far,
           models_true,
+
+          # q.shape             = (Nframes, Ncameras, object_height, object_width, 2)
+          # Rt_cam0_board.shape = (Nframes, 4,3)
+
           q_true_near, Rt_cam0_board_true_near,
           q_true_far,  Rt_cam0_board_true_far):
 
@@ -362,10 +366,10 @@ def solve(Nframes_near, Nframes_far,
         q_true_far              = q_true_far             [:Nframes_far ]
         Rt_cam0_board_true_far  = Rt_cam0_board_true_far [:Nframes_far ]
     else:
-        q_true_far              = np.zeros( (0,) + q_true_near.shape[1:],
-                                            dtype = q_true_near.dtype)
-        Rt_cam0_board_true_far  = np.zeros( (0,) + Rt_cam0_board_true_near.shape[1:],
-                                            dtype = Rt_cam0_board_true_near.dtype)
+        q_true_far              = np.zeros( (0,) + q_true_far.shape[1:],
+                                            dtype = q_true_far.dtype)
+        Rt_cam0_board_true_far  = np.zeros( (0,) + Rt_cam0_board_true_far.shape[1:],
+                                            dtype = Rt_cam0_board_true_far.dtype)
 
     calobject_warp_true = calobject_warp_true_ref.copy()
 
@@ -486,7 +490,7 @@ def eval_one_rangenear_tilt(models_true,
                                      models_true,
                                      tilt_radius)
     if range_far is not None:
-        q_true_far , Rt_cam0_board_true_far  = \
+        q_true_far, Rt_cam0_board_true_far  = \
             synthetic_board_observations(np.max(Nframes_far_samples),
                                          range_far,
                                          models_true,
