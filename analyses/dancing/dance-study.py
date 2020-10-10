@@ -358,17 +358,6 @@ def solve(Nframes_near, Nframes_far,
                                    Rt_cam0_board_true_far,
                                    axis = -3 )
 
-    q = nps.clump( nps.glue( q_true_near,
-                             q_true_far,
-                             axis = -5 ),
-                   n = 2 )
-
-    observations = nps.glue(q, q[...,(0,)]*0+1,
-                            axis = -1)
-
-    q_noise = np.random.randn(*observations.shape[:-1], 2) * args.observed_pixel_uncertainty
-    observations[...,:2] += q_noise
-
     # Dense observations. All the cameras see all the boards
     indices_frame_camera = np.zeros( (Nframes_all*args.Ncameras, 2), dtype=np.int32)
     indices_frame = indices_frame_camera[:,0].reshape(Nframes_all,args.Ncameras)
@@ -385,6 +374,34 @@ def solve(Nframes_near, Nframes_far,
                  axis=-1)
     indices_frame_camintrinsics_camextrinsics[:,2] -= 1
 
+    q = nps.glue( q_true_near,
+                  q_true_far,
+                  axis = -5 )
+
+    # apply noise
+    q += np.random.randn(*q.shape) * args.observed_pixel_uncertainty
+
+    # The observations are dense (in the data every camera sees all the
+    # chessboards), but some of the observations WILL be out of bounds. I
+    # pre-mark those as outliers so that the solve doesn't do weird stuff
+
+    # Set the weights to 1 initially
+    # shape (Nframes, Ncameras, object_height_n, object_width_n, 3)
+    observations = nps.glue(q,
+                            np.ones( q.shape[:-1] + (1,) ),
+                            axis = -1)
+
+    # shape (Ncameras, 1, 1, 2)
+    imagersizes = nps.mv( nps.cat(*[ m.imagersize() for m in models_true ]),
+                          -2, -4 )
+
+    # mark the out-of-view observations as outliers
+    observations[ np.any( q              < 0, axis=-1 ), 2 ] = -1.
+    observations[ np.any( q-imagersizes >= 0, axis=-1 ), 2 ] = -1.
+
+    # shape (Nobservations, Nh, Nw, 2)
+    observations = nps.clump( observations,
+                   n = 2 )
 
     intrinsics = nps.cat( *[m.intrinsics()[1]         for m in models_true]     )
     extrinsics = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true[1:]] )
@@ -496,7 +513,8 @@ def eval_one_rangenear_tilt(models_true,
                                                       range_near/3.*2.,
                                                       range_near/3.*2.,
                                                       range_near/10.)),
-                                            np.max(Nframes_near_samples))
+                                            np.max(Nframes_near_samples),
+                                            which = 'some_cameras_must_see_half_board')
     if range_far is not None:
         q_true_far, Rt_cam0_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
@@ -511,7 +529,8 @@ def eval_one_rangenear_tilt(models_true,
                                                           range_far/3.*2.,
                                                           range_far/3.*2.,
                                                           range_far/10.)),
-                                                np.max(Nframes_far_samples))
+                                                np.max(Nframes_far_samples),
+                                                which = 'some_cameras_must_see_half_board')
     else:
         q_true_far             = None
         Rt_cam0_board_true_far = None
