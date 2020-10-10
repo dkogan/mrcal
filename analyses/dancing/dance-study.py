@@ -64,6 +64,11 @@ def parse_args():
                         default = 1,
                         type=positive_int,
                         help='How many cameras in our synthetic world')
+    parser.add_argument('--icam-uncertainty',
+                        default = 0,
+                        type=int,
+                        help='''Which camera to use for the uncertainty reporting. I use the left-most one
+                        (camera 0) by default''')
     parser.add_argument('--camera-spacing',
                         default = 0.3,
                         type=positive_float,
@@ -514,13 +519,13 @@ def eval_one_rangenear_tilt(models_true,
                                  icam_intrinsics     = icam ) \
               for icam in range(args.Ncameras) ]
 
-        icam = 0
-        model = models_out[icam]
+        model = models_out[args.icam_uncertainty]
 
         # shape (N,3)
         # I sample the center of the imager
         pcam_samples = \
             mrcal.unproject( (model.imagersize() - 1.) / 2.,
+                                                  args.icam_uncertainty),
                              *model.intrinsics(),
                              normalize = True) * \
                              nps.dummy(uncertainty_at_range_samples, -1)
