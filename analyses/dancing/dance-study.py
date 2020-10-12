@@ -198,6 +198,12 @@ def parse_args():
                         frames is given by this argument, while we look at the
                         effect of replacing "near" frames with "far" frames.''')
 
+    parser.add_argument('--Nscan-samples',
+                        type=positive_int,
+                        default=8,
+                        help='''How many values of the parameter being scanned to evaluate. By default, the
+                        scan evaluates 8 different values''')
+
     parser.add_argument('--hardcopy',
                         help='''Filename to plot into. If omitted, we make an interactive plot''')
 
@@ -627,7 +633,7 @@ models_true = \
 if   args.scan_num_far_constant_Nframes_near or \
      args.scan_num_far_constant_Nframes_all:
 
-    Nfar_samples = 8
+    Nfar_samples = args.Nscan_samples
     if   args.scan_num_far_constant_Nframes_near:
         Nframes_far_samples = np.linspace(0,
                                           args.Nframes_near*2,
@@ -654,7 +660,7 @@ elif args.scan_ranges:
     Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
-    Nrange_samples = 8
+    Nrange_samples = args.Nscan_samples
     range_samples = np.linspace(*args.range,
                                 Nrange_samples, dtype=float)
     uncertainties = np.zeros((Nrange_samples, Nuncertainty_at_range_samples),
@@ -673,7 +679,7 @@ elif args.scan_tilts:
     Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
-    Ntilt_rad_samples = 8
+    Ntilt_rad_samples = args.Nscan_samples
     tilt_rad_samples = np.linspace(*args.tilt_radius,
                                    Ntilt_rad_samples, dtype=float)
     uncertainties = np.zeros((Ntilt_rad_samples, Nuncertainty_at_range_samples),
