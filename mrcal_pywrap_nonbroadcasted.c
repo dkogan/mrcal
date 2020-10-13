@@ -1662,6 +1662,11 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 jacobian = csr_from_cholmod_sparse((PyObject*)P,
                                                    (PyObject*)I,
                                                    (PyObject*)X);
+                if(jacobian == NULL)
+                {
+                    // reuse the existing error
+                    goto done;
+                }
             }
 
             result = PyTuple_Pack(4,
