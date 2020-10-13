@@ -112,7 +112,7 @@ do {                                                                    \
                                                         function_prefix ## name ## _docstring}
 
 
-// steals the references to P,I,X
+// adds a reference to P,I,X, unless an error is reported
 static PyObject* csr_from_cholmod_sparse( PyObject* P,
                                           PyObject* I,
                                           PyObject* X )
@@ -1287,6 +1287,12 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     PyArrayObject* x_final        = NULL;
     PyObject*      pystats        = NULL;
 
+    PyArrayObject* P             = NULL;
+    PyArrayObject* I             = NULL;
+    PyArrayObject* X             = NULL;
+    PyObject*      factorization = NULL;
+    PyObject*      jacobian      = NULL;
+
     SET_SIGINT();
 
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
@@ -1568,11 +1574,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                                   c_observations_point,
                                                   problem_details,
                                                   mrcal_lensmodel_type);
-
-            PyArrayObject* P = NULL;
-            PyArrayObject* I = NULL;
-            PyArrayObject* X = NULL;
-
             cholmod_sparse Jt = {
                 .nrow   = Nstate,
                 .ncol   = Nmeasurements,
@@ -1632,8 +1633,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 goto done;
             }
 
-
-            PyObject* factorization;
             if(no_factorization)
             {
                 factorization = Py_None;
@@ -1653,7 +1652,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 }
             }
 
-            PyObject* jacobian;
             if(no_jacobian)
             {
                 jacobian = Py_None;
@@ -1661,7 +1659,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
             else
             {
-                // steals references to P,I,X. These are now held by the jacobian
                 jacobian = csr_from_cholmod_sparse((PyObject*)P,
                                                    (PyObject*)I,
                                                    (PyObject*)X);
@@ -1683,8 +1680,14 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
 #pragma GCC diagnostic pop
 
-    if(x_final) Py_DECREF(x_final);
-    if(pystats) Py_DECREF(pystats);
+    Py_XDECREF(p_packed_final);
+    Py_XDECREF(x_final);
+    Py_XDECREF(pystats);
+    Py_XDECREF(P);
+    Py_XDECREF(I);
+    Py_XDECREF(X);
+    Py_XDECREF(factorization);
+    Py_XDECREF(jacobian);
 
     RESET_SIGINT();
     return result;
