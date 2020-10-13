@@ -60,10 +60,6 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--Ncameras',
-                        default = 1,
-                        type=positive_int,
-                        help='How many cameras in our synthetic world')
     parser.add_argument('--icam-uncertainty',
                         default = 0,
                         type=int,
@@ -132,18 +128,27 @@ def parse_args():
     parser.add_argument('--scan-ranges',
                         action='store_true',
                         help='''Study the effect of range-to-camera on uncertainty. We will try out ranges
-                        between the two --ranges values. One range at a time
-                        will be evaluated. The number of frames is given in
-                        --Nframes. The one random radius of the board tilt is
-                        given in --tilt-radius. Exactly one of the --scan-...
-                        arguments must be given''')
+                        between the two --ranges values. --tilt-radius,
+                        --Nframes, --Ncameras, control the set point. Exactly
+                        one of the --scan-... arguments must be given''')
     parser.add_argument('--scan-tilts',
                         action='store_true',
-                        help='''Study the effect of chessboard tilt on uncertainty. We will try out tilts
-                        between the two --tilt-radius values. One range at a
-                        time will be evaluated: given in --range. The number of
-                        frames is given in --Nframes. Exactly one of the
-                        --scan-... arguments must be given''')
+                        help='''Study the effect of chessboard tilt on uncertainty. We will try out random
+                        tilt radiuses between the two --tilt-radius values.
+                        --range, --Nframes, --Ncameras control the set point.
+                        Exactly one of the --scan-... arguments must be given''')
+    parser.add_argument('--scan-Nframes',
+                        action='store_true',
+                        help='''Study the effect of chessboard observation counts on uncertainty. We will try
+                        out Nframes between the two --Nframes values. --range,
+                        --tilt-radius, --Ncameras control the set point. Exactly
+                        one of the --scan-... arguments must be given''')
+    parser.add_argument('--scan-Ncameras',
+                        action='store_true',
+                        help='''Study the effect of camera counts on uncertainty. We will try out Ncameras
+                        between the two --Ncameras values. --range,
+                        --tilt-radius, --Nframes control the set point. Exactly
+                        one of the --scan-... arguments must be given''')
     parser.add_argument('--scan-num-far-constant-Nframes-near',
                         action='store_true',
                         help='''Study the effect of far-away chessboard observations added to a constant set
@@ -171,8 +176,8 @@ def parse_args():
                         help='''if --scan-num-far-...: this is "NEAR,FAR"; specifying the near and far ranges
                         to the chessboard to evaluate. if --scan-ranges this is
                         "MIN,MAX"; specifying the extents of the ranges to
-                        evaluate. if --scan-tilts: this is RANGE, the one range
-                        of chessboards to evaluate''')
+                        evaluate. Otherwise: this is RANGE, the one range of
+                        chessboards to evaluate''')
     parser.add_argument('--tilt-radius',
                         default='30.',
                         type=str,
@@ -181,12 +186,22 @@ def parse_args():
                         30, meaning that the chessboard pitch and yaw are
                         sampled from [-30deg,30deg]. if --scan-tilts: this is
                         TILT-MIN,TILT-MAX specifying the bounds of the two
-                        tilt-radius values to evaluate''')
-
+                        tilt-radius values to evaluate. Otherwise: this is the
+                        one value we use''')
+    parser.add_argument('--Ncameras',
+                        default = '1',
+                        type=str,
+                        help='''How many cameras oberve our synthetic world. By default we just have one
+                        camera. if --scan-Ncameras: this is
+                        NCAMERAS-MIN,NCAMERAS-MAX specifying the bounds of the
+                        camera counts to evaluate. Otherwise: this is the one
+                        Ncameras value to use''')
     parser.add_argument('--Nframes',
-                        type=positive_int,
-                        help='''Used if --scan-ranges or --scan-tilts. We look at this many frames in that
-                        case''')
+                        type=str,
+                        help='''How many observed frames we have. Ignored if --scan-num-far-... if
+                        --scan-Nframes: this is NFRAMES-MIN,NFRAMES-MAX specifying the bounds of the
+                        frame counts to evaluate. Otherwise: this is the one Nframes value to use''')
+
     parser.add_argument('--Nframes-near',
                         type=positive_int,
                         help='''Used if --scan-num-far-constant-Nframes-near. The number of "near" frames is
@@ -221,6 +236,8 @@ args = parse_args()
 Nscanargs = 0
 if args.scan_ranges:                        Nscanargs += 1
 if args.scan_tilts:                         Nscanargs += 1
+if args.scan_Ncameras:                      Nscanargs += 1
+if args.scan_Nframes:                       Nscanargs += 1
 if args.scan_num_far_constant_Nframes_near: Nscanargs += 1
 if args.scan_num_far_constant_Nframes_all:  Nscanargs += 1
 
@@ -242,16 +259,40 @@ sys.path[:0] = '../..',
 import mrcal
 
 
-args.tilt_radius = [float(x) for x in args.tilt_radius.split(',')]
-args.range       = [float(x) for x in args.range.      split(',')]
+def split_list(s, t):
+    r'''Splits a comma-separated list
+
+    None    -> None
+    "A,B,C" -> (A,B,C)
+    "A"     -> A
+    '''
+    if s is None: return None
+    l = [t(x) for x in s.split(',')]
+    if len(l) == 1: return l[0]
+    return l
+
+def first(s):
+    r'''first in a list, or the value if a scalar'''
+    if hasattr(s, '__iter__'): return s[0]
+    return s
+
+def last(s):
+    r'''last in a list, or the value if a scalar'''
+    if hasattr(s, '__iter__'): return s[-1]
+    return s
+
+args.tilt_radius = split_list(args.tilt_radius, float)
+args.range       = split_list(args.range,       float)
+args.Ncameras    = split_list(args.Ncameras,    int)
+args.Nframes     = split_list(args.Nframes,     int)
 
 Nuncertainty_at_range_samples = 80
 uncertainty_at_range_sampled_min = args.uncertainty_at_range_sampled_min
 if uncertainty_at_range_sampled_min is None:
-    uncertainty_at_range_sampled_min = args.range[0]/10.
+    uncertainty_at_range_sampled_min = first(args.range)/10.
 uncertainty_at_range_sampled_max = args.uncertainty_at_range_sampled_max
 if uncertainty_at_range_sampled_max is None:
-    uncertainty_at_range_sampled_max = args.range[-1] *10.
+    uncertainty_at_range_sampled_max = last(args.range) *10.
 
 uncertainty_at_range_samples = \
     np.logspace( np.log10(uncertainty_at_range_sampled_min),
@@ -260,77 +301,143 @@ uncertainty_at_range_samples = \
 
 
 if   args.scan_ranges:
-    # --Nframes N
     # --range MIN,MAX
     # --tilt-radius TILT-RAD
+    # --Ncameras N
+    # --Nframes N
     if args.Nframes is None:
-        print("--scan-ranges requires --Nframes", file=sys.stderr)
+        print("The given --scan-... requires --Nframes", file=sys.stderr)
         sys.exit(1)
-    if len(args.range) != 2:
-        print("--scan-ranges requires --range with 2 arguments", file=sys.stderr)
+    if not hasattr(args.range, '__iter__') or len(args.range) != 2:
+        print("The given --scan-... requires --range with 2 arguments", file=sys.stderr)
         sys.exit(1)
-    if len(args.tilt_radius) != 1:
-        print("--scan-ranges requires --tilt-radius with 1 argument", file=sys.stderr)
+    if hasattr(args.tilt_radius, '__iter__'):
+        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Nframes, '__iter__'):
+        print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Ncameras, '__iter__'):
+        print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
         sys.exit(1)
     if args.Nframes_near is not None or args.Nframes_all is not None:
-        print("--scan-ranges does not use --Nframes-near or --Nframes-all", file=sys.stderr)
+        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
         sys.exit(1)
 
-    args.tilt_radius = args.tilt_radius[0]
 elif args.scan_tilts:
-    # --Nframes N
     # --range RANGE
     # --tilt-radius TILT-RAD-MIN,TILT-RAD-MAX
+    # --Ncameras N
+    # --Nframes N
     if args.Nframes is None:
-        print("--scan-ranges requires --Nframes", file=sys.stderr)
+        print("The given --scan-... requires --Nframes", file=sys.stderr)
         sys.exit(1)
-    if len(args.range) != 1:
-        print("--scan-ranges requires --range with 1 argument", file=sys.stderr)
+    if hasattr(args.range, '__iter__'):
+        print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
         sys.exit(1)
-    if len(args.tilt_radius) != 2:
-        print("--scan-ranges requires --tilt-radius with 2 arguments", file=sys.stderr)
+    if not hasattr(args.tilt_radius, '__iter__') or len(args.tilt_radius) != 2:
+        print("The given --scan-... requires --tilt-radius with 2 arguments", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Nframes, '__iter__'):
+        print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Ncameras, '__iter__'):
+        print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
         sys.exit(1)
     if args.Nframes_near is not None or args.Nframes_all is not None:
-        print("--scan-tilts does not use --Nframes-near or --Nframes-all", file=sys.stderr)
+        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
         sys.exit(1)
 
-    args.range = args.range[0]
+elif args.scan_Ncameras:
+    # --range RANGE
+    # --tilt-radius TILT-RAD
+    # --Ncameras NMIN,NMAX
+    # --Nframes N
+    if args.Nframes is None:
+        print("The given --scan-... requires --Nframes", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.range, '__iter__'):
+        print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.tilt_radius, '__iter__'):
+        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Nframes, '__iter__'):
+        print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if not hasattr(args.Ncameras, '__iter__') or len(args.Ncameras) != 2:
+        print("The given --scan-... requires --Ncameras with 2 arguments", file=sys.stderr)
+        sys.exit(1)
+    if args.Nframes_near is not None or args.Nframes_all is not None:
+        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
+        sys.exit(1)
+
+elif args.scan_Nframes:
+    # --range RANGE
+    # --tilt-radius TILT-RAD
+    # --Ncameras N
+    # --Nframes NMIN,NMAX
+    if args.Nframes is None:
+        print("The given --scan-... requires --Nframes", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.range, '__iter__'):
+        print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.tilt_radius, '__iter__'):
+        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if not hasattr(args.Nframes, '__iter__') or len(args.Nframes) != 2:
+        print("The given --scan-... requires --Nframes with 2 arguments", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Ncameras, '__iter__'):
+        print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if args.Nframes_near is not None or args.Nframes_all is not None:
+        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
+        sys.exit(1)
+
 elif args.scan_num_far_constant_Nframes_near:
     # --Nframes-near N
     # --range RANGE-NEAR,RANGE-FAR
     # --tilt-radius TILT-RAD
+    # --Ncameras N
     if args.Nframes_near is None:
-        print("--scan-num-far-constant-Nframes-near requires --Nframes-near", file=sys.stderr)
+        print("The given --scan-... requires --Nframes-near", file=sys.stderr)
         sys.exit(1)
-    if len(args.range) != 2:
-        print("--scan-num-far-constant-Nframes-near requires --range with 2 arguments", file=sys.stderr)
+    if not hasattr(args.range, '__iter__') or len(args.range) != 2:
+        print("The given --scan-... requires --range with 2 arguments", file=sys.stderr)
         sys.exit(1)
-    if len(args.tilt_radius) != 1:
-        print("--scan-num-far-constant-Nframes-near requires --tilt-radius with 1 argument", file=sys.stderr)
+    if hasattr(args.tilt_radius, '__iter__'):
+        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Ncameras, '__iter__'):
+        print("The given --scan-...requires --Ncameras with 1 argument", file=sys.stderr)
         sys.exit(1)
     if args.Nframes is not None or args.Nframes_all is not None:
-        print("--scan-num-far-constant-Nframes-near does not use --Nframes or --Nframes-all", file=sys.stderr)
+        print("The given --scan-... does not use --Nframes or --Nframes-all", file=sys.stderr)
         sys.exit(1)
 
-    args.tilt_radius = args.tilt_radius[0]
 elif args.scan_num_far_constant_Nframes_all:
     # --Nframes-all N
     # --range RANGE-NEAR,RANGE-FAR
     # --tilt-radius TILT-RAD
+    # --Ncameras N
     if args.Nframes_all is None:
-        print("--scan-num-far-constant-Nframes-all requires --Nframes-all", file=sys.stderr)
+        print("The given --scan-... requires --Nframes-all", file=sys.stderr)
         sys.exit(1)
-    if len(args.range) != 2:
-        print("--scan-num-far-constant-Nframes-all requires --range with 2 arguments", file=sys.stderr)
+    if not hasattr(args.range, '__iter__') or len(args.range) != 2:
+        print("The given --scan-... requires --range with 2 arguments", file=sys.stderr)
         sys.exit(1)
-    if len(args.tilt_radius) != 1:
-        print("--scan-num-far-constant-Nframes-all requires --tilt-radius with 1 argument", file=sys.stderr)
+    if hasattr(args.tilt_radius, '__iter__'):
+        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
+        sys.exit(1)
+    if hasattr(args.Ncameras, '__iter__'):
+        print("--scan-tilts requires --Ncameras with 1 argument", file=sys.stderr)
         sys.exit(1)
     if args.Nframes is not None or args.Nframes_near is not None:
-        print("--scan-num-far-constant-Nframes-all does not use --Nframes or --Nframes-near", file=sys.stderr)
+        print("The given --scan-... does not use --Nframes or --Nframes-near", file=sys.stderr)
         sys.exit(1)
 
-    args.tilt_radius = args.tilt_radius[0]
 else:
     raise Exception("getting here is a bug")
 
@@ -343,7 +450,8 @@ model_intrinsics = mrcal.cameramodel(args.model)
 calobject_warp_true_ref = np.array((0.002, -0.005))
 
 
-def solve(Nframes_near, Nframes_far,
+def solve(Ncameras,
+          Nframes_near, Nframes_far,
           models_true,
 
           # q.shape             = (Nframes, Ncameras, object_height, object_width, 2)
@@ -373,14 +481,14 @@ def solve(Nframes_near, Nframes_far,
                                    axis = -3 )
 
     # Dense observations. All the cameras see all the boards
-    indices_frame_camera = np.zeros( (Nframes_all*args.Ncameras, 2), dtype=np.int32)
-    indices_frame = indices_frame_camera[:,0].reshape(Nframes_all,args.Ncameras)
+    indices_frame_camera = np.zeros( (Nframes_all*Ncameras, 2), dtype=np.int32)
+    indices_frame = indices_frame_camera[:,0].reshape(Nframes_all,Ncameras)
     indices_frame.setfield(nps.outer(np.arange(Nframes_all, dtype=np.int32),
-                                     np.ones((args.Ncameras,), dtype=np.int32)),
+                                     np.ones((Ncameras,), dtype=np.int32)),
                            dtype = np.int32)
-    indices_camera = indices_frame_camera[:,1].reshape(Nframes_all,args.Ncameras)
+    indices_camera = indices_frame_camera[:,1].reshape(Nframes_all,Ncameras)
     indices_camera.setfield(nps.outer(np.ones((Nframes_all,), dtype=np.int32),
-                                     np.arange(args.Ncameras, dtype=np.int32)),
+                                     np.arange(Ncameras, dtype=np.int32)),
                            dtype = np.int32)
     indices_frame_camintrinsics_camextrinsics = \
         nps.glue(indices_frame_camera,
@@ -475,7 +583,7 @@ def solve(Nframes_near, Nframes_far,
         optimization_inputs['do_optimize_intrinsics_core'] = False
         optimization_inputs['lensmodel']                   = lensmodel
         optimization_inputs['intrinsics']                  = nps.glue(optimization_inputs['intrinsics'],
-                                                                      np.zeros((args.Ncameras,Nintrinsics-4),),axis=-1)
+                                                                      np.zeros((Ncameras,Nintrinsics-4),),axis=-1)
         stats = mrcal.optimize(**optimization_inputs)
         print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
 
@@ -495,7 +603,7 @@ def solve(Nframes_near, Nframes_far,
         else:
             # Different model. Grab the intrinsics core, optimize the rest
             optimization_inputs['intrinsics']              = nps.glue(intrinsics[:,:4],
-                                                                      np.zeros((args.Ncameras,Nintrinsics-4),),axis=-1)
+                                                                      np.zeros((Ncameras,Nintrinsics-4),),axis=-1)
         optimization_inputs['do_optimize_intrinsics_core'] = True
         optimization_inputs['do_optimize_frames']          = True
         optimization_inputs['do_optimize_extrinsics']      = True
@@ -528,6 +636,7 @@ def observation_centroid(optimization_inputs, icam):
 def eval_one_rangenear_tilt(models_true,
                             range_near, range_far, tilt_radius,
                             uncertainty_at_range_samples,
+                            Ncameras,
                             Nframes_near_samples, Nframes_far_samples):
 
     # I want the RNG to be deterministic
@@ -538,7 +647,7 @@ def eval_one_rangenear_tilt(models_true,
                              dtype=float)
 
 
-    radius_cameras = (args.camera_spacing * (args.Ncameras-1)) / 2.
+    radius_cameras = (args.camera_spacing * (Ncameras-1)) / 2.
 
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
@@ -582,7 +691,8 @@ def eval_one_rangenear_tilt(models_true,
         Nframes_far  = Nframes_far_samples [i_Nframes_far]
         Nframes_near = Nframes_near_samples[i_Nframes_far]
 
-        optimization_inputs = solve(Nframes_near, Nframes_far,
+        optimization_inputs = solve(Ncameras,
+                                    Nframes_near, Nframes_far,
                                     models_true,
                                     q_true_near, Rt_cam0_board_true_near,
                                     q_true_far,  Rt_cam0_board_true_far)
@@ -590,7 +700,7 @@ def eval_one_rangenear_tilt(models_true,
         models_out = \
             [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
                                  icam_intrinsics     = icam ) \
-              for icam in range(args.Ncameras) ]
+              for icam in range(Ncameras) ]
 
         model = models_out[args.icam_uncertainty]
 
@@ -620,13 +730,6 @@ def eval_one_rangenear_tilt(models_true,
 
 
 
-models_true = \
-    [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                        imagersize          = model_intrinsics.imagersize(),
-                        extrinsics_rt_toref = np.array((0,0,0,
-                                                        i*args.camera_spacing,
-                                                        0,0), dtype=float) ) \
-      for i in range(args.Ncameras) ]
 
 
 
@@ -646,12 +749,20 @@ if   args.scan_num_far_constant_Nframes_near or \
                                            Nfar_samples, dtype=int)
         Nframes_near_samples = args.Nframes_all - Nframes_far_samples
 
+    models_true = \
+        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                            imagersize          = model_intrinsics.imagersize(),
+                            extrinsics_rt_toref = np.array((0,0,0,
+                                                            i*args.camera_spacing,
+                                                            0,0), dtype=float) ) \
+          for i in range(args.Ncameras) ]
 
     uncertainties = \
         eval_one_rangenear_tilt(models_true,
                                 *args.range,
                                 args.tilt_radius,
                                 uncertainty_at_range_samples,
+                                args.Ncameras,
                                 Nframes_near_samples, Nframes_far_samples)
 
     samples = Nframes_far_samples
@@ -659,6 +770,14 @@ if   args.scan_num_far_constant_Nframes_near or \
 elif args.scan_ranges:
     Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    models_true = \
+        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                            imagersize          = model_intrinsics.imagersize(),
+                            extrinsics_rt_toref = np.array((0,0,0,
+                                                            i*args.camera_spacing,
+                                                            0,0), dtype=float) ) \
+          for i in range(args.Ncameras) ]
 
     Nrange_samples = args.Nscan_samples
     range_samples = np.linspace(*args.range,
@@ -671,6 +790,7 @@ elif args.scan_ranges:
                                     range_samples[i_range], None,
                                     args.tilt_radius,
                                     uncertainty_at_range_samples,
+                                    args.Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
 
     samples = range_samples
@@ -678,6 +798,14 @@ elif args.scan_ranges:
 elif args.scan_tilts:
     Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    models_true = \
+        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                            imagersize          = model_intrinsics.imagersize(),
+                            extrinsics_rt_toref = np.array((0,0,0,
+                                                            i*args.camera_spacing,
+                                                            0,0), dtype=float) ) \
+          for i in range(args.Ncameras) ]
 
     Ntilt_rad_samples = args.Nscan_samples
     tilt_rad_samples = np.linspace(*args.tilt_radius,
@@ -690,9 +818,73 @@ elif args.scan_tilts:
                                     args.range, None,
                                     tilt_rad_samples[i_tilt],
                                     uncertainty_at_range_samples,
+                                    args.Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
 
     samples = tilt_rad_samples
+
+elif args.scan_Ncameras:
+
+    Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
+    Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    N_Ncameras_samples = args.Nscan_samples
+    Ncameras_samples = np.linspace(*args.Ncameras,
+                                   N_Ncameras_samples, dtype=int)
+    uncertainties = np.zeros((N_Ncameras_samples, Nuncertainty_at_range_samples),
+                             dtype=float)
+    for i_Ncameras in range(N_Ncameras_samples):
+
+        Ncameras = Ncameras_samples[i_Ncameras]
+        models_true = \
+            [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                                imagersize          = model_intrinsics.imagersize(),
+                                extrinsics_rt_toref = np.array((0,0,0,
+                                                                i*args.camera_spacing,
+                                                                0,0), dtype=float) ) \
+              for i in range(Ncameras) ]
+
+        uncertainties[i_Ncameras] = \
+            eval_one_rangenear_tilt(models_true,
+                                    args.range, None,
+                                    args.tilt_radius,
+                                    uncertainty_at_range_samples,
+                                    Ncameras,
+                                    Nframes_near_samples, Nframes_far_samples)[0]
+
+    samples = Ncameras_samples
+
+elif args.scan_Nframes:
+
+    Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    models_true = \
+        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                            imagersize          = model_intrinsics.imagersize(),
+                            extrinsics_rt_toref = np.array((0,0,0,
+                                                            i*args.camera_spacing,
+                                                            0,0), dtype=float) ) \
+          for i in range(args.Ncameras) ]
+
+    N_Nframes_samples = args.Nscan_samples
+    Nframes_samples = np.linspace(*args.Nframes,
+                                  N_Nframes_samples, dtype=int)
+    uncertainties = np.zeros((N_Nframes_samples, Nuncertainty_at_range_samples),
+                             dtype=float)
+    for i_Nframes in range(N_Nframes_samples):
+
+        Nframes = Nframes_samples[i_Nframes]
+        Nframes_near_samples = np.array( (Nframes,), dtype=int)
+
+        uncertainties[i_Nframes] = \
+            eval_one_rangenear_tilt(models_true,
+                                    args.range, None,
+                                    args.tilt_radius,
+                                    uncertainty_at_range_samples,
+                                    args.Ncameras,
+                                    Nframes_near_samples, Nframes_far_samples)[0]
+
+    samples = Nframes_samples
 
 else:
     raise Exception("Getting here is a bug")
@@ -707,16 +899,22 @@ guides.append(f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_
 
 
 if   args.scan_num_far_constant_Nframes_near:
-    title = f"Simulated {args.Ncameras} cameras. Have {args.Nframes_near} 'near' chessboard observations. Adding 'far' observations."
+    title = f"Scanning 'far' observations added to a set of 'near' observations. Have {args.Ncameras} cameras, {args.Nframes_near} 'near' observations, at ranges {args.range}."
     legend_what = 'Nframes_far'
 elif args.scan_num_far_constant_Nframes_all:
-    title = f"Simulated {args.Ncameras} cameras. Total {args.Nframes_all} chessboard observations. Replacing 'near' observations with 'far' observations."
+    title = f"Scanning 'far' observations replacing 'near' observations. Have {args.Ncameras} cameras, {args.Nframes_all} total observations, at ranges {args.range}."
     legend_what = 'Nframes_far'
+elif args.scan_Nframes:
+    title = f"Scanning Nframes. Have {args.Ncameras} cameras looking out at {args.range}m."
+    legend_what = 'Nframes'
+elif args.scan_Ncameras:
+    title = f"Scanning Ncameras. Observing {args.Nframes} boards at {args.range}m."
+    legend_what = 'Ncameras'
 elif args.scan_ranges:
-    title = f"Simulated {args.Ncameras} cameras. Looking at displayed chessboards in the range {args.range}. Have {args.Nframes} chessboard observations."
+    title = f"Scanning the distance to observations. Have {args.Ncameras} cameras looking at {args.Nframes} boards."
     legend_what = 'Range-to-chessboards'
 elif args.scan_tilts:
-    title = f"Simulated {args.Ncameras} cameras. Varying the chessboard tilt distribution; random radius {args.tilt_radius}. Have {args.Nframes} chessboard observations."
+    title = f"Scanning the board tilt. Have {args.Ncameras} cameras looking at {args.Nframes} boards at {args.range}m"
     legend_what = 'Random chessboard tilt radius'
 else:
     raise Exception("Getting here is a bug")
