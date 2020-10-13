@@ -719,5 +719,9 @@ RETURNED VALUE
 A numpy array of shape (..., Nheight, Nwidth) containing the transformed image.
 
     '''
+
+    # necessary to avoid opencv crashing
+    if not isinstance(image, np.ndarray): raise Exception("'image' must be a numpy array")
+    if not isinstance(mapxy, np.ndarray): raise Exception("'mapxy' must be a numpy array")
     return cv2.remap(image, mapxy, None,
                      cv2.INTER_LINEAR)
