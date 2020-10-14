@@ -234,14 +234,14 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 #undef CHECK_AND_RETURN_WITHCONFIG
 }
 
-mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const mrcal_lensmodel_t m )
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m )
 {
     switch(m.type)
     {
     case MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC:
     case MRCAL_LENSMODEL_STEREOGRAPHIC:
-        return (mrcal_lensmodel_meta_t) { .has_core                  = true,
-                                          .can_project_behind_camera = true };
+        return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
+                                              .can_project_behind_camera = true };
     case MRCAL_LENSMODEL_PINHOLE:
     case MRCAL_LENSMODEL_OPENCV4:
     case MRCAL_LENSMODEL_OPENCV5:
@@ -249,8 +249,8 @@ mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const mrcal_lensmodel_t m )
     case MRCAL_LENSMODEL_OPENCV12:
     case MRCAL_LENSMODEL_CAHVOR:
     case MRCAL_LENSMODEL_CAHVORE:
-        return (mrcal_lensmodel_meta_t) { .has_core                  = true,
-                                          .can_project_behind_camera = false };
+        return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
+                                              .can_project_behind_camera = false };
 
     default: ;
     }
@@ -261,13 +261,13 @@ mrcal_lensmodel_meta_t mrcal_lensmodel_meta( const mrcal_lensmodel_t m )
 static
 bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t m )
 {
-    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(m);
     return meta.has_core;
 }
 static
 bool model_supports_projection_behind_camera( const mrcal_lensmodel_t m )
 {
-    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(m);
     return meta.can_project_behind_camera;
 }
 

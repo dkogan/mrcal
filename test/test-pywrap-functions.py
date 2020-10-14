@@ -27,7 +27,7 @@ testutils.confirm_equal(uy,
 
 
 
-meta = mrcal.lensmodel_meta(model_splined.intrinsics()[0])
+meta = mrcal.lensmodel_metadata(model_splined.intrinsics()[0])
 meta_ref = {'has_core': 1,
             'can_project_behind_camera': 1,
             'order': 3,
@@ -35,6 +35,6 @@ meta_ref = {'has_core': 1,
             'Ny': 11,
             'fov_x_deg': 120}
 testutils.confirm_equal(meta, meta_ref,
-                        msg="lensmodel_meta() keys")
+                        msg="lensmodel_metadata() keys")
 
 testutils.finish()

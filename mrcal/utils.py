@@ -1916,7 +1916,7 @@ else:                    we return an array of shape (...)
 
         i0,i1 = None,None # everything by default
 
-        has_core     = mrcal.lensmodel_meta(lensmodel)['has_core']
+        has_core     = mrcal.lensmodel_metadata(lensmodel)['has_core']
         Ncore        = 4 if has_core else 0
         Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
 
@@ -2872,7 +2872,7 @@ into a variable, even if you're not going to be doing anything with this object
     if gridn_height is None:
         gridn_height = int(round(H/W*gridn_width))
 
-    if not mrcal.lensmodel_meta(lensmodel)['has_core']:
+    if not mrcal.lensmodel_metadata(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
@@ -3089,7 +3089,7 @@ An array of shape (N,2) containing a contour representing the projection domain.
     # shape (Ny,Nx,2)
     u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
 
-    meta = mrcal.lensmodel_meta(lensmodel)
+    meta = mrcal.lensmodel_metadata(lensmodel)
     if meta['order'] == 2:
         # spline order is 3. The valid region is 1/2 segments inwards from the
         # outer contour
@@ -3319,7 +3319,7 @@ into a variable, even if you're not going to be doing anything with this object
 
 
     ux_knots,uy_knots = mrcal.knots_for_splined_models(lensmodel)
-    meta = mrcal.lensmodel_meta(lensmodel)
+    meta = mrcal.lensmodel_metadata(lensmodel)
     Nx = meta['Nx']
     Ny = meta['Ny']
 
@@ -5182,7 +5182,7 @@ camera coordinate system FROM the calibration object coordinate system.
     lensmodels      = [di[0] for di in lensmodels_intrinsics_data]
     intrinsics_data = [di[1] for di in lensmodels_intrinsics_data]
 
-    if not all([mrcal.lensmodel_meta(m)['has_core'] for m in lensmodels]):
+    if not all([mrcal.lensmodel_metadata(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
     fx = [ i[0] for i in intrinsics_data ]
@@ -6199,7 +6199,7 @@ None
             iunpacked0,iunpacked1 = None,None # everything by default
 
             lensmodel    = optimization_inputs['lensmodel']
-            has_core     = mrcal.lensmodel_meta(lensmodel)['has_core']
+            has_core     = mrcal.lensmodel_metadata(lensmodel)['has_core']
             Ncore        = 4 if has_core else 0
             Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
 

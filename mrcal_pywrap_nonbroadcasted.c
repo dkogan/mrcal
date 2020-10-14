@@ -687,7 +687,7 @@ static bool parse_lensmodel_from_arg(// output
     return true;
 }
 
-static PyObject* lensmodel_meta(PyObject* NPY_UNUSED(self),
+static PyObject* lensmodel_metadata(PyObject* NPY_UNUSED(self),
                                 PyObject* args)
 {
     PyObject* result = NULL;
@@ -700,7 +700,7 @@ static PyObject* lensmodel_meta(PyObject* NPY_UNUSED(self),
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
 
-    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(lensmodel);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
 
 #define MRCAL_ITEM_BUILDVALUE_DEF(  name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) " s "pybuildvaluecode
 #define MRCAL_ITEM_BUILDVALUE_VALUE(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) , #name, cookie name
@@ -2757,8 +2757,8 @@ static const char optimize_docstring[] =
 static const char optimizer_callback_docstring[] =
 #include "optimizer_callback.docstring.h"
     ;
-static const char lensmodel_meta_docstring[] =
-#include "lensmodel_meta.docstring.h"
+static const char lensmodel_metadata_docstring[] =
+#include "lensmodel_metadata.docstring.h"
     ;
 static const char lensmodel_num_params_docstring[] =
 #include "lensmodel_num_params.docstring.h"
@@ -2800,7 +2800,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_measurements,                METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
 
-      PYMETHODDEF_ENTRY(,lensmodel_meta,           METH_VARARGS),
+      PYMETHODDEF_ENTRY(,lensmodel_metadata,       METH_VARARGS),
       PYMETHODDEF_ENTRY(,lensmodel_num_params,     METH_VARARGS),
       PYMETHODDEF_ENTRY(,supported_lensmodels,     METH_NOARGS),
       PYMETHODDEF_ENTRY(,knots_for_splined_models, METH_VARARGS),

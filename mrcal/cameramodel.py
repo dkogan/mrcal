@@ -405,7 +405,7 @@ A sample valid .cameramodel file:
         f.write("\n")
 
         N = len(self._intrinsics[1])
-        if(mrcal.lensmodel_meta(self._intrinsics[0])['has_core']):
+        if(mrcal.lensmodel_metadata(self._intrinsics[0])['has_core']):
             f.write("    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....\n")
         f.write(("    'intrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._intrinsics[1]))
         f.write("\n")

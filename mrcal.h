@@ -160,7 +160,7 @@ static bool mrcal_lensmodel_type_is_valid(mrcal_lensmodel_type_t t)
 typedef struct
 {
     MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
-} mrcal_lensmodel_meta_t;
+} mrcal_lensmodel_metadata_t;
 
 typedef struct
 {
@@ -210,8 +210,8 @@ mrcal_lensmodel_t        mrcal_lensmodel_from_name             ( const char* nam
 // missing or unparseable. Unknown model names return MRCAL_LENSMODEL_INVALID
 mrcal_lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
 
-mrcal_lensmodel_meta_t mrcal_lensmodel_meta                    ( const mrcal_lensmodel_t m );
-int                mrcal_lensmodel_num_params                   ( const mrcal_lensmodel_t m );
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata            ( const mrcal_lensmodel_t m );
+int                mrcal_lensmodel_num_params                  ( const mrcal_lensmodel_t m );
 int                mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
                                                              mrcal_lensmodel_t m );
 const char* const* mrcal_supported_lensmodel_names         ( void ); // NULL-terminated array of char* strings

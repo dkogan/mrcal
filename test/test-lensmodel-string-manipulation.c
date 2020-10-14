@@ -9,7 +9,7 @@
 static
 bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t m )
 {
-    mrcal_lensmodel_meta_t meta = mrcal_lensmodel_meta(m);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(m);
     return meta.has_core;
 }
 

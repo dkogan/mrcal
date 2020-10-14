@@ -593,8 +593,8 @@ def solve(Ncameras,
 
     else:
         optimization_inputs['lensmodel']                   = lensmodel
-        if not mrcal.lensmodel_meta(lensmodel)['has_core'] or \
-           not mrcal.lensmodel_meta(model_intrinsics.intrinsics()[0])['has_core']:
+        if not mrcal.lensmodel_metadata(lensmodel)['has_core'] or \
+           not mrcal.lensmodel_metadata(model_intrinsics.intrinsics()[0])['has_core']:
             raise Exception("I'm assuming all the models here have a core. It's just lazy coding. If you see this, feel free to fix.")
 
         if lensmodel == model_intrinsics.intrinsics()[0]:
