@@ -494,12 +494,11 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     except:
         raise Exception("Couldn't find any images for camera '{}'".format(icamera))
 
-    try:
-        img = cv2.imread(paths[iobservation0_thiscamera])
-        h,w = img.shape[:2]
-    except:
+    img = cv2.imread(paths[iobservation0_thiscamera])
+    if img is None:
         raise Exception("I needed to read '{}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize". \
                         format(paths[iobservation0_thiscamera]))
+    h,w = img.shape[:2]
 
     return [w,h]
 
