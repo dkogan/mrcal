@@ -277,19 +277,25 @@ else:
     implied_Rt10 = None
 
 
-plot,_ = mrcal.show_projection_diff(models,
-                                    args.gridn[0], args.gridn[1],
-                                    observations      = args.observations,
-                                    distance          = distance,
-                                    use_uncertainties = not args.no_uncertainties,
-                                    focus_center      = args.where,
-                                    focus_radius      = args.radius,
-                                    implied_Rt10      = implied_Rt10,
-                                    vectorfield       = args.vectorfield,
-                                    vectorscale       = args.vectorscale,
-                                    hardcopy          = args.hardcopy,
-                                    cbmax             = args.cbmax,
-                                    extratitle        = args.extratitle,
-                                    **plotkwargs_extra)
+plot,implied_Rt10 = mrcal.show_projection_diff(models,
+                                               args.gridn[0], args.gridn[1],
+                                               observations      = args.observations,
+                                               distance          = distance,
+                                               use_uncertainties = not args.no_uncertainties,
+                                               focus_center      = args.where,
+                                               focus_radius      = args.radius,
+                                               implied_Rt10      = implied_Rt10,
+                                               vectorfield       = args.vectorfield,
+                                               vectorscale       = args.vectorscale,
+                                               hardcopy          = args.hardcopy,
+                                               cbmax             = args.cbmax,
+                                               extratitle        = args.extratitle,
+                                               **plotkwargs_extra)
+
+if implied_Rt10 is not None and implied_Rt10.shape == (4,3):
+    rt10 = mrcal.rt_from_Rt(implied_Rt10)
+
+    print(f"implied rotation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m")
+
 if args.hardcopy is None:
     plot.wait()
