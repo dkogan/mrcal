@@ -4296,9 +4296,19 @@ ARGUMENTS
 
 RETURNED VALUE
 
-The gnuplotlib plot object. The plot disappears when this object is destroyed
-(by the garbage collection, for instance), so do save this returned plot object
-into a variable, even if you're not going to be doing anything with this object
+A tuple:
+
+- The gnuplotlib plot object. The plot disappears when this object is destroyed
+  (by the garbage collection, for instance), so do save this returned plot
+  object into a variable, even if you're not going to be doing anything with
+  this object
+
+- implied_Rt10: the geometric Rt transformation in an array of shape (...,4,3).
+  This is either whatever was passed into this function (if anything was), or
+  the identity if focus_radius==0 or the fitted results. if len(models)>1: this
+  is an array of shape (len(models)-1,4,3), with slice i representing the
+  transformation between camera 0 and camera i+1.
+
 
     '''
 
@@ -4456,7 +4466,7 @@ into a variable, even if you're not going to be doing anything with this object
 
     plot.plot( *plot_data_args )
 
-    return plot
+    return plot, implied_Rt10
 
 
 def show_valid_intrinsics_region(models,

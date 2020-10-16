@@ -277,19 +277,19 @@ else:
     implied_Rt10 = None
 
 
-plot = mrcal.show_projection_diff(models,
-                                  args.gridn[0], args.gridn[1],
-                                  observations      = args.observations,
-                                  distance          = distance,
-                                  use_uncertainties = not args.no_uncertainties,
-                                  focus_center      = args.where,
-                                  focus_radius      = args.radius,
-                                  implied_Rt10      = implied_Rt10,
-                                  vectorfield       = args.vectorfield,
-                                  vectorscale       = args.vectorscale,
-                                  hardcopy          = args.hardcopy,
-                                  cbmax             = args.cbmax,
-                                  extratitle        = args.extratitle,
-                                  **plotkwargs_extra)
+plot,_ = mrcal.show_projection_diff(models,
+                                    args.gridn[0], args.gridn[1],
+                                    observations      = args.observations,
+                                    distance          = distance,
+                                    use_uncertainties = not args.no_uncertainties,
+                                    focus_center      = args.where,
+                                    focus_radius      = args.radius,
+                                    implied_Rt10      = implied_Rt10,
+                                    vectorfield       = args.vectorfield,
+                                    vectorscale       = args.vectorscale,
+                                    hardcopy          = args.hardcopy,
+                                    cbmax             = args.cbmax,
+                                    extratitle        = args.extratitle,
+                                    **plotkwargs_extra)
 if args.hardcopy is None:
     plot.wait()
