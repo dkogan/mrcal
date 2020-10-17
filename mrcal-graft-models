@@ -4,7 +4,7 @@ r'''Combines the intrinsics of one cameramodel with the extrinsics of another
 
 SYNOPSIS
 
-  $ mrcal-graft-cameramodel
+  $ mrcal-graft-models
       intrinsics.cameramodel
       extrinsics.cameramodel
       > joint.cameramodel

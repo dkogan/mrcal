@@ -43,8 +43,8 @@ supported. The toolkit includes:
     set of images that observe the same scene but with the other model. Several
     flavors of functionality are included here, such as undistortion-to-pinhole,
     re-rotation, and remapping to infinity.
-  - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
-    the extrinsics of another
+  - =mrcal-graft-models=: Combines the intrinsics of one cameramodel with the
+    extrinsics of another
   - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
     format to the =.cahvor= format. This exists for compatibility only, and does
     not touch the data: the lens distortion may or may not use the CAHVOR
@@ -194,9 +194,9 @@ xxx-manpage-mrcal-reproject-points-xxx
 #+BEGIN_EXAMPLE
 xxx-manpage-mrcal-reproject-image-xxx
 #+END_EXAMPLE
-** mrcal-graft-cameramodel
+** mrcal-graft-models
 #+BEGIN_EXAMPLE
-xxx-manpage-mrcal-graft-cameramodel-xxx
+xxx-manpage-mrcal-graft-models-xxx
 #+END_EXAMPLE
 ** mrcal-to-cahvor
 #+BEGIN_EXAMPLE

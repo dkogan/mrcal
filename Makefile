@@ -26,7 +26,7 @@ DIST_BIN :=					\
 	mrcal-show-projection-diff		\
 	mrcal-reproject-points			\
 	mrcal-reproject-image			\
-	mrcal-graft-cameramodel			\
+	mrcal-graft-models			\
 	mrcal-to-cahvor				\
 	mrcal-to-cameramodel			\
 	mrcal-show-calibration-geometry		\
