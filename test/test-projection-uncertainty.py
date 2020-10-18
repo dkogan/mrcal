@@ -143,7 +143,7 @@ imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 Ncameras = len(models_true)
 
 Nframes          = 50
-Nsamples         = 90
+Nsamples         = 100
 distances        = (5, None)
 
 models_true[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
