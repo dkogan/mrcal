@@ -3784,6 +3784,20 @@ report a full Rt transformation with the t component set to 0
     # gp.plot(relerr, wait=1, title='r')
     # sys.exit()
 
+
+    # I was using loss='soft_l1', but it behaved strangely. For large
+    # f_scale_deg it should be equivalent to loss='linear', but I was seeing
+    # large diffs when comparing a model to itself:
+    #
+    #   ./mrcal-show-projection-diff --gridn 50 28 test/data/cam0.splined.cameramodel{,} --distance 3
+    #
+    # f_scale_deg needs to be > 0.1 to make test-projection-diff.py pass, so
+    # there was an uncomfortably-small usable gap for f_scale_deg. loss='huber'
+    # should work similar-ish to 'soft_l1', and it works even for high
+    # f_scale_deg
+    f_scale_deg = 5
+    loss        = 'huber'
+
     if atinfinity:
 
         r = np.random.random(3) * 1e-3
@@ -3793,8 +3807,8 @@ report a full Rt transformation with the t component set to 0
                                            jac=jacobian,
                                            method='trf',
 
-                                           loss='soft_l1',
-                                           f_scale = (1.0e-1 * np.pi/180.)**2., # 0.1 deg^2
+                                           loss=loss,
+                                           f_scale = (f_scale_deg * np.pi/180.)**2.,
                                            # max_nfev=1,
                                            args=(residual_jacobian_r,),
 
@@ -3821,8 +3835,8 @@ report a full Rt transformation with the t component set to 0
                                            jac=jacobian,
                                            method='trf',
 
-                                           loss='soft_l1',
-                                           f_scale = (1.0e-1 * np.pi/180.)**2., # 0.1 deg^2
+                                           loss=loss,
+                                           f_scale = (f_scale_deg * np.pi/180.)**2.,
                                            # max_nfev=1,
                                            args=(residual_jacobian_rt,),
 
@@ -3834,8 +3848,7 @@ report a full Rt transformation with the t component set to 0
                                            # This is tested by diffing the same
                                            # model in test-projection-diff.py
                                            # requires scipy >= 1.3.0
-                                           gtol = None,
-                                           verbose=0)
+                                           gtol = None)
         return mrcal.Rt_from_rt(res.x)
 
 
