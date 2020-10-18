@@ -3802,7 +3802,9 @@ report a full Rt transformation with the t component set to 0
                                            # ending too quickly, and I was
                                            # seeing not-quite-optimal solutions.
                                            # Especially for
-                                           # very-nearly-identical rotations
+                                           # very-nearly-identical rotations.
+                                           # This is tested by diffing the same
+                                           # model in test-projection-diff.py
                                            # requires scipy >= 1.3.0
                                            gtol = None,
                                            verbose=0)
@@ -3828,7 +3830,10 @@ report a full Rt transformation with the t component set to 0
                                            # ending too quickly, and I was
                                            # seeing not-quite-optimal solutions.
                                            # Especially for
-                                           # very-nearly-identical rotations
+                                           # very-nearly-identical rotations.
+                                           # This is tested by diffing the same
+                                           # model in test-projection-diff.py
+                                           # requires scipy >= 1.3.0
                                            gtol = None,
                                            verbose=0)
         return mrcal.Rt_from_rt(res.x)
