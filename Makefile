@@ -114,26 +114,26 @@ all: mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX) mrcal/_mrcal_broadcasted$(PY_EX
 EXTRA_CLEAN += mrcal/*.so
 
 # Set up the test suite to be runnable in parallel
-TESTS :=						\
-  test/test-pywrap-functions.py				\
-  test/test-pylib-projections.py			\
-  test/test-poseutils.py				\
-  test/test-cameramodel.py				\
-  test/test-poseutils-lib.py				\
-  test/test-projections.py				\
-  test/test-projections-stereographic.py		\
-  test/test-gradients.py				\
-  test/test-py-gradients.py				\
-  test/test-cahvor					\
-  test/test-optimizer-callback.py			\
-  test/test-basic-sfm.py				\
-  test/test-calibration-basic.py			\
-  test/test-projection-uncertainty.py___fixed-cam0___opencv4	\
-  test/test-projection-uncertainty.py___fixed-frames___opencv4	\
+TESTS :=									\
+  test/test-pywrap-functions.py							\
+  test/test-pylib-projections.py						\
+  test/test-poseutils.py							\
+  test/test-cameramodel.py							\
+  test/test-poseutils-lib.py							\
+  test/test-projections.py							\
+  test/test-projections-stereographic.py					\
+  test/test-gradients.py							\
+  test/test-py-gradients.py							\
+  test/test-cahvor								\
+  test/test-optimizer-callback.py						\
+  test/test-basic-sfm.py							\
+  test/test-calibration-basic.py						\
+  test/test-projection-uncertainty.py___fixed-cam0___opencv4			\
+  test/test-projection-uncertainty.py___fixed-frames___opencv4			\
   test/test-projection-uncertainty.py___fixed-cam0___splined___no-sampling	\
-  test/test-linearizations.py				\
-  test/test-lensmodel-string-manipulation		\
-  test/test-CHOLMOD-factorization.py			\
+  test/test-linearizations.py							\
+  test/test-lensmodel-string-manipulation					\
+  test/test-CHOLMOD-factorization.py						\
   test/test-projection-diff.py        						\
   test/test-graft-models.py
 
