@@ -40,11 +40,6 @@ transformation is unknown, but we can estimate it in one of several ways:
   thus should look at the intrinsics differences only, we assuming that
   implied_Rt10 = identity. Indicate this case by passing --radius 0
 
-- If we know that our models came from different interpretations of the same
-  board dance (using different lens models or optimization parameters, for
-  instance), we can use the geometry of the cameras and frames to compute
-  implied_Rt10. Indicate this case by passing --same-dance
-
 - Otherwise, we fit projections across the imager: the "right" transformation
   would result in apparent low projection differences in a wide area.
 
@@ -141,12 +136,24 @@ def parse_args():
     parser.add_argument('--same-dance',
                         action='store_true',
                         default=False,
-                        help='''If given, I assume that the given models all came from the same calibration
-                        dance, and I can thus compute implied_Rt10
-                        geometrically, instead of fitting projections. Valid
-                        only if we're given exactly two models. Exclusive with
-                        --where and --radius (those control the fit that we skip
-                        with --same-dance)''')
+                        help=argparse.SUPPRESS)
+    '''--same-dance IS NOT READY FOR PUBLIC CONSUMPTION. It is purposely
+    undocumented. If given, I assume that the given models all came from the
+    same calibration dance, and I can thus compute implied_Rt10 geometrically,
+    instead of fitting projections. Valid only if we're given exactly two
+    models. Exclusive with --where and --radius (those control the fit that we
+    skip with --same-dance
+
+    If putting this back, this was a part of the docstring for this tool:
+
+    - If we know that our models came from different interpretations of the same
+      board dance (using different lens models or optimization parameters, for
+      instance), we can use the geometry of the cameras and frames to compute
+      implied_Rt10. Indicate this case by passing --same-dance
+'''
+
+
+
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
@@ -249,6 +256,7 @@ models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 
 if args.same_dance:
 
+    # EXPERIMENTAL, UNDOCUMENTED STUFF
     if 1:
 
         # default method: fit the corner observations in the coord system of the
