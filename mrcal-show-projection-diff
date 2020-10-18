@@ -249,29 +249,173 @@ models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 
 if args.same_dance:
 
-    # I need to make sure to pick the same inlier set when choosing the frame
-    # observations. I pick the intersection of the two
-    i_f_ci_ce = [model.optimization_inputs()['indices_frame_camintrinsics_camextrinsics'] \
-                 for model in models]
-    if i_f_ci_ce[0].shape != i_f_ci_ce[1].shape or \
-       not np.all(i_f_ci_ce[0] == i_f_ci_ce[1]):
-        raise Exception(f"--same-dance means that the two models must have an identical indices_frame_camintrinsics_camextrinsics, but they do not. Shapes {i_f_ci_ce[0].shape},{i_f_ci_ce[1].shape}")
+    if 1:
 
-    obs = [model.optimization_inputs()['observations_board'] \
-                 for model in models]
-    if obs[0].shape != obs[1].shape:
-        raise Exception(f"--same-dance means that the two models must have an identically-laid-out observations_board, but they do not. Shapes {obs[0].shape},{obs[1].shape}")
+        # default method: fit the corner observations in the coord system of the
+        # camera. Each observation contributes a point to the fit
 
-    idx_inliers = [ obs[i][ ...,2] > 0 \
-                    for i in range(len(models)) ]
 
-    calobjects = \
-        [ mrcal.hypothesis_corner_positions(model.icam_intrinsics(),
-                                            **model.optimization_inputs(),
-                                            idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
-          for model in models ]
+        # I need to make sure to pick the same inlier set when choosing the frame
+        # observations. I pick the intersection of the two
+        i_f_ci_ce = [model.optimization_inputs()['indices_frame_camintrinsics_camextrinsics'] \
+                     for model in models]
+        if i_f_ci_ce[0].shape != i_f_ci_ce[1].shape or \
+           not np.all(i_f_ci_ce[0] == i_f_ci_ce[1]):
+            raise Exception(f"--same-dance means that the two models must have an identical indices_frame_camintrinsics_camextrinsics, but they do not. Shapes {i_f_ci_ce[0].shape},{i_f_ci_ce[1].shape}")
 
-    implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobjects[1], calobjects[0])
+        obs = [model.optimization_inputs()['observations_board'] \
+                     for model in models]
+        if obs[0].shape != obs[1].shape:
+            raise Exception(f"--same-dance means that the two models must have an identically-laid-out observations_board, but they do not. Shapes {obs[0].shape},{obs[1].shape}")
+
+        idx_inliers = [ obs[i][ ...,2] > 0 \
+                        for i in range(len(models)) ]
+
+        calobjects = \
+            [ mrcal.hypothesis_corner_positions(model.icam_intrinsics(),
+                                                **model.optimization_inputs(),
+                                                idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
+              for model in models ]
+
+        implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobjects[1], calobjects[0])
+
+    elif 1:
+
+        # new method being tested. Fit the corners in the ref coordinate
+        # systems. This explicitly models the extra existing rotation, so it
+        # should be most correct
+
+        optimization_inputs0 = models[0].optimization_inputs()
+        optimization_inputs1 = models[1].optimization_inputs()
+
+        calobject_height,calobject_width = optimization_inputs0['observations_board'].shape[1:3]
+        calobject_spacing                = optimization_inputs0['calibration_object_spacing']
+
+        # shape (Nh, Nw, 3)
+        calibration_object0 = \
+            mrcal.ref_calibration_object(calobject_width, calobject_height,
+                                         calobject_spacing,
+                                         calobject_warp = optimization_inputs0['calobject_warp'])
+        calibration_object1 = \
+            mrcal.ref_calibration_object(calobject_width, calobject_height,
+                                         calobject_spacing,
+                                         calobject_warp = optimization_inputs1['calobject_warp'])
+
+        # shape (Nframes, Nh, Nw, 3)
+        pcorners_ref0 = \
+            mrcal.transform_point_rt( nps.mv( optimization_inputs0['frames_rt_toref'], -2, -4),
+                                      calibration_object0 )
+        pcorners_ref1 = \
+            mrcal.transform_point_rt( nps.mv( optimization_inputs1['frames_rt_toref'], -2, -4),
+                                      calibration_object1 )
+
+        # shape (4,3)
+        Rt_ref10 = mrcal.align_procrustes_points_Rt01(# shape (N,3)
+                                                      nps.clump(pcorners_ref1, n=3),
+
+                                                      # shape (N,3)
+                                                      nps.clump(pcorners_ref0, n=3))
+
+        # I have the ref-ref transform. I convert to a cam-cam transform
+
+        icam_extrinsics0 = \
+            mrcal.corresponding_icam_extrinsics(models[0].icam_intrinsics(),
+                                                **optimization_inputs0)
+        icam_extrinsics1 = \
+            mrcal.corresponding_icam_extrinsics(models[1].icam_intrinsics(),
+                                                **optimization_inputs1)
+
+        if icam_extrinsics0 >= 0:
+            Rt_cr0 = mrcal.Rt_from_rt(optimization_inputs0['extrinsics_rt_fromref'][icam_extrinsics0])
+        else:
+            Rt_cr0 = mrcal.identity_Rt()
+        if icam_extrinsics1 >= 0:
+            Rt_cr1 = mrcal.Rt_from_rt(optimization_inputs1['extrinsics_rt_fromref'][icam_extrinsics1])
+        else:
+            Rt_cr1 = mrcal.identity_Rt()
+
+        implied_Rt10 = \
+            mrcal.compose_Rt(Rt_cr1,
+                             Rt_ref10,
+                             mrcal.invert_Rt(Rt_cr0))
+
+    else:
+
+        # default method used in the uncertainty computation. compute the mean
+        # of the frame points
+
+        optimization_inputs0 = models[0].optimization_inputs()
+        icam_intrinsics0     = models[0].icam_intrinsics()
+        icam_extrinsics0     = \
+            mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs0)
+        if icam_extrinsics0 >= 0:
+            Rt_rc0 = mrcal.invert_Rt(mrcal.Rt_from_rt(optimization_inputs0['extrinsics_rt_fromref'][icam_extrinsics0]))
+        else:
+            Rt_rc0 = mrcal.identity_Rt()
+        Rt_fr0 = mrcal.invert_Rt(mrcal.Rt_from_rt(optimization_inputs0['frames_rt_toref']))
+
+        optimization_inputs1 = models[1].optimization_inputs()
+        icam_intrinsics1     = models[1].icam_intrinsics()
+        icam_extrinsics1     = \
+        mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs1)
+        if icam_extrinsics1 >= 0:
+            Rt_cr1 = mrcal.Rt_from_rt(optimization_inputs1['extrinsics_rt_fromref'][icam_extrinsics1])
+        else:
+            Rt_cr1 = mrcal.identity_Rt()
+        Rt_rf1 = mrcal.Rt_from_rt(optimization_inputs1['frames_rt_toref'])
+
+        # not a geometric transformation: the R is not in SO3
+        Rt_r1r0 = np.mean( mrcal.compose_Rt(Rt_rf1, Rt_fr0), axis=-3)
+
+        Rt_c1c0 = mrcal.compose_Rt( Rt_cr1, Rt_r1r0, Rt_rc0)
+
+
+        q0 = models[0].imagersize()*2./5.
+        v0_cam = mrcal.unproject(q0, optimization_inputs0['lensmodel'], optimization_inputs0['intrinsics'][icam_intrinsics0],
+                                 normalize = True)
+        p0_cam = v0_cam * (1e5 if distance is None else distance)
+
+        # print(f"v0_cam = {v0_cam}")
+        # print(f"reprojected = {mrcal.project(v0_cam, optimization_inputs0['lensmodel'], optimization_inputs0['intrinsics'][icam_intrinsics0])}")
+        # print(f"reprojected other = {mrcal.project(np.array([-0.2471004,-0.21598248,0.9446126 ]), optimization_inputs0['lensmodel'], optimization_inputs0['intrinsics'][icam_intrinsics0])}")
+        # print(f"reprojected other = {mrcal.project(np.array([-0.2471004,-0.21598248,0.9446126 ]), *models[0].intrinsics())}")
+        # print(f"p0_cam = {p0_cam}")
+
+        p0_ref = mrcal.transform_point_Rt(Rt_rc0, p0_cam)
+        p0_frame  = mrcal.transform_point_Rt(Rt_fr0, p0_ref)
+        p1_refall = mrcal.transform_point_Rt(Rt_rf1, p0_frame)
+        p1_ref    = np.mean(p1_refall, axis=0)
+
+        # print(f"p0_ref = {p0_ref}")
+        # print(f"rt_rf0[0] = {optimization_inputs0['frames_rt_toref'][0]}")
+        # print(f"Rt_fr0[0] = {Rt_fr0[0]}")
+        # print(f"p0_frame = {p0_frame}")
+        # print(f"p1_refall = {p1_refall}")
+        # print(f"p1_ref = {p1_ref}")
+
+        p1_cam = mrcal.transform_point_Rt(Rt_cr1, p1_ref)
+        q1 = mrcal.project(p1_cam, *models[1].intrinsics())
+
+        # print(f"p1_cam = {p1_cam}")
+        # print(f"q1 = {q1}")
+        # print(f"before:\n{implied_Rt10}")
+
+        implied_Rt10 = Rt_r1r0
+
+        # print(f"after:\n{implied_Rt10}")
+
+
+
+        # print(f"--same-dance Rt10: {implied_Rt10}")
+        # print(f"--same-dance Ninliers = {np.count_nonzero(idx_inliers[0]*idx_inliers[1])} Ntotal = {np.size(idx_inliers[0])}")
+
+        # print(f"idx_inliers[0].shape: {idx_inliers[0].shape}")
+        # import gnuplotlib as gp
+        # gp.plot(nps.mag(calobjects[0] - calobjects[1]), wait=1)
+        # # gp.plot( (calobjects[0] - calobjects[1],), tuplesize=-3, _with='points', square=1, _3d=1, xlabel='x', ylabel = 'y', zlabel = 'z')
+        # # import IPython
+        # # IPython.embed()
+        # # sys.exit()
 
 else:
     implied_Rt10 = None
