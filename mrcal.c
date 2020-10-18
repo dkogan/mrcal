@@ -4286,7 +4286,7 @@ void optimizer_callback(// input state
         //   normal_regularization_centerpixel_error_sq = (scale*normal_distortion_value  )^2
         //
         // Regularization introduces a bias to the solution. The
-        // test-calibration-uncertainty test measures it, and barfs if it is too
+        // test-projection-uncertainty test measures it, and barfs if it is too
         // high. The constants should be adjusted if that test fails.
         const bool dump_regularizaton_details = false;
 
