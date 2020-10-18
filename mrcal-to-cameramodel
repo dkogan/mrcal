@@ -9,14 +9,14 @@ SYNOPSIS
   Wrote model1.cameramodel
   Wrote model2.cameramodel
 
-This tool converts a given model to the cameramodel file format. No changes to
-the content are made; this is purely a format converter. If the model is
-omitted or given as "-", the input is read from standard input, and the output
-is written to standard output
+This tool converts a given model to the cameramodel file format. No changes to the
+content are made; this is purely a format converter. Model filenames are given
+on the commandline. Output is written to the same directory, with the same
+filename, but with a .cameramodel extension.
 
+If the model is omitted or given as "-", the input is read from standard input,
+and the output is written to standard output
 '''
-
-
 
 import sys
 import argparse
