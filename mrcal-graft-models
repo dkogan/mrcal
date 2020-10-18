@@ -12,7 +12,27 @@ SYNOPSIS
   'exrinsics.cameramodel'
 
 This tool combines intrinsics and extrinsics from different sources into a
-single model. The output is written to standard out in mrcal-native format
+single model. The output is written to standard output.
+
+By default, the operation is very simple: we combine the intrinsics from one
+model with the extrinsics of another. A common use case is a system where the
+intrinsics are calibrated prior to moving the cameras to their final location,
+and then computing the extrinsics separately after the cameras are moved.
+
+If we have computed such a combined model, and we decide to recompute the
+intrinsics afterwards, we can graft the new intrinsics to the previous
+extrinsics. However, this won't be a drop-in replacement for the previous model,
+since the intrinsics come with an implied geometric transformation, which will
+be different in the new intrinsics. If the "extrinsics" models contains the old
+intrinsics, then this tool is able to compute the relative implied
+transformation, and to apply it to the extrinsics. As a result, on average, the
+projection of any world point ends up at the same pixel coordinate as before.
+
+The implied transformation logic is controlled by a number of commandline
+arguments, same ones as used by the mrcal-show-projection-diff tool. The only
+difference in options is that THIS tool uses --radius 0 by default, so we do not
+compute or apply the implied transformation unless asked. Pass --radius with a
+non-zero argument to compute and apply the implied transformation.
 
 '''
 
@@ -27,6 +47,52 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--gridn',
+                        type=int,
+                        default = (60,40),
+                        nargs = 2,
+                        help='''Used if we're computing the implied-by-the-intrinsics transformation. How
+                        densely we should sample the imager. By default we use a 60x40 grid''')
+    parser.add_argument('--distance',
+                        type=str,
+                        help='''Used if we're computing the implied-by-the-intrinsics transformation. By
+                        default we compute the implied transformation for points
+                        infinitely far away from the camera. If we want to look
+                        closer in, the desired observation distance can be given
+                        in this argument. We can also fit multiple distances at
+                        the same time by passing them here in a comma-separated,
+                        whitespace-less list''')
+    parser.add_argument('--where',
+                        type=float,
+                        nargs=2,
+                        help='''Used if we're computing the implied-by-the-intrinsics transformation. Center
+                        of the region of interest used for the transformatoin
+                        fit. It is usually impossible for the models to match
+                        everywhere, but focusing on a particular area can work
+                        better. The implied transformation will be fit to match
+                        as large as possible an area centered on this argument.
+                        If omitted, we will focus on the center of the imager''')
+    parser.add_argument('--radius',
+                        type=float,
+                        default=0.,
+                        help='''Used if we're computing the implied-by-the-intrinsics transformation. Radius
+                        of the region of interest. If ==0, we do NOT fit an
+                        implied transformation at all. If omitted or <0, we use
+                        a "reasonable" value: the whole imager if we're using
+                        uncertainties, or min(width,height)/6 if
+                        --no-uncertainties. To fit with data across the whole
+                        imager in either case, pass in a very large radius''')
+    parser.add_argument('--no-uncertainties',
+                        action = 'store_true',
+                        default = False,
+                        help='''Used if we're computing the implied-by-the-intrinsics transformation. By
+                        default we use the uncertainties in the model to weigh
+                        the fit. This will focus the fit on the confident
+                        region in the models without --where or --radius. The
+                        computation will run faster with --no-uncertainties, but
+                        the default --where and --radius may need to be
+                        adjusted''')
 
     parser.add_argument('intrinsics',
                         type=str,
@@ -52,13 +118,44 @@ import numpysane as nps
 import mrcal
 import time
 
-intrinsics = mrcal.cameramodel(args.intrinsics)
-extrinsics = mrcal.cameramodel(args.extrinsics)
 
-joint = mrcal.cameramodel( intrinsics                          = intrinsics.intrinsics(),
-                           extrinsics_rt_fromref               = extrinsics.extrinsics_rt_fromref(),
-                           imagersize                          = intrinsics.imagersize(),
-                           valid_intrinsics_region             = intrinsics.valid_intrinsics_region())
+
+
+model_intrinsics = mrcal.cameramodel(args.intrinsics)
+model_extrinsics = mrcal.cameramodel(args.extrinsics)
+
+
+
+if args.distance is None:
+    distance = None
+else:
+    try:
+        distance = [float(d) for d in args.distance.split(',')]
+    except:
+        raise Exception("--distances must be given a comma-separated list of distances")
+
+difflen,diff,q0, Rt_camoldintrinsics_camnewintrinsics = \
+    mrcal.projection_diff((model_intrinsics, model_extrinsics),
+
+                          gridn_width       = args.gridn[0],
+                          gridn_height      = args.gridn[1],
+                          distance          = distance,
+                          use_uncertainties = not args.no_uncertainties,
+                          focus_center      = args.where,
+                          focus_radius      = args.radius,
+                          implied_Rt10      = None)
+
+rt_camoldintrinsics_ref = model_extrinsics.extrinsics_rt_fromref()
+
+rt_camnewintrinsics_ref = \
+    mrcal.compose_rt( mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_camoldintrinsics_camnewintrinsics)),
+                      rt_camoldintrinsics_ref)
+
+
+joint = mrcal.cameramodel( intrinsics                          = model_intrinsics.intrinsics(),
+                           extrinsics_rt_fromref               = rt_camnewintrinsics_ref,
+                           imagersize                          = model_intrinsics.imagersize(),
+                           valid_intrinsics_region             = model_intrinsics.valid_intrinsics_region())
 
 note = \
     "Generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
