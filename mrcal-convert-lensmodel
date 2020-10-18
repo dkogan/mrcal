@@ -450,7 +450,7 @@ note = \
 m_to.write(sys.stdout, note=note)
 
 if args.viz:
-    plot_, = mrcal.show_projection_diff( (m, m_to),
+    plot,_ = mrcal.show_projection_diff( (m, m_to),
 
                                          implied_Rt10 = implied_Rt10,
                                          distance     = args.distance,
