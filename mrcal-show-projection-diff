@@ -108,18 +108,18 @@ def parse_args():
                         help='''How densely we should sample the imager. By default we use a 60x40 grid''')
     parser.add_argument('--distance',
                         type=str,
-                        help='''By default we display the projection diff for points infinitely far away from
-                        the camera. If we want to look closer in, the desired
-                        observation distance can be given in this argument. We
-                        can also fit multiple distances at the same time by
-                        passing them here in a comma-separated, whitespace-less
-                        list. If multiple distances are given, we fit the
-                        implied-by-the-intrinsics transformation using ALL the
-                        distances, but we display the best-fitting difference
-                        for each point. Only one distance is supported if
-                        --vectorfield. Multiple distances are especially useful
-                        if we have uncertainties: the most confident distance
-                        will be found, and displayed.''')
+                        help='''By default we compute the implied transformation for points infinitely far
+                        away from the camera. If we want to look closer in, the
+                        desired observation distance can be given in this
+                        argument. We can also fit multiple distances at the same
+                        time by passing them here in a comma-separated,
+                        whitespace-less list. If multiple distances are given,
+                        we fit the implied-by-the-intrinsics transformation
+                        using ALL the distances, but we display the best-fitting
+                        difference for each point. Only one distance is
+                        supported if --vectorfield. Multiple distances are
+                        especially useful if we have uncertainties: the most
+                        confident distance will be found, and displayed.''')
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
@@ -179,8 +179,8 @@ def parse_args():
     parser.add_argument('--no-uncertainties',
                         action = 'store_true',
                         default = False,
-                        help='''By default we use the uncertainties in the model to weigh the diff. This will
-                        focus the diff on the confident region in the models
+                        help='''By default we use the uncertainties in the model to weigh the fit. This will
+                        focus the fit on the confident region in the models
                         without --where or --radius. The computation will run
                         faster with --no-uncertainties, but the default --where
                         and --radius may need to be adjusted''')
