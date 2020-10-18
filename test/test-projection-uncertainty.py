@@ -664,8 +664,8 @@ def check_uncertainties_at(q0_baseline, idistance):
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
 
-    # q_sampled should be evenly distributed around q0_baseline. So this can get
-    # tighter and tighter with higher Nsamples
+    # q_sampled should be evenly distributed around q0_baseline. I can make eps
+    # as tight as I want by increasing Nsamples
     testutils.confirm_equal( nps.mag(q_sampled_mean - q0_baseline),
                              0,
                              eps = 0.15,
