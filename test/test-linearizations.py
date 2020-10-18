@@ -193,12 +193,11 @@ testutils.confirm_equal( dE_predicted, dE,
 
 # At the optimum dE/dp = 0 -> xtJ = 0
 xtJ0 = nps.inner(nps.transpose(J0),x0)
+mrcal.pack_state(xtJ0, **optimization_inputs)
 testutils.confirm_equal( xtJ0, 0,
-                         eps = 1e-4,
+                         eps = 1e-2,
                          worstcase = True,
                          msg = "dE/dp = 0 at the optimum: original")
-
-
 
 ###########################################################################
 # I perturb my input observation vector qref by dqref.
@@ -220,8 +219,9 @@ w[w < 0]    = 0 # outliers have weight=0
 w           = np.ravel(nps.mv(nps.cat(w,w),0,-1)) # each weight controls x,y
 
 xtJ1 = nps.inner(nps.transpose(J1),x1)
+mrcal.pack_state(xtJ0, **optimization_inputs)
 testutils.confirm_equal( xtJ1, 0,
-                         eps = 1e-4,
+                         eps = 1e-2,
                          worstcase = True,
                          msg = "dE/dp = 0 at the optimum: perturbed")
 
