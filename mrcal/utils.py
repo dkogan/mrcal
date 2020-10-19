@@ -4101,7 +4101,7 @@ A tuple
                                                what       = 'worstdirection-stdev') \
                   for i in range(len(models)) ]
         except Exception as e:
-            print(f"WARNING: show_projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic\nException: {e}",
+            print(f"WARNING: projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic\nException: {e}",
                   file = sys.stderr)
             use_uncertainties = False
             uncertainties     = None
