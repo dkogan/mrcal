@@ -134,8 +134,9 @@ TESTS :=									\
   test/test-linearizations.py							\
   test/test-lensmodel-string-manipulation					\
   test/test-CHOLMOD-factorization.py						\
-  test/test-projection-diff.py        						\
-  test/test-graft-models.py
+  test/test-projection-diff.py							\
+  test/test-graft-models.py							\
+  test/test-convert-lensmodel.py
 
 test check: all
 	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst ___, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
