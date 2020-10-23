@@ -580,6 +580,7 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               frames_rt_toref             = None,
                               points                      = None,
 
+                              show_calobjects    = True,
                               axis_scale         = 1.0,
                               object_width_n     = None,
                               object_height_n    = None,
@@ -610,20 +611,29 @@ SYNOPSIS
                                       frames_rt_toref = frames_rt_toref,
                                       points          = points)
 
-This function can visualize the world described by a set of camera models on
-disk. It can also be used to visualize the output (or input) of
-mrcal.optimize(); the relevant parameters are all identical to those
-mrcal.optimize() takes. Cameras are always rendered. If given, the observed
-calibration objects and/or the observed points are rendered as well.
+This function visualizes the world described by a set of camera models. It shows
+the geometry of the cameras themselves (each one is represented by the axes of
+its coordinate system). If available (via a frames_rt_toref argument or from
+model.optimization_inputs() in the given models), the geometry of the
+calibration objects used to compute these models is shown also. We use
+frames_rt_toref if this is given. If not, we use the optimization_inputs() from
+the FIRST model that provides them.
 
-This function does all the work for the mrcal-show-calibration-geometry tool.
+This function can also be used to visualize the output (or input) of
+mrcal.optimize(); the relevant parameters are all identical to those
+mrcal.optimize() takes.
+
+This function is the core of the mrcal-show-calibration-geometry tool.
 
 All arguments except models_or_extrinsics_rt_fromref are optional.
 
 ARGUMENTS
 
 - models_or_extrinsics_rt_fromref: an iterable of mrcal.cameramodel objects or
-  (6,) rt arrays. A array of shape (N,6) works to represent N cameras
+  (6,) rt arrays. A array of shape (N,6) works to represent N cameras. If
+  mrcal.cameramodel objects are given here and frames_rt_toref is omitted, we
+  get the frames_rt_toref from the first model that provides
+  optimization_inputs().
 
 - cameranames: optional array of strings of labels for the cameras. If omitted,
   we use generic labels. If given, the array must have the same length as
@@ -672,6 +682,10 @@ ARGUMENTS
   labelled in this way. If omitted, none of the points will be labelled
   specially. This is used only if points is not None
 
+- show_calobjects: optional boolean defaults to True. if show_calobjects: we
+  render the observed calibration objects (if they are available in
+  frames_rt_toref of model.optimization_inputs())
+
 - axis_scale: optional scale factor for the size of the axes used to represent
   the cameras. Can be omitted to use some reasonable default size, but for very
   large or very small problems, this may be required to make the plot look right
@@ -700,7 +714,9 @@ into a variable, even if you're not going to be doing anything with this object
                   for m in models_or_extrinsics_rt_fromref])
     extrinsics_Rt_toref = nps.atleast_dims(extrinsics_Rt_toref, -3)
 
-    if frames_rt_toref is None:
+    if not show_calobjects:
+        frames_rt_toref = None
+    elif frames_rt_toref is None:
         # No frames were given. I grab them from the first .cameramodel that has
         # them. If none of the models have this data, I don't plot any frames at
         # all
