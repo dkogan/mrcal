@@ -587,7 +587,7 @@ def show_calibration_geometry(models_or_extrinsics_rt_fromref,
                               object_spacing     = 0,
                               calobject_warp     = None,
                               point_labels       = None,
-
+                              return_plot_args   = False,
                               **kwargs):
 
     r'''Visualize the world resulting from a calibration run
@@ -690,14 +690,25 @@ ARGUMENTS
   the cameras. Can be omitted to use some reasonable default size, but for very
   large or very small problems, this may be required to make the plot look right
 
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
   Useful to make hardcopies, set the plot title, etc.
 
 RETURNED VALUES
 
-The gnuplotlib plot object. The plot disappears when this object is destroyed
-(by the garbage collection, for instance), so do save this returned plot object
-into a variable, even if you're not going to be doing anything with this object
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+if return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
 
     '''
 
@@ -955,17 +966,21 @@ into a variable, even if you're not going to be doing anything with this object
     curves_calobjects = gen_curves_calobjects()
     curves_points     = gen_curves_points()
 
-    plot = gp.gnuplotlib(_3d=1,
-                         square=1,
-                         xlabel='x',
-                         ylabel='y',
-                         zlabel='z',
-                         **kwargs)
+    plot_options = \
+        dict(_3d=1,
+             square=1,
+             xlabel='x',
+             ylabel='y',
+             zlabel='z',
+             **kwargs)
 
+    data_tuples = curves_points + curves_cameras + curves_calobjects
 
-
-    plot.plot(*(curves_points + curves_cameras + curves_calobjects))
-    return plot
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
 
 
 def sample_imager(gridn_width, gridn_height, imager_width, imager_height):
@@ -2195,6 +2210,7 @@ def show_projection_uncertainty(model,
                                 isotropic    = False,
                                 extratitle   = None,
                                 cbmax        = 3,
+                                return_plot_args = False,
                                 **kwargs):
     r'''Visualize the uncertainty in camera projection
 
@@ -2274,14 +2290,25 @@ ARGUMENTS
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
   map
 
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
   Useful to make hardcopies, etc
 
 RETURNED VALUE
 
-The gnuplotlib plot object. The plot disappears when this object is destroyed
-(by the garbage collection, for instance), so do save this returned plot object
-into a variable, even if you're not going to be doing anything with this object
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+if return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
 
     '''
 
@@ -2358,9 +2385,14 @@ into a variable, even if you're not going to be doing anything with this object
                                            _with  = 'points nocontour',
                                            legend = 'outliers')) )
 
-    plot = gp.gnuplotlib(**kwargs)
-    plot.plot(*plot_data_args)
-    return plot
+    plot_options = kwargs
+    data_tuples  = plot_data_args
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
 
 
 def show_projection_uncertainty_xydist(model,
@@ -2369,6 +2401,7 @@ def show_projection_uncertainty_xydist(model,
 
                                        extratitle   = None,
                                        cbmax        = 3,
+                                       return_plot_args = False,
                                        **kwargs):
     r'''Visualize in 3D the uncertainty in camera projection
 
@@ -2418,14 +2451,25 @@ ARGUMENTS
 
 - extratitle: optional string to include in the title of the resulting plot
 
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
   Useful to make hardcopies, etc
 
 RETURNED VALUE
 
-The gnuplotlib plot object. The plot disappears when this object is destroyed
-(by the garbage collection, for instance), so do save this returned plot object
-into a variable, even if you're not going to be doing anything with this object
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+if return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
 
     '''
 
@@ -2486,13 +2530,6 @@ into a variable, even if you're not going to be doing anything with this object
     elif type(kwargs['set']) is not list:
         kwargs['set'] = [kwargs['set']]
 
-    plot = gp.gnuplotlib( _3d      = True,
-                          squarexy = True,
-                          xlabel   = 'Pixel x',
-                          ylabel   = 'Pixel y',
-                          zlabel   = 'Range',
-                          **kwargs )
-
     plotargs = [ (grid__x_y_ranges[0].ravel(), grid__x_y_ranges[1].ravel(), grid__x_y_ranges[2].ravel(),
                   nps.xchg(worst_direction_stdev_grid,0,1).ravel().clip(max=3),
                   nps.xchg(worst_direction_stdev_grid,0,1).ravel(),
@@ -2508,9 +2545,21 @@ into a variable, even if you're not going to be doing anything with this object
                            dict(tuplesize = -3,
                                 _with = 'points',
                                 legend = 'outliers')) )
-    plot.plot( *plotargs )
 
-    return plot
+    plot_options = \
+        dict( _3d      = True,
+              squarexy = True,
+              xlabel   = 'Pixel x',
+              ylabel   = 'Pixel y',
+              zlabel   = 'Range',
+              **kwargs )
+    data_tuples = plotargs
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
 
 
 def show_projection_uncertainty_vs_distance(model,
@@ -2518,6 +2567,7 @@ def show_projection_uncertainty_vs_distance(model,
                                             where        = "centroid",
                                             isotropic    = False,
                                             extratitle   = None,
+                                            return_plot_args = False,
                                             **kwargs):
     r'''Visualize the uncertainty in camera projection along one observation ray
 
@@ -2581,14 +2631,25 @@ ARGUMENTS
 
 - extratitle: optional string to include in the title of the resulting plot
 
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
   Useful to make hardcopies, etc
 
 RETURNED VALUE
 
-The gnuplotlib plot object. The plot disappears when this object is destroyed
-(by the garbage collection, for instance), so do save this returned plot object
-into a variable, even if you're not going to be doing anything with this object
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+if return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
 
     '''
 
@@ -2649,14 +2710,19 @@ into a variable, even if you're not going to be doing anything with this object
             title += ": " + extratitle
         kwargs['title'] = title
 
-    plot = gp.gnuplotlib( xlabel   = 'Observation distance',
-                          ylabel   = 'Projection uncertainty (pixels)',
-                          _with    = 'lines',
-                          **kwargs )
+    plot_options = \
+        dict( xlabel   = 'Observation distance',
+              ylabel   = 'Projection uncertainty (pixels)',
+              _with    = 'lines',
+              **kwargs )
 
-    plot.plot( distances, uncertainty )
+    data_tuples = ( distances, uncertainty )
 
-    return plot
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
 
 
 def report_residual_statistics( observations, reprojection_error,
@@ -2795,6 +2861,7 @@ def show_projection_behavior(model,
                              gridn_width  = 60,
                              gridn_height = None,
                              extratitle   = None,
+                             return_plot_args = False,
                              **kwargs):
 
     r'''Visualize the behavior of a lens
@@ -2852,14 +2919,25 @@ ARGUMENTS
 
 - extratitle: optional string to include in the title of the resulting plot
 
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
   Useful to make hardcopies, etc
 
 RETURNED VALUE
 
-The gnuplotlib plot object. The plot disappears when this object is destroyed
-(by the garbage collection, for instance), so do save this returned plot object
-into a variable, even if you're not going to be doing anything with this object
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+if return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
 
     '''
 
@@ -2993,19 +3071,24 @@ into a variable, even if you're not going to be doing anything with this object
             sets.append('y2tics')
             kwargs['y2label'] = 'Rational correction numerator, denominator'
         kwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
-        plot = gp.gnuplotlib(equation = equations,
-                             _set=sets,
-                             # any of the unprojections could be nan, so I do the best I can
-                             _xrange = [0,np.max(np.nan_to_num(nps.glue(th_corners,
-                                                                        th_centersx,
-                                                                        th_centersy,
-                                                                        axis=-1)))
-                                        * 1.01],
-                             xlabel = 'Angle off the projection center (deg)',
-                             ylabel = 'Distorted angle off the projection center',
-                             **kwargs)
-        plot.plot()
-        return plot
+        plot_options = \
+            dict(equation = equations,
+                 _set=sets,
+                 # any of the unprojections could be nan, so I do the best I can
+                 _xrange = [0,np.max(np.nan_to_num(nps.glue(th_corners,
+                                                            th_centersx,
+                                                            th_centersy,
+                                                            axis=-1)))
+                            * 1.01],
+                 xlabel = 'Angle off the projection center (deg)',
+                 ylabel = 'Distorted angle off the projection center',
+                 **kwargs)
+        data_tuples = ()
+        if not return_plot_args:
+            plot = gp.gnuplotlib(**plot_options)
+            plot.plot(*data_tuples)
+            return plot
+        return (data_tuples, plot_options)
 
 
     if not ( mode == 'heatmap' or mode == 'vectorfield' ):
@@ -3038,9 +3121,13 @@ into a variable, even if you're not going to be doing anything with this object
         # way
         distortion = nps.mag(delta)
 
-        plot = gp.gnuplotlib( **kwargs)
-        plot.plot(distortion, **curveoptions)
-        return plot
+        plot_options = kwargs
+        data_tuples = ((distortion, curveoptions), )
+        if not return_plot_args:
+            plot = gp.gnuplotlib(**plot_options)
+            plot.plot(*data_tuples)
+            return plot
+        return (data_tuples, plot_options)
 
     else:
         # vectorfield
@@ -3062,16 +3149,22 @@ into a variable, even if you're not going to be doing anything with this object
             else:                           kwargs['_set'].append(kwargs['set'])
             del kwargs['set']
 
-        plot = gp.gnuplotlib( **kwargs )
-        plot.plot( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
-                    {'with': 'vectors size screen 0.01,20 fixed filled',
-                     'tuplesize': 4,
-                    }),
-                   (grid[:,0], grid[:,1],
-                    {'with': 'points',
-                     'tuplesize': 2,
-                    }))
-        return plot
+        plot_options = kwargs
+        data_tuples = \
+            ( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
+               {'with': 'vectors size screen 0.01,20 fixed filled',
+                'tuplesize': 4,
+               }),
+              (grid[:,0], grid[:,1],
+               {'with': 'points',
+                'tuplesize': 2,
+               }))
+
+        if not return_plot_args:
+            plot = gp.gnuplotlib(**plot_options)
+            plot.plot(*data_tuples)
+            return plot
+        return (data_tuples, plot_options)
 
 
 def _splined_stereographic_domain(lensmodel):
@@ -3239,6 +3332,7 @@ element (difference consists of N separate polygons)
 def show_splined_model_surface(model, xy,
                                imager_domain = True,
                                extratitle    = None,
+                               return_plot_args = False,
                                **kwargs):
 
     r'''Visualize the surface represented by a splined model
@@ -3296,14 +3390,25 @@ ARGUMENTS
 
 - extratitle: optional string to include in the title of the resulting plot
 
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
   Useful to make hardcopies, etc
 
 RETURNED VALUES
 
-The gnuplotlib plot object. The plot disappears when this object is destroyed
-(by the garbage collection, for instance), so do save this returned plot object
-into a variable, even if you're not going to be doing anything with this object
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+if return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
 
     '''
 
@@ -3410,8 +3515,6 @@ into a variable, even if you're not going to be doing anything with this object
     surface_curveoptions['_with']     = 'image'
     surface_curveoptions['tuplesize'] = 3
 
-    plot = gp.gnuplotlib(**plotoptions)
-
     data = [ ( deltau[..., ixy],
                surface_curveoptions ) ]
 
@@ -3471,9 +3574,13 @@ into a variable, even if you're not going to be doing anything with this object
                                legend    = 'Invalid regions'))
                        for r in invalid_regions] )
 
-
-    plot.plot( *data )
-    return plot
+    plot_options = plotoptions
+    data_tuples  = data
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
 
 
 def is_within_valid_intrinsics_region(q, model):
@@ -4228,6 +4335,7 @@ def show_projection_diff(models,
                          vectorscale      = 1.0,
                          extratitle       = None,
                          cbmax            = 4,
+                         return_plot_args = False,
                          **kwargs):
     r'''Visualize the difference in projection between N models
 
@@ -4325,6 +4433,11 @@ ARGUMENTS
 - cbmax: optional value, defaulting to 4.0. Sets the maximum range of the color
   map
 
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
   Useful to make hardcopies, etc
 
@@ -4332,17 +4445,20 @@ RETURNED VALUE
 
 A tuple:
 
-- The gnuplotlib plot object. The plot disappears when this object is destroyed
-  (by the garbage collection, for instance), so do save this returned plot
-  object into a variable, even if you're not going to be doing anything with
-  this object
+- if not return_plot_args (the usual path): the gnuplotlib plot object. The plot
+  disappears when this object is destroyed (by the garbage collection, for
+  instance), so save this returned plot object into a variable, even if you're
+  not going to be doing anything with this object.
+
+  if return_plot_args: a (data_tuples, plot_options) tuple. The plot can then be
+  made with gp.plot(*data_tuples, **plot_options). Useful if we want to include
+  this as a part of a more complex plot
 
 - implied_Rt10: the geometric Rt transformation in an array of shape (...,4,3).
   This is either whatever was passed into this function (if anything was), or
   the identity if focus_radius==0 or the fitted results. if len(models)>1: this
   is an array of shape (len(models)-1,4,3), with slice i representing the
   transformation between camera 0 and camera i+1.
-
 
     '''
 
@@ -4394,11 +4510,11 @@ A tuple:
         # models
         W,H=models[0].imagersize()
 
-        plot = gp.gnuplotlib(square=1,
-                             _xrange=[0,W],
-                             _yrange=[H,0],
-                             cbrange=[0,cbmax],
-                             **kwargs)
+        plot_options = dict(square=1,
+                            _xrange=[0,W],
+                            _yrange=[H,0],
+                            cbrange=[0,cbmax],
+                            **kwargs)
 
         q0      = nps.clump(q0,      n=len(q0     .shape)-1)
         diff    = nps.clump(diff,    n=len(diff   .shape)-1)
@@ -4419,7 +4535,7 @@ A tuple:
                                             cbmax, -0.5,
                                             models[0].imagersize(),
                                             gridn_width, gridn_height)
-        plot = gp.gnuplotlib(**kwargs)
+        plot_options = kwargs
         plot_data_args = [ (difflen, curveoptions) ]
 
 
@@ -4498,9 +4614,13 @@ A tuple:
                                                _with     = _with,
                                                legend    = f'Camera {i} outliers'), ))
 
-    plot.plot( *plot_data_args )
+    data_tuples = plot_data_args
 
-    return plot, implied_Rt10
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot, implied_Rt10
+    return (data_tuples, plot_options), implied_Rt10
 
 
 def show_valid_intrinsics_region(models,
@@ -4508,6 +4628,7 @@ def show_valid_intrinsics_region(models,
                                  points   = None,
                                  title    = None,
                                  hardcopy = None,
+                                 return_plot_args = False,
                                  kwargs   = None):
     r'''Annotates a given image with a valid-intrinsics region
 
@@ -4576,14 +4697,17 @@ def show_valid_intrinsics_region(models,
         plot_data_args.append( (points, dict(tuplesize = -2,
                                              _with = 'points pt 7 ps 1')))
 
-    plot = gp.gnuplotlib(square=1,
-                         _xrange=[0,W],
-                         _yrange=[H,0],
-                         **kwargs)
+    plot_options = dict(square=1,
+                        _xrange=[0,W],
+                        _yrange=[H,0],
+                        **kwargs)
+    data_tuples = plot_data_args
 
-    plot.plot(*plot_data_args)
-
-    return plot
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot, implied_Rt10
+    return (data_tuples, plot_options), implied_Rt10
 
 
 # mrcal.shellquote is either pipes.quote or shlex.quote, depending on
