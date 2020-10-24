@@ -757,8 +757,8 @@ def make_plot(icam, **kwargs):
     q_sampled_mean = np.mean(q_sampled[:,icam,:],axis=-2)
 
     p = gp.gnuplotlib(square=1,
-                      _xrange=(q_sampled_mean[0]-2,q_sampled_mean[0]+2),
-                      _yrange=(q_sampled_mean[1]-2,q_sampled_mean[1]+2),
+                      _xrange=(q0_baseline[0]-2,q0_baseline[0]+2),
+                      _yrange=(q0_baseline[1]-2,q0_baseline[1]+2),
                       title=f'Uncertainty reprojection distribution for camera {icam}',
                       **kwargs)
     p.plot( (q_sampled[:,icam,0], q_sampled[:,icam,1],
