@@ -576,7 +576,7 @@ def solve(Ncameras,
         optimization_inputs['do_optimize_intrinsics_core'] = True
 
         stats = mrcal.optimize(**optimization_inputs)
-        print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
+        print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
 
         # core is good. Lock that down, and get an estimate for the control
         # points
@@ -585,7 +585,7 @@ def solve(Ncameras,
         optimization_inputs['intrinsics']                  = nps.glue(optimization_inputs['intrinsics'],
                                                                       np.zeros((Ncameras,Nintrinsics-4),),axis=-1)
         stats = mrcal.optimize(**optimization_inputs)
-        print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
+        print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
 
         # Ready for a final reoptimization with the geometry
         optimization_inputs['do_optimize_frames']          = True
@@ -609,11 +609,11 @@ def solve(Ncameras,
         optimization_inputs['do_optimize_extrinsics']      = True
 
     stats = mrcal.optimize(**optimization_inputs)
-    print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
+    print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
 
     optimization_inputs['do_optimize_calobject_warp'] = True
     stats = mrcal.optimize(**optimization_inputs)
-    print(f"optimized. rms = {stats['rms_reproj_error__pixels']}")
+    print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
 
     return optimization_inputs
 
@@ -730,8 +730,21 @@ def eval_one_rangenear_tilt(models_true,
 
 
 
+output_table_legend = 'range_uncertainty_sample Nframes_near Nframes_far Ncameras range_near range_far tilt_radius uncertainty'
+output_table_fmt    = '%f %d %d %d %f %f %f %f'
+output_table_icol__range_uncertainty_sample = 0
+output_table_icol__Nframes_near             = 1
+output_table_icol__Nframes_far              = 2
+output_table_icol__Ncameras                 = 3
+output_table_icol__range_near               = 4
+output_table_icol__range_far                = 5
+output_table_icol__tilt_radius              = 6
+output_table_icol__uncertainty              = 7
+output_table_Ncols                          = 8
 
+output_table = np.zeros( (args.Nscan_samples, Nuncertainty_at_range_samples, output_table_Ncols), dtype=float)
 
+output_table[:,:, output_table_icol__range_uncertainty_sample] += uncertainty_at_range_samples
 
 if   args.scan_num_far_constant_Nframes_near or \
      args.scan_num_far_constant_Nframes_all:
@@ -757,13 +770,21 @@ if   args.scan_num_far_constant_Nframes_near or \
                                                             0,0), dtype=float) ) \
           for i in range(args.Ncameras) ]
 
-    uncertainties = \
+    # shape (args.Nscan_samples, Nuncertainty_at_range_samples)
+    output_table[:,:, output_table_icol__uncertainty] = \
         eval_one_rangenear_tilt(models_true,
                                 *args.range,
                                 args.tilt_radius,
                                 uncertainty_at_range_samples,
                                 args.Ncameras,
                                 Nframes_near_samples, Nframes_far_samples)
+
+    output_table[:,:, output_table_icol__Nframes_near] += nps.transpose(Nframes_near_samples)
+    output_table[:,:, output_table_icol__Nframes_far]  += nps.transpose(Nframes_far_samples)
+    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
+    output_table[:,:, output_table_icol__range_near]   = args.range[0]
+    output_table[:,:, output_table_icol__range_far]    = args.range[1]
+    output_table[:,:, output_table_icol__tilt_radius ] = args.tilt_radius
 
     samples = Nframes_far_samples
 
@@ -782,16 +803,21 @@ elif args.scan_ranges:
     Nrange_samples = args.Nscan_samples
     range_samples = np.linspace(*args.range,
                                 Nrange_samples, dtype=float)
-    uncertainties = np.zeros((Nrange_samples, Nuncertainty_at_range_samples),
-                             dtype=float)
     for i_range in range(Nrange_samples):
-        uncertainties[i_range] = \
+        output_table[i_range,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
                                     range_samples[i_range], None,
                                     args.tilt_radius,
                                     uncertainty_at_range_samples,
                                     args.Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
+
+    output_table[:,:, output_table_icol__Nframes_near] = args.Nframes
+    output_table[:,:, output_table_icol__Nframes_far]  = 0
+    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
+    output_table[:,:, output_table_icol__range_near]  += nps.transpose(range_samples)
+    output_table[:,:, output_table_icol__range_far]    = -1
+    output_table[:,:, output_table_icol__tilt_radius ] = args.tilt_radius
 
     samples = range_samples
 
@@ -810,16 +836,21 @@ elif args.scan_tilts:
     Ntilt_rad_samples = args.Nscan_samples
     tilt_rad_samples = np.linspace(*args.tilt_radius,
                                    Ntilt_rad_samples, dtype=float)
-    uncertainties = np.zeros((Ntilt_rad_samples, Nuncertainty_at_range_samples),
-                             dtype=float)
     for i_tilt in range(Ntilt_rad_samples):
-        uncertainties[i_tilt] = \
+        output_table[i_tilt,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
                                     args.range, None,
                                     tilt_rad_samples[i_tilt],
                                     uncertainty_at_range_samples,
                                     args.Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
+
+    output_table[:,:, output_table_icol__Nframes_near] = args.Nframes
+    output_table[:,:, output_table_icol__Nframes_far]  = 0
+    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
+    output_table[:,:, output_table_icol__range_near]   = args.range
+    output_table[:,:, output_table_icol__range_far]    = -1
+    output_table[:,:, output_table_icol__tilt_radius] += nps.transpose(tilt_rad_samples)
 
     samples = tilt_rad_samples
 
@@ -831,8 +862,6 @@ elif args.scan_Ncameras:
     N_Ncameras_samples = args.Nscan_samples
     Ncameras_samples = np.linspace(*args.Ncameras,
                                    N_Ncameras_samples, dtype=int)
-    uncertainties = np.zeros((N_Ncameras_samples, Nuncertainty_at_range_samples),
-                             dtype=float)
     for i_Ncameras in range(N_Ncameras_samples):
 
         Ncameras = Ncameras_samples[i_Ncameras]
@@ -844,13 +873,20 @@ elif args.scan_Ncameras:
                                                                 0,0), dtype=float) ) \
               for i in range(Ncameras) ]
 
-        uncertainties[i_Ncameras] = \
+        output_table[i_Ncameras,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
                                     args.range, None,
                                     args.tilt_radius,
                                     uncertainty_at_range_samples,
                                     Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
+
+    output_table[:,:, output_table_icol__Nframes_near] = args.Nframes
+    output_table[:,:, output_table_icol__Nframes_far]  = 0
+    output_table[:,:, output_table_icol__Ncameras]    += nps.transpose(Ncameras_samples)
+    output_table[:,:, output_table_icol__range_near]   = args.range
+    output_table[:,:, output_table_icol__range_far]    = -1
+    output_table[:,:, output_table_icol__tilt_radius]  = args.tilt_radius
 
     samples = Ncameras_samples
 
@@ -869,20 +905,25 @@ elif args.scan_Nframes:
     N_Nframes_samples = args.Nscan_samples
     Nframes_samples = np.linspace(*args.Nframes,
                                   N_Nframes_samples, dtype=int)
-    uncertainties = np.zeros((N_Nframes_samples, Nuncertainty_at_range_samples),
-                             dtype=float)
     for i_Nframes in range(N_Nframes_samples):
 
         Nframes = Nframes_samples[i_Nframes]
         Nframes_near_samples = np.array( (Nframes,), dtype=int)
 
-        uncertainties[i_Nframes] = \
+        output_table[i_Nframes,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
                                     args.range, None,
                                     args.tilt_radius,
                                     uncertainty_at_range_samples,
                                     args.Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
+
+    output_table[:,:, output_table_icol__Nframes_near]+= nps.transpose(Nframes_samples)
+    output_table[:,:, output_table_icol__Nframes_far]  = 0
+    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
+    output_table[:,:, output_table_icol__range_near]   = args.range
+    output_table[:,:, output_table_icol__range_far]    = -1
+    output_table[:,:, output_table_icol__tilt_radius]  = args.tilt_radius
 
     samples = Nframes_samples
 
@@ -925,8 +966,14 @@ if samples.dtype.kind == 'i':
 else:
     legend = np.array([ f"{legend_what} = {x:.1f}" for x in samples])
 
+np.savetxt(sys.stdout,
+           nps.clump(output_table, n=2),
+           fmt   = output_table_fmt,
+           header= output_table_legend)
+
+
 gp.plot(uncertainty_at_range_samples,
-        uncertainties,
+        output_table[:,:, output_table_icol__uncertainty],
         legend   = legend,
         yrange   = (0, args.ymax),
         _with    = 'lines',
