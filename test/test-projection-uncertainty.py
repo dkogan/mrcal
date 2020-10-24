@@ -116,6 +116,25 @@ def cleanup():
 atexit.register(cleanup)
 
 
+
+def gnuplotlib_add_list_option(d, key, value):
+    if not key in d:
+        d[key] = value
+    elif isinstance(d[key], list) or isinstance(d[key], tuple):
+        d[key] = list(d[key]) + [value]
+    else:
+        d[key] = [ d[key], value ]
+
+terminal = None
+extraset = None
+if args.make_documentation_plots:
+    extension = os.path.splitext(args.make_documentation_plots)[1]
+
+    if extension == '.svg':
+        terminal = 'svg noenhanced solid dynamic fontscale 0.5'
+        extraset = 'pointsize 0.5'
+
+
 # I want the RNG to be deterministic
 np.random.seed(0)
 
@@ -269,17 +288,21 @@ if args.make_documentation_plots is not None:
 
     if args.make_documentation_plots:
         processoptions_output = dict(wait     = False,
+                                     terminal = terminal,
+                                     _set     = extraset,
                                      hardcopy = f'simulated-geometry--{args.make_documentation_plots}')
     else:
         processoptions_output = dict(wait = True)
 
+    gnuplotlib_add_list_option(processoptions_output, '_set', 'xyplane relative 0')
     mrcal.show_calibration_geometry(models_baseline,
-                                    _set='xyplane relative 0',
                                     unset='key',
                                     **processoptions_output)
 
     if args.make_documentation_plots:
         processoptions_output = dict(wait     = False,
+                                     terminal = terminal,
+                                     _set     = extraset,
                                      hardcopy = f'simulated-observations--{args.make_documentation_plots}')
     else:
         processoptions_output = dict(wait = True)
@@ -289,7 +312,7 @@ if args.make_documentation_plots is not None:
         return obs_cam.reshape(len(obs_cam)//2,2)
 
     obs_cam = [ ( (observed_points(icam),),
-                  (q0_baseline, dict(_with ='points pt 3 ps 3 lw 2'))) \
+                  (q0_baseline, dict(_with ='points pt 2 ps 2'))) \
                 for icam in range(Ncameras) ]
     gp.plot( *obs_cam,
 
@@ -799,7 +822,7 @@ def get_point_cov_plot_args(q, what):
     Var     = np.mean( nps.outer(q_mean0,q_mean0), axis=0 )
     return get_cov_plot_args(q_mean,Var, what)
 
-def make_plot(icam, **kwargs):
+def make_plot(icam, report_center_points = True, **kwargs):
 
     q_sampled_mean = np.mean(q_sampled[:,icam,:],axis=-2)
 
@@ -810,19 +833,22 @@ def make_plot(icam, **kwargs):
                     dict(_with = 'points pt 6',
                          tuplesize = 2)),
                    *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed uncertainty"),
-                   *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),
-                   (q0_baseline,
-                    dict(tuplesize = -2,
-                         _with     = 'points pt 3 ps 3',
-                         legend    = 'Baseline center point')),
-                   (q0_true[distances[0]][icam],
-                    dict(tuplesize = -2,
-                         _with     = 'points pt 3 ps 3',
-                         legend    = 'True center point')),
-                   (q_sampled_mean,
-                    dict(tuplesize = -2,
-                         _with     = 'points pt 3 ps 3',
-                         legend    = 'Sampled mean')))
+                   *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
+
+    if report_center_points:
+        data_tuples += \
+            ( (q0_baseline,
+               dict(tuplesize = -2,
+                    _with     = 'points pt 3 ps 3',
+                    legend    = 'Baseline center point')),
+              (q0_true[distances[0]][icam],
+               dict(tuplesize = -2,
+                    _with     = 'points pt 3 ps 3',
+                    legend    = 'True center point')),
+              (q_sampled_mean,
+               dict(tuplesize = -2,
+                    _with     = 'points pt 3 ps 3',
+                    legend    = 'Sampled mean')))
 
     plot_options = \
         dict(square=1,
@@ -834,35 +860,28 @@ def make_plot(icam, **kwargs):
     return data_tuples, plot_options
 
 
-if args.show_distribution or \
-   args.make_documentation_plots is not None:
-    data_tuples_plot_options = [make_plot(icam) for icam in range(Ncameras)]
-
 if args.show_distribution:
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
-        data_tuples, plot_options = data_tuples_plot_options[icam]
+        data_tuples, plot_options = make_plot(icam)
         plot_distribution[icam] = gp.gnuplotlib(**plot_options)
         plot_distribution[icam].plot(*data_tuples)
 
 if args.make_documentation_plots is not None:
+    data_tuples_plot_options = \
+        [ make_plot(icam, report_center_points=False) \
+          for icam in range(Ncameras) ]
     if args.make_documentation_plots:
         processoptions_output = dict(wait     = False,
+                                     terminal = terminal,
+                                     _set     = extraset,
                                      hardcopy = f'distribution-onepoint--{args.make_documentation_plots}')
     else:
         processoptions_output = dict(wait = True)
 
-    def add_list_option(d, key, value):
-        if not key in d:
-            d[key] = value
-        elif isinstance(d[key], list) or isinstance(d[key], tuple):
-            d[key] = list(d[key]) + [value]
-        else:
-            d[key] = [ d[key], value ]
-
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
-    add_list_option(plot_options, 'unset', 'key')
+    gnuplotlib_add_list_option(plot_options, 'unset', 'key')
     data_tuples = [ data_tuples_plot_options[icam][0] for icam in range(Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
@@ -873,6 +892,8 @@ if args.make_documentation_plots is not None:
 
     if args.make_documentation_plots:
         processoptions_output = dict(wait     = False,
+                                     terminal = terminal,
+                                     _set     = extraset,
                                      hardcopy = f'uncertainty-wholeimage--{args.make_documentation_plots}')
     else:
         processoptions_output = dict(wait = True)
@@ -883,12 +904,16 @@ if args.make_documentation_plots is not None:
                                              return_plot_args = True) \
           for icam in range(Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
+    gnuplotlib_add_list_option(plot_options, '_set', processoptions_output['_set'])
+    del processoptions_output['_set']
     del plot_options['title']
-    add_list_option(plot_options, 'unset', 'key')
+    gnuplotlib_add_list_option(plot_options, 'unset', 'key')
+    gnuplotlib_add_list_option(plot_options, 'unset', 'xtics')
+    gnuplotlib_add_list_option(plot_options, 'unset', 'ytics')
     data_tuples = [ data_tuples_plot_options[icam][0] + \
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
-                           _with ='points pt 3 ps 3 lw 2 nocontour'))] \
+                           _with ='points pt 2 ps 2 nocontour'))] \
                     for icam in range(Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
