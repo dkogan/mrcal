@@ -8,54 +8,84 @@ points, and compare that distribution with theoretical predictions.
 
 This test checks two different types of calibrations:
 
-- fixed-cam0: we place camera0 at the reference coordinate system. So camera0
+--fixed cam0: we place camera0 at the reference coordinate system. So camera0
   may not move, and has no associated extrinsics vector. The other cameras and
   the frames move. When evaluating at projection uncertainty I pick a point
   referenced off the frames. As the frames move around, so does the point I'm
   projecting. But together, the motion of the frames and the extrinsics and the
   intrinsics should map it to the same pixel in the end.
 
-- fixed-frames: the reference coordinate system is attached to the frames, which
-  may not move. All cameras may move around and all cameras have an associated
-  extrinsics vector. When evaluating at projection uncertainty I also pick a
-  point referenced off the frames, but here any point in the reference coord
-  system will do. As the cameras move around, so does the point I'm projecting.
-  But together, the motion of the extrinsics and the intrinsics should map it to
-  the same pixel in the end.
+--fixed frames: the reference coordinate system is attached to the frames,
+  which may not move. All cameras may move around and all cameras have an
+  associated extrinsics vector. When evaluating at projection uncertainty I also
+  pick a point referenced off the frames, but here any point in the reference
+  coord system will do. As the cameras move around, so does the point I'm
+  projecting. But together, the motion of the extrinsics and the intrinsics
+  should map it to the same pixel in the end.
 
-The calibration type is selected by an argument "fixed-cam0" or "fixed-frames".
-Exactly one of the two must appear.
+Exactly one of these two arguments is required.
 
-The lens model we're looking at must appear: either "opencv4" or "opencv8" or
-"splined"
-
-ARGUMENTS
-
-By default (fixed-...,lensmodel arguments only) we run the test and report
-success/failure as usual. To test stuff, pass more arguments
-
-- fixed-cam0/fixed-frames: what defines the reference coordinate system (see
-  above). Exactly one of these must appear
-
-- opencv4/opencv8/splined: which camera model we're looking at
-
-- no-sampling: don't do the sampling analysis. useful for splined models where
-  this is really slow
-
-- show-distribution: plot the observed/predicted distributions of the projected
-  points
-
-- write-models: write the produced models to disk. The files on disk can then be
-  processed with the cmdline tools
-
-Any of the diagnostic modes drop into a REPL when done
+The lens model we're using must appear: either "--model opencv4" or "--model
+opencv8" or "--model splined"
 
 '''
 
 import sys
-import numpy as np
-import numpysane as nps
+import argparse
+import re
 import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--fixed',
+                        type=str,
+                        choices=('cam0','frames'),
+                        required=True,
+                        help='''Are we putting the origin at camera0, or are all the frames at a fixed (and
+                        non-optimizeable) pose? One or the other is required.''')
+    parser.add_argument('--model',
+                        type=str,
+                        choices=('opencv4','opencv8','splined'),
+                        required = True,
+                        help='''Which lens model we're using. Must be one of
+                        ('opencv4','opencv8','splined')''')
+    parser.add_argument('--no-sampling',
+                        action='store_true',
+                        help='''By default we check some things, and then generate lots of statistical
+                        samples to compare the empirical distributions with
+                        analytic predictions. This is slow, so we may want to
+                        omit it''')
+    parser.add_argument('--show-distribution',
+                        action='store_true',
+                        help='''If given, we produce plots showing the distribution of samples''')
+    parser.add_argument('--write-models',
+                        action='store_true',
+                        help='''If given, we write the resulting models to disk for further analysis''')
+    parser.add_argument('--make-documentation-plots',
+                        type=str,
+                        help='''If given, we produce plots for the documentation. Takes one argument: a
+                        string describing this test. This will be used in the
+                        filenames of the resulting plots. The extension of the
+                        string selects the output type. To make interactive
+                        plots, pass ""''')
+    parser.add_argument('--explore',
+                        action='store_true',
+                        help='''If given, we drop into a REPL at the end''')
+
+    args = parser.parse_args()
+    return args
+
+
+args = parse_args()
+
+
+
+
+
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -64,40 +94,13 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 import copy
+import numpy as np
+import numpysane as nps
 
 from test_calibration_helpers import sample_dqref,sorted_eig
 
-args = set(sys.argv[1:])
 
-known_args = set(('fixed-cam0', 'fixed-frames',
-                  'opencv4', 'opencv8', 'splined',
-                  'no-sampling',
-                  'show-distribution', 'write-models',
-                  'write-documentation-plots'))
-
-if not all(arg in known_args for arg in args):
-    raise Exception(f"Unknown argument given. I know about {known_args}")
-
-Nargs_fixed = 0
-if 'fixed-cam0'   in args: Nargs_fixed += 1
-if 'fixed-frames' in args: Nargs_fixed += 1
-if Nargs_fixed != 1:
-    raise Exception("Exactly one of ('fixed-cam0','fixed-frames') must be given as an argument")
-fixedframes = 'fixed-frames' in args
-
-Nargs_lensmodel = 0
-if 'opencv4' in args: Nargs_lensmodel += 1
-if 'opencv8' in args: Nargs_lensmodel += 1
-if 'splined' in args: Nargs_lensmodel += 1
-if Nargs_lensmodel != 1:
-    raise Exception("Exactly one of ('opencv4','opencv8','splined') must be given as an argument")
-
-
-# if more than just fixed-cam0/fixed-frames, we're interactively debugging
-# stuff. So print more, and do a repl
-do_debug = len(args) > 2
-
-
+fixedframes = (args.fixed == 'frames')
 
 import tempfile
 import atexit
@@ -118,17 +121,17 @@ np.random.seed(0)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-if 'opencv4' in args or 'opencv8' in args:
+if re.match('opencv',args.model):
     models_true = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
                     mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
                     mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
                     mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
 
-    if 'opencv4' in args:
+    if args.model == 'opencv4':
         # I have opencv8 models_true, but I truncate to opencv4 models_true
         for m in models_true:
             m.intrinsics( intrinsics = ('LENSMODEL_OPENCV4', m.intrinsics()[1][:8]))
-elif 'splined' in args:
+elif args.model == 'splined':
     models_true = ( mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
                     mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
                     mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel"),
@@ -238,7 +241,7 @@ optimization_inputs_baseline = \
           verbose                                   = False,
           observed_pixel_uncertainty                = pixel_uncertainty_stdev,
           do_optimize_frames                        = not fixedframes,
-          do_optimize_intrinsics_core               = False if 'splined' in args else True,
+          do_optimize_intrinsics_core               = False if args.model=='splined' else True,
           do_optimize_intrinsics_distortions        = True,
           do_optimize_extrinsics                    = True,
           do_optimize_calobject_warp                = True,
@@ -261,13 +264,25 @@ q0_baseline = imagersizes[0]/3.
 
 
 
-if 'write-documentation-plots' in args:
+if args.make_documentation_plots is not None:
     import gnuplotlib as gp
+
+    if args.make_documentation_plots:
+        processoptions_output = dict(wait     = False,
+                                     hardcopy = f'simulated-geometry--{args.make_documentation_plots}')
+    else:
+        processoptions_output = dict(wait = True)
 
     mrcal.show_calibration_geometry(models_baseline,
                                     _set='xyplane relative 0',
                                     unset='key',
-                                    wait = True)
+                                    **processoptions_output)
+
+    if args.make_documentation_plots:
+        processoptions_output = dict(wait     = False,
+                                     hardcopy = f'simulated-observations--{args.make_documentation_plots}')
+    else:
+        processoptions_output = dict(wait = True)
 
     def observed_points(icam):
         obs_cam = observations_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2].ravel()
@@ -285,7 +300,7 @@ if 'write-documentation-plots' in args:
              _yrange=(models_true[0].imagersize()[1]-1, 0),
 
              multiplot = 'layout 2,2',
-             wait = 1)
+             **processoptions_output)
 
 
 # These are at the optimum
@@ -294,7 +309,7 @@ extrinsics_baseline_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in mode
 frames_baseline             = optimization_inputs_baseline['frames_rt_toref']
 calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
 
-if 'write-models' in args:
+if args.write_models:
     for i in range(Ncameras):
         models_true    [i].write(f"/tmp/models-true-camera{i}.cameramodel")
         models_baseline[i].write(f"/tmp/models-baseline-camera{i}.cameramodel")
@@ -612,7 +627,7 @@ for icam in (0,3):
                             relative  = True,
                             msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
 
-if 'no-sampling' in args:
+if args.no_sampling:
     testutils.finish()
     sys.exit()
 
@@ -757,7 +772,9 @@ q_sampled,Var_dq = check_uncertainties_at(q0_baseline, 0)
 for idistance in range(1,len(distances)):
     check_uncertainties_at(q0_baseline, idistance)
 
-if not do_debug:
+if not (args.explore or \
+        args.show_distribution or \
+        args.make_documentation_plots is not None):
     testutils.finish()
 
 
@@ -817,19 +834,23 @@ def make_plot(icam, **kwargs):
     return data_tuples, plot_options
 
 
-
-if 'show-distribution'         in args or \
-   'write-documentation-plots' in args:
+if args.show_distribution or \
+   args.make_documentation_plots is not None:
     data_tuples_plot_options = [make_plot(icam) for icam in range(Ncameras)]
 
-if 'show-distribution' in args:
+if args.show_distribution:
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
         data_tuples, plot_options = data_tuples_plot_options[icam]
         plot_distribution[icam] = gp.gnuplotlib(**plot_options)
         plot_distribution[icam].plot(*data_tuples)
 
-if 'write-documentation-plots' in args:
+if args.make_documentation_plots is not None:
+    if args.make_documentation_plots:
+        processoptions_output = dict(wait     = False,
+                                     hardcopy = f'distribution-onepoint--{args.make_documentation_plots}')
+    else:
+        processoptions_output = dict(wait = True)
 
     def add_list_option(d, key, value):
         if not key in d:
@@ -846,9 +867,15 @@ if 'write-documentation-plots' in args:
     gp.plot( *data_tuples,
              **plot_options,
              multiplot = f'title "Reprojection distribution projecting one point at {distances[0]}m" layout 2,2',
-             wait = 1)
+             **processoptions_output)
 
 
+
+    if args.make_documentation_plots:
+        processoptions_output = dict(wait     = False,
+                                     hardcopy = f'uncertainty-wholeimage--{args.make_documentation_plots}')
+    else:
+        processoptions_output = dict(wait = True)
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
                                              observations     = False,
@@ -861,12 +888,14 @@ if 'write-documentation-plots' in args:
     data_tuples = [ data_tuples_plot_options[icam][0] + \
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
-                           _with ='points pt 3 ps 3 lw 2'))] \
+                           _with ='points pt 3 ps 3 lw 2 nocontour'))] \
                     for icam in range(Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
              multiplot = f'title "Uncertainty for all cameras at {distances[0]}m" layout 2,2',
-             wait = 1)
+             **processoptions_output)
 
-import IPython
-IPython.embed()
+
+if args.explore:
+    import IPython
+    IPython.embed()

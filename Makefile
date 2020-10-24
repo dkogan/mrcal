@@ -113,33 +113,34 @@ DIST_PY3_MODULES := mrcal
 all: mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX) mrcal/_mrcal_broadcasted$(PY_EXT_SUFFIX) mrcal/_poseutils$(PY_EXT_SUFFIX)
 EXTRA_CLEAN += mrcal/*.so
 
-# Set up the test suite to be runnable in parallel
-TESTS :=									\
-  test/test-pywrap-functions.py							\
-  test/test-pylib-projections.py						\
-  test/test-poseutils.py							\
-  test/test-cameramodel.py							\
-  test/test-poseutils-lib.py							\
-  test/test-projections.py							\
-  test/test-projections-stereographic.py					\
-  test/test-gradients.py							\
-  test/test-py-gradients.py							\
-  test/test-cahvor								\
-  test/test-optimizer-callback.py						\
-  test/test-basic-sfm.py							\
-  test/test-calibration-basic.py						\
-  test/test-projection-uncertainty.py___fixed-cam0___opencv4			\
-  test/test-projection-uncertainty.py___fixed-frames___opencv4			\
-  test/test-projection-uncertainty.py___fixed-cam0___splined___no-sampling	\
-  test/test-linearizations.py							\
-  test/test-lensmodel-string-manipulation					\
-  test/test-CHOLMOD-factorization.py						\
-  test/test-projection-diff.py							\
-  test/test-graft-models.py							\
+# The test suite no longer runs in parallel, but it ALWAYS tries to run all the
+# tests, even without 'make -k'
+TESTS :=										\
+  test/test-pywrap-functions.py								\
+  test/test-pylib-projections.py							\
+  test/test-poseutils.py								\
+  test/test-cameramodel.py								\
+  test/test-poseutils-lib.py								\
+  test/test-projections.py								\
+  test/test-projections-stereographic.py						\
+  test/test-gradients.py								\
+  test/test-py-gradients.py								\
+  test/test-cahvor									\
+  test/test-optimizer-callback.py							\
+  test/test-basic-sfm.py								\
+  test/test-calibration-basic.py							\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4			\
+  test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4		\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__splined__--no-sampling	\
+  test/test-linearizations.py								\
+  test/test-lensmodel-string-manipulation						\
+  test/test-CHOLMOD-factorization.py							\
+  test/test-projection-diff.py								\
+  test/test-graft-models.py								\
   test/test-convert-lensmodel.py
 
 test check: all
-	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst ___, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
+	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: test check
 
 include /usr/include/mrbuild/Makefile.common.footer
