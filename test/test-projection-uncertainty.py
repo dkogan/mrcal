@@ -866,7 +866,7 @@ if args.make_documentation_plots is not None:
     data_tuples = [ data_tuples_plot_options[icam][0] for icam in range(Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
-             multiplot = f'title "Reprojection distribution projecting one point at {distances[0]}m" layout 2,2',
+             multiplot = f'layout 2,2',
              **processoptions_output)
 
 
@@ -892,7 +892,7 @@ if args.make_documentation_plots is not None:
                     for icam in range(Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
-             multiplot = f'title "Uncertainty for all cameras at {distances[0]}m" layout 2,2',
+             multiplot = f'layout 2,2',
              **processoptions_output)
 
 
