@@ -168,7 +168,7 @@ q_true,Rt_cam0_board_true = \
     mrcal.synthesize_board_observations(models_true,
                                         object_width_n, object_height_n, object_spacing,
                                         calobject_warp_true,
-                                        np.array((0.,  0.,  0., -2,   0,  4.0)),
+                                        np.array((0.,             0.,             0.,             -2,  0,   4.0)),
                                         np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5, 2.5, 2.0)),
                                         Nframes)
 frames_true             = mrcal.rt_from_Rt(Rt_cam0_board_true)
