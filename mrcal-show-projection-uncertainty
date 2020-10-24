@@ -163,7 +163,7 @@ if args.vs_distance_at is not None:
 
 plotkwargs_extra = {}
 if args.extraset is not None:
-    plotkwargs_extra['set'] = args.extraset
+    plotkwargs_extra['_set'] = args.extraset
 
 model = mrcal.cameramodel(args.model)
 if model.optimization_inputs() is None:

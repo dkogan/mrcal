@@ -1051,7 +1051,7 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     if os.path.isfile(imagepath):
         # only plot an image overlay if the image exists
         plotkwargs['rgbimage'] = imagepath
-        plotkwargs['set']      = 'autoscale noextend'
+        plotkwargs['_set']     = 'autoscale noextend'
     else:
         W,H=imagersizes[icam]
         plotkwargs['xrange'] = [0,W-1]

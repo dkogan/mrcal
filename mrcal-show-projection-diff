@@ -249,7 +249,7 @@ import numpysane as nps
 
 plotkwargs_extra = {}
 if args.extraset is not None:
-    plotkwargs_extra['set'] = args.extraset
+    plotkwargs_extra['_set'] = args.extraset
 
 models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 

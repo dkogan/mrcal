@@ -88,7 +88,7 @@ if not re.match('LENSMODEL_SPLINED', lensmodel):
 
 plotkwargs = {}
 if args.extraset is not None:
-    plotkwargs['set'] = args.extraset
+    plotkwargs['_set'] = args.extraset
 
 plot = mrcal.show_splined_model_surface(model, args.xy,
 

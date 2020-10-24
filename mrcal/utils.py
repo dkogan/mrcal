@@ -2163,21 +2163,21 @@ def _options_heatmap_with_contours( # update these
     r'''Update plotoptions, return curveoptions for a contoured heat map'''
 
 
-    if 'set' not in plotoptions:
-        plotoptions['set'] = []
-    elif not isinstance(plotoptions['set'], list):
-        plotoptions['set'] = [plotoptions['set']]
+    if '_set' not in plotoptions:
+        plotoptions['_set'] = []
+    elif not isinstance(plotoptions['_set'], list):
+        plotoptions['_set'] = [plotoptions['_set']]
     if 'unset' not in plotoptions:
         plotoptions['unset'] = []
     elif not isinstance(plotoptions['unset'], list):
         plotoptions['unset'] = [plotoptions['unset']]
 
-    plotoptions['set'].extend( ['view equal xy',
-                                'view map',
-                                'contour base',
-                                'key box opaque',
-                                'style textbox opaque',
-                                f'cntrparam levels incremental {contour_max},{contour_increment},0'] )
+    plotoptions['_set'].extend( ['view equal xy',
+                                 'view map',
+                                 'contour base',
+                                 'key box opaque',
+                                 'style textbox opaque',
+                                 f'cntrparam levels incremental {contour_max},{contour_increment},0'] )
 
     plotoptions['_3d']     = True
     plotoptions['_xrange'] = [0,             imagersize[0]]
@@ -2525,10 +2525,10 @@ plot
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if 'set' not in kwargs:
-        kwargs['set'] = []
-    elif type(kwargs['set']) is not list:
-        kwargs['set'] = [kwargs['set']]
+    if '_set' not in kwargs:
+        kwargs['_set'] = []
+    elif type(kwargs['_set']) is not list:
+        kwargs['_set'] = [kwargs['_set']]
 
     plotargs = [ (grid__x_y_ranges[0].ravel(), grid__x_y_ranges[1].ravel(), grid__x_y_ranges[2].ravel(),
                   nps.xchg(worst_direction_stdev_grid,0,1).ravel().clip(max=3),
@@ -2953,10 +2953,10 @@ plot
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if 'set' not in kwargs:
-        kwargs['set'] = []
-    elif type(kwargs['set']) is not list:
-        kwargs['set'] = [kwargs['set']]
+    if '_set' not in kwargs:
+        kwargs['_set'] = []
+    elif type(kwargs['_set']) is not list:
+        kwargs['_set'] = [kwargs['_set']]
 
 
 
@@ -3055,13 +3055,13 @@ plot
              format(th=th) for th in th_centersx] + \
             ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
              format(th=th) for th in th_corners ]
-        if 'set' in kwargs:
-            if type(kwargs['set']) is list: sets.extend(kwargs['set'])
-            else:                           sets.append(kwargs['set'])
-            del kwargs['set']
         if '_set' in kwargs:
-            if type(kwargs['set']) is list: sets.extend(kwargs['_set'])
-            else:                           sets.append(kwargs['_set'])
+            if type(kwargs['_set']) is list: sets.extend(kwargs['_set'])
+            else:                            sets.append(kwargs['_set'])
+            del kwargs['_set']
+        if '_set' in kwargs:
+            if type(kwargs['_set']) is list: sets.extend(kwargs['_set'])
+            else:                            sets.append(kwargs['_set'])
             del kwargs['_set']
 
         if N >= 8:
@@ -3144,10 +3144,10 @@ plot
         kwargs['_set'   ]=['object 1 rectangle from 0,0 to {},{} fillstyle empty'.format(W,H)]
         kwargs['square' ]=True
 
-        if 'set' in kwargs:
-            if type(kwargs['set']) is list: kwargs['_set'].extend(kwargs['set'])
-            else:                           kwargs['_set'].append(kwargs['set'])
-            del kwargs['set']
+        if '_set' in kwargs:
+            if type(kwargs['_set']) is list: kwargs['_set'].extend(kwargs['_set'])
+            else:                            kwargs['_set'].append(kwargs['_set'])
+            del kwargs['_set']
 
         plot_options = kwargs
         data_tuples = \
@@ -3433,10 +3433,10 @@ plot
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if 'set' not in kwargs:
-        kwargs['set'] = []
-    elif type(kwargs['set']) is not list:
-        kwargs['set'] = [kwargs['set']]
+    if '_set' not in kwargs:
+        kwargs['_set'] = []
+    elif type(kwargs['_set']) is not list:
+        kwargs['_set'] = [kwargs['_set']]
 
 
     ux_knots,uy_knots = mrcal.knots_for_splined_models(lensmodel)
@@ -4662,14 +4662,14 @@ def show_valid_intrinsics_region(models,
     if kwargs is None: kwargs = {}
     else:              kwargs = dict(kwargs)
 
-    if kwargs.get('set') is not None:
-        if isinstance(kwargs['set'], str):
-            kwargs['set'] = [kwargs['set']]
+    if kwargs.get('_set') is not None:
+        if isinstance(kwargs['_set'], str):
+            kwargs['_set'] = [kwargs['_set']]
         else:
-            kwargs['set'] = list(kwargs['set'])
+            kwargs['_set'] = list(kwargs['_set'])
     else:
-        kwargs['set'] = []
-    kwargs['set'].append('key opaque')
+        kwargs['_set'] = []
+    kwargs['_set'].append('key opaque')
 
     import gnuplotlib as gp
 

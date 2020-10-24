@@ -106,7 +106,7 @@ else:                  mode = 'heatmap'
 
 plotkwargs = {}
 if args.extraset is not None:
-    plotkwargs['set'] = args.extraset
+    plotkwargs['_set'] = args.extraset
 
 plot = mrcal.show_projection_behavior(model,
                                       mode,

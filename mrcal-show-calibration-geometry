@@ -100,8 +100,8 @@ plotkwargs = {}
 if args.title    is not None: plotkwargs['title'   ] = args.title
 if args.hardcopy is not None: plotkwargs['hardcopy'] = args.hardcopy
 
-if hasattr(args, 'set') and getattr(args, 'set') is not None:
-    plotkwargs['set']   = getattr(args, 'set')
+if hasattr(args, '_set') and getattr(args, '_set') is not None:
+    plotkwargs['_set']    = getattr(args, '_set')
 if hasattr(args, 'unset') and getattr(args, 'unset') is not None:
     plotkwargs['unset']   = getattr(args, 'unset')
 

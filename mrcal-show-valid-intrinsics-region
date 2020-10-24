@@ -117,7 +117,7 @@ else:
 
     plotkwargs_extra = {}
     if args.extraset is not None:
-        plotkwargs_extra['set'] = args.extraset
+        plotkwargs_extra['_set'] = args.extraset
 
     plot = mrcal.show_valid_intrinsics_region( \
                models, args.image,
