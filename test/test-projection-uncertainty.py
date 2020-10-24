@@ -72,7 +72,8 @@ args = set(sys.argv[1:])
 known_args = set(('fixed-cam0', 'fixed-frames',
                   'opencv4', 'opencv8', 'splined',
                   'no-sampling',
-                  'show-distribution', 'write-models'))
+                  'show-distribution', 'write-models',
+                  'write-documentation-plots'))
 
 if not all(arg in known_args for arg in args):
     raise Exception(f"Unknown argument given. I know about {known_args}")
@@ -250,6 +251,43 @@ models_baseline = \
                          icam_intrinsics     = i) \
       for i in range(Ncameras) ]
 
+# I evaluate the projection uncertainty of this vector. In each camera. I'd like
+# it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
+# this to represent a point in a globally-consistent coordinate system. Here I
+# have fixed frames, so using the reference coordinate system gives me that
+# consistency. Note that I look at q0 for each camera separately, so I'm going
+# to evaluate a different world point for each camera
+q0_baseline = imagersizes[0]/3.
+
+
+
+if 'write-documentation-plots' in args:
+    import gnuplotlib as gp
+
+    mrcal.show_calibration_geometry(models_baseline,
+                                    _set='xyplane relative 0',
+                                    unset='key',
+                                    wait = True)
+
+    def observed_points(icam):
+        obs_cam = observations_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2].ravel()
+        return obs_cam.reshape(len(obs_cam)//2,2)
+
+    obs_cam = [ ( (observed_points(icam),),
+                  (q0_baseline, dict(_with ='points pt 3 ps 3 lw 2'))) \
+                for icam in range(Ncameras) ]
+    gp.plot( *obs_cam,
+
+             tuplesize=-2,
+             _with='points',
+             square=1,
+             _xrange=(0, models_true[0].imagersize()[0]-1),
+             _yrange=(models_true[0].imagersize()[1]-1, 0),
+
+             multiplot = 'layout 2,2',
+             wait = 1)
+
+
 # These are at the optimum
 intrinsics_baseline         = nps.cat( *[m.intrinsics()[1]         for m in models_baseline] )
 extrinsics_baseline_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_baseline] )
@@ -261,14 +299,6 @@ if 'write-models' in args:
         models_true    [i].write(f"/tmp/models-true-camera{i}.cameramodel")
         models_baseline[i].write(f"/tmp/models-baseline-camera{i}.cameramodel")
     sys.exit()
-
-# I evaluate the projection uncertainty of this vector. In each camera. I'd like
-# it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
-# this to represent a point in a globally-consistent coordinate system. Here I
-# have fixed frames, so using the reference coordinate system gives me that
-# consistency. Note that I look at q0 for each camera separately, so I'm going
-# to evaluate a different world point for each camera
-q0_baseline = imagersizes[0]/3.
 
 
 
@@ -744,7 +774,7 @@ def get_cov_plot_args(q, Var, what):
 
     return \
       ((q[0], q[1], 2*major, 2*minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
-        dict(_with='ellipses', tuplesize=5, legend=f'{what} 1-sigma, full covariance')),)
+        dict(_with='ellipses', tuplesize=5, legend=what)),)
 
 def get_point_cov_plot_args(q, what):
     q_mean  = np.mean(q,axis=-2)
@@ -756,34 +786,87 @@ def make_plot(icam, **kwargs):
 
     q_sampled_mean = np.mean(q_sampled[:,icam,:],axis=-2)
 
-    p = gp.gnuplotlib(square=1,
-                      _xrange=(q0_baseline[0]-2,q0_baseline[0]+2),
-                      _yrange=(q0_baseline[1]-2,q0_baseline[1]+2),
-                      title=f'Uncertainty reprojection distribution for camera {icam}',
-                      **kwargs)
-    p.plot( (q_sampled[:,icam,0], q_sampled[:,icam,1],
-             dict(_with = 'points pt 6',
-                  tuplesize = 2)),
-            *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed"),
-            *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Propagating intrinsics, extrinsics uncertainties"),
-            (q0_baseline,
-             dict(tuplesize = -2,
-                  _with     = 'points pt 3 ps 3',
-                  legend    = 'Baseline center point')),
-            (q0_true[distances[0]][icam],
-             dict(tuplesize = -2,
-                  _with     = 'points pt 3 ps 3',
-                  legend    = 'True center point')),
-            (q_sampled_mean,
-             dict(tuplesize = -2,
-                  _with     = 'points pt 3 ps 3',
-                  legend    = 'Sampled mean')))
-    return p
+    def make_tuple(*args): return args
+
+    data_tuples = \
+        make_tuple((q_sampled[:,icam,0], q_sampled[:,icam,1],
+                    dict(_with = 'points pt 6',
+                         tuplesize = 2)),
+                   *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed uncertainty"),
+                   *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),
+                   (q0_baseline,
+                    dict(tuplesize = -2,
+                         _with     = 'points pt 3 ps 3',
+                         legend    = 'Baseline center point')),
+                   (q0_true[distances[0]][icam],
+                    dict(tuplesize = -2,
+                         _with     = 'points pt 3 ps 3',
+                         legend    = 'True center point')),
+                   (q_sampled_mean,
+                    dict(tuplesize = -2,
+                         _with     = 'points pt 3 ps 3',
+                         legend    = 'Sampled mean')))
+
+    plot_options = \
+        dict(square=1,
+             _xrange=(q0_baseline[0]-2,q0_baseline[0]+2),
+             _yrange=(q0_baseline[1]-2,q0_baseline[1]+2),
+             title=f'Uncertainty reprojection distribution for camera {icam}',
+             **kwargs)
+
+    return data_tuples, plot_options
+
+
+
+if 'show-distribution'         in args or \
+   'write-documentation-plots' in args:
+    data_tuples_plot_options = [make_plot(icam) for icam in range(Ncameras)]
 
 if 'show-distribution' in args:
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
-        plot_distribution[icam] = make_plot(icam)
+        data_tuples, plot_options = data_tuples_plot_options[icam]
+        plot_distribution[icam] = gp.gnuplotlib(**plot_options)
+        plot_distribution[icam].plot(*data_tuples)
+
+if 'write-documentation-plots' in args:
+
+    def add_list_option(d, key, value):
+        if not key in d:
+            d[key] = value
+        elif isinstance(d[key], list) or isinstance(d[key], tuple):
+            d[key] = list(d[key]) + [value]
+        else:
+            d[key] = [ d[key], value ]
+
+    plot_options = data_tuples_plot_options[0][1]
+    del plot_options['title']
+    add_list_option(plot_options, 'unset', 'key')
+    data_tuples = [ data_tuples_plot_options[icam][0] for icam in range(Ncameras) ]
+    gp.plot( *data_tuples,
+             **plot_options,
+             multiplot = f'title "Reprojection distribution projecting one point at {distances[0]}m" layout 2,2',
+             wait = 1)
+
+
+    data_tuples_plot_options = \
+        [ mrcal.show_projection_uncertainty( models_baseline[icam],
+                                             observations     = False,
+                                             distance         = distances[0],
+                                             return_plot_args = True) \
+          for icam in range(Ncameras) ]
+    plot_options = data_tuples_plot_options[0][1]
+    del plot_options['title']
+    add_list_option(plot_options, 'unset', 'key')
+    data_tuples = [ data_tuples_plot_options[icam][0] + \
+                    [(q0_baseline[0], q0_baseline[1], 0, \
+                      dict(tuplesize = 3,
+                           _with ='points pt 3 ps 3 lw 2'))] \
+                    for icam in range(Ncameras) ]
+    gp.plot( *data_tuples,
+             **plot_options,
+             multiplot = f'title "Uncertainty for all cameras at {distances[0]}m" layout 2,2',
+             wait = 1)
 
 import IPython
 IPython.embed()
