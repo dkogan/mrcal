@@ -133,6 +133,9 @@ if args.make_documentation_plots:
     if extension == '.svg':
         terminal = 'svg noenhanced solid dynamic fontscale 0.5'
         extraset = 'pointsize 0.5'
+    elif extension == '.pdf':
+        terminal = 'pdf noenhanced solid color font ",10" size 11in,6in'
+        extraset = 'pointsize 1.'
 
 
 # I want the RNG to be deterministic
