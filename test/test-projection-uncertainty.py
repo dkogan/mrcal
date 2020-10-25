@@ -90,6 +90,11 @@ def parse_args():
     parser.add_argument('--explore',
                         action='store_true',
                         help='''If given, we drop into a REPL at the end''')
+    parser.add_argument('--reproject-perturbed',
+                        choices=('mean-frames', 'fit_Rt', 'diff'),
+                        default = 'mean-frames',
+                        help='''Which reproject-after-perturbation method to use. This is for experiments.
+                        Some of these methods will be probably wrong.''')
 
     args = parser.parse_args()
 
@@ -585,7 +590,15 @@ def reproject_perturbed__diff(q, distance,
 # Which implementation we're using. Use the method that matches the uncertainty
 # computation. Thus the sampled ellipsoids should match the ellipsoids reported
 # by the uncertianty method
-reproject_perturbed = reproject_perturbed__mean_frames
+if   args.reproject_perturbed == 'mean-frames':
+    reproject_perturbed = reproject_perturbed__mean_frames
+elif args.reproject_perturbed == 'fit_Rt':
+    reproject_perturbed = reproject_perturbed__fit_Rt
+elif args.reproject_perturbed == 'diff':
+    reproject_perturbed = reproject_perturbed__diff
+else:
+    raise Exception("getting here is a bug")
+
 
 
 
