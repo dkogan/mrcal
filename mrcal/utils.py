@@ -1407,7 +1407,8 @@ def _projection_uncertainty( p_cam,
     Nstate = Jpacked.shape[-1]
     dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
-    if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
+    if frames_rt_toref is not None:
+        Nframes = len(frames_rt_toref)
 
     if extrinsics_rt_fromref is not None:
         p_ref = \
@@ -1500,7 +1501,8 @@ def _projection_uncertainty_rotationonly( p_cam,
     Nstate = Jpacked.shape[-1]
     dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
-    if frames_rt_toref is not None: Nframes = len(frames_rt_toref)
+    if frames_rt_toref is not None:
+        Nframes = len(frames_rt_toref)
 
     if extrinsics_rt_fromref is not None:
         p_ref = \
