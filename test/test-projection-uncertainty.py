@@ -53,6 +53,21 @@ def parse_args():
                         required = True,
                         help='''Which lens model we're using. Must be one of
                         ('opencv4','opencv8','splined')''')
+    parser.add_argument('--Nframes',
+                        type=int,
+                        default=50,
+                        help='''How many chessboard poses to simulate. These are dense observations: every
+                        camera sees every corner of every chessboard pose''')
+    parser.add_argument('--Nsamples',
+                        type=int,
+                        default=100,
+                        help='''How many random samples to evaluate''')
+    parser.add_argument('--distances',
+                        type=str,
+                        default='5,inf',
+                        help='''Comma-separated list of distance where we test the uncertainty predictions.
+                        Numbers an "inf" understood. The first value on this
+                        list is used for visualization in --show-distribution''')
     parser.add_argument('--no-sampling',
                         action='store_true',
                         help='''By default we check some things, and then generate lots of statistical
@@ -77,6 +92,19 @@ def parse_args():
                         help='''If given, we drop into a REPL at the end''')
 
     args = parser.parse_args()
+
+    args.distances = args.distances.split(',')
+    for i in range(len(args.distances)):
+        if args.distances[i] == 'inf':
+            args.distances[i] = None
+        else:
+            if re.match("[0-9deDE.-]+", args.distances[i]):
+                s = float(args.distances[i])
+            else:
+                print('--distances is a comma-separated list of numbers or "inf"', file=sys.stderr)
+                sys.exit(1)
+            args.distances[i] = s
+
     return args
 
 
@@ -168,10 +196,6 @@ imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 
 Ncameras = len(models_true)
 
-Nframes          = 50
-Nsamples         = 100
-distances        = (5, None)
-
 models_true[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
 models_true[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
 models_true[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
@@ -195,7 +219,7 @@ q_true,Rt_cam0_board_true = \
                                         calobject_warp_true,
                                         np.array((0.,             0.,             0.,             -2,  0,   4.0)),
                                         np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5, 2.5, 2.0)),
-                                        Nframes)
+                                        args.Nframes)
 frames_true             = mrcal.rt_from_Rt(Rt_cam0_board_true)
 
 ############# I have perfect observations in q_true. I corrupt them by noise
@@ -214,13 +238,13 @@ observations_true = nps.clump( nps.glue(q_true,
 
 
 # Dense observations. All the cameras see all the boards
-indices_frame_camera = np.zeros( (Nframes*Ncameras, 2), dtype=np.int32)
-indices_frame = indices_frame_camera[:,0].reshape(Nframes,Ncameras)
-indices_frame.setfield(nps.outer(np.arange(Nframes, dtype=np.int32),
+indices_frame_camera = np.zeros( (args.Nframes*Ncameras, 2), dtype=np.int32)
+indices_frame = indices_frame_camera[:,0].reshape(args.Nframes,Ncameras)
+indices_frame.setfield(nps.outer(np.arange(args.Nframes, dtype=np.int32),
                                  np.ones((Ncameras,), dtype=np.int32)),
                        dtype = np.int32)
-indices_camera = indices_frame_camera[:,1].reshape(Nframes,Ncameras)
-indices_camera.setfield(nps.outer(np.ones((Nframes,), dtype=np.int32),
+indices_camera = indices_frame_camera[:,1].reshape(args.Nframes,Ncameras)
+indices_camera.setfield(nps.outer(np.ones((args.Nframes,), dtype=np.int32),
                                  np.arange(Ncameras, dtype=np.int32)),
                        dtype = np.int32)
 
@@ -566,7 +590,7 @@ reproject_perturbed = reproject_perturbed__mean_frames
 
 
 q0_true = dict()
-for distance in distances:
+for distance in args.distances:
 
     # shape (Ncameras, 2)
     q0_true[distance] = \
@@ -658,13 +682,13 @@ if args.no_sampling:
     sys.exit()
 
 
-intrinsics_sampled         = np.zeros( (Nsamples,Ncameras,Nintrinsics), dtype=float )
-extrinsics_sampled_mounted = np.zeros( (Nsamples,Ncameras,6),           dtype=float )
-frames_sampled             = np.zeros( (Nsamples,Nframes, 6),           dtype=float )
-calobject_warp_sampled     = np.zeros( (Nsamples, 2),                   dtype=float )
+intrinsics_sampled         = np.zeros( (args.Nsamples,Ncameras,Nintrinsics), dtype=float )
+extrinsics_sampled_mounted = np.zeros( (args.Nsamples,Ncameras,6),           dtype=float )
+frames_sampled             = np.zeros( (args.Nsamples,args.Nframes, 6),      dtype=float )
+calobject_warp_sampled     = np.zeros( (args.Nsamples, 2),                   dtype=float )
 
-for isample in range(Nsamples):
-    print(f"Sampling {isample+1}/{Nsamples}")
+for isample in range(args.Nsamples):
+    print(f"Sampling {isample+1}/{args.Nsamples}")
 
     optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
     optimization_inputs['observations_board'] = \
@@ -683,7 +707,7 @@ for isample in range(Nsamples):
 
 def check_uncertainties_at(q0_baseline, idistance):
 
-    distance = distances[idistance]
+    distance = args.distances[idistance]
 
     # distance of "None" means I'll simulate a large distance, but compare
     # against a special-case distance of "infinity"
@@ -795,7 +819,7 @@ def check_uncertainties_at(q0_baseline, idistance):
 
 
 q_sampled,Var_dq = check_uncertainties_at(q0_baseline, 0)
-for idistance in range(1,len(distances)):
+for idistance in range(1,len(args.distances)):
     check_uncertainties_at(q0_baseline, idistance)
 
 if not (args.explore or \
@@ -844,7 +868,7 @@ def make_plot(icam, report_center_points = True, **kwargs):
                dict(tuplesize = -2,
                     _with     = 'points pt 3 ps 3',
                     legend    = 'Baseline center point')),
-              (q0_true[distances[0]][icam],
+              (q0_true[args.distances[0]][icam],
                dict(tuplesize = -2,
                     _with     = 'points pt 3 ps 3',
                     legend    = 'True center point')),
@@ -903,7 +927,7 @@ if args.make_documentation_plots is not None:
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
                                              observations     = False,
-                                             distance         = distances[0],
+                                             distance         = args.distances[0],
                                              return_plot_args = True) \
           for icam in range(Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
