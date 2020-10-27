@@ -456,9 +456,6 @@ def reproject_perturbed__fit_boards_ref(q, distance,
 
     '''
 
-    # use the new method where I compute a best-fit rotation to fit frames,
-    # instead of the aphysical mean-frame-points "rotation"
-
     calobject_height,calobject_width = optimization_inputs_baseline['observations_board'].shape[1:3]
 
     # shape (Nsamples, Nh, Nw, 3)
