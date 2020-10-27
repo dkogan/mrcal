@@ -33,7 +33,7 @@ Package: mrcal
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          python3-mrcal (= ${binary:Version}), python,
-         python3-gnuplotlib (>= 0.24-1), python3-numpysane ,
+         python3-gnuplotlib (>= 0.24-1), python3-numpysane (>= 0.28-1),
          python3-scipy,  python3-ipython,
          python3-opencv, python3,
          mrgingham (>= 1.5)
@@ -62,7 +62,7 @@ Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
          ${python3:Depends},
-         python3-gnuplotlib, python3-numpysane ,
+         python3-gnuplotlib, python3-numpysane (>= 0.28-1),
          python3-scipy,  python3-ipython, python3-shapely
 Provides: ${python3:Provides}
 Description: Calibration and SFM library

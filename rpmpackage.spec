@@ -29,7 +29,7 @@ BuildRequires: opencv-python36
 BuildRequires: python36-scipy
 BuildRequires: python36
 
-Requires: numpysane >= 0.18-2
+Requires: numpysane >= 0.28-2
 Requires: gnuplotlib >= 0.21
 Requires: opencv-python36
 Requires: python36-numpy >= 1.14.5

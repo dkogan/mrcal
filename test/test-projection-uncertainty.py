@@ -473,7 +473,7 @@ def reproject_perturbed__fit_Rt(q, distance,
 
     # shape (Nsamples, Nframes, Nh, Nw, 3)
     pcorners_ref_query = \
-        mrcal.transform_point_rt( nps.dummy(nps.dummy(query_rt_ref_frame, -2), -2),
+        mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame, -2, -2),
                                   nps.dummy(calibration_object_query, -4))
 
 
@@ -486,7 +486,7 @@ def reproject_perturbed__fit_Rt(q, distance,
 
     # shape (Nframes, Nh, Nw, 3)
     pcorners_ref_baseline = \
-        mrcal.transform_point_rt( nps.dummy(nps.dummy(baseline_rt_ref_frame, -2), -2),
+        mrcal.transform_point_rt( nps.dummy(baseline_rt_ref_frame, -2, -2),
                                   calibration_object_baseline)
 
     # shape (Nsamples,4,3)
