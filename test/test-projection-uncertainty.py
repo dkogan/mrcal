@@ -91,7 +91,7 @@ def parse_args():
                         action='store_true',
                         help='''If given, we drop into a REPL at the end''')
     parser.add_argument('--reproject-perturbed',
-                        choices=('mean-frames', 'fit_Rt', 'diff'),
+                        choices=('mean-frames', 'fit-boards-ref', 'diff'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -395,8 +395,8 @@ def reproject_perturbed__mean_frames(q, distance,
                                      query_calobject_warp):
     r'''Reproject by computing the mean in the space of frames
 
-This is what the uncertainty computation does. It's effectively using an
-aphysical rotation
+This is what the uncertainty computation does (as of 2020/10/26). The implied
+rotation here is aphysical (it is a mean of multipl rotation matrices)
 
     '''
 
@@ -423,34 +423,37 @@ aphysical rotation
                                                          p_frames ),
                                axis = -3)
 
-    # shape (..., Ncameras, 3)
-    p_cam_query = \
-        mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
+        # shape (..., Ncameras, 3)
+        p_cam_query = \
+            mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
 
-    # shape (..., Ncameras, 2)
-    return mrcal.project(p_cam_query, lensmodel, query_intrinsics)
+        # shape (..., Ncameras, 2)
+        return mrcal.project(p_cam_query, lensmodel, query_intrinsics)
 
 
-def reproject_perturbed__fit_Rt(q, distance,
+def reproject_perturbed__fit_boards_ref(q, distance,
 
-                                # shape (Ncameras, Nintrinsics)
-                                baseline_intrinsics,
-                                # shape (Ncameras, 6)
-                                baseline_rt_cam_ref,
-                                # shape (Nframes, 6)
-                                baseline_rt_ref_frame,
-                                # shape (2)
-                                baseline_calobject_warp,
+                                        # shape (Ncameras, Nintrinsics)
+                                        baseline_intrinsics,
+                                        # shape (Ncameras, 6)
+                                        baseline_rt_cam_ref,
+                                        # shape (Nframes, 6)
+                                        baseline_rt_ref_frame,
+                                        # shape (2)
+                                        baseline_calobject_warp,
 
-                                # shape (..., Ncameras, Nintrinsics)
-                                query_intrinsics,
-                                # shape (..., Ncameras, 6)
-                                query_rt_cam_ref,
-                                # shape (..., Nframes, 6)
-                                query_rt_ref_frame,
-                                # shape (..., 2)
-                                query_calobject_warp):
-    r'''Reproject by explicitly computing Rt via a procrustes fit
+                                        # shape (..., Ncameras, Nintrinsics)
+                                        query_intrinsics,
+                                        # shape (..., Ncameras, 6)
+                                        query_rt_cam_ref,
+                                        # shape (..., Nframes, 6)
+                                        query_rt_ref_frame,
+                                        # shape (..., 2)
+                                        query_calobject_warp):
+    r'''Reproject by explicitly computing a procrustes fit to align the reference
+    coordinate systems of the two solves. We match up the two sets of chessboard
+    points
+
     '''
 
     # use the new method where I compute a best-fit rotation to fit frames,
@@ -490,11 +493,13 @@ def reproject_perturbed__fit_Rt(q, distance,
                                   calibration_object_baseline)
 
     # shape (Nsamples,4,3)
-    Rt_qb = mrcal.align_procrustes_points_Rt01(# shape (Nsamples,N,3)
-                                               nps.mv(nps.clump(nps.mv(pcorners_ref_query, -1,0),n=-3),0,-1),
+    Rt_refq_refb = \
+        mrcal.align_procrustes_points_Rt01( \
+            # shape (Nsamples,N,3)
+            nps.mv(nps.clump(nps.mv(pcorners_ref_query, -1,0),n=-3),0,-1),
 
-                                               # shape (N,3)
-                                               nps.clump(pcorners_ref_baseline, n=3))
+            # shape (N,3)
+            nps.clump(pcorners_ref_baseline, n=3))
 
 
 
@@ -509,7 +514,7 @@ def reproject_perturbed__fit_Rt(q, distance,
 
     # shape (Nsamples,Ncameras,3)
     p_ref_query = \
-        mrcal.transform_point_Rt(nps.mv(Rt_qb,-3,-4),
+        mrcal.transform_point_Rt(nps.mv(Rt_refq_refb,-3,-4),
                                  p_ref_baseline)
 
     # shape (..., Ncameras, 3)
@@ -592,8 +597,8 @@ def reproject_perturbed__diff(q, distance,
 # by the uncertianty method
 if   args.reproject_perturbed == 'mean-frames':
     reproject_perturbed = reproject_perturbed__mean_frames
-elif args.reproject_perturbed == 'fit_Rt':
-    reproject_perturbed = reproject_perturbed__fit_Rt
+elif args.reproject_perturbed == 'fit-boards-ref':
+    reproject_perturbed = reproject_perturbed__fit_boards_ref
 elif args.reproject_perturbed == 'diff':
     reproject_perturbed = reproject_perturbed__diff
 else:
