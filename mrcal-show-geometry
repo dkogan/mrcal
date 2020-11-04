@@ -36,6 +36,11 @@ def parse_args():
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
 
+    parser.add_argument('--hide-boards',
+                        action='store_true',
+                        help='''If given, do not draw the calibration object observations. By default we do
+                        draw them if they are available''')
+
     parser.add_argument('--transforms',
                         type=str,
                         help='''Optional transforms.txt. This is a legacy file representing an extra
@@ -108,6 +113,7 @@ if args.unset is not None:
 plot = mrcal.show_geometry(models,
                            cameranames         = args.models,
                            cameras_Rt_plot_ref = cameras_Rt_plot_ref,
+                           show_calobjects     = not args.hide_boards,
                            **plotkwargs)
 
 if args.hardcopy is None:
