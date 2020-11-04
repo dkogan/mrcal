@@ -25,7 +25,6 @@ SYNOPSIS
 This tool uses the generic mrcal platform to solve a common specific problem of
 N-camera calibration using observations of a chessboard.
 
-
 TUTORIAL
 
 If all you want to do is run a calibration, read this section first.
