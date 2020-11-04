@@ -43,10 +43,10 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
-    parser.add_argument('--extraset',
+    parser.add_argument('--set',
                         type=str,
                         action='append',
-                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+                        help='''Extra 'set' directives to gnuplotlib. Can be given multiple times''')
     parser.add_argument('--spline-index-domain',
                         action='store_true',
                         help='''By default this produces a visualization in the domain of the imager.
@@ -87,8 +87,8 @@ if not re.match('LENSMODEL_SPLINED', lensmodel):
     sys.exit(1)
 
 plotkwargs = {}
-if args.extraset is not None:
-    plotkwargs['_set'] = args.extraset
+if args.set is not None:
+    plotkwargs['set'] = args.set
 
 plot = mrcal.show_splined_model_surface(model, args.xy,
 

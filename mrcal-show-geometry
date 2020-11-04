@@ -50,13 +50,13 @@ def parse_args():
     parser.add_argument('--set',
                         type=str,
                         action='append',
-                        help='''Optional 'set' directives to pass to gnuplotlib. May be given multiple
+                        help='''Extra 'set' directives to pass to gnuplotlib. May be given multiple
                         times''')
 
     parser.add_argument('--unset',
                         type=str,
                         action='append',
-                        help='''Optional 'unset' directives to pass to gnuplotlib. May be given multiple
+                        help='''Extra 'unset' directives to pass to gnuplotlib. May be given multiple
                         times''')
 
     parser.add_argument('models',

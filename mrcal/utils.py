@@ -2527,11 +2527,6 @@ plot
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if '_set' not in kwargs:
-        kwargs['_set'] = []
-    elif type(kwargs['_set']) is not list:
-        kwargs['_set'] = [kwargs['_set']]
-
     plotargs = [ (grid__x_y_ranges[0].ravel(), grid__x_y_ranges[1].ravel(), grid__x_y_ranges[2].ravel(),
                   nps.xchg(worst_direction_stdev_grid,0,1).ravel().clip(max=3),
                   nps.xchg(worst_direction_stdev_grid,0,1).ravel(),
@@ -2955,15 +2950,6 @@ plot
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if '_set' not in kwargs:
-        kwargs['_set'] = []
-    elif type(kwargs['_set']) is not list:
-        kwargs['_set'] = [kwargs['_set']]
-
-
-
-
-
     W,H = imagersize
     if gridn_height is None:
         gridn_height = int(round(H/W*gridn_width))
@@ -3050,32 +3036,24 @@ plot
                      f'180./pi*atan(x*pi/180.) title "equidistant"',
                      f'180./pi*atan(2. * sin( x*pi/180. / 2.)) title "equisolid angle"',
                      f'180./pi*atan( sin( x*pi/180. )) title "orthogonal"']
-        sets = \
-            ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "red"'  . \
-             format(th=th) for th in th_centersy] + \
-            ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "green"'. \
-             format(th=th) for th in th_centersx] + \
-            ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
-             format(th=th) for th in th_corners ]
-        if '_set' in kwargs:
-            if type(kwargs['_set']) is list: sets.extend(kwargs['_set'])
-            else:                            sets.append(kwargs['_set'])
-            del kwargs['_set']
-        if '_set' in kwargs:
-            if type(kwargs['_set']) is list: sets.extend(kwargs['_set'])
-            else:                            sets.append(kwargs['_set'])
-            del kwargs['_set']
+
+        gp.add_plot_option(kwargs, 'set',
+                           ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "red"'  . \
+                            format(th=th) for th in th_centersy] + \
+                           ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "green"'. \
+                            format(th=th) for th in th_centersx] + \
+                           ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
+                            format(th=th) for th in th_corners ])
 
         if N >= 8:
             equations.extend( [numerator   + ' axis x1y2 title "numerator (y2)"',
                                denominator + ' axis x1y2 title "denominator (y2)"',
                                '0 axis x1y2 with lines lw 2' ] )
-            sets.append('y2tics')
+            gp.add_plot_option(kwargs, 'set', 'y2tics')
             kwargs['y2label'] = 'Rational correction numerator, denominator'
         kwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
         plot_options = \
             dict(equation = equations,
-                 _set=sets,
                  # any of the unprojections could be nan, so I do the best I can
                  _xrange = [0,np.max(np.nan_to_num(nps.glue(th_corners,
                                                             th_centersx,
@@ -3435,12 +3413,6 @@ plot
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if '_set' not in kwargs:
-        kwargs['_set'] = []
-    elif type(kwargs['_set']) is not list:
-        kwargs['_set'] = [kwargs['_set']]
-
-
     ux_knots,uy_knots = mrcal.knots_for_splined_models(lensmodel)
     meta = mrcal.lensmodel_metadata(lensmodel)
     Nx = meta['Nx']
@@ -3493,27 +3465,27 @@ plot
                                       spacing = 50),
                     lensmodel, intrinsics_data ))
 
-    plotoptions = dict(kwargs,
+    plot_options = dict(kwargs,
                        zlabel   = f"Deltau{xy} (unitless)")
     surface_curveoptions = dict()
     if imager_domain:
-        plotoptions['xlabel'] = 'X pixel coord'
-        plotoptions['ylabel'] = 'Y pixel coord'
+        plot_options['xlabel'] = 'X pixel coord'
+        plot_options['ylabel'] = 'Y pixel coord'
         surface_curveoptions['using'] = \
             f'($1/({deltau.shape[1]-1})*({W-1})):' + \
             f'($2/({deltau.shape[0]-1})*({H-1})):' + \
             '3'
     else:
-        plotoptions['xlabel'] = 'Stereographic ux'
-        plotoptions['ylabel'] = 'Stereographic uy'
+        plot_options['xlabel'] = 'Stereographic ux'
+        plot_options['ylabel'] = 'Stereographic uy'
         surface_curveoptions['using'] = \
             f'({ux_knots[0]}+$1/({deltau.shape[1]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
             f'({uy_knots[0]}+$2/({deltau.shape[0]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
             '3'
 
-    plotoptions['square']   = True
-    plotoptions['yinv']     = True
-    plotoptions['ascii']    = True
+    plot_options['square']   = True
+    plot_options['yinv']     = True
+    plot_options['ascii']    = True
     surface_curveoptions['_with']     = 'image'
     surface_curveoptions['tuplesize'] = 3
 
@@ -3576,7 +3548,6 @@ plot
                                legend    = 'Invalid regions'))
                        for r in invalid_regions] )
 
-    plot_options = plotoptions
     data_tuples  = data
     if not return_plot_args:
         plot = gp.gnuplotlib(**plot_options)
@@ -4626,12 +4597,10 @@ A tuple:
 
 
 def show_valid_intrinsics_region(models,
-                                 image    = None,
-                                 points   = None,
-                                 title    = None,
-                                 hardcopy = None,
+                                 image      = None,
+                                 points     = None,
                                  return_plot_args = False,
-                                 kwargs   = None):
+                                 **kwargs):
     r'''Annotates a given image with a valid-intrinsics region
 
     This function takes in a camera model (or a list of models) and an image. It
@@ -4661,25 +4630,9 @@ def show_valid_intrinsics_region(models,
     except:
         raise Exception("Some given models have no valid-intrinsics region defined")
 
-    if kwargs is None: kwargs = {}
-    else:              kwargs = dict(kwargs)
-
-    if kwargs.get('_set') is not None:
-        if isinstance(kwargs['_set'], str):
-            kwargs['_set'] = [kwargs['_set']]
-        else:
-            kwargs['_set'] = list(kwargs['_set'])
-    else:
-        kwargs['_set'] = []
-    kwargs['_set'].append('key opaque')
-
     import gnuplotlib as gp
 
-    if 'title' not in kwargs and title is not None:
-        kwargs['title'] = title
-
-    if 'hardcopy' not in kwargs and hardcopy is not None:
-        kwargs['hardcopy'] = hardcopy
+    gp.add_plot_option(kwargs, 'set', 'key opaque')
 
     plot_data_args = []
 

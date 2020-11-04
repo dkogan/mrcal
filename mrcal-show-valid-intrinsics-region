@@ -45,10 +45,10 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
-    parser.add_argument('--extraset',
+    parser.add_argument('--set',
                         type=str,
                         action='append',
-                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+                        help='''Extra 'set' directives to gnuplotlib. Can be given multiple times''')
     parser.add_argument('--image',
                         type=str,
                         required = False,
@@ -72,8 +72,8 @@ if args.writeimage:
 
     if args.title    is not None or \
        args.hardcopy is not None or \
-       args.extraset is not None:
-        raise Exception("--title and --hardcopy and --extraset are only valid without --writeimage")
+       args.set      is not None:
+        raise Exception("--title and --hardcopy and --set are only valid without --writeimage")
 
     if args.points and args.writeimage:
         raise Exception("Currently --points is implemented ONLY if not --writeimage")
@@ -116,15 +116,15 @@ else:
         points = np.loadtxt(sys.stdin)
 
     plotkwargs_extra = {}
-    if args.extraset is not None:
-        plotkwargs_extra['_set'] = args.extraset
+    if args.set is not None:
+        plotkwargs_extra['set'] = args.set
 
     plot = mrcal.show_valid_intrinsics_region( \
                models, args.image,
-               points = points,
+               points   = points,
                hardcopy = args.hardcopy,
                title    = args.title,
-               kwargs   = plotkwargs_extra)
+               **plotkwargs_extra)
 
     if args.hardcopy is None:
         plot.wait()

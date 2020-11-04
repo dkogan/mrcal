@@ -66,10 +66,11 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
-    parser.add_argument('--extraset',
+    parser.add_argument('--set',
                         type=str,
                         action='append',
-                        help='''Extra 'set' directives to gnuplot. Can be given multiple times''')
+                        help='''Extra 'set' directives to pass to gnuplotlib. May be given multiple
+                        times''')
 
     parser.add_argument('model',
                         type=str,
@@ -105,8 +106,8 @@ elif args.vectorfield: mode = 'vectorfield'
 else:                  mode = 'heatmap'
 
 plotkwargs = {}
-if args.extraset is not None:
-    plotkwargs['_set'] = args.extraset
+if args.set is not None:
+    plotkwargs['set'] = args.set
 
 plot = mrcal.show_projection_behavior(model,
                                       mode,
