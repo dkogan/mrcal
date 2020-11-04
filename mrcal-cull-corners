@@ -156,10 +156,10 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
 
 
 observations, _, paths = \
-    mrcal.chessboard_observations(Nw = args.object_width_n,
-                                      Nh = args.object_height_n,
-                                      corners_cache_vnl = sys.stdin,
-                                      keep_level = True)
+    mrcal.compute_chessboard_corners(Nw = args.object_width_n,
+                                     Nh = args.object_height_n,
+                                     corners_cache_vnl = sys.stdin,
+                                     keep_level = True)
 
 N_keep       = int(round((1.0 - args.cull_random_observations_ratio) * len(observations)))
 indices_keep = np.sort(np.random.choice(len(observations), N_keep, replace=False))

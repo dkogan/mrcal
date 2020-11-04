@@ -4876,18 +4876,18 @@ from the filename.
     return mapping
 
 
-def chessboard_observations(Nw, Nh, globs=('*',), corners_cache_vnl=None, jobs=1,
-                            exclude_images=set(),
-                            weighted=True,
-                            keep_level=False):
+def compute_chessboard_corners(Nw, Nh, globs=('*',), corners_cache_vnl=None, jobs=1,
+                               exclude_images=set(),
+                               weighted=True,
+                               keep_level=False):
     r'''Compute the chessboard observations and returns them in a usable form
 
 SYNOPSIS
 
-  observations, indices_frame_camera, paths = \
-      mrcal.chessboard_observations(10, 10,
-                                    ('frame*-cam0.jpg','frame*-cam1.jpg'),
-                                    "corners.vnl")
+    observations, indices_frame_camera, paths = \
+        mrcal.compute_chessboard_corners(10, 10,
+                                         ('frame*-cam0.jpg','frame*-cam1.jpg'),
+                                         "corners.vnl")
 
 The input to a calibration problem is a set of images of a calibration object
 from different angles and positions. This function ingests these images, and

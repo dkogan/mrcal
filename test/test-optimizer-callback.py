@@ -29,9 +29,9 @@ def linspace_shaped(*shape):
 # each. I want to make things uneven, so I make the first two frames have only 1
 # camera each
 observations, indices_frame_camera, paths = \
-    mrcal.chessboard_observations(10, 10,
-                                      ('frame*-cam0.xxx','frame*-cam1.xxx'),
-                                      f"{testdir}/data/synthetic-board-observations.vnl")
+    mrcal.compute_chessboard_corners(10, 10,
+                                     ('frame*-cam0.xxx','frame*-cam1.xxx'),
+                                     f"{testdir}/data/synthetic-board-observations.vnl")
 indices_frame_camintrinsics_camextrinsics = np.zeros((len(indices_frame_camera), 3), dtype=indices_frame_camera.dtype)
 indices_frame_camintrinsics_camextrinsics[:, :2] = indices_frame_camera
 indices_frame_camintrinsics_camextrinsics[:,  2] = indices_frame_camintrinsics_camextrinsics[:, 1]-1
