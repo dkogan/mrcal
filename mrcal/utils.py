@@ -4895,7 +4895,7 @@ outputs the detected chessboard corner coordinates in a form usable by the mrcal
 optimization routines. The "corners_cache_vnl" argument specifies a file to read
 from, or write to. This is a vnlog with legend
 
-  # filename x y level
+    # filename x y level
 
 Each record is a chessboard corner. The image filename and corner coordinates
 are given. The "level" is a decimation level of the detected corner. If we
