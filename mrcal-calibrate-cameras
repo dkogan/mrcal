@@ -946,7 +946,7 @@ import gnuplotlib as gp
 print(r'''Solution-examination REPL.
 Potential things to look at:
 
-    show_calibration_geometry()
+    show_geometry()
     show_residuals_observation_worst(i_observation_in_order_from_worst)
     show_residuals_observation(i_observation, vectorscale=20)
     show_projection_uncertainty(icam)
@@ -1558,11 +1558,11 @@ def show_splined_model_surface(icam = None, xy='x', **kwargs):
                                              **kwargs)
 
 plot_calibration_geometry = None
-def show_calibration_geometry(**kwargs):
+def show_geometry(**kwargs):
     global plot_calibration_geometry
     plot_calibration_geometry = \
-        mrcal.show_calibration_geometry(models,
-                                        cameranames = [f"camera {i}" for i in range(len(models))])
+        mrcal.show_geometry(models,
+                            cameranames = [f"camera {i}" for i in range(len(models))])
 
 import IPython
 IPython.embed()

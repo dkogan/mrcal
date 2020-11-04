@@ -264,11 +264,11 @@ if not fixedframes:
 # Now I apply pixel noise, and look at the effects on the resulting calibration.
 
 
-# p = mrcal.show_calibration_geometry(models_true,
-#                                     frames          = frames_true,
-#                                     object_width_n  = object_width_n,
-#                                     object_height_n = object_height_n,
-#                                     object_spacing  = object_spacing)
+# p = mrcal.show_geometry(models_true,
+#                         frames          = frames_true,
+#                         object_width_n  = object_width_n,
+#                         object_height_n = object_height_n,
+#                         object_spacing  = object_spacing)
 # sys.exit()
 
 
@@ -327,9 +327,9 @@ if args.make_documentation_plots is not None:
         processoptions_output = dict(wait = True)
 
     gnuplotlib_add_list_option(processoptions_output, '_set', 'xyplane relative 0')
-    mrcal.show_calibration_geometry(models_baseline,
-                                    unset='key',
-                                    **processoptions_output)
+    mrcal.show_geometry(models_baseline,
+                        unset='key',
+                        **processoptions_output)
 
     if args.make_documentation_plots:
         processoptions_output = dict(wait     = False,

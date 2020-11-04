@@ -105,10 +105,9 @@ if hasattr(args, '_set') and getattr(args, '_set') is not None:
 if hasattr(args, 'unset') and getattr(args, 'unset') is not None:
     plotkwargs['unset']   = getattr(args, 'unset')
 
-plot = mrcal.show_calibration_geometry(models,
-                                       args.models,
-                                       cameras_Rt_plot_ref,
-                                       **plotkwargs)
+plot = mrcal.show_geometry(models, args.models,
+                           cameras_Rt_plot_ref,
+                           **plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()

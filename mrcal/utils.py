@@ -437,13 +437,13 @@ We return a tuple:
                                             nps.glue(r, np.array((0,0,3.)), axis=-1),
                                             np.array((0,0,0., 0,0,0)),
                                             1) [1]
-    mrcal.show_calibration_geometry( models_or_extrinsics_rt_fromref = np.zeros((1,1,6), dtype=float),
-                                     frames_rt_toref                 = mrcal.rt_from_Rt(Rt_cam0_boardref),
-                                     object_width_n                  = 20,
-                                     object_height_n                 = 5,
-                                     object_spacing                  = 0.1,
-                                     _set = 'xyplane 0',
-                                     wait = 1 )
+    mrcal.show_geometry( models_or_extrinsics_rt_fromref = np.zeros((1,1,6), dtype=float),
+                         frames_rt_toref                 = mrcal.rt_from_Rt(Rt_cam0_boardref),
+                         object_width_n                  = 20,
+                         object_height_n                 = 5,
+                         object_spacing                  = 0.1,
+                         _set = 'xyplane 0',
+                         wait = 1 )
     '''
 
     which_valid = ( 'all_cameras_must_see_full_board',
@@ -574,21 +574,21 @@ We return a tuple:
     return q, mrcal.compose_Rt(Rt_cam0_boardref, Rt_boardref_origboardref)
 
 
-def show_calibration_geometry(models_or_extrinsics_rt_fromref,
-                              cameranames                 = None,
-                              cameras_Rt_plot_ref         = None,
-                              frames_rt_toref             = None,
-                              points                      = None,
+def show_geometry(models_or_extrinsics_rt_fromref,
+                  cameranames                 = None,
+                  cameras_Rt_plot_ref         = None,
+                  frames_rt_toref             = None,
+                  points                      = None,
 
-                              show_calobjects    = True,
-                              axis_scale         = 1.0,
-                              object_width_n     = None,
-                              object_height_n    = None,
-                              object_spacing     = 0,
-                              calobject_warp     = None,
-                              point_labels       = None,
-                              return_plot_args   = False,
-                              **kwargs):
+                  show_calobjects    = True,
+                  axis_scale         = 1.0,
+                  object_width_n     = None,
+                  object_height_n    = None,
+                  object_spacing     = 0,
+                  calobject_warp     = None,
+                  point_labels       = None,
+                  return_plot_args   = False,
+                  **kwargs):
 
     r'''Visualize the world resulting from a calibration run
 
@@ -596,7 +596,7 @@ SYNOPSIS
 
     # Visualize the geometry from some models on disk
     models = [mrcal.cameramodel(m) for m in model_filenames]
-    plot1 = mrcal.show_calibration_geometry(models)
+    plot1 = mrcal.show_geometry(models)
 
     # Solve a calibration problem. Visualize the resulting geometry AND the
     # observed calibration objects and points
@@ -607,9 +607,9 @@ SYNOPSIS
                    points,
                    ...)
     plot2 = \
-      mrcal.show_calibration_geometry(extrinsics_rt_fromref,
-                                      frames_rt_toref = frames_rt_toref,
-                                      points          = points)
+      mrcal.show_geometry(extrinsics_rt_fromref,
+                          frames_rt_toref = frames_rt_toref,
+                          points          = points)
 
 This function visualizes the world described by a set of camera models. It shows
 the geometry of the cameras themselves (each one is represented by the axes of
