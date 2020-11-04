@@ -623,7 +623,7 @@ This function can also be used to visualize the output (or input) of
 mrcal.optimize(); the relevant parameters are all identical to those
 mrcal.optimize() takes.
 
-This function is the core of the mrcal-show-calibration-geometry tool.
+This function is the core of the mrcal-show-geometry tool.
 
 All arguments except models_or_extrinsics_rt_fromref are optional.
 

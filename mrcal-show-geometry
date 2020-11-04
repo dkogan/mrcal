@@ -4,7 +4,7 @@ r'''Displays the calibration-time geometry: the cameras and the observed objects
 
 SYNOPSIS
 
-  $ mrcal-show-calibration-geometry *.cameramodel
+  $ mrcal-show-geometry *.cameramodel
   ... a plot pops up showing the camera arrangement
 
 This tool visualizes the relative geometry between several cameras and the

@@ -29,7 +29,7 @@ DIST_BIN :=					\
 	mrcal-graft-models			\
 	mrcal-to-cahvor				\
 	mrcal-to-cameramodel			\
-	mrcal-show-calibration-geometry		\
+	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \
 	mrcal-cull-corners
