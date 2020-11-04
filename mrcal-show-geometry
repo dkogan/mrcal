@@ -100,13 +100,14 @@ plotkwargs = {}
 if args.title    is not None: plotkwargs['title'   ] = args.title
 if args.hardcopy is not None: plotkwargs['hardcopy'] = args.hardcopy
 
-if hasattr(args, '_set') and getattr(args, '_set') is not None:
-    plotkwargs['_set']    = getattr(args, '_set')
-if hasattr(args, 'unset') and getattr(args, 'unset') is not None:
-    plotkwargs['unset']   = getattr(args, 'unset')
+if args.set   is not None:
+    gp.add_plot_option( plotkwargs, 'set'   *args.set)
+if args.unset is not None:
+    gp.add_plot_option( plotkwargs, 'unset' *args.unset)
 
-plot = mrcal.show_geometry(models, args.models,
-                           cameras_Rt_plot_ref,
+plot = mrcal.show_geometry(models,
+                           cameranames         = args.models,
+                           cameras_Rt_plot_ref = cameras_Rt_plot_ref,
                            **plotkwargs)
 
 if args.hardcopy is None:
