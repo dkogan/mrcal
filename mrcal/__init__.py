@@ -17,4 +17,5 @@ from .projections           import *
 from .cameramodel           import *
 from .poseutils             import *
 from ._poseutils            import *
+from .stereo                import *
 from .utils                 import *
