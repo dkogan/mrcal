@@ -2,8 +2,8 @@
 
 #+BEGIN_EXAMPLE
 $ mrcal-calibrate-cameras --focal 2000
-                    --outdir /tmp --object-spacing 0.01
-                    --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
+      --outdir /tmp --object-spacing 0.01
+      --object-width-n 10 '/tmp/left*.png' '/tmp/right*.png'
 
 ... lots of output as the solve runs ...
 Wrote /tmp/camera0-0.cameramodel
@@ -12,7 +12,7 @@ Wrote /tmp/camera0-1.cameramodel
 
 * SUMMARY
 
-Mrcal is a generic toolkit to solve calibration and SFM-like problems.
+=mrcal= is a generic toolkit to solve calibration and SFM-like problems.
 Functionality related to these problems is exposed as a set of python libraries.
 Both CAHVOR and OpenCV lens models are fully supported; CAHVORE is partially
 supported. The toolkit includes:
@@ -29,8 +29,8 @@ supported. The toolkit includes:
 - Some tools:
   - =mrcal-calibrate-cameras=: calibrates N cameras
   - =mrcal-convert-lensmodel=: fits one lens model to another
-  - =mrcal-show-projection-behavior=: visualize the effects of a specific lens
-    model
+  - =mrcal-show-distortion-off-pinhole=: visualize the deviation of a specific
+    lens model from a pinhole model
   - =mrcal-show-splined-model-surface=: visualize the surface and knots used in
     the specification of splined models
   - =mrcal-show-projection-uncertainty=: visualize the uncertainty of intrinsics
@@ -43,8 +43,8 @@ supported. The toolkit includes:
     set of images that observe the same scene but with the other model. Several
     flavors of functionality are included here, such as undistortion-to-pinhole,
     re-rotation, and remapping to infinity.
-  - =mrcal-graft-cameramodel=: Combines the intrinsics of one cameramodel with
-    the extrinsics of another
+  - =mrcal-graft-models=: Combines the intrinsics of one cameramodel with the
+    extrinsics of another
   - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
     format to the =.cahvor= format. This exists for compatibility only, and does
     not touch the data: the lens distortion may or may not use the CAHVOR
@@ -53,8 +53,9 @@ supported. The toolkit includes:
     format to the =.cameramodel= format. This exists for compatibility only, and
     does not touch the data: the lens distortion may or may not use the CAHVOR
     lens model
-  - =mrcal-show-calibration-geometry=: Shows a visual representation of the
-    extrinsics of N calibrated cameras
+  - =mrcal-show-geometry=: Shows a visual representation of the geometry
+    represented by some camera models on disk, and optionally, the
+    chessboard observations used to compute that geometry
   - =mrcal-show-valid-intrinsics-regions=: Visualizes the region where a model's
     intrinsics are valid
   - =mrcal-is-within-valid-intrinsics-region=: Augments a vnlog of pixel
@@ -396,10 +397,10 @@ DESCRIPTION
     you'll see a bias in the error vectors, to compensate for the motion of
     the chessboard.
 
-    Next do this for each camera in your calibration set (i_camera is an
-    index counting up from 0):
+    Next do this for each camera in your calibration set (icam is an index
+    counting up from 0):
 
-        show_residuals_regional(i_camera)
+        show_residuals_regional(icam)
 
     Each of these will pop up 3 plots describing your distribution of
     errors. You get
@@ -452,65 +453,102 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      images                A glob-per-camera for the images. Include a glob for each camera. It is assumed that the image filenames
-                            in each glob are of of the form xxxNNNyyy where xxx and yyy are common to all images in the set, and NNN
-                            varies. This NNN is a frame number, and identical frame numbers across different globs signify a time-
-                            synchronized observation. I.e. you can pass 'left*.jpg' and 'right*.jpg' to find images 'left0.jpg',
-                            'left1.jpg', ..., 'right0.jpg', 'right1.jpg', ...
+      images                A glob-per-camera for the images. Include a glob for
+                            each camera. It is assumed that the image filenames in
+                            each glob are of of the form xxxNNNyyy where xxx and
+                            yyy are common to all images in the set, and NNN
+                            varies. This NNN is a frame number, and identical
+                            frame numbers across different globs signify a time-
+                            synchronized observation. I.e. you can pass
+                            'left*.jpg' and 'right*.jpg' to find images
+                            'left0.jpg', 'left1.jpg', ..., 'right0.jpg',
+                            'right1.jpg', ...
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --focal FOCAL         Initial estimate of the focal length, in pixels. Required unless --seed is given
+      --focal FOCAL         Initial estimate of the focal length, in pixels.
+                            Required unless --seed is given
       --imagersize IMAGERSIZE IMAGERSIZE
-                            Size of the imager. This is only required if we pass --corners-cache AND if none of the image files on
-                            disk actually exist and if we don't have a --seed. If we do have a --seed, the --imagersize values must
-                            match the --seed exactly
+                            Size of the imager. This is only required if we pass
+                            --corners-cache AND if none of the image files on disk
+                            actually exist and if we don't have a --seed. If we do
+                            have a --seed, the --imagersize values must match the
+                            --seed exactly
       --outdir OUTDIR       Directory for the output camera models
       --object-spacing OBJECT_SPACING
-                            Width of each square in the calibration board, in meters
+                            Width of each square in the calibration board, in
+                            meters
       --object-width-n OBJECT_WIDTH_N
-                            How many points the calibration board has per horizontal side. If omitted we default to 10
+                            How many points the calibration board has per
+                            horizontal side. If omitted we default to 10
       --object-height-n OBJECT_HEIGHT_N
-                            How many points the calibration board has per vertical side. If omitted, we assume a square object,
-                            setting height=width
+                            How many points the calibration board has per vertical
+                            side. If omitted, we assume a square object, setting
+                            height=width
       --lensmodel LENSMODEL
-                            Which lens model we're using. This is required unless we have a --seed
-      --seed SEED           A comma-separated whitespace-less list of camera model globs to use as a seed for the intrinsics and
-                            extrinsics. The number of models must match the number of cameras exactly. Expanded globs are sorted
-                            alphanumerically. This is useful to bootstrap the solve or to validate an existing set of models, or to
-                            recompute just the extrinsics or just the intrinsics of a solve. If omitted, we estimate a seed.
-                            Exclusive with --focal. If given, --imagersize is omitted or it must match EXACTLY with whatever is in
-                            the --seed models
-      --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make. Affects only the chessboard corner finder. If we are
+                            Which lens model we're using. This is required unless
+                            we have a --seed
+      --seed SEED           A comma-separated whitespace-less list of camera model
+                            globs to use as a seed for the intrinsics and
+                            extrinsics. The number of models must match the number
+                            of cameras exactly. Expanded globs are sorted
+                            alphanumerically. This is useful to bootstrap the
+                            solve or to validate an existing set of models, or to
+                            recompute just the extrinsics or just the intrinsics
+                            of a solve. If omitted, we estimate a seed. Exclusive
+                            with --focal. If given, --imagersize is omitted or it
+                            must match EXACTLY with whatever is in the --seed
+                            models
+      --jobs JOBS, -j JOBS  How much parallelization we want. Like GNU make.
+                            Affects only the chessboard corner finder. If we are
                             reading a cache file, this does nothing
       --corners-cache CORNERS_CACHE
-                            Path to read corner-finder data from or (if path does not exist) to write data to
-      --pairs               By default, we are calibrating a set of N independent cameras. If we actually have a number of stereo
-                            pairs, pass this argument. It changes the filename format of the models written to disk (cameraPAIR-
-                            INDEXINPAIR.cameramodel), and will report some uncertainties about geometry inside each pair. Consecutive
-                            cameras in the given list are paired up, and an even number of cameras is required
+                            Path to read corner-finder data from or (if path does
+                            not exist) to write data to
+      --pairs               By default, we are calibrating a set of N independent
+                            cameras. If we actually have a number of stereo pairs,
+                            pass this argument. It changes the filename format of
+                            the models written to disk (cameraPAIR-
+                            INDEXINPAIR.cameramodel), and will report some
+                            uncertainties about geometry inside each pair.
+                            Consecutive cameras in the given list are paired up,
+                            and an even number of cameras is required
       --skip-regularization
-                            By default we apply regularization in the solver in the final optimization. This discourages obviously-
-                            wrong solutions, but can introduce a bias. With this option, regularization isn't applied
+                            By default we apply regularization in the solver in
+                            the final optimization. This discourages obviously-
+                            wrong solutions, but can introduce a bias. With this
+                            option, regularization isn't applied
       --skip-outlier-rejection
-                            By default we throw out outliers. This option turns that off
+                            By default we throw out outliers. This option turns
+                            that off
       --skip-extrinsics-solve
-                            Keep the seeded extrinsics, if given. Allowed only if --seed
+                            Keep the seeded extrinsics, if given. Allowed only if
+                            --seed
       --skip-intrinsics-solve
-                            Keep the seeded intrinsics, if given. Allowed only if --seed
-      --unweighted-corners  By default we weight each corner error contribution using the uncertainty from the corner detector. If we
-                            want to ignore this information, and weigh them all equally, pass --unweighted-corners.
-      --verbose-solver      By default the final stage of the solver doesn't say much. This option turns on verbosity to get lots of
+                            Keep the seeded intrinsics, if given. Allowed only if
+                            --seed
+      --skip-calobject-warp-solve
+                            By default we assume the calibration target is
+                            slightly deformed, and we compute this deformation. If
+                            we want to assume that it is flat, pass this option.
+      --unweighted-corners  By default we weight each corner error contribution
+                            using the uncertainty from the corner detector. If we
+                            want to ignore this information, and weigh them all
+                            equally, pass --unweighted-corners.
+      --verbose-solver      By default the final stage of the solver doesn't say
+                            much. This option turns on verbosity to get lots of
                             diagnostics.
-      --optimize-calobject-warp
-                            By default we assume the calibration target is flat. If it isn't and we want to compute it, pass this
-                            option.
-      --explore             After the solve open an interactive shell to examine the solution
+      --explore             After the solve open an interactive shell to examine
+                            the solution
       --observed-pixel-uncertainty OBSERVED_PIXEL_UNCERTAINTY
-                            The standard deviation of x and y pixel coordinates of the input observations. The distribution of the
-                            inputs is assumed to be gaussian, with the standard deviation specified by this argument. Note: this is
-                            the x and y standard deviation, treated independently. If each of these is s, then the LENGTH of the
-                            deviation of each pixel is a Rayleigh distribution with expected value s*sqrt(pi/2) ~ s*1.25
+                            The standard deviation of x and y pixel coordinates of
+                            the input observations. The distribution of the inputs
+                            is assumed to be gaussian, with the standard deviation
+                            specified by this argument. Note: this is the x and y
+                            standard deviation, treated independently. If each of
+                            these is s, then the LENGTH of the deviation of each
+                            pixel is a Rayleigh distribution with expected value
+                            s*sqrt(pi/2) ~ s*1.25
 
 
 #+END_EXAMPLE
@@ -597,41 +635,66 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      to                   The target lens model
-      model                Input camera model. If "-' is given, we read standard input
+      to                    The target lens model
+      model                 Input camera model. If "-' is given, we read standard
+                            input
 
   OPTIONAL ARGUMENTS
-      -h, --help           show this help message and exit
-      --sampled            Instead of solving the original calibration problem using the new lens model, use sampled imager points.
-                           This produces biased results, but can be used even if the original optimization_inputs aren't available
-      --gridn GRIDN GRIDN  Used if --sampled. How densely we should sample the imager. By default we use a 60x40 grid
-      --distance DISTANCE  Used (and required) if --sampled. A sampled solve fits the intrinsics and extrinsics to match up
-                           reprojections of a grid of observed pixels. The points being projected are set a particular distance (set
-                           by this argument) from the camera. Set this to the distance that is expected to be most confident for the
-                           given cameramodel
-      --intrinsics-only    Used if --sampled. By default I optimize the intrinsics and extrinsics to find the closest reprojection.
-                           If for whatever reason we know that the camera coordinate system was already right, or we need to keep the
-                           original extrinsics, pass --intrinsics-only. The resulting extrinsics will be the same, but the fit will
-                           not be as good. In many cases, optimizing extrinsics is required to get a usable fit, so --intrinsics-only
-                           may not be an option if accurate results are required.
-      --where WHERE WHERE  Used if --sampled. I use a subset of the imager to compute the fit. The active region is a circle centered
-                           on this point. If omitted, we will focus on the center of the imager
-      --radius RADIUS      Used if --sampled. I use a subset of the imager to compute the fit. The active region is a circle with a
-                           radius given by this parameter. If radius == 0, I'll use the whole imager for the fit. If radius < 0, this
-                           parameter specifies the width of the region at the corners that I should ignore: I will use sqrt(width^2 +
-                           height^2)/2. - abs(radius). This is valid ONLY if we're focusing at the center of the imager. By default I
-                           ignore a large-ish chunk area at the corners.
-      --viz                Visualize the differences between the input and output models
+      -h, --help            show this help message and exit
+      --sampled             Instead of solving the original calibration problem
+                            using the new lens model, use sampled imager points.
+                            This produces biased results, but can be used even if
+                            the original optimization_inputs aren't available
+      --gridn GRIDN GRIDN   Used if --sampled. How densely we should sample the
+                            imager. By default we use a 60x40 grid
+      --distance DISTANCE   Used (and required) if --sampled. A sampled solve fits
+                            the intrinsics and extrinsics to match up
+                            reprojections of a grid of observed pixels. The points
+                            being projected are set a particular distance (set by
+                            this argument) from the camera. Set this to the
+                            distance that is expected to be most confident for the
+                            given cameramodel
+      --intrinsics-only     Used if --sampled. By default I optimize the
+                            intrinsics and extrinsics to find the closest
+                            reprojection. If for whatever reason we know that the
+                            camera coordinate system was already right, or we need
+                            to keep the original extrinsics, pass --intrinsics-
+                            only. The resulting extrinsics will be the same, but
+                            the fit will not be as good. In many cases, optimizing
+                            extrinsics is required to get a usable fit, so
+                            --intrinsics-only may not be an option if accurate
+                            results are required.
+      --where WHERE WHERE   Used if --sampled. I use a subset of the imager to
+                            compute the fit. The active region is a circle
+                            centered on this point. If omitted, we will focus on
+                            the center of the imager
+      --radius RADIUS       Used if --sampled. I use a subset of the imager to
+                            compute the fit. The active region is a circle with a
+                            radius given by this parameter. If radius == 0, I'll
+                            use the whole imager for the fit. If radius < 0, this
+                            parameter specifies the width of the region at the
+                            corners that I should ignore: I will use sqrt(width^2
+                            + height^2)/2. - abs(radius). This is valid ONLY if
+                            we're focusing at the center of the imager. By default
+                            I ignore a large-ish chunk area at the corners.
+      --viz                 Visualize the differences between the input and output
+                            models
+      --num-trials NUM_TRIALS
+                            If given, run the solve more than once. Useful in case
+                            random initialization produces noticeably different
+                            results. By default we run just one trial, which
+                            hopefully should be enough
 
 
 #+END_EXAMPLE
-** mrcal-show-projection-behavior
+** mrcal-show-distortion-off-pinhole
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-projection-behavior - Visualize the behavior or a lens model
+    mrcal-show-distortion-off-pinhole - Visualize the behavior or a lens
+    model
 
 SYNOPSIS
-      $ mrcal-show-projection-behavior --vectorfield left.cameramodel
+      $ mrcal-show-distortion-off-pinhole --vectorfield left.cameramodel
 
       ... a plot pops up showing the vector field of the difference from a pinhole
       projection
@@ -655,13 +718,14 @@ OPTIONS
       --gridn GRIDN GRIDN   How densely we should sample the imager. By default we report a 60x40 grid
       --scale SCALE         Scale the vectors by this factor. Default is 1.0 (report the truth), but this is often too small to see
       --radial              Show the radial distortion scale factor instead of a colormap/vectorfield
-      --vectorfield         Plot the diff as a vector field instead of as a heat map. The vector field contains more information
-                            (magnitude AND direction), but is less clear at a glance
+      --vectorfield         Plot the diff as a vector field instead of as a heat map. The vector field contains more information (magnitude AND direction), but is less clear at a
+                            glance
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
       --hardcopy HARDCOPY   Write the output to disk, instead of making an interactive plot
-      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
+      --set SET             Extra 'set' directives to pass to gnuplotlib. May be given multiple times
+      --unset UNSET         Extra 'unset' directives to pass to gnuplotlib. May be given multiple times
 
 
 #+END_EXAMPLE
@@ -694,19 +758,27 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model                 Input camera model. If "-' is given, we read standard input
-      {x,y}                 Whether we're looking at the x surface or the y surface
+      model                 Input camera model. If "-' is given, we read standard
+                            input
+      {x,y}                 Whether we're looking at the x surface or the y
+                            surface
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
       --extratitle EXTRATITLE
                             Extra title string for the plot
-      --hardcopy HARDCOPY   Write the output to disk, instead of making an interactive plot
-      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --set SET             Extra 'set' directives to gnuplotlib. Can be given
+                            multiple times
+      --unset UNSET         Extra 'unset' directives to gnuplotlib. Can be given
+                            multiple times
       --spline-index-domain
-                            By default this produces a visualization in the domain of the imager. Sometimes it's more informative to
-                            look at this in the domain of the spline-index (normalized stereographic coordinates). This can be
-                            selected by this option
+                            By default this produces a visualization in the domain
+                            of the imager. Sometimes it's more informative to look
+                            at this in the domain of the spline-index (normalized
+                            stereographic coordinates). This can be selected by
+                            this option
 
 
 #+END_EXAMPLE
@@ -722,43 +794,85 @@ SYNOPSIS
       ... this model
 
 DESCRIPTION
-    A calibration process produces the best-fitting camera parameters and
-    the uncertainty in these parameters. This tool examines the uncertainty
-    in the intrinsics. The intrinsics are used to project points in space to
-    pixel coordinates on the image plane. Thus the uncertainty in the
-    intrinsics can be translated to uncertainty in projection. This tool
-    plots the expected value of this projection error across the imager.
-    Areas with a high expected projection error are unreliable for further
-    work.
+    A calibration process produces the best-fitting camera parameters. To
+    use these parameters intelligently we must have some sense of
+    uncertainty in these parameters. This tool examines the uncertainty of
+    projection of points using a given camera model. The projection
+    operation uses the intrinsics only, but the uncertainty must take into
+    account the calibration-time extrinsics and the calibration-time
+    chessboard poses as well. This tool visualizes the expected value of
+    projection error across the imager. Areas with a high expected
+    projection error are unreliable for further work.
+
+    There are 3 modes of operation:
+
+    - By default we look at projection of points some distance away from the
+    camera (given by --distance). We evaluate the uncertainty of these
+    projections everywhere across the imager, and display the results as a
+    heatmap with overlaid contours
+
+    - With --observations-xydist we display a 3D plot showing the
+    uncertainty everywhere across the imager and at various distances. This
+    contains a lot of information, but that makes it challenging to
+    interpret
+
+    - With --vs-distance-at we evaluate the uncertainty along an observation
+    ray mapping to a single pixel. We show the uncertainty vs distances from
+    the camera along this ray
 
     See mrcal.projection_uncertainty() for a full description of the
     computation performed here
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model                 Input camera model. If "-' is given, we read standard input
+      model                 Input camera model. If "-' is given, we read standard
+                            input
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
       --observations-xydist
-                            If given, I make a 3D plot of uncertainties and chessboard observations. With this option I ignore
-                            --distance, --isotropic, --observations. This option makes a 3D x-y-distance plot instead of the 2D
-                            uncertainty contours we get normally
-      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we use a 60x40 grid (or a (15,10) grid if
-                            --observations-xydist)
-      --distance DISTANCE   By default we display the projection uncertainty infinitely far away from the camera. If we want to look
-                            closer in, the desired observation distance can be given in this argument
-      --isotropic           By default I display the expected value of the projection error in the worst possible direction of this
-                            error. If we want to plot the RMS of the worst and best directions, pass --isotropic. If we assume the
-                            errors will apply evenly in all directions, then we can use this metric, which is potentially easier to
+                            If given, we operate in a different mode: we make a 3D
+                            plot of uncertainties and chessboard observations
+                            instead of the 2D uncertainty contours we get
+                            normally. This is exclusive with --vs-distance-at,
+                            --distance, --isotropic, --observations.
+      --vs-distance-at VS_DISTANCE_AT
+                            If given, we operate in a different mode: we look at
+                            the projection uncertainty at one pixel, at different
+                            distances along that observation ray. This is
+                            different from the 2D uncertainty contours we get
+                            normally. This option takes a single argument: the
+                            "X,Y" pixel coordinate we care about, or "center" to
+                            look at the center of the imager or "centroid" to look
+                            at the center of the calibration-time chessboards.
+                            This is exclusive with --observations-xydist and
+                            --gridn and --distance and --observations and --cbmax
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            use a 60x40 grid (or a (15,10) grid if --observations-
+                            xydist)
+      --distance DISTANCE   By default we display the projection uncertainty
+                            infinitely far away from the camera. If we want to
+                            look closer in, the desired observation distance can
+                            be given in this argument
+      --isotropic           By default I display the expected value of the
+                            projection error in the worst possible direction of
+                            this error. If we want to plot the RMS of the worst
+                            and best directions, pass --isotropic. If we assume
+                            the errors will apply evenly in all directions, then
+                            we can use this metric, which is potentially easier to
                             compute
-      --observations        If given, I show where the chessboard corners were observed at calibration time. This should correspond
+      --observations        If given, I show where the chessboard corners were
+                            observed at calibration time. This should correspond
                             to the low-uncertainty regions.
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
-      --hardcopy HARDCOPY   Write the output to disk, instead of an interactive plot
-      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
+      --hardcopy HARDCOPY   Write the output to disk, instead of an interactive
+                            plot
+      --set SET             Extra 'set' directives to gnuplotlib. Can be given
+                            multiple times
+      --unset UNSET         Extra 'unset' directives to gnuplotlib. Can be given
+                            multiple times
 
 
 #+END_EXAMPLE
@@ -774,34 +888,47 @@ SYNOPSIS
 
 DESCRIPTION
     It is often useful to compare the projection behavior of two camera
-    models. For instance, one may want to evaluate the quality of a
-    calibration by comparing the results of two different chessboard dances.
-    Or one may want to evaluate the stability of the intrinsics in response
-    to mechanical or thermal stresses. This tool makes these comparisons,
-    and produces a visualization of the results.
+    models. For instance, one may want to validate a calibration by
+    comparing the results of two different chessboard dances. Or one may
+    want to evaluate the stability of the intrinsics in response to
+    mechanical or thermal stresses. This tool makes these comparisons, and
+    produces a visualization of the results.
 
-    In the most common case we're given exactly 2 models to compare. We then
-    show the projection DIFFERENCE as either a vector field or a heat map.
-    If we're given more than 2 models then a vector field isn't possible and
-    we show a heat map of the STANDARD DEVIATION of all the differences.
+    In the most common case we're given exactly 2 models to compare, and we
+    show the xy differences in projection at each point (as a heat map or as
+    a vector field). If we're given more than 2 models, we show the STANDARD
+    DEVIATION of all the differences instead (as a heat map).
 
-    What are we showing? Broadly, we grid the imager, unproject each point
-    in the grid from one camera to produce a world point, reproject it to
-    the other camera, and look at the resulting pixel difference in this
-    reprojection.
+    How are we computing the differences? The details are in the docstring
+    of mrcal.projection_diff(). Broadly, we do this:
 
-    When comparing multiple cameras, usually the lens intrinsics differ a
-    bit, and the implied origin of the camera coordinate systems and their
-    orientation differ also. These geometric uncertainties are baked into
-    the intrinsics. So when we project "the same world point" we must apply
-    a geometric transformation to compensate for the difference in the
-    geometry of the two cameras. This transformation is unknown, but we can
-    estimate it by fitting projections across the imager: the "right"
-    transformation would result in apparent low projection diffs in a wide
-    area.
+    - grid the imager - unproject each point in the grid from one camera to
+    produce a world point - apply a transformation we compute to match up
+    the two camera geometries - reproject the transformed points to the
+    other camera - look at the resulting pixel difference in the
+    reprojection
 
-    This transformation is computed by intrinsics_implied_Rt10(), and some
-    details of its operation are significant:
+    When looking at multiple cameras, their lens intrinsics differ. Less
+    obviously, the position and orientation of the camera coordinate system
+    in respect to the physical camera housing differ also. These geometric
+    uncertainties are baked into the intrinsics. So when we project "the
+    same world point" into both cameras, we must apply a geometric
+    transformation because we want to be comparing projections of world
+    points (relative to the camera housing), not projections relative to the
+    (floating) camera coordinate systems. This transformation is unknown,
+    but we can estimate it in one of several ways:
+
+    - If we KNOW that there is no geometric difference between our cameras,
+    and we thus should look at the intrinsics differences only, we assuming
+    that implied_Rt10 = identity. Indicate this case by passing --radius 0
+
+    - Otherwise, we fit projections across the imager: the "right"
+    transformation would result in apparent low projection differences in a
+    wide area.
+
+    This fitted transformation is computed by
+    implied_Rt10__from_unprojections(), and some details of its operation
+    are significant:
 
     - The imager area we use for the fit - Which world points we're looking
     at
@@ -829,22 +956,17 @@ DESCRIPTION
     side of the image (off-center), no uncertainties were used, and --where
     was not pointed to that area.
 
-    If we KNOW that there is no geometric difference between our cameras,
-    and we thus should look at the intrinsics differences only, then we
-    don't need to estimate the transformation. Indicate this case by passing
-    --radius 0
-
     Unlike the projection operation, the diff operation is NOT invariant
     under geometric scaling: if we look at the projection difference for two
     points at different locations along a single observation ray, there will
     be a variation in the observed diff. This is due to the geometric
     difference in the two cameras. If the models differed only in their
-    intrinsics parameters, then this would not happen. Thus we need to know
-    how far from the camera to look, and this is specified by --distance. By
-    default we look out to infinity. If we care about the projection
-    difference at some other distance, pass that here. Generally the most
-    confident distance will be where the chessboards were observed at
-    calibration time.
+    intrinsics parameters, then this variation would not appear. Thus we
+    need to know how far from the camera to look, and this is specified by
+    --distance. By default we look out to infinity. If we care about the
+    projection difference at some other distance, pass that here. Generally
+    the most confident distance will be where the chessboards were observed
+    at calibration time.
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -852,36 +974,59 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we use a 60x40 grid
-      --distance DISTANCE   By default we display the projection diff for points infinitely far away from the camera. If we want to
-                            look closer in, the desired observation distance can be given in this argument. We can also fit multiple
-                            distances at the same time by passing them here in a comma-separated, whitespace-less list. If multiple
-                            distances are given, we fit the implied-by-the-intrinsics transformation using ALL the distances, but we
-                            display the best-fitting difference for each point. Only one distance is supported if --vectorfield.
-                            Multiple distances are especially useful if we have uncertainties: the most confident distance will be
-                            found, and displayed.
-      --where WHERE WHERE   Center of the region of interest for this diff. It is usually impossible for the models to match
-                            everywhere, but focusing on a particular area can work better. The implied transformation will be fit to
-                            match as large as possible an area centered on this argument. If omitted, we will focus on the center of
-                            the imager
-      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT fit an implied transformation at all. If omitted or
-                            <0, we use a "reasonable" value: the whole imager if we're using uncertainties, or min(width,height)/6 if
-                            --no-uncertainties. To fit with data across the whole imager in either case, pass in a very large radius
-      --observations        If given, I show where the chessboard corners were observed at calibration time. These should correspond
+      --gridn GRIDN GRIDN   How densely we should sample the imager. By default we
+                            use a 60x40 grid
+      --distance DISTANCE   By default we compute the implied transformation for
+                            points infinitely far away from the camera. If we want
+                            to look closer in, the desired observation distance
+                            can be given in this argument. We can also fit
+                            multiple distances at the same time by passing them
+                            here in a comma-separated, whitespace-less list. If
+                            multiple distances are given, we fit the implied-by-
+                            the-intrinsics transformation using ALL the distances,
+                            but we display the best-fitting difference for each
+                            point. Only one distance is supported if
+                            --vectorfield. Multiple distances are especially
+                            useful if we have uncertainties: the most confident
+                            distance will be found, and displayed.
+      --where WHERE WHERE   Center of the region of interest for this diff. It is
+                            usually impossible for the models to match everywhere,
+                            but focusing on a particular area can work better. The
+                            implied transformation will be fit to match as large
+                            as possible an area centered on this argument. If
+                            omitted, we will focus on the center of the imager
+      --radius RADIUS       Radius of the region of interest. If ==0, we do NOT
+                            fit an implied transformation at all. If omitted or
+                            <0, we use a "reasonable" value: the whole imager if
+                            we're using uncertainties, or min(width,height)/6 if
+                            --no-uncertainties. To fit with data across the whole
+                            imager in either case, pass in a very large radius
+      --observations        If given, I show where the chessboard corners were
+                            observed at calibration time. These should correspond
                             to the low-diff regions.
       --cbmax CBMAX         Maximum range of the colorbar
       --extratitle EXTRATITLE
                             Extra title string for the plot
-      --vectorfield         Plot the diff as a vector field instead of as a heat map. The vector field contains more information
-                            (magnitude AND direction), but is less clear at a glance
+      --vectorfield         Plot the diff as a vector field instead of as a heat
+                            map. The vector field contains more information
+                            (magnitude AND direction), but is less clear at a
+                            glance
       --vectorscale VECTORSCALE
-                            If plotting a vectorfield, scale all the vectors by this factor. Useful to improve legibility if the
+                            If plotting a vectorfield, scale all the vectors by
+                            this factor. Useful to improve legibility if the
                             vectors are too small to see
-      --no-uncertainties    By default we use the uncertainties in the model to weigh the diff. This will focus the diff on the
-                            confident region in the models without --where or --radius. The computation will run faster with --no-
-                            uncertainties, but the default --where and --radius may need to be adjusted
-      --hardcopy HARDCOPY   Write the output to disk, instead of making an interactive plot
-      --extraset EXTRASET   Extra 'set' directives to gnuplot. Can be given multiple times
+      --no-uncertainties    By default we use the uncertainties in the model to
+                            weigh the fit. This will focus the fit on the
+                            confident region in the models without --where or
+                            --radius. The computation will run faster with --no-
+                            uncertainties, but the default --where and --radius
+                            may need to be adjusted
+      --hardcopy HARDCOPY   Write the output to disk, instead of making an
+                            interactive plot
+      --set SET             Extra 'set' directives to gnuplotlib. Can be given
+                            multiple times
+      --unset UNSET         Extra 'unset' directives to gnuplotlib. Can be given
+                            multiple times
 
 
 #+END_EXAMPLE
@@ -917,13 +1062,17 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model-from         Camera model for the input points. If "-' is given, we read standard input
-      model-to           Camera model for the output points. If "-' is given, we read standard input
+      model-from         Camera model for the input points. If "-' is given, we read
+                         standard input
+      model-to           Camera model for the output points. If "-' is given, we read
+                         standard input
 
   OPTIONAL ARGUMENTS
       -h, --help         show this help message and exit
-      --intrinsics-only  By default, the relative camera rotation is used in the transformation. If we want to use the intrinsics
-                         ONLY, pass --intrinsics-only. Note that relative translation is ALWAYS ignored
+      --intrinsics-only  By default, the relative camera rotation is used in the
+                         transformation. If we want to use the intrinsics ONLY, pass
+                         --intrinsics-only. Note that relative translation is ALWAYS
+                         ignored
 
 
 #+END_EXAMPLE
@@ -1074,55 +1223,76 @@ DESCRIPTION
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      model-from            Camera model for the FROM image(s). If "-' is given, we read standard input
+      model-from            Camera model for the FROM image(s). If "-' is given, we read
+                            standard input
       model-to-and-image-globs
-                            Optionally, the camera model for the TO image. Followed, by the from/to image globs. See the mrcal-
-                            reproject-image documentation for the details.
+                            Optionally, the camera model for the TO image. Followed, by
+                            the from/to image globs. See the mrcal-reproject-image
+                            documentation for the details.
 
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
-      --to-pinhole          If given, we reproject the images to a pinhole model that's generated off the MODEL-FROM and --fit,
-                            --scale-focal, --scale-image. The generated pinhole model is written to the standard output
-      --intrinsics-only     If two camera models are given, then by default the relative camera rotation is used in the
-                            transformation. If we want to use the intrinsics ONLY, pass --intrinsics-only. Note that relative
-                            translation is ALWAYS ignored
-      --fit FIT             If we generate a target pinhole model (if --to-pinhole is given) then we can choose the focal length of
-                            the target model. This is a "zoom" operation. By default just use whatever value model-from has. Or we
-                            scale it by the value given in --scale-focal. Or we use --fit to scale the focal length intelligently.
-                            The --fit argument could be one of ("corners", "centers-horizontal", "centers-vertical"), or the argument
-                            could be given as a list of points x0,y0,x1,y1,x2,y2,.... The focal length scale woudl then be chosen to
-                            zoom in as far as possible, while fitting all of these points
+      --to-pinhole          If given, we reproject the images to a pinhole model that's
+                            generated off the MODEL-FROM and --fit, --scale-focal,
+                            --scale-image. The generated pinhole model is written to the
+                            standard output
+      --intrinsics-only     If two camera models are given, then by default the relative
+                            camera rotation is used in the transformation. If we want to
+                            use the intrinsics ONLY, pass --intrinsics-only. Note that
+                            relative translation is ALWAYS ignored
+      --fit FIT             If we generate a target pinhole model (if --to-pinhole is
+                            given) then we can choose the focal length of the target
+                            model. This is a "zoom" operation. By default just use
+                            whatever value model-from has. Or we scale it by the value
+                            given in --scale-focal. Or we use --fit to scale the focal
+                            length intelligently. The --fit argument could be one of
+                            ("corners", "centers-horizontal", "centers-vertical"), or the
+                            argument could be given as a list of points
+                            x0,y0,x1,y1,x2,y2,.... The focal length scale woudl then be
+                            chosen to zoom in as far as possible, while fitting all of
+                            these points
       --scale-focal SCALE_FOCAL
-                            If we generate a target pinhole model (if --to-pinhole is given) then we can choose the focal length of
-                            the target model. This is a "zoom" operation. By default just use whatever value model-from has. Or we
-                            scale it by the value given in --scale-focal. Or we use --fit to scale the focal length intelligently.
+                            If we generate a target pinhole model (if --to-pinhole is
+                            given) then we can choose the focal length of the target
+                            model. This is a "zoom" operation. By default just use
+                            whatever value model-from has. Or we scale it by the value
+                            given in --scale-focal. Or we use --fit to scale the focal
+                            length intelligently.
       --scale-image SCALE_IMAGE
-                            If we generate a target pinhole model (if --to-pinhole is given) then we can choose the dimensions of the
-                            output image. By default we use the dimensions of model-from. If --scale-image is given, we use this
-                            value to scale the imager dimensions of model-from. This parameter changes the RESOLUTION of the output,
-                            unlike --scale-focal, which ZOOMS the output
+                            If we generate a target pinhole model (if --to-pinhole is
+                            given) then we can choose the dimensions of the output image.
+                            By default we use the dimensions of model-from. If --scale-
+                            image is given, we use this value to scale the imager
+                            dimensions of model-from. This parameter changes the
+                            RESOLUTION of the output, unlike --scale-focal, which ZOOMS
+                            the output
       --plane-n PLANE_N PLANE_N PLANE_N
-                            We're reprojecting a plane. The normal vector to this plane is given here, in from-camera coordinates.
-                            The normal does not need to be normalized; any scaling is compensated in planed. The plane is all points
-                            p such that inner(p,planen) = planed
-      --plane-d PLANE_D     We're reprojecting a plane. The distance-along-the-normal to the plane, in from-camera coordinates is
-                            given here. The plane is all points p such that inner(p,planen) = planed
-      --outdir OUTDIR       Directory to write the output images into. If omitted, we write the output images to the same directory
-                            as the input images
-      --force, -f           By default existing files are not overwritten. Pass --force to overwrite them without complaint
-      --jobs JOBS, -j JOBS  parallelize the processing JOBS-ways. This is like Make, except you're required to explicitly specify a
-                            job count.
+                            We're reprojecting a plane. The normal vector to this plane
+                            is given here, in from-camera coordinates. The normal does
+                            not need to be normalized; any scaling is compensated in
+                            planed. The plane is all points p such that inner(p,planen) =
+                            planed
+      --plane-d PLANE_D     We're reprojecting a plane. The distance-along-the-normal to
+                            the plane, in from-camera coordinates is given here. The
+                            plane is all points p such that inner(p,planen) = planed
+      --outdir OUTDIR       Directory to write the output images into. If omitted, we
+                            write the output images to the same directory as the input
+                            images
+      --force, -f           By default existing files are not overwritten. Pass --force
+                            to overwrite them without complaint
+      --jobs JOBS, -j JOBS  parallelize the processing JOBS-ways. This is like Make,
+                            except you're required to explicitly specify a job count.
 
 
 #+END_EXAMPLE
-** mrcal-graft-cameramodel
+** mrcal-graft-models
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-graft-cameramodel - Combines the intrinsics of one cameramodel
-    with the extrinsics of another
+    mrcal-graft-models - Combines the intrinsics of one cameramodel with the
+    extrinsics of another
 
 SYNOPSIS
-      $ mrcal-graft-cameramodel
+      $ mrcal-graft-models
           intrinsics.cameramodel
           extrinsics.cameramodel
           > joint.cameramodel
@@ -1131,16 +1301,70 @@ SYNOPSIS
 
 DESCRIPTION
     This tool combines intrinsics and extrinsics from different sources into
-    a single model. The output is written to standard out in mrcal-native
-    format
+    a single model. The output is written to standard output.
+
+    By default, the operation is very simple: we combine the intrinsics from
+    one model with the extrinsics of another. A common use case is a system
+    where the intrinsics are calibrated prior to moving the cameras to their
+    final location, and then computing the extrinsics separately after the
+    cameras are moved.
+
+    If we have computed such a combined model, and we decide to recompute
+    the intrinsics afterwards, we can graft the new intrinsics to the
+    previous extrinsics. However, this won't be a drop-in replacement for
+    the previous model, since the intrinsics come with an implied geometric
+    transformation, which will be different in the new intrinsics. If the
+    "extrinsics" models contains the old intrinsics, then this tool is able
+    to compute the relative implied transformation, and to apply it to the
+    extrinsics. As a result, on average, the projection of any world point
+    ends up at the same pixel coordinate as before.
+
+    The implied transformation logic is controlled by a number of
+    commandline arguments, same ones as used by the
+    mrcal-show-projection-diff tool. The only difference in options is that
+    THIS tool uses --radius 0 by default, so we do not compute or apply the
+    implied transformation unless asked. Pass --radius with a non-zero
+    argument to compute and apply the implied transformation.
 
 OPTIONS
   POSITIONAL ARGUMENTS
-      intrinsics  Input camera model for the intrinsics. If "-' is given, we read standard input
-      extrinsics  Input camera model for the extrinsics. If "-' is given, we read standard input
+      intrinsics           Input camera model for the intrinsics. If "-' is given, we
+                           read standard input
+      extrinsics           Input camera model for the extrinsics. If "-' is given, we
+                           read standard input
 
   OPTIONAL ARGUMENTS
-      -h, --help  show this help message and exit
+      -h, --help           show this help message and exit
+      --gridn GRIDN GRIDN  Used if we're computing the implied-by-the-intrinsics
+                           transformation. How densely we should sample the imager. By
+                           default we use a 60x40 grid
+      --distance DISTANCE  Used if we're computing the implied-by-the-intrinsics
+                           transformation. By default we compute the implied
+                           transformation for points infinitely far away from the camera.
+                           If we want to look closer in, the desired observation distance
+                           can be given in this argument. We can also fit multiple
+                           distances at the same time by passing them here in a comma-
+                           separated, whitespace-less list
+      --where WHERE WHERE  Used if we're computing the implied-by-the-intrinsics
+                           transformation. Center of the region of interest used for the
+                           transformatoin fit. It is usually impossible for the models to
+                           match everywhere, but focusing on a particular area can work
+                           better. The implied transformation will be fit to match as
+                           large as possible an area centered on this argument. If
+                           omitted, we will focus on the center of the imager
+      --radius RADIUS      Used if we're computing the implied-by-the-intrinsics
+                           transformation. Radius of the region of interest. If ==0, we
+                           do NOT fit an implied transformation at all. If omitted or <0,
+                           we use a "reasonable" value: the whole imager if we're using
+                           uncertainties, or min(width,height)/6 if --no-uncertainties.
+                           To fit with data across the whole imager in either case, pass
+                           in a very large radius
+      --no-uncertainties   Used if we're computing the implied-by-the-intrinsics
+                           transformation. By default we use the uncertainties in the
+                           model to weigh the fit. This will focus the fit on the
+                           confident region in the models without --where or --radius.
+                           The computation will run faster with --no-uncertainties, but
+                           the default --where and --radius may need to be adjusted
 
 
 #+END_EXAMPLE
@@ -1156,9 +1380,12 @@ SYNOPSIS
 
 DESCRIPTION
     This tool converts a given model to the cahvor file format. No changes
-    to the content are made; this is purely a format converter. If the model
-    is omitted or given as "-", the input is read from standard input, and
-    the output is written to standard output
+    to the content are made; this is purely a format converter. Model
+    filenames are given on the commandline. Output is written to the same
+    directory, with the same filename, but with a .cahvor extension.
+
+    If the model is omitted or given as "-", the input is read from standard
+    input, and the output is written to standard output
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -1166,9 +1393,10 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help       show this help message and exit
-      --force, -f      By default existing files are not overwritten. Pass --force to overwrite them without complaint
-      --outdir OUTDIR  Directory to write the output models into. If omitted, we write the output models to the same directory as the
-                       input models
+      --force, -f      By default existing files are not overwritten. Pass --force to
+                       overwrite them without complaint
+      --outdir OUTDIR  Directory to write the output models into. If omitted, we write
+                       the output models to the same directory as the input models
 
 
 #+END_EXAMPLE
@@ -1184,8 +1412,12 @@ SYNOPSIS
 
 DESCRIPTION
     This tool converts a given model to the cameramodel file format. No
-    changes to the content are made; this is purely a format converter. If
-    the model is omitted or given as "-", the input is read from standard
+    changes to the content are made; this is purely a format converter.
+    Model filenames are given on the commandline. Output is written to the
+    same directory, with the same filename, but with a .cameramodel
+    extension.
+
+    If the model is omitted or given as "-", the input is read from standard
     input, and the output is written to standard output
 
 OPTIONS
@@ -1194,26 +1426,26 @@ OPTIONS
 
   OPTIONAL ARGUMENTS
       -h, --help       show this help message and exit
-      --force, -f      By default existing files are not overwritten. Pass --force to overwrite them without complaint
-      --outdir OUTDIR  Directory to write the output models into. If omitted, we write the output models to the same directory as the
-                       input models
+      --force, -f      By default existing files are not overwritten. Pass --force to
+                       overwrite them without complaint
+      --outdir OUTDIR  Directory to write the output models into. If omitted, we write
+                       the output models to the same directory as the input models
 
 
 #+END_EXAMPLE
-** mrcal-show-calibration-geometry
+** mrcal-show-geometry
 #+BEGIN_EXAMPLE
 NAME
-    mrcal-show-calibration-geometry - Shows the calibration geometry defined
-    by the camera extrinsics
+    mrcal-show-geometry - Displays the calibration-time geometry: the
+    cameras and the observed objects
 
 SYNOPSIS
-      $ mrcal-show-calibration-geometry *.cameramodel
+      $ mrcal-show-geometry *.cameramodel
       ... a plot pops up showing the camera arrangement
 
 DESCRIPTION
-    This allows us to visualize the relative geometry between several
-    cameras and the calibration object poses used in computing the
-    calibration
+    This tool visualizes the relative geometry between several cameras and
+    the calibration objects they observed when computing the calibration.
 
 OPTIONS
   POSITIONAL ARGUMENTS
@@ -1225,48 +1457,16 @@ OPTIONS
                             Scale for the camera axes. By default these are 1.0m long
       --title TITLE         Title string for the plot
       --hardcopy HARDCOPY   Write the output to disk, instead of making an interactive plot
+      --hide-boards         If given, do not draw the calibration object observations. By default we do draw them if they are available
       --transforms TRANSFORMS
-                            Optional transforms.txt. This is a legacy file representing an extra transformation for each camera. Most
-                            usages will omit this
-      --set SET             Optional 'set' directives to pass to gnuplotlib. May be given multiple times
-      --unset UNSET         Optional 'unset' directives to pass to gnuplotlib. May be given multiple times
+                            Optional transforms.txt. This is a legacy file representing an extra transformation for each camera. Most usages will omit this
+      --set SET             Extra 'set' directives to pass to gnuplotlib. May be given multiple times
+      --unset UNSET         Extra 'unset' directives to pass to gnuplotlib. May be given multiple times
 
 
 #+END_EXAMPLE
 ** mrcal-show-valid-intrinsics-region
 #+BEGIN_EXAMPLE
-NAME
-    mrcal-show-valid-intrinsics-region - Visualize the valid-intrinsics
-    region
-
-SYNOPSIS
-      $ mrcal-show-valid-intrinsics-region --writeimage --image image.png left.cameramodel
-      Wrote image-valid-intrinsics-region.png
-
-DESCRIPTION
-    Given a camera model, this tool renders the valid-intrinsics region. If
-    an image is given, the region is rendered overlaid onto the image.
-
-    Without --writeimage we make a plot with gnuplot. If --points then we
-    also read x,y points from STDIN, and plot those.
-
-    With --writeimage, the output is another IMAGE instead of a plot. We
-    don't plot points from STDIN in this case
-
-OPTIONS
-  POSITIONAL ARGUMENTS
-      model                Input camera model(s)
-
-  OPTIONAL ARGUMENTS
-      -h, --help           show this help message and exit
-      --writeimage         By default I make a plot. If --writeimage is given, I output an annotated image instead
-      --points             If given, I read a set of xy points from STDIN, and include them in the plot. This applies ONLY if not
-                           --writeimage
-      --title TITLE        Extra title string for the plot
-      --hardcopy HARDCOPY  Write the output to disk, instead of making an interactive plot
-      --extraset EXTRASET  Extra 'set' directives to gnuplot. Can be given multiple times
-      --image IMAGE        Image to annotate
-
 
 #+END_EXAMPLE
 ** mrcal-is-within-valid-intrinsics-region
@@ -1306,11 +1506,11 @@ OPTIONS
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
       --cols-xy COLS_XY COLS_XY
-                            The names of the columns in the input containing the x and y pixel coordinates respectively. This is
-                            required
+                            The names of the columns in the input containing the x and y
+                            pixel coordinates respectively. This is required
       --col-output COL_OUTPUT
-                            The name of the column to append in the output. This is optional; a reasonable default will be used if
-                            omitted
+                            The name of the column to append in the output. This is
+                            optional; a reasonable default will be used if omitted
 
 
 #+END_EXAMPLE
@@ -1356,22 +1556,18 @@ OPTIONS
   OPTIONAL ARGUMENTS
       -h, --help            show this help message and exit
       --object-width-n OBJECT_WIDTH_N
-                            How many points the calibration board has per horizontal side. This is required if --cull-random-
-                            observation-ratio
+                            How many points the calibration board has per horizontal side. This is required if --cull-random-observation-ratio
       --object-height-n OBJECT_HEIGHT_N
-                            How many points the calibration board has per vertical side. If omitted, I assume a square object and use
-                            the same value as --object-width-n
+                            How many points the calibration board has per vertical side. If omitted, I assume a square object and use the same value as --object-width-n
       --imagersize IMAGERSIZE IMAGERSIZE
                             Size of the imager. This is required if --cull-rad-off-center
       --cull-left-of CULL_LEFT_OF
                             Throw out all observations with x < the given value. Exclusive with the other --cull-... options
       --cull-rad-off-center CULL_RAD_OFF_CENTER
-                            Throw out all observations with dist_from_center > the given value. Exclusive with the other --cull-...
-                            options
+                            Throw out all observations with dist_from_center > the given value. Exclusive with the other --cull-... options
       --cull-random-observations-ratio CULL_RANDOM_OBSERVATIONS_RATIO
-                            Throw out a random number of board observations. The ratio of observations is given as the argument. 1.0
-                            = throw out ALL the observations; 0.0 = throw out NONE of the observations. Exclusive with the other
-                            --cull-... options
+                            Throw out a random number of board observations. The ratio of observations is given as the argument. 1.0 = throw out ALL the observations; 0.0 = throw
+                            out NONE of the observations. Exclusive with the other --cull-... options
 
 
 #+END_EXAMPLE
