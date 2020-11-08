@@ -4597,8 +4597,9 @@ A tuple:
 
 
 def show_valid_intrinsics_region(models,
-                                 image      = None,
-                                 points     = None,
+                                 cameranames      = None,
+                                 image            = None,
+                                 points           = None,
                                  return_plot_args = False,
                                  **kwargs):
     r'''Annotates a given image with a valid-intrinsics region
@@ -4617,6 +4618,9 @@ def show_valid_intrinsics_region(models,
     '''
     if isinstance(models, mrcal.cameramodel):
         models = (models,)
+
+    if cameranames is None:
+        cameranames = ['Model {}'.format(i) for i in range(len(models))]
 
     W,H = models[0].imagersize()
     for m in models[1:]:
@@ -4645,7 +4649,7 @@ def show_valid_intrinsics_region(models,
 
     plot_data_args.extend( (r[:,0], r[:,1],
                             dict(_with = 'lines lw 3',
-                                 legend = 'Model {}'.format(i))) \
+                                 legend = cameranames[i])) \
                            for i,r in enumerate(valid_regions) )
 
     if points is not None:
