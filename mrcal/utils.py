@@ -4602,18 +4602,70 @@ def show_valid_intrinsics_region(models,
                                  points           = None,
                                  return_plot_args = False,
                                  **kwargs):
-    r'''Annotates a given image with a valid-intrinsics region
+    r'''Visualize a model's valid-intrinsics region
 
-    This function takes in a camera model (or a list of models) and an image. It
-    then makes a plot with the valid-intrinsics region(s) drawn on top of the
-    image. The image can be a filename or a numpy array. The camera model(s)
-    MUST contain the valid-intrinsics region(s).
+SYNOPSIS
 
-    If given, points is a (2,N) numpy array of points to draw onto the image
-    also
+    filenames = ('cam0-dance0.cameramodel',
+                 'cam0-dance1.cameramodel')
 
-    This is similar to mrcal.annotate_image__valid_intrinsics_region(), but
-    instead of writing an image, makes a plot
+    models = [ mrcal.cameramodel(f) for f in filenames ]
+
+    mrcal.show_valid_intrinsics_region( models,
+                                        cameranames = filenames,
+                                        image       = 'image.jpg' )
+
+This function displays the valid-intrinsics region in the given camera models.
+Multiple models can be passed-in to see their valid-intrinsics regions together.
+This is useful to evaluate different calibrations of the same lens. A captured
+image can be passed-in to see the regions overlaid on an actual image produced
+by the camera.
+
+All given models MUST have a valid-intrinsics region defined. A model may have
+an empty region. This cannot be plotted (there's no contour to plot), but the
+plot legend will still contain an entry for this model, with a note indicating
+its emptiness
+
+This tool produces a gnuplotlib plot. To annotate an image array, call
+annotate_image__valid_intrinsics_region() instead
+
+ARGUMENTS
+
+- models: an iterable of mrcal.cameramodel objects we're visualizing. If we're
+  looking at just a single model, it can be passed directly in this argument,
+  instead of wrapping it into a list.
+
+- cameranames: optional an iterable of labels, one for each model. These will
+  appear as the legend in the plot. If omitted, we will simply enumerate the
+  models.
+
+- image: optional image to annotate. May be given as an image filename or an
+  array of image data. If omitted, we plot the valid-intrinsics region only.
+
+- points: optional array of shape (N,2) of pixel coordinates to plot. If given,
+  we show these arbitrary points in our plot. Useful to visualize the feature
+  points used in a vision algorithm to see how reliable they are expected to be
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUE
+
+A tuple:
+
+- if not return_plot_args (the usual path): the gnuplotlib plot object. The plot
+  disappears when this object is destroyed (by the garbage collection, for
+  instance), so save this returned plot object into a variable, even if you're
+  not going to be doing anything with this object.
+
+  if return_plot_args: a (data_tuples, plot_options) tuple. The plot can then be
+  made with gp.plot(*data_tuples, **plot_options). Useful if we want to include
+  this as a part of a more complex plot
 
     '''
     if isinstance(models, mrcal.cameramodel):
@@ -4674,6 +4726,60 @@ def show_valid_intrinsics_region(models,
         plot.plot(*data_tuples)
         return plot
     return (data_tuples, plot_options)
+
+
+def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
+    r'''Annotate an image with a model's valid-intrinsics region
+
+SYNOPSIS
+
+    model = mrcal.cameramodel('cam0.cameramodel')
+
+    image = cv2.imread('image.jpg')
+
+    mrcal.annotate_image__valid_intrinsics_region(model, image)
+
+    cv2.imwrite('image-annotated.jpg', image)
+
+This function reads a valid-intrinsics region from a given camera model, and
+draws it on top of a given image. This is useful to see what parts of a captured
+image have reliable intrinsics.
+
+This function modifies the input image.
+
+If the given model has no valid-intrinsics region defined, an exception is
+thrown. If the valid-intrinsics region is empty, a solid circle is drawn at the
+center.
+
+If we want an interactive plot instead of an annotated image, call
+mrcal.show_valid_intrinsics_region() instead.
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object that contains the valid-intrinsics region
+  contour
+
+- image: the numpy array containing the image we're annotating. This is both an
+  input and an output
+
+- color: optional tuple of length 3 indicating the BGR color of the annotation.
+  Red by default
+
+RETURNED VALUES
+
+None. The input image array is modified
+
+    '''
+    valid_intrinsics_region = model.valid_intrinsics_region()
+
+    if valid_intrinsics_region is None:
+        raise Exception("The given model has no valid-intrinsics region defined")
+
+    if valid_intrinsics_region.size == 0:
+        cv2.circle( image, tuple((model.imagersize() - 1)//2), 10, color, -1)
+        print("WARNING: annotate_image__valid_intrinsics_region(): valid-intrinsics region is empty. Drawing a circle")
+    else:
+        cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
 
 
 # mrcal.shellquote is either pipes.quote or shlex.quote, depending on

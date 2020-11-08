@@ -723,23 +723,6 @@ A numpy array of shape (..., Nheight, Nwidth) containing the transformed image.
                      cv2.INTER_LINEAR)
 
 
-def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
-    r'''Annotates a given image with a valid-intrinsics region
-
-    This function takes in a camera model and an image, and returns a numpy
-    array with the valid-intrinsics region drawn on top of the image. The image
-    is a numpy array. The camera model should contain the valid-intrinsics
-    region; if not, the image is returned as is.
-
-    This is similar to mrcal.show_valid_intrinsics_region(), but instead of
-    making a plot, it creates an image
-
-    '''
-    valid_intrinsics_region = model.valid_intrinsics_region()
-    if valid_intrinsics_region is not None:
-        cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
-
-
 def project_boards(lensmodel, intrinsics,
                    extrinsics_rt_fromref,
                    frames_rt_toref,
