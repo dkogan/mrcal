@@ -120,14 +120,21 @@ def _validateValidIntrinsicsRegion(valid_intrinsics_region):
         return
 
     try:
-        # valid intrinsics region is a closed contour, so I need at least 4 points to be valid
-        if valid_intrinsics_region.ndim != 2     or \
-           valid_intrinsics_region.shape[1] != 2 or \
-           valid_intrinsics_region.shape[0] < 4:
-            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4")
+        # valid intrinsics region is a closed contour, so I need at least 4
+        # points to be valid. Or as a special case, a (0,2) array is legal, and
+        # means "intrinsics are valid nowhere"
+        if not (valid_intrinsics_region.ndim == 2     and \
+                valid_intrinsics_region.shape[1] == 2 and \
+                (valid_intrinsics_region.shape[0] >= 4 or \
+                 valid_intrinsics_region.shape[0] == 0)):
+            raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4 or N == 0")
     except:
         raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
                         format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
+
+    if valid_intrinsics_region.size > 0 and \
+       nps.norm2(valid_intrinsics_region[0] - valid_intrinsics_region[-1]) > 1e-6:
+        raise Exception("The valid extrinsics region must be a closed contour: the first and last points must be identical")
 
 
 class CameramodelParseException(Exception):
@@ -303,7 +310,7 @@ SYNOPSIS
 This class represents
 
 - The intrinsics: parameters that describe the lens. These do not change as the
-  camera moves around in space. These are generally represented by a tuple
+  camera moves around in space. These are represented by a tuple
   (lensmodel,intrinsics_data)
 
   - lensmodel: a string "LENSMODEL_...". The full list of supported models is
@@ -322,13 +329,13 @@ This class represents
     on the specific lensmodel being used. Some models (LENSMODEL_PINHOLE for
     example) do not have any elements other than the core.
 
-  These are gettable/settable by the intrinsics() method.
+- The imager size: the dimensions of the imager, in a (width,height) list
 
 - The extrinsics: the pose of this camera in respect to some reference
   coordinate system. The meaning of this "reference" coordinate system is
   user-defined, and means nothing to mrcal.cameramodel. If we have multiple
   cameramodels, they generally share this "reference" coordinate system, and it
-  is used as a reference to place the cameras in respect to each other.
+  is used as an anchor to position the cameras in respect to one another.
   Internally this is stored as an rt transformation converting points
   represented in the reference coordinate TO a representation in the camera
   coordinate system. These are gettable/settable by these methods:
@@ -342,19 +349,29 @@ This class represents
   These make it simple to use the desired Rt/rt transformation and the desired
   to/from reference direction.
 
+- The valid-intrinsics region: a contour in the imager where the projection
+  behavior is "reliable". The meaning of "reliable" is user-defined. mrcal is
+  able to report the projection uncertainty anywhere in space, and this is a
+  more fine-grained way to measure "reliability", but sometimes it is convenient
+  to define an uncertainty limit, and to compute a region where this limit is
+  met. This region can then be stored in the mrcal.cameramodel object. A missing
+  valid-intrinsics region means "unknown". An empty valid-intrinsics region
+  (array of length 0) means "intrinsics are valid nowhere". Storing this is
+  optional.
+
 - The optimization inputs: this is a dict containing all the data that was used
-  to compute the contents of this model. These are the kwargs passable to
-  mrcal.optimize() and mrcal.optimizer_callback(), that describe the
-  optimization problem at its final optimum. Storing these is optional, but they
-  are very useful for diagnostics, since everything in the model can be
-  re-generated from this data. Some things (most notably the projection
-  uncertainties) are also computed off the optimization_inputs(), making these
-  extra-useful. The optimization_inputs dict can be queried by the
+  to compute the contents of this model. These are optional. These are the
+  kwargs passable to mrcal.optimize() and mrcal.optimizer_callback() that
+  describe the optimization problem at its final optimum. Storing these is
+  optional, but they are very useful for diagnostics, since everything in the
+  model can be re-generated from this data. Some things (most notably the
+  projection uncertainties) are also computed off the optimization_inputs(),
+  making these extra-useful. The optimization_inputs dict can be queried by the
   optimization_inputs() method. Setting this can be done only together with the
   intrinsics(), using the intrinsics() method. For the purposes of computing the
   projection uncertainty it is allowed to move the camera (change the
   extrinsics), so the extrinsics_...() methods may be called without
-  invalidating the optimization_inputs
+  invalidating the optimization_inputs.
 
 This class provides facilities to read/write models on disk, and to get/set the
 various components.
@@ -501,7 +518,10 @@ A sample valid .cameramodel file:
 
         valid_intrinsics_region = None
         if 'valid_intrinsics_region' in model:
-            valid_intrinsics_region = np.array(model['valid_intrinsics_region'])
+            if len(model['valid_intrinsics_region']) > 0:
+                valid_intrinsics_region = np.array(model['valid_intrinsics_region'])
+            else:
+                valid_intrinsics_region = np.zeros((0,2))
 
         intrinsics = (model['lensmodel'], np.array(model['intrinsics'], dtype=float))
 
@@ -640,7 +660,9 @@ ARGUMENTS
 
 - valid_intrinsics_region': numpy array of shape (N,2). Defines a closed contour
   in the imager pixel space. Points inside this contour are assumed to have
-  'valid' intrinsics. This may be given only as a keyword argument.
+  'valid' intrinsics, with the meaning of 'valid' defined by the user. An array
+  of shape (0,2) menas "valid nowhere". This may be given only as a keyword
+  argument.
 
         '''
 
@@ -1213,12 +1235,33 @@ A length-2 tuple (width,height)
     def valid_intrinsics_region(self, valid_intrinsics_region=None):
         r'''Get or set the valid-intrinsics region
 
-        The contour is a numpy array of shape (N,2). These are a sequence of
-        pixel coordinates describing the shape of the valid region. The first
-        and last points will be the same: this is a closed contour
+SYNOPSIS
 
-        if valid_intrinsics_region is None: this is a getter; otherwise a
-        setter.
+    # getter
+    region = model.valid_intrinsics_region()
+
+    # setter
+    model.valid_intrinsics_region( region )
+
+The valid-intrinsics region is a closed contour in imager space representated as
+a numpy array of shape (N,2). This is a region where the intrinsics are
+"reliable", with a user-defined meaning of that term. A region of shape (0,2)
+means "intrinsics are valid nowhere".
+
+if valid_intrinsics_region is None: this is a getter; otherwise a setter.
+
+The getters return a copy of the data, and the setters make a copy of the input:
+so it's impossible for the caller or callee to modify each other's data.
+
+ARGUMENTS
+
+- valid_intrinsics_region: if we're setting: a numpy array of shape (N,2). If
+  we're getting: None
+
+RETURNED VALUE
+
+If this is a getter (no arguments given), returns a a numpy array of shape
+(N,2).
 
         '''
         if valid_intrinsics_region is None:
