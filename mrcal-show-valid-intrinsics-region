@@ -57,7 +57,7 @@ def parse_args():
                         type=str,
                         required = False,
                         help='''Image to annotate''')
-    parser.add_argument('model',
+    parser.add_argument('models',
                         type=str,
                         nargs='+',
                         help='''Input camera model(s)''')
@@ -89,7 +89,7 @@ if args.writeimage:
 import mrcal
 import numpy as np
 
-models = [mrcal.cameramodel(m) for m in args.model]
+models = [mrcal.cameramodel(m) for m in args.models]
 
 if any( m.valid_intrinsics_region() is None for m in models ):
     raise Exception("Not all given models have a valid-intrinsics contour! Giving up")
@@ -127,10 +127,12 @@ else:
         plotkwargs_extra['unset'] = args.unset
 
     plot = mrcal.show_valid_intrinsics_region( \
-               models, args.image,
-               points   = points,
-               hardcopy = args.hardcopy,
-               title    = args.title,
+               models,
+               cameranames = args.models,
+               image       = args.image,
+               points      = points,
+               hardcopy    = args.hardcopy,
+               title       = args.title,
                **plotkwargs_extra)
 
     if args.hardcopy is None:
