@@ -4661,8 +4661,8 @@ def show_valid_intrinsics_region(models,
     if not return_plot_args:
         plot = gp.gnuplotlib(**plot_options)
         plot.plot(*data_tuples)
-        return plot, implied_Rt10
-    return (data_tuples, plot_options), implied_Rt10
+        return plot
+    return (data_tuples, plot_options)
 
 
 # mrcal.shellquote is either pipes.quote or shlex.quote, depending on
