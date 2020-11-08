@@ -372,12 +372,12 @@ We return a tuple
     el_fov_radius_deg = Nel / (2.*pixels_per_deg_el)
 
     # shape (Naz,)
-    az = np.linspace((az0-az_fov_radius_deg)*np.pi/180.,
-                     (az0+az_fov_radius_deg)*np.pi/180.,
+    az = np.linspace(az0 - az_fov_radius_deg*np.pi/180.,
+                     az0 + az_fov_radius_deg*np.pi/180.,
                      Naz)
     # shape (Nel,1)
-    el = nps.dummy( np.linspace((el0-el_fov_radius_deg)*np.pi/180.,
-                                (el0+el_fov_radius_deg)*np.pi/180.,
+    el = nps.dummy( np.linspace(el0 - el_fov_radius_deg*np.pi/180.,
+                                el0 + el_fov_radius_deg*np.pi/180.,
                                 Nel),
                     -1 )
 
