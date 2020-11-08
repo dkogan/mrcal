@@ -3536,7 +3536,7 @@ plot
     except Exception as e:
         # sometimes the domain_contour self-intersects, and this makes us
         # barf
-        print(f"WARNING: Couldn't compute invalid projection region. Exception: {e}")
+        # print(f"WARNING: Couldn't compute invalid projection region. Exception: {e}")
         invalid_regions = []
 
     if len(invalid_regions) > 0:
