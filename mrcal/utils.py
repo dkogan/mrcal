@@ -6124,12 +6124,6 @@ input was None
     return nps.glue(c, c[0,:], axis=-2)
 
 
-
-
-    Hq = nps.matmult( nps.dummy(q, -2), nps.transpose(H[..., :,:2]))[..., 0, :] + H[..., 2]
-    return Hq[..., :2] / Hq[..., (2,)]
-
-
 def plotoptions_state_boundaries(**optimization_inputs):
     r'''Return the 'set' plot options for gnuplotlib to show the state boundaries
 
