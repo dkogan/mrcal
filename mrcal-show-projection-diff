@@ -199,6 +199,10 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'set' directives to gnuplotlib. Can be given multiple times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'unset' directives to gnuplotlib. Can be given multiple times''')
 
     parser.add_argument('models',
                         type=str,
@@ -250,6 +254,8 @@ import numpysane as nps
 plotkwargs_extra = {}
 if args.set is not None:
     plotkwargs_extra['set'] = args.set
+if args.unset is not None:
+    plotkwargs_extra['unset'] = args.unset
 
 models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 

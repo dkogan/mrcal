@@ -71,6 +71,11 @@ def parse_args():
                         action='append',
                         help='''Extra 'set' directives to pass to gnuplotlib. May be given multiple
                         times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'unset' directives to pass to gnuplotlib. May be given multiple
+                        times''')
 
     parser.add_argument('model',
                         type=str,
@@ -108,6 +113,8 @@ else:                  mode = 'heatmap'
 plotkwargs = {}
 if args.set is not None:
     plotkwargs['set'] = args.set
+if args.unset is not None:
+    plotkwargs['unset'] = args.unset
 
 plot = mrcal.show_projection_behavior(model,
                                       mode,
