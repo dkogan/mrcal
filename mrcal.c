@@ -2641,8 +2641,8 @@ bool _mrcal_unproject_internal( // out
         {
             if(!already_complained)
             {
-                MSG("WARNING: I wasn't able to precisely compute some points. norm2x=%f. Returning nan for those. Will complain just once",
-                    norm2x);
+                // MSG("WARNING: I wasn't able to precisely compute some points. norm2x=%f. Returning nan for those. Will complain just once",
+                //     norm2x);
                 already_complained = true;
             }
             double nan = strtod("NAN", NULL);
