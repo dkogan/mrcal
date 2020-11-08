@@ -4621,6 +4621,9 @@ def show_valid_intrinsics_region(models,
 
     if cameranames is None:
         cameranames = ['Model {}'.format(i) for i in range(len(models))]
+    else:
+        if len(models) != len(cameranames):
+            raise Exception("Must get the same number of models and cameranames")
 
     W,H = models[0].imagersize()
     for m in models[1:]:
@@ -4628,11 +4631,15 @@ def show_valid_intrinsics_region(models,
         if W != WH1[0] or H != WH1[1]:
             raise Exception("All given models MUST have the same imagersize. Got {} and {}".format((W,H), WH1))
 
-    try:
-        valid_regions = [m.valid_intrinsics_region() for m in models]
-        if any(r is None for r in valid_regions): raise
-    except:
+    valid_regions = [ m.valid_intrinsics_region() for m in models ]
+    if any(r is None for r in valid_regions):
         raise Exception("Some given models have no valid-intrinsics region defined")
+
+    # I want to render empty regions, to at least indicate this in the legend
+    for i in range(len(models)):
+        if valid_regions[i].size == 0:
+            valid_regions[i] = np.zeros((1,2))
+            cameranames[i] += ": empty"
 
     import gnuplotlib as gp
 
