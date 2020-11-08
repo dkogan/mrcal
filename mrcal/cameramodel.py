@@ -1312,9 +1312,3 @@ The icam_intrinsics integer, or None if one isn't stored in this model.
         if self._icam_intrinsics is None:
             return None
         return self._icam_intrinsics
-
-
-
-
-
-
