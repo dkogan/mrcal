@@ -2851,23 +2851,23 @@ This function returns a tuple
     return mean,stdev,count,imagergrid_using(imagersize, gridn_width, gridn_height)
 
 
-def show_projection_behavior(model,
-                             mode,
-                             scale        = 1.,
-                             cbmax        = 25.0,
-                             gridn_width  = 60,
-                             gridn_height = None,
-                             extratitle   = None,
-                             return_plot_args = False,
-                             **kwargs):
+def show_distortion_off_pinhole(model,
+                                mode,
+                                scale        = 1.,
+                                cbmax        = 25.0,
+                                gridn_width  = 60,
+                                gridn_height = None,
+                                extratitle   = None,
+                                return_plot_args = False,
+                                **kwargs):
 
-    r'''Visualize the behavior of a lens
+    r'''Visualize a lens's deviation from a pinhole projection
 
 SYNOPSIS
 
     model = mrcal.cameramodel('xxx.cameramodel')
 
-    mrcal.show_projection_behavior( model, 'heatmap' )
+    mrcal.show_distortion_off_pinhole( model, 'heatmap' )
 
     ... A plot pops up displaying how much this model deviates from a pinhole
     ... model across the imager

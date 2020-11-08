@@ -958,9 +958,9 @@ Potential things to look at:
     show_residuals_histogram(      icam)
     show_residuals_radial(         icam)
     show_residuals_regional(       icam)
-    show_projection_behavior('heatmap',    icam)
-    show_projection_behavior('vectorfield',icam)
-    show_projection_behavior('radial',     icam)
+    show_distortion_off_pinhole('heatmap',    icam)
+    show_distortion_off_pinhole('vectorfield',icam)
+    show_distortion_off_pinhole('radial',     icam)
     show_splined_model_surface(    icam, xy)
     stats
     i_observations_worst
@@ -1532,19 +1532,19 @@ def show_valid_intrinsics_region(icam = None, **kwargs):
                                                title = "Valid-intrinsics region for camera {}".format(icam),
                                                **kwargs)
 
-plots_projections = [None] * Ncameras
-def show_projection_behavior(mode, icam = None, gridn_width = 60, gridn_height = 40, **kwargs):
+plots_distortion_off_pinhole = [None] * Ncameras
+def show_distortion_off_pinhole(mode, icam = None, gridn_width = 60, gridn_height = 40, **kwargs):
 
-    global plots_projections
+    global plots_distortion_off_pinhole
     icam_all = (icam,) if icam is not None else range(Ncameras)
     for icam in icam_all:
-        plots_projections[icam] = \
-            mrcal.show_projection_behavior(models[icam],
-                                           mode,
-                                           extratitle = "camera {}".format(icam),
-                                           gridn_width  = gridn_width,
-                                           gridn_height = gridn_height,
-                                           **kwargs)
+        plots_distortion_off_pinhole[icam] = \
+            mrcal.show_distortion_off_pinhole(models[icam],
+                                              mode,
+                                              extratitle = "camera {}".format(icam),
+                                              gridn_width  = gridn_width,
+                                              gridn_height = gridn_height,
+                                              **kwargs)
 
 plots_splined_model_surface = [None] * Ncameras
 def show_splined_model_surface(icam = None, xy='x', **kwargs):

@@ -4,7 +4,7 @@ r'''Visualize the behavior or a lens model
 
 SYNOPSIS
 
-  $ mrcal-show-projection-behavior --vectorfield left.cameramodel
+  $ mrcal-show-distortion-off-pinhole --vectorfield left.cameramodel
 
   ... a plot pops up showing the vector field of the difference from a pinhole
   projection
@@ -116,15 +116,15 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs['unset'] = args.unset
 
-plot = mrcal.show_projection_behavior(model,
-                                      mode,
-                                      args.scale,
-                                      args.cbmax,
-                                      args.gridn[0], args.gridn[1],
+plot = mrcal.show_distortion_off_pinhole(model,
+                                         mode,
+                                         args.scale,
+                                         args.cbmax,
+                                         args.gridn[0], args.gridn[1],
 
-                                      extratitle   = args.extratitle,
-                                      hardcopy     = args.hardcopy,
-                                      **plotkwargs)
+                                         extratitle   = args.extratitle,
+                                         hardcopy     = args.hardcopy,
+                                         **plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()
