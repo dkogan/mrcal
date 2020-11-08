@@ -6109,16 +6109,18 @@ None is accepted as an empty polygon: we return None.
 
 ARGUMENTS
 
-- c: an array of shape (N,2) representing the polyline to be closed. None is
-  accepted as well
+- c: an array of shape (N,2) representing the polyline to be closed. None and
+  arrays of shape (0,2) are accepted as special cases ("unknown" and "empty"
+  regions, respectively)
 
 RETURNED VALUE
 
-An array of shape (N,2) representing the closed polygon. None is returned if the
-input was None
+An array of shape (N,2) representing the closed polygon. The input is returned
+if the input was None or has shape (0,2)
 
     '''
-    if c is None: return None
+    if c is None or c.size == 0: return c
+
     if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
         return c
     return nps.glue(c, c[0,:], axis=-2)
