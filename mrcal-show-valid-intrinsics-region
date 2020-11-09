@@ -7,14 +7,18 @@ SYNOPSIS
   $ mrcal-show-valid-intrinsics-region --writeimage --image image.png left.cameramodel
   Wrote image-valid-intrinsics-region.png
 
-Given a camera model, this tool renders the valid-intrinsics region. If an image
-is given, the region is rendered overlaid onto the image.
+Given a camera model (or models), this tool displays the valid-intrinsics
+region(s). All the given models MUST contain a valid-intrinsics region. Empty
+regions are handled properly.
 
-Without --writeimage we make a plot with gnuplot. If --points then we also read
-x,y points from STDIN, and plot those.
+If an image is given, the region is rendered overlaid onto the image.
 
-With --writeimage, the output is another IMAGE instead of a plot. We don't plot
-points from STDIN in this case
+If --points then we also read x,y points from STDIN, and plot those too.
+
+By default, we use gnuplotlib to make an interactive plot. Alternately, pass
+--writeimage to annotate a given image, and write the new image on disk.
+
+--writeimage is not supported together with --points.
 
 '''
 
@@ -85,7 +89,7 @@ if args.writeimage:
        args.unset    is not None:
         raise Exception("--title and --hardcopy and --set and --unset are only valid without --writeimage")
 
-    if args.points and args.writeimage:
+    if args.points:
         raise Exception("Currently --points is implemented ONLY if not --writeimage")
 
 
