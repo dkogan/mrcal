@@ -34,6 +34,11 @@ def parse_args():
                         action='store_true',
                         help='''By default I make a plot. If --writeimage is given, I output an annotated
                         image instead''')
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''With --writeimage we refuse to overwrite any existing images. Pass --force to
+                        allow overwriting''')
     parser.add_argument('--points',
                         action='store_true',
                         help='''If given, I read a set of xy points from STDIN, and include them in the plot.
@@ -100,6 +105,19 @@ if args.writeimage:
 
     # this function stolen from mrcal-reproject-image. Please consolidate
     def target_image_filename(filename_in, suffix):
+
+        base,extension = os.path.splitext(filename_in)
+        if len(extension) != 4:
+            raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
+        filename_out = f"{base}-{suffix}{extension}"
+        if not args.force and os.path.isfile(filename_out):
+            print(f"Target image '{filename_out}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
+                  file=sys.stderr)
+            sys.exit(1)
+        return filename_out
+
+    def target_image_filename(filename_in, suffix):
+
         base,extension = os.path.splitext(filename_in)
         if len(extension) != 4:
             raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
