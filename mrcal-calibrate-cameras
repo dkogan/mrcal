@@ -402,6 +402,42 @@ def parse_args():
                         information, and weigh them all equally, pass
                         --unweighted-corners.''')
 
+    parser.add_argument('--valid-intrinsics-region-parameters',
+                        nargs = 5,
+                        default = (1, 0.5, 1.5, 3, 0),
+                        type = float,
+
+                        help='''For convenience we compute a valid-intrinsics region to describe the results
+                        of the calibration. This is a watered-down
+                        interpretation of the projection uncertainty that is
+                        easy to interpret. The logic computing this is somewhat
+                        crude, and may go away in the future. The defaults
+                        should be reasonable, so if in doubt, leave these alone.
+                        The intent is to produce usable output even if we're
+                        using a lean lens model where the computed uncertainty
+                        is always overly optimistic. We bin the observations
+                        into a grid, and use report_residual_statistics() to get
+                        the residual statistics in each bin. We then contour the
+                        bins to produce the valid-intrinsics region. If we're
+                        using a rich lens model (LENSMODEL_SPLINED_...), then we
+                        only look at the uncertainty, and not at the other
+                        statistics. This argument takes 5 parameters. The
+                        uncertainty is computed at a range
+                        valid_intrinsics_region_parameters[4]. If <= 0, I look
+                        out to infinity. The default is 0. A region is valid
+                        only if the projection uncertainty <
+                        valid_intrinsics_region_parameters[0] *
+                        observed_pixel_uncertainty. The default is 1. A region
+                        is valid only if the mean-abs-residuals is <
+                        valid_intrinsics_region_parameters[1] (only for lean
+                        models). The default is 0.5. A region is valid only if
+                        the residuals stdev is <
+                        valid_intrinsics_region_parameters[2] *
+                        observed_pixel_uncertainty (only for lean models). The
+                        default is 1.5. A region is valid only if it contains at
+                        least valid_intrinsics_region_parameters[3] observations
+                        (only for lean models). The default is 3.''')
+
     parser.add_argument('--verbose-solver',
                         action='store_true',
                         required=False,
@@ -837,6 +873,7 @@ models = make_cameramodels(optimization_inputs)
 projected = mrcal.project_boards(**optimization_inputs)
 
 # Each has shape (Nobservations,Nheight,Nwidth,2)
+# Does NOT apply the weights
 reproj_err_including_outliers, reproj_err_0_for_outliers = \
     mrcal.calibration_residuals(projected, observations,
                                 indices_frame_camera)
@@ -845,26 +882,29 @@ reproj_err_including_outliers, reproj_err_0_for_outliers = \
 
 def get_valid_intrinsics_region(model, icam,
                                 ignore_outliers = True):
+    r'''Returns the valid-intrinsics region for camera icam
 
-    '''THIS FUNCTION IS MADE UP. PLEASE FIX'''
+This is a closed contour, in an (N,2) numpy array. None means "no
+valid-intrinsics region computed". An empty array of shape (0,2) means "the
+region was computed and it is empty"
 
-    if args.skip_intrinsics_solve:
+    '''
+
+    if args.skip_intrinsics_solve or args.valid_intrinsics_region_parameters is None:
         return None
-
 
     idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
     idx[indices_frame_camera[:,1] != icam, ...] = False
     if ignore_outliers:
         idx[ observations[...,2] < 0.0 ] = False
 
-    err = reproj_err_including_outliers[idx, :]
+    # shape (Ncorners_selected, 2)
+    err = reproj_err_including_outliers[idx, : ]
     obs = observations                 [idx, :2]
 
     W,H = model.imagersize()
 
-    gridn_width,gridn_height = 20,10
-    # This looks at reprojection errors EVEN FOR POINTS THROWN OUT AS OUTLIERS
-    # This IGNORES measurement weighting
+    gridn_width,gridn_height = 30,20
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
@@ -872,48 +912,63 @@ def get_valid_intrinsics_region(model, icam,
                                          gridn_width  = gridn_width,
                                          gridn_height = gridn_height)
 
-    q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
-    pcam = mrcal.unproject(q, *model.intrinsics())
-    err  = mrcal.projection_uncertainty(pcam,
-                                        model      = model,
-                                        atinfinity = True,
-                                        what       = 'worstdirection-stdev' )
-    try:
+    q           = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
+    pcam        = mrcal.unproject(q, *model.intrinsics(),
+                                  normalize = True)
 
-        sys.stderr.write("These thresholds for the valid-intrinsics-region are completely made up\n")
+    if args.valid_intrinsics_region_parameters[4] <= 0:
+        atinfinity = True
+    else:
+        atinfinity = False
+        pcam *= args.valid_intrinsics_region_parameters[4]
 
-        # shape (Nheight,Nwidth).
-        im = (err < 1) * (mean < 0.5) * (stdev < 1.5) * (count > 3)
+    uncertainty = mrcal.projection_uncertainty(pcam,
+                                               model      = model,
+                                               atinfinity = atinfinity,
+                                               what       = 'worstdirection-stdev' )
 
-        # I compute the contour. OpenCV can't process binary images, so I need
-        # to convert to a different image type first. AND findContours() reports
-        # the coordinates in the opposite order as how they're given (image is
-        # given as y,x; returned coords are x,y). This is what I want, but feels
-        # conterintuitive
-        contour = cv2.findContours(im.astype(np.uint8).copy(),
-                                   cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_SIMPLE)[-2][0][:,0,:].astype(float)
-        contour = mrcal.close_contour(contour)
-        if contour.ndim != 2 or contour.shape[0] < 4:
-            # I have a closed contour, so the only way for it to not be
-            # degenerate is to include at least 4 points
-            return None
+    # shape (Nheight,Nwidth).
+    im = \
+        (uncertainty < args.valid_intrinsics_region_parameters[0] * args.observed_pixel_uncertainty)
 
-        # I convert the contours back to the full-res image coordinate. The grid
-        # mapping is based on the corner pixels
-        contour[:,0] *= float(W-1)/(gridn_width -1)
-        contour[:,1] *= float(H-1)/(gridn_height-1)
+    if not re.match('LENSMODEL_SPLINED_', model.intrinsics()[0]):
+        im *= \
+            (mean        < args.valid_intrinsics_region_parameters[1]) * \
+            (stdev       < args.valid_intrinsics_region_parameters[2] * args.observed_pixel_uncertainty) * \
+            (count       > args.valid_intrinsics_region_parameters[3])
 
-        return contour.round().astype(np.int32)
+    # I compute the contour. OpenCV can't process binary images, so I need
+    # to convert to a different image type first. AND findContours() reports
+    # the coordinates in the opposite order as how they're given (image is
+    # given as y,x; returned coords are x,y). This is what I want, but feels
+    # conterintuitive
 
-    except:
-        return None
+    # This is a hoaky mess. I ignore all the topological corner cases, and just
+    # grab the contour with the biggest area
+    contours = \
+        cv2.findContours(im.astype(np.uint8),
+                         cv2.RETR_EXTERNAL,
+                         cv2.CHAIN_APPROX_SIMPLE)[-2]
+
+    areas = np.array([ cv2.contourArea(c) for c in contours ])
+    contour = contours[np.argmax(areas)][:,0,:].astype(float)
+
+    contour = mrcal.close_contour(contour)
+    if contour.ndim != 2 or contour.shape[0] < 4:
+        # I have a closed contour, so the only way for it to not be
+        # degenerate is to include at least 4 points
+        return np.zeros((0,2)) # empty valid-intrinsics region
+
+    # I convert the contours back to the full-res image coordinate. The grid
+    # mapping is based on the corner pixels
+    contour[:,0] *= float(W-1)/(gridn_width -1)
+    contour[:,1] *= float(H-1)/(gridn_height-1)
+
+    return contour.round().astype(np.int32)
 
 
-# Write the output models
 for i in range(Ncameras):
     models[i].valid_intrinsics_region(get_valid_intrinsics_region(models[i], i))
-
 
 
 # The note says how we ran this, and contains the commented-out report
@@ -1113,19 +1168,24 @@ def _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_e
         err = err[idx, ...]
     # err,obs are now both of shape (N,2). Each slice is xy
 
-    valid_intrinsics_region_plotarg = None
-    if icam >= 0:
-        valid_intrinsics_region_plotarg_3d = \
-            (models[icam].valid_intrinsics_region()[:,0],
-             models[icam].valid_intrinsics_region()[:,1],
-             np.zeros(models[icam].valid_intrinsics_region().shape[-2]),
-             dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region")) if models[icam].valid_intrinsics_region() is not None else None
-        valid_intrinsics_region_plotarg_2d = \
-            (models[icam].valid_intrinsics_region()[:,0],
-             models[icam].valid_intrinsics_region()[:,1],
-             dict(_with  = 'lines lw 3',
-                  legend = "Valid-intrinsics region")) if models[icam].valid_intrinsics_region() is not None else None
+    legend = "Valid-intrinsics region"
+    valid_region = models[icam].valid_intrinsics_region()
+
+    if valid_region.size == 0:
+        valid_region = np.zeros((1,2))
+        legend += ": empty"
+
+    valid_intrinsics_region_plotarg_3d = \
+        (valid_region[:,0],
+         valid_region[:,1],
+         np.zeros(valid_region.shape[-2]),
+         dict(_with  = 'lines lw 3',
+              legend = legend))
+    valid_intrinsics_region_plotarg_2d = \
+        (valid_region[:,0],
+         valid_region[:,1],
+         dict(_with  = 'lines lw 3',
+              legend = legend))
 
     return icam,err,obs,W,H,focus_center,focus_radius,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
 
