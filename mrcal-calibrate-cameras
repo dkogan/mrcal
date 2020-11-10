@@ -892,6 +892,161 @@ i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations
 
 
 
+def report_residual_statistics( icamera,
+                                observations,
+                                error,
+                                indices_frame_camera,
+                                imagersize,
+                                gridn_width  = 20,
+                                gridn_height = None):
+
+    r'''Reports fit statistics for regions across the imager
+
+SYNOPSIS
+
+    print( observations.shape )
+    ===> (101, 9, 10, 3)
+
+    print( error.shape )
+    ===> (18180,)
+
+    mean, stdev, count, using = \
+        mrcal.report_residual_statistics(icamera,
+                                         observations,
+                                         error,
+                                         indices_frame_camera,
+                                         imagersize,
+                                         gridn_width = 30)
+
+    import gnuplotlib as gp
+    W,H = imagersize
+    gp.plot( np.abs(mean),
+             tuplesize = 3,
+             _with     = 'image',
+             ascii     = True,
+             square    = True,
+             using     = using)
+
+The mrcal solver optimizes reprojection errors for ALL the observations in ALL
+cameras at the same time. It is useful to evaluate the optimal solution by
+examining reprojection errors in subregions of the imager, which is accomplished
+by this function. All the observations and reprojection errors and subregion
+gridding are given. The mean and standard derivation of the reprojection errors
+and a point count are returned for each subregion cell. A "using" expression for
+plotting is reported as well.
+
+After a problem-free solve, the error distributions in each area of the imager
+should be similar, and should match the error distribution of the pixel
+observations. If the lens model doesn't fit the data, the statistics will not be
+consistent across the region: the residuals would be heteroscedastic.
+
+ARGUMENTS
+
+- icamera: the index of the camera we're looking at. I select the observations
+  and errors for this camera only by consulting the observations indicated by
+  indices_frame_camera
+
+- observations: an array of shape (Nobservations, calibration_object_height_n,
+  calibration_object_width_n, 3) of observed points. Each row is an (x,y,weight)
+  tuple. weight<=0 means "outlier". This function ignores those. I flatten the
+  leading dimensions. This is optimization_inputs["observations_board"]
+
+- error: an array of measurement errors corresponding to each row in the
+  "observations". Trailing elements are ignored (there are generally the points
+  or regularization terms). This is the array of errors reported by the
+  optimization
+
+- indices_frame_camera is an (N,2) array of contiguous, sorted integers where
+  each observation is (index_frame,index_camera). Each row corresponds to the
+  leading dimension of observations
+
+- imagersize: a len-2 iterable: width,height of the imager. With a
+  mrcal.cameramodel object this is model.imagersize()
+
+- gridn_width: how many points along the horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+RETURNED VALUES
+
+This function returns a tuple
+
+- mean: an array of shape (gridn_height,gridn_width). Contains the mean of
+  reprojection errors in the corresponding cell
+
+- stdev: an array of shape (gridn_height,gridn_width). Contains the standard
+  deviation of reprojection errors in the corresponding cell
+
+- count: an array of shape (gridn_height,gridn_width). Contains the count of
+  observations in the corresponding cell
+
+- using: is a "using" keyword for plotting the output matrices with gnuplotlib.
+  See the docstring for imagergrid_using() for details
+
+    '''
+
+    W,H=imagersize
+
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
+
+    # shape: (Nheight,Nwidth,2). Contains (x,y) rows
+    q_cell_center = mrcal.sample_imager(gridn_width, gridn_height, W, H)
+
+    wcell = float(W-1) / (gridn_width -1)
+    hcell = float(H-1) / (gridn_height-1)
+    rcell = np.array((wcell,hcell), dtype=float) / 2.
+
+    @nps.broadcast_define( (('N',2), ('N',2), (2,)),
+                           (3,) )
+    def stats(q, err, q_cell_center):
+        r'''Compute the residual statistics in a single cell
+
+        '''
+
+        # boolean (x,y separately) map of observations that are within a cell
+        idx = np.abs(q - q_cell_center) < rcell
+
+        # join x,y: both the x,y must be within a cell for the observation to be
+        # within a cell
+        idx = idx[:,0] * idx[:,1]
+
+        err = err[idx, ...].ravel()
+        if len(err) <= 5:
+            # we have too little data in this cell
+            return np.array((0.,0.,len(err)))
+
+        mean   = np.mean(err)
+        stdev  = np.std(err)
+        return np.array((mean,stdev,len(err)))
+
+
+    Nobs,Nh,Nw = observations.shape[:3]
+    error = error[:Nobs*Nh*Nw*2].reshape(Nobs,Nh,Nw,2)
+
+    iobservation = (indices_frame_camera[:,1] == icamera)
+
+    # shape (N,3)
+    observations = nps.clump(observations[iobservation,...], n=3)
+
+    # shape (N,)
+    weight       = observations[:, 2]
+    # shape (N,2)
+    observations = observations[:,:2]
+    error        = nps.clump(error[iobservation,:], n=3)
+
+    # ignore outliers
+    idx = weight>0
+    observations = observations[idx, :]
+    error        = error       [idx, :]
+
+    # Each has shape (Nheight,Nwidth)
+    mean,stdev,count = nps.mv( stats(observations, error, q_cell_center),
+                               -1, 0)
+    return mean,stdev,count,mrcal.imagergrid_using(imagersize, gridn_width, gridn_height)
+
 
 def get_valid_intrinsics_region(model, icam):
     r'''Returns the valid-intrinsics region for camera icam
@@ -909,13 +1064,13 @@ region was computed and it is empty"
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
-        mrcal.report_residual_statistics(icam,
-                                         observations,
-                                         stats['x'],
-                                         indices_frame_camera,
-                                         model.imagersize(),
-                                         gridn_width  = gridn_width,
-                                         gridn_height = gridn_height)
+        report_residual_statistics(icam,
+                                   observations,
+                                   stats['x'],
+                                   indices_frame_camera,
+                                   model.imagersize(),
+                                   gridn_width  = gridn_width,
+                                   gridn_height = gridn_height)
 
     q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
     pcam = mrcal.unproject(q, *model.intrinsics(),
@@ -1391,11 +1546,11 @@ def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
-        mrcal.report_residual_statistics(icam,
-                                         observations,
-                                         stats['x'],
-                                         indices_frame_camera,
-                                         imagersizes[icam])
+        report_residual_statistics(icam,
+                                   observations,
+                                   stats['x'],
+                                   indices_frame_camera,
+                                   imagersizes[icam])
     def mkplot(x, title, **kwargs_here):
         kwargs_here.update(kwargs)
         if 'hardcopy' in kwargs_here:
