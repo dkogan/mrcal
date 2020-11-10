@@ -1295,7 +1295,6 @@ def show_residuals_observation_worst(i, **kwargs):
 def _get_show_residuals_data(icam):
     r'''Return the data used by the various show_residuals_...() functions'''
 
-    if icam < 0: icam = 0 # first camera by default
 
     # all true by default, cutting out the last dimension: x,y
     idx = np.ones( observations.shape[:-1], dtype=bool)
@@ -1305,8 +1304,6 @@ def _get_show_residuals_data(icam):
     err = measurements_0_for_outliers[idx, ...]
 
     obs = observations[idx, ..., :2]
-
-    W,H=imagersizes[icam]
 
     legend = "Valid-intrinsics region"
     valid_region = models[icam].valid_intrinsics_region()
@@ -1327,7 +1324,7 @@ def _get_show_residuals_data(icam):
          dict(_with  = 'lines lw 3',
               legend = legend))
 
-    return icam,err,obs,W,H,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
+    return err,obs,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
 
 
 plots_residuals_vectorfield = None
@@ -1348,12 +1345,12 @@ def show_residuals_vectorfield(icam = 0,
     if plots_residuals_vectorfield is None:
         plots_residuals_vectorfield = [None] * Ncameras
 
-    icam,err,obs, \
-    W,H, \
+    err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
         _get_show_residuals_data(icam)
 
+    W,H = imagersizes[icam]
     plots_residuals_vectorfield[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
@@ -1388,12 +1385,12 @@ def show_residuals_heatmap(icam = 0,
     if plots_residuals_heatmap is None:
         plots_residuals_heatmap = [None] * Ncameras
 
-    icam,err,obs, \
-    W,H, \
+    err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
         _get_show_residuals_data(icam)
 
+    W,H = imagersizes[icam]
     plots_residuals_heatmap[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
@@ -1428,12 +1425,12 @@ def show_residuals_directions(icam = 0,
     if plots_residuals_directions is None:
         plots_residuals_directions = [None] * Ncameras
 
-    icam,err,obs, \
-    W,H, \
+    err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
         _get_show_residuals_data(icam)
 
+    W,H = imagersizes[icam]
     plots_residuals_directions[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
@@ -1468,8 +1465,7 @@ def show_residuals_radial(icam = 0, **kwargs):
     if plots_residuals_radial is None:
         plots_residuals_radial = [None] * Ncameras
 
-    icam,err,obs, \
-    W,H, \
+    err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
         _get_show_residuals_data(icam)
@@ -1503,8 +1499,7 @@ def show_residuals_regional(icam = 0, **kwargs):
     if plots_residuals_regional is None:
         plots_residuals_regional = [None] * Ncameras
 
-    _,_,_, \
-    W,H, \
+    err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
         _get_show_residuals_data(icam)
@@ -1523,6 +1518,7 @@ def show_residuals_regional(icam = 0, **kwargs):
             what = re.sub('[^a-zA-Z0-9_-]+', '_', title)
             kwargs_here['hardcopy'] = re.sub(r'(\.[^\.]+$)', '.' + what + r'\1', kwargs_here['hardcopy'])
 
+        W,H = imagersizes[icam]
         p = gp.gnuplotlib( _3d=1,
                            ascii=1,
                            unset='grid',
@@ -1565,8 +1561,7 @@ def show_residuals_histogram(icam = 0, binwidth=0.02,
     if plots_residuals_histogram is None:
         plots_residuals_histogram = [None] * Ncameras
 
-    icam,err,obs, \
-    W,H, \
+    err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
         _get_show_residuals_data(icam)
