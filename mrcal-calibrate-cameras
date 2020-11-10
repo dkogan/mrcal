@@ -974,10 +974,10 @@ RETURNED VALUES
 This function returns a tuple
 
 - mean: an array of shape (gridn_height,gridn_width). Contains the mean of
-  reprojection errors in the corresponding cell
+  the residuals in the corresponding cell
 
 - stdev: an array of shape (gridn_height,gridn_width). Contains the standard
-  deviation of reprojection errors in the corresponding cell
+  deviation of the residuals in the corresponding cell
 
 - count: an array of shape (gridn_height,gridn_width). Contains the count of
   observations in the corresponding cell
@@ -1241,8 +1241,8 @@ def show_residuals_observation(i_observation, vectorscale = 1.0, **kwargs):
     obs         = nps.clump( observations[i_observation, ..., :2], n=2)
     iframe,icam = indices_frame_camera[i_observation]
 
-    # Reprojection error per point. These may or may not have been thrown out as
-    # outliers. And these may have been scaled in the measurement vector
+    # Residual per point. These may or may not have been thrown out as outliers.
+    # And these may have been scaled in the measurement vector
     err = q_hypothesis - obs
 
 
@@ -1277,7 +1277,7 @@ def show_residuals_observation(i_observation, vectorscale = 1.0, **kwargs):
     gp.plot( # points. weights. throwing out outliers
              (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], np.sqrt(nps.norm2(measurements_no_outliers)),
               dict(_with     = 'points pt 7 ps 2 palette',
-                   legend    = 'reprojection error',
+                   legend    = 'fitted residual',
                    tuplesize = 3)),
 
              # vectors. unweighted reprojection errors. Including outliers
@@ -1292,7 +1292,7 @@ def show_residuals_observation(i_observation, vectorscale = 1.0, **kwargs):
 def show_residuals_observation_worst(i, **kwargs):
     show_residuals_observation( i_observations_worst[i], **kwargs )
 
-def _get_show_residuals_data(icam, focus_center, focus_radius):
+def _get_show_residuals_data(icam):
     r'''Return the data used by the various show_residuals_...() functions'''
 
     if icam < 0: icam = 0 # first camera by default
@@ -1307,18 +1307,6 @@ def _get_show_residuals_data(icam, focus_center, focus_radius):
     obs = observations[idx, ..., :2]
 
     W,H=imagersizes[icam]
-    if focus_center is None:
-        focus_center = (imagersizes[icam]-1.)/2.
-    if focus_radius == 0:
-        # I use all the data
-        pass
-    else:
-        if focus_radius < 0:
-            focus_radius = min(imagersizes[icam])/6
-        idx = nps.norm2(obs - focus_center) < focus_radius*focus_radius
-        obs = obs[idx, ...]
-        err = err[idx, ...]
-    # err,obs are now both of shape (N,2). Each slice is xy
 
     legend = "Valid-intrinsics region"
     valid_region = models[icam].valid_intrinsics_region()
@@ -1339,15 +1327,15 @@ def _get_show_residuals_data(icam, focus_center, focus_radius):
          dict(_with  = 'lines lw 3',
               legend = legend))
 
-    return icam,err,obs,W,H,focus_center,focus_radius,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
+    return icam,err,obs,W,H,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
 
 
 plots_residuals_vectorfield = None
-def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
+def show_residuals_vectorfield(icam = 0,
                                vectorscale = 1.0,
                                **kwargs):
 
-    r'''Visualize the optimized reprojection errors as a vector field
+    r'''Visualize the optimized residuals as a vector field
 
     We plot a vectorfield, showing each observed point, and its reprojection
     discrepancy
@@ -1361,19 +1349,15 @@ def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
         plots_residuals_vectorfield = [None] * Ncameras
 
     icam,err,obs, \
-        W, \
-        H, \
-        focus_center, \
-        focus_radius, \
-        valid_intrinsics_region_plotarg_2d, \
-        valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius)
+    W,H, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data(icam)
 
     plots_residuals_vectorfield[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
-                       title = 'Fitted reprojection errors {}. Errors shown as vectors and colors'. \
-                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
+                       title = 'Fitted residuals. Errors shown as vectors and colors',
                        xlabel = 'Imager x',
                        ylabel = 'Imager y',
                        **kwargs)
@@ -1387,11 +1371,11 @@ def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
     plots_residuals_vectorfield[icam].plot(*plot_data_args)
 
 plots_residuals_heatmap = None
-def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
+def show_residuals_heatmap(icam = 0,
                            vectorscale = 1.0,
                            **kwargs):
 
-    r'''Visualize the optimized reprojection errors as a heat map
+    r'''Visualize the optimized residuals as a heat map
 
     We plot each observed point, but instead of showing an error vector, we
     render a point that's color-coded with its error
@@ -1405,19 +1389,15 @@ def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
         plots_residuals_heatmap = [None] * Ncameras
 
     icam,err,obs, \
-        W, \
-        H, \
-        focus_center, \
-        focus_radius, \
-        valid_intrinsics_region_plotarg_2d, \
-        valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius)
+    W,H, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data(icam)
 
     plots_residuals_heatmap[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
-                       title = 'Fitted reprojection errors {}. Errors shown as colors'. \
-                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
+                       title = 'Fitted residuals. Errors shown as colors',
                        xlabel = 'Imager x',
                        ylabel = 'Imager y',
                        **kwargs)
@@ -1429,11 +1409,11 @@ def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
     plots_residuals_heatmap[icam].plot(*plot_data_args)
 
 plots_residuals_directions = None
-def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
-                   vectorscale = 1.0,
-                   **kwargs):
+def show_residuals_directions(icam = 0,
+                              vectorscale = 1.0,
+                              **kwargs):
 
-    r'''Visualize the optimized reprojection errors as color-coded directions
+    r'''Visualize the optimized residuals as color-coded directions
 
     We plot each observed point, but instead of showing an error vector, we show
     the color-coded direction of the error. The error magnitude is ignored. This
@@ -1449,19 +1429,15 @@ def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
         plots_residuals_directions = [None] * Ncameras
 
     icam,err,obs, \
-        W, \
-        H, \
-        focus_center, \
-        focus_radius, \
-        valid_intrinsics_region_plotarg_2d, \
-        valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius)
+    W,H, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data(icam)
 
     plots_residuals_directions[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
-                       title = 'Fitted reprojection errors {}. Directions shown as colors. Magnitudes ignored'. \
-                       format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
+                       title = 'Fitted residuals. Directions shown as colors. Magnitudes ignored',
                        xlabel = 'Imager x',
                        ylabel = 'Imager y',
 
@@ -1479,15 +1455,12 @@ def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
     plots_residuals_directions[icam].plot(*plot_data_args)
 
 plots_residuals_radial = None
-def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
-                          **kwargs):
+def show_residuals_radial(icam = 0, **kwargs):
 
-    r'''Visualize the optimized reprojection errors, looking at distance-from-center
+    r'''Visualize the optimized residuals, looking at distance-from-center
 
-    Plot residuals against distance from the center. If focus_center is not
-    None, we use that; otherwise we use the imager center
-
-    icam is the camera in question. First camera by default
+    Plot residuals against distance from the center. icam is the camera in
+    question. First camera by default
 
     '''
 
@@ -1496,21 +1469,17 @@ def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
         plots_residuals_radial = [None] * Ncameras
 
     icam,err,obs, \
-        W, \
-        H, \
-        focus_center, \
-        focus_radius, \
-        valid_intrinsics_region_plotarg_2d, \
-        valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius)
+    W,H, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data(icam)
 
-    r = np.sqrt(nps.norm2(obs - focus_center))
+    r = np.sqrt(nps.norm2(obs - (imagersizes[icam]-1.)/2.))
     plots_residuals_radial[icam] = \
         gp.gnuplotlib(
-            title = 'Fitted reprojection errors shown against distance from {}. Data from {}'. \
-            format( focus_center, 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
-            xlabel = 'Distance from {} (pixels)'.format(focus_center),
-            ylabel = 'Reprojection error (pixels). x and y components of error are counted separately',
+            title = 'Fitted residuals shown against distance from the center',
+            xlabel = 'Distance from the center (pixels)',
+            ylabel = 'Residual (pixels). x and y components of error are counted separately',
             **kwargs)
     plots_residuals_radial[icam]. \
         plot( nps.transpose(nps.cat(r,r)).ravel(),
@@ -1519,10 +1488,9 @@ def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
 
 
 plots_residuals_regional = None
-def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
-                            **kwargs):
+def show_residuals_regional(icam = 0, **kwargs):
 
-    r'''Visualize the optimized reprojection errors, broken up by region
+    r'''Visualize the optimized residuals, broken up by region
 
     Plots residuals grouped by discrete regions of the image. Useful to see
     specifically where the fit is poor
@@ -1537,11 +1505,9 @@ def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
 
     _,_,_, \
     W,H, \
-    focus_center, \
-    focus_radius, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
-        _get_show_residuals_data(icam, focus_center, focus_radius)
+        _get_show_residuals_data(icam)
 
 
     # Each has shape (Nheight,Nwidth)
@@ -1582,10 +1548,10 @@ def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
 
 
 plots_residuals_histogram = None
-def show_residuals_histogram(icam = 0, focus_center=None, focus_radius=0, binwidth=0.02,
+def show_residuals_histogram(icam = 0, binwidth=0.02,
                              **kwargs):
 
-    r'''Visualize the histogram of the optimized reprojection errors
+    r'''Visualize the histogram of the optimized residuals
 
     We show a histogram of residuals and overlay it with an idealized
     distribution. If the optimization was successful, and if
@@ -1600,13 +1566,10 @@ def show_residuals_histogram(icam = 0, focus_center=None, focus_radius=0, binwid
         plots_residuals_histogram = [None] * Ncameras
 
     icam,err,obs, \
-        W, \
-        H, \
-        focus_center, \
-        focus_radius, \
-        valid_intrinsics_region_plotarg_2d, \
-        valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius)
+    W,H, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data(icam)
 
     x = err.ravel()
     N = len(x)
@@ -1659,9 +1622,8 @@ def show_residuals_histogram(icam = 0, focus_center=None, focus_radius=0, binwid
                    (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
     plots_residuals_histogram[icam] = \
         gp.gnuplotlib(equation_above = equations,
-                      title = 'Observed and expected distribution of fitted reprojection errors {}'. \
-                      format( 'everywhere' if focus_radius==0 else '{} pixels from {}'.format(focus_radius, focus_center)),
-                      xlabel = 'Reprojection error (pixels). x and y components of error are counted separately',
+                      title = 'Observed and expected distribution of fitted residuals',
+                      xlabel = 'Residuals (pixels). x and y components of error are counted separately',
                       ylabel = 'Observed frequency',
                       **kwargs)
     plots_residuals_histogram[icam].plot(x, histogram=1, binwidth=binwidth,)
