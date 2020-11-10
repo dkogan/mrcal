@@ -1681,7 +1681,8 @@ def show_geometry(**kwargs):
     global plot_calibration_geometry
     plot_calibration_geometry = \
         mrcal.show_geometry(models,
-                            cameranames = [f"camera {i}" for i in range(len(models))])
+                            cameranames = [f"camera {i}" for i in range(len(models))],
+                            **kwargs)
 
 import IPython
 IPython.embed()
