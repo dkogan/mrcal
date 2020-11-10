@@ -2260,7 +2260,7 @@ bool _mrcal_project_internal( // out
                              mrcal_point2_t* q,
 
                              // Stored as a row-first array of shape (N,2,3). Each
-                             // trailing ,3 dimension element is a mrcal_point3_t
+                             // row lives in a mrcal_point3_t
                              mrcal_point3_t* dq_dp,
                              // core, distortions concatenated. Stored as a row-first
                              // array of shape (N,2,Nintrinsics). This is a DENSE array.
@@ -2403,15 +2403,16 @@ bool _mrcal_project_internal( // out
 bool mrcal_project( // out
                    mrcal_point2_t* q,
 
-                   // Stored as a row-first array of shape (N,2,3). Each
-                   // trailing ,3 dimension element is a mrcal_point3_t
+                   // Stored as a row-first array of shape (N,2,3). Each row
+                   // lives in a mrcal_point3_t.  May be NULL
                    mrcal_point3_t* dq_dp,
+
                    // core, distortions concatenated. Stored as a row-first
                    // array of shape (N,2,Nintrinsics). This is a DENSE array.
                    // High-parameter-count lens models have very sparse
                    // gradients here, and the internal project() function
                    // returns those sparsely. For now THIS function densifies
-                   // all of these
+                   // all of these. May be NULL
                    double*   dq_dintrinsics,
 
                    // in
