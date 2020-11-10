@@ -869,19 +869,31 @@ print(report)
 
 models = make_cameramodels(optimization_inputs)
 
-# shape (Nframes,Ncameras,Nheight,Nwidth,2)
-projected = mrcal.project_boards(**optimization_inputs)
-
-# Each has shape (Nobservations,Nheight,Nwidth,2)
-# Does NOT apply the weights
-reproj_err_including_outliers, reproj_err_0_for_outliers = \
-    mrcal.calibration_residuals(projected, observations,
-                                indices_frame_camera)
 
 
+# shape (Nobservations,Nheight,Nwidth)
+non_outlier_mask = np.ones( (Nobservations,
+                             args.object_height_n,
+                             args.object_width_n), dtype=bool)
+non_outlier_mask[observations[...,2] < 0.0] = False
+non_outliers_per_observation = np.sum( nps.clump(non_outlier_mask, n=-2).astype(int),
+                                       axis=-1)
 
-def get_valid_intrinsics_region(model, icam,
-                                ignore_outliers = True):
+# shape (Nobservations,)
+rms_measurements_0_for_outliers_perobservation   = \
+    np.sqrt( nps.norm2( nps.clump(measurements_0_for_outliers,n=-3) ) /
+             non_outliers_per_observation )
+
+
+i_observations_worst    = list(reversed(np.argsort(rms_measurements_0_for_outliers_perobservation)))
+i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations))] )
+
+
+
+
+
+
+def get_valid_intrinsics_region(model, icam):
     r'''Returns the valid-intrinsics region for camera icam
 
 This is a closed contour, in an (N,2) numpy array. None means "no
@@ -893,28 +905,21 @@ region was computed and it is empty"
     if args.skip_intrinsics_solve or args.valid_intrinsics_region_parameters is None:
         return None
 
-    idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
-    idx[indices_frame_camera[:,1] != icam, ...] = False
-    if ignore_outliers:
-        idx[ observations[...,2] < 0.0 ] = False
-
-    # shape (Ncorners_selected, 2)
-    err = reproj_err_including_outliers[idx, : ]
-    obs = observations                 [idx, :2]
-
-    W,H = model.imagersize()
-
     gridn_width,gridn_height = 30,20
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
-        mrcal.report_residual_statistics(obs,err, model.imagersize(),
+        mrcal.report_residual_statistics(icam,
+                                         observations,
+                                         stats['x'],
+                                         indices_frame_camera,
+                                         model.imagersize(),
                                          gridn_width  = gridn_width,
                                          gridn_height = gridn_height)
 
-    q           = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
-    pcam        = mrcal.unproject(q, *model.intrinsics(),
-                                  normalize = True)
+    q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
+    pcam = mrcal.unproject(q, *model.intrinsics(),
+                           normalize = True)
 
     if args.valid_intrinsics_region_parameters[4] <= 0:
         atinfinity = True
@@ -961,10 +966,14 @@ region was computed and it is empty"
 
     # I convert the contours back to the full-res image coordinate. The grid
     # mapping is based on the corner pixels
+    W,H = model.imagersize()
     contour[:,0] *= float(W-1)/(gridn_width -1)
     contour[:,1] *= float(H-1)/(gridn_height-1)
 
     return contour.round().astype(np.int32)
+
+
+
 
 
 for i in range(Ncameras):
@@ -1007,7 +1016,7 @@ Potential things to look at:
     show_projection_uncertainty(icam)
     show_projection_uncertainty_xydist(icam)
     show_valid_intrinsics_region(icam)
-    show_residuals_vectorfield(    icam, show_all_reproj_errors=True)
+    show_residuals_vectorfield(    icam)
     show_residuals_heatmap(        icam)
     show_residuals_directions(     icam)
     show_residuals_histogram(      icam)
@@ -1019,36 +1028,14 @@ Potential things to look at:
     show_splined_model_surface(    icam, xy)
     stats
     i_observations_worst
-    rms_reproj_err_including_outliers_perobservation
-    rms_reproj_err_0_for_outliers_perobservation
     rms_measurements_0_for_outliers_perobservation
     paths[i_observations_worst[0]]
     calobject_warp
 ''')
 
 
-non_outlier_mask = np.ones( (Nobservations,
-                             args.object_height_n,
-                             args.object_width_n), dtype=bool)
-non_outlier_mask[observations[...,2] < 0.0] = False
-non_outliers_per_observation = np.sum( nps.clump(non_outlier_mask, n=-2).astype(int),
-                                       axis=-1)
 
-rms_reproj_err_including_outliers_perobservation = \
-    np.sqrt( nps.norm2( nps.clump(reproj_err_including_outliers,n=-3) ) /
-             (args.object_height_n*args.object_width_n) )
-rms_reproj_err_0_for_outliers_perobservation     = \
-    np.sqrt( nps.norm2( nps.clump(reproj_err_0_for_outliers,n=-3) ) /
-             non_outliers_per_observation )
-rms_measurements_0_for_outliers_perobservation   = \
-    np.sqrt( nps.norm2( nps.clump(measurements_0_for_outliers,n=-3) ) /
-             non_outliers_per_observation )
-
-
-i_observations_worst    = list(reversed(np.argsort(rms_measurements_0_for_outliers_perobservation)))
-i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations))] )
-
-def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
+def show_residuals_observation(i_observation, vectorscale = 1.0, **kwargs):
     r'''Visualize calibration residuals for a single observation
 
     Given a single observation, plots the chessboard image overlaid with its
@@ -1067,20 +1054,42 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
 
     '''
 
-    if isinstance(observation, (int,np.integer)):
-        i_observation = observation
-    elif isinstance(observation, str):
-        i_observation = i_observation_from_path[observation]
+    if isinstance(i_observation, (int,np.integer)):
+        pass # already have the observation index
+    elif isinstance(i_observation, str):
+        i_observation = i_observation_from_path[i_observation]
     else:
-        raise Exception("observation should be a string (image path) or an integer; got type(observation) = {}".format(type(observation)))
+        raise Exception(f"i_observation should be a string (image path) or an integer; got type(i_observation) = {type(i_observation)}")
 
+
+
+    object_ref = \
+        mrcal.transform_point_rt( optimization_inputs['frames_rt_toref'][iframe],
+                                  mrcal.ref_calibration_object(args.object_width_n,
+                                                               args.object_height_n,
+                                                               args.object_spacing,
+                                                               optimization_inputs['calobject_warp']) )
+    if icam == 0:
+        object_cam = object_ref
+    else:
+        object_cam =  \
+            mrcal.transform_point_rt( optimization_inputs['extrinsics_rt_fromref'][icam-1],
+                                      object_ref )
+    # shape (Nheight*Nwidth, 2)
+    q_hypothesis = \
+        nps.clump( mrcal.project( object_cam,
+                                  optimization_inputs['lensmodel'],
+                                  optimization_inputs['intrinsics'][icam] ),
+                   n = 2 )
+
+    # shape (Nheight*Nwidth, 2)
     obs         = nps.clump( observations[i_observation, ..., :2], n=2)
     iframe,icam = indices_frame_camera[i_observation]
-    reproj      = nps.clump( projected[iframe,icam], n=2)
 
     # Reprojection error per point. These may or may not have been thrown out as
     # outliers. And these may have been scaled in the measurement vector
-    err = reproj - obs
+    err = q_hypothesis - obs
+
 
     # non_outlier_mask[i_observation] is dtype=bool, shape=(Nheight,Nwidth), so I
     # can use it as an index. measurements_0_for_outliers has shape
@@ -1095,11 +1104,10 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
     imagepath = paths[i_observation]
     plotkwargs = \
         dict(square=1,cbmin=0,
-             title='{}: i_observation={}, iframe={}, icam={}, path={}, error_RMS_all_points={:.2f}, measurement_RMS_ignoring_outliers={:.2f}'. \
+             title='{}: i_observation={}, iframe={}, icam={}, path={}, RMS_error={:.2f}'. \
                format( args.lensmodel,
                        i_observation, iframe, icam,
                        paths[i_observation],
-                       rms_reproj_err_including_outliers_perobservation[i_observation],
                        rms_measurements_0_for_outliers_perobservation[i_observation]),
              **kwargs)
     if os.path.isfile(imagepath):
@@ -1111,11 +1119,13 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
         plotkwargs['xrange'] = [0,W-1]
         plotkwargs['yrange'] = [H-1,0]
 
-    gp.plot( (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], np.sqrt(nps.norm2(measurements_no_outliers)),
+    gp.plot( # points. weights. throwing out outliers
+             (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], np.sqrt(nps.norm2(measurements_no_outliers)),
               dict(_with     = 'points pt 7 ps 2 palette',
                    legend    = 'reprojection error',
                    tuplesize = 3)),
 
+             # vectors. unweighted reprojection errors. Including outliers
              (obs[:,0], obs[:,1], vectorscale*err[:,0], vectorscale*err[:,1],
               dict(_with     = 'vectors size screen 0.01,20 fixed filled lw 2',
                    legend    = 'observed',
@@ -1127,30 +1137,17 @@ def show_residuals_observation(observation, vectorscale = 1.0, **kwargs):
 def show_residuals_observation_worst(i, **kwargs):
     show_residuals_observation( i_observations_worst[i], **kwargs )
 
-def _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors):
+def _get_show_residuals_data(icam, focus_center, focus_radius):
     r'''Return the data used by the various show_residuals_...() functions'''
 
     if icam < 0: icam = 0 # first camera by default
 
-    # I have a bunch of errors in reproj_err_including_outliers. I need to pick out
-    # - the ones for THIS camera (if requested)
-    # - the non-outliers         (if requested)
-    #
-    # The "for this camera" part is specified in indices_frame_camera. This
-    # indexes FRAMES
-    #
-    # I construct a feature index map, fill it in with both filters, and use it
-    # to pull out the correct data
-
     # all true by default, cutting out the last dimension: x,y
-    idx = np.ones( reproj_err_including_outliers.shape[:-1], dtype=bool)
+    idx = np.ones( observations.shape[:-1], dtype=bool)
     idx[indices_frame_camera[:,1] != icam, ...] = False
 
-    if not show_all_reproj_errors:
-        idx[ observations[...,2] < 0.0 ] = False
-        err = measurements_0_for_outliers[idx, ...]
-    else:
-        err = reproj_err_including_outliers[idx, ...]
+    idx[ observations[...,2] < 0.0 ] = False
+    err = measurements_0_for_outliers[idx, ...]
 
     obs = observations[idx, ..., :2]
 
@@ -1193,7 +1190,7 @@ def _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_e
 plots_residuals_vectorfield = None
 def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
                                vectorscale = 1.0,
-                               show_all_reproj_errors=False, **kwargs):
+                               **kwargs):
 
     r'''Visualize the optimized reprojection errors as a vector field
 
@@ -1201,13 +1198,6 @@ def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
     discrepancy
 
     icam is the camera in question. First camera by default
-
-    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
-    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
-    outliers, and errors were scaled to trust poor corner detections less.
-
-    if not show_all_reproj_errors: we show what was actually optimized. The
-    outliers do not appear, and the errors are scaled. This is the default
 
     '''
 
@@ -1222,7 +1212,7 @@ def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius)
 
     plots_residuals_vectorfield[icam] = \
         gp.gnuplotlib( square=1,
@@ -1244,7 +1234,7 @@ def show_residuals_vectorfield(icam = 0, focus_center=None, focus_radius=0,
 plots_residuals_heatmap = None
 def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
                            vectorscale = 1.0,
-                           show_all_reproj_errors=False, **kwargs):
+                           **kwargs):
 
     r'''Visualize the optimized reprojection errors as a heat map
 
@@ -1252,13 +1242,6 @@ def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
     render a point that's color-coded with its error
 
     icam is the camera in question. First camera by default
-
-    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
-    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
-    outliers, and errors were scaled to trust poor corner detections less.
-
-    if not show_all_reproj_errors: we show what was actually optimized. The
-    outliers do not appear, and the errors are scaled. This is the default
 
     '''
 
@@ -1273,7 +1256,7 @@ def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius)
 
     plots_residuals_heatmap[icam] = \
         gp.gnuplotlib( square=1,
@@ -1293,7 +1276,7 @@ def show_residuals_heatmap(icam = 0, focus_center=None, focus_radius=0,
 plots_residuals_directions = None
 def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
                    vectorscale = 1.0,
-                   show_all_reproj_errors=False, **kwargs):
+                   **kwargs):
 
     r'''Visualize the optimized reprojection errors as color-coded directions
 
@@ -1302,13 +1285,6 @@ def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
     is useful to see systematic patterns in the error surface
 
     icam is the camera in question. First camera by default
-
-    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
-    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
-    outliers, and errors were scaled to trust poor corner detections less.
-
-    if not show_all_reproj_errors: we show what was actually optimized. The
-    outliers do not appear, and the errors are scaled. This is the default
 
     '''
 
@@ -1324,7 +1300,7 @@ def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius)
 
     plots_residuals_directions[icam] = \
         gp.gnuplotlib( square=1,
@@ -1349,7 +1325,7 @@ def show_residuals_directions(icam = 0, focus_center=None, focus_radius=0,
 
 plots_residuals_radial = None
 def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
-                          show_all_reproj_errors=False, **kwargs):
+                          **kwargs):
 
     r'''Visualize the optimized reprojection errors, looking at distance-from-center
 
@@ -1357,13 +1333,6 @@ def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
     None, we use that; otherwise we use the imager center
 
     icam is the camera in question. First camera by default
-
-    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
-    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
-    outliers, and errors were scaled to trust poor corner detections less.
-
-    if not show_all_reproj_errors: we show what was actually optimized. The
-    outliers do not appear, and the errors are scaled. This is the default
 
     '''
 
@@ -1378,7 +1347,7 @@ def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius)
 
     r = np.sqrt(nps.norm2(obs - focus_center))
     plots_residuals_radial[icam] = \
@@ -1396,7 +1365,7 @@ def show_residuals_radial(icam = 0, focus_center=None, focus_radius=0,
 
 plots_residuals_regional = None
 def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
-                            show_all_reproj_errors=False, **kwargs):
+                            **kwargs):
 
     r'''Visualize the optimized reprojection errors, broken up by region
 
@@ -1405,35 +1374,27 @@ def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
 
     icam is the camera in question. First camera by default
 
-    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
-    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
-    outliers, and errors were scaled to trust poor corner detections less.
-
-    if not show_all_reproj_errors: we show what was actually optimized. The
-    outliers do not appear, and the errors are scaled. This is the default
-
     '''
 
     global plots_residuals_regional
     if plots_residuals_regional is None:
         plots_residuals_regional = [None] * Ncameras
 
-    icam,err,obs, \
-        W, \
-        H, \
-        focus_center, \
-        focus_radius, \
-        valid_intrinsics_region_plotarg_2d, \
-        valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
+    _,_,_, \
+    W,H, \
+    focus_center, \
+    focus_radius, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data(icam, focus_center, focus_radius)
 
-
-    if icam < 0:
-        raise Exception("Regional visualization for 'all' cameras at once isn't useful. Pass icam >= 0")
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
-        mrcal.report_residual_statistics(obs,err,
+        mrcal.report_residual_statistics(icam,
+                                         observations,
+                                         stats['x'],
+                                         indices_frame_camera,
                                          imagersizes[icam])
     def mkplot(x, title, **kwargs_here):
         kwargs_here.update(kwargs)
@@ -1467,7 +1428,7 @@ def show_residuals_regional(icam = 0, focus_center=None, focus_radius=0,
 
 plots_residuals_histogram = None
 def show_residuals_histogram(icam = 0, focus_center=None, focus_radius=0, binwidth=0.02,
-                             show_all_reproj_errors=False, **kwargs):
+                             **kwargs):
 
     r'''Visualize the histogram of the optimized reprojection errors
 
@@ -1476,13 +1437,6 @@ def show_residuals_histogram(icam = 0, focus_center=None, focus_radius=0, binwid
     observed_pixel_uncertainty was correct, the two should line up.
 
     icam is the camera in question. First camera by default
-
-    if show_all_reproj_errors: we show the distribution of REPROJECTION ERRORS,
-    INCLUDING OUTLIERS. This is not what was optimized: the optimization ignored
-    outliers, and errors were scaled to trust poor corner detections less.
-
-    if not show_all_reproj_errors: we show what was actually optimized. The
-    outliers do not appear, and the errors are scaled. This is the default
 
     '''
 
@@ -1497,7 +1451,7 @@ def show_residuals_histogram(icam = 0, focus_center=None, focus_radius=0, binwid
         focus_radius, \
         valid_intrinsics_region_plotarg_2d, \
         valid_intrinsics_region_plotarg_3d = \
-            _get_show_residuals_data(icam, focus_center, focus_radius, show_all_reproj_errors)
+            _get_show_residuals_data(icam, focus_center, focus_radius)
 
     x = err.ravel()
     N = len(x)

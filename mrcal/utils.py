@@ -2722,7 +2722,10 @@ plot
     return (data_tuples, plot_options)
 
 
-def report_residual_statistics( observations, reprojection_error,
+def report_residual_statistics( icamera,
+                                observations,
+                                error,
+                                indices_frame_camera,
                                 imagersize,
                                 gridn_width  = 20,
                                 gridn_height = None):
@@ -2732,14 +2735,16 @@ def report_residual_statistics( observations, reprojection_error,
 SYNOPSIS
 
     print( observations.shape )
-    ===> (100, 2)
+    ===> (101, 9, 10, 3)
 
-    print( reprojection_error.shape )
-    ===> (100,)
+    print( error.shape )
+    ===> (18180,)
 
     mean, stdev, count, using = \
-        mrcal.report_residual_statistics(observations,
-                                         reprojection_error,
+        mrcal.report_residual_statistics(icamera,
+                                         observations,
+                                         error,
+                                         indices_frame_camera,
                                          imagersize,
                                          gridn_width = 30)
 
@@ -2767,11 +2772,23 @@ consistent across the region: the residuals would be heteroscedastic.
 
 ARGUMENTS
 
-- observations: an array of shape (..., 2) of observed points. Each row is an
-  (x,y) pixel coordinate. This is an input to the optimization
+- icamera: the index of the camera we're looking at. I select the observations
+  and errors for this camera only by consulting the observations indicated by
+  indices_frame_camera
 
-- reprojection_error: an array of reprojection error values corresponding to
-  each row in the "observations". This is an output from the optimization
+- observations: an array of shape (Nobservations, calibration_object_height_n,
+  calibration_object_width_n, 3) of observed points. Each row is an (x,y,weight)
+  tuple. weight<=0 means "outlier". This function ignores those. I flatten the
+  leading dimensions. This is optimization_inputs["observations_board"]
+
+- error: an array of measurement errors corresponding to each row in the
+  "observations". Trailing elements are ignored (there are generally the points
+  or regularization terms). This is the array of errors reported by the
+  optimization
+
+- indices_frame_camera is an (N,2) array of contiguous, sorted integers where
+  each observation is (index_frame,index_camera). Each row corresponds to the
+  leading dimension of observations
 
 - imagersize: a len-2 iterable: width,height of the imager. With a
   mrcal.cameramodel object this is model.imagersize()
@@ -2806,47 +2823,57 @@ This function returns a tuple
         gridn_height = int(round(H/W*gridn_width))
 
     # shape: (Nheight,Nwidth,2). Contains (x,y) rows
-    c = sample_imager(gridn_width, gridn_height, W, H)
+    q_cell_center = sample_imager(gridn_width, gridn_height, W, H)
 
     wcell = float(W-1) / (gridn_width -1)
     hcell = float(H-1) / (gridn_height-1)
     rcell = np.array((wcell,hcell), dtype=float) / 2.
 
-    @nps.broadcast_define( (('N',2), ('N',), (2,)),
+    @nps.broadcast_define( (('N',2), ('N',2), (2,)),
                            (3,) )
-    def residual_stats(xy, z, center):
-        r'''Generates localized residual statistics
-
-        Takes in an array of residuals of shape (N,3) (contains (x,y,error)
-        slices)
+    def stats(q, err, q_cell_center):
+        r'''Compute the residual statistics in a single cell
 
         '''
 
         # boolean (x,y separately) map of observations that are within a cell
-        idx = np.abs(xy-center) < rcell
+        idx = np.abs(q - q_cell_center) < rcell
 
         # join x,y: both the x,y must be within a cell for the observation to be
         # within a cell
         idx = idx[:,0] * idx[:,1]
 
-        z   = z[idx, ...]
-        if z.shape[0] <= 5:
+        err = err[idx, ...].ravel()
+        if len(err) <= 5:
             # we have too little data in this cell
-            return np.array((0.,0.,z.shape[0]), dtype=float)
+            return np.array((0.,0.,len(err)))
 
-        mean   = np.mean(z)
-        stdev  = np.std(z)
-        return np.array((mean,stdev,z.shape[0]))
+        mean   = np.mean(err)
+        stdev  = np.std(err)
+        return np.array((mean,stdev,len(err)))
 
 
-    # observations,reprojection_error each have shape (N,2): each slice is xy. I
-    # have 2N measurements, so I flatten the errors, and double-up the
-    # observations
-    errflat = reprojection_error.ravel()
-    obsflat = nps.clump(nps.mv(nps.cat(observations,observations), -3, -2), n=2)
+    Nobs,Nh,Nw = observations.shape[:3]
+    error = error[:Nobs*Nh*Nw*2].reshape(Nobs,Nh,Nw,2)
 
-    # Each has shape (2,Nheight,Nwidth)
-    mean,stdev,count = nps.mv( residual_stats(obsflat, errflat, c),
+    iobservation = (indices_frame_camera[:,1] == icamera)
+
+    # shape (N,3)
+    observations = nps.clump(observations[iobservation,...], n=3)
+
+    # shape (N,)
+    weight       = observations[:, 2]
+    # shape (N,2)
+    observations = observations[:,:2]
+    error        = nps.clump(error[iobservation,:], n=3)
+
+    # ignore outliers
+    idx = weight>0
+    observations = observations[idx, :]
+    error        = error       [idx, :]
+
+    # Each has shape (Nheight,Nwidth)
+    mean,stdev,count = nps.mv( stats(observations, error, q_cell_center),
                                -1, 0)
     return mean,stdev,count,imagergrid_using(imagersize, gridn_width, gridn_height)
 
