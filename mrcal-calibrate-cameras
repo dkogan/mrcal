@@ -852,11 +852,11 @@ report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_err
 Npoints_chessboard = args.object_width_n*args.object_height_n*Nobservations
 
 # shape (Nobservations,Nheight,Nwidth,2)
-measurements_0_for_outliers = \
+residuals = \
     stats['x'][:Npoints_chessboard*2]. \
     reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
-worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(measurements_0_for_outliers, n=3) )))
-report += "Worst reprojection error (by measurement): {:.01f} pixels\n".format(worst_point_err)
+worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(residuals, n=3) )))
+report += "Worst residual (by measurement): {:.01f} pixels\n".format(worst_point_err)
 if not args.skip_outlier_rejection:
     report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
         format(stats['Noutliers'],
@@ -871,21 +871,19 @@ models = make_cameramodels(optimization_inputs)
 
 
 
-# shape (Nobservations,Nheight,Nwidth)
-non_outlier_mask = np.ones( (Nobservations,
-                             args.object_height_n,
-                             args.object_width_n), dtype=bool)
-non_outlier_mask[observations[...,2] < 0.0] = False
-non_outliers_per_observation = np.sum( nps.clump(non_outlier_mask, n=-2).astype(int),
-                                       axis=-1)
+# shape (Nobservations)
+nonoutliers_per_observation = \
+    np.sum( nps.clump( (observations[...,2] > 0.).astype(int),
+                       n = -2 ),
+            axis = -1 )
 
 # shape (Nobservations,)
-rms_measurements_0_for_outliers_perobservation   = \
-    np.sqrt( nps.norm2( nps.clump(measurements_0_for_outliers,n=-3) ) /
-             non_outliers_per_observation )
+rms_residual_perobservation = \
+    np.sqrt( nps.norm2( nps.clump(residuals,n=-3) ) /
+             nonoutliers_per_observation )
 
 
-i_observations_worst    = list(reversed(np.argsort(rms_measurements_0_for_outliers_perobservation)))
+i_observations_worst    = list(reversed(np.argsort(rms_residual_perobservation)))
 i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations))] )
 
 
@@ -1183,26 +1181,32 @@ Potential things to look at:
     show_splined_model_surface(    icam, xy)
     stats
     i_observations_worst
-    rms_measurements_0_for_outliers_perobservation
+    rms_residual_perobservation
     paths[i_observations_worst[0]]
     calobject_warp
 ''')
 
 
 
-def show_residuals_observation(i_observation, vectorscale = 1.0, **kwargs):
+def show_residuals_observation(i_observation,
+                               circlescale = 1.0,
+                               vectorscale = 1.0,
+                               showimage   = True,
+                               **kwargs):
     r'''Visualize calibration residuals for a single observation
 
     Given a single observation, plots the chessboard image overlaid with its
-    residuals. Each residual is plotted as a circle, color-coded by the error
-    size, and with a vector showing the error itself. If a point was thrown out
-    as an outlier, the vector is shown, but the circle is omitted.
+    residuals. Each residual is plotted as a circle and a vector. The circles
+    are color-coded by the residual error. The size of the circle indicates the
+    weight. Bigger means higher weight. The vector shows the weighted residual.
+    Outliers are omitted
 
     The observation is given in the first argument as either an integer
     (observation index) or a string (path).
 
     Usually the errors are small, and hard to see. So for legibility the error
-    vectors can be scaled up by passing in a 'vectorscale' argument.
+    vectors can be scaled up by passing in a 'vectorscale' argument. Similarly,
+    the circle size can be scaled with "circlescale".
 
     All kwargs are passed on to the gnuplotlib constructor to control the
     generated plot.
@@ -1217,55 +1221,35 @@ def show_residuals_observation(i_observation, vectorscale = 1.0, **kwargs):
         raise Exception(f"i_observation should be a string (image path) or an integer; got type(i_observation) = {type(i_observation)}")
 
 
+    Npoints_chessboard = args.object_width_n*args.object_height_n*Nobservations
+    residuals = \
+        stats['x'][:Npoints_chessboard*2]. \
+        reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
 
-    object_ref = \
-        mrcal.transform_point_rt( optimization_inputs['frames_rt_toref'][iframe],
-                                  mrcal.ref_calibration_object(args.object_width_n,
-                                                               args.object_height_n,
-                                                               args.object_spacing,
-                                                               optimization_inputs['calobject_warp']) )
-    if icam == 0:
-        object_cam = object_ref
-    else:
-        object_cam =  \
-            mrcal.transform_point_rt( optimization_inputs['extrinsics_rt_fromref'][icam-1],
-                                      object_ref )
-    # shape (Nheight*Nwidth, 2)
-    q_hypothesis = \
-        nps.clump( mrcal.project( object_cam,
-                                  optimization_inputs['lensmodel'],
-                                  optimization_inputs['intrinsics'][icam] ),
-                   n = 2 )
+    # shape (Nh*Nw,2)
+    residuals = nps.clump(residuals[i_observation],             n=2)
+    # shape (Nh*Nw,2)
+    obs       = nps.clump(observations[i_observation, ..., :2], n=2)
+    # shape (Nh*Nw)
+    weight    = nps.clump(observations[i_observation, ...,  2], n=2)
 
-    # shape (Nheight*Nwidth, 2)
-    obs         = nps.clump( observations[i_observation, ..., :2], n=2)
-    iframe,icam = indices_frame_camera[i_observation]
-
-    # Residual per point. These may or may not have been thrown out as outliers.
-    # And these may have been scaled in the measurement vector
-    err = q_hypothesis - obs
-
-
-    # non_outlier_mask[i_observation] is dtype=bool, shape=(Nheight,Nwidth), so I
-    # can use it as an index. measurements_0_for_outliers has shape
-    # (Nobservations,Nheight,Nwidth,2)
-    # This thing has shape (Nvalidpoints,2)
-    measurements_no_outliers = \
-        measurements_0_for_outliers[i_observation,
-                                    non_outlier_mask[i_observation],
-                                    :]
-    obs_ignoring_outliers = obs[non_outlier_mask[i_observation].ravel(), :]
+    # take non-outliers
+    idx       = weight > 0.
+    residuals = residuals[idx] # shape (N,2)
+    weight    = weight   [idx] # shape (N,)
+    obs       = obs      [idx] # shape (N,2)
 
     imagepath = paths[i_observation]
     plotkwargs = \
-        dict(square=1,cbmin=0,
+        dict(square = True,
+             cbmin  = 0,
              title='{}: i_observation={}, iframe={}, icam={}, path={}, RMS_error={:.2f}'. \
                format( args.lensmodel,
-                       i_observation, iframe, icam,
+                       i_observation, *indices_frame_camera[i_observation],
                        paths[i_observation],
-                       rms_measurements_0_for_outliers_perobservation[i_observation]),
+                       rms_residual_perobservation[i_observation]),
              **kwargs)
-    if os.path.isfile(imagepath):
+    if os.path.isfile(imagepath) and showimage:
         # only plot an image overlay if the image exists
         plotkwargs['rgbimage'] = imagepath
         plotkwargs['_set']     = 'autoscale noextend'
@@ -1274,16 +1258,21 @@ def show_residuals_observation(i_observation, vectorscale = 1.0, **kwargs):
         plotkwargs['xrange'] = [0,W-1]
         plotkwargs['yrange'] = [H-1,0]
 
-    gp.plot( # points. weights. throwing out outliers
-             (obs_ignoring_outliers[:,0], obs_ignoring_outliers[:,1], np.sqrt(nps.norm2(measurements_no_outliers)),
-              dict(_with     = 'points pt 7 ps 2 palette',
-                   legend    = 'fitted residual',
-                   tuplesize = 3)),
 
-             # vectors. unweighted reprojection errors. Including outliers
-             (obs[:,0], obs[:,1], vectorscale*err[:,0], vectorscale*err[:,1],
+    gp.add_plot_option(plotkwargs, 'unset', 'key')
+
+    gp.plot( # Points. Color indicates error. Size indicates level. Bigger =
+             # more confident = higher weight
+             (obs[:,0], obs[:,1],
+              3. * weight * circlescale, # size
+              nps.mag(residuals),        # color
+              dict(_with     = 'points pt 7 ps variable palette',
+                   tuplesize = 4)),
+
+             # Vectors. From observation to prediction. Scaled by the weight.
+             # Vector points AT the prediction only if weight = 1
+             (obs[:,0], obs[:,1], vectorscale*residuals[:,0], vectorscale*residuals[:,1],
               dict(_with     = 'vectors size screen 0.01,20 fixed filled lw 2',
-                   legend    = 'observed',
                    tuplesize = 4)),
 
              **plotkwargs)
@@ -1295,14 +1284,18 @@ def show_residuals_observation_worst(i, **kwargs):
 def _get_show_residuals_data(icam):
     r'''Return the data used by the various show_residuals_...() functions'''
 
-
-    # all true by default, cutting out the last dimension: x,y
+    # I select non-outlier residuals from THIS camera
     idx = np.ones( observations.shape[:-1], dtype=bool)
     idx[indices_frame_camera[:,1] != icam, ...] = False
 
     idx[ observations[...,2] < 0.0 ] = False
-    err = measurements_0_for_outliers[idx, ...]
 
+    Npoints_chessboard = args.object_width_n*args.object_height_n*Nobservations
+    residuals = \
+        stats['x'][:Npoints_chessboard*2]. \
+        reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
+
+    err = residuals[idx, ...]
     obs = observations[idx, ..., :2]
 
     legend = "Valid-intrinsics region"
