@@ -432,10 +432,10 @@ def process(model_from, model_to, image_globs, suffix,
     filenames_inout = zip(filenames_in, filenames_out)
 
     global mapxy
-    mapxy = mrcal.compute_map_for_reprojection(model_from, model_to,
-                                               use_rotation    = use_rotation,
-                                               plane_n         = plane_n,
-                                               plane_d         = plane_d)
+    mapxy = mrcal.image_transformation_map(model_from, model_to,
+                                           use_rotation    = use_rotation,
+                                           plane_n         = plane_n,
+                                           plane_d         = plane_d)
 
     pool = multiprocessing.Pool(args.jobs)
     try:

@@ -356,7 +356,7 @@ SYNOPSIS
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
 
-    mapxy = mrcal.compute_map_for_reprojection(model_orig, model_pinhole)
+    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole)
 
     image_undistorted = mrcal.transform_image(image_orig, mapxy)
 
@@ -465,11 +465,11 @@ the input model.
                            imagersize            = imagersize )
 
 
-def compute_map_for_reprojection(model_from, model_to,
+def image_transformation_map(model_from, model_to,
 
-                                 use_rotation = False,
-                                 plane_n      = None,
-                                 plane_d      = None):
+                             use_rotation = False,
+                             plane_n      = None,
+                             plane_d      = None):
 
     r'''Compute a reprojection map between two models
 
@@ -481,7 +481,7 @@ SYNOPSIS
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
 
-    mapxy = mrcal.compute_map_for_reprojection(model_orig, model_pinhole)
+    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole)
 
     image_undistorted = mrcal.transform_image(image_orig, mapxy)
 
@@ -691,7 +691,7 @@ SYNOPSIS
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
 
-    mapxy = mrcal.compute_map_for_reprojection(model_orig, model_pinhole)
+    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole)
 
     image_undistorted = mrcal.transform_image(image_orig, mapxy)
 
@@ -700,8 +700,8 @@ SYNOPSIS
 Given an array of pixel mappings this function can be used to transform one
 image to another. If we want to convert a scene image observed by one camera
 model to the image of the same scene using a different model, we can produce a
-suitable transformation map with mrcal.compute_map_for_reprojection(). An
-example of this common usage appears above in the synopsis.
+suitable transformation map with mrcal.image_transformation_map(). An example of
+this common usage appears above in the synopsis.
 
 At this time this function is a thin wrapper around cv2.remap()
 
