@@ -80,7 +80,7 @@ captured by model1 to a common pinhole projection, do this:
 
 A pinhole model is constructed that has the same extrinsics as model1, and both
 sets of images are reprojected to this model. This is similar to the previous
-mode, but since we're projection to a pinhole mode, this computes much faster.
+mode, but since we're projecting to a pinhole model, this computes much faster.
 The generated pinhole model is written to standard output.
 
 Finally instead of reprojecting to match up images of objects at infinity, it is
@@ -461,6 +461,6 @@ if args.to_pinhole and getattr(args, 'model-to'):
     process(model_to,   model_target, (getattr(args, 'imageglobs')[1],), "pinhole",
             not args.intrinsics_only, None, None)
 else:
-    # Simple case. I have by two models, and I reproject all the images
+    # Simple case. I have my two models, and I reproject all the images
     process(model_from, model_to, getattr(args, 'imageglobs'), "reprojected",
             not args.intrinsics_only, args.plane_n, args.plane_d)
