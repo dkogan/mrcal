@@ -4599,7 +4599,7 @@ A tuple:
     return (data_tuples, plot_options)
 
 
-def annotate_image__valid_intrinsics_region(model, image, color=(0,0,255)):
+def annotate_image__valid_intrinsics_region(image, model, color=(0,0,255)):
     r'''Annotate an image with a model's valid-intrinsics region
 
 SYNOPSIS
@@ -4608,7 +4608,7 @@ SYNOPSIS
 
     image = cv2.imread('image.jpg')
 
-    mrcal.annotate_image__valid_intrinsics_region(model, image)
+    mrcal.annotate_image__valid_intrinsics_region(image, model)
 
     cv2.imwrite('image-annotated.jpg', image)
 
