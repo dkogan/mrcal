@@ -175,7 +175,7 @@ def parse_args():
                         intelligently. The --fit argument could be one of
                         ("corners", "centers-horizontal", "centers-vertical"),
                         or the argument could be given as a list of points
-                        x0,y0,x1,y1,x2,y2,.... The focal length scale woudl then
+                        x0,y0,x1,y1,x2,y2,.... The focal length scale would then
                         be chosen to zoom in as far as possible, while fitting
                         all of these points''')
 
