@@ -219,6 +219,11 @@ def parse_args():
                         help='''Directory to write the output images into. If omitted, we write the output
                         images to the same directory as the input images''')
 
+    parser.add_argument('--valid-intrinsics-region',
+                        action='store_true',
+                        help='''If given, we annotate the images with their model's valid-intrinsics
+                        region''')
+
     parser.add_argument('--force', '-f',
                         action='store_true',
                         default=False,
@@ -398,9 +403,12 @@ signal.signal(signal.SIGINT, signal_handler_sigint)
 
 # This stuff needs to be global for the multiprocessing pool to pick it up. It
 # really is quite terrible. All I REALLY want is some os.fork() calls...
-mapxy = None
+model_valid_intrinsics_region = None
+mapxy                         = None
 def _transform_this(inout):
     image = cv2.imread(inout[0])
+    if model_valid_intrinsics_region is not None:
+        mrcal.annotate_image__valid_intrinsics_region(image, model_valid_intrinsics_region)
     image_transformed = mrcal.transform_image(image, mapxy)
     cv2.imwrite(inout[1], image_transformed)
     print(f"Wrote {inout[1]}", file=sys.stderr)
@@ -432,6 +440,9 @@ def process(model_from, model_to, image_globs, suffix,
     filenames_inout = zip(filenames_in, filenames_out)
 
     global mapxy
+    global model_valid_intrinsics_region
+    if args.valid_intrinsics_region:
+        model_valid_intrinsics_region = model_from
     mapxy = mrcal.image_transformation_map(model_from, model_to,
                                            use_rotation    = use_rotation,
                                            plane_n         = plane_n,
