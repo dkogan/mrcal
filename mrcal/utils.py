@@ -2666,8 +2666,6 @@ plot
         p    = np.mean(p_cam_observed_at_calibration_time, axis=-2)
         vcam = p / nps.mag(p)
 
-        print(mrcal.project(vcam, *model.intrinsics()))
-
     elif isinstance(where, np.ndarray):
         q    = where
         vcam = mrcal.unproject(q, *model.intrinsics(),
@@ -2680,9 +2678,6 @@ plot
         nps.mag(p_cam_observed_at_calibration_time)
     distance_min = np.min(distance_observed_at_calibration_time)
     distance_max = np.max(distance_observed_at_calibration_time)
-
-    print(distance_min)
-    print(distance_max)
 
     distances = np.logspace( np.log10(distance_min/5.),
                              np.log10(distance_max*10.),
