@@ -2174,6 +2174,21 @@ def _options_heatmap_with_contours( # update these
     elif not isinstance(plotoptions['unset'], list):
         plotoptions['unset'] = [plotoptions['unset']]
 
+    if contour_increment is None:
+        # Compute a "nice" contour increment. I pick a round number that gives
+        # me a reasonable number of contours
+
+        Nwant = 10
+        increment = contour_max/Nwant
+
+        # I find the nearest 1eX or 2eX or 5eX
+        base10_floor = np.power(10., np.floor(np.log10(increment)))
+
+        # Look through the options, and pick the best one
+        m   = np.array((1., 2., 5., 10.))
+        err = np.abs(m * base10_floor - increment)
+        contour_increment = -m[ np.argmin(err) ] * base10_floor
+
     plotoptions['_set'].extend( ['view equal xy',
                                  'view map',
                                  'contour base',
@@ -2349,7 +2364,7 @@ plot
         _options_heatmap_with_contours( # update these plot options
                                         kwargs,
 
-                                        cbmax,-0.1,
+                                        cbmax, None,
                                         model.imagersize(),
                                         gridn_width, gridn_height)
 
@@ -2958,7 +2973,7 @@ plot
             _options_heatmap_with_contours( # update these plot options
                                             kwargs,
 
-                                            cbmax,-1,
+                                            cbmax, None,
                                             imagersize,
                                             gridn_width, gridn_height)
         delta = dgrid-grid
@@ -4371,7 +4386,7 @@ A tuple:
             _options_heatmap_with_contours( # update these plot options
                                             kwargs,
 
-                                            cbmax, -0.5,
+                                            cbmax, None,
                                             models[0].imagersize(),
                                             gridn_width, gridn_height)
         plot_options = kwargs
