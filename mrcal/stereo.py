@@ -726,38 +726,37 @@ RETURNED VALUES
 
     '''
 
-    # |
-    # | az
-    # +------------
-    # | 180-az     \-------------------------
-    # |                   range               \--------
-    # |                                       th  ----/
+    # +. . . . .
+    # |\__az0_________________________
+    # |                 range         \___________
+    # |                                       a  -
     # |                                      ----/
     # |                                 ----/
     # | baseline                   ----/
     # |                      -----/
     # |                 ----/
     # |            ----/
-    # |az1    ----/
-    # |  ----/
-    # +-/
+    # |       ----/
+    # |  ----/ az1
+    # +-/. . . . . . . . . .
 
-    # Each disparity row represents a plane tilted by some el angle (different rows
-    # represent different values of el). Inside each row, pixels linearly span a space
-    # of azimuths. A disparity is a difference of azimuths: disparity ~ az-az1.
+    # A disparity image is indexed by (azimuth,elevation). Each row of a
+    # disparity represents a plane tilted by a contant elevation angle. Inside
+    # each row, pixels linearly span a space of azimuths. A disparity is a
+    # difference of azimuths: disparity ~ az0-az1.
+    #
+    # I measure asimuth from the forward direction. In the above az0 > 0 and az1
+    # < 0
 
-    #     baseline / sin(th) = range / sin(az1)
+    #     baseline / sin(a) = range / sin(90 + az1)
 
     # -->
 
-    #     range = baseline sin(az1) / sin(th) =
-    #           = baseline sin(az1) / sin( 180 - (180-az + az1) ) =
-    #           = baseline sin(az1) / sin(az - az1) =
-    #           = baseline sin(az1) / sin(disparity)
-    #           = baseline sin(az-disparity) / sin(disparity)
-
-    # I'm actually measuring az from the center, not from the left, so in the above
-    # expressions sin(az) -> cos(az)
+    #     range = baseline cos(az1) / sin(a) =
+    #           = baseline cos(az1) / sin( 180 - (90-az0 + 90+az1) ) =
+    #           = baseline cos(az1) / sin(az0 - az1) =
+    #           = baseline cos(az1) / sin(disparity)
+    #           = baseline cos(az0 - disparity) / sin(disparity)
 
     if az is None:
         if az_row is None:
