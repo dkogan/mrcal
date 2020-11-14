@@ -99,7 +99,7 @@ def parse_args():
                         type=float,
                         help='''Adds one extra observation at the given distance''')
     parser.add_argument('--reproject-perturbed',
-                        choices=('mean-frames', 'fit-boards-ref', 'diff'),
+                        choices=('mean-frames', 'mean-frames-using-meanq', 'fit-boards-ref', 'diff'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -442,17 +442,25 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
 
     if fixedframes:
         p_ref_query = p_ref_baseline
-    else:
-        # shape (Nframes, Ncameras, 3)
-        # The point in the coord system of all the frames
-        p_frames = mrcal.transform_point_rt( \
-            nps.dummy(mrcal.invert_rt(baseline_rt_ref_frame),-2),
-                                              p_ref_baseline)
+
+    # shape (Nframes, Ncameras, 3)
+    # The point in the coord system of all the frames
+    p_frames = mrcal.transform_point_rt( \
+        nps.dummy(mrcal.invert_rt(baseline_rt_ref_frame),-2),
+                                          p_ref_baseline)
+
+    # shape (..., Nframes, Ncameras, 3)
+    p_ref_query_allframes = \
+        mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame, -2),
+                                  p_frames )
+
+    if args.reproject_perturbed != 'mean-frames-using-meanq' ):
+
+        # "Normal" path: I take the mean of all the frame-coord-system
+        # representations of my point
 
         # shape (..., Ncameras, 3)
-        p_ref_query = np.mean( mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame, -2),
-                                                         p_frames ),
-                               axis = -3)
+        p_ref_query = np.mean( p_ref_query_allframes, axis = -3)
 
         # shape (..., Ncameras, 3)
         p_cam_query = \
@@ -460,6 +468,21 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
 
         # shape (..., Ncameras, 2)
         return mrcal.project(p_cam_query, lensmodel, query_intrinsics)
+
+
+    else:
+
+        # Experimental path: I take the mean of the projections, not the points
+        # in the reference frame
+
+        # shape (..., Nframes, Ncameras, 3)
+        p_cam_query_allframes = \
+            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref, -3), p_ref_query_allframes)
+
+        # shape (..., Nframes, Ncameras, 2)
+        q_reprojected = mrcal.project(p_cam_query_allframes, lensmodel, nps.dummy(query_intrinsics,-3))
+
+        return np.mean(q_reprojected, axis=-3)
 
 
 def reproject_perturbed__fit_boards_ref(q, distance,
@@ -623,7 +646,7 @@ def reproject_perturbed__diff(q, distance,
 # Which implementation we're using. Use the method that matches the uncertainty
 # computation. Thus the sampled ellipsoids should match the ellipsoids reported
 # by the uncertianty method
-if   args.reproject_perturbed == 'mean-frames':
+if   re.match('mean-frames', args.reproject_perturbed):
     reproject_perturbed = reproject_perturbed__mean_frames
 elif args.reproject_perturbed == 'fit-boards-ref':
     reproject_perturbed = reproject_perturbed__fit_boards_ref
