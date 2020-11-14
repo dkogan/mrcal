@@ -126,7 +126,10 @@ args = parse_args()
 if args.Ncameras <= 0 or args.Ncameras > 4:
     print(f"Ncameras must be in [0,4], but got {args.Ncameras}. Giving up", file=sys.stderr)
     sys.exit(1)
-
+if args.fixed == 'frames' and args.reproject_perturbed == 'mean-frames-using-meanq':
+    print("--fixed frames currently not implemented together with --reproject-perturbed mean-frames-using-meanq.",
+          file = sys.stderr)
+    sys.exit(1)
 
 
 
@@ -442,25 +445,27 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
 
     if fixedframes:
         p_ref_query = p_ref_baseline
+    else:
 
-    # shape (Nframes, Ncameras, 3)
-    # The point in the coord system of all the frames
-    p_frames = mrcal.transform_point_rt( \
-        nps.dummy(mrcal.invert_rt(baseline_rt_ref_frame),-2),
-                                          p_ref_baseline)
+        # shape (Nframes, Ncameras, 3)
+        # The point in the coord system of all the frames
+        p_frames = mrcal.transform_point_rt( \
+            nps.dummy(mrcal.invert_rt(baseline_rt_ref_frame),-2),
+                                              p_ref_baseline)
 
-    # shape (..., Nframes, Ncameras, 3)
-    p_ref_query_allframes = \
-        mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame, -2),
-                                  p_frames )
+        # shape (..., Nframes, Ncameras, 3)
+        p_ref_query_allframes = \
+            mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame, -2),
+                                      p_frames )
 
-    if args.reproject_perturbed != 'mean-frames-using-meanq' ):
+    if args.reproject_perturbed == 'mean-frames':
 
         # "Normal" path: I take the mean of all the frame-coord-system
         # representations of my point
 
-        # shape (..., Ncameras, 3)
-        p_ref_query = np.mean( p_ref_query_allframes, axis = -3)
+        if not fixedframes:
+            # shape (..., Ncameras, 3)
+            p_ref_query = np.mean( p_ref_query_allframes, axis = -3)
 
         # shape (..., Ncameras, 3)
         p_cam_query = \
@@ -474,6 +479,8 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
 
         # Experimental path: I take the mean of the projections, not the points
         # in the reference frame
+
+        # guaranteed that not fixedframes: I asserted this above
 
         # shape (..., Nframes, Ncameras, 3)
         p_cam_query_allframes = \
