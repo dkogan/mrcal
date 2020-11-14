@@ -484,7 +484,8 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
 
         # shape (..., Nframes, Ncameras, 3)
         p_cam_query_allframes = \
-            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref, -3), p_ref_query_allframes)
+            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref, -3),
+                                     p_ref_query_allframes)
 
         # shape (..., Nframes, Ncameras, 2)
         q_reprojected = mrcal.project(p_cam_query_allframes, lensmodel, nps.dummy(query_intrinsics,-3))
