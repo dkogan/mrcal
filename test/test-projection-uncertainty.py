@@ -99,7 +99,7 @@ def parse_args():
                         type=float,
                         help='''Adds one extra observation at the given distance''')
     parser.add_argument('--reproject-perturbed',
-                        choices=('mean-frames', 'mean-frames-using-meanq', 'fit-boards-ref', 'diff'),
+                        choices=('mean-frames', 'mean-frames-using-meanq', 'mean-frames-using-meanq-penalize-big-shifts', 'fit-boards-ref', 'diff'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -126,7 +126,7 @@ args = parse_args()
 if args.Ncameras <= 0 or args.Ncameras > 4:
     print(f"Ncameras must be in [0,4], but got {args.Ncameras}. Giving up", file=sys.stderr)
     sys.exit(1)
-if args.fixed == 'frames' and args.reproject_perturbed == 'mean-frames-using-meanq':
+if args.fixed == 'frames' and re.match('mean-frames-using-meanq', args.reproject_perturbed):
     print("--fixed frames currently not implemented together with --reproject-perturbed mean-frames-using-meanq.",
           file = sys.stderr)
     sys.exit(1)
@@ -490,7 +490,16 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
         # shape (..., Nframes, Ncameras, 2)
         q_reprojected = mrcal.project(p_cam_query_allframes, lensmodel, nps.dummy(query_intrinsics,-3))
 
-        return np.mean(q_reprojected, axis=-3)
+        if args.reproject_perturbed != 'mean-frames-using-meanq-penalize-big-shifts':
+            return np.mean(q_reprojected, axis=-3)
+        else:
+            # Experiment. Weighted mean to de-emphasize points with huge shifts
+
+            w = 1./nps.mag(q_reprojected - q)
+            w = nps.mv(nps.cat(w,w),0,-1)
+            return \
+                np.sum(q_reprojected*w, axis=-3) / \
+                np.sum(w, axis=-3)
 
 
 def reproject_perturbed__fit_boards_ref(q, distance,
