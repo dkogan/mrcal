@@ -90,6 +90,9 @@ def parse_args():
     parser.add_argument('--explore',
                         action='store_true',
                         help='''If given, we drop into a REPL at the end''')
+    parser.add_argument('--extra-observation-at',
+                        type=float,
+                        help='''Adds one extra observation at the given distance''')
     parser.add_argument('--reproject-perturbed',
                         choices=('mean-frames', 'fit-boards-ref', 'diff'),
                         default = 'mean-frames',
@@ -218,6 +221,26 @@ q_true,Rt_cam0_board_true = \
                                         np.array((0.,             0.,             0.,             -2,  0,   4.0)),
                                         np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5, 2.5, 2.0)),
                                         args.Nframes)
+
+if args.extra_observation_at:
+    c = mrcal.ref_calibration_object(object_width_n,
+                                     object_height_n,
+                                     object_spacing,
+                                     calobject_warp_true)
+    Rt_cam0_board_true_far = \
+        nps.glue( np.eye(3),
+                  np.array((0,0,args.extra_observation_at)),
+                  axis=-2)
+    q_true_far = \
+        mrcal.project(mrcal.transform_point_Rt(Rt_cam0_board_true_far, c),
+                      *models_true[0].intrinsics())
+
+    q_true             = nps.glue( q_true_far, q_true, axis=-5)
+    Rt_cam0_board_true = nps.glue( Rt_cam0_board_true_far, Rt_cam0_board_true, axis=-3)
+
+    args.Nframes += 1
+
+
 frames_true             = mrcal.rt_from_Rt(Rt_cam0_board_true)
 
 ############# I have perfect observations in q_true. I corrupt them by noise
@@ -899,6 +922,10 @@ if args.show_distribution:
     plot_distribution = [None] * Ncameras
     for icam in range(Ncameras):
         data_tuples, plot_options = make_plot(icam)
+
+        if args.extra_observation_at is not None:
+            plot_options['title'] += f': extra at {args.extra_observation_at}'
+
         plot_distribution[icam] = gp.gnuplotlib(**plot_options)
         plot_distribution[icam].plot(*data_tuples)
 
