@@ -150,13 +150,6 @@ atexit.register(cleanup)
 
 
 
-def gnuplotlib_add_list_option(d, key, value):
-    if not key in d:
-        d[key] = value
-    elif isinstance(d[key], list) or isinstance(d[key], tuple):
-        d[key] = list(d[key]) + [value]
-    else:
-        d[key] = [ d[key], value ]
 
 terminal = None
 extraset = None
@@ -326,7 +319,7 @@ if args.make_documentation_plots is not None:
     else:
         processoptions_output = dict(wait = True)
 
-    gnuplotlib_add_list_option(processoptions_output, '_set', 'xyplane relative 0')
+    gp.add_plot_option(processoptions_output, 'set', 'xyplane relative 0')
     mrcal.show_geometry(models_baseline,
                         unset='key',
                         **processoptions_output)
@@ -923,7 +916,7 @@ if args.make_documentation_plots is not None:
 
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
-    gnuplotlib_add_list_option(plot_options, 'unset', 'key')
+    gp.add_plot_option(plot_options, 'unset', 'key')
     data_tuples = [ data_tuples_plot_options[icam][0] for icam in range(Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
@@ -946,12 +939,11 @@ if args.make_documentation_plots is not None:
                                              return_plot_args = True) \
           for icam in range(Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
-    gnuplotlib_add_list_option(plot_options, '_set', processoptions_output['_set'])
-    del processoptions_output['_set']
+    if '_set' in processoptions_output:
+        gp.add_plot_option(plot_options, 'set', *processoptions_output['_set'])
+        del processoptions_output['_set']
     del plot_options['title']
-    gnuplotlib_add_list_option(plot_options, 'unset', 'key')
-    gnuplotlib_add_list_option(plot_options, 'unset', 'xtics')
-    gnuplotlib_add_list_option(plot_options, 'unset', 'ytics')
+    gp.add_plot_option(plot_options, 'unset', *('key','xtics','ytics'))
     data_tuples = [ data_tuples_plot_options[icam][0] + \
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
