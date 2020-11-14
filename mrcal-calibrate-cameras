@@ -1170,7 +1170,7 @@ Potential things to look at:
     show_projection_uncertainty_xydist(icam)
     show_valid_intrinsics_region(icam)
     show_residuals_vectorfield(    icam)
-    show_residuals_heatmap(        icam)
+    show_residuals_magnitudes(     icam)
     show_residuals_directions(     icam)
     show_residuals_histogram(      icam)
     show_residuals_radial(         icam)
@@ -1360,10 +1360,10 @@ def show_residuals_vectorfield(icam = 0,
         plot_data_args.append(valid_intrinsics_region_plotarg_2d)
     plots_residuals_vectorfield[icam].plot(*plot_data_args)
 
-plots_residuals_heatmap = None
-def show_residuals_heatmap(icam = 0,
-                           vectorscale = 1.0,
-                           **kwargs):
+plots_residuals_magnitudes = None
+def show_residuals_magnitudes(icam = 0,
+                              vectorscale = 1.0,
+                              **kwargs):
 
     r'''Visualize the optimized residuals as a heat map
 
@@ -1374,9 +1374,9 @@ def show_residuals_heatmap(icam = 0,
 
     '''
 
-    global plots_residuals_heatmap
-    if plots_residuals_heatmap is None:
-        plots_residuals_heatmap = [None] * Ncameras
+    global plots_residuals_magnitudes
+    if plots_residuals_magnitudes is None:
+        plots_residuals_magnitudes = [None] * Ncameras
 
     err,obs, \
     valid_intrinsics_region_plotarg_2d, \
@@ -1384,7 +1384,7 @@ def show_residuals_heatmap(icam = 0,
         _get_show_residuals_data(icam)
 
     W,H = imagersizes[icam]
-    plots_residuals_heatmap[icam] = \
+    plots_residuals_magnitudes[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
                        title = 'Fitted residuals. Errors shown as colors',
@@ -1396,7 +1396,7 @@ def show_residuals_heatmap(icam = 0,
                              tuplesize=3))]
     if valid_intrinsics_region_plotarg_2d is not None:
         plot_data_args.append(valid_intrinsics_region_plotarg_2d)
-    plots_residuals_heatmap[icam].plot(*plot_data_args)
+    plots_residuals_magnitudes[icam].plot(*plot_data_args)
 
 plots_residuals_directions = None
 def show_residuals_directions(icam = 0,
