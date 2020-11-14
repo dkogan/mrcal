@@ -317,7 +317,7 @@ if   args.scan_ranges:
         print("The given --scan-... requires --Nframes", file=sys.stderr)
         sys.exit(1)
     if not hasattr(args.range, '__iter__') or len(args.range) != 2:
-        print("The given --scan-... requires --range with 2 arguments", file=sys.stderr)
+        print("The given --scan-... requires --range with 2 comma-separated-arguments", file=sys.stderr)
         sys.exit(1)
     if hasattr(args.tilt_radius, '__iter__'):
         print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
@@ -344,7 +344,7 @@ elif args.scan_tilts:
         print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
         sys.exit(1)
     if not hasattr(args.tilt_radius, '__iter__') or len(args.tilt_radius) != 2:
-        print("The given --scan-... requires --tilt-radius with 2 arguments", file=sys.stderr)
+        print("The given --scan-... requires --tilt-radius with 2 comma-separated-arguments", file=sys.stderr)
         sys.exit(1)
     if hasattr(args.Nframes, '__iter__'):
         print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
@@ -374,7 +374,7 @@ elif args.scan_Ncameras:
         print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
         sys.exit(1)
     if not hasattr(args.Ncameras, '__iter__') or len(args.Ncameras) != 2:
-        print("The given --scan-... requires --Ncameras with 2 arguments", file=sys.stderr)
+        print("The given --scan-... requires --Ncameras with 2 comma-separated-arguments", file=sys.stderr)
         sys.exit(1)
     if args.Nframes_near is not None or args.Nframes_all is not None:
         print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
@@ -395,7 +395,7 @@ elif args.scan_Nframes:
         print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
         sys.exit(1)
     if not hasattr(args.Nframes, '__iter__') or len(args.Nframes) != 2:
-        print("The given --scan-... requires --Nframes with 2 arguments", file=sys.stderr)
+        print("The given --scan-... requires --Nframes with 2 comma-separated-arguments", file=sys.stderr)
         sys.exit(1)
     if hasattr(args.Ncameras, '__iter__'):
         print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
@@ -413,7 +413,7 @@ elif args.scan_num_far_constant_Nframes_near:
         print("The given --scan-... requires --Nframes-near", file=sys.stderr)
         sys.exit(1)
     if not hasattr(args.range, '__iter__') or len(args.range) != 2:
-        print("The given --scan-... requires --range with 2 arguments", file=sys.stderr)
+        print("The given --scan-... requires --range with 2 comma-separated-arguments", file=sys.stderr)
         sys.exit(1)
     if hasattr(args.tilt_radius, '__iter__'):
         print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
@@ -434,7 +434,7 @@ elif args.scan_num_far_constant_Nframes_all:
         print("The given --scan-... requires --Nframes-all", file=sys.stderr)
         sys.exit(1)
     if not hasattr(args.range, '__iter__') or len(args.range) != 2:
-        print("The given --scan-... requires --range with 2 arguments", file=sys.stderr)
+        print("The given --scan-... requires --range with 2 comma-separated-arguments", file=sys.stderr)
         sys.exit(1)
     if hasattr(args.tilt_radius, '__iter__'):
         print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
