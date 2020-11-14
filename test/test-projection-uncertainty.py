@@ -62,6 +62,11 @@ def parse_args():
                         type=int,
                         default=100,
                         help='''How many random samples to evaluate''')
+    parser.add_argument('--Ncameras',
+                        type    = int,
+                        default = 4,
+                        help='''How many cameras to simulate. By default we use 4. The values of those 4 are
+                        hard-coded, so --Ncameras must be <= 4''')
     parser.add_argument('--distances',
                         type=str,
                         default='5,inf',
@@ -118,6 +123,9 @@ def parse_args():
 
 args = parse_args()
 
+if args.Ncameras <= 0 or args.Ncameras > 4:
+    print(f"Ncameras must be in [0,4], but got {args.Ncameras}. Giving up", file=sys.stderr)
+    sys.exit(1)
 
 
 
@@ -190,17 +198,22 @@ elif args.model == 'splined':
 else:
     raise Exception("Unknown lens being tested")
 
+models_true = models_true[:args.Ncameras]
+
+
 lensmodel   = models_true[0].intrinsics()[0]
 
 Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 
-Ncameras = len(models_true)
+extrinsics_rt_fromref_toset = \
+    np.array(((0,    0,    0,      0,   0,   0),
+              (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
+              (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
+              (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
 
-models_true[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
-models_true[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
-models_true[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
-models_true[3].extrinsics_rt_fromref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
+for i in range(args.Ncameras):
+    models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromref_toset[i])
 
 pixel_uncertainty_stdev = 1.5
 object_spacing          = 0.1
@@ -212,14 +225,16 @@ intrinsics_true         = nps.cat( *[m.intrinsics()[1]         for m in models_t
 extrinsics_true_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true] )
 calobject_warp_true     = np.array((0.002, -0.005))
 
+x_center = -(args.Ncameras-1)/2.
+
 # shapes (Nframes, Ncameras, Nh, Nw, 2),
 #        (Nframes, 4,3)
 q_true,Rt_cam0_board_true = \
     mrcal.synthesize_board_observations(models_true,
                                         object_width_n, object_height_n, object_spacing,
                                         calobject_warp_true,
-                                        np.array((0.,             0.,             0.,             -2,  0,   4.0)),
-                                        np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5, 2.5, 2.0)),
+                                        np.array((0.,             0.,             0.,             x_center, 0,   4.0)),
+                                        np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, 2.0)),
                                         args.Nframes)
 
 if args.extra_observation_at:
@@ -259,14 +274,14 @@ observations_true = nps.clump( nps.glue(q_true,
 
 
 # Dense observations. All the cameras see all the boards
-indices_frame_camera = np.zeros( (args.Nframes*Ncameras, 2), dtype=np.int32)
-indices_frame = indices_frame_camera[:,0].reshape(args.Nframes,Ncameras)
+indices_frame_camera = np.zeros( (args.Nframes*args.Ncameras, 2), dtype=np.int32)
+indices_frame = indices_frame_camera[:,0].reshape(args.Nframes,args.Ncameras)
 indices_frame.setfield(nps.outer(np.arange(args.Nframes, dtype=np.int32),
-                                 np.ones((Ncameras,), dtype=np.int32)),
+                                 np.ones((args.Ncameras,), dtype=np.int32)),
                        dtype = np.int32)
-indices_camera = indices_frame_camera[:,1].reshape(args.Nframes,Ncameras)
+indices_camera = indices_frame_camera[:,1].reshape(args.Nframes,args.Ncameras)
 indices_camera.setfield(nps.outer(np.ones((args.Nframes,), dtype=np.int32),
-                                 np.arange(Ncameras, dtype=np.int32)),
+                                 np.arange(args.Ncameras, dtype=np.int32)),
                        dtype = np.int32)
 
 indices_frame_camintrinsics_camextrinsics = \
@@ -319,7 +334,7 @@ mrcal.optimize(**optimization_inputs_baseline)
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
                          icam_intrinsics     = i) \
-      for i in range(Ncameras) ]
+      for i in range(args.Ncameras) ]
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
@@ -361,7 +376,7 @@ if args.make_documentation_plots is not None:
 
     obs_cam = [ ( (observed_points(icam),),
                   (q0_baseline, dict(_with ='points pt 2 ps 2'))) \
-                for icam in range(Ncameras) ]
+                for icam in range(args.Ncameras) ]
     gp.plot( *obs_cam,
 
              tuplesize=-2,
@@ -381,7 +396,7 @@ frames_baseline             = optimization_inputs_baseline['frames_rt_toref']
 calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
 
 if args.write_models:
-    for i in range(Ncameras):
+    for i in range(args.Ncameras):
         models_true    [i].write(f"/tmp/models-true-camera{i}.cameramodel")
         models_baseline[i].write(f"/tmp/models-baseline-camera{i}.cameramodel")
     sys.exit()
@@ -578,8 +593,8 @@ def reproject_perturbed__diff(q, distance,
     # shape (Ncameras, 3)
     p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
                                      normalize = True) * distance
-    p_cam_query = np.zeros((Ncameras, 3), dtype=float)
-    for icam in range (Ncameras):
+    p_cam_query = np.zeros((args.Ncameras, 3), dtype=float)
+    for icam in range (args.Ncameras):
 
         # This method only cares about the intrinsics
         model_baseline = \
@@ -641,7 +656,7 @@ for distance in args.distances:
     # I check the bias for cameras 0,1,2. Camera 3 has q0 outside of the
     # observed region, so regularization affects projections there dramatically
     # (it's the only contributor to the projection behavior in that area)
-    for icam in range(Ncameras):
+    for icam in range(args.Ncameras):
         if icam == 3:
             continue
         testutils.confirm_equal(q0_true[distance][icam],
@@ -653,6 +668,9 @@ for distance in args.distances:
 for icam in (0,3):
     # I move the extrinsics of a model, write it to disk, and make sure the same
     # uncertainties come back
+
+    if icam >= args.Ncameras: break
+
     model_moved = mrcal.cameramodel(models_baseline[icam])
     model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
     model_moved.write(f'{workdir}/out.cameramodel')
@@ -713,8 +731,8 @@ if args.no_sampling:
     sys.exit()
 
 
-intrinsics_sampled         = np.zeros( (args.Nsamples,Ncameras,Nintrinsics), dtype=float )
-extrinsics_sampled_mounted = np.zeros( (args.Nsamples,Ncameras,6),           dtype=float )
+intrinsics_sampled         = np.zeros( (args.Nsamples,args.Ncameras,Nintrinsics), dtype=float )
+extrinsics_sampled_mounted = np.zeros( (args.Nsamples,args.Ncameras,6),           dtype=float )
 frames_sampled             = np.zeros( (args.Nsamples,args.Nframes, 6),      dtype=float )
 calobject_warp_sampled     = np.zeros( (args.Nsamples, 2),                   dtype=float )
 
@@ -785,7 +803,7 @@ def check_uncertainties_at(q0_baseline, idistance):
             p_cam_baseline[icam],
             atinfinity = atinfinity,
             model      = models_baseline[icam]) \
-                   for icam in range(Ncameras) ])
+                   for icam in range(args.Ncameras) ])
     # shape (Ncameras)
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
 
@@ -817,7 +835,7 @@ def check_uncertainties_at(q0_baseline, idistance):
                             worstcase = True,
                             msg = f"Var(dq) is symmetric at distance = {distancestr}")
 
-    for icam in range(Ncameras):
+    for icam in range(args.Ncameras):
         l_predicted,v = sorted_eig(Var_dq[icam])
         v0_predicted  = v[:,0]
 
@@ -919,8 +937,8 @@ def make_plot(icam, report_center_points = True, **kwargs):
 
 
 if args.show_distribution:
-    plot_distribution = [None] * Ncameras
-    for icam in range(Ncameras):
+    plot_distribution = [None] * args.Ncameras
+    for icam in range(args.Ncameras):
         data_tuples, plot_options = make_plot(icam)
 
         if args.extra_observation_at is not None:
@@ -932,7 +950,7 @@ if args.show_distribution:
 if args.make_documentation_plots is not None:
     data_tuples_plot_options = \
         [ make_plot(icam, report_center_points=False) \
-          for icam in range(Ncameras) ]
+          for icam in range(args.Ncameras) ]
     if args.make_documentation_plots:
         processoptions_output = dict(wait     = False,
                                      terminal = terminal,
@@ -944,7 +962,7 @@ if args.make_documentation_plots is not None:
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
     gp.add_plot_option(plot_options, 'unset', 'key')
-    data_tuples = [ data_tuples_plot_options[icam][0] for icam in range(Ncameras) ]
+    data_tuples = [ data_tuples_plot_options[icam][0] for icam in range(args.Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
              multiplot = f'layout 2,2',
@@ -964,7 +982,7 @@ if args.make_documentation_plots is not None:
                                              observations     = False,
                                              distance         = args.distances[0],
                                              return_plot_args = True) \
-          for icam in range(Ncameras) ]
+          for icam in range(args.Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
     if '_set' in processoptions_output:
         gp.add_plot_option(plot_options, 'set', *processoptions_output['_set'])
@@ -975,7 +993,7 @@ if args.make_documentation_plots is not None:
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
                            _with ='points pt 2 ps 2 nocontour'))] \
-                    for icam in range(Ncameras) ]
+                    for icam in range(args.Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
              multiplot = f'layout 2,2',
