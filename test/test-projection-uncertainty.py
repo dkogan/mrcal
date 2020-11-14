@@ -165,8 +165,9 @@ atexit.register(cleanup)
 
 
 
-terminal = None
-extraset = None
+terminal   = None
+extraset   = None
+pointscale = 1
 if args.make_documentation_plots:
     basename,extension = os.path.splitext(args.make_documentation_plots)
     dirname,basename   = os.path.split(basename)
@@ -177,11 +178,13 @@ if args.make_documentation_plots:
     print(f"Will write documentation plots to {documentation_plots_dir}xxxx-{basename}{extension}")
 
     if extension == '.svg':
-        terminal = 'svg noenhanced solid dynamic fontscale 0.5'
-        extraset = 'pointsize 0.5'
+        terminal   = 'svg noenhanced solid dynamic fontscale 0.5'
+        pointscale = 0.5
+        extraset   = 'pointsize 0.5'
     elif extension == '.pdf':
-        terminal = 'pdf noenhanced solid color font ",10" size 11in,6in'
-        extraset = 'pointsize 1.'
+        terminal   = 'pdf noenhanced solid color font ",10" size 11in,6in'
+        pointscale = 1
+        extraset   = 'pointsize 1.'
 
 
 # I want the RNG to be deterministic
@@ -384,7 +387,7 @@ if args.make_documentation_plots is not None:
         return obs_cam.reshape(len(obs_cam)//2,2)
 
     obs_cam = [ ( (observed_points(icam),),
-                  (q0_baseline, dict(_with ='points pt 2 ps 2'))) \
+                  (q0_baseline, dict(_with = f'points pt 3 ps {2*pointscale}'))) \
                 for icam in range(args.Ncameras) ]
     gp.plot( *obs_cam,
 
@@ -1038,7 +1041,7 @@ if args.make_documentation_plots is not None:
     data_tuples = [ data_tuples_plot_options[icam][0] + \
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
-                           _with ='points pt 2 ps 2 nocontour'))] \
+                           _with =f'points pt 3 ps {2*pointscale}'))] \
                     for icam in range(args.Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
