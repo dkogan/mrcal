@@ -1041,7 +1041,7 @@ if args.make_documentation_plots is not None:
     data_tuples = [ data_tuples_plot_options[icam][0] + \
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
-                           _with =f'points pt 3 ps {2*pointscale}'))] \
+                           _with =f'points pt 3 ps {2*pointscale} nocontour'))] \
                     for icam in range(args.Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
