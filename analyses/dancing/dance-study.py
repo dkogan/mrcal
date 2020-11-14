@@ -74,7 +74,7 @@ def parse_args():
                         (camera 0) by default''')
     parser.add_argument('--camera-spacing',
                         default = 0.3,
-                        type=positive_float,
+                        type=float,
                         help='How many meters between adjacent cameras in our synthetic world')
     parser.add_argument('--object-spacing',
                         default=0.077,
