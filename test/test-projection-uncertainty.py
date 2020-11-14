@@ -168,7 +168,13 @@ atexit.register(cleanup)
 terminal = None
 extraset = None
 if args.make_documentation_plots:
-    extension = os.path.splitext(args.make_documentation_plots)[1]
+    basename,extension = os.path.splitext(args.make_documentation_plots)
+    dirname,basename   = os.path.split(basename)
+
+    documentation_plots_dir      = f"{dirname}/" if len(dirname) else ''
+    documentation_plots_filename = basename + extension
+
+    print(f"Will write documentation plots to {documentation_plots_dir}xxxx-{basename}{extension}")
 
     if extension == '.svg':
         terminal = 'svg noenhanced solid dynamic fontscale 0.5'
@@ -356,7 +362,7 @@ if args.make_documentation_plots is not None:
         processoptions_output = dict(wait     = False,
                                      terminal = terminal,
                                      _set     = extraset,
-                                     hardcopy = f'simulated-geometry--{args.make_documentation_plots}')
+                                     hardcopy = f'{documentation_plots_dir}simulated-geometry--{documentation_plots_filename}')
     else:
         processoptions_output = dict(wait = True)
 
@@ -369,7 +375,7 @@ if args.make_documentation_plots is not None:
         processoptions_output = dict(wait     = False,
                                      terminal = terminal,
                                      _set     = extraset,
-                                     hardcopy = f'simulated-observations--{args.make_documentation_plots}')
+                                     hardcopy = f'{documentation_plots_dir}simulated-observations--{documentation_plots_filename}')
     else:
         processoptions_output = dict(wait = True)
 
@@ -995,7 +1001,7 @@ if args.make_documentation_plots is not None:
         processoptions_output = dict(wait     = False,
                                      terminal = terminal,
                                      _set     = extraset,
-                                     hardcopy = f'distribution-onepoint--{args.make_documentation_plots}')
+                                     hardcopy = f'{documentation_plots_dir}distribution-onepoint--{documentation_plots_filename}')
     else:
         processoptions_output = dict(wait = True)
 
@@ -1014,7 +1020,7 @@ if args.make_documentation_plots is not None:
         processoptions_output = dict(wait     = False,
                                      terminal = terminal,
                                      _set     = extraset,
-                                     hardcopy = f'uncertainty-wholeimage--{args.make_documentation_plots}')
+                                     hardcopy = f'{documentation_plots_dir}uncertainty-wholeimage--{documentation_plots_filename}')
     else:
         processoptions_output = dict(wait = True)
     data_tuples_plot_options = \
