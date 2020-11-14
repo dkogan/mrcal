@@ -106,9 +106,9 @@ if args.title    is not None: plotkwargs['title'   ] = args.title
 if args.hardcopy is not None: plotkwargs['hardcopy'] = args.hardcopy
 
 if args.set   is not None:
-    gp.add_plot_option( plotkwargs, 'set'   *args.set)
+    gp.add_plot_option( plotkwargs, 'set'   args.set)
 if args.unset is not None:
-    gp.add_plot_option( plotkwargs, 'unset' *args.unset)
+    gp.add_plot_option( plotkwargs, 'unset' args.unset)
 
 plot = mrcal.show_geometry(models,
                            cameranames         = args.models,

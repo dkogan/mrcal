@@ -1025,10 +1025,10 @@ if args.make_documentation_plots is not None:
           for icam in range(args.Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
     if '_set' in processoptions_output:
-        gp.add_plot_option(plot_options, 'set', *processoptions_output['_set'])
+        gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
         del processoptions_output['_set']
     del plot_options['title']
-    gp.add_plot_option(plot_options, 'unset', *('key','xtics','ytics'))
+    gp.add_plot_option(plot_options, 'unset', ('key','xtics','ytics'))
     data_tuples = [ data_tuples_plot_options[icam][0] + \
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
