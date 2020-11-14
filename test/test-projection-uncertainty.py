@@ -412,7 +412,7 @@ def reproject_perturbed__mean_frames(q, distance,
     r'''Reproject by computing the mean in the space of frames
 
 This is what the uncertainty computation does (as of 2020/10/26). The implied
-rotation here is aphysical (it is a mean of multipl rotation matrices)
+rotation here is aphysical (it is a mean of multiple rotation matrices)
 
     '''
 
