@@ -1019,11 +1019,20 @@ if args.make_documentation_plots is not None:
 
 
 
+    pointscale_here = pointscale
     if args.make_documentation_plots:
+        hardcopy = f'{documentation_plots_dir}uncertainty-wholeimage--{documentation_plots_filename}'
+        if hardcopy[-4:] == '.svg':
+            hardcopy = hardcopy[:-4] + '.png'
+            terminal_here = 'pngcairo noenhanced size 1280,700 crop'
+            pointscale_here = 1.5
+        else:
+            terminal_here = terminal
+
         processoptions_output = dict(wait     = False,
-                                     terminal = terminal,
+                                     terminal = terminal_here,
                                      _set     = extraset,
-                                     hardcopy = f'{documentation_plots_dir}uncertainty-wholeimage--{documentation_plots_filename}')
+                                     hardcopy = hardcopy)
     else:
         processoptions_output = dict(wait = True)
     data_tuples_plot_options = \
@@ -1037,11 +1046,11 @@ if args.make_documentation_plots is not None:
         gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
         del processoptions_output['_set']
     del plot_options['title']
-    gp.add_plot_option(plot_options, 'unset', ('key','xtics','ytics'))
+    gp.add_plot_option(plot_options, 'unset', 'key')
     data_tuples = [ data_tuples_plot_options[icam][0] + \
                     [(q0_baseline[0], q0_baseline[1], 0, \
                       dict(tuplesize = 3,
-                           _with =f'points pt 3 ps {2*pointscale} nocontour'))] \
+                           _with =f'points pt 3 ps {2*pointscale_here} nocontour'))] \
                     for icam in range(args.Ncameras) ]
     gp.plot( *data_tuples,
              **plot_options,
