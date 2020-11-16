@@ -68,99 +68,9 @@ intrinsics/extrinsics, etc.
 
 * DESCRIPTION
 
-** Fundamental assumptions
 
-Some notational conventions are used throught the code and implementation, and
-they're explicitly described here.
 
-*** Coordinate system conventions
 
-No convention is assumed for the world coordinate system. The canonical camera
-coordinate system has =x,y= as with pixel coordinates in an image: =x= is to the
-"right" and =y= is "down". =z= is then "forward" to complete the right-handed
-system of coordinates
-
-*** Transformation conventions
-
-When describing a transformation (or its rotation/translation components) that
-maps a point represented in coordinate system A to its representation in
-coordinate system B, =T_AB= is the notation used. These chain together nicely,
-so if we know the transformation between =A= and =B= and between =B= and =C=, we
-can transform a point represented in =C= to =A=: =x_A = T_AB T_BC x_C=.
-
-*** Pose representations
-
-Various parts of the toolkit have preferred representations of pose, and =mrcal=
-has functions to convert between them. Available representations are:
-
-- =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
-  (1,3) translation vector
-
-- =rt=: a (6,) numpy array with a (3,) vector representing a Rodrigues rotation
-  concatenated with another (3,) vector, representing a rotation.
-
-Each of these represents a transformation =rotate(x) + t=.
-
-Since a pose represents a transformation between two coordinate systems, the
-toolkit generally refers to a pose as something like =Rt_AB=, which is an
-=Rt=-represented transformation to convert a point from a representation in the
-coordinate system =B= to a representation in coordinate system =A=. =B=
-
-A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
-around an axis in the direction =r=. Converting between =R= and =r= is done via
-the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]. This is done with =mrcal.r_from_R() and
-mrcal.R_from_r()=. For translating /poses/, not just rotations, use
-=mrcal.Rt_from_rt()= and =mrcal.rt_from_Rt()=.
-
-** Camera model file formats
-
-Reading/writing cameramodels is done in Python with the =mrcal.cameramodel=
-class. This class supports two different file formats:
-
-- =.cameramodel=: the preferred format. This is a simple text representation
-  that has clear sections for the lens model, pinhole intrinsics,
-  distortion coefficients, and an extrinsic pose. The pose is represented as
-  =rt_fromref=: an =rt= transformation /from/ the reference coordinate system
-  /to/ the coordinate system of this camera. The class provides methods to get
-  the transformation in any form, but =rt_fromref= is the internal
-  representation
-
-- =.cahvor=: the legacy format. This exists for compatibility with existing JPL
-  tools. There's no other reason to use this format
-
-The file format is just a way to store data: any lens model can be stored
-in any file format. Currently some things aren't representable in a =.cahvor=
-file (uncertainty stuff), but only mrcal tools know what to do with that data,
-and mrcal supports =.cameramodel= files.
-
-** Lens models
-
-Lens models are specified as elements of =enum lensmodel_t= (in C) or, as
-strings that match the entries of that enum (in Python). Currently I support all
-CAHVOR flavors and all models implemented in OpenCV and a pure stereographic
-model and a /very/ rich splined stereographic model. CAHVORE isn't supported in
-the solver. Some models have configuration parameters defined in the model
-string. These define details of the model, and are not subject to optimization.
-Currently the supported models are:
-
-- =LENSMODEL_PINHOLE=
-- =LENSMODEL_STEREOGRAPHIC=
-- =LENSMODEL_SPLINED_STEREOGRAPHIC_...= (this model has configuration
-  parameters)
-- =LENSMODEL_OPENCV4=
-- =LENSMODEL_OPENCV5=
-- =LENSMODEL_OPENCV8=
-- =LENSMODEL_OPENCV12= (if we have OpenCV >= 3.0.0)
-- =LENSMODEL_CAHVOR=
-- =LENSMODEL_CAHVORE=
-
-** Calibration object
-
-When running a camera calibration, we use camera observations of a calibration
-object (usually a chessboard). These images must be converted to a set of pixels
-where chessboard corners were observed. =mrcal= is a purely geometrical toolkit,
-so this vision problem is handled by another library: [[https://github.com/dkogan/mrgingham/][=mrgingham=]]. See its
-documentation for more details.
 
 * MANPAGES
 ** mrcal-calibrate-cameras
