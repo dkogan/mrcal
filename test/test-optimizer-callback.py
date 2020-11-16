@@ -19,7 +19,6 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 
-# deterministic "random". Not random at all.
 from functools import reduce
 def linspace_shaped(*shape):
     product = reduce( lambda x,y: x*y, shape)
