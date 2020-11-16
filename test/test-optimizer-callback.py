@@ -151,6 +151,17 @@ for kwargs in all_test_kwargs:
     x,J = mrcal.optimizer_callback( **optimization_inputs )[1:3]
     J = J.toarray()
 
+    # let's make sure that pack and unpack work correctly
+    J2 = J.copy()
+    mrcal.pack_state(   J2, **optimization_inputs)
+    mrcal.unpack_state( J2, **optimization_inputs)
+    testutils.confirm_equal( J2, J, "unpack(pack(J)) = J")
+    J2 = J.copy()
+    mrcal.unpack_state( J2, **optimization_inputs)
+    mrcal.pack_state(   J2, **optimization_inputs)
+    testutils.confirm_equal( J2, J, "pack(unpack(J)) = J")
+
+
     # I compare full-state J so that I can change SCALE_... without breaking the
     # test
     mrcal.pack_state(J, **optimization_inputs)
