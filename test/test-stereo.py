@@ -13,6 +13,7 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 # I import the LOCAL mrcal since that's what I'm testing
 sys.path[:0] = f"{testdir}/..",
 import mrcal
+import scipy.interpolate
 import testutils
 
 
@@ -148,27 +149,39 @@ az1 = np.arctan2(pstereo1[:,0], pstereo1[:,2] / np.cos(el1))
 
 disparity = az0 - az1
 
-Naz = cookie['az_row'].shape[0]
-Nel = cookie['el_col'].shape[0]
-iaz0 = np.round(np.interp(az0, cookie['az_row'].ravel(), np.arange(Naz))).astype(int)
-iel0 = np.round(np.interp(el0, cookie['el_col'].ravel(), np.arange(Nel))).astype(int)
-iaz1 = np.round(np.interp(az1, cookie['az_row'].ravel(), np.arange(Naz))).astype(int)
-iel1 = np.round(np.interp(el1, cookie['el_col'].ravel(), np.arange(Nel))).astype(int)
 
-for i in range(len(pcam0)):
-    qrect0 = rectification_maps[0][ iel0[i], iaz0[i] ]
-    testutils.confirm_equal( qrect0, qcam0[i],
-                             eps=8., # inexact because I round() above
-                             msg=f'rectification map for camera 0 point {i}')
+interp_rectification_map0x = \
+    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
+                                          cookie['el_col'].ravel(),
+                                          nps.transpose(rectification_maps[0][...,0]))
+interp_rectification_map0y = \
+    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
+                                          cookie['el_col'].ravel(),
+                                          nps.transpose(rectification_maps[0][...,1]))
+interp_rectification_map1x = \
+    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
+                                          cookie['el_col'].ravel(),
+                                          nps.transpose(rectification_maps[1][...,0]))
+interp_rectification_map1y = \
+    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
+                                          cookie['el_col'].ravel(),
+                                          nps.transpose(rectification_maps[1][...,1]))
 
-    qrect1 = rectification_maps[1][ iel1[i], iaz1[i] ]
-    testutils.confirm_equal( qrect1, qcam1[i],
-                             eps=8., # inexact because I round() above
-                             msg=f'rectification map for camera 1 point {i}')
+qrect0 = nps.transpose( nps.cat( interp_rectification_map0x(az0,el0, grid=False),
+                                 interp_rectification_map0y(az0,el0, grid=False) ) )
+qrect1 = nps.transpose( nps.cat( interp_rectification_map1x(az1,el1, grid=False),
+                                 interp_rectification_map1y(az1,el1, grid=False) ) )
 
-    # same point, so we should have the same el
-    testutils.confirm_equal( el0[i], el1[i],
-                             msg=f'elevations of the same observed point match')
+testutils.confirm_equal( qrect0, qcam0,
+                         eps=1e-1,
+                         msg='rectification map for camera 0 points')
+testutils.confirm_equal( qrect1, qcam1,
+                         eps=1e-1,
+                         msg='rectification map for camera 1 points')
+
+# same point, so we should have the same el
+testutils.confirm_equal( el0, el1,
+                         msg='elevations of the same observed point match')
 
 
 r = mrcal.stereo_range( disparity * 180./np.pi * cookie['pixels_per_deg_az'],
