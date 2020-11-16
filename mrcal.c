@@ -2701,23 +2701,22 @@ bool _mrcal_unproject_internal( // out
 
 // From real values to unit-scale values. Optimizer sees unit-scale values
 static int pack_solver_state_intrinsics( // out
-                                         double* p,
+                                         double* p, // subset based on problem_details
 
                                          // in
-                                         const double* intrinsics,
+                                         const double* intrinsics, // ALL variables. Not a subset
                                          const mrcal_lensmodel_t lensmodel,
                                          mrcal_problem_details_t problem_details,
                                          int Ncameras_intrinsics )
 {
     int i_state = 0;
-
-    int Nintrinsics  = mrcal_lensmodel_num_params(lensmodel);
-    int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
-    int Ndistortions = Nintrinsics - Ncore;
+    const int Nintrinsics  = mrcal_lensmodel_num_params(lensmodel);
+    const int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+    const int Ndistortions = Nintrinsics - Ncore;
 
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
-        if( problem_details.do_optimize_intrinsics_core )
+        if( problem_details.do_optimize_intrinsics_core && Ncore )
         {
             const mrcal_intrinsics_core_t* intrinsics_core = (const mrcal_intrinsics_core_t*)intrinsics;
             p[i_state++] = intrinsics_core->focal_xy [0] / SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -2732,6 +2731,42 @@ static int pack_solver_state_intrinsics( // out
                 p[i_state++] = intrinsics[Ncore + i] / SCALE_DISTORTION;
 
         intrinsics = &intrinsics[Nintrinsics];
+    }
+    return i_state;
+}
+// It is ugly to have this as separate from pack_solver_state_intrinsics(), but
+// I am tired. THIS function uses only intrinsic arrays that respect the skipped
+// optimization variables in problem_details. And this function works inline
+static int pack_solver_state_intrinsics_subset_to_subset( // out,in
+                                         double* p, // subset based on problem_details
+
+                                         // in
+                                         const mrcal_lensmodel_t lensmodel,
+                                         mrcal_problem_details_t problem_details,
+                                         int Ncameras_intrinsics )
+{
+    if( !problem_details.do_optimize_intrinsics_core &&
+        !problem_details.do_optimize_intrinsics_distortions )
+        return 0;
+
+    int i_state = 0;
+    const int Nintrinsics  = mrcal_lensmodel_num_params(lensmodel);
+    const int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+    const int Ndistortions = Nintrinsics - Ncore;
+
+    for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
+    {
+        if( problem_details.do_optimize_intrinsics_core && Ncore )
+        {
+            p[i_state++] /= SCALE_INTRINSICS_FOCAL_LENGTH;
+            p[i_state++] /= SCALE_INTRINSICS_FOCAL_LENGTH;
+            p[i_state++] /= SCALE_INTRINSICS_CENTER_PIXEL;
+            p[i_state++] /= SCALE_INTRINSICS_CENTER_PIXEL;
+        }
+
+        if( problem_details.do_optimize_intrinsics_distortions )
+            for(int i = 0; i<Ndistortions; i++)
+                p[i_state++] /= SCALE_DISTORTION;
     }
     return i_state;
 }
@@ -2817,7 +2852,7 @@ void mrcal_pack_solver_state_vector( // out, in
 
     int i_state = 0;
 
-    i_state += pack_solver_state_intrinsics( p, p,
+    i_state += pack_solver_state_intrinsics_subset_to_subset( p,
                                              lensmodel, problem_details,
                                              Ncameras_intrinsics );
 
@@ -2871,10 +2906,12 @@ void mrcal_pack_solver_state_vector( // out, in
 static int unpack_solver_state_intrinsics( // out
 
                                            // Ncameras_intrinsics of these
-                                           double* intrinsics,
+                                           double* intrinsics, // ALL variables. Not a subset.
+                                                               // I don't touch the elemnents I'm
+                                                               // not optimizing
 
                                            // in
-                                           const double* p,
+                                           const double* p, // subset based on problem_details
                                            const mrcal_lensmodel_t lensmodel,
                                            mrcal_problem_details_t problem_details,
                                            int intrinsics_stride,
@@ -2903,6 +2940,43 @@ static int unpack_solver_state_intrinsics( // out
             for(int i = 0; i<Nintrinsics-Ncore; i++)
                 intrinsics[icam_intrinsics*intrinsics_stride + Ncore + i] = p[i_state++] * SCALE_DISTORTION;
         }
+    }
+    return i_state;
+}
+// It is ugly to have this as separate from unpack_solver_state_intrinsics(),
+// but I am tired. THIS function uses only intrinsic arrays that respect the
+// skipped optimization variables in problem_details. And this function works
+// inline
+static int unpack_solver_state_intrinsics_subset_to_subset( // in,out
+                                           double* p, // subset based on problem_details
+
+                                           // in
+                                           const mrcal_lensmodel_t lensmodel,
+                                           mrcal_problem_details_t problem_details,
+                                           int Ncameras_intrinsics )
+{
+    if( !problem_details.do_optimize_intrinsics_core &&
+        !problem_details.do_optimize_intrinsics_distortions )
+        return 0;
+
+    int i_state = 0;
+    const int Nintrinsics  = mrcal_lensmodel_num_params(lensmodel);
+    const int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+    const int Ndistortions = Nintrinsics - Ncore;
+
+    for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
+    {
+        if( problem_details.do_optimize_intrinsics_core && Ncore )
+        {
+            p[i_state++] *= SCALE_INTRINSICS_FOCAL_LENGTH;
+            p[i_state++] *= SCALE_INTRINSICS_FOCAL_LENGTH;
+            p[i_state++] *= SCALE_INTRINSICS_CENTER_PIXEL;
+            p[i_state++] *= SCALE_INTRINSICS_CENTER_PIXEL;
+        }
+
+        if( problem_details.do_optimize_intrinsics_distortions )
+            for(int i = 0; i<Ndistortions; i++)
+                p[i_state++] *= SCALE_DISTORTION;
     }
     return i_state;
 }
@@ -3025,12 +3099,10 @@ void mrcal_unpack_solver_state_vector( // out, in
 {
     int Npoints_variable = Npoints - Npoints_fixed;
 
-    int i_state = unpack_solver_state_intrinsics(&p[modelHasCore_fxfycxcy(lensmodel) &&
-                                                    !problem_details.do_optimize_intrinsics_core ? -4 : 0],
-                                                 p, lensmodel, problem_details,
-                                                 mrcal_num_intrinsics_optimization_params(problem_details,
-                                                                                          lensmodel),
-                                                 Ncameras_intrinsics);
+    int i_state =
+        unpack_solver_state_intrinsics_subset_to_subset(p,
+                                                        lensmodel, problem_details,
+                                                        Ncameras_intrinsics);
 
     if( problem_details.do_optimize_extrinsics )
     {
