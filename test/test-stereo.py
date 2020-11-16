@@ -132,7 +132,7 @@ testutils.confirm_equal( cookie['baseline'],
 # transform it properly. And I compute what its az,el and disparity would have
 # been, and I check the geometric functions
 pcam0 = np.array(((  1., 2., 10.),
-                  (-5.,  3., 10.)))
+                  (-4.,  3., 10.)))
 qcam0 = mrcal.project( pcam0, *model0.intrinsics() )
 
 pcam1 = mrcal.transform_point_rt(mrcal.invert_rt(rt01), pcam0)
