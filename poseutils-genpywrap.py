@@ -12,8 +12,23 @@ import numpysane as nps
 
 import numpysane_pywrap as npsp
 
+
+
+docstring_module = '''Low-level routines to manipulate poses, transformations and points
+
+This is the written-in-C Python extension module. Most of the time you want to
+use the mrcal.poseutils wrapper module instead of this module directly. Any
+functions not prefixed with "_" are meant to be called directly, without the
+wrapper.
+
+All functions are exported into the mrcal module. So you can call these via
+mrcal._poseutils.fff() or mrcal.fff(). The latter is preferred.
+
+'''
+
+
 m = npsp.module( name      = "_poseutils",
-                 docstring = "geometry utils",
+                 docstring = docstring_module,
                  header    = r'''
 #include "poseutils.h"
 #include <string.h>

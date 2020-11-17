@@ -1,5 +1,15 @@
 #!/usr/bin/python3
 
+'''Routines to (un)project points using any camera model
+
+Most of these are Python wrappers around the written-in-C Python extension
+module mrcal._mrcal_broadcasted. Most of the time you want to use this module
+instead of touching mrcal._mrcal_broadcasted directly.
+
+All functions are exported into the mrcal module. So you can call these via
+mrcal.projections.fff() or mrcal.fff(). The latter is preferred.
+
+'''
 
 import numpy as np
 import numpysane as nps

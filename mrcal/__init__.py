@@ -1,11 +1,15 @@
 #!/usr/bin/python3
 
-# I want to refer to some stuff as mrcal.X instead of mrcal.Y.X
-# For instance:
-#
-# I want to be able to refer to everything as mrcal.x instead of mrcal.y.x.
-# Makes things easier for the user. EXCEPT cahvor. This is separate, and
-# hopefully can go away eventually
+'''The main mrcal Python module
+
+All the mrcal.mmm submodules export their symbols here for convenience. So any
+function that can be called as mrcal.mmm.fff() can be called as mrcal.fff()
+instead. The latter is preferred.
+
+All Python functionality is available in this mrcal module, EXCEPT mrcal.cahvor.
+That exists purely as a compatibility layer, so we keep it separate.
+
+'''
 
 # The C wrapper is written by us in mrcal_pywrap_nonbroadcasted.c
 from ._mrcal_nonbroadcasted import *

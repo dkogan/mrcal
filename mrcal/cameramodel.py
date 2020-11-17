@@ -18,6 +18,9 @@ SYNOPSIS
     # model_joint now has intrinsics from 'model0.cameramodel' and extrinsics
     # from 'model1.cameramodel'
 
+All functions are exported into the mrcal module. So you can call these via
+mrcal.cameramodel.fff() or mrcal.fff(). The latter is preferred.
+
 '''
 
 import sys

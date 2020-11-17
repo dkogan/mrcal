@@ -1,5 +1,15 @@
 #!/usr/bin/python3
 
+'''Routines to manipulate poses, transformations and points
+
+Most of these are Python wrappers around the written-in-C Python extension
+module mrcal._poseutils. Most of the time you want to use this module instead of
+touching mrcal._poseutils directly.
+
+All functions are exported into the mrcal module. So you can call these via
+mrcal.poseutils.fff() or mrcal.fff(). The latter is preferred.
+
+'''
 
 import numpy as np
 import numpysane as nps

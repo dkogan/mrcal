@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+'''Routines for stereo processing: rectification and ranging
+
+All functions are exported into the mrcal module. So you can call these via
+mrcal.stereo.fff() or mrcal.fff(). The latter is preferred.
+'''
+
 import sys
 import numpy as np
 import numpysane as nps
