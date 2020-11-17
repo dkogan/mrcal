@@ -5043,11 +5043,14 @@ mrcal_optimize( // out
                 double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
                 double ratio_regularization_cost   = norm2_err_regularization / norm2_error;
 
-                for(int i=0; i<Nmeasurements_regularization; i++)
-                {
-                    double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
-                    MSG("regularization %d: %f (squared: %f)", i, x, x*x);
-                }
+                // Disable this by default. Splined models have LOTS of
+                // parameters, and I don't want to print them. Usually.
+                //
+                // for(int i=0; i<Nmeasurements_regularization; i++)
+                // {
+                //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
+                //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
+                // }
                 MSG("norm2_error: %f",               norm2_error);
                 MSG("norm2_err_regularization: %f",  norm2_err_regularization);
                 MSG("regularization cost ratio: %g", ratio_regularization_cost);
