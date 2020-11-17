@@ -12,6 +12,10 @@ coords, z 'forward') and parameters of a perfect stereographic camera, this
 function computes the projection, optionally with gradients. No actual lens ever
 follows this model exactly, but this is useful as a baseline for other models.
 
+The user can pass in focal length and center-pixel values. Or they can be
+omitted to compute a "normalized" stereographic projection (fx = fy = 1, cx = cy
+= 0).
+
 The stereographic projection is able to represent points behind the camera, and
 has only one singular observation direction: directly behind the camera, along
 the optical axis.
@@ -25,21 +29,21 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- fx, fy: focal-lengths, in pixels
+- fx, fy: optional focal-lengths, in pixels. Both default to 1, as in the
+  normalized stereographic projection
 
-- cx, cy: the projection center, in pixels
+- cx, cy: optional projection center, in pixels. Both default to 0, as in the
+  normalized stereographic projection
 
-- get_gradients: optional boolean, defaults to False. 
-
-  if not get_gradients: we return an (...,2) array of projected pixel coordinates
-
-  if get_gradients: we return a tuple:
-
-    - (...,2) array of projected pixel coordinates
-    - (...,2,3) array of the gradients of the pixel coordinates in respect to
-      the input 3D point positions
+- get_gradients: optional boolean, defaults to False. This affects what we
+  return (see below)
 
 RETURNED VALUE
 
-A numpy array of shape (...,2) containing the projections corresponding to each
-element in the input "points" array
+if not get_gradients: we return an (...,2) array of projected pixel coordinates
+
+if get_gradients: we return a tuple:
+
+  - (...,2) array of projected pixel coordinates
+  - (...,2,3) array of the gradients of the pixel coordinates in respect to
+    the input 3D point positions
