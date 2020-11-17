@@ -495,7 +495,7 @@ int mrcal_num_j_nonzero(int Nobservations_board,
     // to be subtracted off
     if(problem_details.do_optimize_extrinsics)
         for(int i=0; i<Nobservations_board; i++)
-            if(observations_board[i].icam_extrinsics < 0)
+            if(observations_board[i].icam.extrinsics < 0)
                 N -= 6;
     // *2 because I have separate x and y measurements
     N *= 2*calibration_object_width_n*calibration_object_height_n;
@@ -508,7 +508,7 @@ int mrcal_num_j_nonzero(int Nobservations_board,
             observations_point[i].i_point < Npoints-Npoints_fixed )
             N += 2*3;
         if( problem_details.do_optimize_extrinsics &&
-            observations_point[i].icam_extrinsics >= 0 )
+            observations_point[i].icam.extrinsics >= 0 )
             N += 2*6;
 
         // range normalization
@@ -516,7 +516,7 @@ int mrcal_num_j_nonzero(int Nobservations_board,
             observations_point[i].i_point < Npoints-Npoints_fixed )
             N += 3;
         if( problem_details.do_optimize_extrinsics &&
-            observations_point[i].icam_extrinsics >= 0 )
+            observations_point[i].icam.extrinsics >= 0 )
             N += 6;
     }
 
@@ -3275,8 +3275,8 @@ bool mrcal_corresponding_icam_extrinsics(// out
 
     for(int i=0; i<Nobservations_board; i++)
     {
-        int icam_intrinsics = observations_board[i].icam_intrinsics;
-        int icam_extrinsics = observations_board[i].icam_extrinsics;
+        int icam_intrinsics = observations_board[i].icam.intrinsics;
+        int icam_extrinsics = observations_board[i].icam.extrinsics;
         if(icam_extrinsics < 0) icam_extrinsics = -1;
 
         if(icam_map_to_intrinsics[icam_extrinsics+1] == -100)
@@ -3373,7 +3373,7 @@ bool markOutliers(// output, input
         i_observation_board++)                                          \
     {                                                                   \
         const mrcal_observation_board_t* observation = &observations_board[i_observation_board]; \
-        const int icam_intrinsics = observation->icam_intrinsics;     \
+        const int icam_intrinsics = observation->icam.intrinsics;     \
         for(i_pt=0;                                                     \
             i_pt < calibration_object_width_n*calibration_object_height_n; \
             i_pt++, i_feature++)                                        \
@@ -3639,8 +3639,8 @@ void optimizer_callback(// input state
     {
         const mrcal_observation_board_t* observation = &ctx->observations_board[i_observation_board];
 
-        const int icam_intrinsics = observation->icam_intrinsics;
-        const int icam_extrinsics = observation->icam_extrinsics;
+        const int icam_intrinsics = observation->icam.intrinsics;
+        const int icam_extrinsics = observation->icam.extrinsics;
         const int iframe          = observation->iframe;
 
 
@@ -3941,8 +3941,8 @@ void optimizer_callback(// input state
     {
         const mrcal_observation_point_t* observation = &ctx->observations_point[i_observation_point];
 
-        const int icam_intrinsics = observation->icam_intrinsics;
-        const int icam_extrinsics = observation->icam_extrinsics;
+        const int icam_intrinsics = observation->icam.intrinsics;
+        const int icam_extrinsics = observation->icam.extrinsics;
         const int i_point          = observation->i_point;
         const bool use_position_from_state =
             ctx->problem_details.do_optimize_frames &&

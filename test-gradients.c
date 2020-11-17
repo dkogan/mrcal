@@ -163,16 +163,16 @@ int main(int argc, char* argv[] )
 
     // The observations of chessboards and of discrete points
     mrcal_observation_board_t observations_board[] =
-        { {.icam_intrinsics = 0, .icam_extrinsics = -1, .iframe = 0},
-          {.icam_intrinsics = 1, .icam_extrinsics =  0, .iframe = 0},
-          {.icam_intrinsics = 1, .icam_extrinsics =  0, .iframe = 1},
-          {.icam_intrinsics = 0, .icam_extrinsics = -1, .iframe = 2},
-          {.icam_intrinsics = 0, .icam_extrinsics = -1, .iframe = 3},
-          {.icam_intrinsics = 1, .icam_extrinsics =  0, .iframe = 3} };
+        { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 0},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 0},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 1},
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 2},
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 3},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 3} };
     mrcal_observation_point_t observations_point[] =
-        { {.icam_intrinsics = 0, .icam_extrinsics = -1, .i_point = 0, .px = observations_point_px[0]},
-          {.icam_intrinsics = 1, .icam_extrinsics =  0, .i_point = 0, .px = observations_point_px[1]},
-          {.icam_intrinsics = 1, .icam_extrinsics =  0, .i_point = 1, .px = observations_point_px[3]} };
+        { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .i_point = 0, .px = observations_point_px[0]},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 0, .px = observations_point_px[1]},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 1, .px = observations_point_px[3]} };
 
     // simple camera calibration case
     int Ncameras_extrinsics = sizeof(extrinsics)/sizeof(extrinsics[0]);

@@ -6,24 +6,25 @@
 #include "basic_geometry.h"
 #include "poseutils.h"
 
+typedef struct
+{
+    // indexes the extrinsics array. -1 means "at coordinate system reference"
+    int  extrinsics;
+    // indexes the intrinsics array
+    int  intrinsics;
+} mrcal_camera_index_t;
 
 // An observation of a calibration board. Each "observation" is ONE camera
 // observing a board
 typedef struct
 {
-    // indexes the extrinsics array. -1 means "at coordinate system reference"
-    int  icam_extrinsics;
-    // indexes the intrinsics array
-    int  icam_intrinsics;
+    mrcal_camera_index_t icam;
     int  iframe;
 } mrcal_observation_board_t;
 
 typedef struct
 {
-    // indexes the extrinsics array. -1 means "at coordinate system reference"
-    int  icam_extrinsics;
-    // indexes the intrinsics array
-    int  icam_intrinsics;
+    mrcal_camera_index_t icam;
     int  i_point;
 
     // Observed pixel coordinates

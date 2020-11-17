@@ -1270,8 +1270,8 @@ static void fill_c_observations_board(// out
         int icam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
         int icam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
-        c_observations_board[i_observation].icam_intrinsics = icam_intrinsics;
-        c_observations_board[i_observation].icam_extrinsics = icam_extrinsics;
+        c_observations_board[i_observation].icam.intrinsics = icam_intrinsics;
+        c_observations_board[i_observation].icam.extrinsics = icam_extrinsics;
         c_observations_board[i_observation].iframe          = iframe;
     }
 }
@@ -1423,8 +1423,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             int icam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
             int icam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
-            c_observations_point[i_observation].icam_intrinsics = icam_intrinsics;
-            c_observations_point[i_observation].icam_extrinsics = icam_extrinsics;
+            c_observations_point[i_observation].icam.intrinsics = icam_intrinsics;
+            c_observations_point[i_observation].icam.extrinsics = icam_extrinsics;
             c_observations_point[i_observation].i_point          = i_point;
 
             c_observations_point[i_observation].px = ((mrcal_point3_t*)PyArray_DATA(observations_point))[i_observation];
