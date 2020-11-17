@@ -80,25 +80,25 @@ EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
 
 ######### python stuff
-mrcal-broadcasted-pywrap-GENERATED.c: mrcal-genpywrap.py
+mrcal-npsp-pywrap-GENERATED.c: mrcal-genpywrap.py
 	python3 $< > $@
 poseutils-pywrap-GENERATED.c: poseutils-genpywrap.py
 	python3 $< > $@
-mrcal/_mrcal_npsp$(PY_EXT_SUFFIX): mrcal-broadcasted-pywrap-GENERATED.o libmrcal.so
+mrcal/_mrcal_npsp$(PY_EXT_SUFFIX): mrcal-npsp-pywrap-GENERATED.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 mrcal/_poseutils$(PY_EXT_SUFFIX): poseutils-pywrap-GENERATED.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
-EXTRA_CLEAN += mrcal-broadcasted-pywrap-GENERATED.c poseutils-pywrap-GENERATED.c
+EXTRA_CLEAN += mrcal-npsp-pywrap-GENERATED.c poseutils-pywrap-GENERATED.c
 
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95635
 poseutils-pywrap-GENERATED.o:         CFLAGS += -Wno-array-bounds
-mrcal-broadcasted-pywrap-GENERATED.o: CFLAGS += -Wno-array-bounds
+mrcal-npsp-pywrap-GENERATED.o: CFLAGS += -Wno-array-bounds
 
 mrcal_pywrap_nonbroadcasted.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX): mrcal_pywrap_nonbroadcasted.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
-PYTHON_OBJECTS := mrcal-broadcasted-pywrap-GENERATED.o poseutils-pywrap-GENERATED.o mrcal_pywrap_nonbroadcasted.o
+PYTHON_OBJECTS := mrcal-npsp-pywrap-GENERATED.o poseutils-pywrap-GENERATED.o mrcal_pywrap_nonbroadcasted.o
 
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
 # and the compiler complains. But that's how Python does it! So I tell the
