@@ -94,11 +94,11 @@ EXTRA_CLEAN += mrcal-npsp-pywrap-GENERATED.c poseutils-pywrap-GENERATED.c
 poseutils-pywrap-GENERATED.o:         CFLAGS += -Wno-array-bounds
 mrcal-npsp-pywrap-GENERATED.o: CFLAGS += -Wno-array-bounds
 
-mrcal_pywrap_nonbroadcasted.o: $(addsuffix .h,$(wildcard *.docstring))
-mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX): mrcal_pywrap_nonbroadcasted.o libmrcal.so
+mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
+mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
-PYTHON_OBJECTS := mrcal-npsp-pywrap-GENERATED.o poseutils-pywrap-GENERATED.o mrcal_pywrap_nonbroadcasted.o
+PYTHON_OBJECTS := mrcal-npsp-pywrap-GENERATED.o poseutils-pywrap-GENERATED.o mrcal-pywrap.o
 
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
 # and the compiler complains. But that's how Python does it! So I tell the
@@ -110,7 +110,7 @@ $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 # mrcal/
 DIST_PY3_MODULES := mrcal
 
-all: mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX) mrcal/_mrcal_npsp$(PY_EXT_SUFFIX) mrcal/_poseutils$(PY_EXT_SUFFIX)
+all: mrcal/_mrcal$(PY_EXT_SUFFIX) mrcal/_mrcal_npsp$(PY_EXT_SUFFIX) mrcal/_poseutils$(PY_EXT_SUFFIX)
 EXTRA_CLEAN += mrcal/*.so
 
 # The test suite no longer runs in parallel, but it ALWAYS tries to run all the

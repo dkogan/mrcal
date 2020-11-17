@@ -1093,7 +1093,7 @@ None
         Nvars_calobject_warp
 
     # Defaults MUST match those in OPTIMIZER_ARGUMENTS_OPTIONAL in
-    # mrcal_pywrap_nonbroadcasted.c. Or better yet, this whole function should
+    # mrcal-pywrap.c. Or better yet, this whole function should
     # come from the C code instead of being reimplemented here in Python
     do_optimize_intrinsics_core        = optimization_inputs.get('do_optimize_intrinsics_core',        True)
     do_optimize_intrinsics_distortions = optimization_inputs.get('do_optimize_intrinsics_distortions', True)

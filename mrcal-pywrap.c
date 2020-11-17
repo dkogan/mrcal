@@ -2842,13 +2842,13 @@ static void _init_mrcal_common(PyObject* module)
 
 #if PY_MAJOR_VERSION == 2
 
-PyMODINIT_FUNC init_mrcal_nonbroadcasted(void)
+PyMODINIT_FUNC init_mrcal(void)
 {
     if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
         return;
 
     PyObject* module =
-        Py_InitModule3("_mrcal_nonbroadcasted", methods,
+        Py_InitModule3("_mrcal", methods,
                        "Internal python wrappers for non-broadcasting functions");
     _init_mrcal_common(module);
     import_array();
@@ -2859,13 +2859,13 @@ PyMODINIT_FUNC init_mrcal_nonbroadcasted(void)
 static struct PyModuleDef module_def =
     {
      PyModuleDef_HEAD_INIT,
-     "_mrcal_nonbroadcasted",
+     "_mrcal",
      "Internal python wrappers for non-broadcasting functions",
      -1,
      methods
     };
 
-PyMODINIT_FUNC PyInit__mrcal_nonbroadcasted(void)
+PyMODINIT_FUNC PyInit__mrcal(void)
 {
     if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
         return NULL;

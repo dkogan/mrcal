@@ -11,8 +11,8 @@ That exists purely as a compatibility layer, so we keep it separate.
 
 '''
 
-# The C wrapper is written by us in mrcal_pywrap_nonbroadcasted.c
-from ._mrcal_nonbroadcasted import *
+# The C wrapper is written by us in mrcal-pywrap.c
+from ._mrcal import *
 
 # The C wrapper is generated from mrcal-genpywrap.py
 from ._mrcal_npsp    import *
