@@ -68,6 +68,16 @@ README.org: README.template.org $(DIST_BIN:%=%.pod)
 	< $(filter README%,$^) perl -e '$(MAKE_README)' $(filter-out README%,$^) > $@
 all: README.org
 
+
+doc-reference: $(patsubst %.py,%.html,$(filter-out %/__init__.py,$(wildcard mrcal/*.py))) mrcal/_mrcal.html mrcal/_mrcal_npsp.html mrcal/_poseutils.html
+mrcal/%.html: mrcal/%.py
+	doc/pydoc.py -w $(subst /,.,$(basename $@))
+mrcal/%.html: mrcal/%$(PY_EXT_SUFFIX)
+	doc/pydoc.py -w $(subst /,.,$(basename $@))
+.PHONY: doc-reference
+EXTRA_CLEAN += doc/*.html
+
+
 # I parse the version from the changelog. This version is generally something
 # like 0.04 .I strip leading 0s, so the above becomes 0.4
 VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*/./g; p; q;' debian/changelog)
