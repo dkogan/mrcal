@@ -84,7 +84,7 @@ mrcal-broadcasted-pywrap-generated.c: mrcal-genpywrap.py
 	python3 $< > $@
 poseutils-pywrap-generated.c: poseutils-genpywrap.py
 	python3 $< > $@
-mrcal/_mrcal_broadcasted$(PY_EXT_SUFFIX): mrcal-broadcasted-pywrap-generated.o libmrcal.so
+mrcal/_mrcal_npsp$(PY_EXT_SUFFIX): mrcal-broadcasted-pywrap-generated.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 mrcal/_poseutils$(PY_EXT_SUFFIX): poseutils-pywrap-generated.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
@@ -110,7 +110,7 @@ $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 # mrcal/
 DIST_PY3_MODULES := mrcal
 
-all: mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX) mrcal/_mrcal_broadcasted$(PY_EXT_SUFFIX) mrcal/_poseutils$(PY_EXT_SUFFIX)
+all: mrcal/_mrcal_nonbroadcasted$(PY_EXT_SUFFIX) mrcal/_mrcal_npsp$(PY_EXT_SUFFIX) mrcal/_poseutils$(PY_EXT_SUFFIX)
 EXTRA_CLEAN += mrcal/*.so
 
 # The test suite no longer runs in parallel, but it ALWAYS tries to run all the

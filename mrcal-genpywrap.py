@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-r'''Python-wrap the mrcal routines that require broadcasting
+r'''Python-wrap the mrcal routines that can be done with numpysane_pywrap
 
 '''
 
@@ -12,7 +12,7 @@ import numpysane as nps
 
 import numpysane_pywrap as npsp
 
-m = npsp.module( name      = "_mrcal_broadcasted",
+m = npsp.module( name      = "_mrcal_npsp",
                  docstring = "Internal python wrappers for broadcasting functions",
                  header    = r'''
 #include "mrcal.h"

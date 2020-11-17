@@ -3,8 +3,8 @@
 '''Routines to (un)project points using any camera model
 
 Most of these are Python wrappers around the written-in-C Python extension
-module mrcal._mrcal_broadcasted. Most of the time you want to use this module
-instead of touching mrcal._mrcal_broadcasted directly.
+module mrcal._mrcal_npsp. Most of the time you want to use this module
+instead of touching mrcal._mrcal_npsp directly.
 
 All functions are exported into the mrcal module. So you can call these via
 mrcal.projections.fff() or mrcal.fff(). The latter is preferred.
@@ -95,8 +95,8 @@ The unprojected observation vector of shape (..., 3).
     # Internal function must have a different argument order so
     # that all the broadcasting stuff is in the leading arguments
     if not get_gradients:
-        return mrcal._mrcal_broadcasted._project(v, intrinsics_data, lensmodel=lensmodel, out=out)
-    return mrcal._mrcal_broadcasted._project_withgrad(v, intrinsics_data, lensmodel=lensmodel, out=out)
+        return mrcal._mrcal_npsp._project(v, intrinsics_data, lensmodel=lensmodel, out=out)
+    return mrcal._mrcal_npsp._project_withgrad(v, intrinsics_data, lensmodel=lensmodel, out=out)
 
 
 def unproject(q, lensmodel, intrinsics_data,
@@ -161,7 +161,7 @@ by default. To get normalized vectors, pass normalize=True
     if lensmodel != 'LENSMODEL_CAHVORE':
         # Main path. Internal function must have a different argument order so
         # that all the broadcasting stuff is in the leading arguments
-        v = mrcal._mrcal_broadcasted._unproject(q, intrinsics_data, lensmodel=lensmodel, out=out)
+        v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel, out=out)
         if normalize:
             v /= nps.dummy(nps.mag(v), -1)
         return v

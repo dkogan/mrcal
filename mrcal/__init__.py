@@ -15,7 +15,7 @@ That exists purely as a compatibility layer, so we keep it separate.
 from ._mrcal_nonbroadcasted import *
 
 # The C wrapper is generated from mrcal-genpywrap.py
-from ._mrcal_broadcasted    import *
+from ._mrcal_npsp    import *
 
 from .projections           import *
 from .cameramodel           import *
