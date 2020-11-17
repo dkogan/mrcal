@@ -329,6 +329,16 @@ for icam in range(len(models_ref)):
                             eps = 6.,
                             msg = f"Recovered intrinsics for camera {icam}")
 
-print("Should compare sets of outliers. Currently I'm detecting 7x the outliers that are actually there")
+
+# It would be nice to check the outlier detections, but this is iffy. Here I'm
+# generating 1% outliers (hard-coded in sample_dqref()), but the outlier
+# rejection is overly aggressive. I'm currently seeing 4.4%:
+#
+#   np.count_nonzero(observations[...,2]<=0) / observations[...,0].ravel().size
+#
+# The outlier rejection scheme just cuts out 3sigma residuals and above, so it's
+# not great. I'm not entirely sure why it's over-reporting the outliers here,
+# but I should investigate that at the same time as I overhaul the outlier
+# rejection scheme (presumably to use one of my flavors of Cook's D factor)
 
 testutils.finish()
