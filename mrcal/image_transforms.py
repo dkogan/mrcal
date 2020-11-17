@@ -1,15 +1,18 @@
 #!/usr/bin/python3
 
+'''Routines for transformation of images
+
+All functions are exported into the mrcal module. So you can call these via
+mrcal.image_transforms.fff() or mrcal.fff(). The latter is preferred.
+
+'''
+
 import numpy as np
 import numpysane as nps
 import sys
-
-import mrcal
-
 import re
 import cv2
-
-
+import mrcal
 
 def scale_focal__best_pinhole_fit(model, fit):
     r'''Compute the optimal focal-length scale for reprojection to a pinhole lens

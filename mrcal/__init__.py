@@ -18,9 +18,13 @@ from ._mrcal_nonbroadcasted import *
 from ._mrcal_broadcasted    import *
 
 from .projections           import *
-from .image_transforms      import *
 from .cameramodel           import *
 from .poseutils             import *
 from ._poseutils            import *
 from .stereo                import *
+from .visualization         import *
+from .model_analysis        import *
+from .synthetic_data        import *
+from .calibration           import *
+from .image_transforms      import *
 from .utils                 import *
