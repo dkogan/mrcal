@@ -757,7 +757,7 @@ class HTMLDoc(Doc):
         result = self.heading(
             head, '#ffffff', '#7799ee')
 
-        modules = inspect.getmembers(object, inspect.ismodule)
+        modules = None
 
         classes, cdict = [], {}
         for key, value in inspect.getmembers(object, inspect.isclass):
