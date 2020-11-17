@@ -14,6 +14,7 @@ from ._mrcal_nonbroadcasted import *
 from ._mrcal_broadcasted    import *
 
 from .projections           import *
+from .image_transforms      import *
 from .cameramodel           import *
 from .poseutils             import *
 from ._poseutils            import *
