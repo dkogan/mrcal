@@ -666,4 +666,6 @@ bool mrcal_corresponding_icam_extrinsics(// out
                                          int Ncameras_intrinsics,
                                          int Ncameras_extrinsics,
                                          int Nobservations_board,
-                                         const mrcal_observation_board_t* observations_board);
+                                         const mrcal_observation_board_t* observations_board,
+                                         int Nobservations_point,
+                                         const mrcal_observation_point_t* observations_point);

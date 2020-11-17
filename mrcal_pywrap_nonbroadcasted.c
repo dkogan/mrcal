@@ -1276,6 +1276,28 @@ static void fill_c_observations_board(// out
     }
 }
 
+static void fill_c_observations_point(// out
+                                      mrcal_observation_point_t* c_observations_point,
+
+                                      // in
+                                      int Nobservations_point,
+                                      PyArrayObject* indices_point_camintrinsics_camextrinsics,
+                                      const mrcal_point3_t* observations_point_pool)
+{
+    for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
+    {
+        int i_point         = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int icam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int icam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
+
+        c_observations_point[i_observation].icam.intrinsics = icam_intrinsics;
+        c_observations_point[i_observation].icam.extrinsics = icam_extrinsics;
+        c_observations_point[i_observation].i_point         = i_point;
+
+        c_observations_point[i_observation].px = observations_point_pool[i_observation];
+    }
+}
+
 static
 PyObject* _optimize(bool is_optimize, // or optimizer_callback
                     PyObject* args,
@@ -1408,27 +1430,19 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
 
         mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
-
         mrcal_observation_board_t c_observations_board[Nobservations_board];
         fill_c_observations_board(c_observations_board,
                                   Nobservations_board,
                                   indices_frame_camintrinsics_camextrinsics);
 
         int Nobservations_point = PyArray_DIMS(observations_point)[0];
-
         mrcal_observation_point_t c_observations_point[Nobservations_point];
-        for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
-        {
-            int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
-            int icam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
-            int icam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        fill_c_observations_point(c_observations_point,
+                                  Nobservations_point,
+                                  indices_point_camintrinsics_camextrinsics,
+                                  (mrcal_point3_t*)PyArray_DATA(observations_point));
 
-            c_observations_point[i_observation].icam.intrinsics = icam_intrinsics;
-            c_observations_point[i_observation].icam.extrinsics = icam_extrinsics;
-            c_observations_point[i_observation].i_point          = i_point;
 
-            c_observations_point[i_observation].px = ((mrcal_point3_t*)PyArray_DATA(observations_point))[i_observation];
-        }
 
 
 
@@ -2660,13 +2674,22 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
         fill_c_observations_board(c_observations_board,
                                   Nobservations_board,
                                   indices_frame_camintrinsics_camextrinsics);
+
+        mrcal_observation_point_t c_observations_point[Nobservations_point];
+        fill_c_observations_point(c_observations_point,
+                                  Nobservations_point,
+                                  indices_point_camintrinsics_camextrinsics,
+                                  (mrcal_point3_t*)PyArray_DATA(observations_point));
+
         if(!mrcal_corresponding_icam_extrinsics(&icam_extrinsics,
 
                                                 icam_intrinsics,
                                                 Ncameras_intrinsics,
                                                 Ncameras_extrinsics,
                                                 Nobservations_board,
-                                                c_observations_board))
+                                                c_observations_board,
+                                                Nobservations_point,
+                                                c_observations_point))
         {
             BARF("Error calling mrcal_corresponding_icam_extrinsics()");
             goto done;

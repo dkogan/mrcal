@@ -3259,7 +3259,9 @@ bool mrcal_corresponding_icam_extrinsics(// out
                                          int Ncameras_intrinsics,
                                          int Ncameras_extrinsics,
                                          int Nobservations_board,
-                                         const mrcal_observation_board_t* observations_board)
+                                         const mrcal_observation_board_t* observations_board,
+                                         int Nobservations_point,
+                                         const mrcal_observation_point_t* observations_point)
 {
     if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
           Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
@@ -3273,18 +3275,20 @@ bool mrcal_corresponding_icam_extrinsics(// out
     for(int i=0; i<Ncameras_intrinsics;   i++) icam_map_to_extrinsics[i] = -100;
     for(int i=0; i<Ncameras_extrinsics+1; i++) icam_map_to_intrinsics[i] = -100;
 
-    for(int i=0; i<Nobservations_board; i++)
+
+    bool check( const mrcal_camera_index_t* icam, int i, const char* what)
     {
-        int icam_intrinsics = observations_board[i].icam.intrinsics;
-        int icam_extrinsics = observations_board[i].icam.extrinsics;
+        int icam_intrinsics = icam->intrinsics;
+        int icam_extrinsics = icam->extrinsics;
+
         if(icam_extrinsics < 0) icam_extrinsics = -1;
 
         if(icam_map_to_intrinsics[icam_extrinsics+1] == -100)
             icam_map_to_intrinsics[icam_extrinsics+1] = icam_intrinsics;
         else if(icam_map_to_intrinsics[icam_extrinsics+1] != icam_intrinsics)
         {
-            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
-                i,
+            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
+                what, i,
                 icam_map_to_intrinsics[icam_extrinsics+1], icam_extrinsics,
                 icam_intrinsics, icam_extrinsics);
             return false;
@@ -3294,13 +3298,22 @@ bool mrcal_corresponding_icam_extrinsics(// out
             icam_map_to_extrinsics[icam_intrinsics] = icam_extrinsics;
         else if(icam_map_to_extrinsics[icam_intrinsics] != icam_extrinsics)
         {
-            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
-                i,
+            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
+                what, i,
                 icam_intrinsics, icam_map_to_extrinsics[icam_intrinsics],
                 icam_intrinsics, icam_extrinsics);
             return false;
         }
+        return true;
     }
+
+
+    for(int i=0; i<Nobservations_board; i++)
+        if(!check( &observations_board[i].icam, i, "board"))
+            return false;
+    for(int i=0; i<Nobservations_point; i++)
+        if(!check( &observations_point[i].icam, i, "point"))
+            return false;
 
     *icam_extrinsics = icam_map_to_extrinsics[icam_intrinsics];
 
