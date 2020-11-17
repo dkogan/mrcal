@@ -3423,7 +3423,8 @@ bool markOutliers(// output, input
             (*Noutliers)++;
 
             // MSG_IF_VERBOSE("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
-            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k);
+            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k1);
+
 
         }
     }
