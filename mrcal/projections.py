@@ -493,7 +493,7 @@ Returns the transformation that describes a mapping
 - to pixel coordinates of an image of the same scene observed by model_from
 
 This transformation can then be applied to a whole image by calling
-transform_image().
+mrcal.transform_image().
 
 This function returns a transformation map in an (Nheight,Nwidth,2) array. The
 image made by model_to will have shape (Nheight,Nwidth). Each pixel (x,y) in
