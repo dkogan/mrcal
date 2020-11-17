@@ -12,8 +12,21 @@ import numpysane as nps
 
 import numpysane_pywrap as npsp
 
+
+docstring_module = '''Low-level routines for core mrcal operations
+
+This is the written-in-C Python extension module that underlies the core
+(un)project routines, and several low-level operations. Most of the functions in
+this module (those prefixed with "_") are not meant to be called directly, but
+have Python wrappers that should be used instead.
+
+All functions are exported into the mrcal module. So you can call these via
+mrcal._mrcal_npsp.fff() or mrcal.fff(). The latter is preferred.
+
+'''
+
 m = npsp.module( name      = "_mrcal_npsp",
-                 docstring = "Internal python wrappers for broadcasting functions",
+                 docstring = docstring_module,
                  header    = r'''
 #include "mrcal.h"
 

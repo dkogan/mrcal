@@ -2840,6 +2840,18 @@ static void _init_mrcal_common(PyObject* module)
 
 }
 
+
+#define MODULE_DOCSTRING                                                \
+    "Low-level routines for core mrcal operations\n"                    \
+    "\n"                                                                \
+    "This is the written-in-C Python extension module that underlies the routines in\n" \
+    "mrcal.h. Most of the functions in this module (those prefixed with \"_\") are\n" \
+    "not meant to be called directly, but have Python wrappers that should be used\n" \
+    "instead.\n"                                                        \
+    "\n"                                                                \
+    "All functions are exported into the mrcal module. So you can call these via\n" \
+    "mrcal._mrcal.fff() or mrcal.fff(). The latter is preferred.\n"
+
 #if PY_MAJOR_VERSION == 2
 
 PyMODINIT_FUNC init_mrcal(void)
@@ -2849,7 +2861,7 @@ PyMODINIT_FUNC init_mrcal(void)
 
     PyObject* module =
         Py_InitModule3("_mrcal", methods,
-                       "Internal python wrappers for non-broadcasting functions");
+                       MODULE_DOCSTRING);
     _init_mrcal_common(module);
     import_array();
 }
@@ -2860,7 +2872,7 @@ static struct PyModuleDef module_def =
     {
      PyModuleDef_HEAD_INIT,
      "_mrcal",
-     "Internal python wrappers for non-broadcasting functions",
+     MODULE_DOCSTRING,
      -1,
      methods
     };
