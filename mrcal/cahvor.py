@@ -1,5 +1,24 @@
 #!/usr/bin/python3
 
+r'''Read/write camera models using the legacy .cahvor file format
+
+mrcal supports the .cahvor file format to interoperate with tools that work with
+that format only.
+
+Models stored as .cahvor support a subset of .cameramodel functionality: the
+optimization_inputs are not included, so uncertainty computations are not
+possible from .cahvor models.
+
+CAHVOR and CAHVORE lens models can be stored in a .cahvor file as one would
+expect. OPENCV models write a CAHV model, with distortions in a magic comment,
+and it is up to the parser to interpret that comment. Other lens model types are
+not supported.
+
+Unless you're interfacing with tools that expect .cahvor files, there's no
+reason to use this module.
+
+'''
+
 
 import re
 
@@ -7,28 +26,6 @@ import numpy     as np
 import numpysane as nps
 
 import mrcal
-
-r'''Read/write legacy .cahvor camera models
-
-This is a interface to be able to work with camera models stored in the .cahvor
-file format. This supports a subset of .cameramodel files. Unless you're
-interfacing with tools that expect .cahvor files, there's little reason to touch
-this module.
-
-The O in CAHVOR is an optical axis: 3 numbers representing a 2DOF quantity. I
-store this as an unconstrainted 2-vector (alpha, beta)
-
-I parametrize the optical axis such that
-- o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
-  if both parameters are 0
-- The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
-  NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
-  lock), and that would make my solver unhappy
-
-So o = { s_al*c_be, s_be,  c_al*c_be }
-'''
-
-
 
 def _HVs_HVc_HVp(cahvor):
     r'''Given a cahvor dict returns a tuple containing (Hs,Vs,Hc,Vc,Hp,Vp)'''
@@ -268,8 +265,11 @@ def _write(f, m, note=None):
     elif re.match('LENSMODEL_OPENCV*', lensmodel):
         Ndistortions = mrcal.lensmodel_num_params(lensmodel) - 4
         f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(lensmodel, *intrinsics[4:]))
-    elif len(intrinsics) != 4:
-        raise Exception("Somehow ended up with unwritten distortions. Nintrinsics={}, lensmodel={}".format(len(intrinsics), lensmodel))
+    elif lensmodel == 'LENSMODEL_PINHOLE':
+        # the CAHV values we already wrote are all that's needed
+        pass
+    else:
+        raise Exception(f"Cannot write lens model '{lensmodel}' to a .cahvor file. I only support PINHOLE, CAHVOR(E) and OPENCV model")
 
     c = m.valid_intrinsics_region()
     if c is not None:
