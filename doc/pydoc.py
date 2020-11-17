@@ -755,8 +755,7 @@ class HTMLDoc(Doc):
         else:
             docloc = ''
         result = self.heading(
-            head, '#ffffff', '#7799ee',
-            '<a href=".">index</a><br>' + filelink + docloc)
+            head, '#ffffff', '#7799ee')
 
         modules = inspect.getmembers(object, inspect.ismodule)
 
