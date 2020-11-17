@@ -20,6 +20,7 @@ from ._mrcal_npsp    import *
 from .projections           import *
 from .cameramodel           import *
 from .poseutils             import *
+# The C wrapper is generated from poseutils-genpywrap.py
 from ._poseutils            import *
 from .stereo                import *
 from .visualization         import *
