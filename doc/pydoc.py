@@ -768,6 +768,8 @@ class HTMLDoc(Doc):
                     cdict[key] = cdict[value] = '#' + key
         for key, value in classes:
             for base in value.__bases__:
+                if base == builtins.object:
+                    continue
                 key, modname = base.__name__, base.__module__
                 module = sys.modules.get(modname)
                 if modname != name and module and hasattr(module, key):
