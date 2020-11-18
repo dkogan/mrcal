@@ -622,13 +622,15 @@ class HTMLDoc(Doc):
         """Make a link for an identifier, given name-to-URL mappings."""
         for dict in dicts:
             if name in dict:
+                if re.match('builtins\.', dict[name]):
+                    return name
                 return '<a href="%s">%s</a>' % (dict[name], name)
         return name
 
     def classlink(self, object, modname):
         """Make a link for a class."""
         name, module = object.__name__, sys.modules.get(object.__module__)
-        if hasattr(module, name) and getattr(module, name) is object:
+        if hasattr(module, name) and getattr(module, name) is object and not re.match('builtins\.',classname(object, modname)):
             return '<a href="%s.html#%s">%s</a>' % (
                 module.__name__, name, classname(object, modname))
         return classname(object, modname)
