@@ -382,7 +382,7 @@ SYNOPSIS
 
     x0 = mrcal.transform_point_rt(rt01, x1)
 
-    print( nps.norm2( x1 - \
+    print( nps.norm2( x1 -
                       mrcal.transform_point_rt(rt10, x0) ))
     ===>
     0
