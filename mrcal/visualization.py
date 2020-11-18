@@ -2032,7 +2032,7 @@ None. The input image array is modified
 
 
 def imagergrid_using(imagersize, gridn_width, gridn_height = None):
-    '''Get a 'using' expression for imager colormap plots
+    r'''Get a 'using' expression for imager colormap plots
 
 SYNOPSIS
 

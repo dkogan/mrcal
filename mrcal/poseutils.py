@@ -135,7 +135,7 @@ and the gradient (R, dR/dr):
     return _poseutils._R_from_r(r, out=out)
 
 def rt_from_Rt(Rt, get_gradients=False, out=None):
-    """Compute an rt transformation from a Rt transformation
+    r"""Compute an rt transformation from a Rt transformation
 
 SYNOPSIS
 
@@ -216,7 +216,7 @@ and the gradient (rt, dr/dR):
     return _poseutils._rt_from_Rt(Rt, out=out)
 
 def Rt_from_rt(rt, get_gradients=False, out=None):
-    """Compute an Rt transformation from a rt transformation
+    r"""Compute an Rt transformation from a rt transformation
 
 SYNOPSIS
 
@@ -295,7 +295,7 @@ and the gradient (Rt, dR/dr):
     return _poseutils._Rt_from_rt(rt, out=out)
 
 def invert_Rt(Rt, out=None):
-    """Invert an Rt transformation
+    r"""Invert an Rt transformation
 
 SYNOPSIS
 
@@ -363,7 +363,7 @@ The inverse Rt transformation in an array of shape (4,3).
     return _poseutils._invert_Rt(Rt, out=out)
 
 def invert_rt(rt, get_gradients=False, out=None):
-    """Invert an rt transformation
+    r"""Invert an rt transformation
 
 SYNOPSIS
 

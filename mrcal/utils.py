@@ -366,7 +366,7 @@ We return a tuple:
 def hypothesis_corner_positions(icam_intrinsics = None,
                                 idx_inliers     = None,
                                 **optimization_inputs):
-    '''Reports the 3D chessboard points observed by a camera at calibration time
+    r'''Reports the 3D chessboard points observed by a camera at calibration time
 
 SYNOPSIS
 
@@ -511,7 +511,7 @@ element:
 
 
 def _splined_stereographic_domain(lensmodel):
-    '''Return the stereographic domain for splined-stereographic lens models
+    r'''Return the stereographic domain for splined-stereographic lens models
 
 SYNOPSIS
 
