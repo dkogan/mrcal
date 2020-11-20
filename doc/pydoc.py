@@ -153,6 +153,20 @@ from reprlib import Repr
 from traceback import format_exception_only
 
 
+
+
+extranames = \
+    dict( gp         = "https://www.github.com/dkogan/gnuplotlib",
+          gnuplotlib = "https://www.github.com/dkogan/gnuplotlib",
+          nps        = "https://www.github.com/dkogan/numpysane",
+          numpysane  = "https://www.github.com/dkogan/numpysane",
+          vnlog      = "https://www.github.com/dkogan/vnlog",
+          np         = "https://numpy.org/doc/stable/reference/index.html",
+          numpy      = "https://numpy.org/doc/stable/reference/index.html",
+          cv2        = "https://docs.opencv.org/master/")
+
+
+
 # --------------------------------------------------------- common routines
 
 def pathdirs():
@@ -694,13 +708,13 @@ class HTMLDoc(Doc):
                 # Create a link for methods like 'self.method(...)'
                 # and use <strong> for attributes like 'self.attr'
                 if text[end:end+1] == '(':
-                    results.append('self.' + self.namelink(name, methods))
+                    results.append('self.' + self.namelink(name, methods, extranames))
                 else:
                     results.append('self.<strong>%s</strong>' % name)
             elif text[end:end+1] == '(':
-                results.append(self.namelink(name, methods, funcs, classes))
+                results.append(self.namelink(name, methods, funcs, classes, extranames))
             else:
-                results.append(self.namelink(name, classes))
+                results.append(self.namelink(name, classes, extranames))
             here = end
         results.append(escape(text[here:]))
         return ''.join(results)
