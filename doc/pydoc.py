@@ -58,12 +58,29 @@ License:
   Agreement.
 
 
-I need to make minor changes to this tool to produce reference HTML
+
+
+
+I needed to make minor changes to this tool to produce reference HTML
 documentation for mrcal. The modifications are in the mrcal version control.
+Broadly:
 
+- removed the "index" links at the top-right
 
+- remoded the "modules" section. This was mostly telling the reader about all
+  the modules that the module being documented imports, which is irrelevant
 
+- set all the submodule links (mrcal.submodule.function) to work as if it was
+  mrcal.function. That's how the api looks to the user
 
+- "pydoc -m" is a whitelist selecting submodules that appear in the docs. I
+  don't want most of them to appear
+
+- pydoc output to stdout: for easier integration into the Makefile
+
+- I don't document builtins
+
+- Added links to external projects I use (gp,nps,np,cv2)
 
 
 
