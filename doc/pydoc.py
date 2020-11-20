@@ -1771,11 +1771,9 @@ def writedoc(thing, forceload=0, module_whitelist = None):
     try:
         object, name = resolve(thing, forceload)
         page = html.page(describe(object), html.document(object, name, module_whitelist=module_whitelist))
-        with open(name + '.html', 'w', encoding='utf-8') as file:
-            file.write(page)
-        print('wrote', name + '.html')
+        sys.stdout.write(page)
     except (ImportError, ErrorDuringImport) as value:
-        print(value)
+        print(value, file=sys.stderr)
 
 def writedocs(dir, pkgpath='', done=None, module_whitelist = None):
     """Write out HTML documentation for all modules in a directory tree."""
@@ -2789,7 +2787,7 @@ def cli():
         if not args: raise BadUsage
         for arg in args:
             if ispath(arg) and not os.path.exists(arg):
-                print('file %r does not exist' % arg)
+                print('file %r does not exist' % arg, file=sys.stderr)
                 break
             try:
                 if ispath(arg) and os.path.isfile(arg):
@@ -2802,7 +2800,7 @@ def cli():
                 else:
                     help.help(arg)
             except ErrorDuringImport as value:
-                print(value)
+                print(value, file=sys.stderr)
 
     except (getopt.error, BadUsage):
         cmd = os.path.splitext(os.path.basename(sys.argv[0]))[0]
