@@ -631,8 +631,14 @@ class HTMLDoc(Doc):
         """Make a link for a class."""
         name, module = object.__name__, sys.modules.get(object.__module__)
         if hasattr(module, name) and getattr(module, name) is object and not re.match('builtins\.',classname(object, modname)):
-            return '<a href="%s.html#%s">%s</a>' % (
-                module.__name__, name, classname(object, modname))
+
+            def strip_submodule(m):
+                s = "[a-zA-Z0-9_]+"
+                return re.sub(rf"({s})\.{s}\.({s})", r"\1.\2", m)
+
+            return '<a href="#%s">%s</a>' % (
+                name,
+                strip_submodule(classname(object, modname)))
         return classname(object, modname)
 
     def modulelink(self, object):
