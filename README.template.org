@@ -13,7 +13,7 @@ Wrote /tmp/camera0-1.cameramodel
 * SUMMARY
 
 =mrcal= is a generic toolkit to solve calibration and SFM-like problems.
-Functionality related to these problems is exposed as a set of python libraries.
+Functionality related to these problems is exposed as a set of Python libraries.
 Both CAHVOR and OpenCV lens models are fully supported; CAHVORE is partially
 supported. The toolkit includes:
 
