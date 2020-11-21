@@ -1,0 +1,1529 @@
+mrcal is a general-purpose library that can do many things. The best way to
+convey a sense of the capabilities is to demonstrate some real-world usage
+scenarios. Let's go through a full calibration sequence starting with chessboard
+images, and eventually finishing with stereo processing.
+
+All images have been gathered with a Nikon D750 SLR. I want to stress-test the
+system, so I'm using the widest lens I can find: a Samyang 12mm F2.8 fisheye
+lens. This lens has a ~ 180deg field of view corner to corner, and about 145deg
+field of view center-left to center-right.
+
+In these demos I'm using only one camera, so I'm going to run a /monocular/
+calibration to compute the intrinsics (the lens parameters). mrcal is fully able
+to calibrate any N cameras at a time, I'm just using the one camera /here/.
+
+* Gathering chessboard corners
+
+We start by gathering images of a chessboard. This is a wide lens, so I need a
+large chessboard viewed up close in order to fill the imager. My chessboard has
+10x10 internal corners with a spacing of 7.7cm. A big chessboard such as this is
+never completely rigid or completely flat. I'm using a board backed with 2cm of
+foam, which keeps the shape stable over short periods of time. But the shape
+still drifts with changes in temperature and humidity, so mrcal estimates the
+chessboard shape as part of its calibration solve.
+
+When getting these close-up images, lens focus becomes an issue. If I'm
+eventually going to be using the lens to look at faraway objects, I will want to
+focus at ~ infinity. But at calibration time I'll be looking at a chessboard
+0.5m away, which implies a very different position of the focus ring. However,
+moving the focus ring could potentially break the computed intrinsics, so I
+really want to calibrate the lens in its final configuration.
+
+So I set the focus to infinity, and gather all my images at F22 to increase the
+depth-of-field. To also avoid motion blur I need fast exposures, so I did all
+the image gathering outside. Doing this under artificial light would require
+extra care to not blur the images.
+
+The images live [[file:data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.17 to detect the [[./data/board/corners.vnl][chessboard corners]]:
+
+#+begin_src sh
+mrgingham -j3 *.JPG > corners.vnl 
+#+end_src
+
+For an arbitrary image we can visualize at the corner detections:
+
+#+begin_example
+$ < corners.vnl head -n5
+
+## generated with mrgingham -j3 *.JPG
+# filename x y level
+DSC_7374.JPG 1049.606126 1032.249784 1
+DSC_7374.JPG 1322.477977 1155.491028 1
+DSC_7374.JPG 1589.571471 1276.563664 1
+
+
+$ f=DSC_7374.JPG
+
+$ < corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | \
+  feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable'
+#+end_example
+
+[[./mrgingham-results.png]]
+
+So in this image many of the corners were detected at full-resolution (level-0),
+but some required downsampling for the detector to find them (shown as smaller
+circles). The downsampled points have less precision, so they are weighed less
+in the optimization. How many images produced successful corner detections?
+
+#+begin_example
+$ < corners.vnl vnl-filter --has x -p filename --skipcomments | uniq | wc -l
+
+187
+
+
+$ < corners.vnl vnl-filter x=='"-"' -p filename --skipcomments | uniq | wc -l
+
+90
+#+end_example
+
+The line counts above include one header line. So we have 186 images with
+detected corners, and 89 images where a full chessboard wasn't found. Most of
+the misses are probably images where the chessboard wasn't entirely in view, but
+some are probably failures of mrgingham. In any case, 186 observations is
+plenty.
+
+If I had more that one camera, the image filenames would need to indicate what
+camera captured each image at which time. I generally use
+=frameFFF-cameraCCC.jpg=. Images with the same =FFF= are assumed to have been
+captured at the same instant in time.
+
+* Monocular calibration with the 8-parameter opencv model
+
+Let's calibrate the intrinsics! For a while the 8-parameter opencv lens model
+("opencv8" from now on) has been my default choice for wide lenses. This
+represents the radial "distortion" as a rational. If $\vec p$ is the
+camera-coordinate-system point being projected, we have
+
+\begin{eqnarray*}
+\vec P &\equiv& \frac{\vec {p_{xy}}}{p_z} \\
+r &\equiv& \left|\vec P\right|            \\
+\vec P_\mathrm{radial} &\equiv& \frac{ 1 + k_0 r^2 + k_1 r^4 + k_4 r^6}{ 1 + k_5 r^2 + k_6 r^4 + k_7 r^6} \vec P \\
+\vec q &=& \vec f_{xy} \left( \vec P_\mathrm{radial} + \vec P_\mathrm{tangential} \right) + \vec c_{xy}
+\end{eqnarray*}
+
+Where $\vec P_\mathrm{tangential}$ is the unimportant (to this discussion)
+tangential distortion, $\vec q$ is the resulting projected pixel, $\vec f_{xy}$
+is the focal lengths and $\vec c_{xy}$ is the center pixel of the imager.
+
+This usually does a reasonable job with wide-angle lenses. Let's try.
+
+#+begin_example
+$ mrcal-calibrate-cameras        \
+  --focal 1700                   \
+  --object-spacing 0.077         \
+  --object-width-n 10            \
+  --lensmodel LENSMODEL_OPENCV8  \
+  --corners-cache corners.vnl    \
+  --observed-pixel-uncertainty 2 \
+  --explore '*.JPG'
+
+
+vvvvvvvvvvvvvvvvvvvv initial solve: geometry only
+^^^^^^^^^^^^^^^^^^^^ RMS error: 32.19393243308936
+
+vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only
+^^^^^^^^^^^^^^^^^^^^ RMS error: 12.308083539621899
+=================== optimizing everything except board warp from seeded intrinsics
+mrcal.c(4974): Threw out some outliers (have a total of 3 now); going again
+vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp
+^^^^^^^^^^^^^^^^^^^^ RMS error: 0.7809749790209548
+RMS reprojection error: 0.8 pixels
+Worst residual (by measurement): 7.2 pixels
+Noutliers: 3 out of 18600 total points: 0.0% of the data
+calobject_warp = [-0.00103983  0.00052493]
+#+end_example
+
+The resulting model is available [[file:data/board/opencv8.cameramodel][here]].
+
+I'm specifying the initial very rough estimate of the focal length (in pixels),
+the geometry of my chessboard (10x10 board with 0.077m spacing between corners),
+the lens model I want to use, chessboard corners we just detected, the estimated
+uncertainty of the corner detections (more on this later) and the image globs. I
+have just one camera, so I have one glob: =*.JPG=. With more cameras you'd have
+something like ='*-camera0.jpg' '*-camera1.jpg' '*-camera2.jpg'=.
+
+=--explore= asks the tool to drop into a REPL after it's done computing so that
+we can look around. Most visualizations can be made by running the
+=mrcal-show-...= commandline tools on the generated =xxx.cameramodel= files, but
+some of the residual visualizations are only available inside the REPL at this
+time.
+
+The tool reports some diagnostics. As we can see, the final RMS reprojection
+error was 0.8 pixels. Of the 18600 corner observations (186 observations of the
+board with 10*10 = 100 points each), 3 didn't fit the model well, and were
+thrown out as outliers. And the board flex was computed as 1.0mm horizontally,
+and 0.5mm vertically in the opposite direction.
+
+That sounds reasonable. After running a calibration, we should run some sanity
+checks. First off, what does the solve think about our geometry? Does it match
+reality?
+
+#+begin_example
+show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
+                unset = 'key')
+#+end_example
+
+[[./calibration-chessboards-geometry.png]]
+
+This displays all the cameras that have been calibrated in their final poses
+(here we have just one camera), and all the chessboards that were observed in
+/their/ final poses. The x,y axes run with the camera pixels, and the z axis
+points forward. As we can see, the chessboards were all right in front of the
+camera (0.5m - 1m out), many tilted quite heavily. This isn't an accident; much
+more on that later.
+
+The geometry is as expected. Past that, The most useful thing to examine is the
+residuals in the solve (the discrepancies between the observed chessboard
+corners, and their predictions based on the best-fitting model). Let's look at
+the worst-fitting image:
+
+#+begin_example
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
+#+end_example
+
+[[./worst-opencv8.png]]
+
+If there're any issues, they're often seen in this image. And since this is the
+worst-fitting chessboard observation, if it looks OK, we can declare victory,
+and move on.
+
+The residual vector for each chessboard corner in this observation is shown,
+scaled by a factor of 100 for legibility (the actual errors are tiny!) The
+circle color also indicates the magnitude of the errors. The size of each circle
+represents the weight given to that point. The weight is reduced for points that
+were detected at a lower resolution by the chessboard detector. Points thrown
+out as outliers are not shown at all.
+
+We look for any errors that look unreasonably large. And we look for patterns.
+In a perfect world, the model fits the observations, and the residuals display
+purely random noise. Any patterns in the errors indicate that the noise isn't
+random, and thus the model does /not/ fit. This would result in a bias when we
+eventually use this model for projection. This bias is an unmodeled source of
+error, so we /really/ want to push this down as far as we can. Getting rid of
+all such biases completely is usually impossible, but we should do our best.
+
+Common sources of bias:
+
+- out-of focus images
+
+- images with motion blur
+
+- insufficiently-rich model (the model of the lens or of the chessboard shape or
+  anything else)
+
+- synchronization errors
+
+When calibrating multiple cameras at the same time, sync errors show up very
+clearly. Out-of-sync images capture the chessboard at different locations, while
+the solve computes only a single pose. This pose will lie in-between the
+real-world poses, and this will be clearly visible as equal-and-opposite errors
+in the out-of-sync images.
+
+Back to /this/ image. In absolute terms, even this worst-fitting image fits
+/really/ well. The RMS error of the errors in this image is 1.48 pixels. The
+residuals in this image look mostly reasonable. There is a bit of a pattern:
+errors point outwardly in the center, larger errors on the outside of the image,
+pointing mostly inward. This isn't clearly indicative of any specific cause, so
+we move on. For reference, here's the worst image from another solve, when both
+focus and slight motion blur issues were present:
+
+[[./worst-opencv8-bias.png]]
+
+Here we see two distinct problems:
+
+- In the corners we get large errors that are dissimilar to the errors
+  elsewhere. This is due to the radial distortion model of opencv8
+  misrepresenting reality when looking this far away from the optical axis.
+  Opencv8 can only project in front of the camera, and this lens is so wide,
+  observations in the corners have $p_z$ approaching 0, and $\vec P$ approaching
+  infinity, so we would not expect things to work well in the corners.
+
+- We see a much more clear systematic error pattern: the error vectors in any
+  given region largely all point in the same direction.
+
+Let's look at another way to visualize the systematic errors in this solve:
+let's look at all the residuals over all the observations, color-coded by their
+direction, ignoring the magnitudes:
+
+#+begin_example
+show_residuals_directions(0, unset='key')
+#+end_example
+
+[[./directions-opencv8.png]]
+
+As before, if the model fit the observations, the errors would represent random
+noise, and no error pattern would be visible. Here we can clearly see lots of
+green in the top-right and top and left, lots of blue and magenta in the center,
+yellow at the bottom, and so on. This is not random noise.
+
+The green contour at the edge is the "valid-intrinsics region", a rough estimate
+indicating where the intrinsics are reliable. It is useful only approximately,
+/especially/ for parametric models such as opencv8.
+
+Clearly there's some bias in this model. As we have seen, the errors here are
+all fairly small, but they become very important when doing precision work like,
+for instance, long-range stereo.
+
+Let's fix it.
+
+* Monocular calibration with a splined stereographic model
+
+Usable uncertainty quantification and accurate projections are major goals of
+mrcal. To achive these, mrcal supports /splined/ models. At this time there's
+only a single representation supported: a /splined stereographic/ model. More
+will be added with time.
+
+** Splined stereographic model definition
+
+The basis of a splined stereographic model is a stereographic projection. A
+world point that lies $\theta$ off the camera's optical axis projects to
+$\left|\vec q - \vec q_0\right| = 2 f \tan \frac{\theta}{2}$ pixels from the
+image center where $f$ is the focal length. Note that this representation
+supports projections behind the camera ($\theta > 90^\circ$) with a single
+singularity directly behind the camera. This is unlike the pinhole model, which
+has $\left|\vec q - \vec q_0\right| = f \tan \theta$, and projects to infinity as $\theta
+\rightarrow 90^\circ$.
+
+Basing the new model on a stereographic projection lifts the inherent
+forward-view-only limitation of opencv8. To give the model enough flexibility to
+be able to represent any projection function I define two correction surfaces,
+which serve to adjust the stereographic projection to fit whatever projection
+behavior we want. I do this:
+
+Let $\vec p$ be the camera-coordinate system point being projected. The angle
+off the projection center is
+
+\[ \theta \equiv \tan^{-1} \frac{\left|\vec {p_{xy}}\right|}{p_z} \]
+
+The normalized stereographic projection is
+
+\[ \vec u \equiv 2 \frac{\vec {p_{xy}}}{\left|\vec {p_{xy}}\right|} \tan\frac{\theta}{2}  \]
+
+This initial projection operation collapses the 3D point $\vec p$ into a 2D
+point $\vec u$. I use this projection value to look-up an adjustment factor
+$\Delta \vec u$ using two splined surfaces: one for each of the two elements of
+
+\[ \Delta \vec u \equiv \begin{bmatrix} \mathrm{spline0} \left( \vec u \right) \\ \mathrm{spline1} \left( \vec u \right) \end{bmatrix} \]
+
+The parameters defining these surfaces comprise the parameters of this lens
+model. I use B-splines to represent the surfaces (quadratic and cubic are
+implemented at this time). These have optimization-friendly local support and
+sufficient continuity properties.
+
+Once we have the correction, we can define the rest of the projection function:
+
+\[ \vec q = \vec f_{xy} \left( \vec u + \Delta \vec u \right) + \vec c_{xy} \]
+
+Here $\vec f_{xy}$ and $\vec c_{xy}$ are the usual focal-length-in-pixels and
+imager-center parameters that all the other projection function have. The user
+decides how much of the normalized $\vec u$ space we want to support. And the
+user decides how dense the spline should be.
+
+** Solving
+
+I run the same exact calibration as before, but using the richer model to
+specify the lens:
+
+#+begin_example
+$ mrcal-calibrate-cameras                                                       \
+  --focal 1700                                                                  \
+  --object-spacing 0.077                                                        \
+  --object-width-n 10                                                           \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170 \
+  --corners-cache corners.vnl                                                   \
+  --observed-pixel-uncertainty 2                                                \
+  --explore '*.JPG'
+
+
+vvvvvvvvvvvvvvvvvvvv initial solve: geometry only
+^^^^^^^^^^^^^^^^^^^^ RMS error: 32.19393243308936
+
+vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only
+^^^^^^^^^^^^^^^^^^^^ RMS error: 12.308083539621899
+=================== optimizing everything except board warp from seeded intrinsics
+vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp
+^^^^^^^^^^^^^^^^^^^^ RMS error: 0.599580146623648
+RMS reprojection error: 0.6 pixels
+Worst residual (by measurement): 4.3 pixels
+Noutliers: 0 out of 18600 total points: 0.0% of the data
+calobject_warp = [-0.00096895  0.00052931]
+#+end_example
+
+The resulting model is available [[file:data/board/splined.cameramodel][here]].
+
+The lens model
+=LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170= is the only
+difference in the command. Unlike =LENSMODEL_OPENCV8=, /this/ model has
+/configuration/ parameters: the spline order (we use cubic splines here), the
+spline density (here each spline surface has 30 x 20 knots), and the rough
+field-of-view (here we specify about 170 degrees horizontal field of view).
+
+There're over 1000 lens parameters here, but the problem is very sparse, so we
+can still process this in a reasonable time. Making this work faster would be
+great, but it's already reasonably fast for most usages.
+
+The opencv8 solve had 3 points that fit so poorly, the solver threw them away as
+outliers. Here we have 0. The RMS reprojection error dropped from 0.8 pixels to
+0.6. The estimated chessboard shape stayed roughly the same. These are all what
+we hope to see.
+
+Let's look at the worst-fitting single image in /this/ solve:
+
+#+begin_example
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
+#+end_example
+
+[[./worst-splined.png]]
+
+Interestingly, it is the same observations as with opencv8. All the errors are
+significantly smaller than before; the previous pattern is much less pronounced,
+but it still there. What do the residual directions tell us?
+
+#+begin_example
+show_residuals_directions(0, unset='key')
+#+end_example
+
+[[./directions-splined.png]]
+
+/Much/ better. If there is a pattern, I can't see it.
+
+We can also visualize the spline surface itself. Here I'm using the commandline
+tool instead of a function in the =mrcal-calibrate-cameras= REPL.
+
+#+begin_src sh
+mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel x --set 'cbrange [-.25:.25]' --unset key
+#+end_src
+
+[[./splined-knots.png]]
+
+This shows $\Delta u_0 = \mathrm{spline0}\left(\vec u\right)$. Each X in the
+plot is a "knot" of the spline surface, a point where a control point value is
+defined. We're looking at the spline domain, so the axes of the plot are $u_0$
+and $u_1$. This is a cubic spline, so the valid spline region starts one knot
+inside from the edge; this is shown as the green rectagle. Each $\vec u$
+projects to some pixel coordinate $\vec q$ in some very nonlinear way, and I
+draw the bounds of the imager as the thick, purple curve. We want the imager
+bounds to lie entirely within the valid spline region. Looking at this plot, we
+can see that is indeed what happens. If the imager poked outside the valid
+spline region, we wouldn't be able to project anything to that slice of the
+image. The fix would be to increase the model field of view by adjusting the
+=fov_x_deg= values in the name of the lens model.
+
+Alternately, I can look at the spline surface as a function of the pixel
+coordinates:
+
+#+begin_src sh
+mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.25:.25]' x --unset key --set 'xrange [-300:6300]' --set 'yrange [4300:-300]'
+#+end_src
+
+[[./splined-knots-pixel-domain.png]]
+
+Now the imager boundary is a nice rectangle, but the valid spline region is a
+curve. Here we can also see an ugly feature of the current representation: since
+the correction $\Delta \vec u$ uses $\vec u$ to index the splined surface, the
+resulting projection function is allowed to be non-monotonic. This results in
+very odd-looking behavior at the edges:
+
+- wildly jumping knot positions at the edges (as seen in the scary-looking
+  valid-spline region bounds in this plot)
+- extreme values of the spline surface at the edges (as seen in the yellow/black
+  blobs in the previous plots)
+
+It would be nice to fix these, but they cause no obvious practical ill effects.
+
+* Differencing
+We just used the same chessboard observations to compute the intrinsics of a
+lens in two different ways:
+
+- Using a lean opencv8 lens model
+- Using a rich splined-stereographic lens model
+
+And we saw evidence that the splined model will do a better job of representing
+reality. Can we quantify that? How different are the two models? Let's compute
+it. Given a pixel $\vec q_0$ we can
+
+1. Unproject it to a point $\vec p$ using one lens model
+2. Project $\vec p$ back to pixel coords $\vec q_1$ using the /other/ lens model
+3. Report the reprojection difference $\vec q_1 - \vec q_0$ as the diff at this
+   pixel location
+
+[[./diff-notransform.svg]]
+
+This is a very common thing to want to do, so mrcal provides a tool to do it.
+Let's compare the two models:
+
+#+begin_src sh
+mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
+#+end_src
+
+[[./diff-radius0-heatmap-splined-opencv8.png]]
+
+Well that's strange. The reported differences really do have units of /pixels/.
+Are the two models /that/ different? And is the best-aligned area really where
+this plot indicates? If we ask for the vector field of differences instead of a
+heat map, we get a hint about what's going on:
+
+#+begin_src sh
+mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel
+#+end_src
+
+[[./diff-radius0-vectorfield-splined-opencv8.png]]
+
+This is a /very/ regular pattern. What does it mean?
+
+The answer is rooted in the location and orientation of the camera coordinate
+system in respect to the physical lens and camera. The optimization algorithm
+only knows where the chessboard corners were observed. It does /not/ know where
+anything is, and it has to compute all geometry. And as always, fitted results
+differ from reality somewhat. In this case, the origin of the camera coordinate
+system and the orientation of this coordinate system are noisy quantities that
+will vary from solve to solve. There exists some transformation between the
+camera coordinate system from the solution and the coordinate system defined by
+the physical lens and camera body. And this transformation is different each
+time we run a solve. It is important to note that *this implied transformation
+is built-in to the intrinsics*. Even if we're not explicitly optimizing the
+camera pose (which is the case with these monocular solves), this implied
+transformation is still something that exists and moves around in response to
+noise. Rich models like the splined stereographic models are able to encode a
+wider range of implied transformations, but even the simplest models have some
+transform that must be compensated for.
+
+Looking at the vectorfield above, it looks like we need to move one of the
+cameras up and to the left, and then we need to rotate that camera. We can
+automate this by adding a critical missing step to the procedure above between
+steps 1 and 2:
+
+- Transform $\vec p$ from the coordinate system of one camera to the coordinate
+  system of the other camera
+
+[[./diff-yestransform.svg]]
+
+But we don't know anything about the physical coordinate system of either
+camera. How can we compute this transformation? We do a fit. The "right"
+transformation will transform $\vec v$ in such a way that the reported
+mismatches in $\vec q$ will be minimized. There are many details here, but we
+don't need to know them to run the tool. Previously we passed =--radius 0= to
+bypass the fit. Let's leave out that option to get the usable diff:
+
+#+begin_src sh
+mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
+#+end_src
+
+[[./diff-splined-opencv8.png]]
+
+/Much/ better. As expected, the two models agree relatively well in the center,
+and the error grows as we move towards the edges. If we used a leaner model,
+such as opencv4, this effect would be more pronounced. Do note that since we do
+a fit, there's some ambiguity in the details. We choose where we get the data
+for our implied transformation fit. We can decide that we really care about low
+differences right at the center at the expense of a worse fit further out, or we
+can decide that a reasonable-but-not-great fit is acceptable as long as it
+covers a wide area. For instance, focusing at the center gives us a lower diff
+there:
+
+#+begin_src sh
+mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
+#+end_src
+
+[[./diff-radius500-splined-opencv8.png]]
+
+Both are valid.
+
+This differencing method is very powerful. We can use it to, for instance
+
+- evaluate the variability of different lenses
+- quantify intrinsics drift due to mechanical or thermal stresses, or anything else
+- test different solution methods
+- as the core of a cross-validation scheme
+
+Many of these analyses immediately raise a question: how much of a difference do
+I expect to get from random noise, and how much is attributable to whatever I'm
+measuring?
+
+Furthermore, how do we decide which data to use for the fit of the implied
+transformation? Here I was careful to get chessboard images everywhere in the
+imager, but what if there was occlusion in the space, so I was only able to get
+images in one area? In this case we would want to use only the data in that area
+for the fit of the implied transformation (because we won't expect the data in
+other areas to fit). But what to do if we don't know where that area is?
+
+These questions can be answered conclusively by quantifying the projection
+uncertainty, so let's talk about that now.
+
+* Projection uncertainty
+
+It would be /really/ nice to be able to compute an /uncertainty/ along with
+every projection operation: given a camera-coordinate point $\vec p$ we would
+compute the projected pixel coordinate $\vec q$, along with the covariance
+$\mathrm{Var} \left(\vec q\right)$ to represent the uncertainty. If this were
+available we could
+
+- Propagate this uncertainty downstream to whatever uses the projection
+  operation, for example to get the uncertainty of ranges from a triangulation
+- Evaluate how trustworthy a given calibration is, and to run studies about how
+  to do better
+- Quantify the baseline noise level for informed interpretation of model
+  differences
+- Intelligently select the region used to compute the implied transformation
+  when computing differences
+
+Some of these are quite important. Since splined models can have 1000s of
+parameters, and when fitting those models we /will/ overfit. This isn't bad in
+itself, however, if we can quantify the uncertainty: "overfitting" simply means
+the uncertainty is higher than it otherwise would be, and if we can quantify it,
+we can decide what level is acceptable.
+
+So let's compute it. This description is a summary; a detailed writeup is in the
+docstring for =mrcal.projection_uncertainty()=. We assume that the model of our
+system is correct, and that the fitted results are not perfect only because the
+input observations have some noise. As we have seen in the earlier solves, this
+assumption is much more valid with splined models than it is with all the lean
+models. We have seen that the residual distribution in the opencv8 solve has
+visible patterns (it is heteroscedactic), so there are unmodeled errors in that
+solve. The uncertainty analysis does /not/ take those errors into account, and
+the reported uncertainties will be overly-optimistic when using lean models.
+
+The noise in the input observations is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in
+mrgingham), but easy to loosely estimate. It is a reasonable assumption that
+each x and y measurement in every chessboard corner contains independent,
+gaussian noise, and we can get a loose estimate of its variance by inspection.
+If mrgingham needed to downsample the image to get a corner's coordinates, the
+expected noise level is increase accordingly. This estimate of the input noise
+is passed in to the =mrcal-calibrate-cameras= tool in the
+=--observed-pixel-uncertainty= argument.
+
+We propagate the uncertainty of the inputs through the optimization to get the
+covariance of the full optimization vector. This vector includes /everything/:
+the intrinsics of /all/ the cameras, the geometry of /all/ the cameras, the
+geometry of /all/ the chessboard poses, the chessboard shape, etc.
+
+Now let's say we have a point fixed in space somewhere. We can use the geometry
+in the optimization vector to transform this point to the camera's coordinate
+system (all geometry in the solve is uncertain), and then we can use the
+camera's intrinsics (also uncertain) to project that point to a pixel
+coordinate. We have the covariances of all these things, and we propagate those
+through the transformations and projection to get the covariance of the reported
+pixel coordinate. This glosses over a lot of detail. Please see the docstring
+for =mrcal.projection_uncertainty()= for more information.
+
+** Simulation
+
+Let's generate some synthetic data to demonstrate this idea in practice. The
+analysis and results come directly from running this script from the mrcal test
+suite:
+
+#+begin_src sh
+test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-documentation-plots
+#+end_src
+
+Let's place 4 cameras using an opencv4 distortion model side by side, and let's
+have them look at 50 chessboards, with randomized positions and orientations.
+The bulk of this is done by =mrcal.synthesize_board_observations()=. The
+synthetic geometry looks like this:
+
+[[file:simulated-geometry--simulated-uncertainty-opencv4.svg]]
+
+The coordinate system of each camera is shown. Each observed chessboard is shown
+as a zigzag connecting all the corners in order. What does each camera actually
+see?
+
+[[file:simulated-observations--simulated-uncertainty-opencv4.svg]]
+
+All the chessboards are roughly at the center of the scene, so the left camera
+sees stuff on the right, and the right camera sees stuff on the left.
+
+We want to evaluate the uncertainty of a calibration made with these
+observations. We run 100 randomized trials, where each time we
+
+- add a bit of noise to the observations
+- compute the calibration
+- look at what happens to the projection of an arbitrary point on the imager:
+  the marked * in the plots above
+
+A very confident calibration has low uncertainty, and projections would be
+insensitive to observation noise: the * wouldn't move very much when we add
+input noise. By contrast, a poor calibration would have high uncertainty, and
+the * would move quite a bit due to random observation noise.
+
+Let's run the ramdomized trials, and let's plot where the projected * ends up
+for each trial. Let's plot the empirical 1-sigma ellipse computed from these
+samples, and let's also plot the 1-sigma ellipse predicted by the
+=mrcal.projection_uncertainty()= routine. This routine is analytical, and does
+/not/ do any random sampling. It is thus much faster than sampling would be.
+
+[[file:distribution-onepoint--simulated-uncertainty-opencv4.svg]]
+
+Clearly the two ellipses (blue and green) line up very well, so there's very
+good agreement between the observed and predicted uncertainties. So from now on
+I will use the predictions only. We see that the uncertainties of this point are
+very different for each camera. Why? Because we're looking at a point in the
+top-left quadrant of the imager. And as we saw before, this point was surrounded
+by chessboard observations in only one camera. In the two middle cameras this
+point was on the edge of where the chessboards were observed. And in the last
+camera, the observations were all far away from this point. In this camera, we
+have no data about the lens behavior in this area, and we're extrapolating. We
+should expect to have the best uncertainty in the first camera, worse
+uncertainties in the next two cameras, and very poor uncertainty in the last
+camera. And this is exactly what we observe.
+
+Since we can use the relatively quick-to-compute
+=mrcal.projection_uncertainty()= estimates, let's look at the uncertainty maps
+across the whole imager. =mrcal.show_projection_uncertainty()= does this for us:
+
+[[file:uncertainty-wholeimage--simulated-uncertainty-opencv4.png]]
+
+As expected, we see that the sweet spot is different for each camera, and it
+tracks the location of the chessboard observations. And we can see that the * is
+in the sweet spot only in the first camera.
+
+Let's focus on the last camera. Here the chessboard observations were nowhere
+near the focus point, and we reported an expected projection error of ~0.8
+pixels. This is significantly worse than the other cameras, but it's not
+terrible. If an error of 0.8 pixels is acceptable for our application, could we
+use that calibration result to project points around the *?
+
+No. We didn't observe any chessboards there, so we really don't know how the
+lens behaves in that area. The uncertainty algorithm isn't wrong, but in this
+case it's not answering the question we really want answered. We're computing
+how the observation noise affects the calibration, including the lens parameters
+(opencv4 in this case). And then we compute how the noise in those lens
+parameters and geometry affects projection. In /this/ case we're using a very
+lean lens model. Thus this model is quite stiff, and this stiffness prevents the
+projection $\vec q$ from moving very far, which we then interpret as a
+relatively-low uncertainty of 0.8 pixels. Our choice of lens model itself is
+giving us low uncertainties. If we knew for a fact that the true lens is 100%
+representable by an opencv4 model, then this would be be correct, but that never
+happens in reality. So *lean models always produce an overly-optimistic
+uncertainty estimate*.
+
+This is yet another major advantage of the splined models: they're very
+flexible, so the model itself has very little effect on our reported
+uncertainty. And we get the behavior we want: confidence in the result is driven
+/only/ by the data we have gathered.
+
+Let's re-run this analysis using a splined model, and let's look at the same
+uncertainty plots as above (note: this is /slow/):
+
+#+begin_src sh
+test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots
+#+end_src
+
+[[file:uncertainty-wholeimage--simulated-uncertainty-splined.png]]
+
+As we hoped, the reported uncertainties are now far worse. In fact, we can see
+that only the first camera's projection is truly reliable at the *. This is
+representative of reality.
+
+Given all this I will claim that we want to use splined models in most
+situations, even for long lenses which roughly follow the pinhole model. The
+basis of mrcal's splined models is the stereographic projection, which is
+identical to a pinhole projection when representing a long lens. So the splined
+models will fit long lenses well. The only downside to using a splined model in
+general is the extra required computational cost. It isn't terrible today, and
+will get better with time. And for that low price we get the extra precision (no
+lens follows the pinhole projection when you look closely enough) and we get
+truthful uncertainty reporting.
+
+** Revisiting uncertainties from the earlier calibrations
+
+We started this by calibrating a camera using an opencv8 model, and then again
+with a splined model. Let's look at the uncertainty of those solves using the
+handy =mrcal-show-projection-uncertainty= tool.
+
+First, the opencv8 solve:
+
+#+begin_src sh
+mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key
+#+end_src
+
+[[./uncertainty-opencv8.png]]
+
+And the splined solve:
+
+#+begin_src sh
+mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key
+#+end_src
+
+[[./uncertainty-splined.png]]
+
+As expected, the splined model doesn't have the stiffness of opencv8, so we get
+the less optimistic (but more realistic) uncertainties.
+
+* The effect of range in differencing and uncertainty computations
+
+Earlier I talked about how we compute the diff between two models and about how
+we compute uncertainties. There was one important detail common to both those
+computations that I glossed over earlier, and that I would like to revisit now.
+A reminder:
+
+- To compute a diff, I unproject $\vec q_0$ to a point in space $\vec p$ (in
+  camera coordinates), transform it, and project that back to the other camera
+  to get $\vec q_1$
+
+- To compute an uncertainty, I unproject $\vec q_0$ to (eventually) a point in
+  space $\vec p$ (in some global coordinate system), then project it back,
+  propagating all the uncertanties of all the quantities used to compute the
+  transformations and projection.
+
+The significant part is the specifics of "unproject $\vec q_0$". Unlike a
+projection operation, an /unprojection/ is ambiguous: given some
+camera-coordinate-system point $\vec p$ that projects to a pixel $\vec q$, we
+have $\vec q = \mathrm{project}\left(k \vec v\right)$ /for all/ $k$. So an
+unprojection gives you a direction, but no range. What that means in this case,
+is that we choose a range of interest when computing diffs or uncertainties. It
+only makes sense to talk about a "diff when looking at points $x$ meters away"
+or "the projection uncertainty when looking out to $x$ meters".
+
+A surprising consequence of this is that while /projection/ is invariant to
+scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty
+of this projection is /not/ invariant to this scaling:
+
+[[./projection-scale-invariance.svg]]
+
+Let's look at the projection uncertainty at the center of the imager at
+different ranges for the opencv8 model we computed earlier:
+
+#+begin_src sh
+mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.4]'
+#+end_src
+
+[[./uncertainty-vs-distance-at-center.svg]]
+
+So the uncertainty grows without bound as we approach the camera. As we move
+away, there's a sweet spot where we have maximum confidence. And as we move
+further out still, we approach some uncertainty asymptote at infinity.
+Qualitatively this is the figure I see 100% of the time, with the position of
+the minimum and of the asymptote varying.
+
+Why is the uncertainty unbounded as we approach the camera? Because we're
+looking at the projection of a stationary global point into a camera whose
+position is uncertain. As we get closer to the origin of the camera, the noise
+in the camera position dominates the projection, and the uncertainty shoots to
+infinity.
+
+What controls the range where we see the uncertainty optimum? The range where we
+observed the chessboards. I will prove this conclusively in the next section. It
+makes sense: the lowest uncertainty corresponds to the region where we have the
+most information.
+
+What controls the uncertainty at infinity? I don't have an intuitive answer, but
+we'll get a sense from experiments in the next section.
+
+This is a very important effect to characterize. In many applications the range
+of observations at calibration time will vary significantly from the working
+range post-calibration. For instance, any application involving wide lenses will
+use closeup calibration images, but working images from further out. We don't
+want to compute a calibration where the calibration-time uncertainty is
+wonderful, but the working-range uncertainty is poor.
+
+I should emphasize that while this is unintuitive, this effect that you might
+have a calibration that works well at one range, but very poorly at another
+range is very real. It isn't just something that you get out of some opaque
+equations, but it's observable in the field. Here're two real-world diffs of two
+calibrations computed off different observations from the same lens gathered one
+right after the other. The two models came from the same camera and lens at the
+same time, so in theory they should be identical. A diff at infinity:
+
+#+begin_src sh
+mrcal-show-projection-diff --unset key camera.cameramodel
+#+end_src
+
+[[./diff-l2-dance68-joint1-camera11-infinity.png]]
+
+And again at 0.5m (close to the range to the chessboards)
+
+#+begin_src sh
+mrcal-show-projection-diff --distance 0.5 --unset key camera.cameramodel
+#+end_src
+
+[[./diff-l2-dance68-joint1-camera11-0.5m.png]]
+
+Clearly the prediction that uncertainties are lowest at the chessboard range,
+and rise at infinity is borne out here by just looking at diffs, /without/
+computing uncertainty curves. I didn't have to look very hard to find
+calibrations that showed this, either. Any calibration from suboptimal
+chessboard images (see next section) shows this effect. I didn't use the
+calibrations from this document because they're too good to see this clearly.
+
+* Optimal choreography
+
+Now that we know how to measure calibration quality and what to look for, we can
+run some studies to figure out what makes a good chessboard dance. These are all
+computed by the =analyses/dancing/dance-study.py= tool. It generates synthetic
+data, scans a parameter, and produces the uncertainty-vs-range curves at the
+center to visualize the effect of that parameter.
+
+I run all of these studies using the opencv8 model computed above. It computes
+faster than the splined model, and qualitatively produces the similar results.
+
+How many chessboard observations should we get?
+
+#+begin_src sh
+dance-study.py --scan-Nframes --Ncameras 1 --Nframes 20,200 --range 0.5 board/opencv8.cameramodel --observed-pixel-uncertainty 2 --ymax 3
+#+end_src
+
+[[./dance-study-scan-Nframes.svg]]
+
+Here I'm running a monocular solve that looks at chessboards ~ 0.5m away,
+scanning the frame count from 20 to 200.
+
+The horizontal dashed line is the uncertainty of the input noise observations.
+Looks like we can usually do much better than that. The vertical dashed line is
+the mean distance where we observed the chessboards. Looks like the sweet spot
+is a bit past that.
+
+And it looks like more observations is always better, but we reach the point of
+diminishing returns at ~ 100 frames.
+
+OK. How close should the chessboards be?
+
+#+begin_src sh
+dance-study.py --scan-ranges --Ncameras 1 --Nframes 100 --range 0.4,10 board/opencv8.cameramodel --observed-pixel-uncertainty 2
+#+end_src
+
+[[./dance-study-scan-Nranges.svg]]
+
+This effect is /dramatic/: we want closeups. Anything else is far less useful.
+Here we have two vertical dashed lines, indicating the minimum and maximum
+ranges I'm scanning. And we can see, the the sweet spot for each trial moves
+further back as we move the chessboards back.
+
+Alrighty. Should the chessboards be shown head-on, or should they be tilted?
+
+#+begin_src sh
+dance-study.py --scan-tilts --tilt-radius 0,80 --Ncameras 1 --Nframes 100 --range 0.5 board/opencv8.cameramodel --observed-pixel-uncertainty 2 --ymax 0.8 --uncertainty-at-range-sampled-max 1.8
+#+end_src
+
+[[./dance-study-scan-tilts.svg]]
+
+The head-on views (tilt = 0) produce quite poor results. And we get more and
+more confidence with more board tilt, with diminishing returns at about 45
+degrees.
+
+We now know that we want closeups and we want tilted views. This makes intuitive
+sense: a tilted close-up view is the best-possible view to tell the solver
+whether the size of the observed chessboard is caused by the focal length of the
+lens or by the distance of the observation to the camera. The worst-possible
+observations for this are head-on far-away views. Given such observations,
+moving the board forward/backward and changing the focal length have a very similar effect on the observed pixels.
+
+Also this clearly tells us that /chessboards/ are the way to go, and a
+calibration object that contains a grid of circles will work badly. Circle grids
+work either by finding the centroid of each circle "blob" or by fitting a curve
+to the circle edge to infer the location of the center. A circle viewed from a
+tilted closeup will appear lopsided, so we have a choice of suffering a bias
+from imprecise circle detections or getting poor uncertainties from insufficient
+tilt.
+
+And let's do one more. Often we want to calibrate multiple cameras, and we are
+free to do one N-way calibration or N separate monocular calibrations or
+anything in-between. The former has more constraints, so presumably that would
+produce less uncertainty. How much?
+
+I'm processing the same calibration geometry, varying the number of cameras from
+1 to 8. The cameras are all in the same physical location, so they're all seeing
+the same thing (modulo the noise), but the solves have different numbers of
+parameters and constraints.
+
+#+begin_src sh
+dance-study.py --scan-Ncameras --Ncameras 1,8 --camera-spacing 0 --Nframes 100 --range 0.5 board/opencv8.cameramodel --ymax 0.4 --observed-pixel-uncertainty 2
+#+end_src
+
+[[./dance-study-scan-Ncameras.svg]]
+
+So clearly there's a benefit to more cameras. After about 4, we hit diminishing
+returns.
+
+Conclusions:
+
+- More frames are good
+- Closeups are /extremely/ important
+- Tilted views are good
+- A smaller number of bigger calibration problems is good
+
+None of this is surprising, but we can see the results from the data. And we now
+know /exactly/ how much value we get out of each additional observation or an
+extra little bit of board tilt.
+
+[[./observation-usefulness.svg]]
+
+* Stereo
+
+Finally, let's do some stereo processing. Originally mrcal wasn't intended to do
+this. But its generic capabilities in manipulating images, observations,
+geometry and lens models made the core stereo functionality straightforward to
+implement. So when I hit some problems with existing stereo tools, I added these
+functions to mrcal.
+
+** Formulation
+
+What does "stereo processing" mean? I do usual [[https://en.wikipedia.org/wiki/Epipolar_geometry][epipolar geometry]] thing:
+
+1. Ingest two camera models, each containing the intrinsics /and/ the relative
+   pose between the two cameras
+2. Given a pair of images captured by the two cameras I transform the images to
+   construct "rectified" images
+3. I perform "stereo matching", where I compare each row of the left rectified
+   image to the corresponding row of the right rectified image. For each pixel in
+   the left rectified image I try to find the corresponding pixel in the same row
+   of the right rectified image. The difference in columns is written to a
+   "disparity" image. This matching is the most computationally-intensive part of
+   the process
+4. I convert the "disparity" image to a "range" image using some basic geometry
+
+A crucial part of this is that everything observed in any given row in the left
+rectified image and everything observed in the /same/ row in the right rectified
+image all lies in the same plane in space. This allows for one-dimensional
+stereo-matching, which is a massive computational win over the two-dimensional
+matching that would be required with another formulation. We thus transform our
+images into the space of $\phi$ (the "elevation"; the tilt of the epipolar
+plane) and $\theta$ (the "azimuth"; the left/right angle inside the plane):
+
+[[./rectification.svg]]
+
+** Let's do it!
+
+We computed intrinsics earlier, so let's use these for stereo processing. I only
+use the splined model here.
+
+I took several images off [[https://www.openstreetmap.org/#map=19/34.05565/-118.25333][a catwalk over Figueroa St in downtown Los Angeles]].
+This is the view S along Figueroa St. There're tall buildings ahead and on
+either side, making for an interesting stereo scene.
+
+#+begin_src sh :exports none :eval no-export
+# all the images downsampled for view on the page like this
+for img ( data/figueroa-overpass-looking-S/{[01].jpg,[01]-reprojected-scale*.jpg,jplv-stereo-rect-*-scale*.png,rectified[01]-*.jpg,narrow-{left,right}.jpg,range-*.png,disparity-*.png} ) { convert $img -scale 12% ${img:t:r}.downsampled.${img:e} }
+#+end_src
+
+The two images out of the camera look like this:
+
+[[./data/figueroa-overpass-looking-S/0.jpg][file:0.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/1.jpg][file:1.downsampled.jpg]]
+
+All the full-size images are available by clicking on an image.
+
+The cameras are 7ft (2.1m) apart. In order to compute stereo images we need an
+accurate estimate of the geometry of the cameras. Usually we get this as an
+output of the calibration, but here I only had one camera to calibrate, so I
+don't have this geometry estimate. I used a separate tool to compute the
+geometry from corresponding feature detections. The details aren't important;
+for the purposes of this document we can assume that we did calibrate a stereo
+pair, and that's where the geometry came from. The resulting with-geometry
+models:
+
+- [[file:data/figueroa-overpass-looking-S/splined-0.cameramodel][camera 0]]
+- [[file:data/figueroa-overpass-looking-S/splined-1.cameramodel][camera 1]]
+
+#+begin_src sh :exports none :eval no-export
+
+# How did I make these? Like this!
+
+
+# I reprojected the images to a pinhole model
+
+for s (0.6 0.35) { for what (splined opencv8) { ~/jpl/mrcal/mrcal-reproject-image -f --to-pinhole --scale-focal $s data/board/$what.cameramodel data/figueroa-overpass-looking-S/[01].jpg | ~/jpl/mrcal/mrcal-to-cahvor > data/figueroa-overpass-looking-S/$what.pinhole.scale$s.cahvor; for c (0 1) { mv data/figueroa-overpass-looking-S/{$c-reprojected.jpg,$c.$what.pinhole.scale$s.jpg} } } }
+
+
+
+# Then I computed a few features on the pavement
+
+# Then I constructed a homography from those features using
+# cv2.findHomography(), and fed that to img-any to find lots of features on the
+# pavement:
+
+~/jpl/img_any/binsrc/feature_track -L0 -T2200 -C6000 -R1800 -M 2000 -H data/figueroa-overpass-looking-S/homography.initial.scale0.6.txt data/figueroa-overpass-looking-S/[01].opencv8.pinhole.scale0.6.jpg | vnl-filter 'Corner1>500' 'Feat1x>1000' 'Feat2x>1000' > data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl
+
+# Then I transformed those features back to the input image coords
+paste \
+  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat1x,Feat1y | ~/jpl/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor data/board/opencv8.cameramodel) \
+  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat2x,Feat2y | ~/jpl/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor data/board/opencv8.cameramodel) > \
+  data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl
+
+# And THEN I could use deltapose to compute extrinsics
+
+D=data/figueroa-overpass-looking-S;
+
+rm -f $D/{splined,opencv8}-{0,1}.cameramodel;
+
+for what (splined opencv8) { PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any LD_LIBRARY_PATH=/home/dima/jpl/mrcal ~/jpl/deltapose-lite/calibrate-extrinsics --skip-outlier-rejection \
+--correspondences <( < data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl vnl-filter 'y1<3200 && y2<3200') --regularization t --seedrt01 0 0 0 $((7.*12*2.54/100)) 0 0 --cam0pose identity --observed-pixel-uncertainty 1 data/board/$what.cameramodel{,} && zmv -W 'camera-*.cameramodel' $D/$what-\*.cameramodel }
+#+end_src
+
+I then use the mrcal APIs to compute rectification maps, rectify the images,
+compute disparities and convert them to ranges. This is done with [[file:stereo.py][=stereo.py=]]:
+
+#+begin_src python
+#!/usr/bin/python3
+import sys
+import mrcal
+import cv2
+import numpy as np
+
+# Read the models and images from the commandline arguments
+try:
+    models = [ mrcal.cameramodel(sys.argv[1]) if sys.argv[1] != '-' else None,
+               mrcal.cameramodel(sys.argv[2]) if sys.argv[2] != '-' else None, ]
+    images = [ cv2.imread(sys.argv[i]) \
+               for i in (3,4) ]
+    kind = sys.argv[5]
+except:
+    print(f"Usage: {sys.argv[0]} model0 model1 image0 image1 kind", file=sys.stderr)
+    sys.exit(1)
+
+if models[0] is None or models[1] is None:
+    images_rectified = images
+else:
+
+    # Annotate the image with its valid-intrinsics region. This will end up in the
+    # rectified images, and make it clear where successful matching shouldn't be
+    # expected
+    for i in range(2):
+        try:
+            mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
+        except:
+            pass
+
+    # Generate the rectification maps
+    if kind != "narrow":
+        azel_kwargs = dict(az_fov_deg = 145.,
+                           el_fov_deg = 135.,
+                           el0_deg    = 5 )
+    else:
+        azel_kwargs = dict(az_fov_deg = 80.,
+                           el_fov_deg = 80.,
+                           el0_deg    = 0 )
+    rectification_maps, cookie = \
+        mrcal.stereo_rectify_prepare(models, **azel_kwargs)
+
+    # Display the geometry of the two cameras in the stereo pair, and of the
+    # rectified system
+    Rt_cam0_stereo = cookie['Rt_cam0_stereo']
+    Rt_cam0_ref    = models[0].extrinsics_Rt_fromref()
+    Rt_stereo_ref  = mrcal.compose_Rt( mrcal.invert_Rt(Rt_cam0_stereo),
+                                      Rt_cam0_ref )
+    rt_stereo_ref  = mrcal.rt_from_Rt(Rt_stereo_ref)
+    mrcal.show_geometry( models + [ rt_stereo_ref ],
+                         ( "camera0", "camera1", "stereo" ),
+                         show_calobjects = False,
+                         _set            = 'xyplane at -0.5',
+                         hardcopy        = f'/tmp/stereo-geometry-{kind}.svg')
+
+    # Generate the rectified images, and write to disk
+    images_rectified = [mrcal.transform_image(images[i], rectification_maps[i]) for i in range(2)]
+    cv2.imwrite(f'/tmp/rectified0-{kind}.jpg', images_rectified[0])
+    cv2.imwrite(f'/tmp/rectified1-{kind}.jpg', images_rectified[1])
+
+# Perform stereo-matching with OpenCV to produce a disparity map, which we write
+# to disk
+block_size = 5
+max_disp   = 400
+max_disp = 16*round(max_disp/16) # round to nearest multiple of 16
+stereo = \
+    cv2.StereoSGBM_create(
+                          minDisparity      = 0,
+                          numDisparities    = max_disp,
+                          blockSize         = block_size,
+                          P1                = 8 *3*block_size*block_size,
+                          P2                = 32*3*block_size*block_size,
+                          uniquenessRatio   = 5,
+                          disp12MaxDiff     = 1,
+                          speckleWindowSize = 200,
+                          speckleRange      = 2 )
+disparity = stereo.compute(*images_rectified)
+cv2.imwrite(f'/tmp/disparity-{kind}.png',
+            mrcal.apply_color_map(disparity,
+                                  0, max_disp*16.))
+
+if models[0] is not None and models[1] is not None:
+    # Convert the disparity image to ranges, and write to disk
+    r = mrcal.stereo_range( disparity_pixels = disparity.astype(np.float32) / 16.,
+                            ,**cookie )
+    cv2.imwrite(f'/tmp/range-{kind}.png', mrcal.apply_color_map(r, 5, 1000))
+#+end_src
+
+We run it like this:
+
+#+begin_src sh
+python3 stereo.py data/figueroa-overpass-looking-S/splined-[01].cameramodel data/figueroa-overpass-looking-S/[01].jpg splined
+#+end_src
+
+The rectified images look like this:
+
+[[./data/figueroa-overpass-looking-S/rectified0-splined.jpg][file:rectified0-splined.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/rectified1-splined.jpg][file:rectified1-splined.downsampled.jpg]]
+
+And the disparity and range images looks like this:
+
+[[./data/figueroa-overpass-looking-S/disparity-splined.png][file:disparity-splined.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/range-splined.png][file:range-splined.downsampled.png]]
+
+Clearly this is working well.
+
+If you've used other stereo libraries previously, these rectified images may
+look odd. In mrcal I currently produce images that sample the azimuth and
+elevation angles evenly. This is nice for one-dimensional stereo-matching: I can
+shift the azimuths, and pixels in the two rectified-image rows will still line
+up. A side-effect is the the vertical expansion in the rectified image at the
+azimuth extremes. More or less we look at each row in the rectified image in
+isolation, so this is OK. Some other implementations use un-even azimuth
+spacing, which can't be good for matching performance.
+
+*** ranged pixels ground-truth                                     :noexport:
+**** Buildings
+
+top of Paul Hastings building. 530m away horizontally, 200m vertically: 566m away
+https://en.wikipedia.org/wiki/City_National_Plaza
+
+top of 7th/metro building at 7th/figueroa: 860m horizontally, 108m vertically: 870m
+Figueroa Tower
+https://www.emporis.com/buildings/116486/figueroa-tower-los-angeles-ca-usa
+
+
+Top of library tower at 5th/figueroa. 513m horizontally, 300m vertically: 594
+
+Near the top of the wilshire grand: 825m horizontall 250m vertically: 862
+http://www.skyscrapercenter.com/building/wilshire-grand-center/9686
+
+Near the top of the N Wells Fargo plaza building. 337m horizontally, 220m vertically: 402m
+https://en.wikipedia.org/wiki/Wells_Fargo_Center_(Los_Angeles)
+
+Los Angeles Center studios ~ 50m tall, on a hill. 520m horizontally: 522m
+
+
+333 S Beaudry building. 291m horizontally 111m vertically: 311m
+https://www.emporis.com/buildings/116570/beaudry-center-los-angeles-ca-usa
+
+**** tests
+
+Command to test all the ranges
+
+#+begin_src sh :exports none :eval no-export
+what=opencv8; (
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 2874 1231 --range-estimate 566 --searchradius 10
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 2968 1767 --range-estimate 870 --searchradius 10
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 1885 864  --range-estimate 594 --searchradius 10
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 3090 1384 --range-estimate 862 --searchradius 10
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg  541  413 --range-estimate 402 --searchradius 10
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 4489 1631 --range-estimate 522 --searchradius 10
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 5483  930 --range-estimate 311 --searchradius 10
+PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 5351  964 --range-estimate 311 --searchradius 10
+) | egrep 'q1|Range'
+#+end_src
+
+=tst.py= to just look at a set of ranged features, and to compute the extrinsics
+with a simple procrustes fit. Bypasses deltapose entirely. Works ok, but not
+amazingly well
+
+#+begin_src python :exports none :eval no-export
+#!/usr/bin/python3
+
+import sys
+import numpy as np
+import numpysane as nps
+
+sys.path[:0] = '/home/dima/jpl/mrcal',
+sys.path[:0] = '/home/dima/jpl/deltapose-lite',
+sys.path[:0] = '/home/dima/jpl/img_any',
+import mrcal
+
+model_intrinsics = mrcal.cameramodel('data/board/splined.cameramodel')
+t01              = np.array((7.*12*2.54/100, 0, 0))  # 7ft separation on the x
+
+xy_xy_range = \
+    np.array((
+
+        (2874, 1231, 2831.68164062, 1233.9498291,  566.0),
+        (2968, 1767, 2916.48388672, 1771.91601562, 870.0),
+        (1885, 864,  1851.86499023, 843.52398682,  594.0),
+        (3090, 1384, 3046.8894043,  1391.49401855, 862.0),
+        (541,  413,  513.77832031,  355.37588501,  402.0),
+        (4489, 1631, 4435.24023438, 1665.17492676, 522.0),
+        (5483, 930,  5435.96582031, 987.39813232,  311.0),
+        (5351, 964,  5304.21630859, 1018.49682617, 311.0),
+
+        # Ranged pavement points. These don't appear to help
+        (3592.350428, 3199.133514, 3198.330034, 3227.890159, 14.6),
+        (3483.817362, 3094.172913, 3117.605605, 3115.684005, 15.76),
+ ))
+
+xy_xy = None
+#xy_xy = np.array(( (3483.817362, 3094.172913,	3117.605605, 3115.684005),))
+
+
+
+
+
+q0 = xy_xy_range[:,0:2]
+q1 = xy_xy_range[:,2:4]
+r  = xy_xy_range[:,(4,)]
+
+# Points observed by camera0, represented in camera1 frame
+p0 = mrcal.unproject(q0, *model_intrinsics.intrinsics(), normalize=True)*r - t01
+
+# The unit observation vectors from the two cameras, observed in camera1. These
+# must match via a rotation
+v0 = p0 / nps.dummy(nps.mag(p0), -1)
+v1 = mrcal.unproject(q1, *model_intrinsics.intrinsics(), normalize=True)
+
+R01  = mrcal.align_procrustes_vectors_R01(v0,v1)
+Rt01 = nps.glue(R01, t01, axis=-2)
+
+
+if xy_xy is not None:
+    import deltapose_lite
+    rt10 = mrcal.rt_from_Rt(mrcal.invert_Rt(Rt01))
+    p = \
+        deltapose_lite.compute_3d_intersection_lindstrom(rt10,
+                                                         model_intrinsics.intrinsics(),
+                                                         model_intrinsics.intrinsics(),
+                                                         xy_xy[:,0:2],
+                                                         xy_xy[:,2:4],)
+    print(nps.mag(p))
+    sys.exit()
+
+
+model0 = mrcal.cameramodel(model_intrinsics)
+model0.extrinsics_Rt_toref(mrcal.identity_Rt())
+model0.write('/tmp/0.cameramodel')
+
+model1 = mrcal.cameramodel(model_intrinsics)
+model1.extrinsics_Rt_toref( Rt01 )
+model1.write('/tmp/1.cameramodel')
+#+end_src
+
+** Stereo rectification outside of mrcal
+
+What if we want to do our stereo processing with some other tool, and what if
+that tool doesn't support the splined model we want to use? We can use mrcal to
+reproject the image to whatever projection we like, and then hand off the
+processed image and new models to that tool. Let's demonstrate with a pinhole
+model.
+
+We can use the =mrcal-reproject-image= tool to reproject the images. Mapping
+fisheye images to a pinhole model introduces an unwinnable trade-off: the
+angular resolution changes dramatically as you move towards the edges of the
+image. At the edges the angular resolution becomes tiny, and you need far more
+pixels to represent the same arc in space as you do in the center. So you
+usually need to throw out pixels in the center, and gain low-information pixels
+at the edges (the original image doesn't have more resolutions at the edges, so
+we interpolate). Cutting off the edges (i.e. using a narrower lens) helps bring
+this back into balance.
+
+So let's do this using two different focal lengths:
+
+- =--scale-focal 0.35=: fairly wide. Looks extreme in a pinhole projection
+- =--scale-focal 0.6=: not as wide. Looks more reasonable in a pinhole
+  projection, but we cut off big chunks of the image at the edges
+
+#+begin_src sh
+for scale in 0.35 0.6; do
+  for c in 0 1; do
+    mrcal-reproject-image                                                      \
+      --valid-intrinsics-region                                                \
+      --to-pinhole                                                             \
+      --scale-focal $scale                                                     \
+      data/figueroa-overpass-looking-S/splined-$c.cameramodel                  \
+      data/figueroa-overpass-looking-S/$c.jpg                                  \
+    | mrcal-to-cahvor                                                          \
+    > data/figueroa-overpass-looking-S/splined-$c.scale$scale.cahvor;
+
+    mv data/figueroa-overpass-looking-S/$c-reprojected{,-scale$scale}.jpg;
+  done
+done
+#+end_src
+
+As a demo, let's use jplv to process these pinhole-images into a stereo map.
+That library uses the =.cahvor= file format to store camera models, so I did a
+conversion above.
+
+The wider pinhole resampling of the two images:
+
+[[./data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:0-reprojected-scale0.35.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:1-reprojected-scale0.35.downsampled.jpg]]
+
+The narrower resampling of the two images:
+
+[[./data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:0-reprojected-scale0.6.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:1-reprojected-scale0.6.downsampled.jpg]]
+
+And the camera models:
+
+- [[file:data/figueroa-overpass-looking-S/splined-0.scale0.35.cahvor][camera 0, wider scaling]]
+- [[file:data/figueroa-overpass-looking-S/splined-1.scale0.35.cahvor][camera 1, wider scaling]]
+- [[file:data/figueroa-overpass-looking-S/splined-0.scale0.6.cahvor][camera 0, narrower scaling]]
+- [[file:data/figueroa-overpass-looking-S/splined-1.scale0.6.cahvor][camera 1, narrower scaling]]
+
+Both clearly show the uneven resolution described above. I can now use these
+images to compute stereo with jplv:
+
+#+begin_src sh
+for scale in 0.35 0.6; do \
+  stereo --no-ran --no-disp --no-pre --corr-width 5 --corr-height 5 --blob-area 10 --disp-min 0 --disp-max 400 \
+    data/figueroa-overpass-looking-S/splined-[01].scale$scale.cahvor \
+    data/figueroa-overpass-looking-S/[01]-reprojected-scale$scale.jpg;
+
+  for f in rect-left rect-right diag-left; do \
+    mv 00-$f.png data/figueroa-overpass-looking-S/jplv-stereo-$f-scale$scale.png;
+  done
+done
+#+end_src
+
+The rectified images look like this.
+
+For the wider mapping:
+
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:jplv-stereo-rect-left-scale0.35.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:jplv-stereo-rect-right-scale0.35.downsampled.png]]
+
+For the narrow mapping:
+
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:jplv-stereo-rect-left-scale0.6.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:jplv-stereo-rect-right-scale0.6.downsampled.png]]
+
+The bottom is cut-off in these images; this is probably a bug in jplv.
+
+The above command gave me jplv's computed disparities, but to compare
+apples-to-apples, let's re-compute them using the same opencv routine from
+above:
+
+#+begin_src sh
+python3 stereo.py - - data/figueroa-overpass-looking-S/jplv-stereo-rect-{left,right}-scale0.35.png jplv-scale0.35
+python3 stereo.py - - data/figueroa-overpass-looking-S/jplv-stereo-rect-{left,right}-scale0.6.png  jplv-scale0.6
+#+end_src
+
+[[./data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:disparity-jplv-scale0.35.downsampled.png]]
+
+[[./data/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:disparity-jplv-scale0.6.downsampled.png]]
+
+Looks reasonable.
+
+** Splitting a wide view into multiple narrow views
+
+Another way to resolve the geometric challenges of wide-angle lenses would be to
+subdivide the wide field of view into multiple narrower virtual lenses. Then
+you'd have several narrow-angle stereo pairs instead of a single wide stereo
+pair. And any existing stereo library that works with narrow views only would
+then become an option.
+
+mrcal makes it easy to make the necessary transformations, so let's do it. For
+each image we need to construct
+
+- The narrow pinhole model we want that looks at the area we want to (to the
+  left in this example)
+- The image of the scene that such a model would have observed
+
+This requires writing a little bit of code, but mrcal makes it easy.
+[[file:narrow-section.py][=narrow-section.py=]]:
+
+#+begin_src python
+#!/usr/bin/python3
+import sys
+import mrcal
+import cv2
+import numpy as np
+
+# Read the model and image from the commandline arguments
+try:
+    model   = mrcal.cameramodel(sys.argv[1])
+    image   = cv2.imread(sys.argv[2])
+    yaw_deg = float(sys.argv[3])
+    what    = sys.argv[4]
+
+except:
+    print(f"Usage: {sys.argv[0]} model image yaw_deg what", file=sys.stderr)
+    sys.exit(1)
+
+# I want a pinhole model to cover the middle 1/3rd of my pixels
+W,H = model.imagersize()
+fit_points = \
+    np.array((( W/3.,    H/3.),
+              ( W*2./3., H/3.),
+              ( W/3.,    H*2./3.),
+              ( W*2./3., H*2./3.)))
+
+model_pinhole = \
+    mrcal.pinhole_model_for_reprojection(model,
+                                         fit         = fit_points,
+                                         scale_image = 0.5)
+
+# yaw transformation: pure rotation around the y axis
+rt_yaw = np.array((0., yaw_deg*np.pi/180., 0,  0,0,0))
+
+# apply the extra yaw transformation to my extrinsics
+model_pinhole.extrinsics_rt_toref( \
+    mrcal.compose_rt(model_pinhole.extrinsics_rt_toref(),
+                     rt_yaw) )
+
+mapxy = mrcal.image_transformation_map(model, model_pinhole,
+                                       use_rotation = True)
+
+image_transformed = mrcal.transform_image(image, mapxy)
+
+cv2.imwrite(f'/tmp/narrow-{what}.jpg', image_transformed)
+model_pinhole.write(f'/tmp/pinhole-narrow-yawed-{what}.cameramodel')
+#+end_src
+
+And let's run that for each of my images:
+
+#+begin_src sh
+python3 narrow-section.py data/figueroa-overpass-looking-S/splined-0.cameramodel data/figueroa-overpass-looking-S/0.jpg -45 left
+
+python3 narrow-section.py data/figueroa-overpass-looking-S/splined-1.cameramodel data/figueroa-overpass-looking-S/1.jpg -45 right
+#+end_src
+
+The images look like this:
+
+[[./data/figueroa-overpass-looking-S/narrow-left.jpg][file:narrow-left.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/narrow-right.jpg][file:narrow-right.downsampled.jpg]]
+
+Note that these are pinhole images, but the field of view is much more narrow,
+so they look reasonable. The corresponding pinhole models:
+
+- [[file:data/figueroa-overpass-looking-S/pinhole-narrow-yawed-left.cameramodel][left]]
+- [[file:data/figueroa-overpass-looking-S/pinhole-narrow-yawed-right.cameramodel][right]]
+
+We can feed these to the =stereo.py= tool as before:
+
+#+begin_src sh
+python3 stereo.py                                                                \
+  data/figueroa-overpass-looking-S/pinhole-narrow-yawed-{left,right}.cameramodel \
+  data/figueroa-overpass-looking-S/narrow-{left,right}.jpg                       \
+  narrow
+#+end_src
+
+Here we have slightly non-trivial geometry, so it is instructive to visualize it
+(the =stereo.py= tool does this):
+
+[[file:stereo-geometry-narrow.svg]]
+
+Here we're looking at the left and right cameras in the stereo pair, /and/ at
+the axes of the stereo system. Now that we have rotated each camera to look to
+the left, the baseline is no longer perpendicular to the central axis of each
+camera. The stereo system is still attached to the baseline, however. That means
+that azimuth = 0 no longer corresponds to the center of the view. We don't need
+to care, however: =mrcal.stereo_rectify_prepare()= figures that out, and
+compensates.
+
+And we get nice-looking rectified images:
+
+[[./data/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:rectified0-narrow.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:rectified1-narrow.downsampled.jpg]]
+
+And disparity and range images:
+
+[[./data/figueroa-overpass-looking-S/disparity-narrow.png][file:disparity-narrow.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/range-narrow.png][file:range-narrow.downsampled.png]]
+
+And this is despite running pinhole-reprojected stereo from a very wide lens.
+
+Don't try this in jplv, however: it has a bug in its rectification function, and
+can't handle the misalignment present in this geometry.
+
+** Range accuracy
+A good punchline to all this would be to show that we can now get great ranges,
+and the splined model does better than the opencv8 model. I'm not reporting this
+because the full propagation of uncertainty from the calibration to the
+extrinsics estimation to ranging isn't implemented yet. And until that is done,
+the results are only easily interpretable if the splined model does 1000 times
+better, which it does not. I will write that eventually.
+

@@ -1,0 +1,879 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+title: mrcal - a toolkit for manipulating cameras, projections and geometry
+#+date: <2020-11-19 Thu>
+#+author: Dima Kogan
+#+email: dima@secretsauce.net
+#+language: en
+#+select_tags: export
+#+exclude_tags: noexport
+#+creator: Emacs 28.0.50 (Org mode 9.3)
+
+* Intro
+mrcal is a toolkit for working with lens models, camera geometry, images,
+projections, and the various related operations such as camera calibration. This
+toolkit was originally built to produce high-accuracy calibrations demanded by
+long-range stereo, so it provides facilities to analyze the results and to track
+down sources of error.
+
+mrcal provides a routine to compute the "difference" between two models, which
+can be a fundamental piece of a wide number of analyses, for instance to measure
+a lens's response to temperature cycles
+
+mrcal provides estimates of projection uncertainty, which can be used to gauge
+calibration quality, and to compute the uncertainty of any data products that
+use the lens model.
+
+A rich, splined lens model is available to fit any projection function and to
+provide realistic uncertainty estimates.
+
+Finally, there're lots of visualization facilities to make it easier to
+interpret the results.
+
+The core functionality is exposed from a [[file:xxx][C API]], while higher-level routines are
+available through [[file:xxx/mrcal-python-api.html][Python]]. The most common workflows are available as commandline
+tools, with no coding required.
+
+Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
+toolkit.
+
+* Terminology
+calibration object
+boards
+frames
+sfm
+intrinsics
+extrinsics
+state
+measurements
+residual
+project
+cameramodel = lens parameters and geometry
+
+* Conventions
+
+notational and otherwise
+
+Some notational conventions are used throught the code and documentation, and
+they're explicitly described here.
+
+** Implementation
+
+Python wrapping C. numpysane_pywrap
+
+numpy, numpysane, broadcasting, gnuplotlib
+
+images are indexed by (y,x)
+
+opencv python only. no opencv c bindings
+
+** Symbols
+*** Geometry
+- $\vec q$ is a 2-dimensional vector representing a pixel coordinate: $\left( x,y \right)$
+
+- $\vec v$ is a 3-dimensional vector representing a /direction/ $\left( x,y,z
+  \right)$ in space. $\vec v$ is only defined up-to-length. In a camera's
+  coordinate system we have $\vec q = \mathrm{project}\left(\vec v)\right$
+
+- $\vec p$ is a 3-dimensional vector representing a /point/ $\left( x,y,z
+  \right)$ in space. Unlike $\vec v$, $\vec p$ has a defined range. Like $\vec
+  v$ we have $\vec q = \mathrm{project}\left(\vec p)\right$
+
+*** Optimization
+The core of the mrcal calibration routine is a nonlinear least-squares
+optimization
+
+\[
+\min_{\vec p} E = \min_{\vec p} \left \Vert \vec x \left( \vec p \right) \right \Vert ^2
+\]
+
+Here we have
+
+- $\vec p$ is the vector of parameters being optimized. It's clear from context
+  whether $\vec p$ refers to some point in space, or the optimization vector.
+
+- $\vec x$ is the vector of /measurements/ describing the error of the solution
+  at some hypothesis $\vec p$
+
+- $\vec E$ is the cost function being optimized. $E \equiv \left \Vert \vec x \right \Vert ^2$
+
+- $\vec J$ is the /jacobian/ matrix. This is the matrix $\frac{ \partial \vec x
+  }{ \partial \vec p }$ 
+
+** Camera coordinate system
+
+No convention is assumed for the world coordinate system. The canonical /camera/
+coordinate system has =x,y= as with pixel coordinates in an image: =x= is to the
+"right" and =y= is "down". =z= is then "forward" to complete the right-handed
+system of coordinates.
+
+** Transformations
+We describe transformations as mappings between a representation of a point in
+one coordinate system to a representation of the /same/ point in another
+coordinate system. =T_AB= is a transformation from coordinate system =B= to
+coordinate system =A=. These chain together nicely, so if we know the
+transformation between =A= and =B= and between =B= and =C=, we can transform a
+point represented in =C= to =A=: =x_A = T_AB T_BC x_C = T_AC x_C=. And =T_AC =
+T_AB T_BC=.
+
+** Poses
+
+Various parts of the toolkit have preferred representations of pose, and mrcal
+has functions to convert between them. Available representations are:
+
+- =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
+  (1,3) translation vector. This form is easy to work with, but there are
+  implied constraints: most (4,3) numpy arrays are /not/ valid =Rt=
+  transformations.
+
+- =rt=: a (6,) numpy array with a (3,) vector representing a Rodrigues rotation
+  concatenated with another (3,) vector, representing a rotation. This form
+  requires more computations to deal with, but has no implied constraints: /any/
+  (6,) numpy array is a valid =rt= transformation. Thus this is the form used
+  inside the mrcal optimization routine.
+
+Each of these represents a transformation =rotate(x) + t=.
+
+Since a pose represents a transformation between two coordinate systems, the
+toolkit generally refers to a pose as something like =Rt_AB=, which is an
+=Rt=-represented transformation to convert a point from a representation in the
+coordinate system =B= to a representation in coordinate system =A=.
+
+A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
+around an axis in the direction =r=. Converting between =R= and =r= is done via
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]: using the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-r_from_R][=mrcal.r_from_R()=]] and
+[[file:~/jpl/mrcal/doc/mrcal-python-api.html#-R_from_r][=mrcal.R_from_r()=]] functions. For translating /poses/, not just rotations, use
+[[file:~/jpl/mrcal/doc/mrcal-python-api.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
+
+There're [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-R_from_quat][several]] [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-quat_from_R][functions]] to work with unit quaternions as a rotation
+representation, but they're lightly used, and exist only for compatibility with
+other tools. mrcal does not use quaternions.
+
+* Camera model file formats
+
+Reading/writing camera models is done in Python with the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]]
+class. This class supports two different file formats:
+
+- =.cameramodel=: the preferred format. This is a plain text representation of a
+  Python =dict=. The pose is represented internally as =rt_fromref=: an =rt=
+  transformation /from/ the reference coordinate system /to/ the coordinate
+  system of this camera. That is the /internal/ representation: the class
+  provides methods to get the transformation in any form.
+
+- =.cahvor=: the alternative format available for compatibility with existing
+  tools. If you don't need to interoperate with tools that require this format,
+  there's little reason to use it. This format cannot store [[file:xxx][splined models]] or
+  the auxillary data required for the [[file:xxx][uncertainty computations]]
+
+The [[file:~/jpl/mrcal/doc/mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
+based on the filename. The file format is just a way to store data: both the
+CAHVOR and OpenCV lens models can be stored in either file format. The
+[[file:xxx][=mrcal-to-cahvor=]] and [[file:xxx][=mrcal-to-cameramodel=]] tools can be used to convert
+between the two file formats.
+
+The class (and its representation on disk) contains:
+
+- The lens parameters
+- The pose of the camera in space
+- The =optimization_inputs=: the data used to compute the model initially. Used
+  for the uncertainty computations
+
+See the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#cameramodel][API documentation]] for usage details. A trivial example to
+
+- read two models from disk
+- recombine into a joint model that uses the lens parameters from one model with
+  geometry from the other
+- write to disk
+
+#+begin_src python
+model_for_intrinsics = mrcal.cameramodel('model0.cameramodel')
+model_for_extrinsics = mrcal.cameramodel('model1.cameramodel')
+
+model_joint = mrcal.cameramodel( model_for_intrinsics )
+
+extrinsics = model_for_extrinsics.extrinsics_rt_fromref()
+model_joint.extrinsics_rt_fromref(extrinsics)
+
+model_joint.write('model-joint.cameramodel')
+#+end_src
+
+This is the basic operation of the [[file:xxx][=mrcal-graft-models= tool]].
+
+* Lens models
+mrcal supports a wide range of lens models. The full set of supported models is
+returned by the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-supported_lensmodels][=mrcal.supported_models()=]] function. At the time of this writing
+the supported models are:
+
+- =LENSMODEL_PINHOLE=
+- =LENSMODEL_STEREOGRAPHIC=
+- =LENSMODEL_SPLINED_STEREOGRAPHIC_...=
+- =LENSMODEL_OPENCV4=
+- =LENSMODEL_OPENCV5=
+- =LENSMODEL_OPENCV8=
+- =LENSMODEL_OPENCV12=
+- =LENSMODEL_CAHVOR=
+- =LENSMODEL_CAHVORE=
+
+In Python, the models are represented as one of the above strings. The =...=
+above means that this models has /configuration parameters/ that would replace
+the =...=. These specific for each kind of model, and currently only the [[file:xxx][splined
+stereographic models]] have any configuration. The number of parameters needed to
+fully describe a lens of a given model can be obtained by calling
+[[file:~/jpl/mrcal/doc/mrcal-python-api.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[file:xxx][=mrcal_lensmodel_num_params()=]] in C.
+Any configuration /must/ be included.
+
+In C, the raw type of model is represented by the =mrcal_lensmodel_type_t= enum.
+The model type /and/ the configuration are represented by =mrcal_lensmodel_t=.
+
+The pinhole and stereographic models are very simple, and are usually used as
+part of data processing pipelines rather than trying to represent real-world
+lenses. The splined stereographic model is [[file:xxx][described in great detail later]]. This
+is the recommended lens model to get the most fidelity and reliable [[file:xxx][uncertainty
+estimates]].
+
+The CAHVOR(E) and OpenCV lens models are supported by many other tools, so mrcal
+also supporting them provides interoperability. These are much leaner than the
+splined models, so they have many fewer parameters. Thus they need far less
+computation, but they're not as good at representing arbitrary lenses, and they
+provide overly-optimistic [[file:xxx][uncertainty estimates]].
+
+CAHVORE is only partially supported: lensmodel parameter gradients aren't
+implemented, so it isn't currently possible to solve for a CAHVORE model. Full
+support may be added in the future.
+
+* Calibration object
+This is called a "chessboard" or just "board" in some parts of the code.
+
+When running a camera calibration, we use observations of a known-geometry
+object. Usually this object is a chessboard-like grid of black and white
+squares, where the corners between the squares are detected, and serve as the
+input features to mrcal. mrcal is a purely geometrical toolkit, so this vision
+problem must be handled by another library. I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]], but any
+source of grid observations can be used.
+
+Chessboards are recommended, in contrast to grids of circles, which are strongly
+discouraged. Precisely extracting the center of an observed circle from a tilted
+observation that is also subjected to lens distortion is very difficult, which
+will introduce biases into the resulting calibrations. Analysis [[file:xxx][here]].
+
+* Usage manual (commandline tools)
+** How to run a calibration
+talk about --seed and how that can be used to validate intrinsics
+
+*** Tutorial
+If all you want to do is run a calibration, read this section first.
+
+You need to get observations of a grid of points. This tool doesn't dictate
+exactly how these observations are obtained, but the recommended way to do that
+is to use mrgingham (http://github.com/dkogan/mrgingham). This documentation
+assumes that's what is being done.
+
+See the mrgingham documentation for a .pdf of a chessboard pattern. This pattern
+should be printed (at some size; see below) and mounted onto a RIGID and FLAT
+surface to produce the calibration object. The most useful observations are
+close-ups: views that cover as much of the imager as possible. Thus you
+generally a large printout of the chessboard pattern. If you're calibrating a
+wide lens then this is especially true: the wider the lens, the larger an object
+needs to be in order to cover the field of view.
+
+Now that we have a calibration object, this object needs to be shown to the
+camera(s) to produce the images that mrgingham will use to find the corner
+coordinates, which mrcal will then use in its computations.
+
+It is important that the images contain clear corners. If the image is badly
+overexposed, the white chessboard squares will bleed into each other, the
+adjoining black squares will no longer touch each other in the image, and there
+would be no corner to detect. Conversely, if the image is badly underexposed,
+the black squares will bleed into each other, which would also destroy the
+corner. mrgingham tries to handle a variety of lighting conditions, including
+varying illumination across the image, but the corners must exist in the image
+in some form. A fundamental design decision in mrgingham is to only output
+chessboards that we are very confident in, and a consequence of this is that
+mrgingham requires the WHOLE chessboard to be visible in order to produce any
+results. Thus it requires a bit of effort to produce any data at the edges and
+in the corners of the imager: if even a small number of the chessboard corners
+are out of bounds, mrgingham will not detect the chessboard at all. A live
+preview of the calibration images being gathered is thus essential to aid the
+user in obtaining good data. Another requirement due to the design of mrgingham
+is that the board should be held with a flat edge parallel to the camera xz
+plane (parallel to the ground, usually). mrgingham looks for vertical and
+horizontal sequences of corners, but if the board is rotated diagonally, then
+none of these sequences are "horizontal" or "vertical", but they're all
+"diagonal", which isn't what mrgingham is looking for.
+
+The most useful observations to gather are
+
+- close-ups: the chessboard should fill the whole frame as much as possible
+
+- oblique views: tilt the board forward/back and left/right. I generally tilt by
+  more than 45 degrees. At a certain point the corners become indistinct and
+  mrgingham starts having trouble, but depending on the lens, that point could
+  come with quite a bit of tilt.
+
+- If you are calibrating multiple cameras, and they are synchronized, you can
+  calibrate them all at the same time, and obtain intrinsics AND extrinsics. In
+  that case you want frames where multiple cameras see the calibration object at
+  the same time. Depending on the geometry, it may be impossible to place a
+  calibration object in a location where it's seen by all the cameras, AND where
+  it's a close-up for all the cameras at the same time. In that case, get
+  close-ups for each camera individually, and get observations common to
+  multiple cameras, that aren't necessarily close-ups. The former will serve to
+  define your camera intrinsics, and the latter will serve to define your
+  extrinsics (geometry).
+
+A dataset composed primarily of tilted closeups will produce good results. It is
+better to have more data rather than less. mrgingham will throw away frames
+where no chessboard can be found, so it is perfectly reasonable to grab too many
+images with the expectation that they won't all end up being used in the
+computation.
+
+I usually aim for about 100 usable frames, but you can often get away with far
+fewer. The mrcal confidence feedback (see below) will tell you if you need more
+data.
+
+Once we have gathered input images, we can run the calibration procedure:
+
+  mrcal-calibrate-cameras
+    --corners-cache corners.vnl
+    -j 10
+    --focal 2000
+    --object-spacing 0.1
+    --object-width-n 10
+    --outdir /tmp
+    --lensmodel LENSMODEL_OPENCV8
+    --observed-pixel-uncertainty 1.0
+    --explore
+    'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
+
+You would adjust all the arguments for your specific case.
+
+The first argument says that the chessboard corner coordinates live in a file
+called "corners.vnl". If this file exists, we'll use that data. If that file
+does not exist (which is what will happen the first time), mrgingham will be
+invoked to compute the corners from the images, and the results will be written
+to that file. So the same command is used to both compute the corners initially,
+and to reuse the pre-computed corners with subsequent runs.
+
+'-j 10' says to spread the mrgingham computation across 10 CPU cores. This
+command controls mrgingham only; if 'corners.vnl' already exists, this option
+does nothing.
+
+'--focal 2000' says that the initial estimate for the camera focal lengths is
+2000 pixels. This doesn't need to be precise at all, but do try to get this
+roughly correct if possible. Simple geometry says that
+
+  focal_length = imager_width / ( 2 tan (field_of_view_horizontal / 2) )
+
+--object-spacing is the width of each square in your chessboard. This depends on
+the specific chessboard object you are using. --object-width-n is the corner
+count of the calibration object. Currently mrgingham more or less assumes that
+this is 10.
+
+--outdir specifies the directory where the output models will be written
+
+--lensmodel specifies which lens model we're using for the cameras.
+At this time all OpenCV lens models are supported, in addition to
+LENSMODEL_CAHVOR. The CAHVOR model is there for legacy compatibility only. If
+you're not going to be using these models in a system that only supports CAHVOR,
+there's little reason to use it. If you use a model that is too lean
+(LENSMODEL_PINHOLE or LENSMODEL_OPENCV4 maybe), the model will not fit the data,
+especially at the edges; the tool will tell you this. If you use a model that is
+too rich (something crazy like LENSMODEL_OPENCV12), then you will need much
+more data than you normally would. Most lenses I've seen work well with
+LENSMODEL_OPENCV4 or LENSMODEL_OPENCV5 or LENSMODEL_OPENCV8; wider lenses
+need richer models.
+
+'--observed-pixel-uncertainty 1.0' says that the x,y corner coordinates reported
+by mrgingham are distributed normally, independently, and with the standard
+deviation as given in this argument. There's a tool to compute this value
+empirically, but it needs more validation. For now pick a value that seems
+reasonable. 1.0 pixels or less usually makes sense.
+
+--explore says that after the models are computed, a REPL should be open so that
+the user can look at various metrics describing the output; more on this
+later.
+
+After all the options, globs describing the images are passed in. Note that
+these are GLOBS, not FILENAMES. So you need to quote or escape each glob to
+prevent the shell from expanding it. You want one glob per camera; in the above
+example we have 3 cameras. The program will look for all files matching the
+globs, and filenames with identical matched strings are assumed to have been
+gathered at the same instant in time. I.e. if in the above example we found
+frame003-camera0.png and frame003-camera1.png, we will assume that these two
+images were time-synchronized. If your capture system doesn't have
+fully-functional frame syncronization, you should run a series of monocular
+calibrations. Otherwise the models won't fit well (high reprojection errors
+and/or high outlier counts) and you might see a frame with systematic
+reprojection errors where one supposedly-synchronized camera's observation pulls
+the solution in one direction, and another camera's observation pulls it in
+another.
+
+When you run the program as given above, the tool will spend a bit of time
+computing (usually 10-20 seconds is enough, but this is highly dependent on the
+specific problem, the amount of data, and the computational hardware). When
+finished, it will write the resulting models to disk, and open a REPL (if
+--explore was given). The resulting filenames are "camera-N.cameramodel" where N
+is the index of the camera, starting at 0. The models contain the intrinsics and
+extrinsics, with camera-0 sitting at the reference coordinate system.
+
+When the solve is completed, you'll see a summary such as this one:
+
+    RMS reprojection error: 0.3 pixels
+    Worst reprojection error: 4.0 pixels
+    Noutliers: 7 out of 9100 total points: 0.1% of the data
+
+The reprojection errors should look reasonable given your
+--observed-pixel-uncertainty. Since any outliers will be thrown out, the
+reported reprojection errors will be reasonable.
+
+Higher outlier counts are indicative of some/all of these:
+
+- Errors in the input data, such as incorrectly-detected chessboard corners, or
+  unsynchronized cameras
+
+- Badly-fitting lens model
+
+A lens model that doesn't fit isn't a problem in itself. The results will
+simply not be reliable everywhere in the imager, as indicated by the uncertainty
+and residual metrics (see below)
+
+With --explore you get a REPL, and a message that points out some useful
+functions. Generally you want to start with
+
+    show_residuals_observation_worst(0)
+
+This will show you the worst-fitting chessboard observation with its observed
+and predicted corners, as an error vector. The reprojection errors are given by
+a colored dot. Corners thrown out as outliers will be missing their colored dot.
+You want to make sure that this is reasonable. Incorrectly-detected corners will
+be visible: they will be outliers or they will have a high error. The errors
+should be higher towards the edge of the imager, especially with a wider lens. A
+richer better-fitting model would reduce those errors. Past that, there should
+be no pattern to the errors. If the camera synchronization was broken, you'll
+see a bias in the error vectors, to compensate for the motion of the chessboard.
+
+Next do this for each camera in your calibration set (icam is an index counting
+up from 0):
+
+    show_residuals_regional(icam)
+
+Each of these will pop up 3 plots describing your distribution of errors. You
+get
+
+- a plot showing the mean reprojection error across the imager
+- a plot showing the standard deviation of reprojection errors across the imager
+- a plot showing the number of data points across the imager AFTER the outlier
+  rejection
+
+The intrinsics are reliable in areas that have
+
+- a low mean error relative to --observed-pixel-uncertainty
+- a standard deviation roughly similar to --observed-pixel-uncertainty
+- have some data available
+
+If you have too little data, you will be overfitting, so you'd be expalining the
+signal AND the noise, and your reprojection errors will be too low. With enough
+input data you'll be explaining the signal only: the noise is random and with
+enough samples our model can't explain it. Another factor that controls this is
+the model we're fitting. If we fit a richer model (LENSMODEL_OPENCV8 vs
+LENSMODEL_OPENCV4 for instance), the extra parameters will allow us to fit the
+data better, and to produce lower errors in more areas of the imager.
+
+These are very rough guidelines; I haven't written the logic to automatically
+interpret these yet. A common feature that these plots bring to light is a
+poorly-fitting model at the edges of the imager. In that case you'll see higher
+errors with a wider distribution towards the edge.
+
+Finally run this:
+
+    show_projection_uncertainty()
+
+This will pop up a plot of projection uncertainties for each camera. The
+uncertainties are shown as a color-map along with contours. These are the
+expected value of projection based on noise in input corner observations. The
+noise is assumed to be independent, 0-mean gaussian with a standard deviation of
+--observed-pixel-uncertainty. You will see low uncertainties in the center of
+the imager (this is the default focus point; a different one can be picked). As
+you move away from the center, you'll see higher errors. You should decide how
+much error is acceptable, and determine the usable area of the imager based on
+this. These uncertainty metrics are complementary to the residual metrics
+described above. If you have too little data, the residuals will be low, but the
+uncertainties will be very high. The more data you gather, the lower the
+uncertainties. A richer lens model lowers the residuals, but raises the
+uncertainties. So with a richer model you need to get more data to get to the
+same acceptable uncertainty level.
+
+*** Capture images
+ - Hold board straight
+ - Oblique closeups
+*** mrgingham
+*** mrcal
+ - metrics
+* Developer manual (APIs)
+** Python
+** C
+
+* Theory
+** New stuff
+- Board warping
+- outlier rejection. Cook's D
+
+** research topics
+- Is my spline representation good? Can I avoid it crossing itself?
+- Note that regularization causes a bias
+- Intrinsics uncertainty contains a built-in extrinsics uncertainty. As we move
+  the cameras around, we carry with them an uncertain transformation
+
+** interesting stereo discoveries
+- rotation compensation for the diff
+- compensating for board flex
+- compensating for focal-length errors
+  common-mode errors do not affect yaw. differential-mode errors affect yaw very
+  much
+- intrinsics errors effect on yaw. I ran some simulations earlier, I think.
+  Similar effect: differential errors are very significant
+
+** Exploration of uncertainty
+Uncertainty reporting and propagation is a big part of mrcal. Let's get a
+high-level look at what we're doing and why.
+
+This comes directly from [[file:../test/test-projection-uncertainty.py]].
+
+Let's generate some synthetic data
+
+overfitting
+
+
+demo calibration
+demo stereo from calibration
+simulation: computed ellipses match dispersion data
+show upcertainty surface
+show uncertainty curve for one pixel
+show wave studies
+
+diffs care about ranges too.
+show conversion tool, diff tool
+
+should do stereo or sfm somehow
+
+** other stuff
+
+
+- Demo calibration
+- Show uncertainty
+- Convert model
+- Why did I dance a certain way? Show synthetic data to prove that closeups,
+  oblique views are good
+- Redo, show stability. Heat? Show effects?
+- compare joint1,2,4
+  - joint12 should have higher diff than joint24
+  - uncertainty is useless
+  - with a splined model joint24 is probably STILL better, but you can use the
+    uncertainty to quantify stuff
+- uncertainty questions:
+  - study the effects of the spline control points density
+  - are quadratic splines better? more sparse, but only c1 instead of c2
+  - think about heteroschedacticity. residual distribution with splines. Should
+    be homoschedactic and LOW
+  - Can I use the heteroschedasticity metrics to say wtuff about the lean
+    models?
+  - I can fit opencv8 and splined. both say they're "good", but have a high
+    diff.
+  - I can fit multiple splined models with different spline spacings (different
+    Nxy or fov), and I can do diffs, comparing them to the intrinsics
+    uncertainty
+- can I use the uncertainty to accurately measure heat effects?
+
+** diffs
+
+** Yet more stuff
+- talk about regularization bias
+- splined models shouldn't fit the core to keep things non-singular
+- splined models may not be fitted into opencv8 without moving extrinsics
+- say that the plots are interactive in normal usage
+
+** Uncertainty derivation
+
+I solve the calibration problem using Ordinary Least Squares, minimizing the
+discrepancies between pixel observations and their predictions. The pixel
+observations are noisy, and I assume they are zero-mean, independent and
+normally-distributed. I treat the x and y coordinates of the observations as two
+independent measurements. Thus I minimize a cost function norm2(x). I choose the
+weights on the measurements x to get homoscedasticity, and thus the optimal
+parameter vector is the maximum-likelihood estimate of the true solution.
+
+Some elements of x depend on the pixel observations, and some don't
+(regularization: often needed to help convergence; small-enough to stay close to
+the minimum-likelihood result). We care about the measurements that depend on
+pixel observations. These are a weighted reprojection error:
+
+    x[i] = w[i] (q[i] - qref[i])
+
+where w[i] is the weight, q[i] is the predicted x or y projection of point i,
+and qref[i] is the observation.
+
+The vision algorithm that produced the pixel observation qref[i] knows how
+precisely it was able to localize qref[i], and can report some sense of
+Var(qref[i]). I assume that we have some baseline Var(qref[i]) =
+observed_pixel_uncertainty^2, and that the corner finder reports a scale factor
+for each point: Var(qref[i]) = (k[i] observed_pixel_uncertainty)^2. I set w[i] =
+1. / k[i], so Var(x[i]) = observed_pixel_uncertainty^2 for all i, and we get
+homoscedasticity: an even error distribution on each measurement. This makes
+conceptual sense also: low-accuracy qref[i] are weighted less in the
+optimization.
+
+I apply a perturbation to the observations qref, reoptimize (assuming everything
+is linear) and look what happens to the state p. I start out at an optimum p*:
+
+    E = norm2(x)
+    dE/dp (p=p*) = 2 Jt x (p=p*) = 0
+
+I perturb the inputs:
+
+    E(x(p+dp, qref+dqref)) = norm2( x + J dp + dx/dqref dqref)
+
+And I reoptimize:
+
+    dE/ddp ~ ( x + J dp + dx/dqref dqref)t J = 0
+
+I started at an optimum, so Jt x = 0, and thus
+
+    JtJ dp = -Jt dx/dqref dqref
+
+As stated above, for reprojection errors I have
+
+    x[observations] = W (q - qref)
+
+where W is diag(w), a diagonal matrix of observation weights. Some elements of x
+don't depend on the observations (let's assume these are trailing elements of
+x), so
+
+    dx/dqref = [ -W ]
+               [  0 ]
+
+and thus
+
+    JtJ dp = J[observations]t W dqref
+
+So if I perturb my input observation vector qref by dqref, the resulting effect
+on the optimal parameters is dp = M dqref. Where
+
+    M = inv(JtJ) J[observations]t W
+
+So
+
+    Var(p) = M Var(qref) Mt
+
+As stated before, I'm assuming independent noise on all observed pixels, with a
+standard deviation inversely proportional to the weight:
+
+    Var(qref) = observed_pixel_uncertainty^2 W^-2
+
+and
+
+    Var(p) = observed_pixel_uncertainty^2 M W^-2 Mt=
+           = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t W W^-2 W J[observations] inv(JtJ)=
+           = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
+
+If we have no regularization, and all measurements are pixel errors, then
+J[observations] = J and
+
+    Var(p) = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
+           = observed_pixel_uncertainty^2 inv(JtJ) JtJ inv(JtJ)
+           = observed_pixel_uncertainty^2 inv(JtJ)
+
+This is the variance of the full optimization state p. This contains the
+intrinsics and extrinsics of ALL the cameras. And it contains ALL the poses of
+observed chessboards, and everything else, like the chessboard warp terms.
+
+Note that this does not explicitly depend on W. However, the weight is a part of
+the jacobian J. If we were to lose our faith that our measurements are precise,
+then Var(qref[i]) would go up, w[i] would go down, x[i] would go down and thus J
+would go down as well. And as a result, Var(p) would increase, as expected.
+
+Ultimately the parameters are used in a projection operation. So given a point
+in camera coordinates pcam, I project it onto the image plane:
+
+    q = project(pcam, intrinsics)
+
+Propagating the uncertainties from this expression alone is insufficient. We
+want to know the projection uncertainty of points in the world coordinate
+system, while the above projects points in the local camera coordinate system.
+And on top of that, the transform between this local coordinate system and the
+world is not fixed: it's an unknown random quantity, just like the lens
+parameters. THE ORIGIN AND ORIENTATION OF THE LOCAL CAMERA COORDINATE SYSTEM
+INSIDE THE CAMERA HOUSING ARE RANDOM VARIABLES.
+
+I use the poses of the observed chessboards in aggregate to define the world,
+since these are the most stationary thing I have.
+
+Let's look at ONE observed chessboard frame: frame i. I want to know the
+uncertainty at a pixel coordinate q0. I unproject to the camera coordinate
+system, and then transform to the reference coord system and then to the framei
+coordinate system:
+
+  pcam0 = unproject(intrinsics0, q0)
+  pf0   = T_fr0[i] T_rc0 pcam0
+
+Here T_ab is a transformation of a point from coord system b to the same point
+being represented in coord system a. Using homogeneous coordinates T can contain
+both a rotation and a translation, and remain linear:
+
+  T = [R t]
+      [0 1]
+
+I perturb my optimization state, which changes all the geometric trasformations
+and the intrinsics. But the framei coordinate system is an estimate of the
+global coordinate system, so I transform and project that point back to look at
+the deviation:
+
+  pcam1 = T_cr1 T_rf1[i] T_fr0[i] T_rc0 pcam0
+  q1    = project(intrinsics1,  pcam1)
+
+And q1-q0 then represents my uncertainty. How do I combine all the different
+estimates from the different chessboard observations? I can take the mean of all
+the q1 I get from each frame to use mean(q1)-q0 as the uncertainty. I will
+linearize the projection, so everything is linear, and I will have
+
+  T_r1r0 = mean( T_rf1[i] T_rf0[i] )
+
+This "T" is not a valid transformation since mean(R) is not a rotation matrix.
+But for small perturbations, this should be close-enough.
+
+I computed Var(p) earlier, which contains the variance of ALL the optimization
+parameters together. The noise on the chessboard poses is coupled to the noise
+on the extrinsics and to the noise on the intrinsics. And we can apply all these
+together to propagate the uncertainty.
+
+Let's define some variables:
+
+- p_i: the intrinsics of a camera
+- p_e: the extrinsics of that camera (T_cr)
+- p_f: ALL the chessboard poses (T_fr)
+- p_ief: the concatenation of p_i, p_e and p_f
+
+I have
+
+    dq = q0 + dq/dp_ief dp_ief
+
+    Var(q) = dq/dp_ief Var(p_ief) (dq/dp_ief)t
+
+    Var(p_ief) is a subset of Var(p), computed above.
+
+    dq/dp_ief = [dq/dp_i dq/dp_e dq/dp_f]
+
+    dq/dp_e = dq/dpcam dpcam/dp_e
+
+    dq/dp_f = dq/dpcam dpcam/dpref dpref/dp_f / Nframes
+
+dq/dp_i and all the constituent expressions comes directly from the project()
+and transform calls above. Depending on the details of the optimization problem,
+some of these may not exist. For instance, if we're looking at a camera that is
+sitting at the reference coordinate system, then there is no p_e, and Var_ief is
+smaller: it's just Var_if. If we somehow know the poses of the frames, then
+there's no Var_f. If we want to know the uncertainty at distance=infinity, then
+we ignore all the translation components of p_e and p_f.
+
+And note that this all assumes a vanilla calibration setup: we're calibration a
+number of stationary cameras by observing a moving object. If we're instead
+moving the cameras, then there're multiple extrinsics vectors for each set of
+intrinsics, and it's not clear what projection uncertainty even means.
+
+Note a surprising consequence of all this: projecting k*pcam in camera
+coordinates always maps to the same pixel coordinate q for any non-zero scalar
+k. However, the uncertainty DOES depend on k. If a calibration was computed with
+lots of chessboard observations at some distance from the camera, then the
+uncertainty of projections at THAT distance will be much lower than the
+uncertanties of projections at any other distance. And as we get closer and
+closer to the camera, the uncertainty grows to infinity as the translation
+uncertainty in the extrinsics begins to dominate.
+
+Alright, so we have Var(q). We could claim victory at that point. But it'd be
+nice to convert Var(q) into a single number that describes my projection
+uncertainty at q. Empirically I see that Var(dq) often describes an eccentric
+ellipse, so I want to look at the length of the major axis of the 1-sigma
+ellipse:
+
+    eig (a b) --> (a-l)*(c-l)-b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
+        (b c)
+
+    --> l = (a+c +- sqrt( a^2+2ac+c^2 - 4ac + 4b^2)) / 2 =
+          = (a+c +- sqrt( a^2-2ac+c^2 + 4b^2)) / 2 =
+          = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
+
+So the worst-case stdev(q) is
+
+    sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
+
+* After-release todo
+- feed uncertainties to stereo, triangulation
+- compute uncertainties for multiple points at the same time to get covariance.
+  Possibly could work across multiple cameras in the same solve as well
+- better regularization non/crossing in splined models
+- should include a study of how to calibrate long lenses. Tilted observations
+  aren't as effective unless the board is GIANT
+- Can we study intrinsics stability over time? In response to heating? Shaking?
+- Can we use a 3-parallel calibration to quantify chromatic aberration?
+
+
+* interesting stereo discoveries                                   :noexport:
+- compensating for board flex
+- compensating for focal-length errors
+  common-mode errors do not affect yaw. differential-mode errors affect yaw very
+  much
+- intrinsics errors effect on yaw. I ran some simulations earlier, I think.
+  Similar effect: differential errors are very significant
+
+* things to mention in the talk and in the docs                    :noexport:
+- talk about regularization bias
+- splined models shouldn't fit the core to keep things non-singular
+- splined models may not be fitted into opencv8 without moving extrinsics
+- say that poor uncertainty = overfitting
+- say that we need to track down the source of all errors. The model we're
+  optimizing should not produce any error on its own. And it shouldn't produce
+  any constraints on its own. The "model" includes the lens model and the
+  warping here. Thus the uncertainties are only directly usable with the splined
+  models
+- talk about how I'm projecting the "same world point", and how there're other
+  (possibly-better) methods
+- talk about how to get observed_pixel_uncertainty
+- talk about how to select an appropriate splined model
+- talk about --seed and how that can be used to validate intrinsics
+
+* future work
+
+- measure observed_pixel_uncertainty
+- use uncertainty in triangulation, deltapose
+- improve uncertainty method: faraway obervations don't make things worse
+- projection_uncertainty() should be able to project multiple points at a time,
+  and to report correlations in the projection
+- splined models should behave more nicely at the edges
+- sfm
+- integrate deltapose-lite
+- projection_uncertainty() should report correlated results
+- can I quantify the heteroscedasticity and thus the model-nonfitting and the
+  resulted expected bias?
+- study cubic/quadratic splines, spline density effects
+- do a triangulation with explict uncertainty propagation
+
+- Redo, show stability. Heat? Show effects?
+- uncertainty questions:
+  - study the effects of the spline control points density
+  - are quadratic splines better? more sparse, but only c1 instead of c2
+  - Can I use the heteroschedasticity metrics to say stuff about the lean
+    models?
+
+- say that the plots are interactive in normal usage
+
+- mention sfm
+- feed uncertainties to stereo, triangulation
+- compute uncertainties for multiple points at the same time to get covariance.
+  Possibly could work across multiple cameras in the same solve as well
+- better regularization non/crossing in splined models
+- should include a study of how to calibrate long lenses. Tilted observations
+  aren't as effective unless the board is GIANT
+- Can we study intrinsics stability over time? In response to heating? Shaking?
+- Can we use a 3-parallel calibration to quantify chromatic aberration?
+- Measure effect of focus, aperture
