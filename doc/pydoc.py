@@ -73,9 +73,6 @@ Broadly:
 - set all the submodule links (mrcal.submodule.function) to work as if it was
   mrcal.function. That's how the api looks to the user
 
-- "pydoc -m" is a whitelist selecting submodules that appear in the docs. I
-  don't want most of them to appear
-
 - pydoc output to stdout: for easier integration into the Makefile
 
 - I don't document builtins
@@ -477,7 +474,7 @@ class Doc:
                                 "https://docs.python.org/%d.%d/library"
                                 % sys.version_info[:2])
 
-    def document(self, object, name=None, *args, module_whitelist = None):
+    def document(self, object, name=None, *args):
         """Generate documentation for an object."""
         args = (object, name) + args
         # 'try' clause is to attempt to handle the possibility that inspect
@@ -485,7 +482,7 @@ class Doc:
         # think 'super' and how it is a descriptor (which raises the exception
         # by lacking a __name__ attribute) and an instance.
         try:
-            if inspect.ismodule(object): return self.docmodule(*args, module_whitelist=module_whitelist)
+            if inspect.ismodule(object): return self.docmodule(*args)
             if inspect.isclass(object): return self.docclass(*args)
             if inspect.isroutine(object): return self.docroutine(*args)
         except AttributeError:
@@ -757,7 +754,7 @@ class HTMLDoc(Doc):
                     entry, modname, c)
         return '<dl>\n%s</dl>\n' % result
 
-    def docmodule(self, object, name=None, mod=None, *ignored, module_whitelist = None):
+    def docmodule(self, object, name=None, mod=None, *ignored):
         """Produce HTML documentation for a module object."""
         name = object.__name__ # ignore the passed-in name
         try:
@@ -835,8 +832,7 @@ class HTMLDoc(Doc):
         if hasattr(object, '__path__'):
             modpkgs = []
             for importer, modname, ispkg in pkgutil.iter_modules(object.__path__):
-                if module_whitelist is None or any(re.match(m, modname) for m in module_whitelist):
-                    modpkgs.append((modname, name, ispkg, 0))
+                modpkgs.append((modname, name, ispkg, 0))
             modpkgs.sort()
             contents = self.multicolumn(modpkgs, self.modpkglink)
             result = result + self.bigsection(
@@ -1224,7 +1220,7 @@ class TextDoc(Doc):
                     entry, modname, c, prefix + '    ')
         return result
 
-    def docmodule(self, object, name=None, mod=None, module_whitelist = None):
+    def docmodule(self, object, name=None, mod=None):
         """Produce text documentation for a given module object."""
         name = object.__name__ # ignore the passed-in name
         synop, desc = splitdoc(getdoc(object))
@@ -1807,20 +1803,20 @@ def doc(thing, title='Python Library Documentation: %s', forceload=0,
     except (ImportError, ErrorDuringImport) as value:
         print(value)
 
-def writedoc(thing, forceload=0, module_whitelist = None):
+def writedoc(thing, forceload=0):
     """Write HTML documentation to a file in the current directory."""
     try:
         object, name = resolve(thing, forceload)
-        page = html.page(describe(object), html.document(object, name, module_whitelist=module_whitelist))
+        page = html.page(describe(object), html.document(object, name))
         sys.stdout.write(page)
     except (ImportError, ErrorDuringImport) as value:
         print(value, file=sys.stderr)
 
-def writedocs(dir, pkgpath='', done=None, module_whitelist = None):
+def writedocs(dir, pkgpath='', done=None):
     """Write out HTML documentation for all modules in a directory tree."""
     if done is None: done = {}
     for importer, modname, ispkg in pkgutil.walk_packages([dir], pkgpath):
-        writedoc(modname, module_whitelist=module_whitelist)
+        writedoc(modname)
     return
 
 class Helper:
@@ -2796,13 +2792,12 @@ def cli():
     _adjust_cli_sys_path()
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'bk:n:p:wm:')
+        opts, args = getopt.getopt(sys.argv[1:], 'bk:n:p:w')
         writing = False
         start_server = False
         open_browser = False
         port = 0
         hostname = 'localhost'
-        module_whitelist = None
         for opt, val in opts:
             if opt == '-b':
                 start_server = True
@@ -2818,8 +2813,6 @@ def cli():
             if opt == '-n':
                 start_server = True
                 hostname = val
-            if opt == '-m':
-                module_whitelist = val.split(',')
 
         if start_server:
             browse(port, hostname=hostname, open_browser=open_browser)
@@ -2835,9 +2828,9 @@ def cli():
                     arg = importfile(arg)
                 if writing:
                     if ispath(arg) and os.path.isdir(arg):
-                        writedocs(arg, module_whitelist=module_whitelist)
+                        writedocs(arg)
                     else:
-                        writedoc(arg, module_whitelist=module_whitelist)
+                        writedoc(arg)
                 else:
                     help.help(arg)
             except ErrorDuringImport as value:
@@ -2874,11 +2867,6 @@ def cli():
     Write out the HTML documentation for a module to a file in the current
     directory.  If <name> contains a '{sep}', it is treated as a filename; if
     it names a directory, documentation is written for all the contents.
-
-{cmd} -m <module0>,<module1>,<module2>,...
-    The module whitelist. ONLY the given modules should be listed in the
-    "package contents". If omitted, all modules are listed
-
 """.format(cmd=cmd, sep=os.sep))
 
 if __name__ == '__main__':
