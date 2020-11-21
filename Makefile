@@ -79,7 +79,6 @@ EXTRA_CLEAN += doc/mrcal-python-api.html
 
 
 
-
 # I parse the version from the changelog. This version is generally something
 # like 0.04 .I strip leading 0s, so the above becomes 0.4
 VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*/./g; p; q;' debian/changelog)
@@ -90,6 +89,11 @@ $(DIST_MAN): %.1: %.pod
 	cat footer.pod >> $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
+MANPAGES_HTML := $(patsubst %,doc/%.html,$(DIST_BIN))
+doc/%.html: %.pod
+	pod2html --noindex --infile=$< --outfile=$@
+doc: $(MANPAGES_HTML)
+EXTRA_CLEAN += $(MANPAGES_HTML)
 
 ######### python stuff
 mrcal-npsp-pywrap-GENERATED.c: mrcal-genpywrap.py
