@@ -7,16 +7,14 @@ SYNOPSIS
     model_for_intrinsics = mrcal.cameramodel('model0.cameramodel')
     model_for_extrinsics = mrcal.cameramodel('model1.cameramodel')
 
-    model_joint = \
-        mrcal.cameramodel( intrinsics            = \
-                             model_for_intrinsics.intrinsics(),
-                           imagersize            = \
-                             model_for_intrinsics.imagersize(),
-                           extrinsics_rt_fromref = \
-                             model_for_extrinsics.extrinsics_rt_fromref() )
+    model_joint = mrcal.cameramodel( model_for_intrinsics )
+
+    extrinsics = model_for_extrinsics.extrinsics_rt_fromref()
+    model_joint.extrinsics_rt_fromref(extrinsics)
 
     # model_joint now has intrinsics from 'model0.cameramodel' and extrinsics
-    # from 'model1.cameramodel'
+    # from 'model1.cameramodel'. I write it to disk
+    model_joint.write('model-joint.cameramodel')
 
 All functions are exported into the mrcal module. So you can call these via
 mrcal.cameramodel.fff() or mrcal.fff(). The latter is preferred.
