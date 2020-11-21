@@ -41,13 +41,46 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
 
 
-doc-reference: $(patsubst %.py,%.html,$(filter-out %/__init__.py,$(wildcard mrcal/*.py))) mrcal/_mrcal.html mrcal/_mrcal_npsp.html mrcal/_poseutils.html
-mrcal/%.html: mrcal/%.py
-	doc/pydoc.py -w $(subst /,.,$(basename $@))
-mrcal/%.html: mrcal/%$(PY_EXT_SUFFIX)
-	doc/pydoc.py -w $(subst /,.,$(basename $@))
-.PHONY: doc-reference
-EXTRA_CLEAN += doc/*.html
+
+ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
+
+## mrcal.html contains everything, and cahvor.html contains just cahvor stuff.
+## Maybe slightly less organized, and mrcal.html is huge.
+doc: doc/mrcal-python-api.html doc/mrcal.cahvor.html
+doc/mrcal-python-api.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
+	doc/pydoc.py -w -m cahvor mrcal > $@
+doc/mrcal.cahvor.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
+	doc/pydoc.py -w mrcal.cahvor > $@
+.PHONY: doc
+EXTRA_CLEAN += doc/mrcal-python-api.html doc/mrcal.cahvor.html
+
+
+## Each submodule in a separate .html. This works, but needs more effort:
+##
+## - top level mrcal.html is confused about what it contains. It has all of
+##   _mrcal and _poseutils for some reason
+## - cross-submodule links don't work
+#
+# doc-reference: \
+# 	$(patsubst mrcal/%.py,doc/mrcal.%.html,$(filter-out %/__init__.py,$(wildcard mrcal/*.py))) \
+# 	$(patsubst %,doc/mrcal.%.html,$(ALL_PY_EXTENSION_MODULES)) \
+# 	doc/mrcal.html
+# doc/mrcal.%.html: \
+# 	mrcal/%.py \
+# 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
+# 	libmrcal.so.$(ABI_VERSION)
+# 	doc/pydoc.py -w mrcal.$* > $@
+# doc/mrcal.%.html: mrcal/%$(PY_EXT_SUFFIX)
+# 	doc/pydoc.py -w mrcal.$* > $@
+# doc/mrcal.html: \
+# 	$(wildcard mrcal/*.py) \
+# 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
+# 	libmrcal.so.$(ABI_VERSION)
+# 	doc/pydoc.py -w mrcal > $@
+# .PHONY: doc-reference
+# EXTRA_CLEAN += doc/*.html
+
+
 
 
 # I parse the version from the changelog. This version is generally something
