@@ -28,3 +28,6 @@ test/test-cahvor
 *.pod
 *GENERATED.*
 *.backup*
+
+*.fig.bak
+doc/ltximg/
