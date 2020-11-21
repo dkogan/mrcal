@@ -70,6 +70,9 @@ Broadly:
 - remoded the "modules" section. This was mostly telling the reader about all
   the modules that the module being documented imports, which is irrelevant
 
+- I don't list any "package contents". Those just list the submodules, which I
+  don't want to do
+
 - set all the submodule links (mrcal.submodule.function) to work as if it was
   mrcal.function. That's how the api looks to the user
 
@@ -829,15 +832,7 @@ class HTMLDoc(Doc):
         doc = doc and '<tt>%s</tt>' % doc
         result = result + '<p>%s</p>\n' % doc
 
-        if hasattr(object, '__path__'):
-            modpkgs = []
-            for importer, modname, ispkg in pkgutil.iter_modules(object.__path__):
-                modpkgs.append((modname, name, ispkg, 0))
-            modpkgs.sort()
-            contents = self.multicolumn(modpkgs, self.modpkglink)
-            result = result + self.bigsection(
-                'Package Contents', '#ffffff', '#aa55cc', contents)
-        elif modules:
+        if modules:
             contents = self.multicolumn(
                 modules, lambda t: self.modulelink(t[1]))
             result = result + self.bigsection(
