@@ -1,6 +1,6 @@
 PYTHON_VERSION_FOR_EXTENSIONS := 3
 
-include /usr/include/mrbuild/Makefile.common.header
+include mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
 ABI_VERSION  := 1
@@ -86,7 +86,7 @@ VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*
 $(DIST_MAN): %.1: %.pod
 	pod2man --center="mrcal: camera projection, calibration toolkit" --name=MRCAL --release="mrcal $(VERSION_FROM_CHANGELOG)" --section=1 $< $@
 %.pod: %
-	make-pod-from-help.pl $< > $@
+	mrbuild/make-pod-from-help.pl $< > $@
 	cat footer.pod >> $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
@@ -156,4 +156,4 @@ test check: all
 	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: test check
 
-include /usr/include/mrbuild/Makefile.common.footer
+include mrbuild/Makefile.common.footer

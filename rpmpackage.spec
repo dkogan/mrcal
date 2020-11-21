@@ -18,8 +18,6 @@ BuildRequires: lapack-devel
 BuildRequires: python36-devel
 BuildRequires: python36-libs
 BuildRequires: libminimath-devel
-BuildRequires: mrbuild >= 1.4
-BuildRequires: mrbuild-tools >= 1.4
 
 # I need to run the python stuff in order to build the manpages and to generate
 # the npsp wrappers
