@@ -44,15 +44,12 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 
-## mrcal.html contains everything, and cahvor.html contains just cahvor stuff.
-## Maybe slightly less organized, and mrcal.html is huge.
-doc: doc/mrcal-python-api.html doc/mrcal.cahvor.html
+## mrcal.html contains everything. It is large
+doc: doc/mrcal-python-api.html
 doc/mrcal-python-api.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
-	doc/pydoc.py -w -m cahvor mrcal > $@
-doc/mrcal.cahvor.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
-	doc/pydoc.py -w mrcal.cahvor > $@
+	doc/pydoc.py -w mrcal > $@
 .PHONY: doc
-EXTRA_CLEAN += doc/mrcal-python-api.html doc/mrcal.cahvor.html
+EXTRA_CLEAN += doc/mrcal-python-api.html
 
 
 ## Each submodule in a separate .html. This works, but needs more effort:
