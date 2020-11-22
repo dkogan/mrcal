@@ -1,4 +1,4 @@
-Returns a tuple of locations of x and y spline knots
+Return a tuple of locations of x and y spline knots
 
 SYNOPSIS
 
