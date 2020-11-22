@@ -16,8 +16,8 @@ the state and the gradients before passing them to the optimizer. The internal
 optimization library thus works only with unitless (or "packed") data.
 
 This function takes a packed numpy array of shape (...., Nstate), and scales it
-to produce full data with real units. This function applies the scaling to the
-input array; the input is modified, and nothing is returned.
+to produce full data with real units. This function applies the scaling directly
+to the input array; the input is modified, and nothing is returned.
 
 To unpack a state vector, you naturally call unpack_state(). To unpack a
 jacobian matrix, you would call pack_state() because in a jacobian, the state is
