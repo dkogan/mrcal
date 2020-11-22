@@ -10,56 +10,71 @@ toolkit was originally built to produce high-accuracy calibrations demanded by
 long-range stereo, so it provides facilities to analyze the results and to track
 down sources of error.
 
-mrcal provides a routine to compute the "difference" between two models, which
+mrcal provides a routine to compute the "[[Model differencing][difference]]" between two models, which
 can be a fundamental piece of a wide number of analyses, for instance to measure
-a lens's response to temperature cycles
+a lens's response to temperature cycles.
 
-mrcal provides estimates of projection uncertainty, which can be used to gauge
+mrcal provides estimates of [[Projection uncertainty][projection uncertainty]], which can be used to gauge
 calibration quality, and to compute the uncertainty of any data products that
 use the lens model.
 
-A rich, splined lens model is available to fit any projection function and to
+A rich, [[Splined stereographic lens model][splined lens model]] is available to fit any projection function and to
 provide realistic uncertainty estimates.
 
-Finally, there're lots of visualization facilities to make it easier to
-interpret the results.
-
-The core functionality is exposed from a [[file:xxx][C API]], while higher-level routines are
-available through [[file:xxx/mrcal-python-api.html][Python]]. The most common workflows are available as commandline
-tools, with no coding required.
+The core functionality is exposed from the [[C API][C API]], while higher-level routines
+are available through [[Python API][Python]]. The most common workflows are available as
+[[Commandline tools][commandline tools]], with no coding required.
 
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
 toolkit.
 
-* Terminology
-calibration object
-boards
-frames
-sfm
-intrinsics
-extrinsics
-state
-measurements
-residual
-project
-cameramodel = lens parameters and geometry
-
 * Conventions
+** Terminology
+Some terms in the documentation and sources can have ambiguous meanings, so I
+explicitly define them here
 
-notational and otherwise
+- *calibration*: the procedure used to compute the lens parameters and geometry
+  of a set of cameras. Usually this involves a stationary set of cameras
+  observing a moving object.
 
-Some notational conventions are used throught the code and documentation, and
-they're explicitly described here.
+- *calibration object* or *chessboard* or *board*: these are used more or less
+  interchangeably. They refer to the known-geometry object observed by the
+  cameras, with those observations used as input during calibration
 
-** Implementation
+- *pose*: a position and orientation
 
-Python wrapping C. numpysane_pywrap
+- *intrinsics*: the parameters describing the behavior of a lens. The pose of
+  the lens does not affect the intrinsics
 
-numpy, numpysane, broadcasting, gnuplotlib
+- *extrinsics*: the pose of a lens in respect to some fixed coordinate system
 
-images are indexed by (y,x)
+- *frames*: in the context of mrcal's optimization these refer to an array of
+  poses of the observed chessboards
 
-opencv python only. no opencv c bindings
+- *SFM*: structure from motion. This is the converse of "calibration": we
+  observe a stationary scene from a moving camera to compute the geometry of the
+  scene
+
+- *state*: the vector of parameters that an optimization algorithm is free to
+  move around as it searches for the optimum. mrcal generally refers to this
+  vector as $\vec p$
+
+- *measurements* or *residuals*: I use these more or less interchangeably. This
+  is the vector whose norm the optimization algorithm is trying to minimize.
+  mrcal generally refers to this as $\vec x$, and it contains differences
+  between pixel coordinates observed by a camera, and where the state vector
+  $\vec p$ predicts those observations should be. The optimization tries to
+  minimize these differences by finding the $\vec p$ that minimizes $\left \Vert
+  \vec x \right \Vert ^2$
+
+- *project*: to map a point in space to a pixel coordinate where that point
+  would be observed by a given camera
+
+- *unproject*: to map a pixel coordinate back to a point in space that would
+  produce an observation at that pixel. Unprojection is only unique up-to scale
+
+- *camera model*: this is used to refer to the intrinsics and extrinsics
+  together.
 
 ** Symbols
 *** Geometry
@@ -67,11 +82,11 @@ opencv python only. no opencv c bindings
 
 - $\vec v$ is a 3-dimensional vector representing a /direction/ $\left( x,y,z
   \right)$ in space. $\vec v$ is only defined up-to-length. In a camera's
-  coordinate system we have $\vec q = \mathrm{project}\left(\vec v)\right$
+  coordinate system we have $\vec q = \mathrm{project}\left(\vec v \right)$
 
 - $\vec p$ is a 3-dimensional vector representing a /point/ $\left( x,y,z
   \right)$ in space. Unlike $\vec v$, $\vec p$ has a defined range. Like $\vec
-  v$ we have $\vec q = \mathrm{project}\left(\vec p)\right$
+  v$ we have $\vec q = \mathrm{project}\left(\vec p \right)$
 
 *** Optimization
 The core of the mrcal calibration routine is a nonlinear least-squares
@@ -95,11 +110,10 @@ Here we have
   }{ \partial \vec p }$ 
 
 ** Camera coordinate system
-
-No convention is assumed for the world coordinate system. The canonical /camera/
-coordinate system has =x,y= as with pixel coordinates in an image: =x= is to the
-"right" and =y= is "down". =z= is then "forward" to complete the right-handed
-system of coordinates.
+mrcal uses right-handed coordinate systems. No convention is assumed for the
+world coordinate system. The canonical /camera/ coordinate system has =x,y= as
+with pixel coordinates in an image: =x= is to the "right" and =y= is "down". =z=
+is then "forward" to complete the right-handed system of coordinates.
 
 ** Transformations
 We describe transformations as mappings between a representation of a point in
@@ -135,17 +149,53 @@ coordinate system =B= to a representation in coordinate system =A=.
 
 A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
 around an axis in the direction =r=. Converting between =R= and =r= is done via
-the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]: using the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-r_from_R][=mrcal.r_from_R()=]] and
-[[file:~/jpl/mrcal/doc/mrcal-python-api.html#-R_from_r][=mrcal.R_from_r()=]] functions. For translating /poses/, not just rotations, use
-[[file:~/jpl/mrcal/doc/mrcal-python-api.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]: using the [[file:mrcal-python-api.html#-r_from_R][=mrcal.r_from_R()=]] and
+[[file:mrcal-python-api.html#-R_from_r][=mrcal.R_from_r()=]] functions. For translating /poses/, not just rotations, use
+[[file:mrcal-python-api.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:mrcal-python-api.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
 
-There're [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-R_from_quat][several]] [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-quat_from_R][functions]] to work with unit quaternions as a rotation
+There're [[file:mrcal-python-api.html#-R_from_quat][several]] [[file:mrcal-python-api.html#-quat_from_R][functions]] to work with unit quaternions as a rotation
 representation, but they're lightly used, and exist only for compatibility with
 other tools. mrcal does not use quaternions.
 
+** Linear algebra
+mrcal follows the usual linear algebra convention of column vectors. So applying
+a rotation looks like $\vec b = R \vec a$ where both $\vec a$ and $\vec b$ are
+column vectors.
+
+However, numpy print vectors (1-dimensional objects), as /row/ vectors, so the
+code treats 1-dimensional objects as transposed vectors. In the code, the above
+rotation would be implemented equivalently: $\vec b^T = \vec a^T R^T$. The
+[[file:mrcal-python-api.html#-rotate_point_R][=mrcal.rotate_point_R()=]] and [[file:mrcal-python-api.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]] functions serve to
+handle this transparently.
+
+A similar issue is that numpy follows the linear algebra convention of indexing
+with =(index_column, index_row)= and not the other way around. This runs against
+the /other/ convention of referring to image dimensions as =(width, height)= and
+referring to pixels as =(x,y)=. mrcal places the =x= coordinate first (as in the
+latter) whenever possible, but when interacting directly with numpy, it must
+place the =y= coordinate first. The choice being made is very clearly
+documented, so when in doubt, do read the docs.
+
+When computing gradients mrcal places the dependent variables in the leading
+dimensions, and the independent variables in the trailing dimensions. So in the
+above expressions we have $\frac{ \partial \vec b }{ \partial \vec a } = R$ and
+row $i$ of $R$ represents the $\frac{ \partial b_i }{ \partial \vec a }$
+
+** Implementation
+The core of mrcal is written in C, but most of the API is currently available in
+Python only. The python-wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library,
+which makes it fairly simple to make the Python interface /and/ provides
+[[https://numpy.org/doc/stable/user/basics.broadcasting.html][broadcasting]] support. So over time more of the Python API will become translated
+to C, and exposed there, as needed.
+
+The Python layer uses [[https://numpy.org/][numpy]] and [[https://github.com/dkogan/numpysane/][=numpysane=]] heavily. All the plotting is done
+with [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. [[https://opencv.org/][OpenCV]] is used a bit, but /only/ in the Python layer (their C
+APIs are gone, and the C++ APIs are unstable). Over time the dependence on this
+library will decrease even further.
+
 * Camera model file formats
 
-Reading/writing camera models is done in Python with the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]]
+Reading/writing camera models is done in Python with the [[file:mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]]
 class. This class supports two different file formats:
 
 - =.cameramodel=: the preferred format. This is a plain text representation of a
@@ -156,13 +206,13 @@ class. This class supports two different file formats:
 
 - =.cahvor=: the alternative format available for compatibility with existing
   tools. If you don't need to interoperate with tools that require this format,
-  there's little reason to use it. This format cannot store [[file:xxx][splined models]] or
-  the auxillary data required for the [[file:xxx][uncertainty computations]]
+  there's little reason to use it. This format cannot store [[Splined stereographic lens model][splined models]] or
+  the auxillary data required for the [[Projection uncertainty][uncertainty computations]].
 
-The [[file:~/jpl/mrcal/doc/mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
+The [[file:mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
 based on the filename. The file format is just a way to store data: both the
 CAHVOR and OpenCV lens models can be stored in either file format. The
-[[file:xxx][=mrcal-to-cahvor=]] and [[file:xxx][=mrcal-to-cameramodel=]] tools can be used to convert
+[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-to-cameramodel.html][=mrcal-to-cameramodel=]] tools can be used to convert
 between the two file formats.
 
 The class (and its representation on disk) contains:
@@ -172,7 +222,7 @@ The class (and its representation on disk) contains:
 - The =optimization_inputs=: the data used to compute the model initially. Used
   for the uncertainty computations
 
-See the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#cameramodel][API documentation]] for usage details. A trivial example to
+See the [[file:mrcal-python-api.html#cameramodel][API documentation]] for usage details. A trivial example to
 
 - read two models from disk
 - recombine into a joint model that uses the lens parameters from one model with
@@ -191,11 +241,11 @@ model_joint.extrinsics_rt_fromref(extrinsics)
 model_joint.write('model-joint.cameramodel')
 #+end_src
 
-This is the basic operation of the [[file:xxx][=mrcal-graft-models= tool]].
+This is the basic operation of the [[file:mrcal-graft-models.html][=mrcal-graft-models= tool]].
 
 * Lens models
 mrcal supports a wide range of lens models. The full set of supported models is
-returned by the [[file:~/jpl/mrcal/doc/mrcal-python-api.html#-supported_lensmodels][=mrcal.supported_models()=]] function. At the time of this writing
+returned by the [[file:mrcal-python-api.html#-supported_lensmodels][=mrcal.supported_models()=]] function. At the time of this writing
 the supported models are:
 
 - =LENSMODEL_PINHOLE=
@@ -208,28 +258,29 @@ the supported models are:
 - =LENSMODEL_CAHVOR=
 - =LENSMODEL_CAHVORE=
 
-In Python, the models are represented as one of the above strings. The =...=
-above means that this models has /configuration parameters/ that would replace
-the =...=. These specific for each kind of model, and currently only the [[file:xxx][splined
-stereographic models]] have any configuration. The number of parameters needed to
-fully describe a lens of a given model can be obtained by calling
-[[file:~/jpl/mrcal/doc/mrcal-python-api.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[file:xxx][=mrcal_lensmodel_num_params()=]] in C.
+In Python, the models are represented as one of the above strings. In C, in an
+enum with =MRCAL_= prepended, and the =...= placeholder stripped. The =...=
+above means that this model has /configuration parameters/ that would replace
+the =...= placeholder. These are specific to each kind of model, and currently
+only the [[Splined stereographic lens model][splined stereographic models]] have any configuration. The number of
+parameters needed to fully describe a given model can be obtained by calling
+[[file:mrcal-python-api.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[file:mrcal.h.html#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
 Any configuration /must/ be included.
 
-In C, the raw type of model is represented by the =mrcal_lensmodel_type_t= enum.
-The model type /and/ the configuration are represented by =mrcal_lensmodel_t=.
+In C, the raw type of model is represented by the [[file:mrcal.h.html#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum.
+The model type /and/ the configuration are represented by [[file:mrcal.h.html#mrcal_lensmodel_t][=mrcal_lensmodel_t=]].
 
 The pinhole and stereographic models are very simple, and are usually used as
 part of data processing pipelines rather than trying to represent real-world
-lenses. The splined stereographic model is [[file:xxx][described in great detail later]]. This
-is the recommended lens model to get the most fidelity and reliable [[file:xxx][uncertainty
-estimates]].
+lenses. The splined stereographic model is [[Splined stereographic lens model][described in great detail later]]. This
+is the recommended lens model to get the most fidelity and reliable
+[[Projection uncertainty][uncertainty estimates]].
 
 The CAHVOR(E) and OpenCV lens models are supported by many other tools, so mrcal
 also supporting them provides interoperability. These are much leaner than the
-splined models, so they have many fewer parameters. Thus they need far less
+[[Splined stereographic lens model][splined models]], so they have many fewer parameters. Thus they need far less
 computation, but they're not as good at representing arbitrary lenses, and they
-provide overly-optimistic [[file:xxx][uncertainty estimates]].
+provide overly-optimistic [[Projection uncertainty][uncertainty estimates]].
 
 CAHVORE is only partially supported: lensmodel parameter gradients aren't
 implemented, so it isn't currently possible to solve for a CAHVORE model. Full
@@ -240,21 +291,91 @@ This is called a "chessboard" or just "board" in some parts of the code.
 
 When running a camera calibration, we use observations of a known-geometry
 object. Usually this object is a chessboard-like grid of black and white
-squares, where the corners between the squares are detected, and serve as the
-input features to mrcal. mrcal is a purely geometrical toolkit, so this vision
-problem must be handled by another library. I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]], but any
+squares, where the corners between squares are detected, and serve as the input
+features to mrcal. mrcal is a purely geometrical toolkit, so this vision problem
+must be handled by another library. I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]], but any other
 source of grid observations can be used.
+
+The specific design of the calibration object is not important, as long as it
+meets the current assumptions of the tool:
+
+- flat (with a small amount of warping tolerated)
+- contains a square grid of features
 
 Chessboards are recommended, in contrast to grids of circles, which are strongly
 discouraged. Precisely extracting the center of an observed circle from a tilted
-observation that is also subjected to lens distortion is very difficult, which
-will introduce biases into the resulting calibrations. Analysis [[file:xxx][here]].
+observation that is also subjected to lens distortion is very difficult. And the
+resulting inaccurate detections will introduce biases into the resulting
+calibrations. Analysis [[file:tour.org::Optimal choreography][here]].
 
-* Usage manual (commandline tools)
-** How to run a calibration
+mrcal assumes independent noise on each point observation, so correlated sources
+of points (such as corners of an apriltag) are not appropriate sources of data
+currently.
+
+* Commandline tools
+#+NAME: Commandline tools
+A number of commandline tools are available for common tasks.
+
+- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]: calibrate N cameras. 
+- [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]: fits one lens model to another
+- [[file:mrcal-show-distortion-off-pinhole.html][=mrcal-show-distortion-off-pinhole=]]: visualize the deviation of a specific
+  lens model from a pinhole model
+- [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface=]]: visualize the surface and knots used in
+  the specification of splined models
+- [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]]: visualize the uncertainty of intrinsics
+  due to noise in the calibration inputs
+- [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]: visualize the difference between the
+  intrinsics of a number of models
+- [[file:mrcal-reproject-points.html][=mrcal-reproject-points=]]: Given two lens models and a set of points,
+  maps them from one lens model to the other
+- [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]]: Given image(s) and lens model(s), produces a new
+  set of images that observe the same scene but with the other model. Several
+  flavors of functionality are included here, such as undistortion-to-pinhole,
+  re-rotation, and remapping to infinity.
+- [[file:mrcal-graft-models.html][=mrcal-graft-models=]]: Combines the intrinsics of one cameramodel with the
+  extrinsics of another
+- [[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]]: Converts a model stored in the native =.cameramodel= file
+  format to the =.cahvor= format. This exists for compatibility only, and does
+  not touch the data: the lens distortion may or may not use the CAHVOR
+  lens model
+- [[file:mrcal-to-cameramodel.html][=mrcal-to-cameramodel=]]: Converts a model stored in the legacy =.cahvor= file
+  format to the =.cameramodel= format. This exists for compatibility only, and
+  does not touch the data: the lens distortion may or may not use the CAHVOR
+  lens model
+- [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]]: Shows a visual representation of the geometry
+  represented by some camera models on disk, and optionally, the
+  chessboard observations used to compute that geometry
+- [[file:mrcal-show-valid-intrinsics-region.html][=mrcal-show-valid-intrinsics-region=]]: Visualizes the region where a model's
+  intrinsics are valid
+- [[file:mrcal-is-within-valid-intrinsics-region.html][=mrcal-is-within-valid-intrinsics-region=]]: Augments a vnlog of pixel
+  coordinates with a column indicating whether or not each point lies within
+  the valid-intrinsics region
+
+mrcal-cull-corners
+
+
+* Developer manual (APIs)
+** Python API
+#+NAME: Python API
+
+The full Python API reference is available [[file:mrcal-python-api.html][here]]. Note that everything has
+docstrings, so the =pydoc3= tool is effective at displaying the relevant
+documentation. For convenience, all the docstrings have been extracted and
+formatted into the webpage linked above.
+
+** C API
+#+NAME: C API
+
+[[file:mrcal.h.html][=mrcal.h=]]
+
+[[file:basic_geometry.h.html][=basic_geometry.h=]]
+
+[[file:poseutils.h.html][=poseutils.h=]]
+
+* How to run a calibration
 talk about --seed and how that can be used to validate intrinsics
 
-*** Tutorial
+** Tutorial
 If all you want to do is run a calibration, read this section first.
 
 You need to get observations of a grid of points. This tool doesn't dictate
@@ -497,17 +618,14 @@ uncertainties. A richer lens model lowers the residuals, but raises the
 uncertainties. So with a richer model you need to get more data to get to the
 same acceptable uncertainty level.
 
-*** Capture images
+** Capture images
  - Hold board straight
  - Oblique closeups
-*** mrgingham
+** mrgingham
 *** mrcal
  - metrics
-* Developer manual (APIs)
-** Python
-** C
-
 * Theory
+** optimization, weighting, least squares
 ** New stuff
 - Board warping
 - outlier rejection. Cook's D
@@ -578,7 +696,17 @@ should do stereo or sfm somehow
     uncertainty
 - can I use the uncertainty to accurately measure heat effects?
 
-** diffs
+** Model differencing
+#+NAME: Model differencing
+xzz
+
+** Projection uncertainty
+#+NAME: Projection uncertainty
+xxx
+
+** Splined stereographic lens model
+#+NAME: Splined stereographic lens model
+yyy
 
 ** Yet more stuff
 - talk about regularization bias
@@ -587,6 +715,9 @@ should do stereo or sfm somehow
 - say that the plots are interactive in normal usage
 
 ** Uncertainty derivation
+
+"normal" calibration problem only
+
 
 I solve the calibration problem using Ordinary Least Squares, minimizing the
 discrepancies between pixel observations and their predictions. The pixel
@@ -799,26 +930,15 @@ So the worst-case stdev(q) is
 
     sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
 
-* After-release todo
-- feed uncertainties to stereo, triangulation
-- compute uncertainties for multiple points at the same time to get covariance.
-  Possibly could work across multiple cameras in the same solve as well
-- better regularization non/crossing in splined models
-- should include a study of how to calibrate long lenses. Tilted observations
-  aren't as effective unless the board is GIANT
-- Can we study intrinsics stability over time? In response to heating? Shaking?
-- Can we use a 3-parallel calibration to quantify chromatic aberration?
-
-
-* interesting stereo discoveries                                   :noexport:
+* Other
+** interesting stereo discoveries
 - compensating for board flex
 - compensating for focal-length errors
   common-mode errors do not affect yaw. differential-mode errors affect yaw very
   much
 - intrinsics errors effect on yaw. I ran some simulations earlier, I think.
   Similar effect: differential errors are very significant
-
-* things to mention in the talk and in the docs                    :noexport:
+** things to mention in the talk and in the docs
 - talk about regularization bias
 - splined models shouldn't fit the core to keep things non-singular
 - splined models may not be fitted into opencv8 without moving extrinsics
@@ -834,6 +954,16 @@ So the worst-case stdev(q) is
 - talk about how to select an appropriate splined model
 - talk about --seed and how that can be used to validate intrinsics
 
+* After-release todo
+- feed uncertainties to stereo, triangulation
+- compute uncertainties for multiple points at the same time to get covariance.
+  Possibly could work across multiple cameras in the same solve as well
+- better regularization non/crossing in splined models
+- should include a study of how to calibrate long lenses. Tilted observations
+  aren't as effective unless the board is GIANT
+- Can we study intrinsics stability over time? In response to heating? Shaking?
+- Can we use a 3-parallel calibration to quantify chromatic aberration?
+
 * future work
 
 - measure observed_pixel_uncertainty
@@ -846,7 +976,7 @@ So the worst-case stdev(q) is
 - integrate deltapose-lite
 - projection_uncertainty() should report correlated results
 - can I quantify the heteroscedasticity and thus the model-nonfitting and the
-  resulted expected bias?
+  resulted expected bias? White test?
 - study cubic/quadratic splines, spline density effects
 - do a triangulation with explict uncertainty propagation
 
@@ -869,3 +999,11 @@ So the worst-case stdev(q) is
 - Can we study intrinsics stability over time? In response to heating? Shaking?
 - Can we use a 3-parallel calibration to quantify chromatic aberration?
 - Measure effect of focus, aperture
+
+* todo for the document
+The "commandline tools" link on top is generated wrong
+
+code should no longer refer to the projection_uncertainty() docstring, but
+rather refer here
+
+should say what this toolkit isfor, other than calibration
