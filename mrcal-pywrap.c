@@ -1577,17 +1577,17 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         {
             // we're wrapping mrcal_optimizer_callback()
 
-            int N_j_nonzero = mrcal_num_j_nonzero(Nobservations_board,
-                                                  Nobservations_point,
-                                                  calibration_object_width_n,
-                                                  calibration_object_height_n,
-                                                  Ncameras_intrinsics, Ncameras_extrinsics,
-                                                  Nframes,
-                                                  Npoints, Npoints_fixed,
-                                                  c_observations_board,
-                                                  c_observations_point,
-                                                  problem_details,
-                                                  mrcal_lensmodel_type);
+            int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
+                                                   Nobservations_point,
+                                                   calibration_object_width_n,
+                                                   calibration_object_height_n,
+                                                   Ncameras_intrinsics, Ncameras_extrinsics,
+                                                   Nframes,
+                                                   Npoints, Npoints_fixed,
+                                                   c_observations_board,
+                                                   c_observations_point,
+                                                   problem_details,
+                                                   mrcal_lensmodel_type);
             cholmod_sparse Jt = {
                 .nrow   = Nstate,
                 .ncol   = Nmeasurements,

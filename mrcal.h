@@ -272,9 +272,9 @@ bool mrcal_project( // out
 // Compute an "unprojection", a mapping of pixel coordinates to the camera
 // coordinate system.
 //
-// We unproject N 2D pixel coordinates q to N 3D vectors v using the given
-// lensmodel and intrinsics parameter values. The returned vectors v are not
-// normalized, and may have any length.
+// We unproject N 2D pixel coordinates q to N 3D direction vectors v using the
+// given lensmodel and intrinsics parameter values. The returned vectors v are
+// not normalized, and may have any length.
 
 // This is the "reverse" direction, so an iterative nonlinear optimization is
 // performed internally to compute this result. This is much slower than
@@ -294,27 +294,48 @@ bool mrcal_unproject( // out
                      const double* intrinsics);
 
 
-// Compute a stereographic projection/unprojection using a constant fxy, cxy.
-// This is the same as the pinhole projection for long lenses, but supports
-// views behind the camera. There's only one singularity point: directly behind
-// the camera. Thus this is a good basis for optimization over observation
-// vectors: it's unconstrained, smoooth and effectively singularity-free
+// Project the given camera-coordinate-system points using a stereographic model
+//
+// Compute a "projection", a mapping of points defined in the camera coordinate
+// system to their observed pixel coordinates. If requested, gradients are
+// computed as well.
+//
+// We project N 3D points p to N 2D pixel coordinates q using the stereographic
+// model with the given intrinsics core.
+//
+// if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
+// ((N,2) mrcal_point3_t objects).
+//
+// This is a special case of mrcal_project(). Useful as part of data analysis,
+// not to represent any real-world lens
 void mrcal_project_stereographic( // output
                                  mrcal_point2_t* q,
-                                 mrcal_point3_t* dq_dv, // May be NULL. Each point
-                                                  // gets a block of 2 mrcal_point3_t
-                                                  // objects
+                                 mrcal_point3_t* dq_dp,
 
                                   // input
-                                 const mrcal_point3_t* v,
+                                 const mrcal_point3_t* p,
                                  int N,
                                  double fx, double fy,
                                  double cx, double cy);
+
+
+// Unproject the given pixel coordinates using a stereographic model
+//
+// Compute an "unprojection", a mapping pixel coordinates to the camera
+// coordinate system.
+//
+// We project N 2D pixel coordinates q to N 3D direction vectors v using the
+// stereographic model with the given intrinsics core. The returned vectors v
+// are not normalized, and may have any length.
+//
+// if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
+// ((N,3) mrcal_point2_t objects).
+//
+// This is a special case of mrcal_unproject(). Useful as part of data analysis,
+// not to represent any real-world lens
 void mrcal_unproject_stereographic( // output
                                    mrcal_point3_t* v,
-                                   mrcal_point2_t* dv_dq, // May be NULL. Each point
-                                                    // gets a block of 3
-                                                    // mrcal_point2_t objects
+                                   mrcal_point2_t* dv_dq,
 
                                    // input
                                    const mrcal_point2_t* q,
@@ -422,199 +443,19 @@ int mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_de
                                               mrcal_lensmodel_t m );
 
 
-
-
-typedef struct
-{
-    double  point_max_range;
-    double  point_min_range;
-} mrcal_problem_constants_t;
-
-#define MRCAL_STATS_ITEM(_)                                           \
-    _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble) \
-    _(int,            Noutliers,                  PyInt_FromLong)
-
-#define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
-
-typedef struct
-{
-    MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_DEFINE)
-} mrcal_stats_t;
-
-
-int mrcal_num_j_nonzero(int Nobservations_board,
-                        int Nobservations_point,
-                        int calibration_object_width_n,
-                        int calibration_object_height_n,
-                        int Ncameras_intrinsics, int Ncameras_extrinsics,
-                        int Nframes,
-                        int Npoints, int Npoints_fixed,
-                        const mrcal_observation_board_t* observations_board,
-                        const mrcal_observation_point_t* observations_point,
-                        mrcal_problem_details_t problem_details,
-                        mrcal_lensmodel_t lensmodel);
-mrcal_stats_t
-mrcal_optimize( // out
-                // Each one of these output pointers may be NULL
-                // Shape (Nstate,)
-                double* p_packed_final,
-                // used only to confirm that the user passed-in the buffer they
-                // should have passed-in. The size must match exactly
-                int buffer_size_p_packed_final,
-
-                // Shape (Nmeasurements,)
-                double* x_final,
-                // used only to confirm that the user passed-in the buffer they
-                // should have passed-in. The size must match exactly
-                int buffer_size_x_final,
-
-                // out, in
-                //
-                // This is a dogleg_solverContext_t. I don't want to #include
-                // <dogleg.h> here, so this is void
-                //
-                // if(_solver_context != NULL) then this is a persistent solver
-                // context. The context is NOT freed on exit.
-                // mrcal_free_context() should be called to release it
-                //
-                // if(*_solver_context != NULL), the given context is reused
-                // if(*_solver_context == NULL), a context is created, and
-                // returned here on exit
-                void** _solver_context,
-
-                // These are a seed on input, solution on output
-
-                // intrinsics is a concatenation of the intrinsics core and the
-                // distortion params. The specific distortion parameters may
-                // vary, depending on lensmodel, so this is a variable-length
-                // structure
-                double*             intrinsics,         // Ncameras_intrinsics * NlensParams
-                mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
-                mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
-                mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
-
-                // All the board pixel observations, in order.
-                // .x, .y are the pixel observations
-                // .z is the weight of the observation. Most of the weights are
-                // expected to be 1.0, which implies that the noise on the
-                // observation has standard deviation of
-                // observed_pixel_uncertainty. observed_pixel_uncertainty scales
-                // inversely with the weight.
-                //
-                // z<0 indicates that this is an outlier. This is respected on
-                // input (even if !do_apply_outlier_rejection). New outliers are
-                // marked with z<0 on output, so this isn't const
-                mrcal_point3_t* observations_board_pool,
-                int Nobservations_board,
-
-                // in
-                int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                int Npoints, int Npoints_fixed, // at the end of points[]
-
-                const mrcal_observation_board_t* observations_board,
-                const mrcal_observation_point_t* observations_point,
-                int Nobservations_point,
-
-                bool check_gradient,
-                bool verbose,
-                // Whether to try to find NEW outliers. The outliers given on
-                // input are respected regardless
-                const bool do_apply_outlier_rejection,
-
-                mrcal_lensmodel_t lensmodel,
-                double observed_pixel_uncertainty,
-                const int* imagersizes, // Ncameras_intrinsics*2 of these
-                mrcal_problem_details_t          problem_details,
-                const mrcal_problem_constants_t* problem_constants,
-
-                double calibration_object_spacing,
-                int calibration_object_width_n,
-                int calibration_object_height_n);
-
-struct cholmod_sparse_struct;
-
-bool mrcal_optimizer_callback(// out
-
-                             // These output pointers may NOT be NULL, unlike
-                             // their analogues in mrcal_optimize()
-
-                             // Shape (Nstate,)
-                             double* p_packed,
-                             // used only to confirm that the user passed-in the buffer they
-                             // should have passed-in. The size must match exactly
-                             int buffer_size_p_packed,
-
-                             // Shape (Nmeasurements,)
-                             double* x,
-                             // used only to confirm that the user passed-in the buffer they
-                             // should have passed-in. The size must match exactly
-                             int buffer_size_x,
-
-                             // output Jacobian. May be NULL if we don't need
-                             // it. This is the unitless Jacobian, used by the
-                             // internal optimization routines
-                             struct cholmod_sparse_struct* Jt,
-
-
-                             // in
-
-                             // intrinsics is a concatenation of the intrinsics core
-                             // and the distortion params. The specific distortion
-                             // parameters may vary, depending on lensmodel, so
-                             // this is a variable-length structure
-                             const double*             intrinsics,         // Ncameras_intrinsics * NlensParams
-                             const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
-                             const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
-                             const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                             const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
-
-                             int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                             int Npoints, int Npoints_fixed, // at the end of points[]
-
-                             const mrcal_observation_board_t* observations_board,
-
-                             // All the board pixel observations, in order.
-                             // .x, .y are the pixel observations
-                             // .z is the weight of the observation. Most of the
-                             // weights are expected to be 1.0, which implies
-                             // that the noise on the observation has standard
-                             // deviation of observed_pixel_uncertainty.
-                             // observed_pixel_uncertainty scales inversely with
-                             // the weight.
-                             //
-                             // z<0 indicates that this is an outlier
-                             const mrcal_point3_t* observations_board_pool,
-                             int Nobservations_board,
-
-                             const mrcal_observation_point_t* observations_point,
-                             int Nobservations_point,
-                             bool verbose,
-
-                             mrcal_lensmodel_t lensmodel,
-                             double observed_pixel_uncertainty,
-                             const int* imagersizes, // Ncameras_intrinsics*2 of these
-
-                             mrcal_problem_details_t          problem_details,
-                             const mrcal_problem_constants_t* problem_constants,
-
-                             double calibration_object_spacing,
-                             int calibration_object_width_n,
-                             int calibration_object_height_n);
-
-
-// frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
-// this is void
-void mrcal_free_context(void** ctx);
-
-
-
-// packs/unpacks a vector
+// Scales a state vector to the packed, unitless form used by the optimizer
+//
+// In order to make the optimization well-behaved, we scale all the variables in
+// the state and the gradients before passing them to the optimizer. The internal
+// optimization library thus works only with unitless (or "packed") data.
+//
+// This function takes an (Nstate,) array of full-units values p[], and scales
+// it to produce packed data. This function applies the scaling directly to the
+// input array; the input is modified, and nothing is returned.
+//
+// This is the inverse of mrcal_unpack_solver_state_vector()
 void mrcal_pack_solver_state_vector( // out, in
-                                     double* p, // unitless, FULL state on
-                                                // input, scaled, decimated
-                                                // (subject to problem_details),
-                                                // meaningful state on output
+                                     double* p,
 
                                      // in
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
@@ -623,6 +464,18 @@ void mrcal_pack_solver_state_vector( // out, in
                                      mrcal_problem_details_t problem_details,
                                      const mrcal_lensmodel_t lensmodel);
 
+
+// Scales a state vector from the packed, unitless form used by the optimizer
+//
+// In order to make the optimization well-behaved, we scale all the variables in
+// the state and the gradients before passing them to the optimizer. The internal
+// optimization library thus works only with unitless (or "packed") data.
+//
+// This function takes an (Nstate,) array of unitless values p[], and scales it
+// to produce full-units data. This function applies the scaling directly to the
+// input array; the input is modified, and nothing is returned.
+//
+// This is the inverse of mrcal_pack_solver_state_vector()
 void mrcal_unpack_solver_state_vector( // out, in
                                        double* p, // unitless state on input,
                                                   // scaled, meaningful state on
@@ -634,6 +487,7 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        int Npoints, int Npoints_fixed,
                                        mrcal_problem_details_t problem_details,
                                        const mrcal_lensmodel_t lensmodel);
+
 
 // Reports the icam_extrinsics corresponding to a given icam_intrinsics. On
 // success, the result is written to *icam_extrinsics, and we return true. If

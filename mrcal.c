@@ -448,17 +448,17 @@ int mrcal_num_measurements(int Nobservations_board,
                                               lensmodel);
 }
 
-int mrcal_num_j_nonzero(int Nobservations_board,
-                        int Nobservations_point,
-                        int calibration_object_width_n,
-                        int calibration_object_height_n,
-                        int Ncameras_intrinsics, int Ncameras_extrinsics,
-                        int Nframes,
-                        int Npoints, int Npoints_fixed,
-                        const mrcal_observation_board_t* observations_board,
-                        const mrcal_observation_point_t* observations_point,
-                        mrcal_problem_details_t problem_details,
-                        mrcal_lensmodel_t lensmodel)
+int _mrcal_num_j_nonzero(int Nobservations_board,
+                         int Nobservations_point,
+                         int calibration_object_width_n,
+                         int calibration_object_height_n,
+                         int Ncameras_intrinsics, int Ncameras_extrinsics,
+                         int Nframes,
+                         int Npoints, int Npoints_fixed,
+                         const mrcal_observation_board_t* observations_board,
+                         const mrcal_observation_point_t* observations_point,
+                         mrcal_problem_details_t problem_details,
+                         mrcal_lensmodel_t lensmodel)
 {
     // each observation depends on all the parameters for THAT frame and for
     // THAT camera. Camera0 doesn't have extrinsics, so I need to loop through
@@ -2474,9 +2474,10 @@ bool mrcal_project( // out
 }
 
 
-// Maps a set of distorted 2D imager points q to a 3d vector in camera
-// coordinates that produced these pixel observations. The 3d vector is defined
-// up-to-length, so the vectors reported here will all have z = 1.
+// Maps a set of distorted 2D imager points q to a 3D vector in camera
+// coordinates that produced these pixel observations. The 3D vector is defined
+// up-to-length. The returned vectors v are not normalized, and may have any
+// length.
 //
 // This is the "reverse" direction, so an iterative nonlinear optimization is
 // performed internally to compute this result. This is much slower than
@@ -2836,10 +2837,8 @@ static void pack_solver_state( // out
 
 // Same as above, but packs/unpacks a vector instead of structures
 void mrcal_pack_solver_state_vector( // out, in
-                                     double* p, // unitless, FULL state on
-                                                // input, scaled, decimated
-                                                // (subject to problem_details),
-                                                // meaningful state on output
+                                     double* p, // FULL state on input, unitless
+                                                // state on output
 
                                      // in
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
@@ -4659,17 +4658,17 @@ bool mrcal_optimizer_callback(// out
                                                problem_details,
                                                lensmodel);
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
-    int N_j_nonzero = mrcal_num_j_nonzero(Nobservations_board,
-                                          Nobservations_point,
-                                          calibration_object_width_n,
-                                          calibration_object_height_n,
-                                          Ncameras_intrinsics, Ncameras_extrinsics,
-                                          Nframes,
-                                          Npoints, Npoints_fixed,
-                                          observations_board,
-                                          observations_point,
-                                          problem_details,
-                                          lensmodel);
+    int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
+                                           Nobservations_point,
+                                           calibration_object_width_n,
+                                           calibration_object_height_n,
+                                           Ncameras_intrinsics, Ncameras_extrinsics,
+                                           Nframes,
+                                           Npoints, Npoints_fixed,
+                                           observations_board,
+                                           observations_point,
+                                           problem_details,
+                                           lensmodel);
 
     if( buffer_size_x != Nmeasurements*(int)sizeof(double) )
     {
@@ -4887,17 +4886,17 @@ mrcal_optimize( // out
                                                              Npoints, Npoints_fixed,
                                                              problem_details,
                                                              lensmodel),
-        .N_j_nonzero                = mrcal_num_j_nonzero(Nobservations_board,
-                                                          Nobservations_point,
-                                                          calibration_object_width_n,
-                                                          calibration_object_height_n,
-                                                          Ncameras_intrinsics, Ncameras_extrinsics,
-                                                          Nframes,
-                                                          Npoints, Npoints_fixed,
-                                                          observations_board,
-                                                          observations_point,
-                                                          problem_details,
-                                                          lensmodel),
+        .N_j_nonzero                = _mrcal_num_j_nonzero(Nobservations_board,
+                                                           Nobservations_point,
+                                                           calibration_object_width_n,
+                                                           calibration_object_height_n,
+                                                           Ncameras_intrinsics, Ncameras_extrinsics,
+                                                           Nframes,
+                                                           Npoints, Npoints_fixed,
+                                                           observations_board,
+                                                           observations_point,
+                                                           problem_details,
+                                                           lensmodel),
         .Nintrinsics                = mrcal_lensmodel_num_params(lensmodel)};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
 
