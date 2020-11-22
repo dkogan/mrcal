@@ -1,15 +1,7 @@
-#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
-#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
-#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
-#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
 #+title: mrcal - a toolkit for manipulating cameras, projections and geometry
-#+date: <2020-11-19 Thu>
 #+author: Dima Kogan
 #+email: dima@secretsauce.net
 #+language: en
-#+select_tags: export
-#+exclude_tags: noexport
-#+creator: Emacs 28.0.50 (Org mode 9.3)
 
 * Intro
 mrcal is a toolkit for working with lens models, camera geometry, images,

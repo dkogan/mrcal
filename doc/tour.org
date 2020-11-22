@@ -1,3 +1,8 @@
+#+title: A tour of mrcal
+#+author: Dima Kogan
+#+email: dima@secretsauce.net
+#+language: en
+
 mrcal is a general-purpose library that can do many things. The best way to
 convey a sense of the capabilities is to demonstrate some real-world usage
 scenarios. Let's go through a full calibration sequence starting with chessboard
