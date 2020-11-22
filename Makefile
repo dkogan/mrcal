@@ -43,13 +43,14 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
 
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
+DOC_OUTPUT_DIR := doc/out
 
 ## mrcal.html contains everything. It is large
-doc: doc/mrcal-python-api.html
-doc/mrcal-python-api.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
+doc: $(DOC_OUTPUT_DIR)/mrcal-python-api.html
+$(DOC_OUTPUT_DIR)/mrcal-python-api.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
 	doc/pydoc.py -w mrcal > $@
 .PHONY: doc
-EXTRA_CLEAN += doc/mrcal-python-api.html
+EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api.html
 
 
 ## Each submodule in a separate .html. This works, but needs more effort:
@@ -60,16 +61,16 @@ EXTRA_CLEAN += doc/mrcal-python-api.html
 #
 # doc-reference: \
 # 	$(patsubst mrcal/%.py,doc/mrcal.%.html,$(filter-out %/__init__.py,$(wildcard mrcal/*.py))) \
-# 	$(patsubst %,doc/mrcal.%.html,$(ALL_PY_EXTENSION_MODULES)) \
-# 	doc/mrcal.html
-# doc/mrcal.%.html: \
+# 	$(patsubst %,$(DOC_OUTPUT_DIR)/mrcal.%.html,$(ALL_PY_EXTENSION_MODULES)) \
+# 	$(DOC_OUTPUT_DIR)/mrcal.html
+# $(DOC_OUTPUT_DIR)/mrcal.%.html: \
 # 	mrcal/%.py \
 # 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
 # 	libmrcal.so.$(ABI_VERSION)
 # 	doc/pydoc.py -w mrcal.$* > $@
-# doc/mrcal.%.html: mrcal/%$(PY_EXT_SUFFIX)
+# $(DOC_OUTPUT_DIR)/mrcal.%.html: mrcal/%$(PY_EXT_SUFFIX)
 # 	doc/pydoc.py -w mrcal.$* > $@
-# doc/mrcal.html: \
+# $(DOC_OUTPUT_DIR)/mrcal.html: \
 # 	$(wildcard mrcal/*.py) \
 # 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
 # 	libmrcal.so.$(ABI_VERSION)
@@ -94,6 +95,9 @@ doc/%.html: %.pod
 	pod2html --noindex --infile=$< --outfile=$@
 doc: $(MANPAGES_HTML)
 EXTRA_CLEAN += $(MANPAGES_HTML)
+
+# the whole output documentation directory
+EXTRA_CLEAN += $(DOC_OUTPUT_DIR)
 
 ######### python stuff
 mrcal-npsp-pywrap-GENERATED.c: mrcal-genpywrap.py
