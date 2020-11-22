@@ -6,63 +6,31 @@
 #include "basic_geometry.h"
 #include "poseutils.h"
 
-typedef struct
-{
-    // indexes the extrinsics array. -1 means "at coordinate system reference"
-    int  extrinsics;
-    // indexes the intrinsics array
-    int  intrinsics;
-} mrcal_camera_index_t;
+////////////////////////////////////////////////////////////////////////////////
+//////////////////// Lens models
+////////////////////////////////////////////////////////////////////////////////
 
-// An observation of a calibration board. Each "observation" is ONE camera
-// observing a board
-typedef struct
-{
-    mrcal_camera_index_t icam;
-    int  iframe;
-} mrcal_observation_board_t;
-
-typedef struct
-{
-    mrcal_camera_index_t icam;
-    int  i_point;
-
-    // Observed pixel coordinates
-    // .x, .y are the pixel observations
-    // .z is the weight of the observation. Most of the weights are expected to
-    // be 1.0, which implies that the noise on the observation is gaussian,
-    // independent on x,y, and has standard deviation of
-    // observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely
-    // with the weight.
-    mrcal_point3_t px;
-} mrcal_observation_point_t;
-
-
-
-typedef struct
-{
-    double focal_xy [2];
-    double center_xy[2];
-} mrcal_intrinsics_core_t;
-
-// names of the lens models, intrinsic parameter counts. A parameter count of
+// These are an "X macro": https://en.wikipedia.org/wiki/X_Macro
+//
+// The supported lens models and their parameter counts. A parameter count of
 // <=0 means the parameter count is dynamic and will be computed by
 // mrcal_lensmodel_num_params(). This also implies that this model has some
 // configuration that affects the parameter count
-#define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                    \
-    _(LENSMODEL_PINHOLE, 4)                                           \
-    _(LENSMODEL_STEREOGRAPHIC, 4) /* Simple stereographic-only model */ \
-    _(LENSMODEL_OPENCV4, 8)                                           \
-    _(LENSMODEL_OPENCV5, 9)                                           \
-    _(LENSMODEL_OPENCV8, 12)                                          \
-    _(LENSMODEL_OPENCV12,16)   /* available in OpenCV >= 3.0.0) */    \
-    _(LENSMODEL_CAHVOR,  9)                                           \
-    _(LENSMODEL_CAHVORE, 13)   /* CAHVORE is CAHVOR + E + linearity */
-#define MRCAL_LENSMODEL_WITHCONFIG_LIST(_)                                  \
-    _(LENSMODEL_SPLINED_STEREOGRAPHIC,      0)
-#define MRCAL_LENSMODEL_LIST(_)                 \
-    MRCAL_LENSMODEL_NOCONFIG_LIST(_)            \
+#define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                         \
+    _(LENSMODEL_PINHOLE,               4)                                        \
+    _(LENSMODEL_STEREOGRAPHIC,         4)  /* Simple stereographic-only model */ \
+    _(LENSMODEL_OPENCV4,               8)                                        \
+    _(LENSMODEL_OPENCV5,               9)                                        \
+    _(LENSMODEL_OPENCV8,               12)                                       \
+    _(LENSMODEL_OPENCV12,              16) /* available in OpenCV >= 3.0.0) */   \
+    _(LENSMODEL_CAHVOR,                9)                                        \
+    _(LENSMODEL_CAHVORE,               13) /* CAHVORE is CAHVOR + E + linearity */
+#define MRCAL_LENSMODEL_WITHCONFIG_LIST(_)                                       \
+    _(LENSMODEL_SPLINED_STEREOGRAPHIC, 0)
+#define MRCAL_LENSMODEL_LIST(_)                                                  \
+    MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                             \
     MRCAL_LENSMODEL_WITHCONFIG_LIST(_)
+
 
 // parametric models have no extra configuration
 typedef struct {} mrcal_LENSMODEL_PINHOLE__config_t;
@@ -74,44 +42,51 @@ typedef struct {} mrcal_LENSMODEL_OPENCV12__config_t;
 typedef struct {} mrcal_LENSMODEL_CAHVOR__config_t;
 typedef struct {} mrcal_LENSMODEL_CAHVORE__config_t;
 
-#define MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
+#define _MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
 
 _Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that. H means 'unsigned short'");
 
 
-// The splined stereographic models have the spline and projection configuration
-// parameters
-#define MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(_, cookie)    \
-    /* Maximum degree of each 1D polynomial. This is almost certainly 2 */ \
-    /* (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous) */ \
-    _(order,        uint16_t, "H", PRIu16,SCNu16, , cookie)             \
-    /* We have a Nx by Ny grid of control points */                     \
-    _(Nx,           uint16_t, "H", PRIu16,SCNu16, , cookie)             \
-    _(Ny,           uint16_t, "H", PRIu16,SCNu16, , cookie)             \
+// Configuration for the splined stereographic models. These are given as an an
+// "X macro": https://en.wikipedia.org/wiki/X_Macro
+#define MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(_, cookie)                \
+    /* Maximum degree of each 1D polynomial. This is almost certainly 2 */          \
+    /* (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous) */    \
+    _(order,        uint16_t, "H", PRIu16,SCNu16, , cookie)                         \
+    /* We have a Nx by Ny grid of control points */                                 \
+    _(Nx,           uint16_t, "H", PRIu16,SCNu16, , cookie)                         \
+    _(Ny,           uint16_t, "H", PRIu16,SCNu16, , cookie)                         \
     /* The horizontal field of view. Not including fov_y. It's proportional with */ \
-    /* Ny and Nx */                                                     \
+    /* Ny and Nx */                                                                 \
     _(fov_x_deg,    uint16_t, "H", PRIu16,SCNu16, , cookie)
 typedef struct
 {
-    MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
+    MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(_MRCAL_ITEM_DEFINE_ELEMENT, )
 } mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
 
-#define MRCAL_LENSMODEL_IS_OPENCV(d) (MRCAL_LENSMODEL_OPENCV4 <= (d) && (d) <= MRCAL_LENSMODEL_OPENCV12)
 
-
-// types <0 are invalid. The different invalid types are just for error
-// reporting
-#define LIST_WITH_COMMA(s,n) ,MRCAL_ ## s
+// An X-macro-generated enum mrcal_lensmodel_type_t. This has an element for
+// each entry in MRCAL_LENSMODEL_LIST (with "MRCAL_" prepended). This lensmodel
+// type selects the lens model, but does NOT provide the configuration.
+// mrcal_lensmodel_t does that.
+#define _LIST_WITH_COMMA(s,n) ,MRCAL_ ## s
 typedef enum
     { MRCAL_LENSMODEL_INVALID           = -2,
       MRCAL_LENSMODEL_INVALID_BADCONFIG = -1
       // The rest, starting with 0
-      MRCAL_LENSMODEL_LIST( LIST_WITH_COMMA ) } mrcal_lensmodel_type_t;
-#undef LIST_WITH_COMMA
+      MRCAL_LENSMODEL_LIST( _LIST_WITH_COMMA ) } mrcal_lensmodel_type_t;
+#undef _LIST_WITH_COMMA
 
+
+// Defines a lens model: the type AND the configuration values
 typedef struct
 {
+    // The type of lensmodel. This is an enum, selecting elements of
+    // MRCAL_LENSMODEL_LIST (with "MRCAL_" prepended)
     mrcal_lensmodel_type_t type;
+
+    // A union of all the possible configuration structures. We pick the
+    // structure type based on the value of "type
     union
     {
 #define CONFIG_STRUCT(s,n) mrcal_ ##s##__config_t s##__config;
@@ -120,86 +95,158 @@ typedef struct
     };
 } mrcal_lensmodel_t;
 
+
+// Return an array of strings listing all the available lens models
+//
+// These are all "unconfigured" strings that use "..." placeholders for any
+// configuration values. Each return string is a \0-terminated const char*. The
+// end of the list is signified by a NULL string
+const char* const* mrcal_supported_lensmodel_names( void ); // NULL-terminated array of char* strings
+
+
+// Return true if the given mrcal_lensmodel_type_t specifies a valid lens model
 __attribute__((unused))
 static bool mrcal_lensmodel_type_is_valid(mrcal_lensmodel_type_t t)
 {
     return t >= 0;
 }
 
-#define MRCAL_LENSMODEL_META_LIST(_, cookie)                    \
-    _(has_core,                  bool, "i",,, :1, cookie)       \
+
+// Evaluates to true if the given lens model is one of the supported OpenCV
+// types
+#define MRCAL_LENSMODEL_IS_OPENCV(d) (MRCAL_LENSMODEL_OPENCV4 <= (d) && (d) <= MRCAL_LENSMODEL_OPENCV12)
+
+
+// Return a string describing a lens model.
+//
+// This function returns a static string. For models with no configuration, this
+// is the FULL string for that model. For models with a configuration, the
+// configuration values have "..." placeholders. These placeholders mean that
+// the resulting strings do not define a lens model fully, and cannot be
+// converted to a mrcal_lensmodel_t with mrcal_lensmodel_from_name()
+//
+// This is the inverse of mrcal_lensmodel_type_from_name()
+const char* mrcal_lensmodel_name_unconfigured( mrcal_lensmodel_t model );
+
+
+// Return a CONFIGURED string describing a lens model.
+//
+// This function generates a fully-configured string describing the given lens
+// model. For models with no configuration, this is just the static string
+// returned by mrcal_lensmodel_name_unconfigured(). For models that have a
+// configuration, however, the configuration values are filled-in. The resulting
+// string may be converted back into a mrcal_lensmodel_t by calling
+// mrcal_lensmodel_from_name().
+//
+// This function writes the string into the given buffer "out". The size of the
+// buffer is passed in the "size" argument. The meaning of "size" is as with
+// snprintf(), which is used internally. Returns true on success
+//
+// This is the inverse of mrcal_lensmodel_from_name()
+bool mrcal_lensmodel_name( char* out, int size, mrcal_lensmodel_t model );
+
+
+// Parse the lens model type from a lens model name string
+//
+// The configuration is ignored. Thus this function works even if the
+// configuration is missing or unparseable. Unknown model names return
+// MRCAL_LENSMODEL_INVALID
+//
+// This is the inverse of mrcal_lensmodel_name_unconfigured()
+mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name );
+
+
+// Parse the full configured lens model from a lens model name string
+//
+// The lens mode type AND the configuration are read into a mrcal_lensmodel_t
+// structure, which this function returns. Strings with valid model names but
+// missing or unparseable configuration return
+//
+//   {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}.
+//
+// Any other errors result in some other invalid lensmodel.type values, which
+// can be checked with mrcal_lensmodel_type_is_valid(lensmodel->type)
+//
+// This is the inverse of mrcal_lensmodel_name()
+mrcal_lensmodel_t mrcal_lensmodel_from_name( const char* name );
+
+
+// An X-macro-generated mrcal_lensmodel_metadata_t. Each lens model type has
+// some metadata that describes its inherent properties. These properties can be
+// queried by calling mrcal_lensmodel_metadata(). The available properties and
+// their meaning are listed in MRCAL_LENSMODEL_META_LIST()
+#define MRCAL_LENSMODEL_META_LIST(_, cookie)                            \
+    /* If true, this model contains an "intrinsics core". This is described */ \
+    /* in mrcal_intrinsics_core_t. If present, the 4 core parameters ALWAYS */ \
+    /* appear at the start of a model's parameter vector                    */ \
+    _(has_core,                  bool, "i",,, :1, cookie)               \
+                                                                        \
+                                                                        \
+    /* Whether a model is able to project points behind the camera          */ \
+    /* (z<0 in the camera coordinate system). Models based on a pinhole     */ \
+    /* projection (pinhole, OpenCV, CAHVOR(E)) cannot do this. models based */ \
+    /* on a stereographic projection (stereographic, splined stereographic) */ \
+    /* can                                                                  */ \
     _(can_project_behind_camera, bool, "i",,, :1, cookie)
 typedef struct
 {
-    MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
+    MRCAL_LENSMODEL_META_LIST(_MRCAL_ITEM_DEFINE_ELEMENT, )
 } mrcal_lensmodel_metadata_t;
 
-typedef struct
-{
-    // Applies only to those models that HAVE a core (fx,fy,cx,cy)
-    bool do_optimize_intrinsics_core        : 1;
 
-    // For models that have a core, these are all the non-core parameters. For
-    // models that do not, these are ALL the parameters
-    bool do_optimize_intrinsics_distortions : 1;
-    bool do_optimize_extrinsics             : 1;
-    bool do_optimize_frames                 : 1;
-    bool do_apply_regularization            : 1;
-    bool do_optimize_calobject_warp         : 1;
-} mrcal_problem_details_t;
-
-typedef struct
-{
-    double  point_max_range;
-    double  point_min_range;
-} mrcal_problem_constants_t;
-
-// These return a string describing the lens model. mrcal_lensmodel_name_unconfigured()
-// returns a static string. For models with no configuration, this is the FULL
-// string. For models that have a configuration, however, a static string cannot
-// contain the configuration values, so mrcal_lensmodel_name_unconfigured() returns
-// LENSMODEL_XXX_a=..._b=..._c=... Note the ... that stands in for the
-// configuration parameters. So for models with a configuration
-// mrcal_lensmodel_from_name( mrcal_lensmodel_name_unconfigured(...) ) would fail
+// Return a structure containing a model's metadata
 //
-// mrcal_lensmodel_name_full() does the same thing, except it writes the string
-// into a buffer, and it expands the configuration parameters. The arguments are
-// the same as with snprintf(): the output buffer, and the maximum size. We
-// return true if we succeeded successfully. So even for models with a
-// configuration mrcal_lensmodel_from_name( mrcal_lensmodel_name_full(...) )
-// would succeed
-const char*        mrcal_lensmodel_name_unconfigured           ( mrcal_lensmodel_t model );
-bool               mrcal_lensmodel_name( char* out, int size, mrcal_lensmodel_t model );
+// The available metadata is described in the definition of the
+// MRCAL_LENSMODEL_META_LIST() macro
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m );
 
-// parses the model name AND the configuration into a mrcal_lensmodel_t structure.
-// Strings with valid model names but missing or unparseable configuration
-// return {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
-// invalid lensmodel.type, which can be checked with
-// mrcal_lensmodel_type_is_valid(lensmodel->type)
-mrcal_lensmodel_t        mrcal_lensmodel_from_name             ( const char* name );
 
-// parses the model name only. The configuration is ignored. Even if it's
-// missing or unparseable. Unknown model names return MRCAL_LENSMODEL_INVALID
-mrcal_lensmodel_type_t   mrcal_lensmodel_type_from_name        ( const char* name );
+// Return the number of parameters required to specify a given lens model
+//
+// For models that have a configuration, the parameter count value generally
+// depends on the configuration. For instance, splined models use the model
+// parameters as the spline control points, so the spline density (specified in
+// the configuration) directly affects how many parameters such a model requires
+int mrcal_lensmodel_num_params( const mrcal_lensmodel_t m );
 
-mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata            ( const mrcal_lensmodel_t m );
-int                mrcal_lensmodel_num_params                  ( const mrcal_lensmodel_t m );
-int                mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
-                                                             mrcal_lensmodel_t m );
-const char* const* mrcal_supported_lensmodel_names         ( void ); // NULL-terminated array of char* strings
 
-bool mrcal_knots_for_splined_models( // buffers must hold at least
-                                     // config->Nx and config->Ny values
-                                     // respectively
-                                     double* ux, double* uy,
+// Return the locations of x and y spline knots
+
+// Splined models are defined by the locations of their control points. These
+// are arranged in a grid, the size and density of which is set by the model
+// configuration. We fill-in the x knot locations into ux[] and the y locations
+// into uy[]. ux[] and uy[] must be large-enough to hold configuration->Nx and
+// configuration->Ny values respectively.
+//
+// This function applies to splined models only. Returns true on success
+bool mrcal_knots_for_splined_models( double* ux, double* uy,
                                      mrcal_lensmodel_t lensmodel);
 
-// Wrapper around the internal project() function: the function used in the
-// inner optimization loop. These map world points to their observed pixel
-// coordinates, and to optionally provide gradients. dxy_dintrinsics and/or
-// dxy_dp are allowed to be NULL if we're not interested those gradients.
+
+
+////////////////////////////////////////////////////////////////////////////////
+//////////////////// Projections
+////////////////////////////////////////////////////////////////////////////////
+
+// Project the given camera-coordinate-system points
 //
-// This function supports CAHVORE distortions if we don't ask for gradients
+// Compute a "projection", a mapping of points defined in the camera coordinate
+// system to their observed pixel coordinates. If requested, gradients are
+// computed as well.
+//
+// We project N 3D points p to N 2D pixel coordinates q using the given
+// lensmodel and intrinsics parameter values.
+//
+// if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
+// ((N,2) mrcal_point3_t objects).
+//
+// if (dq_dintrinsics != NULL) we report the gradient dq/dintrinsics in a dense
+// (N,2,Nintrinsics) array. Note that splined models have very high Nintrinsics
+// and very sparse gradients. THIS function reports the gradients densely,
+// however, so it is inefficient for splined models.
+//
+// This function supports CAHVORE distortions only if we don't ask for any
+// gradients
 //
 // Projecting out-of-bounds points (beyond the field of view) returns undefined
 // values. Generally things remain continuous even as we move off the imager
@@ -209,17 +256,8 @@ bool mrcal_knots_for_splined_models( // buffers must hold at least
 // polynomial, but the function will remain continuous.
 bool mrcal_project( // out
                    mrcal_point2_t* q,
-
-                   // Stored as a row-first array of shape (N,2,3). Each
-                   // trailing ,3 dimension element is a mrcal_point3_t
                    mrcal_point3_t* dq_dp,
-                   // core, distortions concatenated. Stored as a row-first
-                   // array of shape (N,2,Nintrinsics). This is a DENSE array.
-                   // High-parameter-count lens models have very sparse
-                   // gradients here, and the internal project() function
-                   // returns those sparsely. For now THIS function densifies
-                   // all of these
-                   double*   dq_dintrinsics,
+                   double*         dq_dintrinsics,
 
                    // in
                    const mrcal_point3_t* p,
@@ -228,19 +266,25 @@ bool mrcal_project( // out
                    // core, distortions concatenated
                    const double* intrinsics);
 
-// Maps a set of distorted 2D imager points q to a 3d vector in camera
-// coordinates that produced these pixel observations. The 3d vector is defined
-// up-to-length, so the vectors reported here will all have z = 1.
+
+// Unproject the given pixel coordinates
 //
+// Compute an "unprojection", a mapping of pixel coordinates to the camera
+// coordinate system.
+//
+// We unproject N 2D pixel coordinates q to N 3D vectors v using the given
+// lensmodel and intrinsics parameter values. The returned vectors v are not
+// normalized, and may have any length.
+
 // This is the "reverse" direction, so an iterative nonlinear optimization is
 // performed internally to compute this result. This is much slower than
-// mrcal_project. For OpenCV models specifically, OpenCV has cvUndistortPoints()
-// (and cv2.undistortPoints()), but these are inaccurate:
+// mrcal_project(). For OpenCV models specifically, OpenCV has
+// cvUndistortPoints() (and cv2.undistortPoints()), but these are unreliable:
 // https://github.com/opencv/opencv/issues/8811
 //
 // This function does NOT support CAHVORE
 bool mrcal_unproject( // out
-                     mrcal_point3_t* out,
+                     mrcal_point3_t* v,
 
                      // in
                      const mrcal_point2_t* q,
@@ -248,6 +292,7 @@ bool mrcal_unproject( // out
                      mrcal_lensmodel_t lensmodel,
                      // core, distortions concatenated
                      const double* intrinsics);
+
 
 // Compute a stereographic projection/unprojection using a constant fxy, cxy.
 // This is the same as the pinhole projection for long lenses, but supports
@@ -278,6 +323,113 @@ void mrcal_unproject_stereographic( // output
                                    double cx, double cy);
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+//////////////////// Optimization
+////////////////////////////////////////////////////////////////////////////////
+
+// Used to specify which camera is making an observation. The "intrinsics" index
+// is used to identify a specific camera, while the "extrinsics" index is used
+// to locate a camera in space. If I have a camera that is moving over time, the
+// intrinsics index will remain the same, while the extrinsics index will change
+typedef struct
+{
+    // indexes the intrinsics array
+    int  intrinsics;
+    // indexes the extrinsics array. -1 means "at coordinate system reference"
+    int  extrinsics;
+} mrcal_camera_index_t;
+
+
+// An observation of a calibration board. Each "observation" is ONE camera
+// observing a board
+typedef struct
+{
+    // which camera is making this observation
+    mrcal_camera_index_t icam;
+
+    // indexes the "frames" array to select the pose of the calibration object
+    // being observed
+    int                  iframe;
+} mrcal_observation_board_t;
+
+
+// The "intrinsics core" of a camera. This defines the final step of a
+// projection operation. For instance with a pinhole model we have
+//
+//   q[0] = focal_xy[0] * x/z + center_xy[0]
+//   q[1] = focal_xy[1] * y/z + center_xy[1]
+typedef struct
+{
+    double focal_xy [2];
+    double center_xy[2];
+} mrcal_intrinsics_core_t;
+
+
+// An observation of a discrete point. Each "observation" is ONE camera
+// observing a single point in space
+typedef struct
+{
+    // which camera is making this observation
+    mrcal_camera_index_t icam;
+
+    // indexes the "points" array to select the position of the point being
+    // observed
+    int                  i_point;
+
+    // Observed pixel coordinates
+    // .x, .y are the pixel observations
+    // .z is the weight of the observation. Most of the weights are expected to
+    // be 1.0. Less precise observations have lower weights.
+    mrcal_point3_t px;
+} mrcal_observation_point_t;
+
+
+// The "details" of the optimization problem being solved. We can ask mrcal to
+// solve for ALL the lens parameters and ALL the geometry and everything else.
+// OR we can ask mrcal to lock down some part of the optimization problem, and
+// to solve for the rest. If any variables are locked down, we use their initial
+// values passed-in to mrcal_optimize()
+typedef struct
+{
+    // If true, we solve for the intrinsics core. Applies only to those models
+    // that HAVE a core (fx,fy,cx,cy)
+    bool do_optimize_intrinsics_core        : 1;
+
+    // If true, solve for the non-core lens parameters
+    bool do_optimize_intrinsics_distortions : 1;
+
+    // If true, solve for the geometry of the cameras
+    bool do_optimize_extrinsics             : 1;
+
+    // If true, solve for the poses of the calibration object
+    bool do_optimize_frames                 : 1;
+
+    // If true, apply the regularization terms in the solver
+    bool do_apply_regularization            : 1;
+
+    // If true, optimize the shape of the calibration object
+    bool do_optimize_calobject_warp         : 1;
+} mrcal_problem_details_t;
+
+
+// Return the number of parameters needed in optimizing the given lens model
+//
+// This is identical to mrcal_lensmodel_num_params(), but takes into account the
+// problem details. Any intrinsics parameters locked down in the
+// mrcal_problem_details_t do NOT count towards the optimization parameters
+int mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
+                                              mrcal_lensmodel_t m );
+
+
+
+
+typedef struct
+{
+    double  point_max_range;
+    double  point_min_range;
+} mrcal_problem_constants_t;
+
 #define MRCAL_STATS_ITEM(_)                                           \
     _(double,         rms_reproj_error__pixels,   PyFloat_FromDouble) \
     _(int,            Noutliers,                  PyInt_FromLong)
@@ -290,6 +442,17 @@ typedef struct
 } mrcal_stats_t;
 
 
+int mrcal_num_j_nonzero(int Nobservations_board,
+                        int Nobservations_point,
+                        int calibration_object_width_n,
+                        int calibration_object_height_n,
+                        int Ncameras_intrinsics, int Ncameras_extrinsics,
+                        int Nframes,
+                        int Npoints, int Npoints_fixed,
+                        const mrcal_observation_board_t* observations_board,
+                        const mrcal_observation_point_t* observations_point,
+                        mrcal_problem_details_t problem_details,
+                        mrcal_lensmodel_t lensmodel);
 mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL
@@ -440,102 +603,11 @@ bool mrcal_optimizer_callback(// out
                              int calibration_object_height_n);
 
 
-int mrcal_measurement_index_boards(int i_observation_board,
-                                   int Nobservations_board,
-                                   int Nobservations_point,
-                                   int calibration_object_width_n,
-                                   int calibration_object_height_n);
-int mrcal_num_measurements_boards(int Nobservations_board,
-                                  int calibration_object_width_n,
-                                  int calibration_object_height_n);
-int mrcal_measurement_index_points(int i_observation_point,
-                                   int Nobservations_board,
-                                   int Nobservations_point,
-                                   int calibration_object_width_n,
-                                   int calibration_object_height_n);
-int mrcal_num_measurements_points(int Nobservations_point);
-int mrcal_measurement_index_regularization(int Nobservations_board,
-                                           int Nobservations_point,
-                                           int calibration_object_width_n,
-                                           int calibration_object_height_n);
-int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                          int Nframes,
-                                          int Npoints, int Npoints_fixed, int Nobservations_board,
-                                          mrcal_problem_details_t problem_details,
-                                          mrcal_lensmodel_t lensmodel);
-
-int mrcal_num_measurements(int Nobservations_board,
-                           int Nobservations_point,
-                           int calibration_object_width_n,
-                           int calibration_object_height_n,
-                           int Ncameras_intrinsics, int Ncameras_extrinsics,
-                           int Nframes,
-                           int Npoints, int Npoints_fixed,
-                           mrcal_problem_details_t problem_details,
-                           mrcal_lensmodel_t lensmodel);
-
-int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
-                     int Nframes,
-                     int Npoints, int Npoints_fixed, int Nobservations_board,
-                     mrcal_problem_details_t problem_details,
-                     mrcal_lensmodel_t lensmodel);
-int mrcal_num_j_nonzero(int Nobservations_board,
-                        int Nobservations_point,
-                        int calibration_object_width_n,
-                        int calibration_object_height_n,
-                        int Ncameras_intrinsics, int Ncameras_extrinsics,
-                        int Nframes,
-                        int Npoints, int Npoints_fixed,
-                        const mrcal_observation_board_t* observations_board,
-                        const mrcal_observation_point_t* observations_point,
-                        mrcal_problem_details_t problem_details,
-                        mrcal_lensmodel_t lensmodel);
-
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
 // this is void
 void mrcal_free_context(void** ctx);
 
 
-int mrcal_state_index_intrinsics(int icam_intrinsics,
-                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                 int Nframes,
-                                 int Npoints, int Npoints_fixed, int Nobservations_board,
-                                 mrcal_problem_details_t problem_details,
-                                 mrcal_lensmodel_t lensmodel);
-int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
-                                mrcal_problem_details_t problem_details,
-                                mrcal_lensmodel_t lensmodel);
-int mrcal_state_index_extrinsics(int icam_extrinsics,
-                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                 int Nframes,
-                                 int Npoints, int Npoints_fixed, int Nobservations_board,
-                                 mrcal_problem_details_t problem_details,
-                                 mrcal_lensmodel_t lensmodel);
-int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
-                                mrcal_problem_details_t problem_details);
-int mrcal_state_index_frames(int iframe,
-                             int Ncameras_intrinsics, int Ncameras_extrinsics,
-                             int Nframes,
-                             int Npoints, int Npoints_fixed, int Nobservations_board,
-                             mrcal_problem_details_t problem_details,
-                             mrcal_lensmodel_t lensmodel);
-int mrcal_num_states_frames(int Nframes,
-                            mrcal_problem_details_t problem_details);
-int mrcal_state_index_points(int i_point,
-                             int Ncameras_intrinsics, int Ncameras_extrinsics,
-                             int Nframes,
-                             int Npoints, int Npoints_fixed, int Nobservations_board,
-                             mrcal_problem_details_t problem_details,
-                             mrcal_lensmodel_t lensmodel);
-int mrcal_num_states_points(int Npoints, int Npoints_fixed,
-                            mrcal_problem_details_t problem_details);
-int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
-                                     int Nframes,
-                                     int Npoints, int Npoints_fixed, int Nobservations_board,
-                                     mrcal_problem_details_t problem_details,
-                                     mrcal_lensmodel_t lensmodel);
-int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
-                                    int Nobservations_board);
 
 // packs/unpacks a vector
 void mrcal_pack_solver_state_vector( // out, in
@@ -581,6 +653,92 @@ bool mrcal_corresponding_icam_extrinsics(// out
                                          const mrcal_observation_board_t* observations_board,
                                          int Nobservations_point,
                                          const mrcal_observation_point_t* observations_point);
+
+
+////////////////////////////////////////////////////////////////////////////////
+//////////////////// Layout of the measurement and state vectors
+////////////////////////////////////////////////////////////////////////////////
+
+int mrcal_measurement_index_boards(int i_observation_board,
+                                   int Nobservations_board,
+                                   int Nobservations_point,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n);
+int mrcal_num_measurements_boards(int Nobservations_board,
+                                  int calibration_object_width_n,
+                                  int calibration_object_height_n);
+int mrcal_measurement_index_points(int i_observation_point,
+                                   int Nobservations_board,
+                                   int Nobservations_point,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n);
+int mrcal_num_measurements_points(int Nobservations_point);
+int mrcal_measurement_index_regularization(int Nobservations_board,
+                                           int Nobservations_point,
+                                           int calibration_object_width_n,
+                                           int calibration_object_height_n);
+int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                          int Nframes,
+                                          int Npoints, int Npoints_fixed, int Nobservations_board,
+                                          mrcal_problem_details_t problem_details,
+                                          mrcal_lensmodel_t lensmodel);
+
+int mrcal_num_measurements(int Nobservations_board,
+                           int Nobservations_point,
+                           int calibration_object_width_n,
+                           int calibration_object_height_n,
+                           int Ncameras_intrinsics, int Ncameras_extrinsics,
+                           int Nframes,
+                           int Npoints, int Npoints_fixed,
+                           mrcal_problem_details_t problem_details,
+                           mrcal_lensmodel_t lensmodel);
+
+int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                     int Nframes,
+                     int Npoints, int Npoints_fixed, int Nobservations_board,
+                     mrcal_problem_details_t problem_details,
+                     mrcal_lensmodel_t lensmodel);
+int mrcal_state_index_intrinsics(int icam_intrinsics,
+                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                 int Nframes,
+                                 int Npoints, int Npoints_fixed, int Nobservations_board,
+                                 mrcal_problem_details_t problem_details,
+                                 mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
+                                mrcal_problem_details_t problem_details,
+                                mrcal_lensmodel_t lensmodel);
+int mrcal_state_index_extrinsics(int icam_extrinsics,
+                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                 int Nframes,
+                                 int Npoints, int Npoints_fixed, int Nobservations_board,
+                                 mrcal_problem_details_t problem_details,
+                                 mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
+                                mrcal_problem_details_t problem_details);
+int mrcal_state_index_frames(int iframe,
+                             int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             int Nframes,
+                             int Npoints, int Npoints_fixed, int Nobservations_board,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_frames(int Nframes,
+                            mrcal_problem_details_t problem_details);
+int mrcal_state_index_points(int i_point,
+                             int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             int Nframes,
+                             int Npoints, int Npoints_fixed, int Nobservations_board,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_points(int Npoints, int Npoints_fixed,
+                            mrcal_problem_details_t problem_details);
+int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                     int Nframes,
+                                     int Npoints, int Npoints_fixed, int Nobservations_board,
+                                     mrcal_problem_details_t problem_details,
+                                     mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
+                                    int Nobservations_board);
+
 
 // Public ABI stuff, that's not for end-user consumption
 #include "mrcal_internal.h"
