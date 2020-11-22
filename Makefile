@@ -45,7 +45,7 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 DOC_OUTPUT_DIR := doc/out
 
-## mrcal.html contains everything. It is large
+## mrcal-python-api.html contains everything. It is large
 doc: $(DOC_OUTPUT_DIR)/mrcal-python-api.html
 $(DOC_OUTPUT_DIR)/mrcal-python-api.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
 	doc/pydoc.py -w mrcal > $@
@@ -90,8 +90,8 @@ $(DIST_MAN): %.1: %.pod
 	cat footer.pod >> $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
-MANPAGES_HTML := $(patsubst %,doc/%.html,$(DIST_BIN))
-doc/%.html: %.pod
+MANPAGES_HTML := $(patsubst %,$(DOC_OUTPUT_DIR)/%.html,$(DIST_BIN))
+$(DOC_OUTPUT_DIR)/%.html: %.pod
 	pod2html --noindex --infile=$< --outfile=$@
 doc: $(MANPAGES_HTML)
 EXTRA_CLEAN += $(MANPAGES_HTML)
