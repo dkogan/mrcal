@@ -53,7 +53,7 @@ do {                                                                    \
 } while(0)
 
 #define PERCENT_S_COMMA(s,n) "'%s',"
-#define COMMA_LENSMODEL_NAME(s,n) , mrcal_lensmodel_name( (mrcal_lensmodel_t){.type = MRCAL_##s} )
+#define COMMA_LENSMODEL_NAME(s,n) , mrcal_lensmodel_name_unconfigured( (mrcal_lensmodel_t){.type = MRCAL_##s} )
 #define VALID_LENSMODELS_FORMAT  "(" MRCAL_LENSMODEL_LIST(PERCENT_S_COMMA) ")"
 #define VALID_LENSMODELS_ARGLIST MRCAL_LENSMODEL_LIST(COMMA_LENSMODEL_NAME)
 

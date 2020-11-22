@@ -82,7 +82,7 @@ MRCAL_LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
     ,&config->name
 #define LENSMODEL_SCAN_CFG_ELEMENT_PLUS1(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
     +1
-const char* mrcal_lensmodel_name( mrcal_lensmodel_t model )
+const char* mrcal_lensmodel_name_unconfigured( mrcal_lensmodel_t model )
 {
     switch(model.type)
     {
@@ -107,7 +107,7 @@ const char* mrcal_lensmodel_name( mrcal_lensmodel_t model )
 }
 
 // Write the model name WITH the full config into the given buffer. Identical to
-// mrcal_lensmodel_name() for configuration-free models
+// mrcal_lensmodel_name_unconfigured() for configuration-free models
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
   (char* out, int size,
    const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
@@ -117,7 +117,7 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
                   MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_FMT, )
                   MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_VAR, ));
 }
-bool mrcal_lensmodel_name_full( char* out, int size, mrcal_lensmodel_t model )
+bool mrcal_lensmodel_name( char* out, int size, mrcal_lensmodel_t model )
 {
     switch(model.type)
     {
@@ -1083,7 +1083,7 @@ void _project_point_parametric( // outputs
     else
     {
         MSG("Unhandled lens model: %d (%s)",
-            lensmodel.type, mrcal_lensmodel_name(lensmodel));
+            lensmodel.type, mrcal_lensmodel_name_unconfigured(lensmodel));
         assert(0);
     }
 }
@@ -1330,7 +1330,7 @@ bool mrcal_knots_for_splined_models( // buffers must hold at least
     if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         MSG("This function works only with the MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC model. '%s' passed in",
-            mrcal_lensmodel_name(lensmodel));
+            mrcal_lensmodel_name_unconfigured(lensmodel));
         return false;
     }
 
@@ -1777,7 +1777,7 @@ void project( // out
             {
                 MSG("Unhandled lens model: %d (%s)",
                     lensmodel.type,
-                    mrcal_lensmodel_name(lensmodel));
+                    mrcal_lensmodel_name_unconfigured(lensmodel));
                 assert(0);
             }
             const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
