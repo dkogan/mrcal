@@ -2,6 +2,9 @@
 
 r'''Read/write camera models using the legacy .cahvor file format
 
+The .cahvor functionality is available via the mrcal.cameramodel class. There's
+no reason for end users to use the mrcal.cahvor module directly.
+
 mrcal supports the .cahvor file format to interoperate with tools that work with
 that format only.
 
