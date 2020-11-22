@@ -64,7 +64,7 @@ typedef struct
     MRCAL_LENSMODEL_NOCONFIG_LIST(_)            \
     MRCAL_LENSMODEL_WITHCONFIG_LIST(_)
 
-// parametric models have no extra configuration, and no precomputed data
+// parametric models have no extra configuration
 typedef struct {} mrcal_LENSMODEL_PINHOLE__config_t;
 typedef struct {} mrcal_LENSMODEL_STEREOGRAPHIC__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV4__config_t;
@@ -73,15 +73,6 @@ typedef struct {} mrcal_LENSMODEL_OPENCV8__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV12__config_t;
 typedef struct {} mrcal_LENSMODEL_CAHVOR__config_t;
 typedef struct {} mrcal_LENSMODEL_CAHVORE__config_t;
-
-typedef struct {} mrcal_LENSMODEL_PINHOLE__precomputed_t;
-typedef struct {} mrcal_LENSMODEL_STEREOGRAPHIC__precomputed_t;
-typedef struct {} mrcal_LENSMODEL_OPENCV4__precomputed_t;
-typedef struct {} mrcal_LENSMODEL_OPENCV5__precomputed_t;
-typedef struct {} mrcal_LENSMODEL_OPENCV8__precomputed_t;
-typedef struct {} mrcal_LENSMODEL_OPENCV12__precomputed_t;
-typedef struct {} mrcal_LENSMODEL_CAHVOR__precomputed_t;
-typedef struct {} mrcal_LENSMODEL_CAHVORE__precomputed_t;
 
 #define MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
 
@@ -104,15 +95,6 @@ typedef struct
 {
     MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_DEFINE_ELEMENT, )
 } mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
-
-// The splined stereographic models configuration parameters can be used to
-// compute the segment size. I cache this computation
-typedef struct
-{
-    // The distance between adjacent knots (1 segment) is u_per_segment =
-    // 1/segments_per_u
-    double segments_per_u;
-} mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t;
 
 #define MRCAL_LENSMODEL_IS_OPENCV(d) (MRCAL_LENSMODEL_OPENCV4 <= (d) && (d) <= MRCAL_LENSMODEL_OPENCV12)
 
