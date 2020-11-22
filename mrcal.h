@@ -513,6 +513,57 @@ bool mrcal_corresponding_icam_extrinsics(// out
 //////////////////// Layout of the measurement and state vectors
 ////////////////////////////////////////////////////////////////////////////////
 
+// The optimization routine tries to minimize the length of the measurement
+// vector x by moving around the state vector p.
+//
+// Depending on the specific optimization problem being solved and the
+// mrcal_problem_details_t, the state vector may contain any of
+// - The lens parameters
+// - The geometry of the cameras
+// - The geometry of the observed chessboards and discrete points
+// - The chessboard shape
+//
+// The measurement vector may contain
+// - The errors in observations of the chessboards
+// - The errors in observations of discrete points
+// - The penalties in the solved point positions
+// - The regularization terms
+//
+// Given the problem details and a vector p or x it is often useful to know
+// where specific quantities lie in those vectors. We have 4 sets of functions
+// to answer such questions:
+//
+// int mrcal_measurement_index_THING()
+//   Returns the index in the measurement vector x where the contiguous block of
+//   values describing the THING begins. THING is any of
+//   - boards
+//   - points
+//   - regularization
+//
+// int mrcal_num_measurements_THING()
+//   Returns the number of values in the contiguous block in the measurement
+//   vector x that describe the given THING. THING is any of
+//   - boards
+//   - points
+//   - regularization
+//
+// int mrcal_state_index_THING()
+//   Returns the index in the state vector p where the contiguous block of
+//   values describing the THING begins. THING is any of
+//   - intrinsics
+//   - extrinsics
+//   - frames
+//   - points
+//   - calobject_warp
+//
+// int mrcal_num_states_THING()
+//   Returns the number of values in the contiguous block in the state
+//   vector p that describe the given THING. THING is any of
+//   - intrinsics
+//   - extrinsics
+//   - frames
+//   - points
+//   - calobject_warp
 int mrcal_measurement_index_boards(int i_observation_board,
                                    int Nobservations_board,
                                    int Nobservations_point,
