@@ -881,41 +881,60 @@ Let's focus on /one/ observed chessboard frame: frame 0. I want to know the
 uncertainty at a pixel coordinate $\vec q$. I follow the sequence above in
 reverse:
 
-\[ \vec p_\mathrm{frame0} = T_\mathrm{f0r} T_\mathrm{rc} \mathrm{unproject}\left( \vec q \right) \]
+\[ \vec p_{\mathrm{frame}_0} = T_{\mathrm{f}_0\mathrm{r}}} T_\mathrm{rc} \mathrm{unproject}\left( \vec q \right) \]
 
-This is a "fixed" point. I then transform and project $\vec p_\mathrm{frame0}$
-back to the imager to get $q_1$. But here I take into account the uncertainties
-of each transformation to get the desired projection uncertainty
-$\mathrm{Var}\left(\vec q_1 - \vec q\right)$.
+This is a "fixed" point. I then transform and project $\vec p_{\mathrm{frame}_0}}$
+back to the imager to get $\vec q^+$. But here I take into account the
+uncertainties of each transformation to get the desired projection uncertainty
+$\mathrm{Var}\left(\vec q^+ - \vec q\right)$. The full data flow looks like
+this, with all the perturbed quantities superscripted with a $+$.
 
-This works, but it depends on $\vec p_\mathrm{frame0}$ being "fixed", which
-isn't entirely true. The frame coordinate systems are a part of the state
-vector, so they move around 
+\[
+   \vec q^+                      \xleftarrow{\mathrm{intrinsics}^+}
+   \vec p^+_\mathrm{camera}      \xleftarrow{T^+_\mathrm{cr}}
+   \vec p^+_{\mathrm{reference}_0}}  \xleftarrow{T^+_{\mathrm{rf}_0}}} \vec p_{\mathrm{frame}_0}} \xleftarrow{T_\mathrm{fr}}
+   \vec p_\mathrm{reference}
+   \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
+   \xleftarrow{\mathrm{intrinsics}}
+   \vec q
+\]
+
+This works, but it depends on $\vec p_{\mathrm{frame}_0}}$ being "fixed", which it
+isn't, since $T_\mathrm{f0r}$ is in the optimization state /and/ since the
+reference coordinate system that $T_\mathrm{f0r}$ relates to isn't fixed either.
+However, we're observing more than one chessboard, and /together/ all the
+chessboard frames can represent a mostly-fixed reference.
 
 How do I combine all the different estimates from the different chessboard
-observations? I can take the mean of all the q1 I get from each frame to use
-mean(q1)-q0 as the uncertainty. I will linearize the projection, so everything
-is linear, and I will have
+observations? I take a very simple approach: I compute the mean of all the $\vec
+p^+_\mathrm{reference}$ estimates from each frame. The full data flow looks like
+this:
 
-  T_r1r0 = mean( T_rf1[i] T_rf0[i] )
+\begin{aligned}
+   & \swarrow                   & \vec p^+_{\mathrm{reference}_0}}  & \xleftarrow{T^+_{\mathrm{rf}_0}}} & \vec p_{\mathrm{frame}_0}} & \nwarrow & \\
+   \vec q^+                      \xleftarrow{\mathrm{intrinsics}^+}
+   \vec p^+_\mathrm{camera}      \xleftarrow{T^+_\mathrm{cr}}
+   \vec p^+_\mathrm{reference}
+   & \xleftarrow{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1}}  & \xleftarrow{T^+_{\mathrm{rf}_1}}} & \vec p_{\mathrm{frame}_1}} & \xleftarrow{T_\mathrm{fr}} &
+   \vec p_\mathrm{reference}
+   \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
+   \xleftarrow{\mathrm{intrinsics}}
+   \vec q \\
+   & \nwarrow                   & \vec p^+_{\mathrm{reference}_2}}  & \xleftarrow{T^+_{\mathrm{rf}_2}}} & \vec p_{\mathrm{frame}_2}} & \swarrow
+\end{aligned}
 
+This is better, but has another issue. What is the transformation relating the
+original and perturbed reference coordinate systems?
 
+\[ T_{\mathrm{r}^+\mathrm{r}} = \mathrm{mean}_i \left( T_{\mathrm{r}^+\mathrm{f}_i} T_{\mathrm{f}_i\mathrm{r}} \right) \]
 
+Each transformation $T$ includes a rotation matrix $R$, so the above constructs
+a new rotation as a mean of multiple rotation matrices, which is aphysical: the
+resulting matrix is not a valid rotation. In practice, the perturbations are
+tiny, and this is sufficiently close. Extreme geometries do break this, and I
+will tweak this approach in the future.
 
-
-$T_\mathrm{ab}$ is a transformation of a point from coord system b to the same point
-being represented in coord system a. Using homogeneous coordinates T can contain
-both a rotation and a translation, and remain linear:
-
-  T = [R t]
-      [0 1]
-
-
-
-
-
-This "T" is not a valid transformation since mean(R) is not a rotation matrix.
-But for small perturbations, this should be close-enough.
+** Implementation details
 
 I computed Var(p) earlier, which contains the variance of ALL the optimization
 parameters together. The noise on the chessboard poses is coupled to the noise
@@ -980,7 +999,7 @@ ellipse:
 
 So the worst-case stdev(q) is
 
-    sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
+$\sqrt{\frac{a+c}{2} + \sqrt{ \frac{\left(a-c\right)^2}{4} + b^2}}$
 
 * Visualization
 - say that the plots are interactive in normal usage
