@@ -27,7 +27,7 @@ This overall approach is sound, but it implies some limitations:
   other issues are /not/ included in the reported uncertainty. Issues such as:
   motion blur, out-of-focus images, out-of-synchronization images, unexpected
   chessboard shape. It is thus imperative that we try to minimize these issues,
-  and mrcal provides [[How to run a calibration][tools]] to detect some of these problems.
+  and mrcal provides [[file:index.org::How to run a calibration][tools]] to detect some of these problems.
 
 - A consequence of the above is that the choice of lens model affects the
   reported uncertainties. Lean models (those with few parameters) are less
@@ -35,7 +35,7 @@ This overall approach is sound, but it implies some limitations:
   do. However, this stiffness also serves to limit the model's response to noise
   in their parameters. So the above method will report less uncertainty for
   leaner models than rich models. So, unless we're /sure/ that a given lens
-  follows some particular lens model perfectly, a [[Splined stereographic lens model][splined lens model]] (i.e. a
+  follows some particular lens model perfectly, a [[file:index.org::Splined stereographic lens model][splined lens model]] (i.e. a
   very rich model) is recommended for truthful uncertainty reporting. Otherwise
   the reported confidence comes from the model itself, rather than the
   calibration data.
@@ -210,9 +210,9 @@ Let's focus on /one/ observed chessboard frame: frame 0. I want to know the
 uncertainty at a pixel coordinate $\vec q$. I follow the sequence above in
 reverse:
 
-\[ \vec p_{\mathrm{frame}_0} = T_{\mathrm{f}_0\mathrm{r}}} T_\mathrm{rc} \mathrm{unproject}\left( \vec q \right) \]
+\[ \vec p_{\mathrm{frame}_0} = T_{\mathrm{f}_0\mathrm{r}} T_\mathrm{rc} \mathrm{unproject}\left( \vec q \right) \]
 
-This is a "fixed" point. I then transform and project $\vec p_{\mathrm{frame}_0}}$
+This is a "fixed" point. I then transform and project $\vec p_{\mathrm{frame}_0}$
 back to the imager to get $\vec q^+$. But here I take into account the
 uncertainties of each transformation to get the desired projection uncertainty
 $\mathrm{Var}\left(\vec q^+ - \vec q\right)$. The full data flow looks like
@@ -221,14 +221,14 @@ this, with all the perturbed quantities superscripted with a $+$.
 \[
    \vec q^+                      \xleftarrow{\mathrm{intrinsics}^+}
    \vec p^+_\mathrm{camera}      \xleftarrow{T^+_\mathrm{cr}}
-   \vec p^+_{\mathrm{reference}_0}}  \xleftarrow{T^+_{\mathrm{rf}_0}}} \vec p_{\mathrm{frame}_0}} \xleftarrow{T_\mathrm{fr}}
+   \vec p^+_{\mathrm{reference}_0}  \xleftarrow{T^+_{\mathrm{rf}_0}} \vec p_{\mathrm{frame}_0} \xleftarrow{T_\mathrm{fr}}
    \vec p_\mathrm{reference}
    \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
    \xleftarrow{\mathrm{intrinsics}}
    \vec q
 \]
 
-This works, but it depends on $\vec p_{\mathrm{frame}_0}}$ being "fixed", which it
+This works, but it depends on $\vec p_{\mathrm{frame}_0}$ being "fixed", which it
 isn't, since $T_\mathrm{f0r}$ is in the optimization state /and/ since the
 reference coordinate system that $T_\mathrm{f0r}$ relates to isn't fixed either.
 However, we're observing more than one chessboard, and /together/ all the
@@ -240,16 +240,16 @@ p^+_\mathrm{reference}$ estimates from each frame. The full data flow looks like
 this:
 
 \begin{aligned}
-   & \swarrow                   & \vec p^+_{\mathrm{reference}_0}}  & \xleftarrow{T^+_{\mathrm{rf}_0}}} & \vec p_{\mathrm{frame}_0}} & \nwarrow & \\
+   & \swarrow                   & \vec p^+_{\mathrm{reference}_0}  & \xleftarrow{T^+_{\mathrm{rf}_0}} & \vec p_{\mathrm{frame}_0} & \nwarrow & \\
    \vec q^+                      \xleftarrow{\mathrm{intrinsics}^+}
    \vec p^+_\mathrm{camera}      \xleftarrow{T^+_\mathrm{cr}}
    \vec p^+_\mathrm{reference}
-   & \xleftarrow{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1}}  & \xleftarrow{T^+_{\mathrm{rf}_1}}} & \vec p_{\mathrm{frame}_1}} & \xleftarrow{T_\mathrm{fr}} &
+   & \xleftarrow{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1}  & \xleftarrow{T^+_{\mathrm{rf}_1}} & \vec p_{\mathrm{frame}_1} & \xleftarrow{T_\mathrm{fr}} &
    \vec p_\mathrm{reference}
    \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
    \xleftarrow{\mathrm{intrinsics}}
    \vec q \\
-   & \nwarrow                   & \vec p^+_{\mathrm{reference}_2}}  & \xleftarrow{T^+_{\mathrm{rf}_2}}} & \vec p_{\mathrm{frame}_2}} & \swarrow
+   & \nwarrow                   & \vec p^+_{\mathrm{reference}_2}  & \xleftarrow{T^+_{\mathrm{rf}_2}} & \vec p_{\mathrm{frame}_2} & \swarrow
 \end{aligned}
 
 This is better, but has another issue. What is the transformation relating the
