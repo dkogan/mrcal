@@ -134,7 +134,7 @@ has functions to convert between them. Available representations are:
   implied constraints: most (4,3) numpy arrays are /not/ valid =Rt=
   transformations.
 
-- =rt=: a (6,) numpy array with a (3,) vector representing a Rodrigues rotation
+- =rt=: a (6,) numpy array with a (3,) vector representing a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
   concatenated with another (3,) vector, representing a rotation. This form
   requires more computations to deal with, but has no implied constraints: /any/
   (6,) numpy array is a valid =rt= transformation. Thus this is the form used
@@ -185,8 +185,7 @@ row $i$ of $R$ represents the $\frac{ \partial b_i }{ \partial \vec a }$
 The core of mrcal is written in C, but most of the API is currently available in
 Python only. The python-wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library,
 which makes it fairly simple to make the Python interface /and/ provides
-[[https://numpy.org/doc/stable/user/basics.broadcasting.html][broadcasting]] support. So over time more of the Python API will become translated
-to C, and exposed there, as needed.
+[[https://numpy.org/doc/stable/user/basics.broadcasting.html][broadcasting]] support.
 
 The Python layer uses [[https://numpy.org/][numpy]] and [[https://github.com/dkogan/numpysane/][=numpysane=]] heavily. All the plotting is done
 with [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. [[https://opencv.org/][OpenCV]] is used a bit, but /only/ in the Python layer (their C
@@ -243,7 +242,12 @@ model_joint.write('model-joint.cameramodel')
 
 This is the basic operation of the [[file:mrcal-graft-models.html][=mrcal-graft-models= tool]].
 
+Currently there's no support for reading/writing these files in the C API. I
+will write it when I need it or when somebody bugs me about it, whichever comes
+first.
+
 * Lens models
+#+NAME: Lens models
 mrcal supports a wide range of lens models. The full set of supported models is
 returned by the [[file:mrcal-python-api.html#-supported_lensmodels][=mrcal.supported_models()=]] function. At the time of this writing
 the supported models are:
@@ -264,11 +268,11 @@ above means that this model has /configuration parameters/ that would replace
 the =...= placeholder. These are specific to each kind of model, and currently
 only the [[Splined stereographic lens model][splined stereographic models]] have any configuration. The number of
 parameters needed to fully describe a given model can be obtained by calling
-[[file:mrcal-python-api.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[file:mrcal.h.html#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
+[[file:mrcal-python-api.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
 Any configuration /must/ be included.
 
-In C, the raw type of model is represented by the [[file:mrcal.h.html#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum.
-The model type /and/ the configuration are represented by [[file:mrcal.h.html#mrcal_lensmodel_t][=mrcal_lensmodel_t=]].
+In C, the raw type of model is represented by the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum.
+The model type /and/ the configuration are represented by [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]].
 
 The pinhole and stereographic models are very simple, and are usually used as
 part of data processing pipelines rather than trying to represent real-world
@@ -287,6 +291,7 @@ implemented, so it isn't currently possible to solve for a CAHVORE model. Full
 support may be added in the future.
 
 * Calibration object
+#+NAME: Calibration object
 This is called a "chessboard" or just "board" in some parts of the code.
 
 When running a camera calibration, we use observations of a known-geometry
