@@ -149,11 +149,11 @@ coordinate system =B= to a representation in coordinate system =A=.
 
 A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
 around an axis in the direction =r=. Converting between =R= and =r= is done via
-the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]: using the [[file:mrcal-python-api.html#-r_from_R][=mrcal.r_from_R()=]] and
-[[file:mrcal-python-api.html#-R_from_r][=mrcal.R_from_r()=]] functions. For translating /poses/, not just rotations, use
-[[file:mrcal-python-api.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:mrcal-python-api.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]: using the [[file:mrcal-python-api-reference.html#-r_from_R][=mrcal.r_from_R()=]] and
+[[file:mrcal-python-api-reference.html#-R_from_r][=mrcal.R_from_r()=]] functions. For translating /poses/, not just rotations, use
+[[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:mrcal-python-api-reference.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
 
-There're [[file:mrcal-python-api.html#-R_from_quat][several]] [[file:mrcal-python-api.html#-quat_from_R][functions]] to work with unit quaternions as a rotation
+There're [[file:mrcal-python-api-reference.html#-R_from_quat][several]] [[file:mrcal-python-api-reference.html#-quat_from_R][functions]] to work with unit quaternions as a rotation
 representation, but they're lightly used, and exist only for compatibility with
 other tools. mrcal does not use quaternions.
 
@@ -165,7 +165,7 @@ column vectors.
 However, numpy print vectors (1-dimensional objects), as /row/ vectors, so the
 code treats 1-dimensional objects as transposed vectors. In the code, the above
 rotation would be implemented equivalently: $\vec b^T = \vec a^T R^T$. The
-[[file:mrcal-python-api.html#-rotate_point_R][=mrcal.rotate_point_R()=]] and [[file:mrcal-python-api.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]] functions serve to
+[[file:mrcal-python-api-reference.html#-rotate_point_R][=mrcal.rotate_point_R()=]] and [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]] functions serve to
 handle this transparently.
 
 A similar issue is that numpy follows the linear algebra convention of indexing
@@ -194,7 +194,7 @@ library will decrease even further.
 
 * Camera model file formats
 
-Reading/writing camera models is done in Python with the [[file:mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]]
+Reading/writing camera models is done in Python with the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]]
 class. This class supports two different file formats:
 
 - =.cameramodel=: the preferred format. This is a plain text representation of a
@@ -208,7 +208,7 @@ class. This class supports two different file formats:
   there's little reason to use it. This format cannot store [[Splined stereographic lens model][splined models]] or
   the auxillary data required for the [[file:uncertainty.org][uncertainty computations]].
 
-The [[file:mrcal-python-api.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
+The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
 based on the filename. The file format is just a way to store data: both the
 CAHVOR and OpenCV lens models can be stored in either file format. The
 [[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-to-cameramodel.html][=mrcal-to-cameramodel=]] tools can be used to convert
@@ -221,7 +221,7 @@ The class (and its representation on disk) contains:
 - The =optimization_inputs=: the data used to compute the model initially. Used
   for the uncertainty computations
 
-See the [[file:mrcal-python-api.html#cameramodel][API documentation]] for usage details. A trivial example to
+See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details. A trivial example to
 
 - read two models from disk
 - recombine into a joint model that uses the lens parameters from one model with
@@ -249,7 +249,7 @@ first.
 * Lens models
 #+NAME: Lens models
 mrcal supports a wide range of lens models. The full set of supported models is
-returned by the [[file:mrcal-python-api.html#-supported_lensmodels][=mrcal.supported_models()=]] function. At the time of this writing
+returned by the [[file:mrcal-python-api-reference.html#-supported_lensmodels][=mrcal.supported_models()=]] function. At the time of this writing
 the supported models are:
 
 - =LENSMODEL_PINHOLE=
@@ -268,7 +268,7 @@ above means that this model has /configuration parameters/ that would replace
 the =...= placeholder. These are specific to each kind of model, and currently
 only the [[Splined stereographic lens model][splined stereographic models]] have any configuration. The number of
 parameters needed to fully describe a given model can be obtained by calling
-[[file:mrcal-python-api.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
+[[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
 Any configuration /must/ be included.
 
 In C, the raw type of model is represented by the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum.
@@ -412,7 +412,7 @@ The strides are given in bytes, and work as expected. For a (for instance)
                           k*xxx_stride2 ]
 #+end_src
 
-These all have fairly direct Python bindings. For instance [[file:mrcal-python-api.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]].
+These all have fairly direct Python bindings. For instance [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]].
 
 The listing of available functions is best given with the commented header:
 
@@ -991,7 +991,7 @@ intrinsics vector.
 optimization to reverse the projection operation. Naturally, this is much slower
 than =mrcal_project()=, and has no gradient reporting. Models that have no
 gradients implemented (CAHVORE only, as of this writing) do not support
-=mrcal_unproject()=. They /may/ have a Python [[file:mrcal-python-api.html#-unproject][=mrcal.unproject()=]] implementation
+=mrcal_unproject()=. They /may/ have a Python [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] implementation
 available that uses a slower optimization routine that uses numerical
 differences instead of analytical gradients.
 
@@ -1641,7 +1641,7 @@ int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
 ** Python API
 #+NAME: Python API
 
-The full Python API reference is available [[file:mrcal-python-api.html][here]]. Note that everything has
+The full Python API reference is available [[file:mrcal-python-api-reference.html][here]]. Note that everything has
 docstrings, so the =pydoc3= tool is effective at displaying the relevant
 documentation. For convenience, all the docstrings have been extracted and
 formatted into the webpage linked above.

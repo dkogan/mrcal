@@ -6,7 +6,7 @@ the data products that use the calibration. We have a vague sense that "more
 chessboard observations are better", but that's about it.
 
 mrcal addresses this by providing an estimate of projection uncertainty
-explicitly via the [[file:mrcal-python-api.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function. This tells you how
+explicitly via the [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function. This tells you how
 good your calibration is (lower projection uncertainties are good), and it tells
 you how good your downstream results are (by allowing the user to propagate the
 projection uncertainties through their data pipeline).
@@ -281,7 +281,7 @@ $\mathrm{Var}\left( \vec p \right )$ is the variance of the optimization state
 vector we computed earlier, and $\frac{\partial \vec q}{\partial \vec p}$ comes
 from the projection expression above.
 
-The [[file:mrcal-python-api.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function implements this logic, which can
+The [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function implements this logic, which can
 also be accessed using the [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool.
 
 * The effect of range

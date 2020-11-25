@@ -45,12 +45,12 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 DOC_OUTPUT_DIR := doc/out
 
-## mrcal-python-api.html contains everything. It is large
-doc: $(DOC_OUTPUT_DIR)/mrcal-python-api.html
-$(DOC_OUTPUT_DIR)/mrcal-python-api.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
+## mrcal-python-api-reference.html contains everything. It is large
+doc: $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
+$(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
 	doc/pydoc.py -w mrcal > $@
 .PHONY: doc
-EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api.html
+EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 
 
 ## Each submodule in a separate .html. This works, but needs more effort:
