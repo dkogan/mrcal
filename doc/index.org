@@ -380,8 +380,7 @@ If all you want to do is run a calibration, read this section first.
 
 You need to get observations of a grid of points. This tool doesn't dictate
 exactly how these observations are obtained, but the recommended way to do that
-is to use mrgingham (http://github.com/dkogan/mrgingham). This documentation
-assumes that's what is being done.
+is to use [[http://github.com/dkogan/mrgingham][mrgingham]]. This documentation assumes that's what is being done.
 
 See the mrgingham documentation for a .pdf of a chessboard pattern. This pattern
 should be printed (at some size; see below) and mounted onto a RIGID and FLAT
@@ -448,45 +447,47 @@ data.
 
 Once we have gathered input images, we can run the calibration procedure:
 
-  mrcal-calibrate-cameras
-    --corners-cache corners.vnl
-    -j 10
-    --focal 2000
-    --object-spacing 0.1
-    --object-width-n 10
-    --outdir /tmp
-    --lensmodel LENSMODEL_OPENCV8
-    --observed-pixel-uncertainty 1.0
-    --explore
-    'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
+#+begin_src sh
+mrcal-calibrate-cameras
+  --corners-cache corners.vnl
+  -j 10
+  --focal 2000
+  --object-spacing 0.1
+  --object-width-n 10
+  --outdir /tmp
+  --lensmodel LENSMODEL_OPENCV8
+  --observed-pixel-uncertainty 1.0
+  --explore
+  'frame*-camera0.png' 'frame*-camera1.png' 'frame*-camera2.png'
+#+end_src
 
 You would adjust all the arguments for your specific case.
 
 The first argument says that the chessboard corner coordinates live in a file
-called "corners.vnl". If this file exists, we'll use that data. If that file
+called =corners.vnl=. If this file exists, we'll use that data. If that file
 does not exist (which is what will happen the first time), mrgingham will be
 invoked to compute the corners from the images, and the results will be written
 to that file. So the same command is used to both compute the corners initially,
 and to reuse the pre-computed corners with subsequent runs.
 
-'-j 10' says to spread the mrgingham computation across 10 CPU cores. This
+=-j 10= says to spread the mrgingham computation across 10 CPU cores. This
 command controls mrgingham only; if 'corners.vnl' already exists, this option
 does nothing.
 
-'--focal 2000' says that the initial estimate for the camera focal lengths is
+=--focal 2000= says that the initial estimate for the camera focal lengths is
 2000 pixels. This doesn't need to be precise at all, but do try to get this
 roughly correct if possible. Simple geometry says that
 
   focal_length = imager_width / ( 2 tan (field_of_view_horizontal / 2) )
 
---object-spacing is the width of each square in your chessboard. This depends on
+=--object-spacing= is the width of each square in your chessboard. This depends on
 the specific chessboard object you are using. --object-width-n is the corner
 count of the calibration object. Currently mrgingham more or less assumes that
 this is 10.
 
---outdir specifies the directory where the output models will be written
+=--outdir= specifies the directory where the output models will be written
 
---lensmodel specifies which lens model we're using for the cameras.
+=--lensmodel= specifies which lens model we're using for the cameras.
 At this time all OpenCV lens models are supported, in addition to
 LENSMODEL_CAHVOR. The CAHVOR model is there for legacy compatibility only. If
 you're not going to be using these models in a system that only supports CAHVOR,
@@ -498,13 +499,13 @@ more data than you normally would. Most lenses I've seen work well with
 LENSMODEL_OPENCV4 or LENSMODEL_OPENCV5 or LENSMODEL_OPENCV8; wider lenses
 need richer models.
 
-'--observed-pixel-uncertainty 1.0' says that the x,y corner coordinates reported
+=--observed-pixel-uncertainty 1.0= says that the x,y corner coordinates reported
 by mrgingham are distributed normally, independently, and with the standard
 deviation as given in this argument. There's a tool to compute this value
 empirically, but it needs more validation. For now pick a value that seems
 reasonable. 1.0 pixels or less usually makes sense.
 
---explore says that after the models are computed, a REPL should be open so that
+=--explore= says that after the models are computed, a REPL should be open so that
 the user can look at various metrics describing the output; more on this
 later.
 
@@ -533,12 +534,14 @@ extrinsics, with camera-0 sitting at the reference coordinate system.
 
 When the solve is completed, you'll see a summary such as this one:
 
-    RMS reprojection error: 0.3 pixels
-    Worst reprojection error: 4.0 pixels
-    Noutliers: 7 out of 9100 total points: 0.1% of the data
+#+begin_example
+RMS reprojection error: 0.3 pixels
+Worst reprojection error: 4.0 pixels
+Noutliers: 7 out of 9100 total points: 0.1% of the data
+#+end_example
 
 The reprojection errors should look reasonable given your
---observed-pixel-uncertainty. Since any outliers will be thrown out, the
+=--observed-pixel-uncertainty=. Since any outliers will be thrown out, the
 reported reprojection errors will be reasonable.
 
 Higher outlier counts are indicative of some/all of these:
@@ -555,7 +558,9 @@ and residual metrics (see below)
 With --explore you get a REPL, and a message that points out some useful
 functions. Generally you want to start with
 
-    show_residuals_observation_worst(0)
+#+begin_example
+show_residuals_observation_worst(0)
+#+end_example
 
 This will show you the worst-fitting chessboard observation with its observed
 and predicted corners, as an error vector. The reprojection errors are given by
@@ -570,7 +575,9 @@ see a bias in the error vectors, to compensate for the motion of the chessboard.
 Next do this for each camera in your calibration set (icam is an index counting
 up from 0):
 
-    show_residuals_regional(icam)
+#+begin_example
+show_residuals_regional(icam)
+#+end_example
 
 Each of these will pop up 3 plots describing your distribution of errors. You
 get
@@ -582,8 +589,8 @@ get
 
 The intrinsics are reliable in areas that have
 
-- a low mean error relative to --observed-pixel-uncertainty
-- a standard deviation roughly similar to --observed-pixel-uncertainty
+- a low mean error relative to =--observed-pixel-uncertainty=
+- a standard deviation roughly similar to =--observed-pixel-uncertainty=
 - have some data available
 
 If you have too little data, you will be overfitting, so you'd be expalining the
@@ -601,7 +608,9 @@ errors with a wider distribution towards the edge.
 
 Finally run this:
 
-    show_projection_uncertainty()
+#+begin_example
+show_projection_uncertainty()
+#+end_example
 
 This will pop up a plot of projection uncertainties for each camera. The
 uncertainties are shown as a color-map along with contours. These are the
