@@ -3,24 +3,6 @@
 #+email: dima@secretsauce.net
 #+language: en
 
-#+options: html-link-use-abs-url:nil html-postamble:auto html-preamble:t
-#+options: html-scripts:t html-style:t html5-fancy:nil tex:t
-#+html_doctype: xhtml-strict
-#+html_container: div
-#+description:
-#+keywords:
-#+html_link_home:
-#+html_link_up:
-#+html_mathjax:
-#+HTML_HEAD: <style>pre.src {background-color: #303030; color: #e5e5e5;}</style>
-#+html_head_extra:
-#+subtitle:
-#+infojs_opt:
-#+creator: <a href="https://www.gnu.org/software/emacs/">Emacs</a> 28.0.50 (<a href="https://orgmode.org">Org</a> mode 9.3)
-#+latex_header:
-
-
-
 * Intro
 mrcal is a toolkit for working with lens models, camera geometry, images,
 projections, and the various related operations such as camera calibration. This

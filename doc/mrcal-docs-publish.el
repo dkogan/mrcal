@@ -3,7 +3,7 @@
   (shell-command (format "make -C .. doc")))
 
 (setq org-publish-project-alist
-      '(("orgfiles"
+      `(("orgfiles"
          :base-directory "."
          :base-extension "org"
          :publishing-directory "./out"
@@ -11,8 +11,10 @@
          :completion-function dima-org-export-build-docs
          :section-numbers nil
          :with-toc t
-         :html-preamble nil)
-
+         :html-head ,(concat "<style>"
+                             "pre.src  {background-color: #303030; color: #e5e5e5; max-width 700px} "
+                             ".org-svg {min-width: 500px; max-width: 60%;} "
+                             "</style>"))
         ("images"
          :base-directory "~/jpl/mrcaldocs/"
          :base-extension "jpg\\|png\\|svg"
