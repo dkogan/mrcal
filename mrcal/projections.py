@@ -121,7 +121,11 @@ mrcal_project. For OpenCV distortions specifically, OpenCV has
 cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
 https://github.com/opencv/opencv/issues/8811
 
-Broadcasting is fully supported across q and intrinsics_data
+Broadcasting is fully supported across q and intrinsics_data.
+
+Models that have no gradients available cannot use mrcal_unproject() in C, but
+CAN still use this mrcal.unproject() Python routine: a slower routine is
+employed that uses numerical differences instead of analytical gradients.
 
 ARGUMENTS
 
