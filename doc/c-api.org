@@ -1,0 +1,1270 @@
+The C API consists of 3 headers:
+- [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
+- [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
+- [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
+
+Many usages would =#include <mrcal.h>= only, and this includes all 3.
+
+* Geometry structures
+We have 3 structures in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]:
+
+- =mrcal_point2_t=: a vector containing 2 double-precision floating-point
+  values. The elements can be accessed individually as =.x= and =.y= or as an
+  array =.xy[]=
+
+- =mrcal_point3_t=: exactly like =mrcal_point2_t=, but 3-dimensional. A vector
+  containing 3 double-precision floating-point values. The elements can be
+  accessed individually as =.x= and =.y= and =.z= or as an array =.xyz[]=
+
+- =mrcal_pose_t=: an unconstrained 6-DOF pose. Contains two sub-structures:
+  - =mrcal_point3_t r=: a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
+  - =mrcal_point3_t t=: a translation
+
+* Geometry functions
+A number of utility functions are defined in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]]. Each routine has two
+forms:
+
+- A =mrcal_..._noncontiguous()= function that supports a non-contiguous memory
+  layout for each input and output
+- A convenience =mrcal_...()= macro that wraps =mrcal_..._noncontiguous()=, and
+  expects contiguous data. This has many fewer arguments, and is easier to call
+
+Each data argument (input or output) has several items in the argument list:
+
+- =double* xxx=: a pointer to the first element
+- =int xxx_stride0=, =int xxx_stride1=, ...: the strides, one per dimension
+
+The strides are given in bytes, and work as expected. For a (for instance)
+3-dimensional =xxx=, the element at =xxx[i,j,k]= would lie at
+
+#+begin_src c
+*(double*) &((char*)xxx)[ i*xxx_stride0 +
+                          j*xxx_stride1 +
+                          k*xxx_stride2 ]
+#+end_src
+
+These all have fairly direct Python bindings. For instance [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]].
+
+The listing of available functions is best given with the commented header:
+
+#+begin_src c
+// Store an identity rotation matrix into the given (3,3) array
+//
+// This is simply an identity matrix
+#define mrcal_identity_R(R) mrcal_identity_R_noncontiguous(R,0,0)
+void mrcal_identity_R_noncontiguous(double* R,      // (3,3) array
+                                    int R_stride0,  // in bytes. <= 0 means "contiguous"
+                                    int R_stride1   // in bytes. <= 0 means "contiguous"
+                                    );
+
+// Store an identity rodrigues rotation into the given (3,) array
+//
+// This is simply an array of zeros
+#define mrcal_identity_r(r) mrcal_identity_r_noncontiguous(r,0)
+void mrcal_identity_r_noncontiguous(double* r,      // (3,) array
+                                    int r_stride0   // in bytes. <= 0 means "contiguous"
+                                    );
+
+// Store an identity Rt transformation into the given (4,3) array
+#define mrcal_identity_Rt(Rt) mrcal_identity_Rt_noncontiguous(Rt,0,0)
+void mrcal_identity_Rt_noncontiguous(double* Rt,      // (4,3) array
+                                     int Rt_stride0,  // in bytes. <= 0 means "contiguous"
+                                     int Rt_stride1   // in bytes. <= 0 means "contiguous"
+                                     );
+
+// Store an identity rt transformation into the given (6,) array
+#define mrcal_identity_rt(rt)  mrcal_identity_rt_noncontiguous(rt,0)
+void mrcal_identity_rt_noncontiguous(double* rt,      // (6,) array
+                                     int rt_stride0   // in bytes. <= 0 means "contiguous"
+                                     );
+
+// Rotate the point x_in in a (3,) array by the rotation matrix R in a (3,3)
+// array. This is simply the matrix-vector multiplication R x_in
+//
+// The result is returned in a (3,) array x_out.
+//
+// The gradient dx_out/dR is returned in a (3, 3,3) array J_R. Set to NULL if
+// this is not wanted
+//
+// The gradient dx_out/dx_in is returned in a (3,3) array J_x. This is simply
+// the matrix R. Set to NULL if this is not wanted
+#define mrcal_rotate_point_R(x_out,J_R,J_x,R,x_in) mrcal_rotate_point_R_noncontiguous(x_out,0,J_R,0,0,0,J_x,0,0,R,0,0,x_in,0)
+void mrcal_rotate_point_R_noncontiguous( // output
+                                        double* x_out,      // (3,) array
+                                        int x_out_stride0,  // in bytes. <= 0 means "contiguous"
+                                        double* J_R,        // (3,3,3) array. May be NULL
+                                        int J_R_stride0,    // in bytes. <= 0 means "contiguous"
+                                        int J_R_stride1,    // in bytes. <= 0 means "contiguous"
+                                        int J_R_stride2,    // in bytes. <= 0 means "contiguous"
+                                        double* J_x,        // (3,3) array. May be NULL
+                                        int J_x_stride0,    // in bytes. <= 0 means "contiguous"
+                                        int J_x_stride1,    // in bytes. <= 0 means "contiguous"
+
+                                        // input
+                                        const double* R,    // (3,3) array. May be NULL
+                                        int R_stride0,      // in bytes. <= 0 means "contiguous"
+                                        int R_stride1,      // in bytes. <= 0 means "contiguous"
+                                        const double* x_in, // (3,) array. May be NULL
+                                        int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                        );
+
+// Rotate the point x_in in a (3,) array by the rodrigues rotation in a (3,)
+// array.
+//
+// The result is returned in a (3,) array x_out.
+//
+// The gradient dx_out/dr is returned in a (3,3) array J_r. Set to NULL if this
+// is not wanted
+//
+// The gradient dx_out/dx_in is returned in a (3,3) array J_x. Set to NULL if
+// this is not wanted
+#define mrcal_rotate_point_r(x_out,J_r,J_x,r,x_in) mrcal_rotate_point_r_noncontiguous(x_out,0,J_r,0,0,J_x,0,0,r,0,x_in,0)
+void mrcal_rotate_point_r_noncontiguous( // output
+                                        double* x_out,      // (3,) array
+                                        int x_out_stride0,  // in bytes. <= 0 means "contiguous"
+                                        double* J_r,        // (3,3) array. May be NULL
+                                        int J_r_stride0,    // in bytes. <= 0 means "contiguous"
+                                        int J_r_stride1,    // in bytes. <= 0 means "contiguous"
+                                        double* J_x,        // (3,3) array. May be NULL
+                                        int J_x_stride0,    // in bytes. <= 0 means "contiguous"
+                                        int J_x_stride1,    // in bytes. <= 0 means "contiguous"
+
+                                        // input
+                                        const double* r,    // (3,) array. May be NULL
+                                        int r_stride0,      // in bytes. <= 0 means "contiguous"
+                                        const double* x_in, // (3,) array. May be NULL
+                                        int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                        );
+
+// Transform the point x_in in a (3,) array by the Rt transformation in a (4,3)
+// array.
+//
+// The result is returned in a (3,) array x_out.
+//
+// The gradient dx_out/dRt is returned in a (3, 4,3) array J_Rt. Set to NULL if
+// this is not wanted
+//
+// The gradient dx_out/dx_in is returned in a (3,3) array J_x. This is simply
+// the matrix R. Set to NULL if this is not wanted
+#define mrcal_transform_point_Rt(x_out,J_Rt,J_x,Rt,x_in) mrcal_transform_point_Rt_noncontiguous(x_out,0,J_Rt,0,0,0,J_x,0,0,Rt,0,0,x_in,0)
+void mrcal_transform_point_Rt_noncontiguous( // output
+                                            double* x_out,      // (3,) array
+                                            int x_out_stride0,  // in bytes. <= 0 means "contiguous"
+                                            double* J_Rt,       // (3,4,3) array. May be NULL
+                                            int J_Rt_stride0,   // in bytes. <= 0 means "contiguous"
+                                            int J_Rt_stride1,   // in bytes. <= 0 means "contiguous"
+                                            int J_Rt_stride2,   // in bytes. <= 0 means "contiguous"
+                                            double* J_x,        // (3,3) array. May be NULL
+                                            int J_x_stride0,    // in bytes. <= 0 means "contiguous"
+                                            int J_x_stride1,    // in bytes. <= 0 means "contiguous"
+
+                                            // input
+                                            const double* Rt,   // (4,3) array. May be NULL
+                                            int Rt_stride0,     // in bytes. <= 0 means "contiguous"
+                                            int Rt_stride1,     // in bytes. <= 0 means "contiguous"
+                                            const double* x_in, // (3,) array. May be NULL
+                                            int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                            );
+
+// Transform the point x_in in a (3,) array by the rt transformation in a (6,)
+// array.
+//
+// The result is returned in a (3,) array x_out.
+//
+// The gradient dx_out/drt is returned in a (3,6) array J_rt. Set to NULL if
+// this is not wanted
+//
+// The gradient dx_out/dx_in is returned in a (3,3) array J_x. This is simply
+// the matrix R. Set to NULL if this is not wanted
+#define mrcal_transform_point_rt(x_out,J_rt,J_x,rt,x_in) mrcal_transform_point_rt_noncontiguous(x_out,0,J_rt,0,0,J_x,0,0,rt,0,x_in,0)
+void mrcal_transform_point_rt_noncontiguous( // output
+                                            double* x_out,      // (3,) array
+                                            int x_out_stride0,  // in bytes. <= 0 means "contiguous"
+                                            double* J_rt,       // (3,6) array. May be NULL
+                                            int J_rt_stride0,   // in bytes. <= 0 means "contiguous"
+                                            int J_rt_stride1,   // in bytes. <= 0 means "contiguous"
+                                            double* J_x,        // (3,3) array. May be NULL
+                                            int J_x_stride0,    // in bytes. <= 0 means "contiguous"
+                                            int J_x_stride1,    // in bytes. <= 0 means "contiguous"
+
+                                            // input
+                                            const double* rt,   // (6,) array. May be NULL
+                                            int rt_stride0,     // in bytes. <= 0 means "contiguous"
+                                            const double* x_in, // (3,) array. May be NULL
+                                            int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                            );
+
+// Convert a rotation matrix in a (3,3) array to a rodrigues vector in a (3,)
+// array
+//
+// The result is returned in a (3,) array r
+//
+// The gradient dr/dR is returned in a (3, 3,3) array J. Set to NULL if this is
+// not wanted
+#define mrcal_r_from_R(r,J,R) mrcal_r_from_R_noncontiguous(r,0,J,0,0,0,R,0,0)
+void mrcal_r_from_R_noncontiguous( // output
+                                  double* r,       // (3,) vector
+                                  int r_stride0,   // in bytes. <= 0 means "contiguous"
+                                  double* J,       // (3,3,3) array. Gradient. May be NULL
+                                  int J_stride0,   // in bytes. <= 0 means "contiguous"
+                                  int J_stride1,   // in bytes. <= 0 means "contiguous"
+                                  int J_stride2,   // in bytes. <= 0 means "contiguous"
+
+                                  // input
+                                  const double* R, // (3,3) array
+                                  int R_stride0,   // in bytes. <= 0 means "contiguous"
+                                  int R_stride1    // in bytes. <= 0 means "contiguous"
+                                  );
+
+// Convert a rodrigues vector in a (3,) array to a rotation matrix in a (3,3)
+// array
+//
+// The result is returned in a (3,3) array R
+//
+// The gradient dR/dr is returned in a (3,3 ,3) array J. Set to NULL if this is
+// not wanted
+#define mrcal_R_from_r(R,J,r) mrcal_R_from_r_noncontiguous(R,0,0,J,0,0,0,r,0)
+void mrcal_R_from_r_noncontiguous( // outputs
+                                  double* R,       // (3,3) array
+                                  int R_stride0,   // in bytes. <= 0 means "contiguous"
+                                  int R_stride1,   // in bytes. <= 0 means "contiguous"
+                                  double* J,       // (3,3,3) array. Gradient. May be NULL
+                                  int J_stride0,   // in bytes. <= 0 means "contiguous"
+                                  int J_stride1,   // in bytes. <= 0 means "contiguous"
+                                  int J_stride2,   // in bytes. <= 0 means "contiguous"
+
+                                  // input
+                                  const double* r, // (3,) vector
+                                  int r_stride0    // in bytes. <= 0 means "contiguous"
+                                   );
+
+// Convert an Rt transformation in a (4,3) array to an rt transformation in a
+// (6,) array
+//
+// The result is returned in a (6,) array rt
+//
+// The gradient dr/dR is returned in a (3, 3,3) array J_R. Set to NULL if this
+// is not wanted
+//
+// The t terms are identical, so dt/dt = identity and I do not return it
+//
+// The r and R terms are independent of the t terms, so dr/dt and dt/dR are both
+// 0, and I do not return them
+#define mrcal_rt_from_Rt(rt,Rt) mrcal_rt_from_Rt_noncontiguous(rt,0,NULL,0,0,0,Rt,0,0)
+void mrcal_rt_from_Rt_noncontiguous(   // output
+                                    double* rt,      // (6,) vector
+                                    int rt_stride0,  // in bytes. <= 0 means "contiguous"
+                                    double* J_R,     // (3,3,3) array. Gradient. May be NULL
+                                    // No J_t. It's always the identity
+                                    int J_R_stride0, // in bytes. <= 0 means "contiguous"
+                                    int J_R_stride1, // in bytes. <= 0 means "contiguous"
+                                    int J_R_stride2, // in bytes. <= 0 means "contiguous"
+
+                                    // input
+                                    const double* Rt,  // (4,3) array
+                                    int Rt_stride0,    // in bytes. <= 0 means "contiguous"
+                                    int Rt_stride1     // in bytes. <= 0 means "contiguous"
+                                    );
+
+// Convert an rt transformation in a (6,) array to an Rt transformation in a
+// (4,3) array
+//
+// The result is returned in a (4,3) array Rt
+//
+// The gradient dR/dr is returned in a (3,3 ,3) array J_r. Set to NULL if this
+// is not wanted
+//
+// The t terms are identical, so dt/dt = identity and I do not return it
+//
+// The r and R terms are independent of the t terms, so dR/dt and dt/dr are both
+// 0, and I do not return them
+#define mrcal_Rt_from_rt(Rt,rt) mrcal_Rt_from_rt_noncontiguous(Rt,0,0,NULL,0,0,0,rt,0)
+void mrcal_Rt_from_rt_noncontiguous(   // output
+                                    double* Rt,      // (4,3) array
+                                    int Rt_stride0,  // in bytes. <= 0 means "contiguous"
+                                    int Rt_stride1,  // in bytes. <= 0 means "contiguous"
+                                    double* J_r,     // (3,3,3) array. Gradient. May be NULL
+                                    // No J_t. It's just the identity
+                                    int J_r_stride0, // in bytes. <= 0 means "contiguous"
+                                    int J_r_stride1, // in bytes. <= 0 means "contiguous"
+                                    int J_r_stride2, // in bytes. <= 0 means "contiguous"
+
+                                    // input
+                                    const double* rt, // (6,) vector
+                                    int rt_stride0    // in bytes. <= 0 means "contiguous"
+                                    );
+
+// Invert an Rt transformation
+//
+// The input is given in Rt_in in a (4,3) array
+//
+// The result is returned in a (4,3) array Rt_out
+#define mrcal_invert_Rt(Rt_out,Rt_in) mrcal_invert_Rt_noncontiguous(Rt_out,0,0,Rt_in,0,0)
+void mrcal_invert_Rt_noncontiguous( // output
+                                   double* Rt_out,      // (4,3) array
+                                   int Rt_out_stride0,  // in bytes. <= 0 means "contiguous"
+                                   int Rt_out_stride1,  // in bytes. <= 0 means "contiguous"
+
+                                   // input
+                                   const double* Rt_in, // (4,3) array
+                                   int Rt_in_stride0,   // in bytes. <= 0 means "contiguous"
+                                   int Rt_in_stride1    // in bytes. <= 0 means "contiguous"
+                                   );
+
+// Invert an rt transformation
+//
+// The input is given in rt_in in a (6,) array
+//
+// The result is returned in a (6,) array rt_out
+//
+// The gradient dtout/drin is returned in a (3,3) array dtout_drin. Set to NULL
+// if this is not wanted
+//
+// The gradient dtout/dtin is returned in a (3,3) array dtout_dtin. Set to NULL
+// if this is not wanted
+//
+// The gradient drout/drin is always -identity. So it is not returned
+//
+// The gradient drout/dtin is always 0. So it is not returned
+#define mrcal_invert_rt(rt_out,dtout_drin,dtout_dtin,rt_in) mrcal_invert_rt_noncontiguous(rt_out,0,dtout_drin,0,0,dtout_dtin,0,0,rt_in,0)
+void mrcal_invert_rt_noncontiguous( // output
+                                   double* rt_out,          // (6,) array
+                                   int rt_out_stride0,      // in bytes. <= 0 means "contiguous"
+                                   double* dtout_drin,      // (3,3) array
+                                   int dtout_drin_stride0,  // in bytes. <= 0 means "contiguous"
+                                   int dtout_drin_stride1,  // in bytes. <= 0 means "contiguous"
+                                   double* dtout_dtin,      // (3,3) array
+                                   int dtout_dtin_stride0,  // in bytes. <= 0 means "contiguous"
+                                   int dtout_dtin_stride1,  // in bytes. <= 0 means "contiguous"
+
+                                   // input
+                                   const double* rt_in,     // (6,) array
+                                   int rt_in_stride0        // in bytes. <= 0 means "contiguous"
+                                   );
+
+// Compose two Rt transformations
+//
+// Rt = Rt0 * Rt1  --->  Rt(x) = Rt0( Rt1(x) )
+//
+// The input transformations are given in (4,3) arrays Rt_0 and Rt_1
+//
+// The result is returned in a (4,3) array Rt_out
+#define mrcal_compose_Rt(Rt_out,Rt_0,Rt_1) mrcal_compose_Rt_noncontiguous(Rt_out,0,0,Rt_0,0,0,Rt_1,0,0)
+void mrcal_compose_Rt_noncontiguous( // output
+                                    double* Rt_out,      // (4,3) array
+                                    int Rt_out_stride0,  // in bytes. <= 0 means "contiguous"
+                                    int Rt_out_stride1,  // in bytes. <= 0 means "contiguous"
+
+                                    // input
+                                    const double* Rt_0,  // (4,3) array
+                                    int Rt_0_stride0,    // in bytes. <= 0 means "contiguous"
+                                    int Rt_0_stride1,    // in bytes. <= 0 means "contiguous"
+                                    const double* Rt_1,  // (4,3) array
+                                    int Rt_1_stride0,    // in bytes. <= 0 means "contiguous"
+                                    int Rt_1_stride1     // in bytes. <= 0 means "contiguous"
+                                    );
+
+// Compose two rt transformations
+//
+// rt = rt0 * rt1  --->  rt(x) = rt0( rt1(x) )
+//
+// The input transformations are given in (6,) arrays rt_0 and rt_1
+//
+// The result is returned in a (6,) array rt_out
+//
+// The gradient dr/dr0 is returned in a (3,3) array dr_dr0. Set to NULL if this
+// is not wanted
+//
+// The gradient dr/dr1 is returned in a (3,3) array dr_dr1. Set to NULL if this
+// is not wanted
+//
+// The gradient dt/dr0 is returned in a (3,3) array dt_dr0. Set to NULL if this
+// is not wanted
+//
+// The gradient dt/dt1 is returned in a (3,3) array dt_dt1. Set to NULL if this
+// is not wanted
+//
+// The gradients dr/dt0, dr/dt1, dt/dr1 are always 0, so they are never returned
+//
+// The gradient dt/dt0 is always identity, so it is never returned
+#define mrcal_compose_rt(rt_out,dr_dr0,dr_dr1,dt_dr0,dt_dt1,rt_0,rt_1) mrcal_compose_rt_noncontiguous(rt_out,0,dr_dr0,0,0,dr_dr1,0,0,dt_dr0,0,0,dt_dt1,0,0,rt_0,0,rt_1,0)
+void mrcal_compose_rt_noncontiguous( // output
+                                    double* rt_out,       // (6,) array
+                                    int rt_out_stride0,   // in bytes. <= 0 means "contiguous"
+                                    double* dr_dr0,       // (3,3) array; may be NULL
+                                    int dr_dr0_stride0,   // in bytes. <= 0 means "contiguous"
+                                    int dr_dr0_stride1,   // in bytes. <= 0 means "contiguous"
+                                    double* dr_dr1,       // (3,3) array; may be NULL
+                                    int dr_dr1_stride0,   // in bytes. <= 0 means "contiguous"
+                                    int dr_dr1_stride1,   // in bytes. <= 0 means "contiguous"
+                                    double* dt_dr0,       // (3,3) array; may be NULL
+                                    int dt_dr0_stride0,   // in bytes. <= 0 means "contiguous"
+                                    int dt_dr0_stride1,   // in bytes. <= 0 means "contiguous"
+                                    double* dt_dt1,       // (3,3) array; may be NULL
+                                    int dt_dt1_stride0,   // in bytes. <= 0 means "contiguous"
+                                    int dt_dt1_stride1,   // in bytes. <= 0 means "contiguous"
+
+                                    // input
+                                    const double* rt_0,   // (6,) array
+                                    int rt_0_stride0,     // in bytes. <= 0 means "contiguous"
+                                    const double* rt_1,   // (6,) array
+                                    int rt_1_stride0      // in bytes. <= 0 means "contiguous"
+                                    );
+#+end_src
+
+* Everything else
+The bulk of the C API lives in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]. [[https://en.wikipedia.org/wiki/X_Macro][X macros]] are used in several places.
+These are a technique for templating using the C preprocessor that eliminates
+boilerplate.
+
+Functions, broken down by functionality:
+
+** Lens models
+The lens model structures are defined here:
+
+- =mrcal_lensmodel_type_t=: an enum decribing the lens model /type/. No [[file:index.org::Lens models][configuration]] is stored here.
+- =mrcal_lensmodel_t=: a lens model type /and/ the [[file:index.org::Lens models][configuration]] parameters. The
+  configuration lives in a =union= supporting all the known lens models
+- =mrcal_lensmodel_metadata_t=: the metadata that describes any given lens model
+
+The Python API describes a lens model with a string that contains the model type
+and the configuration, and much of the functionality here is used to convert
+between these strings and the =mrcal_lensmodel_t= structures, to manage
+parameter counts, and so on. The listing of available functions is best given
+with the commented header (with the extraneous bits removed, and the x-macros
+expanded):
+
+#+begin_src c
+// parametric models have no extra configuration
+typedef struct {} mrcal_LENSMODEL_PINHOLE__config_t;
+typedef struct {} mrcal_LENSMODEL_OPENCV4__config_t;
+// ... and the same for all the other configuration-less models
+
+// Configuration for the splined stereographic models. Generated by an x-macro
+typedef struct
+{
+    /* Maximum degree of each 1D polynomial. This is almost certainly 2 */
+    /* (quadratic splines, C1 continuous) or 3 (cubic splines, C2 continuous) */
+    uint16_t order;
+    /* We have a Nx by Ny grid of control points */
+    uint16_t Nx;
+    uint16_t Ny;
+    /* The horizontal field of view. Not including fov_y. It's proportional with */
+    /* Ny and Nx */
+    uint16_t fov_x_deg;
+} mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t;
+
+
+// This lensmodel type selects the lens model, but does NOT provide the
+// configuration. mrcal_lensmodel_t does that.
+typedef enum
+{ MRCAL_LENSMODEL_INVALID           = -2,
+  MRCAL_LENSMODEL_INVALID_BADCONFIG = -1,
+  // The rest, starting with 0
+
+  // Generated by an x-macro
+  // ...,
+  MRCAL_LENSMODEL_PINHOLE,
+  // ...,
+  MRCAL_LENSMODEL_OPENCV4,
+  // ...,
+  MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC,
+  // ... and so on for the other models
+} mrcal_lensmodel_type_t;
+
+
+// Defines a lens model: the type AND the configuration values
+typedef struct
+{
+    // The type of lensmodel. This is an enum, selecting elements of
+    // MRCAL_LENSMODEL_LIST (with "MRCAL_" prepended)
+    mrcal_lensmodel_type_t type;
+
+    // A union of all the possible configuration structures. We pick the
+    // structure type based on the value of "type
+    union
+    {
+        // Generated by an x-macro
+        mrcal_LENSMODEL_PINHOLE__config_t               LENSMODEL_PINHOLE__config;
+        mrcal_LENSMODEL_OPENCV4__config_t               LENSMODEL_OPENCV4__config;
+        mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t LENSMODEL_SPLINED_STEREOGRAPHIC__config;
+        // ... and so on for the other models
+    };
+} mrcal_lensmodel_t;
+
+
+// Return an array of strings listing all the available lens models
+//
+// These are all "unconfigured" strings that use "..." placeholders for any
+// configuration values. Each return string is a \0-terminated const char*. The
+// end of the list is signified by a NULL string
+const char* const* mrcal_supported_lensmodel_names( void ); // NULL-terminated array of char* strings
+
+
+// Return true if the given mrcal_lensmodel_type_t specifies a valid lens model
+bool mrcal_lensmodel_type_is_valid(mrcal_lensmodel_type_t t);
+
+
+// Return a string describing a lens model.
+//
+// This function returns a static string. For models with no configuration, this
+// is the FULL string for that model. For models with a configuration, the
+// configuration values have "..." placeholders. These placeholders mean that
+// the resulting strings do not define a lens model fully, and cannot be
+// converted to a mrcal_lensmodel_t with mrcal_lensmodel_from_name()
+//
+// This is the inverse of mrcal_lensmodel_type_from_name()
+const char* mrcal_lensmodel_name_unconfigured( mrcal_lensmodel_t model );
+
+
+// Return a CONFIGURED string describing a lens model.
+//
+// This function generates a fully-configured string describing the given lens
+// model. For models with no configuration, this is just the static string
+// returned by mrcal_lensmodel_name_unconfigured(). For models that have a
+// configuration, however, the configuration values are filled-in. The resulting
+// string may be converted back into a mrcal_lensmodel_t by calling
+// mrcal_lensmodel_from_name().
+//
+// This function writes the string into the given buffer "out". The size of the
+// buffer is passed in the "size" argument. The meaning of "size" is as with
+// snprintf(), which is used internally. Returns true on success
+//
+// This is the inverse of mrcal_lensmodel_from_name()
+bool mrcal_lensmodel_name( char* out, int size, mrcal_lensmodel_t model );
+
+
+// Parse the lens model type from a lens model name string
+//
+// The configuration is ignored. Thus this function works even if the
+// configuration is missing or unparseable. Unknown model names return
+// MRCAL_LENSMODEL_INVALID
+//
+// This is the inverse of mrcal_lensmodel_name_unconfigured()
+mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name );
+
+
+// Parse the full configured lens model from a lens model name string
+//
+// The lens mode type AND the configuration are read into a mrcal_lensmodel_t
+// structure, which this function returns. Strings with valid model names but
+// missing or unparseable configuration return
+//
+//   {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}.
+//
+// Any other errors result in some other invalid lensmodel.type values, which
+// can be checked with mrcal_lensmodel_type_is_valid(lensmodel->type)
+//
+// This is the inverse of mrcal_lensmodel_name()
+mrcal_lensmodel_t mrcal_lensmodel_from_name( const char* name );
+
+
+// Each lens model type has some metadata that describes its inherent
+// properties. These properties can be queried by calling
+// mrcal_lensmodel_metadata().
+typedef struct
+{
+    // generated by an x-macro
+
+    /* If true, this model contains an "intrinsics core". This is described */
+    /* in mrcal_intrinsics_core_t. If present, the 4 core parameters ALWAYS */
+    /* appear at the start of a model's parameter vector                    */
+    bool has_core :1;
+
+
+    /* Whether a model is able to project points behind the camera          */
+    /* (z<0 in the camera coordinate system). Models based on a pinhole     */
+    /* projection (pinhole, OpenCV, CAHVOR(E)) cannot do this. models based */
+    /* on a stereographic projection (stereographic, splined stereographic) */
+    /* can                                                                  */
+    bool can_project_behind_camera :1;
+} mrcal_lensmodel_metadata_t;
+
+
+// Return a structure containing a model's metadata
+//
+// The available metadata is described in the definition of the
+// MRCAL_LENSMODEL_META_LIST() macro
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m );
+
+
+// Return the number of parameters required to specify a given lens model
+//
+// For models that have a configuration, the parameter count value generally
+// depends on the configuration. For instance, splined models use the model
+// parameters as the spline control points, so the spline density (specified in
+// the configuration) directly affects how many parameters such a model requires
+int mrcal_lensmodel_num_params( const mrcal_lensmodel_t m );
+
+
+// Return the locations of x and y spline knots
+
+// Splined models are defined by the locations of their control points. These
+// are arranged in a grid, the size and density of which is set by the model
+// configuration. We fill-in the x knot locations into ux[] and the y locations
+// into uy[]. ux[] and uy[] must be large-enough to hold configuration->Nx and
+// configuration->Ny values respectively.
+//
+// This function applies to splined models only. Returns true on success
+bool mrcal_knots_for_splined_models( double* ux, double* uy,
+                                     mrcal_lensmodel_t lensmodel);
+#+end_src
+
+** Projections
+The fundamental functions for projection and unprojection are defined here.
+=mrcal_project()= is the main routine that implements the "forward" direction,
+and is available for every camera model. This function can return gradients in
+respect to the coordinates of the point being project and/or in respect to the
+intrinsics vector.
+
+=mrcal_unproject()= is the reverse direction, and is implemented as a numerical
+optimization to reverse the projection operation. Naturally, this is much slower
+than =mrcal_project()=, and has no gradient reporting. Models that have no
+gradients implemented (CAHVORE only, as of this writing) do not support
+=mrcal_unproject()=. They /may/ have a Python [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] implementation
+available that uses a slower optimization routine that uses numerical
+differences instead of analytical gradients.
+
+=mrcal_project_stereographic()= and =mrcal_unproject_stereographic()= are
+available as special-case routines. These are uses in analysis and not to
+represent any actual lenses.
+
+The listing of available functions is best given with the commented header:
+
+#+begin_src c
+// Project the given camera-coordinate-system points
+//
+// Compute a "projection", a mapping of points defined in the camera coordinate
+// system to their observed pixel coordinates. If requested, gradients are
+// computed as well.
+//
+// We project N 3D points p to N 2D pixel coordinates q using the given
+// lensmodel and intrinsics parameter values.
+//
+// if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
+// ((N,2) mrcal_point3_t objects).
+//
+// if (dq_dintrinsics != NULL) we report the gradient dq/dintrinsics in a dense
+// (N,2,Nintrinsics) array. Note that splined models have very high Nintrinsics
+// and very sparse gradients. THIS function reports the gradients densely,
+// however, so it is inefficient for splined models.
+//
+// This function supports CAHVORE distortions only if we don't ask for any
+// gradients
+//
+// Projecting out-of-bounds points (beyond the field of view) returns undefined
+// values. Generally things remain continuous even as we move off the imager
+// domain. Pinhole-like projections will work normally if projecting a point
+// behind the camera. Splined projections clamp to the nearest spline segment:
+// the projection will fly off to infinity quickly since we're extrapolating a
+// polynomial, but the function will remain continuous.
+bool mrcal_project( // out
+                   mrcal_point2_t* q,
+                   mrcal_point3_t* dq_dp,
+                   double*         dq_dintrinsics,
+
+                   // in
+                   const mrcal_point3_t* p,
+                   int N,
+                   mrcal_lensmodel_t lensmodel,
+                   // core, distortions concatenated
+                   const double* intrinsics);
+
+
+// Unproject the given pixel coordinates
+//
+// Compute an "unprojection", a mapping of pixel coordinates to the camera
+// coordinate system.
+//
+// We unproject N 2D pixel coordinates q to N 3D direction vectors v using the
+// given lensmodel and intrinsics parameter values. The returned vectors v are
+// not normalized, and may have any length.
+
+// This is the "reverse" direction, so an iterative nonlinear optimization is
+// performed internally to compute this result. This is much slower than
+// mrcal_project(). For OpenCV models specifically, OpenCV has
+// cvUndistortPoints() (and cv2.undistortPoints()), but these are unreliable:
+// https://github.com/opencv/opencv/issues/8811
+//
+// This function does NOT support CAHVORE
+bool mrcal_unproject( // out
+                     mrcal_point3_t* v,
+
+                     // in
+                     const mrcal_point2_t* q,
+                     int N,
+                     mrcal_lensmodel_t lensmodel,
+                     // core, distortions concatenated
+                     const double* intrinsics);
+
+
+// Project the given camera-coordinate-system points using a stereographic model
+//
+// Compute a "projection", a mapping of points defined in the camera coordinate
+// system to their observed pixel coordinates. If requested, gradients are
+// computed as well.
+//
+// We project N 3D points p to N 2D pixel coordinates q using the stereographic
+// model with the given intrinsics core.
+//
+// if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
+// ((N,2) mrcal_point3_t objects).
+//
+// This is a special case of mrcal_project(). Useful as part of data analysis,
+// not to represent any real-world lens
+void mrcal_project_stereographic( // output
+                                 mrcal_point2_t* q,
+                                 mrcal_point3_t* dq_dp,
+
+                                  // input
+                                 const mrcal_point3_t* p,
+                                 int N,
+                                 double fx, double fy,
+                                 double cx, double cy);
+
+
+// Unproject the given pixel coordinates using a stereographic model
+//
+// Compute an "unprojection", a mapping pixel coordinates to the camera
+// coordinate system.
+//
+// We project N 2D pixel coordinates q to N 3D direction vectors v using the
+// stereographic model with the given intrinsics core. The returned vectors v
+// are not normalized, and may have any length.
+//
+// if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
+// ((N,3) mrcal_point2_t objects).
+//
+// This is a special case of mrcal_unproject(). Useful as part of data analysis,
+// not to represent any real-world lens
+void mrcal_unproject_stereographic( // output
+                                   mrcal_point3_t* v,
+                                   mrcal_point2_t* dv_dq,
+
+                                   // input
+                                   const mrcal_point2_t* q,
+                                   int N,
+                                   double fx, double fy,
+                                   double cx, double cy);
+#+end_src
+
+** Optimization
+The mrcal optimization routines are defined in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]. Primarily these exist
+for the benefit of the Python layer, and it isn't expected that end users will
+call these routines. A brief description is given here for completeness.
+
+The details of the optimization being solved are defined in the
+=mrcal_problem_details_t= structure. This defines
+
+- Which elements of the optimization vector are locked-down, and which are given
+  to the optimizer to adjust. Currently we can lock down the intrinsics, the
+  extrinsics and/or the frames (chessboard poses)
+- Whether we apply [[file:index.org::Regularization][regularization]] to stabilize the solution
+- Whether the chessboard should be assumed flat, or if we should optimize
+  deformation factors
+
+Any function that needs the layout of the optimization vector takes a
+=mrcal_problem_details_t=.
+
+The listing of available functions is best given with the commented header:
+
+
+#+begin_src c
+// Used to specify which camera is making an observation. The "intrinsics" index
+// is used to identify a specific camera, while the "extrinsics" index is used
+// to locate a camera in space. If I have a camera that is moving over time, the
+// intrinsics index will remain the same, while the extrinsics index will change
+typedef struct
+{
+    // indexes the intrinsics array
+    int  intrinsics;
+    // indexes the extrinsics array. -1 means "at coordinate system reference"
+    int  extrinsics;
+} mrcal_camera_index_t;
+
+
+// An observation of a calibration board. Each "observation" is ONE camera
+// observing a board
+typedef struct
+{
+    // which camera is making this observation
+    mrcal_camera_index_t icam;
+
+    // indexes the "frames" array to select the pose of the calibration object
+    // being observed
+    int                  iframe;
+} mrcal_observation_board_t;
+
+
+// The "intrinsics core" of a camera. This defines the final step of a
+// projection operation. For instance with a pinhole model we have
+//
+//   q[0] = focal_xy[0] * x/z + center_xy[0]
+//   q[1] = focal_xy[1] * y/z + center_xy[1]
+typedef struct
+{
+    double focal_xy [2];
+    double center_xy[2];
+} mrcal_intrinsics_core_t;
+
+
+// An observation of a discrete point. Each "observation" is ONE camera
+// observing a single point in space
+typedef struct
+{
+    // which camera is making this observation
+    mrcal_camera_index_t icam;
+
+    // indexes the "points" array to select the position of the point being
+    // observed
+    int                  i_point;
+
+    // Observed pixel coordinates
+    // .x, .y are the pixel observations
+    // .z is the weight of the observation. Most of the weights are expected to
+    // be 1.0. Less precise observations have lower weights.
+    mrcal_point3_t px;
+} mrcal_observation_point_t;
+
+
+// The "details" of the optimization problem being solved. We can ask mrcal to
+// solve for ALL the lens parameters and ALL the geometry and everything else.
+// OR we can ask mrcal to lock down some part of the optimization problem, and
+// to solve for the rest. If any variables are locked down, we use their initial
+// values passed-in to mrcal_optimize()
+typedef struct
+{
+    // If true, we solve for the intrinsics core. Applies only to those models
+    // that HAVE a core (fx,fy,cx,cy)
+    bool do_optimize_intrinsics_core        : 1;
+
+    // If true, solve for the non-core lens parameters
+    bool do_optimize_intrinsics_distortions : 1;
+
+    // If true, solve for the geometry of the cameras
+    bool do_optimize_extrinsics             : 1;
+
+    // If true, solve for the poses of the calibration object
+    bool do_optimize_frames                 : 1;
+
+    // If true, apply the regularization terms in the solver
+    bool do_apply_regularization            : 1;
+
+    // If true, optimize the shape of the calibration object
+    bool do_optimize_calobject_warp         : 1;
+} mrcal_problem_details_t;
+
+
+// Return the number of parameters needed in optimizing the given lens model
+//
+// This is identical to mrcal_lensmodel_num_params(), but takes into account the
+// problem details. Any intrinsics parameters locked down in the
+// mrcal_problem_details_t do NOT count towards the optimization parameters
+int mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
+                                              mrcal_lensmodel_t m );
+
+
+// Scales a state vector to the packed, unitless form used by the optimizer
+//
+// In order to make the optimization well-behaved, we scale all the variables in
+// the state and the gradients before passing them to the optimizer. The internal
+// optimization library thus works only with unitless (or "packed") data.
+//
+// This function takes an (Nstate,) array of full-units values p[], and scales
+// it to produce packed data. This function applies the scaling directly to the
+// input array; the input is modified, and nothing is returned.
+//
+// This is the inverse of mrcal_unpack_solver_state_vector()
+void mrcal_pack_solver_state_vector( // out, in
+                                     double* p,
+
+                                     // in
+                                     int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                     int Nframes,
+                                     int Npoints, int Npoints_fixed,
+                                     mrcal_problem_details_t problem_details,
+                                     const mrcal_lensmodel_t lensmodel);
+
+
+// Scales a state vector from the packed, unitless form used by the optimizer
+//
+// In order to make the optimization well-behaved, we scale all the variables in
+// the state and the gradients before passing them to the optimizer. The internal
+// optimization library thus works only with unitless (or "packed") data.
+//
+// This function takes an (Nstate,) array of unitless values p[], and scales it
+// to produce full-units data. This function applies the scaling directly to the
+// input array; the input is modified, and nothing is returned.
+//
+// This is the inverse of mrcal_pack_solver_state_vector()
+void mrcal_unpack_solver_state_vector( // out, in
+                                       double* p, // unitless state on input,
+                                                  // scaled, meaningful state on
+                                                  // output
+
+                                       // in
+                                       int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                       int Nframes,
+                                       int Npoints, int Npoints_fixed,
+                                       mrcal_problem_details_t problem_details,
+                                       const mrcal_lensmodel_t lensmodel);
+
+
+// Reports the icam_extrinsics corresponding to a given icam_intrinsics.
+//
+// If we're solving a calibration problem (stationary cameras observing a moving
+// calibration object), each camera has a unique intrinsics vector and a unique
+// extrinsics vector. And this function reports the latter, given the former. On
+// success, the result is written to *icam_extrinsics, and we return true. If
+// the given camera is at the reference coordinate system, it has no extrinsics,
+// and we report -1.
+//
+// If we have moving cameras, there won't be a single icam_extrinsics for a
+// given icam_intrinsics, and we report an error by returning false
+bool mrcal_corresponding_icam_extrinsics(// out
+                                         int* icam_extrinsics,
+
+                                         // in
+                                         int icam_intrinsics,
+                                         int Ncameras_intrinsics,
+                                         int Ncameras_extrinsics,
+                                         int Nobservations_board,
+                                         const mrcal_observation_board_t* observations_board,
+                                         int Nobservations_point,
+                                         const mrcal_observation_point_t* observations_point);
+
+// Constants used in a mrcal optimization
+typedef struct
+{
+    // The minimum distance of an observed discrete point from its observing
+    // camera. Any observation of a point below this range will be penalized to
+    // encourage the optimizer to move the point further away from the camera
+    double  point_min_range;
+
+
+    // The maximum distance of an observed discrete point from its observing
+    // camera. Any observation of a point abive this range will be penalized to
+    // encourage the optimizer to move the point closer to the camera
+    double  point_max_range;
+} mrcal_problem_constants_t;
+
+
+// This structure is returned by the optimizer, and contains some statistics
+// about the optimization
+typedef struct
+{
+    // generated by an x-macro
+
+    /* The RMS error of the optimized fit at the optimum. Generally the residual */
+    /* vector x contains error values for each element of q, so N observed pixels */
+    /* produce 2N measurements: len(x) = 2*N. And the RMS error is */
+    /*   sqrt( norm2(x) / N ) */
+    double rms_reproj_error__pixels;
+
+    /* How many pixel observations were thrown out as outliers. Each pixel */
+    /* observation produces two measurements. Note that this INCLUDES any */
+    /* outliers that were passed-in at the start */
+    int Noutliers;
+} mrcal_stats_t;
+
+
+// Solve the given optimization problem
+//
+// This is the entry point to the mrcal optimization routine. The argument list
+// is commented. It is expected that this will be called from Python only.
+mrcal_stats_t
+mrcal_optimize( // out
+                // Each one of these output pointers may be NULL
+                // Shape (Nstate,)
+                double* p_packed_final,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_p_packed_final,
+
+                // Shape (Nmeasurements,)
+                double* x_final,
+                // used only to confirm that the user passed-in the buffer they
+                // should have passed-in. The size must match exactly
+                int buffer_size_x_final,
+
+                // out, in
+                //
+                // This is a dogleg_solverContext_t. I don't want to #include
+                // <dogleg.h> here, so this is void
+                //
+                // if(_solver_context != NULL) then this is a persistent solver
+                // context. The context is NOT freed on exit.
+                // mrcal_free_context() should be called to release it
+                //
+                // if(*_solver_context != NULL), the given context is reused
+                // if(*_solver_context == NULL), a context is created, and
+                // returned here on exit
+                void** _solver_context,
+
+                // These are a seed on input, solution on output
+
+                // intrinsics is a concatenation of the intrinsics core and the
+                // distortion params. The specific distortion parameters may
+                // vary, depending on lensmodel, so this is a variable-length
+                // structure
+                double*             intrinsics,         // Ncameras_intrinsics * NlensParams
+                mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
+                mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
+                mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
+                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+
+                // All the board pixel observations, in order. .x, .y are the
+                // pixel observations .z is the weight of the observation. Most
+                // of the weights are expected to be 1.0. Less precise
+                // observations have lower weights.
+                //
+                // z<0 indicates that this is an outlier. This is respected on
+                // input (even if !do_apply_outlier_rejection). New outliers are
+                // marked with z<0 on output, so this isn't const
+                mrcal_point3_t* observations_board_pool,
+                int Nobservations_board,
+
+                // in
+                int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                int Npoints, int Npoints_fixed, // at the end of points[]
+
+                const mrcal_observation_board_t* observations_board,
+                const mrcal_observation_point_t* observations_point,
+                int Nobservations_point,
+
+                bool check_gradient,
+                bool verbose,
+                // Whether to try to find NEW outliers. The outliers given on
+                // input are respected regardless
+                const bool do_apply_outlier_rejection,
+
+                mrcal_lensmodel_t lensmodel,
+                double observed_pixel_uncertainty,
+                const int* imagersizes, // Ncameras_intrinsics*2 of these
+                mrcal_problem_details_t          problem_details,
+                const mrcal_problem_constants_t* problem_constants,
+
+                double calibration_object_spacing,
+                int calibration_object_width_n,
+                int calibration_object_height_n);
+
+
+struct cholmod_sparse_struct;
+
+// Evaluate the value of the callback function at the given operating point
+//
+// The main optimization routine in mrcal_optimize() searches for optimal
+// parameters by repeatedly calling a function to evaluate each hypothethical
+// parameter set. This evaluation function is available by itself here,
+// separated from the optimization loop. The arguments are largely the same as
+// those to mrcal_optimize(), but the inputs are all read-only It is expected
+// that this will be called from Python only.
+bool mrcal_optimizer_callback(// out
+
+                             // These output pointers may NOT be NULL, unlike
+                             // their analogues in mrcal_optimize()
+
+                             // Shape (Nstate,)
+                             double* p_packed,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_p_packed,
+
+                             // Shape (Nmeasurements,)
+                             double* x,
+                             // used only to confirm that the user passed-in the buffer they
+                             // should have passed-in. The size must match exactly
+                             int buffer_size_x,
+
+                             // output Jacobian. May be NULL if we don't need
+                             // it. This is the unitless Jacobian, used by the
+                             // internal optimization routines
+                             struct cholmod_sparse_struct* Jt,
+
+
+                             // in
+
+                             // intrinsics is a concatenation of the intrinsics core
+                             // and the distortion params. The specific distortion
+                             // parameters may vary, depending on lensmodel, so
+                             // this is a variable-length structure
+                             const double*             intrinsics,         // Ncameras_intrinsics * NlensParams
+                             const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
+                             const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
+                             const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
+                             const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+
+                             int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                             int Npoints, int Npoints_fixed, // at the end of points[]
+
+                             const mrcal_observation_board_t* observations_board,
+
+                             // All the board pixel observations, in order. .x,
+                             // .y are the pixel observations .z is the weight
+                             // of the observation. Most of the weights are
+                             // expected to be 1.0. Less precise observations
+                             // have lower weights.
+                             //
+                             // z<0 indicates that this is an outlier
+                             const mrcal_point3_t* observations_board_pool,
+                             int Nobservations_board,
+
+                             const mrcal_observation_point_t* observations_point,
+                             int Nobservations_point,
+                             bool verbose,
+
+                             mrcal_lensmodel_t lensmodel,
+                             double observed_pixel_uncertainty,
+                             const int* imagersizes, // Ncameras_intrinsics*2 of these
+
+                             mrcal_problem_details_t          problem_details,
+                             const mrcal_problem_constants_t* problem_constants,
+
+                             double calibration_object_spacing,
+                             int calibration_object_width_n,
+                             int calibration_object_height_n);
+
+
+// frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
+// this is void
+void mrcal_free_context(void** ctx);
+#+end_src
+
+** Layout of the measurement and state vectors
+The optimization routine tries to minimize the length of the measurement
+vector $\vec x$ by moving around the state vector $\vec p$.
+
+Depending on the specific optimization problem being solved and the
+=mrcal_problem_details_t=, the state vector may contain any of
+
+- The lens parameters
+- The geometry of the cameras
+- The geometry of the observed chessboards and discrete points
+- The chessboard shape
+
+The measurement vector may contain
+- The errors in observations of the chessboards
+- The errors in observations of discrete points
+- The penalties in the solved point positions
+- The regularization terms
+
+Given the problem details and a vector $\vec p$ or $\vec x$ it is often useful
+to know where specific quantities lie in those vectors. Here we have 4 sets of
+functions to answer such questions:
+
+- =int mrcal_measurement_index_THING()=
+  Returns the index in the measurement vector x where the contiguous block of
+  values describing the THING begins. THING is any of
+  - boards
+  - points
+  - regularization
+
+- =int mrcal_num_measurements_THING()=
+  Returns the number of values in the contiguous block in the measurement
+  vector x that describe the given THING. THING is any of
+  - boards
+  - points
+  - regularization
+
+- =int mrcal_state_index_THING()=
+  Returns the index in the state vector p where the contiguous block of
+  values describing the THING begins. THING is any of
+  - intrinsics
+  - extrinsics
+  - frames
+  - points
+  - calobject_warp
+
+- =int mrcal_num_states_THING()=
+  Returns the number of values in the contiguous block in the state
+  vector p that describe the given THING. THING is any of
+  - intrinsics
+  - extrinsics
+  - frames
+  - points
+  - calobject_warp
+
+The function listing:
+
+#+begin_src c
+int mrcal_measurement_index_boards(int i_observation_board,
+                                   int Nobservations_board,
+                                   int Nobservations_point,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n);
+int mrcal_num_measurements_boards(int Nobservations_board,
+                                  int calibration_object_width_n,
+                                  int calibration_object_height_n);
+int mrcal_measurement_index_points(int i_observation_point,
+                                   int Nobservations_board,
+                                   int Nobservations_point,
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n);
+int mrcal_num_measurements_points(int Nobservations_point);
+int mrcal_measurement_index_regularization(int Nobservations_board,
+                                           int Nobservations_point,
+                                           int calibration_object_width_n,
+                                           int calibration_object_height_n);
+int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                          int Nframes,
+                                          int Npoints, int Npoints_fixed, int Nobservations_board,
+                                          mrcal_problem_details_t problem_details,
+                                          mrcal_lensmodel_t lensmodel);
+
+int mrcal_num_measurements(int Nobservations_board,
+                           int Nobservations_point,
+                           int calibration_object_width_n,
+                           int calibration_object_height_n,
+                           int Ncameras_intrinsics, int Ncameras_extrinsics,
+                           int Nframes,
+                           int Npoints, int Npoints_fixed,
+                           mrcal_problem_details_t problem_details,
+                           mrcal_lensmodel_t lensmodel);
+
+int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                     int Nframes,
+                     int Npoints, int Npoints_fixed, int Nobservations_board,
+                     mrcal_problem_details_t problem_details,
+                     mrcal_lensmodel_t lensmodel);
+int mrcal_state_index_intrinsics(int icam_intrinsics,
+                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                 int Nframes,
+                                 int Npoints, int Npoints_fixed, int Nobservations_board,
+                                 mrcal_problem_details_t problem_details,
+                                 mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
+                                mrcal_problem_details_t problem_details,
+                                mrcal_lensmodel_t lensmodel);
+int mrcal_state_index_extrinsics(int icam_extrinsics,
+                                 int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                 int Nframes,
+                                 int Npoints, int Npoints_fixed, int Nobservations_board,
+                                 mrcal_problem_details_t problem_details,
+                                 mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
+                                mrcal_problem_details_t problem_details);
+int mrcal_state_index_frames(int iframe,
+                             int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             int Nframes,
+                             int Npoints, int Npoints_fixed, int Nobservations_board,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_frames(int Nframes,
+                            mrcal_problem_details_t problem_details);
+int mrcal_state_index_points(int i_point,
+                             int Ncameras_intrinsics, int Ncameras_extrinsics,
+                             int Nframes,
+                             int Npoints, int Npoints_fixed, int Nobservations_board,
+                             mrcal_problem_details_t problem_details,
+                             mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_points(int Npoints, int Npoints_fixed,
+                            mrcal_problem_details_t problem_details);
+int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                     int Nframes,
+                                     int Npoints, int Npoints_fixed, int Nobservations_board,
+                                     mrcal_problem_details_t problem_details,
+                                     mrcal_lensmodel_t lensmodel);
+int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
+                                    int Nobservations_board);
+#+end_src
+
