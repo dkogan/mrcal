@@ -368,11 +368,116 @@ backwards-compatible Python wrappers replacing the Python implementations).
 ** Python API
 #+NAME: Python API
 
-The full Python API reference is available [[file:mrcal-python-api-reference.html][here]]. Note that everything has
-docstrings, so the =pydoc3= tool is effective at displaying the relevant
-documentation. For convenience, all the docstrings have been extracted and
-formatted into the webpage linked above.
+All the Python functions have complete docstrings, so the =pydoc3= tool is
+effective at displaying the relevant documentation. For convenience, all the
+docstrings have been extracted and formatted into the [[file:mrcal-python-api-reference.html][Python API reference]].
 
+The available functions, by category:
+
+*** Camera model reading/writing
+The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class provides functionality to read/write models
+from/to files on disk. Both the =.cameramodel= and =.cahvor= file formats are
+supported, choosing the proper one, depending on the given filename. When
+reading a pipe (no filename known), both formats are tried. If writing to a
+pipe, the =.cameramodel= format is chosen, unless =.cahvor= is requested via the
+arguments. The available methods:
+
+- [[file:mrcal-python-api-reference.html#cameramodel-__init__][=mrcal.cameramodel.__init__()=]]: Read a model from a file on disk, or construct
+  from the data given in the arguments.
+- [[file:mrcal-python-api-reference.html#cameramodel-write][=mrcal.cameramodel.write()=]]: Write out this camera-model to a file
+- [[file:mrcal-python-api-reference.html#cameramodel-intrinsics][=mrcal.cameramodel.intrinsics()=]]: Get or set the intrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_rt_toref][=mrcal.cameramodel.extrinsics_rt_toref()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_rt_fromref][=mrcal.cameramodel.extrinsics_rt_fromref()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_Rt_toref][=mrcal.cameramodel.extrinsics_Rt_toref()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_Rt_fromref][=mrcal.cameramodel.extrinsics_Rt_fromref()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-imagersize][=mrcal.cameramodel.imagersize()=]]: Get the imagersize in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region][=mrcal.cameramodel.valid_intrinsics_region()=]]: Get or set the valid intrinsics region
+- [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]: Get the original optimization
+  inputs. Used for uncertainty evaluation or other analysis
+- [[file:mrcal-python-api-reference.html#cameramodel-icam_intrinsics][=mrcal.cameramodel.icam_intrinsics()=]]: Get the camera index indentifying this
+  camera at optimization time. Used in conjunction with
+  [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]
+
+*** Geometry
+- [[file:mrcal-python-api-reference.html#-identity_R][=mrcal.identity_R()=]]: Return an identity rotation matrix
+- [[file:mrcal-python-api-reference.html#-identity_r][=mrcal.identity_r()=]]: Return an identity Rodrigues rotation
+- [[file:mrcal-python-api-reference.html#-identity_Rt][=mrcal.identity_Rt()=]]: Return an identity Rt transformation
+- [[file:mrcal-python-api-reference.html#-identity_rt][=mrcal.identity_rt()=]]: Return an identity rt transformation
+- [[file:mrcal-python-api-reference.html#-r_from_R][=mrcal.r_from_R()=]]: Compute a Rodrigues vector from a rotation matrix
+- [[file:mrcal-python-api-reference.html#-R_from_r][=mrcal.R_from_r()=]]: Compute a rotation matrix from a Rodrigues vector
+- [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]]: Compute an rt transformation from a Rt transformation
+- [[file:mrcal-python-api-reference.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]]: Compute an Rt transformation from a rt transformation
+- [[file:mrcal-python-api-reference.html#-invert_Rt][=mrcal.invert_Rt()=]]: Invert an Rt transformation
+- [[file:mrcal-python-api-reference.html#-invert_rt][=mrcal.invert_rt()=]]: Invert an rt transformation
+- [[file:mrcal-python-api-reference.html#-compose_Rt][=mrcal.compose_Rt()=]]: Compose Rt transformations
+- [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]]: Compose rt transformations
+- [[file:mrcal-python-api-reference.html#-rotate_point_r][=mrcal.rotate_point_r()=]]: Rotate point(s) using a Rodrigues vector
+- [[file:mrcal-python-api-reference.html#-rotate_point_R][=mrcal.rotate_point_R()=]]: Rotate point(s) using a rotation matrix
+- [[file:mrcal-python-api-reference.html#-transform_point_rt][=mrcal.transform_point_rt()=]]: Transform point(s) using an rt transformation
+- [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]]: Transform point(s) using an Rt transformation
+- [[file:mrcal-python-api-reference.html#-R_from_quat][=mrcal.R_from_quat()=]]: Convert a rotation defined as a unit quaternion rotation to a rotation matrix
+- [[file:mrcal-python-api-reference.html#-quat_from_R][=mrcal.quat_from_R()=]]: Convert a rotation defined as a rotation matrix to a unit quaternion
+
+*** Projections
+- [[file:mrcal-python-api-reference.html#-project][=mrcal.project()=]]: Projects a set of 3D camera-frame points to the imager
+- [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]]: Unprojects pixel coordinates to observation vectors
+
+*** Visualization
+- [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]]: Visualize the world resulting from a calibration run
+- [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]]: Visualize the difference in projection between N models
+- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]: Visualize the uncertainty in camera projection
+- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_xydist][=mrcal.show_projection_uncertainty_xydist()=]]: Visualize in 3D the uncertainty in camera projection
+- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray
+- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole][=mrcal.show_distortion_off_pinhole()=]]: Visualize a lens's deviation from a pinhole projection
+- [[file:mrcal-python-api-reference.html#-show_valid_intrinsics_region][=mrcal.show_valid_intrinsics_region()=]]: Visualize a model's valid-intrinsics region
+- [[file:mrcal-python-api-reference.html#-show_splined_model_surface][=mrcal.show_splined_model_surface()=]]: Visualize the surface represented by a splined model
+- [[file:mrcal-python-api-reference.html#-annotate_image__valid_intrinsics_region][=mrcal.annotate_image__valid_intrinsics_region()=]]: Annotate an image with a model's valid-intrinsics region
+- [[file:mrcal-python-api-reference.html#-imagergrid_using][=mrcal.imagergrid_using()=]]: Get a 'using' expression for imager colormap plots
+
+*** Calibration
+These are used by routines implementing a camera calibration system. Most users
+will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool instead of calling these.
+
+- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]]: Compute the chessboard observations and returns them in a usable form
+- [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
+- [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
+- [[file:mrcal-python-api-reference.html#-make_seed_pinhole][=mrcal.make_seed_pinhole()=]]: Compute an optimization seed for a camera calibration
+
+*** Image transforms
+- [[file:mrcal-python-api-reference.html#-scale_focal__best_pinhole_fit][=mrcal.scale_focal__best_pinhole_fit()=]]: Compute the optimal focal-length scale for reprojection to a pinhole lens
+- [[file:mrcal-python-api-reference.html#-pinhole_model_for_reprojection][=mrcal.pinhole_model_for_reprojection()=]]: Generate a pinhole model suitable for reprojecting an image
+- [[file:mrcal-python-api-reference.html#-image_transformation_map][=mrcal.image_transformation_map()=]]: Compute a reprojection map between two models
+- [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]]: Transforms a given image using a given map
+
+*** Model analysis
+- [[file:mrcal-python-api-reference.html#-implied_Rt10__from_unprojections][=mrcal.implied_Rt10__from_unprojections()=]]: Compute the implied-by-the-intrinsics transformation to fit two cameras' projections
+- [[file:mrcal-python-api-reference.html#-worst_direction_stdev][=mrcal.worst_direction_stdev()=]]: Compute the worst-direction standard deviation from a 2x2 covariance matrix
+- [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]]: Compute the projection uncertainty of a camera-referenced point
+- [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]]: Compute the difference in projection between N models
+- [[file:mrcal-python-api-reference.html#-is_within_valid_intrinsics_region][=mrcal.is_within_valid_intrinsics_region()=]]: Which of the pixel coordinates fall within the valid-intrinsics region?
+
+*** Stereo
+- [[file:mrcal-python-api-reference.html#-stereo_rectify_prepare][=mrcal.stereo_rectify_prepare()=]]: Precompute everything needed for stereo rectification and matching
+- [[file:mrcal-python-api-reference.html#-stereo_unproject][=mrcal.stereo_unproject()=]]: Unprojection in the rectified stereo system
+- [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
+
+*** Synthetic data
+- [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]]: Return the geometry of the calibration object
+- [[file:mrcal-python-api-reference.html#-synthesize_board_observations][=mrcal.synthesize_board_observations()=]]: Produce synthetic chessboard observations
+
+*** Miscellaneous utilities
+- [[file:mrcal-python-api-reference.html#-align_procrustes_points_Rt01][=mrcal.align_procrustes_points_Rt01()=]]: Compute a rigid transformation to align two point clouds
+- [[file:mrcal-python-api-reference.html#-align_procrustes_vectors_R01][=mrcal.align_procrustes_vectors_R01()=]]: Compute a rotation to align two sets of direction vectors
+- [[file:mrcal-python-api-reference.html#-sample_imager][=mrcal.sample_imager()=]]: Returns regularly-sampled, gridded pixels coordinates across the imager
+- [[file:mrcal-python-api-reference.html#-sample_imager_unproject][=mrcal.sample_imager_unproject()=]]: Reports 3D observation vectors that regularly sample the imager
+- [[file:mrcal-python-api-reference.html#-hypothesis_corner_positions][=mrcal.hypothesis_corner_positions()=]]: Reports the 3D chessboard points observed by a camera at calibration time
+- [[file:mrcal-python-api-reference.html#-polygon_difference][=mrcal.polygon_difference()=]]: Return the difference of two closed polygons
+- [[file:mrcal-python-api-reference.html#-mapping_file_framenocameraindex][=mrcal.mapping_file_framenocameraindex()=]]: Parse image filenames to get the frame numbers
+- [[file:mrcal-python-api-reference.html#-close_contour][=mrcal.close_contour()=]]: Close a polyline, if it isn't already closed
+- [[file:mrcal-python-api-reference.html#-plotoptions_state_boundaries][=mrcal.plotoptions_state_boundaries()=]]: Return the 'set' plot options for gnuplotlib to show the state boundaries
+- [[file:mrcal-python-api-reference.html#-plotoptions_measurement_boundaries][=mrcal.plotoptions_measurement_boundaries()=]]: Return the 'set' plot options for gnuplotlib to show the measurement boundaries
+- [[file:mrcal-python-api-reference.html#-ingest_packed_state][=mrcal.ingest_packed_state()=]]: Read a given packed state into optimization_inputs
+- [[file:mrcal-python-api-reference.html#-apply_color_map][=mrcal.apply_color_map()=]]: Color-code an array
 
 * How to run a calibration
 #+NAME: 
