@@ -1146,20 +1146,6 @@ Given the problem details and a vector $\vec p$ or $\vec x$ it is often useful
 to know where specific quantities lie in those vectors. Here we have 4 sets of
 functions to answer such questions:
 
-- =int mrcal_measurement_index_THING()=
-  Returns the index in the measurement vector x where the contiguous block of
-  values describing the THING begins. THING is any of
-  - boards
-  - points
-  - regularization
-
-- =int mrcal_num_measurements_THING()=
-  Returns the number of values in the contiguous block in the measurement
-  vector x that describe the given THING. THING is any of
-  - boards
-  - points
-  - regularization
-
 - =int mrcal_state_index_THING()=
   Returns the index in the state vector p where the contiguous block of
   values describing the THING begins. THING is any of
@@ -1177,6 +1163,20 @@ functions to answer such questions:
   - frames
   - points
   - calobject_warp
+
+- =int mrcal_measurement_index_THING()=
+  Returns the index in the measurement vector x where the contiguous block of
+  values describing the THING begins. THING is any of
+  - boards
+  - points
+  - regularization
+
+- =int mrcal_num_measurements_THING()=
+  Returns the number of values in the contiguous block in the measurement
+  vector x that describe the given THING. THING is any of
+  - boards
+  - points
+  - regularization
 
 The function listing:
 
