@@ -422,8 +422,8 @@ Functions, broken down by functionality:
 ** Lens models
 The lens model structures are defined here:
 
-- =mrcal_lensmodel_type_t=: an enum decribing the lens model /type/. No [[file:index.org::Lens models][configuration]] is stored here.
-- =mrcal_lensmodel_t=: a lens model type /and/ the [[file:index.org::Lens models][configuration]] parameters. The
+- =mrcal_lensmodel_type_t=: an enum decribing the lens model /type/. No [[file:index.org::#Lens models][configuration]] is stored here.
+- =mrcal_lensmodel_t=: a lens model type /and/ the [[file:index.org::#Lens models][configuration]] parameters. The
   configuration lives in a =union= supporting all the known lens models
 - =mrcal_lensmodel_metadata_t=: the metadata that describes any given lens model
 
@@ -759,7 +759,7 @@ The details of the optimization being solved are defined in the
 - Which elements of the optimization vector are locked-down, and which are given
   to the optimizer to adjust. Currently we can lock down the intrinsics, the
   extrinsics and/or the frames (chessboard poses)
-- Whether we apply [[file:index.org::Regularization][regularization]] to stabilize the solution
+- Whether we apply [[file:index.org::#Regularization][regularization]] to stabilize the solution
 - Whether the chessboard should be assumed flat, or if we should optimize
   deformation factors
 

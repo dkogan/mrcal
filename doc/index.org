@@ -10,7 +10,7 @@ toolkit was originally built to produce high-accuracy calibrations demanded by
 long-range stereo, so it provides facilities to analyze the results and to track
 down sources of error.
 
-mrcal provides a routine to compute the "[[Model differencing][difference]]" between two models, which
+mrcal provides a routine to compute the "[[#Model differencing][difference]]" between two models, which
 can be a fundamental piece of a wide number of analyses, for instance to measure
 a lens's response to temperature cycles.
 
@@ -18,12 +18,12 @@ mrcal provides estimates of [[file:uncertainty.org][projection uncertainty]], wh
 calibration quality, and to compute the uncertainty of any data products that
 use the lens model.
 
-A rich, [[Splined stereographic lens model][splined lens model]] is available to fit any projection function and to
+A rich, [[#Splined stereographic lens model][splined lens model]] is available to fit any projection function and to
 provide realistic uncertainty estimates.
 
 The core functionality is exposed from the [[file:c-api.org][C API]], while higher-level routines
-are available through [[Python API][Python]]. The most common workflows are available as
-[[Commandline tools][commandline tools]], with no coding required.
+are available through [[#Python API][Python]]. The most common workflows are available as
+[[#Commandline tools][commandline tools]], with no coding required.
 
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
 toolkit.
@@ -205,7 +205,7 @@ class. This class supports two different file formats:
 
 - =.cahvor=: the alternative format available for compatibility with existing
   tools. If you don't need to interoperate with tools that require this format,
-  there's little reason to use it. This format cannot store [[Splined stereographic lens model][splined models]] or
+  there's little reason to use it. This format cannot store [[#Splined stereographic lens model][splined models]] or
   the auxillary data required for the [[file:uncertainty.org][uncertainty computations]].
 
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
@@ -276,13 +276,14 @@ The model type /and/ the configuration are represented by [[https://github.jpl.n
 
 The pinhole and stereographic models are very simple, and are usually used as
 part of data processing pipelines rather than trying to represent real-world
-lenses. The splined stereographic model is [[Splined stereographic lens model][described in great detail later]]. This
+lenses. The splined stereographic model is [[#Splined stereographic lens model][described in great detail later]]. This
 is the recommended lens model to get the most fidelity and reliable
 [[file:uncertainty.org][uncertainty estimates]].
 
 The CAHVOR(E) and OpenCV lens models are supported by many other tools, so mrcal
 also supporting them provides interoperability. These are much leaner than the
-[[Splined stereographic lens model][splined models]], so they have many fewer parameters. Thus they need far less
+ These are much leaner than the
+[[#Splined stereographic lens model][splined models]], so they have many fewer parameters. Thus they need far less
 computation, but they're not as good at representing arbitrary lenses, and they
 provide overly-optimistic [[file:uncertainty.org][uncertainty estimates]].
 
@@ -291,7 +292,9 @@ implemented, so it isn't currently possible to solve for a CAHVORE model. Full
 support may be added in the future.
 
 * Calibration object
-#+NAME: Calibration object
+:PROPERTIES:
+:CUSTOM_ID: Calibration object
+:END:
 This is called a "chessboard" or just "board" in some parts of the code.
 
 When running a camera calibration, we use observations of a known-geometry
@@ -318,7 +321,10 @@ of points (such as corners of an apriltag) are not appropriate sources of data
 currently.
 
 * Commandline tools
-#+NAME: Commandline tools
+:PROPERTIES:
+:CUSTOM_ID: Commandline tools
+:END:
+
 A number of commandline tools are available for common tasks. If you're just
 using mrcal to calibrate some cameras, you may not need anything else.
 
@@ -366,7 +372,10 @@ time Python-only functionality will be translated to C, as needed (with
 backwards-compatible Python wrappers replacing the Python implementations).
 
 ** Python API
-#+NAME: Python API
+:PROPERTIES:
+:CUSTOM_ID: Python API
+:END:
+
 All the Python functions have complete docstrings, so the =pydoc3= tool is
 effective at displaying the relevant documentation. For convenience, all the
 docstrings have been extracted and formatted into the [[file:mrcal-python-api-reference.html][Python API reference]].
@@ -529,7 +538,6 @@ docstrings for usage details and examples.
 - [[file:mrcal-python-api-reference.html#-apply_homography][=mrcal.apply_homography()=]]: Apply a homogeneous-coordinate homography to a set of 2D points
 
 * How to run a calibration
-#+NAME: 
 talk about --seed and how that can be used to validate intrinsics
 
 ** Tutorial
@@ -790,7 +798,18 @@ same acceptable uncertainty level.
 ** mrgingham
 *** mrcal
  - metrics
-* Theory
+* Model differencing
+* Problem formulation
+:PROPERTIES:
+:CUSTOM_ID: formulation
+:END:
+
+
+** Regularization
+:PROPERTIES:
+:CUSTOM_ID: Regularization
+:END:
+
 ** optimization, weighting, least squares
 ** research topics
 - Is my spline representation good? Can I avoid it crossing itself?
@@ -806,26 +825,6 @@ same acceptable uncertainty level.
   much
 - intrinsics errors effect on yaw. I ran some simulations earlier, I think.
   Similar effect: differential errors are very significant
-
-** Model differencing
-#+NAME: Model differencing
-xzz
-
-** Splined stereographic lens model
-#+NAME: Splined stereographic lens model
-yyy
-
-* Visualization
-- say that the plots are interactive in normal usage
-* Other
-** interesting stereo discoveries
-- compensating for board flex
-- compensating for focal-length errors
-  common-mode errors do not affect yaw. differential-mode errors affect yaw very
-  much
-- intrinsics errors effect on yaw. I ran some simulations earlier, I think.
-  Similar effect: differential errors are very significant
-** things to mention in the talk and in the docs
 - talk about regularization bias
 - splined models shouldn't fit the core to keep things non-singular
 - splined models may not be fitted into opencv8 without moving extrinsics
@@ -841,6 +840,13 @@ yyy
 - talk about how to select an appropriate splined model
 - talk about --seed and how that can be used to validate intrinsics
 
+* Model differencing
+:PROPERTIES:
+:CUSTOM_ID: Model differencing
+:END:
+
+* Visualization
+- say that the plots are interactive in normal usage
 * After-release todo
 - feed uncertainties to stereo, triangulation
 - compute uncertainties for multiple points at the same time to get covariance.
