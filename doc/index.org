@@ -247,49 +247,167 @@ will write it when I need it or when somebody bugs me about it, whichever comes
 first.
 
 * Lens models
-#+NAME: Lens models
-mrcal supports a wide range of lens models. The full set of supported models is
-returned by the [[file:mrcal-python-api-reference.html#-supported_lensmodels][=mrcal.supported_models()=]] function. At the time of this writing
-the supported models are:
+:PROPERTIES:
+:CUSTOM_ID: Lens models
+:END:
 
-- =LENSMODEL_PINHOLE=
-- =LENSMODEL_STEREOGRAPHIC=
-- =LENSMODEL_SPLINED_STEREOGRAPHIC_...=
+mrcal supports a wide range of lens models in both C and in Python. The
+representation details and projection behaviors are described here.
+
+** Representation
+In Python the models are identified with a string =LENSMODEL_XXX= where the
+=XXX= selects the specific model in question. For most models, this
+specification describes the model fully. For some models, however, the =XXX=
+selects a model /family/, and some /configuration parameters/ are required to
+define the specific model in question. An example string with a configuration:
+=LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170=. The
+configuration parameters (=order=3=, =Nx=30= and so on) select the model, and
+are /not/ subject to optimization. Currently only the [[#Splined stereographic lens model][splined stereographic
+models]] have any configuration, but more will be added over time.
+
+In C, the model family is selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum. The
+elements are the same as the Python model names, but with =MRCAL_= prepended. So
+in C the above splined model is of type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=.
+In C the type /and/ configuration are represented by the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]
+structure. Most routines require the configuration to be available. For
+instance, the number of parameters needed to fully describe a given model can be
+obtained by calling [[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or
+[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C (requires the full [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]).
+
+** Intrinsics core
+Most models contain an "intrinsics core". These are 4 values that appear at the
+start of the parameter list:
+
+- $f_x$: the focal-length in the horizontal direction, in pixels
+- $f_y$: the focal-length in the vertical direction, in pixels
+- $c_x$: the horizontal projection center, in pixels
+- $c_y$: the vertical projection center, in pixels
+
+At this time all models contain a core, but this will change in the future.
+
+** Models
+*** =LENSMODEL_PINHOLE=
+This is the basic "pinhole" model with 4 parameters (the core only). Projection
+of a point $\vec p$ is defined as
+
+\[\vec q = \left( \begin{array}{c} f_x \frac{p_x}{p_z} + c_x \\ f_y \frac{p_y}{p_z} + c_y \end{array} \right) \]
+
+This model is defined only in front of the camera, and projects to infinity as
+we approach 90 degrees off the projection axis ($p_z \rightarrow 0$). Straight
+lines in space remain straight under this projection, and observations of the
+same plane by two pinhole cameras define a homography. No real-world lens
+follows this projection, so this exists for data processing only.
+
+*** =LENSMODEL_STEREOGRAPHIC=
+Another trivial model that exists for data processing, and not to represent real
+lenses. Like the pinhole model, this has just the 4 core parameters.
+
+To define the projection of a point $\vec p$, let's define the angle off the
+projection axis:
+
+\[ \theta \equiv \tan^{-1} \frac{\left| \vec p_{xy} \right|}{p_z} \]
+
+then
+
+\[ \vec u \equiv \frac{\vec p_{xy}}{\left| \vec p_{xy} \right|} 2 \tan\frac{\theta}{2} \]
+
+and
+
+\[\vec q = \left( \begin{array}{c} f_x u_x + c_x \\ f_y u_y + c_y \end{array} \right) \]
+
+This model is able to project behind the camera, and has a single singularity:
+directly opposite the projection axis.
+
+Note that the pinhole model can be defined in the same way, except the pinhole
+model has $\vec u \equiv \frac{\vec p_{xy}} {\left| \vec p_{xy} \right|} \tan
+\theta$. And we can thus see that for long lenses (where $\theta$ is small) the
+pinhole model and the stereographic model function similarly: $\tan \theta
+\approx 2 \tan \frac{\theta}{2}$
+
+*** =LENSMODEL_OPENCV...=
+mrcal supports these OpenCV models:
+
 - =LENSMODEL_OPENCV4=
 - =LENSMODEL_OPENCV5=
 - =LENSMODEL_OPENCV8=
 - =LENSMODEL_OPENCV12=
-- =LENSMODEL_CAHVOR=
-- =LENSMODEL_CAHVORE=
 
-In Python, the models are represented as one of the above strings. In C, in an
-enum with =MRCAL_= prepended, and the =...= placeholder stripped. The =...=
-above means that this model has /configuration parameters/ that would replace
-the =...= placeholder. These are specific to each kind of model, and currently
-only the [[Splined stereographic lens model][splined stereographic models]] have any configuration. The number of
-parameters needed to fully describe a given model can be obtained by calling
-[[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
-Any configuration /must/ be included.
+These are simple parametric models that have the given number of "distortion"
+parameters in addition to the 4 core parameters. The projection behavior is
+described in the [[https://docs.opencv.org/4.5.0/d9/d0c/group__calib3d.html#details][OpenCV documentation]]. These do a reasonable job in representing
+real-world lenses, /and/ they're compatible with many other tools.
 
-In C, the raw type of model is represented by the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum.
-The model type /and/ the configuration are represented by [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]].
+*** =LENSMODEL_CAHVOR=
+mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools used
+at JPL. Primarily this support exists for compatibility. The CAHVOR model has 5
+"distortion" parameters in addition to the 4 core parameters. If you want to use
+this, you already know what it does.
 
-The pinhole and stereographic models are very simple, and are usually used as
-part of data processing pipelines rather than trying to represent real-world
-lenses. The splined stereographic model is [[#Splined stereographic lens model][described in great detail later]]. This
-is the recommended lens model to get the most fidelity and reliable
-[[file:uncertainty.org][uncertainty estimates]].
+*** =LENSMODEL_CAHVORE=
+This is an extended =LENSMODEL_CAHVOR= to support wider lenses. CAHVORE is only
+partially supported: the parameter gradients aren't implemented, so it isn't
+currently possible to solve for a CAHVORE model. Full support may be added in
+the future.
 
-The CAHVOR(E) and OpenCV lens models are supported by many other tools, so mrcal
-also supporting them provides interoperability. These are much leaner than the
- These are much leaner than the
-[[#Splined stereographic lens model][splined models]], so they have many fewer parameters. Thus they need far less
-computation, but they're not as good at representing arbitrary lenses, and they
-provide overly-optimistic [[file:uncertainty.org][uncertainty estimates]].
+*** =LENSMODEL_SPLINED_STEREOGRAPHIC_...=
+:PROPERTIES:
+:CUSTOM_ID: Splined stereographic lens model
+:END:
 
-CAHVORE is only partially supported: lensmodel parameter gradients aren't
-implemented, so it isn't currently possible to solve for a CAHVORE model. Full
-support may be added in the future.
+This projection function is a stereographic model with correction factors. We
+compute $\vec u$ as in the [[*=LENSMODEL_STEREOGRAPHIC=][=LENSMODEL_STEREOGRAPHIC=]] projection definition
+above. We then use $\vec u$ to look-up a $\Delta \vec u$ using two splined
+surfaces: one for each of the two elements of
+
+\[ \Delta \vec u \equiv
+\begin{bmatrix}
+\Delta u_x \left( \vec u \right) \\
+\Delta u_y \left( \vec u \right)
+\end{bmatrix} \]
+
+Then we can define the rest of the projection function:
+
+\[\vec q =
+ \left( \begin{array}{c}
+ f_x \left( u_x + \Delta u_x \right) + c_x \\
+ f_y \left( u_y + \Delta u_y \right) + c_y
+\end{array} \right) \]
+
+The surfaces $\Delta u_x$ and $\Delta u_y$ are defined as B-splines with
+evenly-spaced knots (control points) in the space of the domain $\vec u$. The
+values of the knots comprise the parameters of this lens model. We're using
+B-splines primarily for their local support properties: moving a knot only
+affect the surface in the immediate region surrounding that knot. This makes for
+a nice optimization problem.
+
+Everything else needed to define the splined surfaces is given in the model
+configuration:
+
+- =order=: the degree of each 1D polynomial. This is either 2 (quadratic
+  splines, C1 continuous) or 3 (cubic splines, C2 continuous)
+
+- =Nx= and =Ny=: The spline density. We have a Nx by Ny grid of evenly-spaced
+  control points. More control points results in more parameters and a more
+  flexible model. Naturally this also increases the amount of calibration data
+  we need to achieve the same projection uncertainty. The ratio of =Nx= to =Ny=
+  should usually follow the ratio of the two imager dimensions, but this isn't
+  required
+
+- =fov_x_deg=: The horizontal field of view, in degrees. Controls the area where
+  the spline is defined. Beyond this area the projection function will use the
+  nearest spline patch. This will produce continuous, but very aphysical
+  projection behavior. The user should choose a value of =fov_x_deg=
+  large-enough to cover the region viewable by the given lens. The
+  [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]] can be used to verify that all the
+  visible pixels lie within the area indexable by the spline. =fov_y_deg= is not
+  included in the configuration: it is assumed proportional with =Ny= and =Nx=.
+
+This splined model is far more flexible than the lean parametric models (all the
+other lens models). It is thus the recommended choice to get the best fidelity
+and [[file:uncertainty.org][uncertainty estimates]].
+
+No data-driven method of choosing =Nx= or =Ny= is available at this time.
+Something will be built eventually.
 
 * Calibration object
 :PROPERTIES:
