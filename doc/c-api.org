@@ -3,7 +3,9 @@ The C API consists of 3 headers:
 - [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
 - [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
 
-Many usages would =#include <mrcal.h>= only, and this includes all 3.
+Most usages would =#include <mrcal.h>= only, and this includes all 3. [[https://en.wikipedia.org/wiki/X_Macro][X macros]]
+are used in several places. These are a technique for templating using the C
+preprocessor that eliminates boilerplate.
 
 * Geometry structures
 We have 3 structures in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]:
@@ -412,14 +414,7 @@ void mrcal_compose_rt_noncontiguous( // output
                                     );
 #+end_src
 
-* Everything else
-The bulk of the C API lives in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]. [[https://en.wikipedia.org/wiki/X_Macro][X macros]] are used in several places.
-These are a technique for templating using the C preprocessor that eliminates
-boilerplate.
-
-Functions, broken down by functionality:
-
-** Lens models
+* Lens models
 The lens model structures are defined here:
 
 - =mrcal_lensmodel_type_t=: an enum decribing the lens model /type/. No [[file:index.org::#Lens models][configuration]] is stored here.
@@ -610,7 +605,7 @@ bool mrcal_knots_for_splined_models( double* ux, double* uy,
                                      mrcal_lensmodel_t lensmodel);
 #+end_src
 
-** Projections
+* Projections
 The fundamental functions for projection and unprojection are defined here.
 =mrcal_project()= is the main routine that implements the "forward" direction,
 and is available for every camera model. This function can return gradients in
@@ -748,7 +743,7 @@ void mrcal_unproject_stereographic( // output
                                    double cx, double cy);
 #+end_src
 
-** Optimization
+* Optimization
 The mrcal optimization routines are defined in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]. Primarily these exist
 for the benefit of the Python layer, and it isn't expected that end users will
 call these routines. A brief description is given here for completeness.
@@ -767,7 +762,6 @@ Any function that needs the layout of the optimization vector takes a
 =mrcal_problem_details_t=.
 
 The listing of available functions is best given with the commented header:
-
 
 #+begin_src c
 // Used to specify which camera is making an observation. The "intrinsics" index
@@ -1130,7 +1124,7 @@ bool mrcal_optimizer_callback(// out
 void mrcal_free_context(void** ctx);
 #+end_src
 
-** Layout of the measurement and state vectors
+* Layout of the measurement and state vectors
 The optimization routine tries to minimize the length of the measurement
 vector $\vec x$ by moving around the state vector $\vec p$.
 
