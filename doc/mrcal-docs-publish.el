@@ -11,9 +11,12 @@
          :completion-function dima-org-export-build-docs
          :section-numbers nil
          :with-toc t
+         :with-sub-superscript nil
          :html-head ,(concat "<style>"
-                             "pre.src  {background-color: #303030; color: #e5e5e5; max-width 700px} "
-                             ".org-svg {min-width: 500px; max-width: 60%;} "
+                             "pre.src      {background-color: #303030; color: #e5e5e5; max-width 700px} "
+                             "pre.example  {background-color: #303030; color: #e5e5e5; max-width 700px} "
+                             ".org-svg     {min-width: 500px; max-width: 60%;} "
+                             ".figure      {min-width: 500px; max-width: 60%;} "
                              "</style>"))
         ("images"
          :base-directory "~/jpl/mrcaldocs/"
