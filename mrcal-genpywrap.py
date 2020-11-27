@@ -460,7 +460,7 @@ r'''
      return true;
 '''
 m.function( "apply_homography",
-            r'''Apply a homogeneous-coordinate homography to a set of 2d points
+            r'''Apply a homogeneous-coordinate homography to a set of 2D points
 
 SYNOPSIS
 
