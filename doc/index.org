@@ -81,7 +81,7 @@ explicitly define them here
 - $\vec q$ is a 2-dimensional vector representing a pixel coordinate: $\left( x,y \right)$
 
 - $\vec v$ is a 3-dimensional vector representing a /direction/ $\left( x,y,z
-  \right)$ in space. $\vec v$ is only defined up-to-length. In a camera's
+  \right)$ in space. $\vec v$ is unique only up-to-length. In a camera's
   coordinate system we have $\vec q = \mathrm{project}\left(\vec v \right)$
 
 - $\vec p$ is a 3-dimensional vector representing a /point/ $\left( x,y,z
@@ -107,13 +107,13 @@ Here we have
 - $\vec E$ is the cost function being optimized. $E \equiv \left \Vert \vec x \right \Vert ^2$
 
 - $\vec J$ is the /jacobian/ matrix. This is the matrix $\frac{ \partial \vec x
-  }{ \partial \vec p }$ 
+  }{ \partial \vec p }$. Usually this is large and sparse.
 
 ** Camera coordinate system
 mrcal uses right-handed coordinate systems. No convention is assumed for the
-world coordinate system. The canonical /camera/ coordinate system has =x,y= as
-with pixel coordinates in an image: =x= is to the "right" and =y= is "down". =z=
-is then "forward" to complete the right-handed system of coordinates.
+world coordinate system. The canonical /camera/ coordinate system has $x$ and
+$y$ as with pixel coordinates in an image: $x$ is to the right and $y$ is down.
+$z$ is then forward to complete the right-handed system of coordinates.
 
 ** Transformations
 We describe transformations as mappings between a representation of a point in
@@ -324,18 +324,12 @@ model has $\vec u \equiv \frac{\vec p_{xy}} {\left| \vec p_{xy} \right|} \tan
 pinhole model and the stereographic model function similarly: $\tan \theta
 \approx 2 \tan \frac{\theta}{2}$
 
-*** =LENSMODEL_OPENCV...=
-mrcal supports these OpenCV models:
-
-- =LENSMODEL_OPENCV4=
-- =LENSMODEL_OPENCV5=
-- =LENSMODEL_OPENCV8=
-- =LENSMODEL_OPENCV12=
-
+*** =LENSMODEL_OPENCV4=, =LENSMODEL_OPENCV5=, =LENSMODEL_OPENCV8=, =LENSMODEL_OPENCV12=
 These are simple parametric models that have the given number of "distortion"
 parameters in addition to the 4 core parameters. The projection behavior is
-described in the [[https://docs.opencv.org/4.5.0/d9/d0c/group__calib3d.html#details][OpenCV documentation]]. These do a reasonable job in representing
-real-world lenses, /and/ they're compatible with many other tools.
+described in the [[https://docs.opencv.org/4.5.0/d9/d0c/group__calib3d.html#details][OpenCV documentation]]. These do a reasonable (up to a point) job
+in representing real-world lenses, /and/ they're compatible with many other
+tools.
 
 *** =LENSMODEL_CAHVOR=
 mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools used
@@ -386,12 +380,12 @@ configuration:
 - =order=: the degree of each 1D polynomial. This is either 2 (quadratic
   splines, C1 continuous) or 3 (cubic splines, C2 continuous)
 
-- =Nx= and =Ny=: The spline density. We have a Nx by Ny grid of evenly-spaced
-  control points. More control points results in more parameters and a more
-  flexible model. Naturally this also increases the amount of calibration data
-  we need to achieve the same projection uncertainty. The ratio of =Nx= to =Ny=
-  should usually follow the ratio of the two imager dimensions, but this isn't
-  required
+- =Nx= and =Ny=: The spline density. We have a =Nx= by =Ny= grid of
+  evenly-spaced control points. More control points results in more parameters
+  and a more flexible model. Naturally this also increases the amount of
+  calibration data we need to achieve the same projection uncertainty. The ratio
+  of =Nx= to =Ny= should usually follow the ratio of the two imager dimensions,
+  but this isn't required
 
 - =fov_x_deg=: The horizontal field of view, in degrees. Controls the area where
   the spline is defined. Beyond this area the projection function will use the
@@ -604,7 +598,7 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 The mrcal solver is an optimization routine based on sparse nonlinear least
 squares. The optimization loop is implemented in [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which uses the
 [[https://people.engr.tamu.edu/davis/suitesparse.html][CHOLMOD solver]] to compute the [[https://en.wikipedia.org/wiki/Cholesky_decomposition][Cholesky factorization]]. With a Cholesky
-factorization we can efficiently solve the linear system $J^T J \vec x = \vec b$
+factorization we can efficiently solve the linear system $J^T J \vec a = \vec b$
 where the jacobian matrix $J$ is large and sparse.
 
 CHOLMOD is a C routine, and mrcal provides a Python interface. This is used
@@ -617,6 +611,7 @@ The factorization can be computed by instantiating a
 [[file:mrcal-python-api-reference.html#CHOLMOD_factorization][=mrcal.CHOLMOD_factorization=]] class, and the linear system can then be solved by
 calling [[file:mrcal-python-api-reference.html#CHOLMOD_factorization-solve_xt_JtJ_bt][=mrcal.CHOLMOD_factorization.solve_xt_JtJ_bt()=]]. See these two
 docstrings for usage details and examples.
+
 *** Optimization and measurement vectors layout
 - [[file:mrcal-python-api-reference.html#-state_index_intrinsics][=mrcal.state_index_intrinsics()=]]: Return the index in the optimization vector of the intrinsics of camera i
 - [[file:mrcal-python-api-reference.html#-state_index_extrinsics][=mrcal.state_index_extrinsics()=]]: Return the index in the optimization vector of the extrinsics of camera i
@@ -635,6 +630,7 @@ docstrings for usage details and examples.
 - [[file:mrcal-python-api-reference.html#-num_measurements_points][=mrcal.num_measurements_points()=]]: Return how many measurements we have from point observations
 - [[file:mrcal-python-api-reference.html#-num_measurements_regularization][=mrcal.num_measurements_regularization()=]]: Return how many measurements we have from regularization
 - [[file:mrcal-python-api-reference.html#-num_measurements][=mrcal.num_measurements()=]]: Return how many measurements we have in the full optimization problem
+
 *** Optimization
 - [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]]: Invoke the calibration routine
 - [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]]: Call the optimization callback function
@@ -642,6 +638,7 @@ docstrings for usage details and examples.
 - [[file:mrcal-python-api-reference.html#-unpack_state][=mrcal.unpack_state()=]]: Scales a state vector from the packed, unitless form used by the optimizer
 - [[file:mrcal-python-api-reference.html#-ingest_packed_state][=mrcal.ingest_packed_state()=]]: Read a given packed state into optimization_inputs
 - [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
+
 *** Lens models
 - [[file:mrcal-python-api-reference.html#-supported_lensmodels][=mrcal.supported_lensmodels()=]]: Returns a tuple of strings for the various lens models we support
 - [[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]]: Get the number of lens parameters for a particular model type
@@ -770,17 +767,16 @@ this is 10.
 
 =--outdir= specifies the directory where the output models will be written
 
-=--lensmodel= specifies which lens model we're using for the cameras.
-At this time all OpenCV lens models are supported, in addition to
-LENSMODEL_CAHVOR. The CAHVOR model is there for legacy compatibility only. If
-you're not going to be using these models in a system that only supports CAHVOR,
-there's little reason to use it. If you use a model that is too lean
-(LENSMODEL_PINHOLE or LENSMODEL_OPENCV4 maybe), the model will not fit the data,
-especially at the edges; the tool will tell you this. If you use a model that is
-too rich (something crazy like LENSMODEL_OPENCV12), then you will need much
-more data than you normally would. Most lenses I've seen work well with
-LENSMODEL_OPENCV4 or LENSMODEL_OPENCV5 or LENSMODEL_OPENCV8; wider lenses
-need richer models.
+=--lensmodel= specifies which lens model we're using for the cameras. At this
+time all OpenCV lens models are supported, in addition to =LENSMODEL_CAHVOR=.
+The CAHVOR model is there for legacy compatibility only. If you're not going to
+be using these models in a system that only supports CAHVOR, there's little
+reason to use it. If you use a model that is too lean (=LENSMODEL_PINHOLE= or
+=LENSMODEL_OPENCV4= maybe), the model will not fit the data, especially at the
+edges; the tool will tell you this. If you use a model that is too rich
+(something crazy like =LENSMODEL_OPENCV12=), then you will need more data than
+you normally would. Most lenses I've seen work well with =LENSMODEL_OPENCV4= or
+=LENSMODEL_OPENCV5= or =LENSMODEL_OPENCV8=; wider lenses need richer models.
 
 =--observed-pixel-uncertainty 1.0= says that the x,y corner coordinates reported
 by mrgingham are distributed normally, independently, and with the standard
@@ -811,9 +807,9 @@ When you run the program as given above, the tool will spend a bit of time
 computing (usually 10-20 seconds is enough, but this is highly dependent on the
 specific problem, the amount of data, and the computational hardware). When
 finished, it will write the resulting models to disk, and open a REPL (if
---explore was given). The resulting filenames are "camera-N.cameramodel" where N
-is the index of the camera, starting at 0. The models contain the intrinsics and
-extrinsics, with camera-0 sitting at the reference coordinate system.
+--explore was given). The resulting filenames are =camera-N.cameramodel= where
+=N= is the index of the camera, starting at 0. The models contain the intrinsics
+and extrinsics, with camera-0 sitting at the reference coordinate system.
 
 When the solve is completed, you'll see a summary such as this one:
 
@@ -877,12 +873,12 @@ The intrinsics are reliable in areas that have
 - have some data available
 
 If you have too little data, you will be overfitting, so you'd be expalining the
-signal AND the noise, and your reprojection errors will be too low. With enough
-input data you'll be explaining the signal only: the noise is random and with
-enough samples our model can't explain it. Another factor that controls this is
-the model we're fitting. If we fit a richer model (LENSMODEL_OPENCV8 vs
-LENSMODEL_OPENCV4 for instance), the extra parameters will allow us to fit the
-data better, and to produce lower errors in more areas of the imager.
+signal /and/ the noise, and your reprojection errors will be too low. With
+enough input data you'll be explaining the signal only: the noise is random and
+with enough samples our model can't explain it. Another factor that controls
+this is the model we're fitting. If we fit a richer model (=LENSMODEL_OPENCV8=
+vs =LENSMODEL_OPENCV4= for instance), the extra parameters will allow us to fit
+the data better, and to produce lower errors in more areas of the imager.
 
 These are very rough guidelines; I haven't written the logic to automatically
 interpret these yet. A common feature that these plots bring to light is a
