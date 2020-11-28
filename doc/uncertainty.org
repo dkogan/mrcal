@@ -48,6 +48,9 @@ This overall approach is sound, but it implies some limitations:
   those cases.
 
 * Input noise model
+:PROPERTIES:
+:CUSTOM_ID: noise model
+:END:
 I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
 discrepancies between pixel observations and their predictions. The pixel
 observations are noisy, and I assume they are zero-mean, independent and
