@@ -17,7 +17,17 @@
                              "pre.example  {background-color: #303030; color: #e5e5e5; max-width 700px} "
                              ".org-svg     {min-width: 500px; max-width: 60%;} "
                              ".figure      {min-width: 500px; max-width: 60%;} "
-                             "</style>"))
+                             "</style>")
+         :html-mathjax-options ((path "MathJax-master/es5/tex-chtml.js")
+                                (scale "100")
+                                (align "center")
+                                (font "TeX")
+                                (linebreaks "false")
+                                (autonumber "AMS")
+                                (indent "0em")
+                                (multlinewidth "85%")
+                                (tagindent ".8em")
+                                (tagside "right")))
         ("images"
          :base-directory "~/jpl/mrcaldocs/"
          :base-extension "jpg\\|png\\|svg"
