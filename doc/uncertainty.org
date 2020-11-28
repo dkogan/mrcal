@@ -62,7 +62,7 @@ small-enough to not break anything). For the purposes of propagating noise in
 the input observations, we only care about the former. For the $i$ -th observed
 point the optimized parameters $\vec p$ predict an observation at a pixel
 coordinate $\vec q_i$, while we actually did observe that same point at $\vec
-{q_\mathrm{ref}}_i$. What is $\mathrm{Var}\left(\vec {q_\mathrm{ref}}_i\right)$?
+q_{\mathrm{ref}_i}$. What is $\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
 
 The chessboard corner detection routine tells us how confident it was in
 that observation, and we use that to weight the measurements. For convenience,
@@ -76,8 +76,8 @@ This is useful when using [[https://github.com/dkogan/mrgingham/][=mrgingham=]] 
 reports the resolution used in detecting each point, and from that we get the
 weight $w_i$. A point detected at half-resolution has double the uncertainty at
 full resolution, and I weigh it by a factor of 2 less in the optimization:
-$\mathrm{Var}\left( \vec {q_\mathrm{ref}}_i \right) = \frac{\sigma^2}{w_i^2} I$
-for all $i$. And $\vec x_i = w_i I (\vec{q_i} - \vec {q_\mathrm{ref}}_i)$ and
+$\mathrm{Var}\left( \vec q_{\mathrm{ref}_i} \right) = \frac{\sigma^2}{w_i^2} I$
+for all $i$. And $\vec x_i = w_i I (\vec q_i - \vec q_{\mathrm{ref}_i})$ and
 $\mathrm{Var}\left( \vec x_i\right) = \sigma^2 I$ for all $i$.
 
 So the variance on each pixel observation is identical, and the optimal
@@ -120,7 +120,7 @@ As stated above, for reprojection errors we have
 \[ \vec x_\mathrm{observations} = W (\vec q - \vec q_\mathrm{ref}) \]
 
 where $W$ is a diagonal matrix of weights. Let's assume the non-observations
-elements of $\vec x$ are at the end of $\vec x$, so
+elements of $\vec x$ are at the end, so
 
 \[ \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} =
 \left[ \begin{array}{cc} - W \\ 0 \end{array} \right] \]
@@ -135,7 +135,7 @@ p = M \Delta \vec q_\mathrm{ref}$. Where
 
 \[ M = - \left( J^T J \right)^{-1} J_\mathrm{observations}^T W \]
 
-So
+As usual,
 
 \[ \mathrm{Var}(\vec p) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
 
@@ -159,7 +159,7 @@ $J_\mathrm{observations} = J$ and
 
 Note that this does not explicitly depend on $W$. However, the weights are a
 part of $J$. So if observation $i$ were to become less precise,
-$\mathrm{Var}\left(\vec {q_\mathrm{ref}}_i \right)$ would increase, which means
+$\mathrm{Var}\left(\vec q_{\mathrm{ref}_i} \right)$ would increase, which means
 that $w_i$ and $x_i$ and $J_i$ would all decrease. And as a result,
 $\mathrm{Var}\left(\vec p\right)$ would increase, as expected.
 
@@ -322,6 +322,7 @@ infinity.
 
 What controls the range where we see the uncertainty optimum? The range where we
 observed the chessboards. The uncertainty we asymptotically approach at infinity
-is set by the specifics of the chessboard dance. See the [[file:tour.org::*Optimal choreography][for a study]].
+is set by the specifics of the chessboard dance. See the [[file:tour.org::*Optimal choreography][tour of mrcal]] for a
+study.
 
-More uncertainty results are reported in the [[file:tour.org::*Projection uncertainty][tour]].
+More uncertainty results are reported in the [[file:tour.org::*Projection uncertainty][tour of mrcal]].
