@@ -391,11 +391,8 @@ configuration:
 - =fov_x_deg=: The horizontal field of view, in degrees. Controls the area where
   the spline is defined. Beyond this area the projection function will use the
   nearest spline patch. This will produce continuous, but very aphysical
-  projection behavior. The user should choose a value of =fov_x_deg=
-  large-enough to cover the region viewable by the given lens. The
-  [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]] can be used to verify that all the
-  visible pixels lie within the area indexable by the spline. =fov_y_deg= is not
-  included in the configuration: it is assumed proportional with =Ny= and =Nx=.
+  projection behavior. =fov_y_deg= is not included in the configuration: it is
+  assumed proportional with =Ny= and =Nx=.
 
 **** Splined models and uncertainties
 This splined model has many more parameters, and is far more flexible than the
@@ -495,6 +492,40 @@ bad, and it makes the [[file:mrcal-show-splined-model-surface.html][=mrcal-show-
 odd-looking knot layouts and imager contours. A better regularization scheme or
 (better yet) a better representation would fix this. This will be addressed in
 time.
+
+**** Splined models: selecting the configuration
+:PROPERTIES:
+:CUSTOM_ID: splined models configuration selection
+:END:
+If we want to calibrate a camera using a splined lens model, how do we select
+the configuration parameters? Here are some rules of thumb.
+
+- =order=: Use =3= (cubic splines). I haven't yet done a thorough study on this,
+  but some initial empirical results tell me that quadratic splines are
+  noticeably less flexible, and require a denser spline to fit as well as a
+  comparable cubic spline.
+
+- =Nx= and =Ny=: their ratio should match the aspect ratio of the imager. Inside
+  each spline patch we effectively have a lean parametric model. So choosing a
+  too-sparse spline spacing will result in not being able to fit real-world
+  lenses. I haven't yet done a study on this either, but =Nx=30_Ny=20= appears
+  to work well for some /very/ wide lenses I tested with.
+
+- =fov_x_deg=: this should be set widely-enough to cover the full viewable
+  angular span in space, but not so wide to waste spline knots representing
+  space outside the camera's field of view. Estimate this from the datasheet of
+  the lens, and run a calibration. The [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]]
+  can be used to compare the imager bounds against the bounds of the
+  valid-spline region. Note that the spline behavior at the edges of the imager
+  is usually not well-defined (since it's difficult to get usable calibration
+  data there), so reports of unprojectable imager regions from that tool should
+  be taken with an appropriate grain of salt.
+
+**** notes                                                         :noexport:
+I need to add mrcal-show-splined-model-surface --observations, so that we can
+compare the valid-spline region to the data that we do have, instead of
+comparing to the imager bounds, which is based on data we do NOT have
+
 
 * Commandline tools
 :PROPERTIES:
