@@ -198,6 +198,8 @@ is insufficient. We want to know the projection uncertainty of points in a
 shifts in the state $\vec p$. As we can see above, $\vec p_\mathrm{camera}$
 depends on the extrinsics, which are a part of the state.
 
+[[./uncertainty.svg]]
+
 But what if we only have one camera, and thus we have no extrinsics (the camera
 coordinate system /is/ the reference coordinate system)? This doesn't work
 either. The lens intrinsics encode an implied transformation that moves the
