@@ -66,11 +66,6 @@ These libraries and tools make it easy to both produce calibrations in many ways
 and to manipulate them by moving stuff around, grafting various
 intrinsics/extrinsics, etc.
 
-* DESCRIPTION
-
-
-
-
 * REPOSITORY
 
 https://github.jpl.nasa.gov/maritime-robotics/mrcal/
