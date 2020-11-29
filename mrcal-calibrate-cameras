@@ -1169,9 +1169,7 @@ def show_residuals_magnitudes(icam = 0,
     plots_residuals_magnitudes[icam].plot(*plot_data_args)
 
 plots_residuals_directions = None
-def show_residuals_directions(icam = 0,
-                              vectorscale = 1.0,
-                              **kwargs):
+def show_residuals_directions(icam = 0, **kwargs):
 
     r'''Visualize the optimized residuals as color-coded directions
 
