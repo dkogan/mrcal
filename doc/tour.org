@@ -588,16 +588,6 @@ itself, however, if we can quantify the uncertainty: "overfitting" simply means
 the uncertainty is higher than it otherwise would be, and if we can quantify it,
 we can decide what level is acceptable.
 
-So let's compute it. This description is a summary; a detailed writeup is in the
-docstring for =mrcal.projection_uncertainty()=. We assume that the model of our
-system is correct, and that the fitted results are not perfect only because the
-input observations have some noise. As we have seen in the earlier solves, this
-assumption is much more valid with splined models than it is with all the lean
-models. We have seen that the residual distribution in the opencv8 solve has
-visible patterns (it is heteroscedactic), so there are unmodeled errors in that
-solve. The uncertainty analysis does /not/ take those errors into account, and
-the reported uncertainties will be overly-optimistic when using lean models.
-
 The noise in the input observations is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in
 mrgingham), but easy to loosely estimate. It is a reasonable assumption that
 each x and y measurement in every chessboard corner contains independent,
@@ -618,8 +608,19 @@ system (all geometry in the solve is uncertain), and then we can use the
 camera's intrinsics (also uncertain) to project that point to a pixel
 coordinate. We have the covariances of all these things, and we propagate those
 through the transformations and projection to get the covariance of the reported
-pixel coordinate. This glosses over a lot of detail. Please see the docstring
-for =mrcal.projection_uncertainty()= for more information.
+pixel coordinate. This glosses over a lot of detail. Please see the
+[[file:uncertainty.org][documentation]].
+
+[[./uncertainty.svg]]
+
+So let's compute it. We assume that the model of our system is correct, and that
+the fitted results are not perfect only because the input observations have some
+noise. As we have seen in the earlier solves, this assumption is much more valid
+with splined models than it is with all the lean models. We have seen that the
+residual distribution in the opencv8 solve has visible patterns (it is
+heteroscedactic), so there are unmodeled errors in that solve. The uncertainty
+analysis does /not/ take those errors into account, and the reported
+uncertainties will be overly-optimistic when using lean models.
 
 ** Simulation
 
