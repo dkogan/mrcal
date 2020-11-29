@@ -35,6 +35,10 @@ from, or write to. This is a vnlog with legend
 
     # filename x y level
 
+or
+
+    # filename x y
+
 Each record is a chessboard corner. The image filename and corner coordinates
 are given. The "level" is a decimation level of the detected corner. If we
 needed to cut down the image resolution to detect a corner, its coordinates are

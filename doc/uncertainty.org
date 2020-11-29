@@ -27,7 +27,7 @@ This overall approach is sound, but it implies some limitations:
   other issues are /not/ included in the reported uncertainty. Issues such as:
   motion blur, out-of-focus images, out-of-synchronization images, unexpected
   chessboard shape. It is thus imperative that we try to minimize these issues,
-  and mrcal provides [[file:index.org::How to run a calibration][tools]] to detect some of these problems.
+  and mrcal provides [[file:how-to-calibrate.org][tools]] to detect some of these problems.
 
 - A consequence of the above is that the choice of lens model affects the
   reported uncertainties. Lean models (those with few parameters) are less
@@ -325,7 +325,7 @@ infinity.
 
 What controls the range where we see the uncertainty optimum? The range where we
 observed the chessboards. The uncertainty we asymptotically approach at infinity
-is set by the specifics of the chessboard dance. See the [[file:tour.org::*Optimal choreography][tour of mrcal]] for a
+is set by the specifics of the chessboard dance. See the [[file:tour.org::#choreography][tour of mrcal]] for a
 study.
 
-More uncertainty results are reported in the [[file:tour.org::*Projection uncertainty][tour of mrcal]].
+More uncertainty results are reported in the [[file:tour.org::#uncertainty][tour of mrcal]].

@@ -63,7 +63,7 @@ kwarg """,
 '''})
 
 m.function( "identity_r",
-            """Return an identity Rodrigues vector
+            """Return an identity Rodrigues rotation
 
 SYNOPSIS
 

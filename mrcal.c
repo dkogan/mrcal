@@ -17,7 +17,7 @@
 // as the optimizer is concerned, the scale of each variable is 1. This doesn't
 // need to be precise; just need to get all the variables to be within the same
 // order of magnitute. This is important because the dogleg solve treats the
-// trust region as a ball in state space, and this ball is isotrophic, and has a
+// trust region as a ball in state space, and this ball is isotropic, and has a
 // radius that applies in every direction
 //
 // Can be visualized like this:

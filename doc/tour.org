@@ -257,9 +257,10 @@ show_residuals_directions(0, unset='key')
 [[./directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random
-noise, and no error pattern would be visible. Here we can clearly see lots of
-green in the top-right and top and left, lots of blue and magenta in the center,
-yellow at the bottom, and so on. This is not random noise.
+noise, and no color pattern would be discernible in these dots. Here we can
+clearly see lots of green in the top-right and top and left, lots of blue and
+magenta in the center, yellow at the bottom, and so on. This is not random
+noise.
 
 The green contour at the edge is the "valid-intrinsics region", a rough estimate
 indicating where the intrinsics are reliable. It is useful only approximately,
