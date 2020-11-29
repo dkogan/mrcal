@@ -12,6 +12,8 @@
          :section-numbers nil
          :with-toc t
          :with-sub-superscript nil
+         :with-author "Dima Kogan"
+         :with-email  "kogan@jpl.nasa.gov"
          :html-head ,(concat "<style>"
                              "pre.src      {background-color: #303030; color: #e5e5e5; max-width 700px} "
                              "pre.example  {background-color: #303030; color: #e5e5e5; max-width 700px} "

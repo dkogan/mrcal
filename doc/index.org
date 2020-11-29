@@ -1,7 +1,4 @@
 #+title: mrcal - a toolkit for manipulating cameras, projections and geometry
-#+author: Dima Kogan
-#+email: dima@secretsauce.net
-#+language: en
 
 * Intro
 mrcal is a toolkit for working with lens models, camera geometry, images,
