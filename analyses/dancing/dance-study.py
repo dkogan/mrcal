@@ -30,12 +30,12 @@ generates uncertainty-vs-range curves. Each run of this tool generates a family
 of this curve, for different values of Nframes-far, the numbers of chessboard
 observations in the "far" cluster.
 
-This tool scans some parameter (selected by --scan-...), and reports the
+This tool scans some parameter (selected by --scan), and reports the
 uncertainty-vs-range for the different values of this parameter (as a plot and
 as an output vnl).
 
 If we don't want to scan any parameter, and just want a single
-uncertainty-vs-range plot, don't pass any --scan-... arguments
+uncertainty-vs-range plot, don't pass --scan.
 
 '''
 
@@ -77,19 +77,23 @@ def parse_args():
                         type=float,
                         help='How many meters between adjacent cameras in our synthetic world')
     parser.add_argument('--object-spacing',
-                        default=0.077,
-                        type=float,
-                        help='Width of each square in the calibration board, in meters')
+                        default="0.077",
+                        type=str,
+                        help='''Width of each square in the calibration board, in meters. If
+                        --scan object_spacing, this is MIN,MAX to specify the bounds of the scan''')
     parser.add_argument('--object-width-n',
-                        type=int,
-                        default=10,
+                        type=str,
+                        default="10",
                         help='''How many points the calibration board has per horizontal side. If omitted we
-                        default to 10''')
+                        default to 10. If --scan object_width_n, this is MIN,MAX
+                        to specify the bounds of the scan. In that case I assume
+                        a square object, and ignore --object-height-n''')
     parser.add_argument('--object-height-n',
                         type=int,
                         default=10,
                         help='''How many points the calibration board has per vertical side. If omitted, we
-                        default to 10''')
+                        default to 10. If --scan object_width_n, this is ignored,
+                        and set equivalent to the object width''')
     parser.add_argument('--observed-pixel-uncertainty',
                         type=positive_float,
                         default = 1.0,
@@ -132,56 +136,24 @@ def parse_args():
                         action='store_true',
                         help='''Drop into a REPL at the end''')
 
-    parser.add_argument('--scan-ranges',
-                        action='store_true',
-                        help='''Study the effect of range-to-camera on uncertainty. We will try out ranges
-                        between the two --ranges values. --tilt-radius,
-                        --Nframes, --Ncameras, control the set point. At most
-                        one of the --scan-... arguments may be given''')
-    parser.add_argument('--scan-tilts',
-                        action='store_true',
-                        help='''Study the effect of chessboard tilt on uncertainty. We will try out random
-                        tilt radiuses between the two --tilt-radius values.
-                        --range, --Nframes, --Ncameras control the set point. At
-                        most one of the --scan-... arguments may be given''')
-    parser.add_argument('--scan-Nframes',
-                        action='store_true',
-                        help='''Study the effect of chessboard observation counts on uncertainty. We will try
-                        out Nframes between the two --Nframes values. --range,
-                        --tilt-radius, --Ncameras control the set point. At most
-                        one of the --scan-... arguments may be given''')
-    parser.add_argument('--scan-Ncameras',
-                        action='store_true',
-                        help='''Study the effect of camera counts on uncertainty. We will try out Ncameras
-                        between the two --Ncameras values. --range,
-                        --tilt-radius, --Nframes control the set point. At most
-                        one of the --scan-... arguments may be given''')
-    parser.add_argument('--scan-num-far-constant-Nframes-near',
-                        action='store_true',
-                        help='''Study the effect of far-away chessboard observations added to a constant set
-                        of near chessboard observations. The "far" and "near"
-                        ranges are set by --range. Just like
-                        --scan-num-far-constant-Nframes-all, except here "far"
-                        observations are ADDED to "near" observations. The
-                        "near" and "far" ranges are given in --range. The number
-                        of "near" frames is given in --Nframes-near. At most one
-                        of the --scan-... arguments may be given''')
-    parser.add_argument('--scan-num-far-constant-Nframes-all',
-                        action='store_true',
-                        help='''Study the effect of far-away chessboard observations replacing existing
-                        "near" chessboard observations. The "far" and "near"
-                        ranges are set by --range. Just like
-                        --scan-num-far-constant-Nframes-near, except here "far"
-                        observations REPLACE existing "near" observations. The
-                        "near" and "far" ranges are given in --range. The number
-                        of total frames is given in --Nframes-all. At most one
-                        of the --scan-... arguments may be given''')
+    parser.add_argument('--scan',
+                        type=str,
+                        default='',
+                        choices=('range','tilt_radius','Nframes','Ncameras',
+                                 'object_spacing','object_width_n',
+                                 'num_far_constant_Nframes_near', 'num_far_constant_Nframes_all'),
+                        help='''Study the effect of some parameter on uncertainty. The parameter is given as
+                        an argument ot this function. Valid choices:
+                        ('range','tilt_radius','Nframes','Ncameras',
+                        'object_spacing','object_width_n',
+                        'num_far_constant_Nframes_near',
+                        'num_far_constant_Nframes_all')''')
 
     parser.add_argument('--range',
                         default = '0.5,4.0',
                         type=str,
-                        help='''if --scan-num-far-...: this is "NEAR,FAR"; specifying the near and far ranges
-                        to the chessboard to evaluate. if --scan-ranges this is
+                        help='''if --scan num_far_...: this is "NEAR,FAR"; specifying the near and far ranges
+                        to the chessboard to evaluate. if --scan range this is
                         "MIN,MAX"; specifying the extents of the ranges to
                         evaluate. Otherwise: this is RANGE, the one range of
                         chessboards to evaluate''')
@@ -191,7 +163,7 @@ def parse_args():
                         help='''The radius of the uniform distribution used to sample the pitch and yaw of
                         the chessboard observations, in degrees. The default is
                         30, meaning that the chessboard pitch and yaw are
-                        sampled from [-30deg,30deg]. if --scan-tilts: this is
+                        sampled from [-30deg,30deg]. if --scan tilt_radius: this is
                         TILT-MIN,TILT-MAX specifying the bounds of the two
                         tilt-radius values to evaluate. Otherwise: this is the
                         one value we use''')
@@ -199,24 +171,24 @@ def parse_args():
                         default = '1',
                         type=str,
                         help='''How many cameras oberve our synthetic world. By default we just have one
-                        camera. if --scan-Ncameras: this is
+                        camera. if --scan Ncameras: this is
                         NCAMERAS-MIN,NCAMERAS-MAX specifying the bounds of the
                         camera counts to evaluate. Otherwise: this is the one
                         Ncameras value to use''')
     parser.add_argument('--Nframes',
                         type=str,
-                        help='''How many observed frames we have. Ignored if --scan-num-far-... if
-                        --scan-Nframes: this is NFRAMES-MIN,NFRAMES-MAX specifying the bounds of the
+                        help='''How many observed frames we have. Ignored if --scan num_far_... if
+                        --scan Nframes: this is NFRAMES-MIN,NFRAMES-MAX specifying the bounds of the
                         frame counts to evaluate. Otherwise: this is the one Nframes value to use''')
 
     parser.add_argument('--Nframes-near',
                         type=positive_int,
-                        help='''Used if --scan-num-far-constant-Nframes-near. The number of "near" frames is
+                        help='''Used if --scan num_far_constant_Nframes_near. The number of "near" frames is
                         given by this argument, while we look at the effect of
                         adding more "far" frames.''')
     parser.add_argument('--Nframes-all',
                         type=positive_int,
-                        help='''Used if --scan-num-far-constant-Nframes-all. The number of "near"+"far"
+                        help='''Used if --scan num_far_constant_Nframes_all. The number of "near"+"far"
                         frames is given by this argument, while we look at the
                         effect of replacing "near" frames with "far" frames.''')
 
@@ -224,7 +196,7 @@ def parse_args():
                         type=positive_int,
                         default=8,
                         help='''How many values of the parameter being scanned to evaluate. If we're scanning
-                        something (--scan-... given) then by default the scan
+                        something (--scan ... given) then by default the scan
                         evaluates 8 different values. Otherwise this is set to 1''')
 
     parser.add_argument('--hardcopy',
@@ -240,19 +212,6 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
-
-Nscanargs = 0
-if args.scan_ranges:                        Nscanargs += 1
-if args.scan_tilts:                         Nscanargs += 1
-if args.scan_Ncameras:                      Nscanargs += 1
-if args.scan_Nframes:                       Nscanargs += 1
-if args.scan_num_far_constant_Nframes_near: Nscanargs += 1
-if args.scan_num_far_constant_Nframes_all:  Nscanargs += 1
-
-if Nscanargs > 1:
-    print("At most one of --scan-... may be given", file=sys.stderr)
-    sys.exit(1)
-
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -274,10 +233,10 @@ def split_list(s, t):
     "A,B,C" -> (A,B,C)
     "A"     -> A
     '''
-    if s is None: return None
+    if s is None: return None,0
     l = [t(x) for x in s.split(',')]
-    if len(l) == 1: return l[0]
-    return l
+    if len(l) == 1: return l[0],1
+    return l,len(l)
 
 def first(s):
     r'''first in a list, or the value if a scalar'''
@@ -289,194 +248,73 @@ def last(s):
     if hasattr(s, '__iter__'): return s[-1]
     return s
 
-args.tilt_radius = split_list(args.tilt_radius, float)
-args.range       = split_list(args.range,       float)
-args.Ncameras    = split_list(args.Ncameras,    int)
-args.Nframes     = split_list(args.Nframes,     int)
+
+
+controllable_args          = \
+    dict( tilt_radius    = dict(_type = float),
+          range          = dict(_type = float),
+          Ncameras       = dict(_type = int),
+          Nframes        = dict(_type = int),
+          object_spacing = dict(_type = float),
+          object_width_n = dict(_type = int) )
+
+for a in controllable_args.keys():
+    l,n = split_list(getattr(args, a), controllable_args[a]['_type'])
+    controllable_args[a]['value']   = l
+    controllable_args[a]['listlen'] = n
+
+if any( controllable_args[a]['listlen'] > 2 for a in controllable_args.keys() ):
+    raise Exception(f"All controllable args must have either at most 2 values. {a} has {controllable_args[a]['listlen']}")
+
+controllable_arg_0values = [ a for a in controllable_args.keys() if controllable_args[a]['listlen'] == 0 ]
+controllable_arg_2values = [ a for a in controllable_args.keys() if controllable_args[a]['listlen'] == 2 ]
+
+if    len(controllable_arg_2values) == 0: controllable_arg_2values = ''
+elif  len(controllable_arg_2values) == 1: controllable_arg_2values = controllable_arg_2values[0]
+else: raise Exception(f"At most 1 controllable arg may have 2 values. Instead I saw: {controllable_arg_2values}")
+
+if re.match("num_far_constant_Nframes_", args.scan):
+    # special case
+    if 'Nframes' not in controllable_arg_0values:
+        raise Exception(f"I'm scanning '{args.scan}', so --Nframes must not have been given")
+    if 'range' != controllable_arg_2values:
+        raise Exception(f"I'm scanning '{args.scan}', so --range must have 2 values")
+    if args.scan == "num_far_constant_Nframes_near":
+        if args.Nframes_all is not None:
+            raise Exception(f"I'm scanning '{args.scan}', so --Nframes-all must not have have been given")
+        if args.Nframes_near is None:
+            raise Exception(f"I'm scanning '{args.scan}', so --Nframes-near must have have been given")
+    else:
+        if args.Nframes_near is not None:
+            raise Exception(f"I'm scanning '{args.scan}', so --Nframes-near must not have have been given")
+        if args.Nframes_all is None:
+            raise Exception(f"I'm scanning '{args.scan}', so --Nframes-all must have have been given")
+
+else:
+    if args.scan != controllable_arg_2values:
+        # This covers the scanning-nothing-no2value-anything case
+        raise Exception(f"I'm scanning '{args.scan}', the arg given 2 values is '{controllable_arg_2values}'. They must match")
+    if len(controllable_arg_0values):
+        raise Exception(f"I'm scanning '{args.scan}', so all controllable args should have some value. Missing: '{controllable_arg_0values}")
+    if args.scan == '':
+        args.Nscan_samples = 1
+
+
+
+
 
 Nuncertainty_at_range_samples = 80
 uncertainty_at_range_sampled_min = args.uncertainty_at_range_sampled_min
 if uncertainty_at_range_sampled_min is None:
-    uncertainty_at_range_sampled_min = first(args.range)/10.
+    uncertainty_at_range_sampled_min = first(controllable_args['range']['value'])/10.
 uncertainty_at_range_sampled_max = args.uncertainty_at_range_sampled_max
 if uncertainty_at_range_sampled_max is None:
-    uncertainty_at_range_sampled_max = last(args.range) *10.
+    uncertainty_at_range_sampled_max = last(controllable_args['range']['value']) *10.
 
 uncertainty_at_range_samples = \
     np.logspace( np.log10(uncertainty_at_range_sampled_min),
                  np.log10(uncertainty_at_range_sampled_max),
                  Nuncertainty_at_range_samples)
-
-
-if   args.scan_ranges:
-    # --range MIN,MAX
-    # --tilt-radius TILT-RAD
-    # --Ncameras N
-    # --Nframes N
-    if args.Nframes is None:
-        print("The given --scan-... requires --Nframes", file=sys.stderr)
-        sys.exit(1)
-    if not hasattr(args.range, '__iter__') or len(args.range) != 2:
-        print("The given --scan-... requires --range with 2 comma-separated-arguments", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.tilt_radius, '__iter__'):
-        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Nframes, '__iter__'):
-        print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Ncameras, '__iter__'):
-        print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if args.Nframes_near is not None or args.Nframes_all is not None:
-        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
-        sys.exit(1)
-
-elif args.scan_tilts:
-    # --range RANGE
-    # --tilt-radius TILT-RAD-MIN,TILT-RAD-MAX
-    # --Ncameras N
-    # --Nframes N
-    if args.Nframes is None:
-        print("The given --scan-... requires --Nframes", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.range, '__iter__'):
-        print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if not hasattr(args.tilt_radius, '__iter__') or len(args.tilt_radius) != 2:
-        print("The given --scan-... requires --tilt-radius with 2 comma-separated-arguments", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Nframes, '__iter__'):
-        print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Ncameras, '__iter__'):
-        print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if args.Nframes_near is not None or args.Nframes_all is not None:
-        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
-        sys.exit(1)
-
-elif args.scan_Ncameras:
-    # --range RANGE
-    # --tilt-radius TILT-RAD
-    # --Ncameras NMIN,NMAX
-    # --Nframes N
-    if args.Nframes is None:
-        print("The given --scan-... requires --Nframes", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.range, '__iter__'):
-        print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.tilt_radius, '__iter__'):
-        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Nframes, '__iter__'):
-        print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if not hasattr(args.Ncameras, '__iter__') or len(args.Ncameras) != 2:
-        print("The given --scan-... requires --Ncameras with 2 comma-separated-arguments", file=sys.stderr)
-        sys.exit(1)
-    if args.Nframes_near is not None or args.Nframes_all is not None:
-        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
-        sys.exit(1)
-
-elif args.scan_Nframes:
-    # --range RANGE
-    # --tilt-radius TILT-RAD
-    # --Ncameras N
-    # --Nframes NMIN,NMAX
-    if args.Nframes is None:
-        print("The given --scan-... requires --Nframes", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.range, '__iter__'):
-        print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.tilt_radius, '__iter__'):
-        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if not hasattr(args.Nframes, '__iter__') or len(args.Nframes) != 2:
-        print("The given --scan-... requires --Nframes with 2 comma-separated-arguments", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Ncameras, '__iter__'):
-        print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if args.Nframes_near is not None or args.Nframes_all is not None:
-        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
-        sys.exit(1)
-
-elif args.scan_num_far_constant_Nframes_near:
-    # --Nframes-near N
-    # --range RANGE-NEAR,RANGE-FAR
-    # --tilt-radius TILT-RAD
-    # --Ncameras N
-    if args.Nframes_near is None:
-        print("The given --scan-... requires --Nframes-near", file=sys.stderr)
-        sys.exit(1)
-    if not hasattr(args.range, '__iter__') or len(args.range) != 2:
-        print("The given --scan-... requires --range with 2 comma-separated-arguments", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.tilt_radius, '__iter__'):
-        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Ncameras, '__iter__'):
-        print("The given --scan-...requires --Ncameras with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if args.Nframes is not None or args.Nframes_all is not None:
-        print("The given --scan-... does not use --Nframes or --Nframes-all", file=sys.stderr)
-        sys.exit(1)
-
-elif args.scan_num_far_constant_Nframes_all:
-    # --Nframes-all N
-    # --range RANGE-NEAR,RANGE-FAR
-    # --tilt-radius TILT-RAD
-    # --Ncameras N
-    if args.Nframes_all is None:
-        print("The given --scan-... requires --Nframes-all", file=sys.stderr)
-        sys.exit(1)
-    if not hasattr(args.range, '__iter__') or len(args.range) != 2:
-        print("The given --scan-... requires --range with 2 comma-separated-arguments", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.tilt_radius, '__iter__'):
-        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Ncameras, '__iter__'):
-        print("--scan-tilts requires --Ncameras with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if args.Nframes is not None or args.Nframes_near is not None:
-        print("The given --scan-... does not use --Nframes or --Nframes-near", file=sys.stderr)
-        sys.exit(1)
-
-else:
-    # no --scan. We just want one sample
-
-    # --range RANGE
-    # --tilt-radius TILT-RAD
-    # --Ncameras N
-    # --Nframes N
-    if args.Nframes is None:
-        print("The given --scan-... requires --Nframes", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.range, '__iter__'):
-        print("The given --scan-... requires --range with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.tilt_radius, '__iter__'):
-        print("The given --scan-... requires --tilt-radius with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Nframes, '__iter__'):
-        print("The given --scan-... requires --Nframes with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if hasattr(args.Ncameras, '__iter__'):
-        print("The given --scan-... requires --Ncameras with 1 argument", file=sys.stderr)
-        sys.exit(1)
-    if args.Nframes_near is not None or args.Nframes_all is not None:
-        print("The given --scan-... does not use --Nframes-near or --Nframes-all", file=sys.stderr)
-        sys.exit(1)
-
-
-    # not scanning anything. ONE sample
-    args.Nscan_samples = 1
-
-
 
 # I want the RNG to be deterministic
 np.random.seed(0)
@@ -581,7 +419,7 @@ def solve(Ncameras,
               # lensmodel filled in later
               calobject_warp                            = copy.deepcopy(calobject_warp_true),
               imagersizes                               = imagersizes,
-              calibration_object_spacing                = args.object_spacing,
+              calibration_object_spacing                = controllable_args['object_spacing']['value'],
               verbose                                   = False,
               observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
               # do_optimize_frames filled in later
@@ -689,9 +527,9 @@ def eval_one_rangenear_tilt(models_true,
     #        (Nframes, 4,3)
     q_true_near, Rt_cam0_board_true_near = \
         mrcal.synthesize_board_observations(models_true,
-                                            args.object_width_n,
+                                            controllable_args['object_width_n']['value'],
                                             args.object_height_n,
-                                            args.object_spacing,
+                                            controllable_args['object_spacing']['value'],
                                             calobject_warp_true_ref,
                                             np.array((0.,  0., 0., radius_cameras, 0,  range_near,)),
                                             np.array((np.pi/180. * tilt_radius,
@@ -705,9 +543,9 @@ def eval_one_rangenear_tilt(models_true,
     if range_far is not None:
         q_true_far, Rt_cam0_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
-                                                args.object_width_n,
+                                                controllable_args['object_width_n']['value'],
                                                 args.object_height_n,
-                                                args.object_spacing,
+                                                controllable_args['object_spacing']['value'],
                                                 calobject_warp_true_ref,
                                                 np.array((0.,  0., 0., radius_cameras, 0,  range_far,)),
                                                 np.array((np.pi/180. * tilt_radius,
@@ -765,8 +603,8 @@ def eval_one_rangenear_tilt(models_true,
 
 
 
-output_table_legend = 'range_uncertainty_sample Nframes_near Nframes_far Ncameras range_near range_far tilt_radius uncertainty'
-output_table_fmt    = '%f %d %d %d %f %f %f %f'
+output_table_legend = 'range_uncertainty_sample Nframes_near Nframes_far Ncameras range_near range_far tilt_radius object_width_n object_spacing uncertainty'
+output_table_fmt    = '%f %d %d %d %f %f %f %d %f %f'
 output_table_icol__range_uncertainty_sample = 0
 output_table_icol__Nframes_near             = 1
 output_table_icol__Nframes_far              = 2
@@ -774,18 +612,19 @@ output_table_icol__Ncameras                 = 3
 output_table_icol__range_near               = 4
 output_table_icol__range_far                = 5
 output_table_icol__tilt_radius              = 6
-output_table_icol__uncertainty              = 7
-output_table_Ncols                          = 8
+output_table_icol__object_width_n           = 7
+output_table_icol__object_spacing           = 8
+output_table_icol__uncertainty              = 9
+output_table_Ncols                          = 10
 
 output_table = np.zeros( (args.Nscan_samples, Nuncertainty_at_range_samples, output_table_Ncols), dtype=float)
 
 output_table[:,:, output_table_icol__range_uncertainty_sample] += uncertainty_at_range_samples
 
-if   args.scan_num_far_constant_Nframes_near or \
-     args.scan_num_far_constant_Nframes_all:
+if re.match("num_far_constant_Nframes_", args.scan):
 
     Nfar_samples = args.Nscan_samples
-    if   args.scan_num_far_constant_Nframes_near:
+    if   args.scan == "num_far_constant_Nframes_near":
         Nframes_far_samples = np.linspace(0,
                                           args.Nframes_near*2,
                                           Nfar_samples, dtype=int)
@@ -803,28 +642,28 @@ if   args.scan_num_far_constant_Nframes_near or \
                             extrinsics_rt_toref = np.array((0,0,0,
                                                             i*args.camera_spacing,
                                                             0,0), dtype=float) ) \
-          for i in range(args.Ncameras) ]
+          for i in range(controllable_args['Ncameras']['value']) ]
 
     # shape (args.Nscan_samples, Nuncertainty_at_range_samples)
     output_table[:,:, output_table_icol__uncertainty] = \
         eval_one_rangenear_tilt(models_true,
-                                *args.range,
-                                args.tilt_radius,
+                                *controllable_args['range']['value'],
+                                controllable_args['tilt_radius']['value'],
                                 uncertainty_at_range_samples,
-                                args.Ncameras,
+                                controllable_args['Ncameras']['value'],
                                 Nframes_near_samples, Nframes_far_samples)
 
     output_table[:,:, output_table_icol__Nframes_near] += nps.transpose(Nframes_near_samples)
     output_table[:,:, output_table_icol__Nframes_far]  += nps.transpose(Nframes_far_samples)
-    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
-    output_table[:,:, output_table_icol__range_near]   = args.range[0]
-    output_table[:,:, output_table_icol__range_far]    = args.range[1]
-    output_table[:,:, output_table_icol__tilt_radius ] = args.tilt_radius
+    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
+    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value'][0]
+    output_table[:,:, output_table_icol__range_far]    = controllable_args['range']['value'][1]
+    output_table[:,:, output_table_icol__tilt_radius ] = controllable_args['tilt_radius']['value']
 
     samples = Nframes_far_samples
 
-elif args.scan_ranges:
-    Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
+elif args.scan == "range":
+    Nframes_near_samples = np.array( (controllable_args['Nframes']['value'],), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
@@ -833,31 +672,31 @@ elif args.scan_ranges:
                             extrinsics_rt_toref = np.array((0,0,0,
                                                             i*args.camera_spacing,
                                                             0,0), dtype=float) ) \
-          for i in range(args.Ncameras) ]
+          for i in range(controllable_args['Ncameras']['value']) ]
 
     Nrange_samples = args.Nscan_samples
-    range_samples = np.linspace(*args.range,
+    range_samples = np.linspace(*controllable_args['range']['value'],
                                 Nrange_samples, dtype=float)
     for i_range in range(Nrange_samples):
         output_table[i_range,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
                                     range_samples[i_range], None,
-                                    args.tilt_radius,
+                                    controllable_args['tilt_radius']['value'],
                                     uncertainty_at_range_samples,
-                                    args.Ncameras,
+                                    controllable_args['Ncameras']['value'],
                                     Nframes_near_samples, Nframes_far_samples)[0]
 
-    output_table[:,:, output_table_icol__Nframes_near] = args.Nframes
+    output_table[:,:, output_table_icol__Nframes_near] = controllable_args['Nframes']['value']
     output_table[:,:, output_table_icol__Nframes_far]  = 0
-    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
+    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
     output_table[:,:, output_table_icol__range_near]  += nps.transpose(range_samples)
     output_table[:,:, output_table_icol__range_far]    = -1
-    output_table[:,:, output_table_icol__tilt_radius ] = args.tilt_radius
+    output_table[:,:, output_table_icol__tilt_radius ] = controllable_args['tilt_radius']['value']
 
     samples = range_samples
 
-elif args.scan_tilts:
-    Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
+elif args.scan == "tilt_radius":
+    Nframes_near_samples = np.array( (controllable_args['Nframes']['value'],), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
@@ -866,36 +705,36 @@ elif args.scan_tilts:
                             extrinsics_rt_toref = np.array((0,0,0,
                                                             i*args.camera_spacing,
                                                             0,0), dtype=float) ) \
-          for i in range(args.Ncameras) ]
+          for i in range(controllable_args['Ncameras']['value']) ]
 
     Ntilt_rad_samples = args.Nscan_samples
-    tilt_rad_samples = np.linspace(*args.tilt_radius,
+    tilt_rad_samples = np.linspace(*controllable_args['tilt_radius']['value'],
                                    Ntilt_rad_samples, dtype=float)
     for i_tilt in range(Ntilt_rad_samples):
         output_table[i_tilt,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
-                                    args.range, None,
+                                    controllable_args['range']['value'], None,
                                     tilt_rad_samples[i_tilt],
                                     uncertainty_at_range_samples,
-                                    args.Ncameras,
+                                    controllable_args['Ncameras']['value'],
                                     Nframes_near_samples, Nframes_far_samples)[0]
 
-    output_table[:,:, output_table_icol__Nframes_near] = args.Nframes
+    output_table[:,:, output_table_icol__Nframes_near] = controllable_args['Nframes']['value']
     output_table[:,:, output_table_icol__Nframes_far]  = 0
-    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
-    output_table[:,:, output_table_icol__range_near]   = args.range
+    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
+    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
     output_table[:,:, output_table_icol__tilt_radius] += nps.transpose(tilt_rad_samples)
 
     samples = tilt_rad_samples
 
-elif args.scan_Ncameras:
+elif args.scan == "Ncameras":
 
-    Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
+    Nframes_near_samples = np.array( (controllable_args['Nframes']['value'],), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     N_Ncameras_samples = args.Nscan_samples
-    Ncameras_samples = np.linspace(*args.Ncameras,
+    Ncameras_samples = np.linspace(*controllable_args['Ncameras']['value'],
                                    N_Ncameras_samples, dtype=int)
     for i_Ncameras in range(N_Ncameras_samples):
 
@@ -910,22 +749,22 @@ elif args.scan_Ncameras:
 
         output_table[i_Ncameras,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
-                                    args.range, None,
-                                    args.tilt_radius,
+                                    controllable_args['range']['value'], None,
+                                    controllable_args['tilt_radius']['value'],
                                     uncertainty_at_range_samples,
                                     Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
 
-    output_table[:,:, output_table_icol__Nframes_near] = args.Nframes
+    output_table[:,:, output_table_icol__Nframes_near] = controllable_args['Nframes']['value']
     output_table[:,:, output_table_icol__Nframes_far]  = 0
     output_table[:,:, output_table_icol__Ncameras]    += nps.transpose(Ncameras_samples)
-    output_table[:,:, output_table_icol__range_near]   = args.range
+    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
-    output_table[:,:, output_table_icol__tilt_radius]  = args.tilt_radius
+    output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
 
     samples = Ncameras_samples
 
-elif args.scan_Nframes:
+elif args.scan == "Nframes":
 
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
@@ -935,10 +774,10 @@ elif args.scan_Nframes:
                             extrinsics_rt_toref = np.array((0,0,0,
                                                             i*args.camera_spacing,
                                                             0,0), dtype=float) ) \
-          for i in range(args.Ncameras) ]
+          for i in range(controllable_args['Ncameras']['value']) ]
 
     N_Nframes_samples = args.Nscan_samples
-    Nframes_samples = np.linspace(*args.Nframes,
+    Nframes_samples = np.linspace(*controllable_args['Nframes']['value'],
                                   N_Nframes_samples, dtype=int)
     for i_Nframes in range(N_Nframes_samples):
 
@@ -947,25 +786,25 @@ elif args.scan_Nframes:
 
         output_table[i_Nframes,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
-                                    args.range, None,
-                                    args.tilt_radius,
+                                    controllable_args['range']['value'], None,
+                                    controllable_args['tilt_radius']['value'],
                                     uncertainty_at_range_samples,
-                                    args.Ncameras,
+                                    controllable_args['Ncameras']['value'],
                                     Nframes_near_samples, Nframes_far_samples)[0]
 
     output_table[:,:, output_table_icol__Nframes_near]+= nps.transpose(Nframes_samples)
     output_table[:,:, output_table_icol__Nframes_far]  = 0
-    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
-    output_table[:,:, output_table_icol__range_near]   = args.range
+    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
+    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
-    output_table[:,:, output_table_icol__tilt_radius]  = args.tilt_radius
+    output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
 
     samples = Nframes_samples
 
 else:
     # no --scan. We just want one sample
 
-    Nframes_near_samples = np.array( (args.Nframes,), dtype=int)
+    Nframes_near_samples = np.array( (controllable_args['Nframes']['value'],), dtype=int)
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
@@ -974,55 +813,55 @@ else:
                             extrinsics_rt_toref = np.array((0,0,0,
                                                             i*args.camera_spacing,
                                                             0,0), dtype=float) ) \
-          for i in range(args.Ncameras) ]
+          for i in range(controllable_args['Ncameras']['value']) ]
 
     output_table[0,:, output_table_icol__uncertainty] = \
         eval_one_rangenear_tilt(models_true,
-                                args.range, None,
-                                args.tilt_radius,
+                                controllable_args['range']['value'], None,
+                                controllable_args['tilt_radius']['value'],
                                 uncertainty_at_range_samples,
-                                args.Ncameras,
+                                controllable_args['Ncameras']['value'],
                                 Nframes_near_samples, Nframes_far_samples)[0]
 
-    output_table[:,:, output_table_icol__Nframes_near] = args.Nframes
+    output_table[:,:, output_table_icol__Nframes_near] = controllable_args['Nframes']['value']
     output_table[:,:, output_table_icol__Nframes_far]  = 0
-    output_table[:,:, output_table_icol__Ncameras]     = args.Ncameras
-    output_table[:,:, output_table_icol__range_near]   = args.range
+    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
+    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
-    output_table[:,:, output_table_icol__tilt_radius]  = args.tilt_radius
+    output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
 
     samples = None
 
 
 
-if isinstance(args.range, float):
-    guides = [ f"arrow nohead dashtype 3 from {args.range},graph 0 to {args.range},graph 1" ]
+if isinstance(controllable_args['range']['value'], float):
+    guides = [ f"arrow nohead dashtype 3 from {controllable_args['range']['value']},graph 0 to {controllable_args['range']['value']},graph 1" ]
 else:
-    guides = [ f"arrow nohead dashtype 3 from {r},graph 0 to {r},graph 1" for r in args.range ]
+    guides = [ f"arrow nohead dashtype 3 from {r},graph 0 to {r},graph 1" for r in controllable_args['range']['value'] ]
 guides.append(f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}")
 
 
-if   args.scan_num_far_constant_Nframes_near:
-    title = f"Scanning 'far' observations added to a set of 'near' observations. Have {args.Ncameras} cameras, {args.Nframes_near} 'near' observations, at ranges {args.range}."
+if   args.scan == "num_far_constant_Nframes_near":
+    title = f"Scanning 'far' observations added to a set of 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_near} 'near' observations, at ranges {controllable_args['range']['value']}."
     legend_what = 'Nframes_far'
-elif args.scan_num_far_constant_Nframes_all:
-    title = f"Scanning 'far' observations replacing 'near' observations. Have {args.Ncameras} cameras, {args.Nframes_all} total observations, at ranges {args.range}."
+elif args.scan == "num_far_constant_Nframes_all":
+    title = f"Scanning 'far' observations replacing 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_all} total observations, at ranges {controllable_args['range']['value']}."
     legend_what = 'Nframes_far'
-elif args.scan_Nframes:
-    title = f"Scanning Nframes. Have {args.Ncameras} cameras looking out at {args.range}m."
+elif args.scan == "Nframes":
+    title = f"Scanning Nframes. Have {controllable_args['Ncameras']['value']} cameras looking out at {controllable_args['range']['value']}m."
     legend_what = 'Nframes'
-elif args.scan_Ncameras:
-    title = f"Scanning Ncameras. Observing {args.Nframes} boards at {args.range}m."
+elif args.scan == "Ncameras":
+    title = f"Scanning Ncameras. Observing {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m."
     legend_what = 'Ncameras'
-elif args.scan_ranges:
-    title = f"Scanning the distance to observations. Have {args.Ncameras} cameras looking at {args.Nframes} boards."
+elif args.scan == "range":
+    title = f"Scanning the distance to observations. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards."
     legend_what = 'Range-to-chessboards'
-elif args.scan_tilts:
-    title = f"Scanning the board tilt. Have {args.Ncameras} cameras looking at {args.Nframes} boards at {args.range}m"
+elif args.scan == "tilt_radius":
+    title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
     legend_what = 'Random chessboard tilt radius'
 else:
     # no --scan. We just want one sample
-    title = f"Have {args.Ncameras} cameras looking at {args.Nframes} boards at {args.range}m with tilt radius {args.tilt_radius}"
+    title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m with tilt radius {controllable_args['tilt_radius']['value']}"
 
 
 if samples is None:
