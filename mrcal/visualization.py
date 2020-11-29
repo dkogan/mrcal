@@ -1732,6 +1732,7 @@ A tuple:
 
 def show_splined_model_surface(model, xy,
                                imager_domain = True,
+                               observations  = False,
                                extratitle    = None,
                                return_plot_args = False,
                                **kwargs):
@@ -1758,9 +1759,14 @@ control point density AND the expected field of view of the lens. This field
 of view should roughly match the actual lens+camera we're using, and this
 fit can be visualized with this tool.
 
-If the field of view is too small, some parts of the imager will lie outside
-of the region that the splined surface covers. This tool throws a warning in
-that case, and displays the offending regions.
+If the field of view is too small, some parts of the imager will lie outside of
+the region that the splined surface covers. This tool throws a warning in that
+case, and displays the offending regions. Note that the projection near the
+edges of the image is usually poorly-defined because usually there isn't a lot
+of calibration data there. This makes the plotting of the images edges
+uncertain, and consequently the reported unprojectable regions might be either
+too alarming, or not alarming enough. Pass observations=True to see how the
+valid-spline region compares with the actual point observations we have.
 
 This function can produce a plot in the imager domain or in the spline index
 domain. Both are useful, and this is controlled by the imager_domain argument
@@ -1788,6 +1794,11 @@ ARGUMENTS
   boundary is curved. If True: we plot everything against the rendered pixel
   coordinates; the imager boundary is a rectangle, while the knots and domain
   become curved
+
+- observations: optional boolean defaults to False. If True: we plot the
+  calibration-time point observations on top of the surface and the knots. These
+  make it more clear if the unprojectable regions in the model really are a
+  problem
 
 - extratitle: optional string to include in the title of the resulting plot
 
@@ -1943,6 +1954,31 @@ plot
                           tuplesize = -2,
                           legend    = 'knots'))] )
 
+    if observations:
+        p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
+            mrcal.utils.hypothesis_corner_positions(model.icam_intrinsics(),
+                                                    **model.optimization_inputs())[1:]
+        if imager_domain:
+            q_cam_calobjects_inliers = \
+                mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
+            q_cam_calobjects_outliers = \
+                mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
+        else:
+            q_cam_calobjects_inliers = \
+                mrcal.project_stereographic( p_cam_calobjects_inliers )
+            q_cam_calobjects_outliers = \
+                mrcal.project_stereographic( p_cam_calobjects_outliers )
+
+        if len(q_cam_calobjects_inliers):
+            data.append( ( q_cam_calobjects_inliers,
+                           dict( tuplesize = -2,
+                                 _with  = 'points pt 7',
+                                 legend = 'inliers')) )
+        if len(q_cam_calobjects_outliers):
+            data.append( ( q_cam_calobjects_outliers,
+                           dict( tuplesize = -2,
+                                 _with  = 'points pt 7',
+                                 legend = 'outliers')) )
 
     # Anything outside the valid region contour but inside the imager is an
     # invalid area: the field-of-view of the camera needs to be increased. I

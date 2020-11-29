@@ -57,6 +57,11 @@ def parse_args():
                         Sometimes it's more informative to look at this in the
                         domain of the spline-index (normalized stereographic
                         coordinates). This can be selected by this option''')
+    parser.add_argument('--observations',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I show where the chessboard corners were observed at calibration
+                        time. This is useful to evaluate the reported unprojectable regions.''')
     parser.add_argument('model',
                         type=str,
                         help='''Input camera model. If "-' is given, we read standard input''')
@@ -99,6 +104,7 @@ if args.unset is not None:
 plot = mrcal.show_splined_model_surface(model, args.xy,
 
                                         imager_domain = not args.spline_index_domain,
+                                        observations  = args.observations,
                                         extratitle    = args.extratitle,
                                         hardcopy      = args.hardcopy,
                                         **plotkwargs)
