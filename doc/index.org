@@ -516,13 +516,9 @@ the configuration parameters? Here are some rules of thumb.
   valid-spline region. Note that the spline behavior at the edges of the imager
   is usually not well-defined (since it's difficult to get usable calibration
   data there), so reports of unprojectable imager regions from that tool should
-  be taken with an appropriate grain of salt.
-
-**** notes                                                         :noexport:
-I need to add mrcal-show-splined-model-surface --observations, so that we can
-compare the valid-spline region to the data that we do have, instead of
-comparing to the imager bounds, which is based on data we do NOT have
-
+  be taken with an appropriate grain of salt. =mrcal-show-splined-model-surface=
+  has a =--observations= option to overlay the observations onto that plot. The
+  existing observations /must/ all lie within the valid-projection region.
 
 * Commandline tools
 :PROPERTIES:
