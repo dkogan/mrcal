@@ -396,12 +396,104 @@ configuration:
   visible pixels lie within the area indexable by the spline. =fov_y_deg= is not
   included in the configuration: it is assumed proportional with =Ny= and =Nx=.
 
-This splined model is far more flexible than the lean parametric models (all the
-other lens models). It is thus the recommended choice to get the best fidelity
-and [[file:uncertainty.org][uncertainty estimates]].
+**** Splined models and uncertainties
+This splined model has many more parameters, and is far more flexible than the
+lean parametric models (all the other lens models). This has several significant
+effects.
 
-No data-driven method of choosing =Nx= or =Ny= is available at this time.
-Something will be built eventually.
+These models are much more capable of representing the behavior of real-world
+lenses than the lean models. At a certain level of precision, the parametric
+models are always wrong.
+
+As usual, the flip side of this flexibility is potential overfitting.
+"Overfitting" means that the solution is influenced too much by random noise,
+and not enough by the input data. mrcal explicitly quantifies the effects of
+input noise in its [[file:uncertainty.org][uncertainty estimates]], so it reports exactly how much
+overfitting is happening, and the user can decide whether that is acceptable or
+not. More than that, mrcal reports the covariance matrix of any projection
+operations, so the uncertainty can be propagated to whatever is using the model.
+This is much better than simply deciding whether a given calibration is
+good-enough.
+
+More parameters do imply more overfitting, so these rich models /do/ have higher
+reported uncertainties (see the [[file:tour.org::#uncertainty][tour of mrcal]] for examples). This is a good
+thing, however: the lean models report uncertainty estimates that are low, but
+do not match reality, while the higher uncertainty estimates from the splined
+models do. This is because the [[file:uncertainty.org][uncertainty estimate algorithm]] constrains the
+lenses to the space that's representable by a given lens model, which is a
+constraint that only exists on paper.
+
+It is thus recommended to use splined models even for long lenses, which do fit
+the pinhole model more or less
+
+**** Splined model optimization practicalities
+***** Core redundancy
+As can be seen in the projection function above, the splined stereographic model
+contains splined correction factors $\Delta \vec u$ /and/ an intrinsics core.
+The core variables are largely redundant with $\Delta \vec u$: for any
+perturbation in the core, we can achieve a /very/ similar change in projection
+behavior by bumping $\Delta \vec u$ in a specific way. As a result, if we allow
+the optimization algorithm to control all the variables, the system will be
+under-determined, and the optimization routine will fail: complaining about a
+"not positive definite" (singular in this case) Hessian. At best the Hessian
+will be slightly non-singular, but convergence will be slow. To resolve this,
+the recommended sequence for optimizing splined stereographic models is:
+
+1. Fit the best =LENSMODEL_STEREOGRAPHIC= to compute an estimate of the
+   intrinsics core
+2. Refine that solution with a full =LENSMODEL_SPLINED_STEREOGRAPHIC_...= model,
+   using the core we just computed, and asking the optimizer to lock down those
+   core values. This can be done by setting the =do_optimize_intrinsics_core=
+   bit to 0 in the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_details_t=]] structure passed to
+   [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or passing =do_optimize_intrinsics_core=False= to
+   [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python). This is what the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]
+   tool does.
+
+***** Regularization
+:PROPERTIES:
+:CUSTOM_ID: splined model regularization
+:END:
+Another issue that comes up is the treatment of areas in the imager where no
+points were observed. By design, each parameter of the splined model controls
+projection from a small area in space. So what happens if we haven't gathered
+any data from an area? We then don't have anything to suggest to the solver what
+values the corresponding variables should take: they don't affect the cost
+function at all. Trying to optimize such a problem will result in a singular
+Hessian, and complaints from the solver. Currently we address this issue with
+regularization. mrcal applies light [[https://en.wikipedia.org/wiki/L2_regularization][L2 regularization]] to all the spline
+parameters. Thus $\Delta \vec u$ is always pulled lightly towards 0. The weights
+are chosen to be light-enough to not noticeably affect the optimization where we
+do have data. Where we don't have data, though, the optimizer now /does/ have
+information to act on: pull $\Delta \vec u$ towards 0. This could be handled
+better in the future.
+
+***** Uglyness at the edges
+:PROPERTIES:
+:CUSTOM_ID: splined non-monotonicity
+:END:
+An unwelcome property of the projection function defined above, is that it
+allows aphysical, nonmonotonic behavior to be represented. For instance, let's
+look at the gradient in one particular direction.
+
+\begin{eqnarray*}
+q_x &=& f_x \left( u_x + \Delta u_x \right) + c_x \\
+\frac{\mathrm{d}q_x}{\mathrm{d}u_x} &\propto& 1 + \frac{\mathrm{d}\Delta u_x}{\mathrm{d}u_x}
+\end{eqnarray*}
+
+We would expect $\frac{\mathrm{d}q_x}{\mathrm{d}u_x}$ to always be positive, but
+as we can see, here that depends on $\frac{\mathrm{d}\Delta
+u_x}{\mathrm{d}u_x}$, which could be /anything/ since $\Delta u_x$ is an
+arbitrary spline function. Most of the time we're fitting the spline into real
+data, so the real-world monotonic behavior will be represented. However, near
+the edges the behavior is driven by [[#splined model regularization][regularization]], which is /not/ based on
+data, and we're very likely to hit this odd-looking non-monotonic behavior
+there. This looks bad, but it's not /really/ a problem: we get aphysical
+behavior in areas where we don't have any data to know better, and we wouldn't
+expect to have any confidence in projection in those areas anyway. But it looks
+bad, and it makes the [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]] produce
+odd-looking knot layouts and imager contours. A better regularization scheme or
+(better yet) a better representation would fix this. This will be addressed in
+time.
 
 * Commandline tools
 :PROPERTIES:
