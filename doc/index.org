@@ -795,44 +795,7 @@ systematic error. And the optimal deformation factors $k_x$, $k_y$ are
 consistent between different calibrations. A richer deformation model could work
 even better, and will eventually be the studied.
 
-
-* research topics
-- Is my spline representation good? Can I avoid it crossing itself?
-- Note that regularization causes a bias
-- Intrinsics uncertainty contains a built-in extrinsics uncertainty. As we move
-  the cameras around, we carry with them an uncertain transformation
-- Board warping
-- outlier rejection. Cook's D
-- rotation compensation for the diff
-- compensating for board flex
-- compensating for focal-length errors
-  common-mode errors do not affect yaw. differential-mode errors affect yaw very
-  much
-- intrinsics errors effect on yaw. I ran some simulations earlier, I think.
-  Similar effect: differential errors are very significant
-- talk about regularization bias
-- splined models shouldn't fit the core to keep things non-singular
-- splined models may not be fitted into opencv8 without moving extrinsics
-- say that poor uncertainty = overfitting
-- say that we need to track down the source of all errors. The model we're
-  optimizing should not produce any error on its own. And it shouldn't produce
-  any constraints on its own. The "model" includes the lens model and the
-  warping here. Thus the uncertainties are only directly usable with the splined
-  models
-- talk about how I'm projecting the "same world point", and how there're other
-  (possibly-better) methods
-- talk about how to get observed_pixel_uncertainty
-- talk about how to select an appropriate splined model
-- talk about --seed and how that can be used to validate intrinsics
-
-* Model differencing
-:PROPERTIES:
-:CUSTOM_ID: Model differencing
-:END:
-
-* Visualization
-- say that the plots are interactive in normal usage
-* After-release todo
+* After-release todo                                               :noexport:
 - feed uncertainties to stereo, triangulation
 - compute uncertainties for multiple points at the same time to get covariance.
   Possibly could work across multiple cameras in the same solve as well
@@ -842,7 +805,7 @@ even better, and will eventually be the studied.
 - Can we study intrinsics stability over time? In response to heating? Shaking?
 - Can we use a 3-parallel calibration to quantify chromatic aberration?
 
-* future work
+* future work                                                      :noexport:
 
 - measure observed_pixel_uncertainty
 - use uncertainty in triangulation, deltapose
@@ -865,7 +828,6 @@ even better, and will eventually be the studied.
   - Can I use the heteroschedasticity metrics to say stuff about the lean
     models?
 
-- mention sfm
 - feed uncertainties to stereo, triangulation
 - compute uncertainties for multiple points at the same time to get covariance.
   Possibly could work across multiple cameras in the same solve as well
@@ -875,11 +837,97 @@ even better, and will eventually be the studied.
 - Can we study intrinsics stability over time? In response to heating? Shaking?
 - Can we use a 3-parallel calibration to quantify chromatic aberration?
 - Measure effect of focus, aperture
+- I still don't quite understand why I needed such a wide FOV. Test program:
+#+begin_src python
+#!/usr/bin/python3
 
-* todo for the document
-The "commandline tools" link on top is generated wrong
+import sys
+import numpy as np
+import numpysane as nps
+import gnuplotlib as gp
+import mrcal
+
+model = mrcal.cameramodel( "/home/dima/jpl/mrcaldocs/data/board/splined.cameramodel" )
+
+N = 200
+th = np.linspace(-np.pi, np.pi, N)
+
+v = nps.glue( nps.transpose(np.sin(th)),
+              np.zeros((N,1), dtype=float),
+              nps.transpose(np.cos(th)),
+              axis=-1)
+
+print(model.intrinsics()[0])
+q = mrcal.project( v, *model.intrinsics() )
+
+gp.plot( th*180./np.pi, (q - np.array((6000,4000))/2.).transpose(),
+         equation=("3000","-3000"),
+         wait=1, yrange=[-5000., 5000.])
+#+end_src
+
+- cahvore linearity should be a config parameter
+- cahvore: non-gradientness should be a metadata parameter
+- stereo.py should be a separate tool
+- better outlier rejection. cook's D
+
+- better regularization scheme for the splined models. I should pull not towards
+  0 but towards the mean. I had an implementation in
+  c8f9918023142d7ee463821661dc5bcc8f770b51 that I reverted because any planar
+  splined surface would have "perfect" regularization, and that was breaking
+  things (crazy focal lengths would be picked). But now that I'm locking down
+  the intrinsics core when optimizing splined models, this isn't a problem anymore
+
+- dance-study: board dimensions, point counts
+
+** research topics
+- Is my spline representation good? Can I avoid it crossing itself?
+- rotation compensation for the diff
+- compensating for focal-length errors
+  common-mode errors do not affect yaw. differential-mode errors affect yaw very
+  much
+- intrinsics errors effect on yaw. I ran some simulations earlier, I think.
+  Similar effect: differential errors are very significant
+- splined models may not be fitted into opencv8 without moving extrinsics
+- say that poor uncertainty = overfitting
+- say that we need to track down the source of all errors. The model we're
+  optimizing should not produce any error on its own. And it shouldn't produce
+  any constraints on its own. The "model" includes the lens model and the
+  warping here. Thus the uncertainties are only directly usable with the splined
+  models
+- talk about how I'm projecting the "same world point", and how there're other
+  (possibly-better) methods
+- talk about --seed and how that can be used to validate intrinsics
+
+* todo for the document                                            :noexport:
+
+diffs
+
+document m-c-c and/or mrcal.optimize and/or mrcal_optimize
+
+stereo. Try opencv rectification
+
+
+
+
 
 code should no longer refer to the projection_uncertainty() docstring, but
 rather refer here
 
-should say what this toolkit isfor, other than calibration
+should say what this toolkit is for, other than calibration
+
+something somewhere should describe the optimizer_callback()
+
+Somewhere talk about these:
+  - [[file:mrcal-python-api-reference.html#-ingest_packed_state][=mrcal.ingest_packed_state()=]]: Read a given packed state into optimization_inputs
+  - [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_corresponding_icam_extrinsics()=]]
+  - [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
+
+
+
+the individual documentation pages need a title, and links to/from. sitemap?
+
+tour: stereo shouldn't use deltapose, but a procrustes fit. Much better demo
+
+Add some sort of "visualization" section
+
+Add some sort of "Stereo" section. Compare with opencv rectification
