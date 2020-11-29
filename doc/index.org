@@ -10,7 +10,7 @@ toolkit was originally built to produce high-accuracy calibrations demanded by
 long-range stereo, so it provides facilities to analyze the results and to track
 down sources of error.
 
-mrcal provides a routine to compute the "[[#Model differencing][difference]]" between two models, which
+mrcal provides a routine to compute the "[[file:differencing.org][difference]]" between two models, which
 can be a fundamental piece of a wide number of analyses, for instance to measure
 a lens's response to temperature cycles.
 
@@ -385,7 +385,8 @@ configuration:
   and a more flexible model. Naturally this also increases the amount of
   calibration data we need to achieve the same projection uncertainty. The ratio
   of =Nx= to =Ny= should usually follow the ratio of the two imager dimensions,
-  but this isn't required
+  but this isn't required. No data-driven method of choosing =Nx= or =Ny= is
+  available at this time. Something will be built eventually.
 
 - =fov_x_deg=: The horizontal field of view, in degrees. Controls the area where
   the spline is defined. Beyond this area the projection function will use the

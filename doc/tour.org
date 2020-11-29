@@ -281,7 +281,7 @@ will be added with time.
 ** Splined stereographic model definition
 
 The basis of a splined stereographic model is a stereographic projection. A
-world point that lies $\theta$ off the camera's optical axis projects to
+world point that lies $\theta$ off the camera's projection axis projects to
 $\left|\vec q - \vec q_0\right| = 2 f \tan \frac{\theta}{2}$ pixels from the
 image center where $f$ is the focal length. Note that this representation
 supports projections behind the camera ($\theta > 90^\circ$) with a single
@@ -296,19 +296,23 @@ which serve to adjust the stereographic projection to fit whatever projection
 behavior we want. I do this:
 
 Let $\vec p$ be the camera-coordinate system point being projected. The angle
-off the projection center is
+off the projection axis is
 
-\[ \theta \equiv \tan^{-1} \frac{\left|\vec {p_{xy}}\right|}{p_z} \]
+\[ \theta \equiv \tan^{-1} \frac{\left| \vec p_{xy} \right|}{p_z} \]
 
 The normalized stereographic projection is
 
-\[ \vec u \equiv 2 \frac{\vec {p_{xy}}}{\left|\vec {p_{xy}}\right|} \tan\frac{\theta}{2}  \]
+\[ \vec u \equiv \frac{\vec p_{xy}}{\left| \vec p_{xy} \right|} 2 \tan\frac{\theta}{2} \]
 
 This initial projection operation collapses the 3D point $\vec p$ into a 2D
 point $\vec u$. I use this projection value to look-up an adjustment factor
 $\Delta \vec u$ using two splined surfaces: one for each of the two elements of
 
-\[ \Delta \vec u \equiv \begin{bmatrix} \mathrm{spline0} \left( \vec u \right) \\ \mathrm{spline1} \left( \vec u \right) \end{bmatrix} \]
+\[ \Delta \vec u \equiv
+\begin{bmatrix}
+\Delta u_x \left( \vec u \right) \\
+\Delta u_y \left( \vec u \right)
+\end{bmatrix} \]
 
 The parameters defining these surfaces comprise the parameters of this lens
 model. I use B-splines to represent the surfaces (quadratic and cubic are
@@ -317,10 +321,15 @@ sufficient continuity properties.
 
 Once we have the correction, we can define the rest of the projection function:
 
-\[ \vec q = \vec f_{xy} \left( \vec u + \Delta \vec u \right) + \vec c_{xy} \]
+
+\[\vec q =
+ \left( \begin{array}{c}
+ f_x \left( u_x + \Delta u_x \right) + c_x \\
+ f_y \left( u_y + \Delta u_y \right) + c_y
+\end{array} \right) \]
 
 Here $\vec f_{xy}$ and $\vec c_{xy}$ are the usual focal-length-in-pixels and
-imager-center parameters that all the other projection function have. The user
+imager-center parameters that all the other projection functions have. The user
 decides how much of the normalized $\vec u$ space we want to support. And the
 user decides how dense the spline should be.
 
@@ -556,6 +565,9 @@ These questions can be answered conclusively by quantifying the projection
 uncertainty, so let's talk about that now.
 
 * Projection uncertainty
+:PROPERTIES:
+:CUSTOM_ID: uncertainty
+:END:
 
 It would be /really/ nice to be able to compute an /uncertainty/ along with
 every projection operation: given a camera-coordinate point $\vec p$ we would
@@ -851,6 +863,9 @@ chessboard images (see next section) shows this effect. I didn't use the
 calibrations from this document because they're too good to see this clearly.
 
 * Optimal choreography
+:PROPERTIES:
+:CUSTOM_ID: choreography
+:END:
 
 Now that we know how to measure calibration quality and what to look for, we can
 run some studies to figure out what makes a good chessboard dance. These are all
@@ -888,7 +903,7 @@ dance-study.py --scan-ranges --Ncameras 1 --Nframes 100 --range 0.4,10 board/ope
 
 [[./dance-study-scan-Nranges.svg]]
 
-This effect is /dramatic/: we want closeups. Anything else is far less useful.
+This effect is /dramatic/: we want closeups. Anything else is a waste of time.
 Here we have two vertical dashed lines, indicating the minimum and maximum
 ranges I'm scanning. And we can see, the the sweet spot for each trial moves
 further back as we move the chessboards back.
