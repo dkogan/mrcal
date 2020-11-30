@@ -1011,10 +1011,10 @@ Conclusions:
 - Tilted views are good
 - A smaller number of bigger calibration problems is good
 
+[[file:figures/observation-usefulness.svg]]
+
 That's great. We now know how to dance given a particular chessboard. But what
 kind of chessboard do we want? We can study that too.
-
-[[file:figures/observation-usefulness.svg]]
 
 mrcal assumes a chessboard being a planar grid. But how many points do we want
 in this grid? And what should the grid spacing be?
