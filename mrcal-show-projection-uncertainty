@@ -108,6 +108,10 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of an interactive plot''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help=r'''gnuplotlib terminal. The default is good almost always, so most people don't
+                        need this option''')
     parser.add_argument('--set',
                         type=str,
                         action='append',
@@ -182,6 +186,7 @@ if args.observations_xydist:
                                                     args.gridn[0] // 4,
                                                     args.gridn[1] // 4,
                                                     hardcopy     = args.hardcopy,
+                                                    terminal     = args.terminal,
                                                     cbmax        = args.cbmax,
                                                     extratitle   = args.extratitle,
                                                     **plotkwargs_extra)
@@ -190,6 +195,7 @@ elif args.vs_distance_at is not None:
                                                          where        = args.vs_distance_at,
                                                          isotropic    = args.isotropic,
                                                          hardcopy     = args.hardcopy,
+                                                         terminal     = args.terminal,
                                                          extratitle   = args.extratitle,
                                                          **plotkwargs_extra)
 else:
@@ -199,6 +205,7 @@ else:
                                              isotropic    = args.isotropic,
                                              observations = args.observations,
                                              hardcopy     = args.hardcopy,
+                                             terminal     = args.terminal,
                                              cbmax        = args.cbmax,
                                              extratitle   = args.extratitle,
                                              **plotkwargs_extra)

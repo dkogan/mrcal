@@ -54,6 +54,10 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help=r'''gnuplotlib terminal. The default is good almost always, so most people don't
+                        need this option''')
     parser.add_argument('--set',
                         type=str,
                         action='append',
@@ -85,9 +89,10 @@ if args.writeimage:
 
     if args.title    is not None or \
        args.hardcopy is not None or \
+       args.terminal is not None or \
        args.set      is not None or \
        args.unset    is not None:
-        raise Exception("--title and --hardcopy and --set and --unset are only valid without --writeimage")
+        raise Exception("--title and --hardcopy and --terminal and --set and --unset are only valid without --writeimage")
 
     if args.points:
         raise Exception("Currently --points is implemented ONLY if not --writeimage")
@@ -154,6 +159,7 @@ else:
                image       = args.image,
                points      = points,
                hardcopy    = args.hardcopy,
+               terminal    = args.terminal,
                title       = args.title,
                **plotkwargs_extra)
 

@@ -66,6 +66,10 @@ def parse_args():
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help=r'''gnuplotlib terminal. The default is good almost always, so most people don't
+                        need this option''')
     parser.add_argument('--set',
                         type=str,
                         action='append',
@@ -124,6 +128,7 @@ plot = mrcal.show_distortion_off_pinhole(model,
 
                                          extratitle   = args.extratitle,
                                          hardcopy     = args.hardcopy,
+                                         terminal     = args.terminal,
                                          **plotkwargs)
 
 if args.hardcopy is None:
