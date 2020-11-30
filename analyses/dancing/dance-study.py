@@ -79,15 +79,22 @@ def parse_args():
     parser.add_argument('--object-spacing',
                         default="0.077",
                         type=str,
-                        help='''Width of each square in the calibration board, in meters. If
-                        --scan object_spacing, this is MIN,MAX to specify the bounds of the scan''')
+                        help='''Width of each square in the calibration board, in meters. If --scan
+                        object_width_n, this is used as the spacing for the
+                        SMALLEST width. As I change object_width_n, I adjust
+                        object_spacing accordingly, to keep the total board size
+                        constant. If --scan object_spacing, this is MIN,MAX to
+                        specify the bounds of the scan. In that case
+                        object_width_n stays constant, so the board changes
+                        size''')
     parser.add_argument('--object-width-n',
                         type=str,
                         default="10",
                         help='''How many points the calibration board has per horizontal side. If omitted we
                         default to 10. If --scan object_width_n, this is MIN,MAX
                         to specify the bounds of the scan. In that case I assume
-                        a square object, and ignore --object-height-n''')
+                        a square object, and ignore --object-height-n. Scanning
+                        object-width-n keeps the board size constant''')
     parser.add_argument('--object-height-n',
                         type=int,
                         default=10,
@@ -140,14 +147,14 @@ def parse_args():
                         type=str,
                         default='',
                         choices=('range','tilt_radius','Nframes','Ncameras',
-                                 'object_spacing','object_width_n',
+                                 'object_width_n', 'object_spacing',
                                  'num_far_constant_Nframes_near', 'num_far_constant_Nframes_all'),
                         help='''Study the effect of some parameter on uncertainty. The parameter is given as
                         an argument ot this function. Valid choices:
                         ('range','tilt_radius','Nframes','Ncameras',
-                        'object_spacing','object_width_n',
-                        'num_far_constant_Nframes_near',
-                        'num_far_constant_Nframes_all')''')
+                        'object_width_n', 'object_spacing', 'num_far_constant_Nframes_near',
+                        'num_far_constant_Nframes_all'). Scanning object-width-n
+                        keeps the board size constant''')
 
     parser.add_argument('--range',
                         default = '0.5,4.0',
@@ -326,6 +333,7 @@ calobject_warp_true_ref = np.array((0.002, -0.005))
 
 def solve(Ncameras,
           Nframes_near, Nframes_far,
+          object_spacing,
           models_true,
 
           # q.shape             = (Nframes, Ncameras, object_height, object_width, 2)
@@ -419,7 +427,7 @@ def solve(Ncameras,
               # lensmodel filled in later
               calobject_warp                            = copy.deepcopy(calobject_warp_true),
               imagersizes                               = imagersizes,
-              calibration_object_spacing                = controllable_args['object_spacing']['value'],
+              calibration_object_spacing                = object_spacing,
               verbose                                   = False,
               observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
               # do_optimize_frames filled in later
@@ -509,6 +517,7 @@ def observation_centroid(optimization_inputs, icam):
 
 def eval_one_rangenear_tilt(models_true,
                             range_near, range_far, tilt_radius,
+                            object_width_n, object_height_n, object_spacing,
                             uncertainty_at_range_samples,
                             Ncameras,
                             Nframes_near_samples, Nframes_far_samples):
@@ -527,9 +536,7 @@ def eval_one_rangenear_tilt(models_true,
     #        (Nframes, 4,3)
     q_true_near, Rt_cam0_board_true_near = \
         mrcal.synthesize_board_observations(models_true,
-                                            controllable_args['object_width_n']['value'],
-                                            args.object_height_n,
-                                            controllable_args['object_spacing']['value'],
+                                            object_width_n, object_height_n, object_spacing,
                                             calobject_warp_true_ref,
                                             np.array((0.,  0., 0., radius_cameras, 0,  range_near,)),
                                             np.array((np.pi/180. * tilt_radius,
@@ -543,9 +550,7 @@ def eval_one_rangenear_tilt(models_true,
     if range_far is not None:
         q_true_far, Rt_cam0_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
-                                                controllable_args['object_width_n']['value'],
-                                                args.object_height_n,
-                                                controllable_args['object_spacing']['value'],
+                                                object_width_n, object_height_n, object_spacing,
                                                 calobject_warp_true_ref,
                                                 np.array((0.,  0., 0., radius_cameras, 0,  range_far,)),
                                                 np.array((np.pi/180. * tilt_radius,
@@ -567,6 +572,7 @@ def eval_one_rangenear_tilt(models_true,
 
         optimization_inputs = solve(Ncameras,
                                     Nframes_near, Nframes_far,
+                                    object_spacing,
                                     models_true,
                                     q_true_near, Rt_cam0_board_true_near,
                                     q_true_far,  Rt_cam0_board_true_far)
@@ -649,16 +655,21 @@ if re.match("num_far_constant_Nframes_", args.scan):
         eval_one_rangenear_tilt(models_true,
                                 *controllable_args['range']['value'],
                                 controllable_args['tilt_radius']['value'],
+                                controllable_args['object_width_n']['value'],
+                                args.object_height_n,
+                                controllable_args['object_spacing']['value'],
                                 uncertainty_at_range_samples,
                                 controllable_args['Ncameras']['value'],
                                 Nframes_near_samples, Nframes_far_samples)
 
-    output_table[:,:, output_table_icol__Nframes_near] += nps.transpose(Nframes_near_samples)
-    output_table[:,:, output_table_icol__Nframes_far]  += nps.transpose(Nframes_far_samples)
-    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
-    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value'][0]
-    output_table[:,:, output_table_icol__range_far]    = controllable_args['range']['value'][1]
-    output_table[:,:, output_table_icol__tilt_radius ] = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__Nframes_near]    += nps.transpose(Nframes_near_samples)
+    output_table[:,:, output_table_icol__Nframes_far]     += nps.transpose(Nframes_far_samples)
+    output_table[:,:, output_table_icol__Ncameras]        = controllable_args['Ncameras']['value']
+    output_table[:,:, output_table_icol__range_near]      = controllable_args['range']['value'][0]
+    output_table[:,:, output_table_icol__range_far]       = controllable_args['range']['value'][1]
+    output_table[:,:, output_table_icol__tilt_radius ]    = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
+    output_table[:,:, output_table_icol__object_spacing ] = controllable_args['object_spacing']['value']
 
     samples = Nframes_far_samples
 
@@ -682,6 +693,9 @@ elif args.scan == "range":
             eval_one_rangenear_tilt(models_true,
                                     range_samples[i_range], None,
                                     controllable_args['tilt_radius']['value'],
+                                    controllable_args['object_width_n']['value'],
+                                    args.object_height_n,
+                                    controllable_args['object_spacing']['value'],
                                     uncertainty_at_range_samples,
                                     controllable_args['Ncameras']['value'],
                                     Nframes_near_samples, Nframes_far_samples)[0]
@@ -692,6 +706,8 @@ elif args.scan == "range":
     output_table[:,:, output_table_icol__range_near]  += nps.transpose(range_samples)
     output_table[:,:, output_table_icol__range_far]    = -1
     output_table[:,:, output_table_icol__tilt_radius ] = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
+    output_table[:,:, output_table_icol__object_spacing ] = controllable_args['object_spacing']['value']
 
     samples = range_samples
 
@@ -715,6 +731,9 @@ elif args.scan == "tilt_radius":
             eval_one_rangenear_tilt(models_true,
                                     controllable_args['range']['value'], None,
                                     tilt_rad_samples[i_tilt],
+                                    controllable_args['object_width_n']['value'],
+                                    args.object_height_n,
+                                    controllable_args['object_spacing']['value'],
                                     uncertainty_at_range_samples,
                                     controllable_args['Ncameras']['value'],
                                     Nframes_near_samples, Nframes_far_samples)[0]
@@ -725,6 +744,8 @@ elif args.scan == "tilt_radius":
     output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
     output_table[:,:, output_table_icol__tilt_radius] += nps.transpose(tilt_rad_samples)
+    output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
+    output_table[:,:, output_table_icol__object_spacing ] = controllable_args['object_spacing']['value']
 
     samples = tilt_rad_samples
 
@@ -751,6 +772,9 @@ elif args.scan == "Ncameras":
             eval_one_rangenear_tilt(models_true,
                                     controllable_args['range']['value'], None,
                                     controllable_args['tilt_radius']['value'],
+                                    controllable_args['object_width_n']['value'],
+                                    args.object_height_n,
+                                    controllable_args['object_spacing']['value'],
                                     uncertainty_at_range_samples,
                                     Ncameras,
                                     Nframes_near_samples, Nframes_far_samples)[0]
@@ -761,6 +785,8 @@ elif args.scan == "Ncameras":
     output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
     output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
+    output_table[:,:, output_table_icol__object_spacing ] = controllable_args['object_spacing']['value']
 
     samples = Ncameras_samples
 
@@ -788,6 +814,9 @@ elif args.scan == "Nframes":
             eval_one_rangenear_tilt(models_true,
                                     controllable_args['range']['value'], None,
                                     controllable_args['tilt_radius']['value'],
+                                    controllable_args['object_width_n']['value'],
+                                    args.object_height_n,
+                                    controllable_args['object_spacing']['value'],
                                     uncertainty_at_range_samples,
                                     controllable_args['Ncameras']['value'],
                                     Nframes_near_samples, Nframes_far_samples)[0]
@@ -798,8 +827,99 @@ elif args.scan == "Nframes":
     output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
     output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
+    output_table[:,:, output_table_icol__object_spacing ] = controllable_args['object_spacing']['value']
 
     samples = Nframes_samples
+
+elif args.scan == "object_width_n":
+
+    Nframes_near_samples = np.array( (controllable_args['Nframes']['value'],), dtype=int)
+    Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    models_true = \
+        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                            imagersize          = model_intrinsics.imagersize(),
+                            extrinsics_rt_toref = np.array((0,0,0,
+                                                            i*args.camera_spacing,
+                                                            0,0), dtype=float) ) \
+          for i in range(controllable_args['Ncameras']['value']) ]
+
+    Nsamples = args.Nscan_samples
+    samples  = np.linspace(*controllable_args['object_width_n']['value'],
+                           Nsamples, dtype=int)
+
+    # As I move the width, I adjust the spacing to keep the total board size
+    # constant. The object spacing in the argument applies to the MIN value of
+    # the object_width_n.
+    W = (controllable_args['object_width_n']['value'][0]-1) * controllable_args['object_spacing']['value']
+    object_spacing = W / samples
+
+
+
+    for i_sample in range(Nsamples):
+
+        output_table[i_sample,:, output_table_icol__uncertainty] = \
+            eval_one_rangenear_tilt(models_true,
+                                    controllable_args['range']['value'], None,
+                                    controllable_args['tilt_radius']['value'],
+                                    samples[i_sample],
+                                    samples[i_sample],
+                                    object_spacing[i_sample],
+                                    uncertainty_at_range_samples,
+                                    controllable_args['Ncameras']['value'],
+                                    Nframes_near_samples, Nframes_far_samples)[0]
+
+    output_table[:,:, output_table_icol__Nframes_near] = controllable_args['Nframes']['value']
+    output_table[:,:, output_table_icol__Nframes_far]  = 0
+    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
+    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
+    output_table[:,:, output_table_icol__range_far]    = -1
+    output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__object_width_n ]+= nps.transpose(samples)
+    output_table[:,:, output_table_icol__object_spacing ]+= nps.transpose(object_spacing)
+
+elif args.scan == "object_spacing":
+
+    Nframes_near_samples = np.array( (controllable_args['Nframes']['value'],), dtype=int)
+    Nframes_far_samples  = np.array( (0,),            dtype=int)
+
+    models_true = \
+        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
+                            imagersize          = model_intrinsics.imagersize(),
+                            extrinsics_rt_toref = np.array((0,0,0,
+                                                            i*args.camera_spacing,
+                                                            0,0), dtype=float) ) \
+          for i in range(controllable_args['Ncameras']['value']) ]
+
+    Nsamples = args.Nscan_samples
+    samples  = np.linspace(*controllable_args['object_spacing']['value'],
+                           Nsamples, dtype=float)
+
+    # As I move the spacing, I leave object_width_n, letting the total board
+    # size change. The object spacing in the argument applies to the MIN value
+    # of the object_width_n.
+    for i_sample in range(Nsamples):
+
+        output_table[i_sample,:, output_table_icol__uncertainty] = \
+            eval_one_rangenear_tilt(models_true,
+                                    controllable_args['range']['value'], None,
+                                    controllable_args['tilt_radius']['value'],
+                                    controllable_args['object_width_n']['value'],
+                                    args.object_height_n,
+                                    samples[i_sample],
+                                    uncertainty_at_range_samples,
+                                    controllable_args['Ncameras']['value'],
+                                    Nframes_near_samples, Nframes_far_samples)[0]
+
+    output_table[:,:, output_table_icol__Nframes_near] = controllable_args['Nframes']['value']
+    output_table[:,:, output_table_icol__Nframes_far]  = 0
+    output_table[:,:, output_table_icol__Ncameras]     = controllable_args['Ncameras']['value']
+    output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
+    output_table[:,:, output_table_icol__range_far]    = -1
+    output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
+    output_table[:,:, output_table_icol__object_spacing ]+= nps.transpose(samples)
 
 else:
     # no --scan. We just want one sample
@@ -819,6 +939,9 @@ else:
         eval_one_rangenear_tilt(models_true,
                                 controllable_args['range']['value'], None,
                                 controllable_args['tilt_radius']['value'],
+                                controllable_args['object_width_n']['value'],
+                                args.object_height_n,
+                                controllable_args['object_spacing']['value'],
                                 uncertainty_at_range_samples,
                                 controllable_args['Ncameras']['value'],
                                 Nframes_near_samples, Nframes_far_samples)[0]
@@ -829,6 +952,8 @@ else:
     output_table[:,:, output_table_icol__range_near]   = controllable_args['range']['value']
     output_table[:,:, output_table_icol__range_far]    = -1
     output_table[:,:, output_table_icol__tilt_radius]  = controllable_args['tilt_radius']['value']
+    output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
+    output_table[:,:, output_table_icol__object_spacing ] = controllable_args['object_spacing']['value']
 
     samples = None
 
@@ -859,6 +984,12 @@ elif args.scan == "range":
 elif args.scan == "tilt_radius":
     title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
     legend_what = 'Random chessboard tilt radius'
+elif args.scan == "object_width_n":
+    title = f"Scanning the calibration object density, keeping the board size constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
+    legend_what = 'Number of chessboard points per side'
+elif args.scan == "object_spacing":
+    title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
+    legend_what = 'Distance between adjacent chessboard corners'
 else:
     # no --scan. We just want one sample
     title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m with tilt radius {controllable_args['tilt_radius']['value']}"
@@ -869,7 +1000,7 @@ if samples is None:
 elif samples.dtype.kind == 'i':
     legend = np.array([ f"{legend_what} = {x}" for x in samples])
 else:
-    legend = np.array([ f"{legend_what} = {x:.1f}" for x in samples])
+    legend = np.array([ f"{legend_what} = {x:.2f}" for x in samples])
 
 np.savetxt(sys.stdout,
            nps.clump(output_table, n=2),
