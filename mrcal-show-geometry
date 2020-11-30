@@ -76,8 +76,8 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
+import gnuplotlib as gp
 import mrcal
-
 
 
 
