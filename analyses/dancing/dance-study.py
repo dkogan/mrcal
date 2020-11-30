@@ -216,7 +216,11 @@ def parse_args():
                         evaluates 8 different values. Otherwise this is set to 1''')
 
     parser.add_argument('--hardcopy',
-                        help='''Filename to plot into. If omitted, we make an interactive plot''')
+                        help=f'''Filename to plot into. If omitted, we make an interactive plot. This is
+                        passed directly to gnuplotlib''')
+    parser.add_argument('--terminal',
+                        help=f'''gnuplot terminal to use for the plots. This is passed directly to
+                        gnuplotlib. Omit this unless you know what you're doing''')
 
     parser.add_argument('model',
                         type = str,
@@ -1035,6 +1039,7 @@ kwargs = dict( yrange   = (0, args.ymax),
                xlabel   = 'Range (m)',
                ylabel   = 'Expected worst-direction uncertainty (pixels)',
                hardcopy = args.hardcopy,
+               terminal = args.terminal,
                wait     = not args.explore and args.hardcopy is None)
 if legend is not None: kwargs['legend'] = legend
 gp.plot(uncertainty_at_range_samples,
