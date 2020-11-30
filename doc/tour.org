@@ -61,7 +61,7 @@ $ < corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)
 #+end_example
 
 #+ATTR_HTML: :width 80% :min-width 500px :max-width 900px
-[[./mrgingham-results.png]]
+[[file:figures/mrgingham-results.png]]
 
 So in this image many of the corners were detected at full-resolution (level-0),
 but some required downsampling for the detector to find them (shown as smaller
@@ -166,7 +166,7 @@ show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
                 unset = 'key')
 #+end_example
 
-[[./calibration-chessboards-geometry.svg]]
+[[file:figures/calibration-chessboards-geometry.svg]]
 
 #+begin_src sh :exports none :eval no-export
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 dynamic noenhanced solid' --hardcopy calibration-chessboards-geometry.svg
@@ -190,7 +190,7 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 #+end_example
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./worst-opencv8.png]]
+[[file:figures/worst-opencv8.png]]
 
 If there're any issues, they're often seen in this image. And since this is the
 worst-fitting chessboard observation, if it looks OK, we can declare victory,
@@ -237,7 +237,7 @@ we move on. For reference, here's the worst image from another solve, when both
 focus and slight motion blur issues were present:
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./worst-opencv8-bias.png]]
+[[file:figures/worst-opencv8-bias.png]]
 
 Here we see two distinct problems:
 
@@ -260,7 +260,7 @@ show_residuals_directions(0, unset='key')
 #+end_example
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./directions-opencv8.png]]
+[[file:figures/directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random
 noise, and no color pattern would be discernible in these dots. Here we can
@@ -395,7 +395,7 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 #+end_example
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./worst-splined.png]]
+[[file:figures/worst-splined.png]]
 
 Interestingly, it is the same observations as with opencv8. All the errors are
 significantly smaller than before; the previous pattern is much less pronounced,
@@ -406,7 +406,7 @@ show_residuals_directions(0, unset='key')
 #+end_example
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./directions-splined.png]]
+[[file:figures/directions-splined.png]]
 
 /Much/ better. If there is a pattern, I can't see it.
 
@@ -418,7 +418,7 @@ mrcal-show-splined-model-surface --spline-index-domain data/board/splined.camera
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./splined-knots.png]]
+[[file:figures/splined-knots.png]]
 
 This shows $\Delta u_0 = \mathrm{spline0}\left(\vec u\right)$. Each X in the
 plot is a "knot" of the spline surface, a point where a control point value is
@@ -441,7 +441,7 @@ mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.25:.25]' 
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./splined-knots-pixel-domain.png]]
+[[file:figures/splined-knots-pixel-domain.png]]
 
 Now the imager boundary is a nice rectangle, but the valid spline region is a
 curve. Here we can also see an [[file:index.org::#splined non-monotonicity][ugly feature of the current representation]]: since
@@ -472,7 +472,7 @@ it. Given a pixel $\vec q_0$ we can
 3. Report the reprojection difference $\vec q_1 - \vec q_0$ as the diff at this
    pixel location
 
-[[./diff-notransform.svg]]
+[[file:figures/diff-notransform.svg]]
 
 This is a very common thing to want to do, so mrcal provides a tool to do it.
 Let's compare the two models:
@@ -482,7 +482,7 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./diff-radius0-heatmap-splined-opencv8.png]]
+[[file:figures/diff-radius0-heatmap-splined-opencv8.png]]
 
 Well that's strange. The reported differences really do have units of /pixels/.
 Are the two models /that/ different? And is the best-aligned area really where
@@ -494,7 +494,7 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --ve
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./diff-radius0-vectorfield-splined-opencv8.png]]
+[[file:figures/diff-radius0-vectorfield-splined-opencv8.png]]
 
 This is a /very/ regular pattern. What does it mean?
 
@@ -523,7 +523,7 @@ steps 1 and 2:
 - Transform $\vec p$ from the coordinate system of one camera to the coordinate
   system of the other camera
 
-[[./diff-yestransform.svg]]
+[[file:figures/diff-yestransform.svg]]
 
 But we don't know anything about the physical coordinate system of either
 camera. How can we compute this transformation? We do a fit. The "right"
@@ -537,7 +537,7 @@ mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./diff-splined-opencv8.png]]
+[[file:figures/diff-splined-opencv8.png]]
 
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges. If we used a leaner model,
@@ -554,7 +554,7 @@ mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramod
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[./diff-radius500-splined-opencv8.png]]
+[[file:figures/diff-radius500-splined-opencv8.png]]
 
 Both are valid.
 
@@ -628,7 +628,7 @@ through the transformations and projection to get the covariance of the reported
 pixel coordinate. This glosses over a lot of detail. Please see the
 [[file:uncertainty.org][documentation]].
 
-[[./uncertainty.svg]]
+[[file:figures/uncertainty.svg]]
 
 So let's compute it. We assume that the model of our system is correct, and that
 the fitted results are not perfect only because the input observations have some
@@ -658,13 +658,13 @@ have them look at 50 chessboards, with randomized positions and orientations.
 The bulk of this is done by =mrcal.synthesize_board_observations()=. The
 synthetic geometry looks like this:
 
-[[file:simulated-uncertainty-opencv4--simulated-geometry.svg]]
+[[file:figures/simulated-uncertainty-opencv4--simulated-geometry.svg]]
 
 The coordinate system of each camera is shown. Each observed chessboard is shown
 as a zigzag connecting all the corners in order. What does each camera actually
 see?
 
-[[file:simulated-uncertainty-opencv4--simulated-observations.svg]]
+[[file:figures/simulated-uncertainty-opencv4--simulated-observations.svg]]
 
 All the chessboards are roughly at the center of the scene, so the left camera
 sees stuff on the right, and the right camera sees stuff on the left.
@@ -688,7 +688,7 @@ samples, and let's also plot the 1-sigma ellipse predicted by the
 =mrcal.projection_uncertainty()= routine. This routine is analytical, and does
 /not/ do any random sampling. It is thus much faster than sampling would be.
 
-[[file:simulated-uncertainty-opencv4--distribution-onepoint.svg]]
+[[file:figures/simulated-uncertainty-opencv4--distribution-onepoint.svg]]
 
 Clearly the two ellipses (blue and green) line up very well, so there's very
 good agreement between the observed and predicted uncertainties. So from now on
@@ -707,7 +707,7 @@ Since we can use the relatively quick-to-compute
 =mrcal.projection_uncertainty()= estimates, let's look at the uncertainty maps
 across the whole imager. =mrcal.show_projection_uncertainty()= does this for us:
 
-[[file:simulated-uncertainty-opencv4--uncertainty-wholeimage.svg]]
+[[file:figures/simulated-uncertainty-opencv4--uncertainty-wholeimage.svg]]
 
 As expected, we see that the sweet spot is different for each camera, and it
 tracks the location of the chessboard observations. And we can see that the * is
@@ -749,7 +749,7 @@ test/test-projection-uncertainty.py --fixed cam0 --model splined --make-document
 test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots /tmp/simulated-uncertainty-splined
 #+end_src
 
-[[file:simulated-uncertainty-splined--uncertainty-wholeimage.svg]]
+[[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage.svg]]
 
 As we hoped, the reported uncertainties are now far worse. In fact, we can see
 that only the first camera's projection is truly reliable at the *. This is
@@ -782,7 +782,7 @@ mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/out/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
 #+end_src
 
-[[./uncertainty-opencv8.png]]
+[[file:figures/uncertainty-opencv8.png]]
 
 And the splined solve:
 
@@ -795,7 +795,7 @@ mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/out/uncertainty-splined.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
 #+end_src
 
-[[./uncertainty-splined.png]]
+[[file:figures/uncertainty-splined.png]]
 
 As expected, the splined model doesn't have the stiffness of opencv8, so we get
 the less optimistic (but more realistic) uncertainties.
@@ -829,7 +829,7 @@ A surprising consequence of this is that while /projection/ is invariant to
 scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty
 of this projection is /not/ invariant to this scaling:
 
-[[./projection-scale-invariance.svg]]
+[[file:figures/projection-scale-invariance.svg]]
 
 Let's look at the projection uncertainty at the center of the imager at
 different ranges for the opencv8 model we computed earlier:
@@ -841,7 +841,7 @@ mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cam
 ~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.4]' --hardcopy ~/jpl/mrcal/doc/out/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",12"'
 #+end_src
 
-[[./uncertainty-vs-distance-at-center.svg]]
+[[file:figures/uncertainty-vs-distance-at-center.svg]]
 
 So the uncertainty grows without bound as we approach the camera. As we move
 away, there's a sweet spot where we have maximum confidence. And as we move
@@ -885,7 +885,7 @@ mrcal-show-projection-diff --unset key camera[01].cameramodel
 ~/jpl/mrcal/mrcal-show-projection-diff --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/out/diff-l2-dance68-joint1-camera11-infinity.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
 #+end_src
 
-[[./diff-l2-dance68-joint1-camera11-infinity.png]]
+[[file:figures/diff-l2-dance68-joint1-camera11-infinity.png]]
 
 And again at 0.5m (close to the range to the chessboards)
 
@@ -896,7 +896,7 @@ mrcal-show-projection-diff --distance 0.5 --unset key camera[01].cameramodel
 ~/jpl/mrcal/mrcal-show-projection-diff --distance 0.5 --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/out/diff-l2-dance68-joint1-camera11-0.5m.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
 #+end_src
 
-[[./diff-l2-dance68-joint1-camera11-0.5m.png]]
+[[file:figures/diff-l2-dance68-joint1-camera11-0.5m.png]]
 
 Clearly the prediction that uncertainties are lowest at the chessboard range,
 and rise at infinity is borne out here by just looking at diffs, /without/
@@ -925,7 +925,7 @@ How many chessboard observations should we get?
 dance-study.py --scan Nframes --Ncameras 1 --Nframes 20,200 --range 0.5 board/opencv8.cameramodel --observed-pixel-uncertainty 2 --ymax 2
 #+end_src
 
-[[./dance-study-scan-Nframes.svg]]
+[[file:figures/dance-study-scan-Nframes.svg]]
 
 Here I'm running a monocular solve that looks at chessboards ~ 0.5m away,
 scanning the frame count from 20 to 200.
@@ -944,7 +944,7 @@ OK. How close should the chessboards be?
 dance-study.py --scan range --Ncameras 1 --Nframes 100 --range 0.4,10 board/opencv8.cameramodel --observed-pixel-uncertainty 2
 #+end_src
 
-[[./dance-study-scan-range.svg]]
+[[file:figures/dance-study-scan-range.svg]]
 
 This effect is /dramatic/: we want closeups. Anything else is a waste of time.
 Here we have two vertical dashed lines, indicating the minimum and maximum
@@ -957,7 +957,7 @@ Alrighty. Should the chessboards be shown head-on, or should they be tilted?
 dance-study.py --scan tilt_radius --tilt-radius 0,80 --Ncameras 1 --Nframes 100 --range 0.5 board/opencv8.cameramodel --observed-pixel-uncertainty 2 --ymax 0.8 --uncertainty-at-range-sampled-max 1.8
 #+end_src
 
-[[./dance-study-scan-tilt_radius.svg]]
+[[file:figures/dance-study-scan-tilt_radius.svg]]
 
 The head-on views (tilt = 0) produce quite poor results. And we get more and
 more confidence with more board tilt, with diminishing returns at about 45
@@ -992,7 +992,7 @@ parameters and constraints.
 dance-study.py --scan Ncameras --Ncameras 1,8 --camera-spacing 0 --Nframes 100 --range 0.5 board/opencv8.cameramodel --ymax 0.4 --observed-pixel-uncertainty 2
 #+end_src
 
-[[./dance-study-scan-Ncameras.svg]]
+[[file:figures/dance-study-scan-Ncameras.svg]]
 
 So clearly there's a benefit to more cameras. After about 4, we hit diminishing
 returns.
@@ -1007,7 +1007,7 @@ Conclusions:
 That's great. We now know how to dance given a particular chessboard. But what
 kind of chessboard do we want? We can study that too.
 
-[[./observation-usefulness.svg]]
+[[file:figures/observation-usefulness.svg]]
 
 mrcal assumes a chessboard being a planar grid. But how many points do we want
 in this grid? And what should the grid spacing be?
@@ -1020,7 +1020,7 @@ data to work with. This expectation is correct:
 dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 --object-width-n 5,30 board/opencv8.cameramodel --observed-pixel-uncertainty 2
 #+end_src
 
-[[./dance-study-scan-object_width_n.svg]]
+[[file:figures/dance-study-scan-object_width_n.svg]]
 
 Here we varied =object-width-n=, but also adjusted =object-spacing= to keep the
 chessboard size the same.
@@ -1033,7 +1033,7 @@ imager. We expect that this would improve the things:
 dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 board/opencv8.cameramodel --observed-pixel-uncertainty 2
 #+end_src
 
-[[./dance-study-scan-object_spacing.svg]]
+[[file:figures/dance-study-scan-object_spacing.svg]]
 
 And they do. At the same range, a bigger chessboard is better.
 
@@ -1047,7 +1047,7 @@ dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --obje
                --scan-object-spacing-compensate-range --ymax 20 --uncertainty-at-range-sampled-max 200
 #+end_src
 
-[[./dance-study-scan-object_spacing-compensated-range.svg]]
+[[file:figures/dance-study-scan-object_spacing-compensated-range.svg]]
 
 Looks like the optimal uncertainty is the same in all cases, but tracks the
 moving range. The uncertainty at infinity is better for smaller boards closer to
@@ -1110,7 +1110,7 @@ matching that would be required with another formulation. We thus transform our
 images into the space of $\phi$ (the "elevation"; the tilt of the epipolar
 plane) and $\theta$ (the "azimuth"; the left/right angle inside the plane):
 
-[[./rectification.svg]]
+[[file:figures/rectification.svg]]
 
 ** Let's do it!
 
@@ -1128,8 +1128,8 @@ for img ( data/figueroa-overpass-looking-S/{[01].jpg,[01]-reprojected-scale*.jpg
 
 The two images out of the camera look like this:
 
-[[./data/figueroa-overpass-looking-S/0.jpg][file:0.downsampled.jpg]]
-[[./data/figueroa-overpass-looking-S/1.jpg][file:1.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/0.jpg][file:figures/0.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/1.jpg][file:figures/1.downsampled.jpg]]
 
 All the full-size images are available by clicking on an image.
 
@@ -1280,13 +1280,13 @@ python3 stereo.py data/figueroa-overpass-looking-S/splined-[01].cameramodel data
 
 The rectified images look like this:
 
-[[./data/figueroa-overpass-looking-S/rectified0-splined.jpg][file:rectified0-splined.downsampled.jpg]]
-[[./data/figueroa-overpass-looking-S/rectified1-splined.jpg][file:rectified1-splined.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/rectified0-splined.jpg][file:figures/rectified0-splined.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/rectified1-splined.jpg][file:figures/rectified1-splined.downsampled.jpg]]
 
 And the disparity and range images looks like this:
 
-[[./data/figueroa-overpass-looking-S/disparity-splined.png][file:disparity-splined.downsampled.png]]
-[[./data/figueroa-overpass-looking-S/range-splined.png][file:range-splined.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/disparity-splined.png][file:figures/disparity-splined.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/range-splined.png][file:figures/range-splined.downsampled.png]]
 
 Clearly this is working well.
 
@@ -1469,13 +1469,13 @@ conversion above.
 
 The wider pinhole resampling of the two images:
 
-[[./data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:0-reprojected-scale0.35.downsampled.jpg]]
-[[./data/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:1-reprojected-scale0.35.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:figures/0-reprojected-scale0.35.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:figures/1-reprojected-scale0.35.downsampled.jpg]]
 
 The narrower resampling of the two images:
 
-[[./data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:0-reprojected-scale0.6.downsampled.jpg]]
-[[./data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:1-reprojected-scale0.6.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:figures/0-reprojected-scale0.6.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:figures/1-reprojected-scale0.6.downsampled.jpg]]
 
 And the camera models:
 
@@ -1503,13 +1503,13 @@ The rectified images look like this.
 
 For the wider mapping:
 
-[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:jplv-stereo-rect-left-scale0.35.downsampled.png]]
-[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:jplv-stereo-rect-right-scale0.35.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:figures/jplv-stereo-rect-left-scale0.35.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:figures/jplv-stereo-rect-right-scale0.35.downsampled.png]]
 
 For the narrow mapping:
 
-[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:jplv-stereo-rect-left-scale0.6.downsampled.png]]
-[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:jplv-stereo-rect-right-scale0.6.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:figures/jplv-stereo-rect-left-scale0.6.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:figures/jplv-stereo-rect-right-scale0.6.downsampled.png]]
 
 The bottom is cut-off in these images; this is probably a bug in jplv.
 
@@ -1522,8 +1522,8 @@ python3 stereo.py - - data/figueroa-overpass-looking-S/jplv-stereo-rect-{left,ri
 python3 stereo.py - - data/figueroa-overpass-looking-S/jplv-stereo-rect-{left,right}-scale0.6.png  jplv-scale0.6
 #+end_src
 
-[[./data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:disparity-jplv-scale0.35.downsampled.png]]
-[[./data/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:disparity-jplv-scale0.6.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:figures/disparity-jplv-scale0.35.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:figures/disparity-jplv-scale0.6.downsampled.png]]
 
 Looks reasonable.
 
@@ -1603,8 +1603,8 @@ python3 narrow-section.py data/figueroa-overpass-looking-S/splined-1.cameramodel
 
 The images look like this:
 
-[[./data/figueroa-overpass-looking-S/narrow-left.jpg][file:narrow-left.downsampled.jpg]]
-[[./data/figueroa-overpass-looking-S/narrow-right.jpg][file:narrow-right.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/narrow-left.jpg][file:figures/narrow-left.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/narrow-right.jpg][file:figures/narrow-right.downsampled.jpg]]
 
 Note that these are pinhole images, but the field of view is much more narrow,
 so they look reasonable. The corresponding pinhole models:
@@ -1624,7 +1624,7 @@ python3 stereo.py                                                               
 Here we have slightly non-trivial geometry, so it is instructive to visualize it
 (the =stereo.py= tool does this):
 
-[[file:stereo-geometry-narrow.svg]]
+[[file:figures/stereo-geometry-narrow.svg]]
 
 Here we're looking at the left and right cameras in the stereo pair, /and/ at
 the axes of the stereo system. Now that we have rotated each camera to look to
@@ -1636,13 +1636,13 @@ compensates.
 
 And we get nice-looking rectified images:
 
-[[./data/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:rectified0-narrow.downsampled.jpg]]
-[[./data/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:rectified1-narrow.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:figures/rectified0-narrow.downsampled.jpg]]
+[[./data/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:figures/rectified1-narrow.downsampled.jpg]]
 
 And disparity and range images:
 
-[[./data/figueroa-overpass-looking-S/disparity-narrow.png][file:disparity-narrow.downsampled.png]]
-[[./data/figueroa-overpass-looking-S/range-narrow.png][file:range-narrow.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/disparity-narrow.png][file:figures/disparity-narrow.downsampled.png]]
+[[./data/figueroa-overpass-looking-S/range-narrow.png][file:figures/range-narrow.downsampled.png]]
 
 And this is despite running pinhole-reprojected stereo from a very wide lens.
 

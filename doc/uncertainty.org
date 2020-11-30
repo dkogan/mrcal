@@ -198,7 +198,7 @@ is insufficient. We want to know the projection uncertainty of points in a
 shifts in the state $\vec p$. As we can see above, $\vec p_\mathrm{camera}$
 depends on the extrinsics, which are a part of the state.
 
-[[./uncertainty.svg]]
+[[file:figures/uncertainty.svg]]
 
 But what if we only have one camera, and thus we have no extrinsics (the camera
 coordinate system /is/ the reference coordinate system)? This doesn't work
@@ -302,7 +302,7 @@ A surprising consequence of this is that while /projection/ is invariant to
 scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty
 of this projection is /not/ invariant to this scaling:
 
-[[./projection-scale-invariance.svg]]
+[[file:figures/projection-scale-invariance.svg]]
 
 Let's look at the projection uncertainty at the center of the imager at
 different ranges for an arbitrary model:
@@ -311,7 +311,7 @@ different ranges for an arbitrary model:
 mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.4]'
 #+end_src
 
-[[./uncertainty-vs-distance-at-center.svg]]
+[[file:figures/uncertainty-vs-distance-at-center.svg]]
 
 So the uncertainty grows without bound as we approach the camera. As we move
 away, there's a sweet spot where we have maximum confidence. And as we move

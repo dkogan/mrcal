@@ -23,7 +23,7 @@ it. Given a pixel $\vec q_0$ we can
 3. Report the reprojection difference $\vec q_1 - \vec q_0$ as the diff at this
    pixel location
 
-[[./diff-notransform.svg]]
+[[file:figures/diff-notransform.svg]]
 
 This is a very common thing to want to do, so mrcal provides a tool to do it.
 Let's compare the two models:
@@ -32,7 +32,7 @@ Let's compare the two models:
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
 #+end_src
 
-[[./diff-radius0-heatmap-splined-opencv8.png]]
+[[file:figures/diff-radius0-heatmap-splined-opencv8.png]]
 
 Well that's strange. The reported differences really do have units of /pixels/.
 Are the two models /that/ different? And is the best-aligned area really where
@@ -43,7 +43,7 @@ heat map, we get a hint about what's going on:
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel
 #+end_src
 
-[[./diff-radius0-vectorfield-splined-opencv8.png]]
+[[file:figures/diff-radius0-vectorfield-splined-opencv8.png]]
 
 This is a /very/ regular pattern. What does it mean?
 
@@ -72,7 +72,7 @@ steps 1 and 2:
 - Transform $\vec p$ from the coordinate system of one camera to the coordinate
   system of the other camera
 
-[[./diff-yestransform.svg]]
+[[file:figures/diff-yestransform.svg]]
 
 But we don't know anything about the physical coordinate system of either
 camera. How can we compute this transformation? We do a fit. The "right"
@@ -85,7 +85,7 @@ bypass the fit. Let's leave out that option to get the usable diff:
 mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
 #+end_src
 
-[[./diff-splined-opencv8.png]]
+[[file:figures/diff-splined-opencv8.png]]
 
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges. If we used a leaner model,
@@ -101,7 +101,7 @@ there:
 mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
 #+end_src
 
-[[./diff-radius500-splined-opencv8.png]]
+[[file:figures/diff-radius500-splined-opencv8.png]]
 
 Both are valid.
 
