@@ -89,9 +89,20 @@ def parse_args():
                         type=str,
                         help='''If given, we produce plots for the documentation. Takes one argument: a
                         string describing this test. This will be used in the
-                        filenames of the resulting plots. The extension of the
-                        string selects the output type. To make interactive
+                        filenames of the resulting plots. To make interactive
                         plots, pass ""''')
+    parser.add_argument('--terminal-pdf',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .PDFs. Omit this
+                        unless you know what you're doing''')
+    parser.add_argument('--terminal-svg',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .SVGs. Omit this
+                        unless you know what you're doing''')
+    parser.add_argument('--terminal-png',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .PNGs. Omit this
+                        unless you know what you're doing''')
     parser.add_argument('--explore',
                         action='store_true',
                         help='''If given, we drop into a REPL at the end''')
@@ -165,27 +176,36 @@ atexit.register(cleanup)
 
 
 
-terminal   = None
-extraset   = None
-pointscale = 1
+terminal = dict(pdf = args.terminal_pdf,
+                svg = args.terminal_svg,
+                png = args.terminal_png,
+                gp  = 'gp')
+pointscale = dict(pdf = 1,
+                  svg = 1,
+                  png = 1,
+                  gp  = 1)
+pointscale[""] = 1.
+
+
+
+def shorter_terminal(t):
+    # Adjust the terminal string to be less tall. Makes the multiplots look
+    # better: less wasted space
+    m = re.match("(.*)( size.*?,)([0-9.]+)(.*?)$", t)
+    if m is None: return t
+    return m.group(1) + m.group(2) + str(float(m.group(3))*0.8) + m.group(4)
+
 if args.make_documentation_plots:
-    basename,extension = os.path.splitext(args.make_documentation_plots)
-    dirname,basename   = os.path.split(basename)
 
-    documentation_plots_dir      = f"{dirname}/" if len(dirname) else ''
-    documentation_plots_filename = basename + extension
+    print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
 
-    print(f"Will write documentation plots to {documentation_plots_dir}xxxx-{basename}{extension}")
+    if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic font ",8"'
+    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color   font ",8"'
+    if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 noenhanced crop          font ",8"'
 
-    if extension == '.svg':
-        terminal   = 'svg noenhanced solid dynamic fontscale 0.5'
-        pointscale = 0.5
-        extraset   = 'pointsize 0.5'
-    elif extension == '.pdf':
-        terminal   = 'pdf noenhanced solid color font ",10" size 11in,6in'
-        pointscale = 1
-        extraset   = 'pointsize 1.'
-
+extraset = dict()
+for k in pointscale.keys():
+    extraset[k] = f'pointsize {pointscale[k]}'
 
 # I want the RNG to be deterministic
 np.random.seed(0)
@@ -362,43 +382,61 @@ if args.make_documentation_plots is not None:
     import gnuplotlib as gp
 
     if args.make_documentation_plots:
-        processoptions_output = dict(wait     = False,
-                                     terminal = terminal,
-                                     _set     = extraset,
-                                     hardcopy = f'{documentation_plots_dir}simulated-geometry--{documentation_plots_filename}')
+        for extension in ('pdf','svg','png','gp'):
+            processoptions_output = dict(wait     = False,
+                                         terminal = terminal[extension],
+                                         _set     = extraset[extension],
+                                         hardcopy = f'{args.make_documentation_plots}--simulated-geometry.{extension}')
+            gp.add_plot_option(processoptions_output, 'set', 'xyplane relative 0')
+            mrcal.show_geometry(models_baseline,
+                                unset='key',
+                                **processoptions_output)
     else:
         processoptions_output = dict(wait = True)
 
-    gp.add_plot_option(processoptions_output, 'set', 'xyplane relative 0')
-    mrcal.show_geometry(models_baseline,
-                        unset='key',
-                        **processoptions_output)
+        gp.add_plot_option(processoptions_output, 'set', 'xyplane relative 0')
+        mrcal.show_geometry(models_baseline,
+                            unset='key',
+                            **processoptions_output)
 
-    if args.make_documentation_plots:
-        processoptions_output = dict(wait     = False,
-                                     terminal = terminal,
-                                     _set     = extraset,
-                                     hardcopy = f'{documentation_plots_dir}simulated-observations--{documentation_plots_filename}')
-    else:
-        processoptions_output = dict(wait = True)
+
+
 
     def observed_points(icam):
         obs_cam = observations_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2].ravel()
         return obs_cam.reshape(len(obs_cam)//2,2)
 
-    obs_cam = [ ( (observed_points(icam),),
-                  (q0_baseline, dict(_with = f'points pt 3 ps {2*pointscale}'))) \
-                for icam in range(args.Ncameras) ]
-    gp.plot( *obs_cam,
+    if args.make_documentation_plots:
+        for extension in ('pdf','svg','png','gp'):
+            obs_cam = [ ( (observed_points(icam),),
+                          (q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]}'))) \
+                        for icam in range(args.Ncameras) ]
+            processoptions_output = dict(wait     = False,
+                                         terminal = shorter_terminal(terminal[extension]),
+                                         _set     = extraset[extension],
+                                         hardcopy = f'{args.make_documentation_plots}--simulated-observations.{extension}')
+            gp.plot( *obs_cam,
+                     tuplesize=-2,
+                     _with='points',
+                     square=1,
+                     _xrange=(0, models_true[0].imagersize()[0]-1),
+                     _yrange=(models_true[0].imagersize()[1]-1, 0),
+                     multiplot = 'layout 2,2',
+                     **processoptions_output)
+    else:
+        obs_cam = [ ( (observed_points(icam),),
+                      (q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[""]}'))) \
+                    for icam in range(args.Ncameras) ]
+        processoptions_output = dict(wait = True)
+        gp.plot( *obs_cam,
+                 tuplesize=-2,
+                 _with='points',
+                 square=1,
+                 _xrange=(0, models_true[0].imagersize()[0]-1),
+                 _yrange=(models_true[0].imagersize()[1]-1, 0),
+                 multiplot = 'layout 2,2',
+                 **processoptions_output)
 
-             tuplesize=-2,
-             _with='points',
-             square=1,
-             _xrange=(0, models_true[0].imagersize()[0]-1),
-             _yrange=(models_true[0].imagersize()[1]-1, 0),
-
-             multiplot = 'layout 2,2',
-             **processoptions_output)
 
 
 # These are at the optimum
@@ -1000,41 +1038,30 @@ if args.make_documentation_plots is not None:
     data_tuples_plot_options = \
         [ make_plot(icam, report_center_points=False) \
           for icam in range(args.Ncameras) ]
-    if args.make_documentation_plots:
-        processoptions_output = dict(wait     = False,
-                                     terminal = terminal,
-                                     _set     = extraset,
-                                     hardcopy = f'{documentation_plots_dir}distribution-onepoint--{documentation_plots_filename}')
-    else:
-        processoptions_output = dict(wait = True)
-
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
     gp.add_plot_option(plot_options, 'unset', 'key')
     data_tuples = [ data_tuples_plot_options[icam][0] for icam in range(args.Ncameras) ]
-    gp.plot( *data_tuples,
-             **plot_options,
-             multiplot = f'layout 2,2',
-             **processoptions_output)
 
-
-
-    pointscale_here = pointscale
     if args.make_documentation_plots:
-        hardcopy = f'{documentation_plots_dir}uncertainty-wholeimage--{documentation_plots_filename}'
-        if hardcopy[-4:] == '.svg':
-            hardcopy = hardcopy[:-4] + '.png'
-            terminal_here = 'pngcairo noenhanced size 1280,700 crop'
-            pointscale_here = 1.5
-        else:
-            terminal_here = terminal
-
-        processoptions_output = dict(wait     = False,
-                                     terminal = terminal_here,
-                                     _set     = extraset,
-                                     hardcopy = hardcopy)
+        for extension in ('pdf','svg','png','gp'):
+            processoptions_output = dict(wait     = False,
+                                         terminal = terminal[extension],
+                                         _set     = extraset[extension],
+                                         hardcopy = f'{args.make_documentation_plots}--distribution-onepoint.{extension}')
+            gp.plot( *data_tuples,
+                     **plot_options,
+                     multiplot = f'layout 2,2',
+                     **processoptions_output)
     else:
         processoptions_output = dict(wait = True)
+        gp.plot( *data_tuples,
+                 **plot_options,
+                 multiplot = f'layout 2,2',
+                 **processoptions_output)
+
+
+
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
                                              observations     = False,
@@ -1042,20 +1069,43 @@ if args.make_documentation_plots is not None:
                                              return_plot_args = True) \
           for icam in range(args.Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
-    if '_set' in processoptions_output:
-        gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
-        del processoptions_output['_set']
     del plot_options['title']
     gp.add_plot_option(plot_options, 'unset', 'key')
-    data_tuples = [ data_tuples_plot_options[icam][0] + \
-                    [(q0_baseline[0], q0_baseline[1], 0, \
-                      dict(tuplesize = 3,
-                           _with =f'points pt 3 ps {2*pointscale_here} nocontour'))] \
-                    for icam in range(args.Ncameras) ]
-    gp.plot( *data_tuples,
-             **plot_options,
-             multiplot = f'layout 2,2',
-             **processoptions_output)
+
+    if args.make_documentation_plots:
+        for extension in ('pdf','svg','png','gp'):
+            if extension == 'png':
+                continue
+            data_tuples = [ data_tuples_plot_options[icam][0] + \
+                            [(q0_baseline[0], q0_baseline[1], 0, \
+                              dict(tuplesize = 3,
+                                   _with =f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]} nocontour'))] \
+                            for icam in range(args.Ncameras) ]
+            processoptions_output = dict(wait     = False,
+                                         terminal = shorter_terminal(terminal[extension]),
+                                         _set     = extraset[extension],
+                                         hardcopy = f'{args.make_documentation_plots}--uncertainty-wholeimage.{extension}')
+            if '_set' in processoptions_output:
+                gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
+                del processoptions_output['_set']
+            gp.plot( *data_tuples,
+                     **plot_options,
+                     multiplot = f'layout 2,2',
+                     **processoptions_output)
+    else:
+        data_tuples = [ data_tuples_plot_options[icam][0] + \
+                        [(q0_baseline[0], q0_baseline[1], 0, \
+                          dict(tuplesize = 3,
+                               _with =f'points pt 3 lw 2 lc "red" ps {2*pointscale[""]} nocontour'))] \
+                        for icam in range(args.Ncameras) ]
+        processoptions_output = dict(wait = True)
+        if '_set' in processoptions_output:
+            gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
+            del processoptions_output['_set']
+        gp.plot( *data_tuples,
+                 **plot_options,
+                 multiplot = f'layout 2,2',
+                 **processoptions_output)
 
 
 if args.explore:
