@@ -121,6 +121,54 @@ reference coordinate system would move, as would the camera and chessboard
 coordinate systems. Please see the [[file:uncertainty.org][projection uncertainty]] documentation for more
 information.
 
+* Calibration object
+:PROPERTIES:
+:CUSTOM_ID: Calibration object
+:END:
+This is called a "chessboard" or just "board" in some parts of the code. The
+optimization code refers to the chessboard pose array as "frames".
+
+When running a camera calibration, we use observations of a known-geometry
+object. At this time mrcal expects this object to be a planar grid of observable
+points, with possibly a small amount of [[#board deformation][deformation]].
+
+Usually this object is a chessboard-like grid of black and white squares, where
+the observed points are the corners between squares. These are detected and
+serve as the input features to mrcal. mrcal is a purely geometrical toolkit, so
+this vision problem must be handled by another library. I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]],
+but any other source of grid observations may be used.
+
+When given an image of a chessboard, the detector is directly observing the
+feature we actually care about. Another common calibration board style is a grid
+of circles. When given an image of a grid of circles, the detector sees the edge
+of each circle, and then infers the circle center. This is difficult to do
+accurately when given tilted images subjected to arbitrary lens behaviors. The
+resulting inaccuracies in detections of the circle centers will introduce biases
+into the solve that aren't modeled by the [[file:uncertainty.org::#noise model][projection uncertainty routine]], so
+chessboards are /strongly/ recommended.
+
+mrcal [[file:uncertainty.org::#noise model][assumes independent noise]] on each point observation, so correlated sources
+of points (such as corners of an apriltag) are also not appropriate sources of
+data currently. Apriltag centers would work, however.
+
+** Board deformation
+:PROPERTIES:
+:CUSTOM_ID: board deformation
+:END:
+
+The calibration object is assumed to be planar. However, large calibration
+boards used for calibration of wide lenses are never flat: temperature and
+humidity effects deform the board strongly-enough to affect the calibration.
+mrcal models this deformation with two axis-aligned parabolic factors. If the
+chessboard grid spans $[-1,1]$ along the $x$ and $y$ axes, then I define the
+non-planar deformation as $z \equiv k_x (1 - x^2) + k_y (1 - y^2)$ with $k_x$
+and $k_y$ being the two deformation factors being optimized by the solver.
+
+Empirically, this appears to work well: I get better-fitting solves, and less
+systematic error. And the optimal deformation factors $k_x$, $k_y$ are
+consistent between different calibrations. A richer deformation model could work
+even better, and will eventually be the studied.
+
 * State vector $\vec p$
 The state vector $\vec p$ is controlled by the optimization algorithm as it
 searches for the optimal solution. This vector may contain
