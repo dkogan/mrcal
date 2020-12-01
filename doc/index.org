@@ -64,6 +64,9 @@ two sets programmatic interfaces available:
 * Build and/or install
 yyy
 
+* Author
+Dima Kogan =kogan@jpl.nasa.gov=
+
 * License and copyright
 Copyright 2017-2020 California Institute of Technology
 
