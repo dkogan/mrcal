@@ -8,6 +8,6 @@ Dima Kogan, C<< <Dmitriy.Kogan@jpl.nasa.gov> >>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2018 California Institute of Technology
+Copyright 2017-2020 California Institute of Technology
 
 This is proprietary and JPL-internal. For now
