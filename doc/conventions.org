@@ -1,0 +1,169 @@
+#+TITLE: mrcal conventions
+* Terminology
+Some terms in the documentation and sources can have ambiguous meanings, so I
+explicitly define them here
+
+- *calibration*: the procedure used to compute the lens parameters and geometry
+  of a set of cameras. Usually this involves a stationary set of cameras
+  observing a moving object.
+
+- *calibration object* or *chessboard* or *board*: these are used more or less
+  interchangeably. They refer to the known-geometry object observed by the
+  cameras, with those observations used as input during calibration
+
+- *pose*: a position and orientation
+
+- *intrinsics*: the parameters describing the behavior of a lens. The pose of
+  the lens does not affect the intrinsics
+
+- *extrinsics*: the pose of a lens in respect to some fixed coordinate system
+
+- *frames*: in the context of mrcal's optimization these refer to an array of
+  poses of the observed chessboards
+
+- *SFM*: structure from motion. This is the converse of "calibration": we
+  observe a stationary scene from a moving camera to compute the geometry of the
+  scene
+
+- *state*: the vector of parameters that an optimization algorithm is free to
+  move around as it searches for the optimum. mrcal generally refers to this
+  vector as $\vec p$
+
+- *measurements* or *residuals*: I use these more or less interchangeably. This
+  is the vector whose norm the optimization algorithm is trying to minimize.
+  mrcal generally refers to this as $\vec x$, and it contains differences
+  between pixel coordinates observed by a camera, and where the state vector
+  $\vec p$ predicts those observations should be. The optimization tries to
+  minimize these differences by finding the $\vec p$ that minimizes $\left \Vert
+  \vec x \right \Vert ^2$
+
+- *project*: to map a point in space to a pixel coordinate where that point
+  would be observed by a given camera
+
+- *unproject*: to map a pixel coordinate back to a point in space that would
+  produce an observation at that pixel. Unprojection is only unique up-to scale
+
+- *camera model*: this is used to refer to the intrinsics and extrinsics
+  together.
+
+- *uncertainty*: a measure of dispersion of some estimator. Higher uncertainty
+  implies more dispersion. Inverse of *confidence*
+
+- *confidence*: a measure of dispersion of some estimator. Higher confidence
+  implies less dispersion. Inverse of *uncertainty*
+
+* Symbols
+** Geometry
+- $\vec q$ is a 2-dimensional vector representing a pixel coordinate: $\left( x,y \right)$
+
+- $\vec v$ is a 3-dimensional vector representing a /direction/ $\left( x,y,z
+  \right)$ in space. $\vec v$ is unique only up-to-length. In a camera's
+  coordinate system we have $\vec q = \mathrm{project}\left(\vec v \right)$
+
+- $\vec p$ is a 3-dimensional vector representing a /point/ $\left( x,y,z
+  \right)$ in space. Unlike $\vec v$, $\vec p$ has a defined range. Like $\vec
+  v$ we have $\vec q = \mathrm{project}\left(\vec p \right)$
+
+** Optimization
+The core of the mrcal calibration routine is a nonlinear least-squares
+optimization
+
+\[
+\min_{\vec p} E = \min_{\vec p} \left \Vert \vec x \left( \vec p \right) \right \Vert ^2
+\]
+
+Here we have
+
+- $\vec p$ is the vector of parameters being optimized. It's clear from context
+  whether $\vec p$ refers to some point in space, or the optimization vector.
+
+- $\vec x$ is the vector of /measurements/ describing the error of the solution
+  at some hypothesis $\vec p$
+
+- $\vec E$ is the cost function being optimized. $E \equiv \left \Vert \vec x \right \Vert ^2$
+
+- $\vec J$ is the /jacobian/ matrix. This is the matrix $\frac{ \partial \vec x
+  }{ \partial \vec p }$. Usually this is large and sparse.
+
+* Camera coordinate system
+mrcal uses right-handed coordinate systems. No convention is assumed for the
+world coordinate system. The canonical /camera/ coordinate system has $x$ and
+$y$ as with pixel coordinates in an image: $x$ is to the right and $y$ is down.
+$z$ is then forward to complete the right-handed system of coordinates.
+
+* Transformations
+We describe transformations as mappings between a representation of a point in
+one coordinate system to a representation of the /same/ point in another
+coordinate system. =T_AB= is a transformation from coordinate system =B= to
+coordinate system =A=. These chain together nicely, so if we know the
+transformation between =A= and =B= and between =B= and =C=, we can transform a
+point represented in =C= to =A=: =x_A = T_AB T_BC x_C = T_AC x_C=. And =T_AC =
+T_AB T_BC=.
+
+* Poses
+
+Various parts of the toolkit have preferred representations of pose, and mrcal
+has functions to convert between them. Available representations are:
+
+- =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
+  (1,3) translation vector. This form is easy to work with, but there are
+  implied constraints: most (4,3) numpy arrays are /not/ valid =Rt=
+  transformations.
+
+- =rt=: a (6,) numpy array with a (3,) vector representing a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
+  concatenated with another (3,) vector, representing a rotation. This form
+  requires more computations to deal with, but has no implied constraints: /any/
+  (6,) numpy array is a valid =rt= transformation. Thus this is the form used
+  inside the mrcal optimization routine.
+
+Each of these represents a transformation =rotate(x) + t=.
+
+Since a pose represents a transformation between two coordinate systems, the
+toolkit generally refers to a pose as something like =Rt_AB=, which is an
+=Rt=-represented transformation to convert a point from a representation in the
+coordinate system =B= to a representation in coordinate system =A=.
+
+A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
+around an axis in the direction =r=. Converting between =R= and =r= is done via
+the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]: using the [[file:mrcal-python-api-reference.html#-r_from_R][=mrcal.r_from_R()=]] and
+[[file:mrcal-python-api-reference.html#-R_from_r][=mrcal.R_from_r()=]] functions. For translating /poses/, not just rotations, use
+[[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:mrcal-python-api-reference.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
+
+There're [[file:mrcal-python-api-reference.html#-R_from_quat][several]] [[file:mrcal-python-api-reference.html#-quat_from_R][functions]] to work with unit quaternions as a rotation
+representation, but they're lightly used, and exist only for compatibility with
+other tools. mrcal does not use quaternions.
+
+* Linear algebra
+mrcal follows the usual linear algebra convention of column vectors. So applying
+a rotation looks like $\vec b = R \vec a$ where both $\vec a$ and $\vec b$ are
+column vectors.
+
+However, numpy print vectors (1-dimensional objects), as /row/ vectors, so the
+code treats 1-dimensional objects as transposed vectors. In the code, the above
+rotation would be implemented equivalently: $\vec b^T = \vec a^T R^T$. The
+[[file:mrcal-python-api-reference.html#-rotate_point_R][=mrcal.rotate_point_R()=]] and [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]] functions serve to
+handle this transparently.
+
+A similar issue is that numpy follows the linear algebra convention of indexing
+with =(index_column, index_row)= and not the other way around. This runs against
+the /other/ convention of referring to image dimensions as =(width, height)= and
+referring to pixels as =(x,y)=. mrcal places the =x= coordinate first (as in the
+latter) whenever possible, but when interacting directly with numpy, it must
+place the =y= coordinate first. The choice being made is very clearly
+documented, so when in doubt, do read the docs.
+
+When computing gradients mrcal places the dependent variables in the leading
+dimensions, and the independent variables in the trailing dimensions. So in the
+above expressions we have $\frac{ \partial \vec b }{ \partial \vec a } = R$ and
+row $i$ of $R$ represents the $\frac{ \partial b_i }{ \partial \vec a }$
+
+* Implementation
+The core of mrcal is written in C, but most of the API is currently available in
+Python only. The python-wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library,
+which makes it fairly simple to make the Python interface /and/ provides
+[[https://numpy.org/doc/stable/user/basics.broadcasting.html][broadcasting]] support.
+
+The Python layer uses [[https://numpy.org/][numpy]] and [[https://github.com/dkogan/numpysane/][=numpysane=]] heavily. All the plotting is done
+with [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. [[https://opencv.org/][OpenCV]] is used a bit, but /only/ in the Python layer (their C
+APIs are gone, and the C++ APIs are unstable). Over time the dependence on this
+library will decrease even further.
