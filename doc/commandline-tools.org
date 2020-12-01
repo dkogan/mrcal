@@ -3,12 +3,12 @@
 A number of commandline tools are available for common tasks. If you're just
 using mrcal to calibrate some cameras, you may not need anything else.
 
-- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]: calibrate N cameras. This is the main tool to solve
+- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]: Calibrate N cameras. This is the main tool to solve
   "calibration" problems.
-- [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]: visualize the projection difference between a
-  number of models
-- [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]]: visualize the projection uncertainty of a
-  model
+- [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]: Visualize the difference in projection between N
+  models
+- [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]]: Visualize the expected projection error
+  due to uncertainty in the calibration-time input
 - [[file:mrcal-show-valid-intrinsics-region.html][=mrcal-show-valid-intrinsics-region=]]: Visualizes the region where a model's
   intrinsics are valid
 - [[file:mrcal-is-within-valid-intrinsics-region.html][=mrcal-is-within-valid-intrinsics-region=]]: Augments a vnlog of pixel
