@@ -11,7 +11,7 @@ class. This class supports two different file formats:
 
 - =.cahvor=: the alternative format available for compatibility with existing
   tools. If you don't need to interoperate with tools that require this format,
-  there's little reason to use it. This format cannot store [[#Splined stereographic lens model][splined models]] or
+  there's little reason to use it. This format cannot store [[file:lensmodels.org::#Splined stereographic lens model][splined models]] or
   the auxillary data required for the [[file:uncertainty.org][uncertainty computations]].
 
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format

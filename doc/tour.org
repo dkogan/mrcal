@@ -444,7 +444,7 @@ mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.25:.25]' 
 [[file:figures/splined-knots-pixel-domain.png]]
 
 Now the imager boundary is a nice rectangle, but the valid spline region is a
-curve. Here we can also see an [[file:index.org::#splined non-monotonicity][ugly feature of the current representation]]: since
+curve. Here we can also see an [[file:lensmodels.org::#splined non-monotonicity][ugly feature of the current representation]]: since
 the correction $\Delta \vec u$ uses $\vec u$ to index the splined surface, the
 resulting projection function is allowed to be non-monotonic. This results in
 very odd-looking behavior at the edges:

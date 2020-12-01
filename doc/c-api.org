@@ -419,8 +419,8 @@ void mrcal_compose_rt_noncontiguous( // output
 * Lens models
 The lens model structures are defined here:
 
-- =mrcal_lensmodel_type_t=: an enum decribing the lens model /type/. No [[file:index.org::#Lens models][configuration]] is stored here.
-- =mrcal_lensmodel_t=: a lens model type /and/ the [[file:index.org::#Lens models][configuration]] parameters. The
+- =mrcal_lensmodel_type_t=: an enum decribing the lens model /type/. No [[file:lensmodels.org][configuration]] is stored here.
+- =mrcal_lensmodel_t=: a lens model type /and/ the [[file:lensmodels.org][configuration]] parameters. The
   configuration lives in a =union= supporting all the known lens models
 - =mrcal_lensmodel_metadata_t=: the metadata that describes any given lens model
 

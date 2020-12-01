@@ -147,8 +147,8 @@ and to reuse the pre-computed corners with subsequent runs.
   some fitting errors and overly-optimistic reported uncertainties. So rich,
   splined stereographic models are recommended to address these issues.
   Currently =LENSMODEL_SPLINED_STEREOGRAPHIC_...= is the only rich splined
-  model. Please read the [[file:index.org::#splined models configuration selection][notes]] about choosing the configuration parameters. See.
-  The full set of supported lens models is described in detail [[file:index.org::#Lens models][here]].
+  model. Please read the [[file:lensmodels.org::#splined models configuration selection][notes]] about choosing the configuration parameters. See.
+  The full set of supported lens models is described in detail [[file:lensmodels.org][here]].
 
 - =--observed-pixel-uncertainty 1.0= says that the $x,y$ corner coordinates in
   =corners.vnl= are distributed normally, independently, and with the standard
