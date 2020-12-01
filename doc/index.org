@@ -1,4 +1,5 @@
 #+title: mrcal - camera calibrations and more
+#+OPTIONS: toc:nil
 
 mrcal is a toolkit for working with lens models, camera geometry, images,
 projections, and the various related operations such as camera calibration. Any
@@ -25,16 +26,48 @@ are available through [[file:python-api.org][Python]]. The most common workflows
 [[https://docs.opencv.org/master/][OpenCV]] is a big library that provides some of the same facilities, but it can't
 produce calibrations that are as good, and it can't tell you why.
 
-Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
-toolkit.
-
-* Developer manual (APIs)
 The mrcal toolkit has APIs in both C and Python. Everything that could
 potentially be slow is written in C, but the higher-level logic is mostly in
 Python. The Python-wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library, which
 makes it fairly simple to build the Python interfaces in a standard way, so over
 time Python-only functionality will be translated to C, as needed (with
 backwards-compatible Python wrappers replacing the Python implementations).
+
+* Documentation index
+
+Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
+toolkit.
+
+Before using mrcal in any way, it is helpful to read about the [[file:conventions.org][terminology and
+conventions]] employed by the tookit.
+
+At the core of a calibration routine is an optimization problem. Details about
+its [[file:formulation.org][formulation]] are useful to know to be able to interpret the results.
+
+A camera lens can be represented by any of a number of [[file:lensmodels.org][lens models]].
+
+A [[file:how-to-calibrate.org][how-to-calibrate-some-cameras]] page describes details about how to achieve this
+very common task.
+
+After running a calibration, the camera models are written to [[file:cameramodels.org][files on disk]].
+
+We can then use these files with a number of [[file:commandline-tools.org][command-line tools]]. In particular,
+we can [[file:differencing.org][compare the projection behaviors of different models]]. And we can [[file:uncertainty.org][compute
+the projection uncertainty]] of a model.
+
+If we need to do something more than what the pre-made tools can do, there're
+two sets programmatic interfaces available:
+
+- [[file:c-api.org][The C API to provide a growing set of core functionality]]
+- [[file:python-api.org][The Python API to do everything else]]
+
+* Build and/or install
+yyy
+
+* License and copyright
+Copyright 2017-2020 California Institute of Technology
+
+This is all proprietary for now.
 
 * future work                                                      :noexport:
 - measure observed_pixel_uncertainty
@@ -80,3 +113,5 @@ Somewhere talk about these:
   - [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
 
 tour: stereo shouldn't use deltapose, but a procrustes fit. Much better demo
+
+license statements for things I'm using
