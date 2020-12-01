@@ -90,9 +90,10 @@ $(DIST_MAN): %.1: %.pod
 	cat footer.pod >> $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
+# I generate a manpage. Some perl stuff to add the html preamble
 MANPAGES_HTML := $(patsubst %,$(DOC_OUTPUT_DIR)/%.html,$(DIST_BIN))
 $(DOC_OUTPUT_DIR)/%.html: %.pod
-	pod2html --noindex --infile=$< --outfile=$@
+	pod2html --noindex --css=mrcal.css --infile=$< | perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@
 doc: $(MANPAGES_HTML)
 EXTRA_CLEAN += $(MANPAGES_HTML)
 

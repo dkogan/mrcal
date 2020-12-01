@@ -19,17 +19,9 @@
          :html-head ,(concat
                       "<link rel=\"stylesheet\" type=\"text/css\" href=\"org.css\"/>"
                       "<link rel=\"stylesheet\" type=\"text/css\" href=\"mrcal.css\"/>")
-         :html-preamble ,(concat
-                          "<ul class=\"supernav_list\"> "
-                          "<li class=\"supernav_title\">mrcal</li> "
-                          "<li><a href=\"index.html\">Documentation index</a></li> "
-                          "<li><a href=\"tour.html\">A tour of mrcal</a></li> "
-                          "<li><a href=\"c-api.html\">C API</a></li> "
-                          "<li><a href=\"python-api.html\">Python API</a></li> "
-                          "<li><a href=\"commandline-tools.html\">Commandline tools</a></li> "
-                          "<li><a href=\"https://github.jpl.nasa.gov/maritime-robotics/mrcal\">Sources</a></li> "
-                          "</ul> <hr>")
-
+         :html-preamble ,(with-temp-buffer
+                           (insert-file-contents "mrcal-preamble.html")
+                           (buffer-string))
          :html-mathjax-options ((path "MathJax-master/es5/tex-chtml.js")
                                 (scale "100")
                                 (align "center")
