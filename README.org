@@ -10,61 +10,14 @@ Wrote /tmp/camera0-0.cameramodel
 Wrote /tmp/camera0-1.cameramodel
 #+END_EXAMPLE
 
+And now we have a calibration!
+
 * SUMMARY
 
 =mrcal= is a generic toolkit to solve calibration and SFM-like problems.
-Functionality related to these problems is exposed as a set of Python libraries.
-Both CAHVOR and OpenCV lens models are fully supported; CAHVORE is partially
-supported. The toolkit includes:
-
-- Some libraries:
-  - =libmrcal=: A flexible solver core written in C and providing a C API that
-    solves the underlying optimization problem
-  - =mrcal=: a Python library that contains (among other things) an interface
-    to this core. Other things provided by the =mrcal= Python library:
-    - functions to read/write/manipulate camera models
-    - functions to manipulate 3D poses
-    - functions to (un)project and (un)distort data
-
-- Some tools:
-  - =mrcal-calibrate-cameras=: calibrates N cameras
-  - =mrcal-convert-lensmodel=: fits one lens model to another
-  - =mrcal-show-distortion-off-pinhole=: visualize the deviation of a specific
-    lens model from a pinhole model
-  - =mrcal-show-splined-model-surface=: visualize the surface and knots used in
-    the specification of splined models
-  - =mrcal-show-projection-uncertainty=: visualize the uncertainty of intrinsics
-    due to noise in the calibration inputs
-  - =mrcal-show-projection-diff=: visualize the difference between the
-    intrinsics of a number of models
-  - =mrcal-reproject-points=: Given two lens models and a set of points,
-    maps them from one lens model to the other
-  - =mrcal-reproject-image=: Given image(s) and lens model(s), produces a new
-    set of images that observe the same scene but with the other model. Several
-    flavors of functionality are included here, such as undistortion-to-pinhole,
-    re-rotation, and remapping to infinity.
-  - =mrcal-graft-models=: Combines the intrinsics of one cameramodel with the
-    extrinsics of another
-  - =mrcal-to-cahvor=: Converts a model stored in the native =.cameramodel= file
-    format to the =.cahvor= format. This exists for compatibility only, and does
-    not touch the data: the lens distortion may or may not use the CAHVOR
-    lens model
-  - =mrcal-to-cameramodel=: Converts a model stored in the legacy =.cahvor= file
-    format to the =.cameramodel= format. This exists for compatibility only, and
-    does not touch the data: the lens distortion may or may not use the CAHVOR
-    lens model
-  - =mrcal-show-geometry=: Shows a visual representation of the geometry
-    represented by some camera models on disk, and optionally, the
-    chessboard observations used to compute that geometry
-  - =mrcal-show-valid-intrinsics-regions=: Visualizes the region where a model's
-    intrinsics are valid
-  - =mrcal-is-within-valid-intrinsics-region=: Augments a vnlog of pixel
-    coordinates with a column indicating whether or not each point lies within
-    the valid-intrinsics region
-
-These libraries and tools make it easy to both produce calibrations in many ways
-and to manipulate them by moving stuff around, grafting various
-intrinsics/extrinsics, etc.
+Functionality related to these problems is exposed as a set of C and Python
+libraries and some commandline tools. Documentation is available at
+http://fatty.jpl.nasa.gov/mrcal/
 
 * REPOSITORY
 
