@@ -48,7 +48,7 @@ DOC_OUTPUT_DIR := doc/out
 ## mrcal-python-api-reference.html contains everything. It is large
 doc: $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
-	doc/pydoc.py -w mrcal > $@
+	doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
 .PHONY: doc
 EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 
@@ -67,14 +67,14 @@ EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 # 	mrcal/%.py \
 # 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
 # 	libmrcal.so.$(ABI_VERSION)
-# 	doc/pydoc.py -w mrcal.$* > $@
+# 	doc/pydoc.py -w mrcal.$* > $@.tmp && mv $@.tmp $@
 # $(DOC_OUTPUT_DIR)/mrcal.%.html: mrcal/%$(PY_EXT_SUFFIX)
-# 	doc/pydoc.py -w mrcal.$* > $@
+# 	doc/pydoc.py -w mrcal.$* > $@.tmp && mv $@.tmp $@
 # $(DOC_OUTPUT_DIR)/mrcal.html: \
 # 	$(wildcard mrcal/*.py) \
 # 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
 # 	libmrcal.so.$(ABI_VERSION)
-# 	doc/pydoc.py -w mrcal > $@
+# 	doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
 # .PHONY: doc-reference
 # EXTRA_CLEAN += doc/*.html
 
@@ -86,14 +86,13 @@ VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*
 $(DIST_MAN): %.1: %.pod
 	pod2man --center="mrcal: camera projection, calibration toolkit" --name=MRCAL --release="mrcal $(VERSION_FROM_CHANGELOG)" --section=1 $< $@
 %.pod: %
-	mrbuild/make-pod-from-help.pl $< > $@
-	cat footer.pod >> $@
+	mrbuild/make-pod-from-help.pl $< > $@.tmp && cat footer.pod >> $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
 # I generate a manpage. Some perl stuff to add the html preamble
 MANPAGES_HTML := $(patsubst %,$(DOC_OUTPUT_DIR)/%.html,$(DIST_BIN))
 $(DOC_OUTPUT_DIR)/%.html: %.pod
-	pod2html --noindex --css=mrcal.css --infile=$< | perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@
+	pod2html --noindex --css=mrcal.css --infile=$< | perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@.tmp && mv $@.tmp $@
 doc: $(MANPAGES_HTML)
 EXTRA_CLEAN += $(MANPAGES_HTML)
 
@@ -102,9 +101,9 @@ EXTRA_CLEAN += $(DOC_OUTPUT_DIR)
 
 ######### python stuff
 mrcal-npsp-pywrap-GENERATED.c: mrcal-genpywrap.py
-	python3 $< > $@
+	python3 $< > $@.tmp && mv $@.tmp $@
 poseutils-pywrap-GENERATED.c: poseutils-genpywrap.py
-	python3 $< > $@
+	python3 $< > $@.tmp && mv $@.tmp $@
 mrcal/_mrcal_npsp$(PY_EXT_SUFFIX): mrcal-npsp-pywrap-GENERATED.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 mrcal/_poseutils$(PY_EXT_SUFFIX): poseutils-pywrap-GENERATED.o libmrcal.so
