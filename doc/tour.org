@@ -821,9 +821,9 @@ projection operation, an /unprojection/ is ambiguous: given some
 camera-coordinate-system point $\vec p$ that projects to a pixel $\vec q$, we
 have $\vec q = \mathrm{project}\left(k \vec v\right)$ /for all/ $k$. So an
 unprojection gives you a direction, but no range. What that means in this case,
-is that we choose a range of interest when computing diffs or uncertainties. It
-only makes sense to talk about a "diff when looking at points $x$ meters away"
-or "the projection uncertainty when looking out to $x$ meters".
+is that we must choose a range of interest when computing diffs or
+uncertainties. It only makes sense to talk about a "diff when looking at points
+$x$ meters away" or "the projection uncertainty when looking out to $x$ meters".
 
 A surprising consequence of this is that while /projection/ is invariant to
 scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty

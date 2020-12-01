@@ -489,12 +489,11 @@ data, so the real-world monotonic behavior will be represented. However, near
 the edges the behavior is driven by [[#splined model regularization][regularization]], which is /not/ based on
 data, and we're very likely to hit this odd-looking non-monotonic behavior
 there. This looks bad, but it's not /really/ a problem: we get aphysical
-behavior in areas where we don't have any data to know better, and we wouldn't
-expect to have any confidence in projection in those areas anyway. But it looks
-bad, and it makes the [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]] produce
-odd-looking knot layouts and imager contours. A better regularization scheme or
-(better yet) a better representation would fix this. This will be addressed in
-time.
+behavior in areas where we don't have data, so we would expect unreliable
+projections there anyway. This makes the [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]]
+produce odd-looking knot layouts and imager contours. A better regularization
+scheme or (better yet) a better representation would fix this. This will be
+addressed in time.
 
 **** Splined models: selecting the configuration
 :PROPERTIES:

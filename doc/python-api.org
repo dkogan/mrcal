@@ -1,4 +1,4 @@
-#+TITLE: Python API
+#+TITLE: mrcal Python API
 
 All the Python functions have complete docstrings, so the =pydoc3= tool is
 effective at displaying the relevant documentation. For convenience, all the
