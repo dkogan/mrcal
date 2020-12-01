@@ -1,9 +1,10 @@
-#+title: mrcal - a toolkit for manipulating cameras, projections and geometry
+#+title: mrcal - camera calibrations and more
 
 * Intro
 mrcal is a toolkit for working with lens models, camera geometry, images,
-projections, and the various related operations such as camera calibration. This
-toolkit was originally built to produce high-accuracy calibrations demanded by
+projections, and the various related operations such as camera calibration. Any
+task that produces or consumes camera models can benefit from this toolkit. It
+was originally built to generate the high-accuracy calibrations demanded by
 long-range stereo, so it provides facilities to analyze the results and to track
 down sources of error.
 
@@ -21,6 +22,9 @@ provide realistic uncertainty estimates.
 The core functionality is exposed from the [[file:c-api.org][C API]], while higher-level routines
 are available through [[file:python-api.org][Python]]. The most common workflows are available as
 [[file:commandline-tools.org][commandline tools]], with no coding required.
+
+[[https://docs.opencv.org/master/][OpenCV]] is a big library that provides some of the same facilities, but it can't
+produce calibrations that are as good, and it can't tell you why.
 
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
 toolkit.
