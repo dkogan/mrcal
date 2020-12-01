@@ -82,6 +82,7 @@ Broadly:
 
 - Added links to external projects I use (gp,nps,np,cv2)
 
+- Using my css style and my preamble
 
 
 
@@ -583,13 +584,20 @@ class HTMLDoc(Doc):
 
     def page(self, title, contents):
         """Format an HTML page."""
+
+        with open("doc/mrcal-preamble.html", "r") as f:
+            preamble = f.read()
+
         return '''\
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <html><head><title>Python: %s</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-</head><body bgcolor="#f0f0f8">
+<link rel="stylesheet" type="text/css" href="mrcal.css"/>
+</head>
+<body bgcolor="#f0f0f8">
 %s
-</body></html>''' % (title, contents)
+%s
+</body></html>''' % (title, preamble, contents)
 
     def heading(self, title, fgcol, bgcol, extras=''):
         """Format a page heading."""
