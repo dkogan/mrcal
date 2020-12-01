@@ -827,7 +827,7 @@ $x$ meters away" or "the projection uncertainty when looking out to $x$ meters".
 
 A surprising consequence of this is that while /projection/ is invariant to
 scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty
-of this projection is /not/ invariant to this scaling:
+of this projection is /not/:
 
 [[file:figures/projection-scale-invariance.svg]]
 
@@ -870,13 +870,12 @@ use closeup calibration images, but working images from further out. We don't
 want to compute a calibration where the calibration-time uncertainty is
 wonderful, but the working-range uncertainty is poor.
 
-I should emphasize that while this is unintuitive, this effect that you might
-have a calibration that works well at one range, but very poorly at another
-range is very real. It isn't just something that you get out of some opaque
+I should emphasize that while unintuitive, this uncertainty-depends-on-range
+effect is very real. It isn't just something that you get out of some opaque
 equations, but it's observable in the field. Here're two real-world diffs of two
-calibrations computed off different observations from the same lens gathered one
-right after the other. The two models came from the same camera and lens at the
-same time, so in theory they should be identical. A diff at infinity:
+calibrations computed from different observations made by the same camera a few
+minutes apart. Everything is the same, so I should be getting identical
+calibrations. A diff at infinity:
 
 #+begin_src sh
 mrcal-show-projection-diff --unset key camera[01].cameramodel
@@ -900,10 +899,10 @@ mrcal-show-projection-diff --distance 0.5 --unset key camera[01].cameramodel
 
 Clearly the prediction that uncertainties are lowest at the chessboard range,
 and rise at infinity is borne out here by just looking at diffs, /without/
-computing uncertainty curves. I didn't have to look very hard to find
-calibrations that showed this, either. Any calibration from suboptimal
-chessboard images (see next section) shows this effect. I didn't use the
-calibrations from this document because they're too good to see this clearly.
+computing the uncertainty curves. I didn't have to look very hard to find
+calibrations that showed this. Any calibration from suboptimal chessboard images
+(see next section) shows this effect. I didn't use the calibrations from /this/
+document because they're too good to see this clearly.
 
 * Optimal choreography
 :PROPERTIES:
@@ -1308,13 +1307,12 @@ And the disparity and range images looks like this:
 Clearly this is working well.
 
 If you've used other stereo libraries previously, these rectified images may
-look odd. In mrcal I currently produce images that sample the azimuth and
-elevation angles evenly. This is nice for one-dimensional stereo-matching: I can
-shift the azimuths, and pixels in the two rectified-image rows will still line
-up. A side-effect is the the vertical expansion in the rectified image at the
-azimuth extremes. More or less we look at each row in the rectified image in
-isolation, so this is OK. Some other implementations use un-even azimuth
-spacing, which can't be good for matching performance.
+look odd. In mrcal I produce images that sample the azimuth and elevation angles
+evenly, which should minimize visual distortion inside each image row. A
+side-effect is the the vertical expansion in the rectified image at the azimuth
+extremes. More or less we look at each row in the rectified image in isolation,
+so this is OK. Some other implementations use un-even azimuth spacing, which
+can't be good for matching performance.
 
 *** ranged pixels ground-truth                                     :noexport:
 **** Buildings
