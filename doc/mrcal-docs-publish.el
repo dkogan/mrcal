@@ -21,8 +21,7 @@
                              "pre.src      {background-color: #303030; color: #e5e5e5; max-width 700px} "
                              "pre.example  {background-color: #303030; color: #e5e5e5; max-width 700px} "
 
-                             ".org-svg     {min-width: 500px; max-width: 60%;} "
-                             ".figure      {min-width: 500px; max-width: 60%;} "
+                             ".org-svg     {width: 90%; min-width: 500px; max-width: 900px;} "
 
                              ;;  Style for the nav bar at the top. Adapted from
                              ;;  o-blog.css
