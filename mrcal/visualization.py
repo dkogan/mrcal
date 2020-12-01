@@ -821,8 +821,9 @@ estimate the uncertainty of projection of the final model. At calibration time w
 
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
-an estimated uncertainty metric. See the docstring for
-mrcal.projection_uncertainty() for a detailed description of the computation.
+an estimated uncertainty metric. See
+http://fatty.jpl.nasa.gov/mrcal/uncertainty.html for a detailed description of
+the computation.
 
 This function grids the imager, and reports an uncertainty for each point on the
 grid. The resulting plot contains a heatmap of the uncertainties for each cell
@@ -1017,8 +1018,9 @@ we estimate
 
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
-an estimated uncertainty metric. See the docstring for
-mrcal.projection_uncertainty() for a detailed description of the computation.
+an estimated uncertainty metric. See
+http://fatty.jpl.nasa.gov/mrcal/uncertainty.html for a detailed description of
+the computation.
 
 This function grids the imager and a set of observation distances, and reports
 an uncertainty for each point on the grid. It also plots the calibration-time
@@ -1179,8 +1181,9 @@ we estimate
 
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
-an estimated uncertainty metric. See the docstring for
-mrcal.projection_uncertainty() for a detailed description of the computation.
+an estimated uncertainty metric. See
+http://fatty.jpl.nasa.gov/mrcal/uncertainty.html for a detailed description of
+the computation.
 
 The curve produced by this function has a characteristic shape:
 

@@ -448,10 +448,8 @@ def _projection_uncertainty_make_output( factorization, Jpacked, dq_dpief_packed
     includes the multiplication by D in the expressions below. It's sparse, but
     stored densely, so it already includes the multiplication by S
 
-
-
-    The docstring of projection_uncertainty() has the derivation that
-    concludes that
+    The uncertainty computation in
+    http://fatty.jpl.nasa.gov/mrcal/uncertainty.html concludes that
 
       Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
 
@@ -724,6 +722,9 @@ def projection_uncertainty( p_cam, model,
                             # what we're reporting
                             what = 'covariance'):
     r'''Compute the projection uncertainty of a camera-referenced point
+
+This is the interface to the uncertainty computations described in
+http://fatty.jpl.nasa.gov/mrcal/uncertainty.html
 
 SYNOPSIS
 
