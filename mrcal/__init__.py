@@ -6,9 +6,6 @@ This package doesn't contain any code itself, but all the mrcal.mmm submodules
 export their symbols here for convenience. So any function that can be called as
 mrcal.mmm.fff() can be called as mrcal.fff() instead. The latter is preferred.
 
-All Python functionality is available in this mrcal module, EXCEPT mrcal.cahvor.
-That exists purely as a compatibility layer, so we keep it separate.
-
 '''
 
 # The C wrapper is written by us in mrcal-pywrap.c
