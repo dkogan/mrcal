@@ -73,6 +73,12 @@ explicitly define them here
 - *camera model*: this is used to refer to the intrinsics and extrinsics
   together.
 
+- *uncertainty*: a measure of dispersion of some estimator. Higher uncertainty
+  implies more dispersion. Inverse of *confidence*
+
+- *confidence*: a measure of dispersion of some estimator. Higher confidence
+  implies less dispersion. Inverse of *uncertainty*
+
 ** Symbols
 *** Geometry
 - $\vec q$ is a 2-dimensional vector representing a pixel coordinate: $\left( x,y \right)$
