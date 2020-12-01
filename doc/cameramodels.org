@@ -1,0 +1,53 @@
+#+TITLE: Camera model file formats
+
+Reading/writing camera models is done in Python with the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]]
+class. This class supports two different file formats:
+
+- =.cameramodel=: the preferred format. This is a plain text representation of a
+  Python =dict=. The pose is represented internally as =rt_fromref=: an =rt=
+  transformation /from/ the reference coordinate system /to/ the coordinate
+  system of this camera. That is the /internal/ representation: the class
+  provides methods to get the transformation in any form.
+
+- =.cahvor=: the alternative format available for compatibility with existing
+  tools. If you don't need to interoperate with tools that require this format,
+  there's little reason to use it. This format cannot store [[#Splined stereographic lens model][splined models]] or
+  the auxillary data required for the [[file:uncertainty.org][uncertainty computations]].
+
+The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
+based on the filename. The file format is just a way to store data: both the
+CAHVOR and OpenCV lens models can be stored in either file format. The
+[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-to-cameramodel.html][=mrcal-to-cameramodel=]] tools can be used to convert
+between the two file formats.
+
+The class (and its representation on disk) contains:
+
+- The lens parameters
+- The pose of the camera in space
+- The =optimization_inputs=: the data used to compute the model initially. Used
+  for the uncertainty computations
+
+See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details. A trivial example to
+
+- read two models from disk
+- recombine into a joint model that uses the lens parameters from one model with
+  geometry from the other
+- write to disk
+
+#+begin_src python
+model_for_intrinsics = mrcal.cameramodel('model0.cameramodel')
+model_for_extrinsics = mrcal.cameramodel('model1.cameramodel')
+
+model_joint = mrcal.cameramodel( model_for_intrinsics )
+
+extrinsics = model_for_extrinsics.extrinsics_rt_fromref()
+model_joint.extrinsics_rt_fromref(extrinsics)
+
+model_joint.write('model-joint.cameramodel')
+#+end_src
+
+This is the basic operation of the [[file:mrcal-graft-models.html][=mrcal-graft-models= tool]].
+
+Currently there's no support for reading/writing these files in the [[file:c-api.org][C API]]. I
+will write it when I need it or when somebody bugs me about it, whichever comes
+first.
