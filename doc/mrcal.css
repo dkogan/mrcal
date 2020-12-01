@@ -1,0 +1,26 @@
+body         {background-color: burlywood;}
+pre          {border: 1px solid black; box-shadow: 3px 3px 3px #606060;}
+pre.src      {background-color: #303030; color: #e5e5e5; max-width 700px}
+pre.example  {background-color: #303030; color: #e5e5e5; max-width 700px}
+.org-svg     {width: 90%; min-width: 500px; max-width: 900px;}
+
+/* Style for the nav bar at the top. Adapted from */
+/* o-blog.css */
+.supernav_title {
+    font-size: 30px;
+    font-weight: bolder;
+}
+.supernav_list {
+    vertical-align: middle;
+    top: 0;
+    list-style: none outside none;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.supernav_list li {
+    display: inline-block;
+}
+.supernav_list li + li:before {
+    content: " / ";
+    padding: 0 10px;
+}

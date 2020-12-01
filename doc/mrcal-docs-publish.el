@@ -15,37 +15,10 @@
          :html-postamble nil
          :with-author "Dima Kogan"
          :with-email  "kogan@jpl.nasa.gov"
-         :html-head ,(concat "<style>"
-                             "body         {background-color: burlywood;} "
-                             "pre          {border: #303030; box-shadow: 3px 3px 3px #606060;} "
-                             "pre.src      {background-color: #303030; color: #e5e5e5; max-width 700px} "
-                             "pre.example  {background-color: #303030; color: #e5e5e5; max-width 700px} "
-
-                             ".org-svg     {width: 90%; min-width: 500px; max-width: 900px;} "
-
-                             ;;  Style for the nav bar at the top. Adapted from
-                             ;;  o-blog.css
-                             ".supernav_title { "
-                             "    font-size: 30px; "
-                             "    font-weight: bolder; "
-                             "} "
-                             ".supernav_list { "
-                             "    vertical-align: middle; "
-                             "    top: 0; "
-                             "    list-style: none outside none; "
-                             "    white-space: nowrap; "
-                             "    overflow: hidden; "
-                             "} "
-                             ".supernav_list li { "
-                             "    display: inline-block; "
-                             "} "
-                             ".supernav_list li + li:before { "
-                             "    content: \" / \"; "
-                             "    padding: 0 10px; "
-                             "} "
-
-                             "</style>")
-
+         :html-head-include-default-style nil
+         :html-head ,(concat
+                      "<link rel=\"stylesheet\" type=\"text/css\" href=\"org.css\"/>"
+                      "<link rel=\"stylesheet\" type=\"text/css\" href=\"mrcal.css\"/>")
          :html-preamble ,(concat
                           "<ul class=\"supernav_list\"> "
                           "<li class=\"supernav_title\">mrcal</li> "
@@ -67,6 +40,12 @@
                                 (multlinewidth "85%")
                                 (tagindent ".8em")
                                 (tagside "right")))
+        ("css"
+         :base-directory "."
+         :base-extension "css"
+         :publishing-directory "./out"
+         :publishing-function org-publish-attachment)
+
         ("images"
          :base-directory "~/jpl/mrcaldocs/"
          :base-extension "jpg\\|png\\|svg"
@@ -74,4 +53,5 @@
          :publishing-function org-publish-attachment)
 
         ("website"
-         :components ("orgfiles" "images"))))
+         :components ("orgfiles" "css" "images"
+                      ))))
