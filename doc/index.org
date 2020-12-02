@@ -25,8 +25,8 @@ its [[file:formulation.org][formulation]] are useful to know to be able to inter
 
 A camera lens can be represented by any of a number of [[file:lensmodels.org][lens models]].
 
-A [[file:how-to-calibrate.org][how-to-calibrate-some-cameras]] page describes details about how to achieve this
-very common task.
+A [[file:how-to-calibrate.org][how-to-calibrate-some-cameras]] page describes details about how to accomplish
+this very common task.
 
 After running a calibration, the camera models are written to [[file:cameramodels.org][files on disk]].
 
@@ -38,7 +38,7 @@ If we need to do something more than what the pre-made tools can do, there're
 two sets programmatic interfaces available:
 
 - [[file:c-api.org][The C API to provide a growing set of core functionality]]
-- [[file:python-api.org][The Python API to do everything else]]
+- [[file:python-api.org][The Python API to do that and a whole lot more]]
 
 * Build and/or install
 yyy
