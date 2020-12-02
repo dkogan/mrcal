@@ -145,12 +145,13 @@ rotation would be implemented equivalently: $\vec b^T = \vec a^T R^T$. The
 handle this transparently.
 
 A similar issue is that numpy follows the linear algebra convention of indexing
-with =(index_column, index_row)= and not the other way around. This runs against
-the /other/ convention of referring to image dimensions as =(width, height)= and
-referring to pixels as =(x,y)=. mrcal places the =x= coordinate first (as in the
-latter) whenever possible, but when interacting directly with numpy, it must
-place the =y= coordinate first. The choice being made is very clearly
-documented, so when in doubt, do read the docs.
+array with =(index_column, index_row)= and representing array sizes with
+=(height, width)=. This runs against the /other/ convention of referring to
+pixel coordinates as =(x,y)= and image dimensions as =(width, height)=. mrcal
+places the =x= coordinate first (as in the latter) whenever possible, but when
+interacting directly with numpy, it must place the =y= coordinate first. The
+choice being made is very clearly documented, so when in doubt, pay attantion to
+the docs.
 
 When computing gradients mrcal places the dependent variables in the leading
 dimensions, and the independent variables in the trailing dimensions. So in the
