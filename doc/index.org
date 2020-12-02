@@ -8,30 +8,9 @@ was originally built to generate the high-accuracy calibrations demanded by
 long-range stereo, so it provides facilities to analyze the results and to track
 down sources of error.
 
-mrcal provides a routine to compute the "[[file:differencing.org][difference]]" between two models, which
-can be a fundamental piece of a wide number of analyses, for instance to measure
-a lens's response to temperature cycles.
-
-mrcal provides estimates of [[file:uncertainty.org][projection uncertainty]], which can be used to gauge
-calibration quality, and to compute the uncertainty of any data products that
-use the lens model.
-
-A rich, [[file:lensmodels.org::#Splined stereographic lens model][splined lens model]] is available to fit any projection function and to
-provide realistic uncertainty estimates.
-
-The core functionality is exposed from the [[file:c-api.org][C API]], while higher-level routines
-are available through [[file:python-api.org][Python]]. The most common workflows are available as
-[[file:commandline-tools.org][commandline tools]], with no coding required.
-
-[[https://docs.opencv.org/master/][OpenCV]] is a big library that provides some of the same facilities, but it can't
-produce calibrations that are as good, and it can't tell you why.
-
-The mrcal toolkit has APIs in both C and Python. Everything that could
-potentially be slow is written in C, but the higher-level logic is mostly in
-Python. The Python-wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library, which
-makes it fairly simple to build the Python interfaces in a standard way, so over
-time Python-only functionality will be translated to C, as needed (with
-backwards-compatible Python wrappers replacing the Python implementations).
+A common library people use to solve similar problems is [[https://docs.opencv.org/master/][OpenCV]]. This library
+does much more that mrcal does, but it can't produce calibrations that are as
+good, and it can't tell you why.
 
 * Documentation index
 
