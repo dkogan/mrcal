@@ -607,6 +607,11 @@ bool mrcal_knots_for_splined_models( double* ux, double* uy,
                                      mrcal_lensmodel_t lensmodel);
 #+end_src
 
+* Camera models on disk
+Currently there's no support for reading/writing [[file:cameramodels.org][=.cameramodel=]] in the C API.
+This is already partially implemented, and I will finish it when I need it or
+when somebody bugs me about it, whichever comes first.
+
 * Projections
 The fundamental functions for projection and unprojection are defined here.
 =mrcal_project()= is the main routine that implements the "forward" direction,
