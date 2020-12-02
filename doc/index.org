@@ -65,6 +65,26 @@ This is all proprietary for now.
   splined surface would have "perfect" regularization, and that was breaking
   things (crazy focal lengths would be picked). But now that I'm locking down
   the intrinsics core when optimizing splined models, this isn't a problem anymore
+
+#+begin_example
+Notes from sources:
+
+splined regularization should penalize dqx/dvx<0. It should be >0 everywhere.
+The splined representation COULD flip that around, however, and I should fight
+that. This would make the function non-reversible uniquely, and unproject()
+could have trouble
+
+  q = (u + deltau(u)) * f + c
+  dqx/dpx ~ (d(ux + deltaux(u))/dpx) =
+          = dux/dpx + ddeltaux(u)/du du/dpx
+  u = xy / (mag_p + z) * 2, so
+  dqx/dpx ~ ((mag_p + z) - x^2/mag_p)/(mag_p + z)^2 +
+            ddeltaux(u)/du ((mag_p + z) I - outer(xy,xy)/mag_p)/(mag_p + z)^2
+  I care about the sign only, so
+  dqx/dpx ~ (mag_p + z) - x^2/mag_p +
+#+end_example
+
+
 - SFM
 - integrate deltapose-lite
 - can I quantify the heteroscedasticity and thus the model-nonfitting and the
@@ -97,3 +117,43 @@ Somewhere talk about these:
 tour: stereo shouldn't use deltapose, but a procrustes fit. Much better demo
 
 license statements for things I'm using
+
+somewhere should talk about how using reprojection errors for quality evaluation
+is a bad idea
+
+* Copyrights                                                       :noexport:
+doc.pydoc.py:  Agreement and PSF's notice of copyright, i.e., "Copyright (c) 2001,
+
+
+../mrbuild/Makefile.common.footer:# Copyright 2016-2019 California Institute of Technology
+../mrbuild/Makefile.common.header:# Copyright 2016-2019 California Institute of Technology
+
+# Released under an MIT-style license. Modify and distribute as you like:
+#
+# Copyright 2016-2019 California Institute of Technology
+
+
+mrcal.c: opencv projection based on their code
+//
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Third party copyrights are property of their respective owners.
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+
+
+mrcal/poseutils.py
+quat_from_R(): 
+Copyright (c) 2001-2002 Enthought, Inc.  2003-2019, SciPy Developers.
+
+poseutils.c:
+// The implementations of mrcal_r_from_R and mrcal_R_from_r are based on opencv.
+// The sources have been heavily modified, but the opencv logic remains.
+//
+// from opencv-4.1.2+dfsg/modules/calib3d/src/calibration.cpp
+//
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Third party copyrights are property of their respective owners.
