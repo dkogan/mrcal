@@ -685,7 +685,7 @@ the * would move quite a bit due to random observation noise.
 Let's run the ramdomized trials, and let's plot where the projected * ends up
 for each trial. Let's plot the empirical 1-sigma ellipse computed from these
 samples, and let's also plot the 1-sigma ellipse predicted by the
-=mrcal.projection_uncertainty()= routine. This routine is analytical, and does
+[[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] routine. This routine is analytical, and does
 /not/ do any random sampling. It is thus much faster than sampling would be.
 
 [[file:figures/simulated-uncertainty-opencv4--distribution-onepoint.svg]]
@@ -1220,9 +1220,9 @@ If you've used other stereo libraries previously, these rectified images may
 look odd. In mrcal I produce images that sample the azimuth and elevation angles
 evenly, which should minimize visual distortion inside each image row. A
 side-effect is the the vertical expansion in the rectified image at the azimuth
-extremes. More or less we look at each row in the rectified image in isolation,
-so this is OK. Some other implementations use un-even azimuth spacing, which
-can't be good for matching performance.
+extremes. Stereo matching works primarily by correlating the rows independently,
+so this is a good trade-off. Some other implementations use un-even azimuth
+spacing, which can't be good for matching performance.
 
 *** ranged pixels ground-truth                                     :noexport:
 **** Buildings
