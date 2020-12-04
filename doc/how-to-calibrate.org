@@ -1,4 +1,5 @@
 #+TITLE: How to run a calibration
+#+OPTIONS: toc:t
 
 Calibrating cameras is a very common task mrcal is expected to solve, and this
 is made available with the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool. A high-level demo is

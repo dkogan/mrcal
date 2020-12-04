@@ -1,4 +1,5 @@
 #+TITLE: Camera model file formats
+#+OPTIONS: toc:t
 
 Reading/writing camera models is done in Python with the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]]
 class. This class supports two different file formats:

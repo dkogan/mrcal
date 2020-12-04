@@ -1,5 +1,4 @@
 #+title: mrcal - camera calibrations and more
-#+OPTIONS: toc:nil
 
 mrcal is a toolkit for working with lens models, camera geometry, images,
 projections, and the various related operations such as camera calibration. Any

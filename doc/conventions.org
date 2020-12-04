@@ -1,4 +1,5 @@
 #+TITLE: mrcal conventions
+#+OPTIONS: toc:t
 * Terminology
 Some terms in the documentation and sources can have ambiguous meanings, so I
 explicitly define them here

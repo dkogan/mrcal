@@ -10,7 +10,7 @@
          :publishing-function org-html-publish-to-html
          :completion-function dima-org-export-build-docs
          :section-numbers nil
-         :with-toc t
+         :with-toc nil
          :with-sub-superscript nil
          :html-postamble nil
          :with-author "Dima Kogan"

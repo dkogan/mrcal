@@ -1,4 +1,5 @@
 #+TITLE: Copyrights and licenses
+#+OPTIONS: toc:t
 mrcal is Copyright 2017-2020 California Institute of Technology. No distribution
 outside of JPL is currently allowed.
 

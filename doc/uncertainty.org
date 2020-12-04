@@ -1,4 +1,5 @@
 #+TITLE: Projection uncertainty
+#+OPTIONS: toc:t
 
 After a calibration has been computed, it is important to get a sense of how
 good the calibration is. Without doing that, we have no idea of the precision of

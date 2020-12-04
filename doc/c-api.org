@@ -1,4 +1,5 @@
 #+TITLE: mrcal C API
+#+OPTIONS: toc:t
 
 The C API consists of 3 headers:
 - [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures

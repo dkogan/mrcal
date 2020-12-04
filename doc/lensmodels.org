@@ -1,4 +1,5 @@
 #+TITLE: mrcal lens models
+#+OPTIONS: toc:t
 mrcal supports a wide range of lens models in both C and in Python. The
 representation details and projection behaviors are described here.
 

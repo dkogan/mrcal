@@ -1,4 +1,5 @@
 #+title: A tour of mrcal
+#+OPTIONS: toc:t
 
 mrcal is a general-purpose library that can do many things. The best way to
 convey a sense of the capabilities is to demonstrate some real-world usage

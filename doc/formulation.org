@@ -1,4 +1,5 @@
 #+TITLE: Optimization problem formulation
+#+OPTIONS: toc:t
 
 mrcal contains a solver used to compute the lens models and/or geometry in any
 given problem. This is accessible via either
