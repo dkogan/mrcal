@@ -15,7 +15,7 @@ except:
     print(f"Usage: {sys.argv[0]} model image yaw_deg what", file=sys.stderr)
     sys.exit(1)
 
-# I wan a pinhole model to cover the middle 1/3rd of my pixels
+# I want a pinhole model to cover the middle 1/3rd of my pixels
 W,H = model.imagersize()
 fit_points = \
     np.array((( W/3.,    H/3.),
