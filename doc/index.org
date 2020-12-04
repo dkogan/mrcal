@@ -47,9 +47,12 @@ yyy
 Dima Kogan =kogan@jpl.nasa.gov=
 
 * License and copyright
-Copyright 2017-2020 California Institute of Technology
+mrcal itself is Copyright 2017-2020 California Institute of Technology.
 
 This is all proprietary for now.
+
+There's some included external code in the sources, with their own [[file:copyrights.org][copyrights
+and licenses]].
 
 * future work                                                      :noexport:
 - measure observed_pixel_uncertainty
