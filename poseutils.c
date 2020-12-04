@@ -321,7 +321,7 @@ void mrcal_transform_point_rt_noncontiguous( // output
         mrcal_identity_R_noncontiguous(&P2(J_rt,0,3), J_rt_stride0, J_rt_stride1);
 }
 
-// The implementations of mrcal_r_from_R and mrcal_R_from_r are based on opencv.
+// The implementation of mrcal_R_from_r is based on opencv.
 // The sources have been heavily modified, but the opencv logic remains.
 //
 // from opencv-4.1.2+dfsg/modules/calib3d/src/calibration.cpp
