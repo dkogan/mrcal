@@ -134,9 +134,32 @@ RMS reprojection error: 0.8 pixels
 Worst residual (by measurement): 7.2 pixels
 Noutliers: 3 out of 18600 total points: 0.0% of the data
 calobject_warp = [-0.00103983  0.00052493]
+
+Wrote ./camera-0.cameramodel
 #+end_example
 
-The resulting model is available [[file:data/board/opencv8.cameramodel][here]].
+The resulting model is available [[file:data/board/opencv8.cameramodel][here]]. This is a [[file:cameramodels.org][mrcal =.cameramodel= file]]
+containing at least the lens parameters and geometry. For [[file:uncertainty.org][uncertainty
+quantification]] and potential after-the-fact analysis, the /full/ optimization
+inputs are included in this file. Reading and re-optimizing those inputs is
+trivial:
+
+#+begin_src python
+import mrcal
+
+m = mrcal.cameramodel('./camera-0.cameramodel')
+optimization_inputs = m.optimization_inputs()
+mrcal.optimize(**optimization_inputs)
+model_reoptimized = \
+  mrcal.cameramodel( optimization_inputs = m.optimization_inputs(), 
+                     icam_intrinsics     = m.icam_intrinsics() )
+#+end_src
+
+Here we didn't make any changes to the inputs, and we should already have an
+optimal solution, so the re-optimized model should be the same as the initial
+one. But we can tweak optimization problem before reoptimizing, and this would
+give us an nice way to observe the effects of those changes. We can add input
+noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or anything else.
 
 I'm specifying the initial very rough estimate of the focal length (in pixels),
 the geometry of my chessboard (10x10 board with 0.077m spacing between corners),
@@ -280,7 +303,7 @@ Let's fix it.
 
 * Monocular calibration with a splined stereographic model
 
-Usable uncertainty quantification and accurate projections are major goals of
+Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
 mrcal. To achive these, mrcal supports /splined/ models. At this time there's
 only a single representation supported: a /splined stereographic/ model. More
 will be added with time.
