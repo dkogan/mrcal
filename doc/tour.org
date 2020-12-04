@@ -1197,97 +1197,7 @@ for what (splined opencv8) { PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_
 #+end_src
 
 I then use the mrcal APIs to compute rectification maps, rectify the images,
-compute disparities and convert them to ranges. This is done with [[file:stereo.py][=stereo.py=]]:
-
-#+begin_src python
-#!/usr/bin/python3
-import sys
-import mrcal
-import cv2
-import numpy as np
-
-# Read the models and images from the commandline arguments
-try:
-    models = [ mrcal.cameramodel(sys.argv[1]) if sys.argv[1] != '-' else None,
-               mrcal.cameramodel(sys.argv[2]) if sys.argv[2] != '-' else None, ]
-    images = [ cv2.imread(sys.argv[i]) \
-               for i in (3,4) ]
-    kind = sys.argv[5]
-except:
-    print(f"Usage: {sys.argv[0]} model0 model1 image0 image1 kind", file=sys.stderr)
-    sys.exit(1)
-
-if models[0] is None or models[1] is None:
-    images_rectified = images
-else:
-
-    # Annotate the image with its valid-intrinsics region. This will end up in the
-    # rectified images, and make it clear where successful matching shouldn't be
-    # expected
-    for i in range(2):
-        try:
-            mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
-        except:
-            pass
-
-    # Generate the rectification maps
-    if kind != "narrow":
-        azel_kwargs = dict(az_fov_deg = 145.,
-                           el_fov_deg = 135.,
-                           el0_deg    = 5 )
-    else:
-        azel_kwargs = dict(az_fov_deg = 80.,
-                           el_fov_deg = 80.,
-                           el0_deg    = 0 )
-    rectification_maps, cookie = \
-        mrcal.stereo_rectify_prepare(models, **azel_kwargs)
-
-    # Display the geometry of the two cameras in the stereo pair, and of the
-    # rectified system
-    Rt_cam0_stereo = cookie['Rt_cam0_stereo']
-    Rt_cam0_ref    = models[0].extrinsics_Rt_fromref()
-    Rt_stereo_ref  = mrcal.compose_Rt( mrcal.invert_Rt(Rt_cam0_stereo),
-                                      Rt_cam0_ref )
-    rt_stereo_ref  = mrcal.rt_from_Rt(Rt_stereo_ref)
-    mrcal.show_geometry( models + [ rt_stereo_ref ],
-                         ( "camera0", "camera1", "stereo" ),
-                         show_calobjects = False,
-                         _set            = 'xyplane at -0.5',
-                         hardcopy        = f'/tmp/stereo-geometry-{kind}.svg')
-
-    # Generate the rectified images, and write to disk
-    images_rectified = [mrcal.transform_image(images[i], rectification_maps[i]) for i in range(2)]
-    cv2.imwrite(f'/tmp/rectified0-{kind}.jpg', images_rectified[0])
-    cv2.imwrite(f'/tmp/rectified1-{kind}.jpg', images_rectified[1])
-
-# Perform stereo-matching with OpenCV to produce a disparity map, which we write
-# to disk
-block_size = 5
-max_disp   = 400
-max_disp = 16*round(max_disp/16) # round to nearest multiple of 16
-stereo = \
-    cv2.StereoSGBM_create(
-                          minDisparity      = 0,
-                          numDisparities    = max_disp,
-                          blockSize         = block_size,
-                          P1                = 8 *3*block_size*block_size,
-                          P2                = 32*3*block_size*block_size,
-                          uniquenessRatio   = 5,
-                          disp12MaxDiff     = 1,
-                          speckleWindowSize = 200,
-                          speckleRange      = 2 )
-disparity = stereo.compute(*images_rectified)
-cv2.imwrite(f'/tmp/disparity-{kind}.png',
-            mrcal.apply_color_map(disparity,
-                                  0, max_disp*16.))
-
-if models[0] is not None and models[1] is not None:
-    # Convert the disparity image to ranges, and write to disk
-    r = mrcal.stereo_range( disparity_pixels = disparity.astype(np.float32) / 16.,
-                            ,**cookie )
-    cv2.imwrite(f'/tmp/range-{kind}.png', mrcal.apply_color_map(r, 5, 1000))
-#+end_src
-
+compute disparities and convert them to ranges. This is done with [[file:stereo.py][=stereo.py=]].
 We run it like this:
 
 #+begin_src sh
@@ -1557,58 +1467,8 @@ each image we need to construct
   left in this example)
 - The image of the scene that such a model would have observed
 
-This requires writing a little bit of code, but mrcal makes it easy.
-[[file:narrow-section.py][=narrow-section.py=]]:
-
-#+begin_src python
-#!/usr/bin/python3
-import sys
-import mrcal
-import cv2
-import numpy as np
-
-# Read the model and image from the commandline arguments
-try:
-    model   = mrcal.cameramodel(sys.argv[1])
-    image   = cv2.imread(sys.argv[2])
-    yaw_deg = float(sys.argv[3])
-    what    = sys.argv[4]
-
-except:
-    print(f"Usage: {sys.argv[0]} model image yaw_deg what", file=sys.stderr)
-    sys.exit(1)
-
-# I want a pinhole model to cover the middle 1/3rd of my pixels
-W,H = model.imagersize()
-fit_points = \
-    np.array((( W/3.,    H/3.),
-              ( W*2./3., H/3.),
-              ( W/3.,    H*2./3.),
-              ( W*2./3., H*2./3.)))
-
-model_pinhole = \
-    mrcal.pinhole_model_for_reprojection(model,
-                                         fit         = fit_points,
-                                         scale_image = 0.5)
-
-# yaw transformation: pure rotation around the y axis
-rt_yaw = np.array((0., yaw_deg*np.pi/180., 0,  0,0,0))
-
-# apply the extra yaw transformation to my extrinsics
-model_pinhole.extrinsics_rt_toref( \
-    mrcal.compose_rt(model_pinhole.extrinsics_rt_toref(),
-                     rt_yaw) )
-
-mapxy = mrcal.image_transformation_map(model, model_pinhole,
-                                       use_rotation = True)
-
-image_transformed = mrcal.transform_image(image, mapxy)
-
-cv2.imwrite(f'/tmp/narrow-{what}.jpg', image_transformed)
-model_pinhole.write(f'/tmp/pinhole-narrow-yawed-{what}.cameramodel')
-#+end_src
-
-And let's run that for each of my images:
+This requires writing a little bit of code, but mrcal makes it easy:
+[[file:narrow-section.py][=narrow-section.py=]]. Let's run that for each of my images:
 
 #+begin_src sh
 python3 narrow-section.py data/figueroa-overpass-looking-S/splined-0.cameramodel data/figueroa-overpass-looking-S/0.jpg -45 left
