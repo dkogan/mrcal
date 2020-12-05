@@ -433,6 +433,24 @@ typedef struct
     bool do_optimize_calobject_warp         : 1;
 } mrcal_problem_selections_t;
 
+// Constants used in a mrcal optimization. This is similar to
+// mrcal_problem_selections_t, but contains numerical values rather than just
+// bits
+typedef struct
+{
+    // The minimum distance of an observed discrete point from its observing
+    // camera. Any observation of a point below this range will be penalized to
+    // encourage the optimizer to move the point further away from the camera
+    double  point_min_range;
+
+
+    // The maximum distance of an observed discrete point from its observing
+    // camera. Any observation of a point abive this range will be penalized to
+    // encourage the optimizer to move the point closer to the camera
+    double  point_max_range;
+} mrcal_problem_constants_t;
+
+
 
 // Return the number of parameters needed in optimizing the given lens model
 //
@@ -511,22 +529,6 @@ bool mrcal_corresponding_icam_extrinsics(// out
                                          const mrcal_observation_board_t* observations_board,
                                          int Nobservations_point,
                                          const mrcal_observation_point_t* observations_point);
-
-// Constants used in a mrcal optimization
-typedef struct
-{
-    // The minimum distance of an observed discrete point from its observing
-    // camera. Any observation of a point below this range will be penalized to
-    // encourage the optimizer to move the point further away from the camera
-    double  point_min_range;
-
-
-    // The maximum distance of an observed discrete point from its observing
-    // camera. Any observation of a point abive this range will be penalized to
-    // encourage the optimizer to move the point closer to the camera
-    double  point_max_range;
-} mrcal_problem_constants_t;
-
 
 // An X-macro-generated mrcal_stats_t. This structure is returned by the
 // optimizer, and contains some statistics about the optimization
