@@ -1,34 +1,55 @@
-#+TITLE: Camera model file formats
+#+TITLE: Camera model representation in memory and on disk
 #+OPTIONS: toc:t
 
 Reading/writing camera models is done in Python with the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]]
-class. This class supports two different file formats:
+class. The class and its representation on disk describe /one/ camera; a
+calibrated set of cameras is represented by multiple instances. Each instance
+always contains
 
-- =.cameramodel=: the preferred format. This is a plain text representation of a
-  Python =dict=. The pose is represented internally as =rt_fromref=: an =rt=
-  transformation /from/ the reference coordinate system /to/ the coordinate
-  system of this camera. That is the /internal/ representation: the class
-  provides methods to get the transformation in any form.
+- The =intrinsics=: lens parameters describing one of the [[file:lensmodels.org][lens models]]
+- The =extrinsics=: a pose of the camera in space. This pose is represented as a
+  transformation between some common /reference/ coordinate system and the
+  camera coordinate system. The specific meaning of the reference coordinate
+  system is arbitrary, but all the cameras in a calibrated set must be defined
+  in respect to it.
 
-- =.cahvor=: the alternative format available for compatibility with existing
-  tools. If you don't need to interoperate with tools that require this format,
-  there's little reason to use it. This format cannot store [[file:lensmodels.org::#Splined stereographic lens model][splined models]] or
-  the auxillary data required for the [[file:uncertainty.org][uncertainty computations]].
+Each instance also /may/ contain
+
+- The =optimization_inputs=: all the data used to compute the model initially.
+  Used for the [[file:uncertainty.org][uncertainty computations]] and any after-the-fact analysis.
+- The =valid_intrinsics_region=: a contour in the imager where the projection
+  behavior is "reliable". This is usually derived from the uncertainty plot, and
+  used as a shorthand. It isn't as informative as the uncertainty plot, but such
+  a valid-intrinsics contour is often convenient to have and to visualize.
+
+* File formats
+The =mrcal.cameramodel= class supports reading and writing two different file
+formats:
+
+- =.cameramodel=: the mrcal-native format. This is a plain text representation
+  of a Python =dict= describing all the fields. This is the preferred format.
+
+- =.cahvor=: the legacy format available for compatibility with existing tools.
+  If you don't need to interoperate with tools that require this format, there's
+  little reason to use it. This format cannot store [[file:lensmodels.org::#Splined stereographic lens model][splined models]] or
+  =optimization_inputs=, so it cannot be used for the [[file:uncertainty.org][uncertainty computations]].
+
+Note that both file formats can describe lenses using the [[file:lensmodels.org::#cahvor lens model][=LENSMODEL_CAHVOR=]]
+model.
 
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
-based on the filename. The file format is just a way to store data: both the
-CAHVOR and OpenCV lens models can be stored in either file format. The
+based on the filename being read/written. If the filename is unknown when
+reading (if we're reading a pipe, say) then both formats will be tried. If the
+filename is unknown when writing, the =.cameramodel= format will be used. The
 [[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-to-cameramodel.html][=mrcal-to-cameramodel=]] tools can be used to convert
 between the two file formats.
 
-The class (and its representation on disk) contains:
+* Sample usages
+See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details.
 
-- The lens parameters
-- The pose of the camera in space
-- The =optimization_inputs=: the data used to compute the model initially. Used
-  for the uncertainty computations
+** Grafting two models
 
-See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details. A trivial example to
+A trivial example to
 
 - read two models from disk
 - recombine into a joint model that uses the lens parameters from one model with
@@ -36,6 +57,8 @@ See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] 
 - write to disk
 
 #+begin_src python
+import mrcal
+
 model_for_intrinsics = mrcal.cameramodel('model0.cameramodel')
 model_for_extrinsics = mrcal.cameramodel('model1.cameramodel')
 
@@ -49,6 +72,28 @@ model_joint.write('model-joint.cameramodel')
 
 This is the basic operation of the [[file:mrcal-graft-models.html][=mrcal-graft-models= tool]].
 
-Currently there's no support for reading/writing these files in the [[file:c-api.org][C API]]. I
-will write it when I need it or when somebody bugs me about it, whichever comes
-first.
+** Re-optimizing a model
+To re-optimize a model from its =optimization_inputs=:
+
+#+begin_src python
+import mrcal
+
+m = mrcal.cameramodel('camera.cameramodel')
+optimization_inputs = m.optimization_inputs()
+mrcal.optimize(**optimization_inputs)
+model_reoptimized = \
+  mrcal.cameramodel( optimization_inputs = m.optimization_inputs(), 
+                     icam_intrinsics     = m.icam_intrinsics() )
+#+end_src
+
+Here we asked mrcal to re-optimize the data used to compute the given model
+originally. We didn't make any changes to the inputs, and we should already have
+an optimal solution, so this re-optimized model would be the same as the initial
+one. But we could tweak optimization problem before reoptimizing, and this would
+give us an nice way to observe the effects of those changes. We can add input
+noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or anything else.
+
+* C interface
+Currently there's no support for reading/writing camera models from the [[file:c-api.org][C API]]. I
+will write this when I need it or when somebody bugs me about it, whichever
+comes first.

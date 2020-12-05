@@ -81,6 +81,9 @@ in representing real-world lenses, /and/ they're compatible with many other
 tools.
 
 ** =LENSMODEL_CAHVOR=
+:PROPERTIES:
+:CUSTOM_ID: cahvor lens model
+:END:
 mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools used
 at JPL. Primarily this support exists for compatibility. The CAHVOR model has 5
 "distortion" parameters in addition to the 4 core parameters. If you want to use
