@@ -31,4 +31,4 @@ Dima Kogan (=Dmitriy.Kogan@jpl.nasa.gov=)
 
 All of this is currently proprietary. Do not distribute outside of JPL
 
-Copyright 2017-2018 California Institute of Technology
+Copyright 2017-2020 California Institute of Technology
