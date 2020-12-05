@@ -1,5 +1,4 @@
 #+TITLE: Camera model representation in memory and on disk
-#+OPTIONS: toc:t
 
 Reading/writing camera models is done in Python with the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]]
 class. The class and its representation on disk describe /one/ camera; a
