@@ -99,8 +99,8 @@ typedef struct
 // Return an array of strings listing all the available lens models
 //
 // These are all "unconfigured" strings that use "..." placeholders for any
-// configuration values. Each return string is a \0-terminated const char*. The
-// end of the list is signified by a NULL string
+// configuration values. Each returned string is a \0-terminated const char*. The
+// end of the list is signified by a NULL pointer
 const char* const* mrcal_supported_lensmodel_names( void ); // NULL-terminated array of char* strings
 
 
