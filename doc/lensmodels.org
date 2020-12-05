@@ -194,7 +194,7 @@ the recommended sequence for optimizing splined stereographic models is:
 2. Refine that solution with a full =LENSMODEL_SPLINED_STEREOGRAPHIC_...= model,
    using the core we just computed, and asking the optimizer to lock down those
    core values. This can be done by setting the =do_optimize_intrinsics_core=
-   bit to 0 in the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_details_t=]] structure passed to
+   bit to 0 in the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure passed to
    [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or passing =do_optimize_intrinsics_core=False= to
    [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python). This is what the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]
    tool does.

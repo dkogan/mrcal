@@ -1446,7 +1446,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
 
 
-        mrcal_problem_details_t problem_details =
+        mrcal_problem_selections_t problem_selections =
             { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core,
               .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions,
               .do_optimize_extrinsics            = do_optimize_extrinsics,
@@ -1466,17 +1466,17 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                                    Ncameras_intrinsics, Ncameras_extrinsics,
                                                    Nframes,
                                                    Npoints, Npoints_fixed,
-                                                   problem_details,
+                                                   problem_selections,
                                                    mrcal_lensmodel_type);
 
-        int Nintrinsics_state = mrcal_num_intrinsics_optimization_params(problem_details, mrcal_lensmodel_type);
+        int Nintrinsics_state = mrcal_num_intrinsics_optimization_params(problem_selections, mrcal_lensmodel_type);
 
         // input
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                                       Nframes, Npoints, Npoints_fixed, Nobservations_board,
-                                      problem_details, mrcal_lensmodel_type);
+                                      problem_selections, mrcal_lensmodel_type);
 
         // both optimize() and optimizer_callback() use this
         p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
@@ -1520,7 +1520,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                 mrcal_lensmodel_type,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,
-                                problem_details, &problem_constants,
+                                problem_selections, &problem_constants,
 
                                 calibration_object_spacing,
                                 calibration_object_width_n,
@@ -1586,7 +1586,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                                    Npoints, Npoints_fixed,
                                                    c_observations_board,
                                                    c_observations_point,
-                                                   problem_details,
+                                                   problem_selections,
                                                    mrcal_lensmodel_type);
             cholmod_sparse Jt = {
                 .nrow   = Nstate,
@@ -1637,7 +1637,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          mrcal_lensmodel_type,
                                          observed_pixel_uncertainty,
                                          c_imagersizes,
-                                         problem_details, &problem_constants,
+                                         problem_selections, &problem_constants,
 
                                          calibration_object_spacing,
                                          calibration_object_width_n,
@@ -1748,7 +1748,7 @@ typedef int (callback_state_index_t)(int i,
                                      int calibration_object_width_n,
                                      int calibration_object_height_n,
                                      mrcal_lensmodel_t lensmodel,
-                                     mrcal_problem_details_t problem_details);
+                                     mrcal_problem_selections_t problem_selections);
 
 static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* kwargs,
                                      const char* argname,
@@ -1834,7 +1834,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
         goto done;
     }
 
-    const mrcal_problem_details_t problem_details =
+    const mrcal_problem_selections_t problem_selections =
         { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core,
           .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions,
           .do_optimize_extrinsics            = do_optimize_extrinsics,
@@ -1891,7 +1891,7 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                    calibration_object_width_n,
                    calibration_object_height_n,
                    mrcal_lensmodel_type,
-                   problem_details);
+                   problem_selections);
     if(index < 0)
         goto done;
 
@@ -1918,11 +1918,11 @@ static int callback_state_index_intrinsics(int i,
                                            int calibration_object_width_n,
                                            int calibration_object_height_n,
                                            mrcal_lensmodel_t lensmodel,
-                                           mrcal_problem_details_t problem_details)
+                                           mrcal_problem_selections_t problem_selections)
 {
     if(Ncameras_intrinsics == 0 ||
-       (!problem_details.do_optimize_intrinsics_core &&
-        !problem_details.do_optimize_intrinsics_distortions) )
+       (!problem_selections.do_optimize_intrinsics_core &&
+        !problem_selections.do_optimize_intrinsics_distortions) )
     {
         BARF("No intrinsics are being optimized, so no state index can be returned");
         return -1;
@@ -1943,7 +1943,7 @@ static int callback_state_index_intrinsics(int i,
                                         Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
-                                        problem_details,
+                                        problem_selections,
                                         lensmodel);
 }
 static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -1964,10 +1964,10 @@ static int callback_num_states_intrinsics(int i,
                                           int calibration_object_width_n,
                                           int calibration_object_height_n,
                                           mrcal_lensmodel_t lensmodel,
-                                          mrcal_problem_details_t problem_details)
+                                          mrcal_problem_selections_t problem_selections)
 {
     return mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                       problem_details, lensmodel);
+                                       problem_selections, lensmodel);
 }
 static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -1987,10 +1987,10 @@ static int callback_state_index_extrinsics(int i,
                                            int calibration_object_width_n,
                                            int calibration_object_height_n,
                                            mrcal_lensmodel_t lensmodel,
-                                           mrcal_problem_details_t problem_details)
+                                           mrcal_problem_selections_t problem_selections)
 {
     if(Ncameras_extrinsics == 0 ||
-       !problem_details.do_optimize_extrinsics )
+       !problem_selections.do_optimize_extrinsics )
     {
         BARF("No extrinsics are being optimized, so no state index can be returned");
         return -1;
@@ -2012,7 +2012,7 @@ static int callback_state_index_extrinsics(int i,
                                      Ncameras_intrinsics, Ncameras_extrinsics,
                                      Nframes,
                                      Npoints, Npoints_fixed, Nobservations_board,
-                                     problem_details,
+                                     problem_selections,
                                      lensmodel);
 }
 static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2033,10 +2033,10 @@ static int callback_num_states_extrinsics(int i,
                                           int calibration_object_width_n,
                                           int calibration_object_height_n,
                                           mrcal_lensmodel_t lensmodel,
-                                          mrcal_problem_details_t problem_details)
+                                          mrcal_problem_selections_t problem_selections)
 {
     return
-        mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_details);
+        mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_selections);
 }
 static PyObject* num_states_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2056,10 +2056,10 @@ static int callback_state_index_frames(int i,
                                        int calibration_object_width_n,
                                        int calibration_object_height_n,
                                        mrcal_lensmodel_t lensmodel,
-                                       mrcal_problem_details_t problem_details)
+                                       mrcal_problem_selections_t problem_selections)
 {
     if(Nframes == 0 ||
-       !problem_details.do_optimize_frames )
+       !problem_selections.do_optimize_frames )
     {
         BARF("No frames are being optimized, so no state index can be returned");
         return -1;
@@ -2081,7 +2081,7 @@ static int callback_state_index_frames(int i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
-                                 problem_details,
+                                 problem_selections,
                                  lensmodel);
 }
 static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2102,10 +2102,10 @@ static int callback_num_states_frames(int i,
                                       int calibration_object_width_n,
                                       int calibration_object_height_n,
                                       mrcal_lensmodel_t lensmodel,
-                                      mrcal_problem_details_t problem_details)
+                                      mrcal_problem_selections_t problem_selections)
 {
     return
-        mrcal_num_states_frames(Nframes, problem_details);
+        mrcal_num_states_frames(Nframes, problem_selections);
 }
 static PyObject* num_states_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2125,10 +2125,10 @@ static int callback_state_index_points(int i,
                                        int calibration_object_width_n,
                                        int calibration_object_height_n,
                                        mrcal_lensmodel_t lensmodel,
-                                       mrcal_problem_details_t problem_details)
+                                       mrcal_problem_selections_t problem_selections)
 {
     if(Npoints - Npoints_fixed <= 0 ||
-       !problem_details.do_optimize_frames )
+       !problem_selections.do_optimize_frames )
     {
         BARF("No points are being optimized, so no state index can be returned");
         return -1;
@@ -2150,7 +2150,7 @@ static int callback_state_index_points(int i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
-                                 problem_details,
+                                 problem_selections,
                                  lensmodel);
 }
 static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2171,10 +2171,10 @@ static int callback_num_states_points(int i,
                                        int calibration_object_width_n,
                                        int calibration_object_height_n,
                                        mrcal_lensmodel_t lensmodel,
-                                       mrcal_problem_details_t problem_details)
+                                       mrcal_problem_selections_t problem_selections)
 {
     return
-        mrcal_num_states_points(Npoints, Npoints_fixed, problem_details);
+        mrcal_num_states_points(Npoints, Npoints_fixed, problem_selections);
 }
 static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2194,13 +2194,13 @@ static int callback_state_index_calobject_warp(int i,
                                                int calibration_object_width_n,
                                                int calibration_object_height_n,
                                                mrcal_lensmodel_t lensmodel,
-                                               mrcal_problem_details_t problem_details)
+                                               mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_state_index_calobject_warp( Ncameras_intrinsics, Ncameras_extrinsics,
                                           Nframes,
                                           Npoints, Npoints_fixed, Nobservations_board,
-                                          problem_details,
+                                          problem_selections,
                                           lensmodel);
 }
 static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2221,10 +2221,10 @@ static int callback_num_states_calobject_warp(int i,
                                               int calibration_object_width_n,
                                               int calibration_object_height_n,
                                               mrcal_lensmodel_t lensmodel,
-                                              mrcal_problem_details_t problem_details)
+                                              mrcal_problem_selections_t problem_selections)
 {
     return
-        mrcal_num_states_calobject_warp(problem_details, Nobservations_board);
+        mrcal_num_states_calobject_warp(problem_selections, Nobservations_board);
 }
 static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2244,7 +2244,7 @@ static int callback_measurement_index_boards(int i,
                                              int calibration_object_width_n,
                                              int calibration_object_height_n,
                                              mrcal_lensmodel_t lensmodel,
-                                             mrcal_problem_details_t problem_details)
+                                             mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_measurement_index_boards(i,
@@ -2271,7 +2271,7 @@ static int callback_num_measurements_boards(int i,
                                             int calibration_object_width_n,
                                             int calibration_object_height_n,
                                             mrcal_lensmodel_t lensmodel,
-                                            mrcal_problem_details_t problem_details)
+                                            mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_num_measurements_boards(Nobservations_board,
@@ -2296,7 +2296,7 @@ static int callback_measurement_index_points(int i,
                                              int calibration_object_width_n,
                                              int calibration_object_height_n,
                                              mrcal_lensmodel_t lensmodel,
-                                             mrcal_problem_details_t problem_details)
+                                             mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_measurement_index_points(i,
@@ -2323,7 +2323,7 @@ static int callback_num_measurements_points(int i,
                                             int calibration_object_width_n,
                                             int calibration_object_height_n,
                                             mrcal_lensmodel_t lensmodel,
-                                            mrcal_problem_details_t problem_details)
+                                            mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_num_measurements_points(Nobservations_point);
@@ -2346,7 +2346,7 @@ static int callback_measurement_index_regularization(int i,
                                                      int calibration_object_width_n,
                                                      int calibration_object_height_n,
                                                      mrcal_lensmodel_t lensmodel,
-                                                     mrcal_problem_details_t problem_details)
+                                                     mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_measurement_index_regularization(Nobservations_board,
@@ -2372,13 +2372,13 @@ static int callback_num_measurements_regularization(int i,
                                                     int calibration_object_width_n,
                                                     int calibration_object_height_n,
                                                     mrcal_lensmodel_t lensmodel,
-                                                    mrcal_problem_details_t problem_details)
+                                                    mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                               Nframes,
                                               Npoints, Npoints_fixed, Nobservations_board,
-                                              problem_details,
+                                              problem_selections,
                                               lensmodel);
 }
 static PyObject* num_measurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2400,7 +2400,7 @@ static int callback_num_measurements_all(int i,
                                          int calibration_object_width_n,
                                          int calibration_object_height_n,
                                          mrcal_lensmodel_t lensmodel,
-                                         mrcal_problem_details_t problem_details)
+                                         mrcal_problem_selections_t problem_selections)
 {
     return
         mrcal_num_measurements(Nobservations_board,
@@ -2410,7 +2410,7 @@ static int callback_num_measurements_all(int i,
                                Ncameras_intrinsics, Ncameras_extrinsics,
                                Nframes,
                                Npoints, Npoints_fixed,
-                               problem_details,
+                               problem_selections,
                                lensmodel);
 }
 static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2479,7 +2479,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         goto done;
     }
 
-    const mrcal_problem_details_t problem_details =
+    const mrcal_problem_selections_t problem_selections =
         { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core,
           .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions,
           .do_optimize_extrinsics            = do_optimize_extrinsics,
@@ -2540,7 +2540,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     int Nstate =
         mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                          Nframes, Npoints, Npoints_fixed, Nobservations_board,
-                         problem_details,
+                         problem_selections,
                          mrcal_lensmodel_type);
 
     if( dims[ndim-1] != Nstate )
@@ -2557,7 +2557,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
             mrcal_pack_solver_state_vector( x,
                                             Ncameras_intrinsics, Ncameras_extrinsics,
                                             Nframes, Npoints, Npoints_fixed,
-                                            problem_details, mrcal_lensmodel_type);
+                                            problem_selections, mrcal_lensmodel_type);
             x = &x[Nstate];
         }
     else
@@ -2566,7 +2566,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
             mrcal_unpack_solver_state_vector( x,
                                               Ncameras_intrinsics, Ncameras_extrinsics,
                                               Nframes, Npoints, Npoints_fixed,
-                                              problem_details, mrcal_lensmodel_type);
+                                              problem_selections, mrcal_lensmodel_type);
             x = &x[Nstate];
         }
 

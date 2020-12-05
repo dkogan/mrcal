@@ -302,10 +302,10 @@ int mrcal_lensmodel_num_params(const mrcal_lensmodel_t m)
 }
 
 static
-int get_num_distortions_optimization_params(mrcal_problem_details_t problem_details,
+int get_num_distortions_optimization_params(mrcal_problem_selections_t problem_selections,
                                             mrcal_lensmodel_t lensmodel)
 {
-    if( !problem_details.do_optimize_intrinsics_distortions )
+    if( !problem_selections.do_optimize_intrinsics_distortions )
         return 0;
 
     int N = mrcal_lensmodel_num_params(lensmodel);
@@ -314,12 +314,12 @@ int get_num_distortions_optimization_params(mrcal_problem_details_t problem_deta
     return N;
 }
 
-int mrcal_num_intrinsics_optimization_params(mrcal_problem_details_t problem_details,
+int mrcal_num_intrinsics_optimization_params(mrcal_problem_selections_t problem_selections,
                                              mrcal_lensmodel_t lensmodel)
 {
-    int N = get_num_distortions_optimization_params(problem_details, lensmodel);
+    int N = get_num_distortions_optimization_params(problem_selections, lensmodel);
 
-    if( problem_details.do_optimize_intrinsics_core &&
+    if( problem_selections.do_optimize_intrinsics_core &&
         modelHasCore_fxfycxcy(lensmodel) )
         N += 4; // fx,fy,cx,cy
     return N;
@@ -328,33 +328,33 @@ int mrcal_num_intrinsics_optimization_params(mrcal_problem_details_t problem_det
 int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
                      int Nframes,
                      int Npoints, int Npoints_fixed, int Nobservations_board,
-                     mrcal_problem_details_t problem_details,
+                     mrcal_problem_selections_t problem_selections,
                      mrcal_lensmodel_t lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                    problem_details,
+                                    problem_selections,
                                     lensmodel) +
         mrcal_num_states_extrinsics(Ncameras_extrinsics,
-                                    problem_details) +
+                                    problem_selections) +
         mrcal_num_states_frames(Nframes,
-                                problem_details) +
+                                problem_selections) +
         mrcal_num_states_points(Npoints, Npoints_fixed,
-                                problem_details) +
-        mrcal_num_states_calobject_warp( problem_details,
+                                problem_selections) +
+        mrcal_num_states_calobject_warp( problem_selections,
                                          Nobservations_board);
 }
 
-static int num_regularization_terms_percamera(mrcal_problem_details_t problem_details,
+static int num_regularization_terms_percamera(mrcal_problem_selections_t problem_selections,
                                               mrcal_lensmodel_t lensmodel)
 {
-    if(!problem_details.do_apply_regularization)
+    if(!problem_selections.do_apply_regularization)
         return 0;
 
     // distortions
-    int N = get_num_distortions_optimization_params(problem_details, lensmodel);
+    int N = get_num_distortions_optimization_params(problem_selections, lensmodel);
     // optical center
-    if(problem_details.do_optimize_intrinsics_core)
+    if(problem_selections.do_optimize_intrinsics_core)
         N += 2;
     return N;
 }
@@ -418,12 +418,12 @@ int mrcal_measurement_index_regularization(int Nobservations_board,
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                           int Nframes,
                                           int Npoints, int Npoints_fixed, int Nobservations_board,
-                                          mrcal_problem_details_t problem_details,
+                                          mrcal_problem_selections_t problem_selections,
                                           mrcal_lensmodel_t lensmodel)
 {
     return
         Ncameras_intrinsics *
-        num_regularization_terms_percamera(problem_details, lensmodel);
+        num_regularization_terms_percamera(problem_selections, lensmodel);
 }
 
 int mrcal_num_measurements(int Nobservations_board,
@@ -433,7 +433,7 @@ int mrcal_num_measurements(int Nobservations_board,
                            int Ncameras_intrinsics, int Ncameras_extrinsics,
                            int Nframes,
                            int Npoints, int Npoints_fixed,
-                           mrcal_problem_details_t problem_details,
+                           mrcal_problem_selections_t problem_selections,
                            mrcal_lensmodel_t lensmodel)
 {
     return
@@ -444,7 +444,7 @@ int mrcal_num_measurements(int Nobservations_board,
         mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                               Nframes,
                                               Npoints, Npoints_fixed, Nobservations_board,
-                                              problem_details,
+                                              problem_selections,
                                               lensmodel);
 }
 
@@ -457,7 +457,7 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
                          int Npoints, int Npoints_fixed,
                          const mrcal_observation_board_t* observations_board,
                          const mrcal_observation_point_t* observations_point,
-                         mrcal_problem_details_t problem_details,
+                         mrcal_problem_selections_t problem_selections,
                          mrcal_lensmodel_t lensmodel)
 {
     // each observation depends on all the parameters for THAT frame and for
@@ -474,26 +474,26 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
         int run_len =
             lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1;
         Nintrinsics_per_measurement =
-            (problem_details.do_optimize_intrinsics_core        ? 4                 : 0)  +
-            (problem_details.do_optimize_intrinsics_distortions ? (run_len*run_len) : 0);
+            (problem_selections.do_optimize_intrinsics_core        ? 4                 : 0)  +
+            (problem_selections.do_optimize_intrinsics_distortions ? (run_len*run_len) : 0);
     }
     else
         Nintrinsics_per_measurement =
-            mrcal_num_intrinsics_optimization_params(problem_details, lensmodel);
+            mrcal_num_intrinsics_optimization_params(problem_selections, lensmodel);
 
     // x depends on fx,cx but NOT on fy, cy. And similarly for y.
-    if( problem_details.do_optimize_intrinsics_core &&
+    if( problem_selections.do_optimize_intrinsics_core &&
         modelHasCore_fxfycxcy(lensmodel) )
         Nintrinsics_per_measurement -= 2;
 
-    int N = Nobservations_board * ( (problem_details.do_optimize_frames         ? 6 : 0) +
-                                    (problem_details.do_optimize_extrinsics     ? 6 : 0) +
-                                    (problem_details.do_optimize_calobject_warp ? 2 : 0) +
+    int N = Nobservations_board * ( (problem_selections.do_optimize_frames         ? 6 : 0) +
+                                    (problem_selections.do_optimize_extrinsics     ? 6 : 0) +
+                                    (problem_selections.do_optimize_calobject_warp ? 2 : 0) +
                                   Nintrinsics_per_measurement );
 
     // initial estimate counts extrinsics for the reference camera, which need
     // to be subtracted off
-    if(problem_details.do_optimize_extrinsics)
+    if(problem_selections.do_optimize_extrinsics)
         for(int i=0; i<Nobservations_board; i++)
             if(observations_board[i].icam.extrinsics < 0)
                 N -= 6;
@@ -504,25 +504,25 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
     for(int i=0; i<Nobservations_point; i++)
     {
         N += 2*Nintrinsics_per_measurement;
-        if( problem_details.do_optimize_frames &&
+        if( problem_selections.do_optimize_frames &&
             observations_point[i].i_point < Npoints-Npoints_fixed )
             N += 2*3;
-        if( problem_details.do_optimize_extrinsics &&
+        if( problem_selections.do_optimize_extrinsics &&
             observations_point[i].icam.extrinsics >= 0 )
             N += 2*6;
 
         // range normalization
-        if(problem_details.do_optimize_frames &&
+        if(problem_selections.do_optimize_frames &&
             observations_point[i].i_point < Npoints-Npoints_fixed )
             N += 3;
-        if( problem_details.do_optimize_extrinsics &&
+        if( problem_selections.do_optimize_extrinsics &&
             observations_point[i].icam.extrinsics >= 0 )
             N += 6;
     }
 
     N +=
         Ncameras_intrinsics *
-        num_regularization_terms_percamera(problem_details,
+        num_regularization_terms_percamera(problem_selections,
                                            lensmodel);
 
     return N;
@@ -2702,12 +2702,12 @@ bool _mrcal_unproject_internal( // out
 
 // From real values to unit-scale values. Optimizer sees unit-scale values
 static int pack_solver_state_intrinsics( // out
-                                         double* p, // subset based on problem_details
+                                         double* p, // subset based on problem_selections
 
                                          // in
                                          const double* intrinsics, // ALL variables. Not a subset
                                          const mrcal_lensmodel_t lensmodel,
-                                         mrcal_problem_details_t problem_details,
+                                         mrcal_problem_selections_t problem_selections,
                                          int Ncameras_intrinsics )
 {
     int i_state = 0;
@@ -2717,7 +2717,7 @@ static int pack_solver_state_intrinsics( // out
 
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
-        if( problem_details.do_optimize_intrinsics_core && Ncore )
+        if( problem_selections.do_optimize_intrinsics_core && Ncore )
         {
             const mrcal_intrinsics_core_t* intrinsics_core = (const mrcal_intrinsics_core_t*)intrinsics;
             p[i_state++] = intrinsics_core->focal_xy [0] / SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -2726,7 +2726,7 @@ static int pack_solver_state_intrinsics( // out
             p[i_state++] = intrinsics_core->center_xy[1] / SCALE_INTRINSICS_CENTER_PIXEL;
         }
 
-        if( problem_details.do_optimize_intrinsics_distortions )
+        if( problem_selections.do_optimize_intrinsics_distortions )
 
             for(int i = 0; i<Ndistortions; i++)
                 p[i_state++] = intrinsics[Ncore + i] / SCALE_DISTORTION;
@@ -2737,17 +2737,17 @@ static int pack_solver_state_intrinsics( // out
 }
 // It is ugly to have this as separate from pack_solver_state_intrinsics(), but
 // I am tired. THIS function uses only intrinsic arrays that respect the skipped
-// optimization variables in problem_details. And this function works inline
+// optimization variables in problem_selections. And this function works inline
 static int pack_solver_state_intrinsics_subset_to_subset( // out,in
-                                         double* p, // subset based on problem_details
+                                         double* p, // subset based on problem_selections
 
                                          // in
                                          const mrcal_lensmodel_t lensmodel,
-                                         mrcal_problem_details_t problem_details,
+                                         mrcal_problem_selections_t problem_selections,
                                          int Ncameras_intrinsics )
 {
-    if( !problem_details.do_optimize_intrinsics_core &&
-        !problem_details.do_optimize_intrinsics_distortions )
+    if( !problem_selections.do_optimize_intrinsics_core &&
+        !problem_selections.do_optimize_intrinsics_distortions )
         return 0;
 
     int i_state = 0;
@@ -2757,7 +2757,7 @@ static int pack_solver_state_intrinsics_subset_to_subset( // out,in
 
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
-        if( problem_details.do_optimize_intrinsics_core && Ncore )
+        if( problem_selections.do_optimize_intrinsics_core && Ncore )
         {
             p[i_state++] /= SCALE_INTRINSICS_FOCAL_LENGTH;
             p[i_state++] /= SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -2765,7 +2765,7 @@ static int pack_solver_state_intrinsics_subset_to_subset( // out,in
             p[i_state++] /= SCALE_INTRINSICS_CENTER_PIXEL;
         }
 
-        if( problem_details.do_optimize_intrinsics_distortions )
+        if( problem_selections.do_optimize_intrinsics_distortions )
             for(int i = 0; i<Ndistortions; i++)
                 p[i_state++] /= SCALE_DISTORTION;
     }
@@ -2781,7 +2781,7 @@ static void pack_solver_state( // out
                               const mrcal_pose_t*            frames_toref,     // Nframes of these
                               const mrcal_point3_t*          points,     // Npoints of these
                               const mrcal_point2_t*          calobject_warp, // 1 of these
-                              mrcal_problem_details_t problem_details,
+                              mrcal_problem_selections_t problem_selections,
                               int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                               int Npoints_variable,
 
@@ -2790,10 +2790,10 @@ static void pack_solver_state( // out
     int i_state = 0;
 
     i_state += pack_solver_state_intrinsics( p, intrinsics,
-                                             lensmodel, problem_details,
+                                             lensmodel, problem_selections,
                                              Ncameras_intrinsics );
 
-    if( problem_details.do_optimize_extrinsics )
+    if( problem_selections.do_optimize_extrinsics )
         for(int icam_extrinsics=0; icam_extrinsics < Ncameras_extrinsics; icam_extrinsics++)
         {
             p[i_state++] = extrinsics_fromref[icam_extrinsics].r.xyz[0] / SCALE_ROTATION_CAMERA;
@@ -2805,7 +2805,7 @@ static void pack_solver_state( // out
             p[i_state++] = extrinsics_fromref[icam_extrinsics].t.xyz[2] / SCALE_TRANSLATION_CAMERA;
         }
 
-    if( problem_details.do_optimize_frames )
+    if( problem_selections.do_optimize_frames )
     {
         for(int iframe = 0; iframe < Nframes; iframe++)
         {
@@ -2826,7 +2826,7 @@ static void pack_solver_state( // out
         }
     }
 
-    if( problem_details.do_optimize_calobject_warp )
+    if( problem_selections.do_optimize_calobject_warp )
     {
         p[i_state++] = calobject_warp->x / SCALE_CALOBJECT_WARP;
         p[i_state++] = calobject_warp->y / SCALE_CALOBJECT_WARP;
@@ -2844,7 +2844,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
                                      int Npoints, int Npoints_fixed,
-                                     mrcal_problem_details_t problem_details,
+                                     mrcal_problem_selections_t problem_selections,
                                      const mrcal_lensmodel_t lensmodel)
 {
     int Npoints_variable = Npoints - Npoints_fixed;
@@ -2852,12 +2852,12 @@ void mrcal_pack_solver_state_vector( // out, in
     int i_state = 0;
 
     i_state += pack_solver_state_intrinsics_subset_to_subset( p,
-                                             lensmodel, problem_details,
+                                             lensmodel, problem_selections,
                                              Ncameras_intrinsics );
 
     static_assert( offsetof(mrcal_pose_t, r) == 0,                   "mrcal_pose_t has expected structure");
     static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),    "mrcal_pose_t has expected structure");
-    if( problem_details.do_optimize_extrinsics )
+    if( problem_selections.do_optimize_extrinsics )
         for(int icam_extrinsics=0; icam_extrinsics < Ncameras_extrinsics; icam_extrinsics++)
         {
             mrcal_pose_t* extrinsics_fromref = (mrcal_pose_t*)(&p[i_state]);
@@ -2871,7 +2871,7 @@ void mrcal_pack_solver_state_vector( // out, in
             p[i_state++] = extrinsics_fromref->t.xyz[2] / SCALE_TRANSLATION_CAMERA;
         }
 
-    if( problem_details.do_optimize_frames )
+    if( problem_selections.do_optimize_frames )
     {
         for(int iframe = 0; iframe < Nframes; iframe++)
         {
@@ -2894,7 +2894,7 @@ void mrcal_pack_solver_state_vector( // out, in
         }
     }
 
-    if( problem_details.do_optimize_calobject_warp )
+    if( problem_selections.do_optimize_calobject_warp )
     {
         mrcal_point2_t* calobject_warp = (mrcal_point2_t*)(&p[i_state]);
         p[i_state++] = calobject_warp->x / SCALE_CALOBJECT_WARP;
@@ -2910,14 +2910,14 @@ static int unpack_solver_state_intrinsics( // out
                                                                // not optimizing
 
                                            // in
-                                           const double* p, // subset based on problem_details
+                                           const double* p, // subset based on problem_selections
                                            const mrcal_lensmodel_t lensmodel,
-                                           mrcal_problem_details_t problem_details,
+                                           mrcal_problem_selections_t problem_selections,
                                            int intrinsics_stride,
                                            int Ncameras_intrinsics )
 {
-    if( !problem_details.do_optimize_intrinsics_core &&
-        !problem_details.do_optimize_intrinsics_distortions )
+    if( !problem_selections.do_optimize_intrinsics_core &&
+        !problem_selections.do_optimize_intrinsics_distortions )
         return 0;
 
     const int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
@@ -2926,7 +2926,7 @@ static int unpack_solver_state_intrinsics( // out
     int i_state = 0;
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
-        if( problem_details.do_optimize_intrinsics_core && Ncore )
+        if( problem_selections.do_optimize_intrinsics_core && Ncore )
         {
             intrinsics[icam_intrinsics*intrinsics_stride + 0] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
             intrinsics[icam_intrinsics*intrinsics_stride + 1] = p[i_state++] * SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -2934,7 +2934,7 @@ static int unpack_solver_state_intrinsics( // out
             intrinsics[icam_intrinsics*intrinsics_stride + 3] = p[i_state++] * SCALE_INTRINSICS_CENTER_PIXEL;
         }
 
-        if( problem_details.do_optimize_intrinsics_distortions )
+        if( problem_selections.do_optimize_intrinsics_distortions )
         {
             for(int i = 0; i<Nintrinsics-Ncore; i++)
                 intrinsics[icam_intrinsics*intrinsics_stride + Ncore + i] = p[i_state++] * SCALE_DISTORTION;
@@ -2944,18 +2944,18 @@ static int unpack_solver_state_intrinsics( // out
 }
 // It is ugly to have this as separate from unpack_solver_state_intrinsics(),
 // but I am tired. THIS function uses only intrinsic arrays that respect the
-// skipped optimization variables in problem_details. And this function works
+// skipped optimization variables in problem_selections. And this function works
 // inline
 static int unpack_solver_state_intrinsics_subset_to_subset( // in,out
-                                           double* p, // subset based on problem_details
+                                           double* p, // subset based on problem_selections
 
                                            // in
                                            const mrcal_lensmodel_t lensmodel,
-                                           mrcal_problem_details_t problem_details,
+                                           mrcal_problem_selections_t problem_selections,
                                            int Ncameras_intrinsics )
 {
-    if( !problem_details.do_optimize_intrinsics_core &&
-        !problem_details.do_optimize_intrinsics_distortions )
+    if( !problem_selections.do_optimize_intrinsics_core &&
+        !problem_selections.do_optimize_intrinsics_distortions )
         return 0;
 
     int i_state = 0;
@@ -2965,7 +2965,7 @@ static int unpack_solver_state_intrinsics_subset_to_subset( // in,out
 
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
-        if( problem_details.do_optimize_intrinsics_core && Ncore )
+        if( problem_selections.do_optimize_intrinsics_core && Ncore )
         {
             p[i_state++] *= SCALE_INTRINSICS_FOCAL_LENGTH;
             p[i_state++] *= SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -2973,7 +2973,7 @@ static int unpack_solver_state_intrinsics_subset_to_subset( // in,out
             p[i_state++] *= SCALE_INTRINSICS_CENTER_PIXEL;
         }
 
-        if( problem_details.do_optimize_intrinsics_distortions )
+        if( problem_selections.do_optimize_intrinsics_distortions )
             for(int i = 0; i<Ndistortions; i++)
                 p[i_state++] *= SCALE_DISTORTION;
     }
@@ -3056,21 +3056,21 @@ static void unpack_solver_state( // out
                                  // in
                                  const double* p,
                                  const mrcal_lensmodel_t lensmodel,
-                                 mrcal_problem_details_t problem_details,
+                                 mrcal_problem_selections_t problem_selections,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes, int Npoints_variable,
 
                                  int Nstate_ref)
 {
     int i_state = unpack_solver_state_intrinsics(intrinsics_all,
-                                                 p, lensmodel, problem_details,
+                                                 p, lensmodel, problem_selections,
                                                  mrcal_lensmodel_num_params(lensmodel),
                                                  Ncameras_intrinsics);
 
-    if( problem_details.do_optimize_extrinsics )
+    if( problem_selections.do_optimize_extrinsics )
         for(int icam_extrinsics=0; icam_extrinsics < Ncameras_extrinsics; icam_extrinsics++)
             i_state += unpack_solver_state_extrinsics_one( &extrinsics_fromref[icam_extrinsics], &p[i_state] );
 
-    if( problem_details.do_optimize_frames )
+    if( problem_selections.do_optimize_frames )
     {
         for(int iframe = 0; iframe < Nframes; iframe++)
             i_state += unpack_solver_state_framert_one( &frames_toref[iframe], &p[i_state] );
@@ -3078,7 +3078,7 @@ static void unpack_solver_state( // out
             i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
     }
 
-    if( problem_details.do_optimize_calobject_warp )
+    if( problem_selections.do_optimize_calobject_warp )
         i_state += unpack_solver_state_calobject_warp(calobject_warp, &p[i_state]);
 
     assert(i_state == Nstate_ref);
@@ -3093,17 +3093,17 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        int Ncameras_intrinsics, int Ncameras_extrinsics,
                                        int Nframes,
                                        int Npoints, int Npoints_fixed,
-                                       mrcal_problem_details_t problem_details,
+                                       mrcal_problem_selections_t problem_selections,
                                        const mrcal_lensmodel_t lensmodel)
 {
     int Npoints_variable = Npoints - Npoints_fixed;
 
     int i_state =
         unpack_solver_state_intrinsics_subset_to_subset(p,
-                                                        lensmodel, problem_details,
+                                                        lensmodel, problem_selections,
                                                         Ncameras_intrinsics);
 
-    if( problem_details.do_optimize_extrinsics )
+    if( problem_selections.do_optimize_extrinsics )
     {
         static_assert( offsetof(mrcal_pose_t, r) == 0,
                        "mrcal_pose_t has expected structure");
@@ -3115,7 +3115,7 @@ void mrcal_unpack_solver_state_vector( // out, in
             i_state += unpack_solver_state_extrinsics_one( &extrinsics_fromref[icam_extrinsics], &p[i_state] );
     }
 
-    if( problem_details.do_optimize_frames )
+    if( problem_selections.do_optimize_frames )
     {
         mrcal_pose_t* frames_toref = (mrcal_pose_t*)(&p[i_state]);
         for(int iframe = 0; iframe < Nframes; iframe++)
@@ -3124,7 +3124,7 @@ void mrcal_unpack_solver_state_vector( // out, in
         for(int i_point = 0; i_point < Npoints_variable; i_point++)
             i_state += unpack_solver_state_point_one( &points[i_point], &p[i_state] );
     }
-    if( problem_details.do_optimize_calobject_warp )
+    if( problem_selections.do_optimize_calobject_warp )
     {
         mrcal_point2_t* calobject_warp = (mrcal_point2_t*)(&p[i_state]);
         i_state += unpack_solver_state_calobject_warp(calobject_warp, &p[i_state]);
@@ -3135,110 +3135,110 @@ int mrcal_state_index_intrinsics(int icam_intrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
-                                 mrcal_problem_details_t problem_details,
+                                 mrcal_problem_selections_t problem_selections,
                                  mrcal_lensmodel_t lensmodel)
 {
-    return icam_intrinsics * mrcal_num_intrinsics_optimization_params(problem_details, lensmodel);
+    return icam_intrinsics * mrcal_num_intrinsics_optimization_params(problem_selections, lensmodel);
 }
 
 int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
-                                mrcal_problem_details_t problem_details,
+                                mrcal_problem_selections_t problem_selections,
                                 mrcal_lensmodel_t lensmodel)
 {
     return
         Ncameras_intrinsics *
-        mrcal_num_intrinsics_optimization_params(problem_details, lensmodel);
+        mrcal_num_intrinsics_optimization_params(problem_selections, lensmodel);
 }
 
 int mrcal_state_index_extrinsics(int icam_extrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
-                                 mrcal_problem_details_t problem_details,
+                                 mrcal_problem_selections_t problem_selections,
                                  mrcal_lensmodel_t lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                    problem_details,
+                                    problem_selections,
                                     lensmodel) +
-        (problem_details.do_optimize_extrinsics ? (icam_extrinsics*6) : 0);
+        (problem_selections.do_optimize_extrinsics ? (icam_extrinsics*6) : 0);
 }
 
 int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
-                                mrcal_problem_details_t problem_details)
+                                mrcal_problem_selections_t problem_selections)
 {
-    return problem_details.do_optimize_extrinsics ? (6*Ncameras_extrinsics) : 0;
+    return problem_selections.do_optimize_extrinsics ? (6*Ncameras_extrinsics) : 0;
 }
 
 int mrcal_state_index_frames(int iframe,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
-                             mrcal_problem_details_t problem_details,
+                             mrcal_problem_selections_t problem_selections,
                              mrcal_lensmodel_t lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                    problem_details,
+                                    problem_selections,
                                     lensmodel) +
         mrcal_num_states_extrinsics(Ncameras_extrinsics,
-                                    problem_details) +
-        (problem_details.do_optimize_frames ? (iframe*6) : 0);
+                                    problem_selections) +
+        (problem_selections.do_optimize_frames ? (iframe*6) : 0);
 }
 
 int mrcal_num_states_frames(int Nframes,
-                            mrcal_problem_details_t problem_details)
+                            mrcal_problem_selections_t problem_selections)
 {
-    return problem_details.do_optimize_frames ? (6*Nframes) : 0;
+    return problem_selections.do_optimize_frames ? (6*Nframes) : 0;
 }
 
 int mrcal_state_index_points(int i_point,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
-                             mrcal_problem_details_t problem_details,
+                             mrcal_problem_selections_t problem_selections,
                              mrcal_lensmodel_t lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                    problem_details,
+                                    problem_selections,
                                     lensmodel) +
         mrcal_num_states_extrinsics(Ncameras_extrinsics,
-                                    problem_details) +
+                                    problem_selections) +
         mrcal_num_states_frames    (Nframes,
-                                    problem_details) +
-        (problem_details.do_optimize_frames ? (i_point*3) : 0);
+                                    problem_selections) +
+        (problem_selections.do_optimize_frames ? (i_point*3) : 0);
 }
 
 int mrcal_num_states_points(int Npoints, int Npoints_fixed,
-                            mrcal_problem_details_t problem_details)
+                            mrcal_problem_selections_t problem_selections)
 {
     int Npoints_variable = Npoints - Npoints_fixed;
-    return problem_details.do_optimize_frames ? (Npoints_variable*3) : 0;
+    return problem_selections.do_optimize_frames ? (Npoints_variable*3) : 0;
 }
 
 int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
                                      int Npoints, int Npoints_fixed, int Nobservations_board,
-                                     mrcal_problem_details_t problem_details,
+                                     mrcal_problem_selections_t problem_selections,
                                      mrcal_lensmodel_t lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                    problem_details,
+                                    problem_selections,
                                     lensmodel) +
         mrcal_num_states_extrinsics(Ncameras_extrinsics,
-                                    problem_details) +
+                                    problem_selections) +
         mrcal_num_states_frames    (Nframes,
-                                    problem_details) +
+                                    problem_selections) +
         mrcal_num_states_points    (Npoints, Npoints_fixed,
-                                    problem_details);
+                                    problem_selections);
 }
 
-int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
+int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selections,
                                     int Nobservations_board)
 {
-    if(problem_details.do_optimize_calobject_warp && Nobservations_board>0)
+    if(problem_selections.do_optimize_calobject_warp && Nobservations_board>0)
         return 2;
     return 0;
 }
@@ -3480,7 +3480,7 @@ typedef struct
     const mrcal_pose_t*   extrinsics_fromref; // Ncameras_extrinsics of these. Transform FROM the reference frame
     const mrcal_pose_t*   frames_toref;       // Nframes of these.    Transform TO the reference frame
     const mrcal_point3_t* points;             // Npoints of these.    In the reference frame
-    const mrcal_point2_t* calobject_warp;     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+    const mrcal_point2_t* calobject_warp;     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
     // in
     int Ncameras_intrinsics, Ncameras_extrinsics, Nframes;
@@ -3499,7 +3499,7 @@ typedef struct
     mrcal_projection_precomputed_t precomputed;
     const int* imagersizes; // Ncameras_intrinsics*2 of these
 
-    mrcal_problem_details_t          problem_details;
+    mrcal_problem_selections_t          problem_selections;
     const mrcal_problem_constants_t* problem_constants;
 
     double calibration_object_spacing;
@@ -3567,7 +3567,7 @@ void optimizer_callback(// input state
 
     int Ncore = modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
     int Ncore_state = (modelHasCore_fxfycxcy(ctx->lensmodel) &&
-                       ctx->problem_details.do_optimize_intrinsics_core) ? 4 : 0;
+                       ctx->problem_selections.do_optimize_intrinsics_core) ? 4 : 0;
 
     // If I'm locking down some parameters, then the state vector contains a
     // subset of my data. I reconstitute the intrinsics and extrinsics here.
@@ -3581,8 +3581,8 @@ void optimizer_callback(// input state
         mrcal_state_index_calobject_warp(ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
-    if(ctx->problem_details.do_optimize_calobject_warp)
+                                         ctx->problem_selections, ctx->lensmodel);
+    if(ctx->problem_selections.do_optimize_calobject_warp)
         unpack_solver_state_calobject_warp(&calobject_warp_local, &packed_state[i_var_calobject_warp]);
     else if(ctx->calobject_warp != NULL)
         calobject_warp_local = *ctx->calobject_warp;
@@ -3601,10 +3601,10 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
+                                         ctx->problem_selections, ctx->lensmodel);
         if(Ncore)
         {
-            if( ctx->problem_details.do_optimize_intrinsics_core )
+            if( ctx->problem_selections.do_optimize_intrinsics_core )
             {
                 intrinsics_here[0] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_FOCAL_LENGTH;
                 intrinsics_here[1] = packed_state[i_var_intrinsics++] * SCALE_INTRINSICS_FOCAL_LENGTH;
@@ -3616,7 +3616,7 @@ void optimizer_callback(// input state
                         &ctx->intrinsics[ctx->Nintrinsics*icam_intrinsics],
                         Ncore*sizeof(double) );
         }
-        if( ctx->problem_details.do_optimize_intrinsics_distortions )
+        if( ctx->problem_selections.do_optimize_intrinsics_distortions )
         {
             for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
                 distortions_here[i] = packed_state[i_var_intrinsics++] * SCALE_DISTORTION;
@@ -3637,8 +3637,8 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
-        if(ctx->problem_details.do_optimize_extrinsics)
+                                         ctx->problem_selections, ctx->lensmodel);
+        if(ctx->problem_selections.do_optimize_extrinsics)
             unpack_solver_state_extrinsics_one(&camera_rt[icam_extrinsics], &packed_state[i_var_camera_rt]);
         else
             memcpy(&camera_rt[icam_extrinsics], &ctx->extrinsics_fromref[icam_extrinsics], sizeof(mrcal_pose_t));
@@ -3656,16 +3656,16 @@ void optimizer_callback(// input state
         const int iframe          = observation->iframe;
 
 
-        // Some of these are bogus if problem_details says they're inactive
+        // Some of these are bogus if problem_selections says they're inactive
         const int i_var_frame_rt =
             mrcal_state_index_frames(iframe,
                                      ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                      ctx->Nframes,
                                      ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                     ctx->problem_details, ctx->lensmodel);
+                                     ctx->problem_selections, ctx->lensmodel);
 
         mrcal_pose_t frame_rt;
-        if(ctx->problem_details.do_optimize_frames)
+        if(ctx->problem_selections.do_optimize_frames)
             unpack_solver_state_framert_one(&frame_rt, &packed_state[i_var_frame_rt]);
         else
             memcpy(&frame_rt, &ctx->frames_toref[iframe], sizeof(mrcal_pose_t));
@@ -3675,14 +3675,14 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
+                                         ctx->problem_selections, ctx->lensmodel);
         // invalid if icam_extrinsics < 0, but unused in that case
         const int i_var_camera_rt  =
             mrcal_state_index_extrinsics(icam_extrinsics,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
+                                         ctx->problem_selections, ctx->lensmodel);
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
@@ -3711,21 +3711,21 @@ void optimizer_callback(// input state
 
         project(q_hypothesis,
 
-                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
+                ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?
                   dq_dintrinsics_pool_double : NULL,
-                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
+                ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?
                   dq_dintrinsics_pool_int : NULL,
                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
-                ctx->problem_details.do_optimize_extrinsics ?
+                ctx->problem_selections.do_optimize_extrinsics ?
                 (mrcal_point3_t*)dq_drcamera : NULL,
-                ctx->problem_details.do_optimize_extrinsics ?
+                ctx->problem_selections.do_optimize_extrinsics ?
                 (mrcal_point3_t*)dq_dtcamera : NULL,
-                ctx->problem_details.do_optimize_frames ?
+                ctx->problem_selections.do_optimize_frames ?
                 (mrcal_point3_t*)dq_drframe : NULL,
-                ctx->problem_details.do_optimize_frames ?
+                ctx->problem_selections.do_optimize_frames ?
                 (mrcal_point3_t*)dq_dtframe : NULL,
-                ctx->problem_details.do_optimize_calobject_warp ?
+                ctx->problem_selections.do_optimize_calobject_warp ?
                 (mrcal_point2_t*)dq_dcalobject_warp : NULL,
 
                 // input
@@ -3765,7 +3765,7 @@ void optimizer_callback(// input state
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
-                    if( ctx->problem_details.do_optimize_intrinsics_core )
+                    if( ctx->problem_selections.do_optimize_intrinsics_core )
                     {
                         // fx,fy. x depends on fx only. y depends on fy only
                         STORE_JACOBIAN( i_var_intrinsics + i_xy,
@@ -3777,7 +3777,7 @@ void optimizer_callback(// input state
                                         weight * SCALE_INTRINSICS_CENTER_PIXEL );
                     }
 
-                    if( ctx->problem_details.do_optimize_intrinsics_distortions )
+                    if( ctx->problem_selections.do_optimize_intrinsics_distortions )
                     {
                         if(gradient_sparse_meta.pool != NULL)
                         {
@@ -3789,7 +3789,7 @@ void optimizer_callback(// input state
                             //
                             // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
                             const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
-                                ( ctx->problem_details.do_optimize_intrinsics_core ? 0 : 4 );
+                                ( ctx->problem_selections.do_optimize_intrinsics_core ? 0 : 4 );
 
                             const int     len   = gradient_sparse_meta.run_side_length;
                             const double* ABCDx = &gradient_sparse_meta.pool[len*2*splined_intrinsics_grad_irun + 0];
@@ -3815,7 +3815,7 @@ void optimizer_callback(// input state
                         }
                     }
 
-                    if( ctx->problem_details.do_optimize_extrinsics )
+                    if( ctx->problem_selections.do_optimize_extrinsics )
                         if( icam_extrinsics >= 0 )
                         {
                             STORE_JACOBIAN3( i_var_camera_rt + 0,
@@ -3834,7 +3834,7 @@ void optimizer_callback(// input state
                                              weight * SCALE_TRANSLATION_CAMERA);
                         }
 
-                    if( ctx->problem_details.do_optimize_frames )
+                    if( ctx->problem_selections.do_optimize_frames )
                     {
                         STORE_JACOBIAN3( i_var_frame_rt + 0,
                                          dq_drframe[i_pt][i_xy].xyz[0] *
@@ -3852,7 +3852,7 @@ void optimizer_callback(// input state
                                          weight * SCALE_TRANSLATION_FRAME);
                     }
 
-                    if( ctx->problem_details.do_optimize_calobject_warp )
+                    if( ctx->problem_selections.do_optimize_calobject_warp )
                     {
                         STORE_JACOBIAN2( i_var_calobject_warp,
                                          dq_dcalobject_warp[i_pt][i_xy].x * weight * SCALE_CALOBJECT_WARP,
@@ -3890,18 +3890,18 @@ void optimizer_callback(// input state
                     x[iMeasurement] = err;
                     norm2_error += err*err;
 
-                    if( ctx->problem_details.do_optimize_intrinsics_core )
+                    if( ctx->problem_selections.do_optimize_intrinsics_core )
                     {
                         STORE_JACOBIAN( i_var_intrinsics + i_xy,   0.0 );
                         STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0.0 );
                     }
 
-                    if( ctx->problem_details.do_optimize_intrinsics_distortions )
+                    if( ctx->problem_selections.do_optimize_intrinsics_distortions )
                     {
                         if(gradient_sparse_meta.pool != NULL)
                         {
                             const int ivar0 = dq_dintrinsics_pool_int[splined_intrinsics_grad_irun] -
-                                ( ctx->problem_details.do_optimize_intrinsics_core ? 0 : 4 );
+                                ( ctx->problem_selections.do_optimize_intrinsics_core ? 0 : 4 );
                             const int len          = gradient_sparse_meta.run_side_length;
                             const int ivar_stridey = gradient_sparse_meta.ivar_stridey;
 
@@ -3916,14 +3916,14 @@ void optimizer_callback(// input state
                         }
                     }
 
-                    if( ctx->problem_details.do_optimize_extrinsics )
+                    if( ctx->problem_selections.do_optimize_extrinsics )
                         if( icam_extrinsics >= 0 )
                         {
                             STORE_JACOBIAN3( i_var_camera_rt + 0, 0.0, 0.0, 0.0);
                             STORE_JACOBIAN3( i_var_camera_rt + 3, 0.0, 0.0, 0.0);
                         }
 
-                    if( ctx->problem_details.do_optimize_frames )
+                    if( ctx->problem_selections.do_optimize_frames )
                     {
                         // Arbitrary differences between the dimensions to keep
                         // my Hessian non-singular. This is 100% arbitrary. I'm
@@ -3933,7 +3933,7 @@ void optimizer_callback(// input state
                         STORE_JACOBIAN3( i_var_frame_rt + 3, 0,0,0);
                     }
 
-                    if( ctx->problem_details.do_optimize_calobject_warp )
+                    if( ctx->problem_selections.do_optimize_calobject_warp )
                         STORE_JACOBIAN2( i_var_calobject_warp, 0.0, 0.0 );
 
 
@@ -3957,7 +3957,7 @@ void optimizer_callback(// input state
         const int icam_extrinsics = observation->icam.extrinsics;
         const int i_point          = observation->i_point;
         const bool use_position_from_state =
-            ctx->problem_details.do_optimize_frames &&
+            ctx->problem_selections.do_optimize_frames &&
             i_point < ctx->Npoints - ctx->Npoints_fixed;
 
         const mrcal_point3_t* qx_qy_w__observed = &observation->px;
@@ -3972,20 +3972,20 @@ void optimizer_callback(// input state
                                              ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                              ctx->Nframes,
                                              ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                             ctx->problem_details, ctx->lensmodel);
+                                             ctx->problem_selections, ctx->lensmodel);
             // invalid if icam_extrinsics < 0, but unused in that case
             const int i_var_camera_rt  =
                 mrcal_state_index_extrinsics(icam_extrinsics,
                                              ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                              ctx->Nframes,
                                              ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                             ctx->problem_details, ctx->lensmodel);
+                                             ctx->problem_selections, ctx->lensmodel);
             const int i_var_point      =
                 mrcal_state_index_points(i_point,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
+                                         ctx->problem_selections, ctx->lensmodel);
 
             // I have my two measurements (dx, dy). I propagate their
             // gradient and store them
@@ -3994,7 +3994,7 @@ void optimizer_callback(// input state
                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
                 x[iMeasurement] = 0;
 
-                if( ctx->problem_details.do_optimize_intrinsics_core )
+                if( ctx->problem_selections.do_optimize_intrinsics_core )
                 {
                     // fx,fy. x depends on fx only. y depends on fy only
                     STORE_JACOBIAN( i_var_intrinsics + i_xy, 0 );
@@ -4003,9 +4003,9 @@ void optimizer_callback(// input state
                     STORE_JACOBIAN( i_var_intrinsics + i_xy+2, 0);
                 }
 
-                if( ctx->problem_details.do_optimize_intrinsics_distortions )
+                if( ctx->problem_selections.do_optimize_intrinsics_distortions )
                 {
-                    if( (ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions) &&
+                    if( (ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions) &&
                         ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
                     {
                         // sparse gradient. This is an outlier, so it doesn't
@@ -4023,7 +4023,7 @@ void optimizer_callback(// input state
                             STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0);
                 }
 
-                if(icam_extrinsics >= 0 && ctx->problem_details.do_optimize_extrinsics )
+                if(icam_extrinsics >= 0 && ctx->problem_selections.do_optimize_extrinsics )
                 {
                     STORE_JACOBIAN3( i_var_camera_rt + 0, 0,0,0 );
                     STORE_JACOBIAN3( i_var_camera_rt + 3, 0,0,0 );
@@ -4037,7 +4037,7 @@ void optimizer_callback(// input state
 
             if(Jt) Jrowptr[iMeasurement] = iJacobian;
             x[iMeasurement] = 0;
-            if(icam_extrinsics >= 0 && ctx->problem_details.do_optimize_extrinsics )
+            if(icam_extrinsics >= 0 && ctx->problem_selections.do_optimize_extrinsics )
             {
                 STORE_JACOBIAN3( i_var_camera_rt + 0, 0,0,0 );
                 STORE_JACOBIAN3( i_var_camera_rt + 3, 0,0,0 );
@@ -4055,20 +4055,20 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
+                                         ctx->problem_selections, ctx->lensmodel);
         // invalid if icam_extrinsics < 0, but unused in that case
         const int i_var_camera_rt  =
             mrcal_state_index_extrinsics(icam_extrinsics,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_details, ctx->lensmodel);
+                                         ctx->problem_selections, ctx->lensmodel);
         const int i_var_point      =
             mrcal_state_index_points(i_point,
                                      ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                      ctx->Nframes,
                                      ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                     ctx->problem_details, ctx->lensmodel);
+                                     ctx->problem_selections, ctx->lensmodel);
         mrcal_point3_t point_ref;
         if(use_position_from_state)
             unpack_solver_state_point_one(&point_ref, &packed_state[i_var_point]);
@@ -4094,15 +4094,15 @@ void optimizer_callback(// input state
         mrcal_point2_t q_hypothesis;
         project(&q_hypothesis,
 
-                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
+                ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?
                 dq_dintrinsics_pool_double : NULL,
-                ctx->problem_details.do_optimize_intrinsics_core || ctx->problem_details.do_optimize_intrinsics_distortions ?
+                ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?
                 dq_dintrinsics_pool_int : NULL,
                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
 
-                ctx->problem_details.do_optimize_extrinsics ?
+                ctx->problem_selections.do_optimize_extrinsics ?
                 dq_drcamera : NULL,
-                ctx->problem_details.do_optimize_extrinsics ?
+                ctx->problem_selections.do_optimize_extrinsics ?
                 dq_dtcamera : NULL,
                 NULL, // frame rotation. I only have a point position
                 use_position_from_state ? dq_dpoint : NULL,
@@ -4133,7 +4133,7 @@ void optimizer_callback(// input state
             x[iMeasurement] = err;
             norm2_error += err*err;
 
-            if( ctx->problem_details.do_optimize_intrinsics_core )
+            if( ctx->problem_selections.do_optimize_intrinsics_core )
             {
                 // fx,fy. x depends on fx only. y depends on fy only
                 STORE_JACOBIAN( i_var_intrinsics + i_xy,
@@ -4145,7 +4145,7 @@ void optimizer_callback(// input state
                                 weight * SCALE_INTRINSICS_CENTER_PIXEL );
             }
 
-            if( ctx->problem_details.do_optimize_intrinsics_distortions )
+            if( ctx->problem_selections.do_optimize_intrinsics_distortions )
             {
                 if(gradient_sparse_meta.pool != NULL)
                 {
@@ -4157,7 +4157,7 @@ void optimizer_callback(// input state
                     //
                     // ddeltau/diii = flatten(ABCDx[0..3] * ABCDy[0..3])
                     const int ivar0 = dq_dintrinsics_pool_int[0] -
-                        ( ctx->problem_details.do_optimize_intrinsics_core ? 0 : 4 );
+                        ( ctx->problem_selections.do_optimize_intrinsics_core ? 0 : 4 );
 
                     const int     len   = gradient_sparse_meta.run_side_length;
                     const double* ABCDx = &gradient_sparse_meta.pool[0];
@@ -4184,7 +4184,7 @@ void optimizer_callback(// input state
                 }
             }
 
-            if( ctx->problem_details.do_optimize_extrinsics )
+            if( ctx->problem_selections.do_optimize_extrinsics )
                 if( icam_extrinsics >= 0 )
                 {
                     STORE_JACOBIAN3( i_var_camera_rt + 0,
@@ -4310,7 +4310,7 @@ void optimizer_callback(// input state
             x[iMeasurement] = penalty;
             norm2_error += penalty*penalty;
 
-            if( ctx->problem_details.do_optimize_extrinsics )
+            if( ctx->problem_selections.do_optimize_extrinsics )
             {
                 // pcam.x       = Rc[row0]*point*SCALE + tc
                 // d(pcam.x)/dr = d(Rc[row0])/drc*point*SCALE
@@ -4359,10 +4359,10 @@ void optimizer_callback(// input state
 
     // regularization terms for the intrinsics. I favor smaller distortion
     // parameters
-    if(ctx->problem_details.do_apply_regularization &&
+    if(ctx->problem_selections.do_apply_regularization &&
        modelHasCore_fxfycxcy(ctx->lensmodel) &&
-       ( ctx->problem_details.do_optimize_intrinsics_distortions ||
-         ctx->problem_details.do_optimize_intrinsics_core
+       ( ctx->problem_selections.do_optimize_intrinsics_distortions ||
+         ctx->problem_selections.do_optimize_intrinsics_core
          ))
     {
         // I want the total regularization cost to be low relative to the
@@ -4441,9 +4441,9 @@ void optimizer_callback(// input state
                                              ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                              ctx->Nframes,
                                              ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                             ctx->problem_details, ctx->lensmodel);
+                                             ctx->problem_selections, ctx->lensmodel);
 
-            if( ctx->problem_details.do_optimize_intrinsics_distortions)
+            if( ctx->problem_selections.do_optimize_intrinsics_distortions)
             {
                 for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
                 {
@@ -4494,7 +4494,7 @@ void optimizer_callback(// input state
                 }
             }
 
-            if( ctx->problem_details.do_optimize_intrinsics_core)
+            if( ctx->problem_selections.do_optimize_intrinsics_core)
             {
                 // And another regularization term: optical center should be
                 // near the middle. This breaks the symmetry between moving the
@@ -4580,7 +4580,7 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
                              const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
                              const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                             const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                             const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                              int Npoints, int Npoints_fixed, // at the end of points[]
@@ -4607,7 +4607,7 @@ bool mrcal_optimizer_callback(// out
                              double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
-                             mrcal_problem_details_t          problem_details,
+                             mrcal_problem_selections_t          problem_selections,
                              const mrcal_problem_constants_t* problem_constants,
 
                              double calibration_object_spacing,
@@ -4617,19 +4617,19 @@ bool mrcal_optimizer_callback(// out
     bool result = false;
 
     if(!modelHasCore_fxfycxcy(lensmodel))
-        problem_details.do_optimize_intrinsics_core = false;
+        problem_selections.do_optimize_intrinsics_core = false;
 
-    if(!problem_details.do_optimize_intrinsics_core        &&
-       !problem_details.do_optimize_intrinsics_distortions &&
-       !problem_details.do_optimize_extrinsics            &&
-       !problem_details.do_optimize_frames                &&
-       !problem_details.do_optimize_calobject_warp)
+    if(!problem_selections.do_optimize_intrinsics_core        &&
+       !problem_selections.do_optimize_intrinsics_distortions &&
+       !problem_selections.do_optimize_extrinsics            &&
+       !problem_selections.do_optimize_frames                &&
+       !problem_selections.do_optimize_calobject_warp)
     {
         MSG("Not optimizing any of our variables!");
         goto done;
     }
 
-    if( calobject_warp == NULL && problem_details.do_optimize_calobject_warp )
+    if( calobject_warp == NULL && problem_selections.do_optimize_calobject_warp )
     {
         MSG("ERROR: We're using the calibration object warp, so a value MUST be passed in.");
         goto done;
@@ -4639,7 +4639,7 @@ bool mrcal_optimizer_callback(// out
     const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
-                                        problem_details,
+                                        problem_selections,
                                         lensmodel);
     if( buffer_size_p_packed != Nstate*(int)sizeof(double) )
     {
@@ -4655,7 +4655,7 @@ bool mrcal_optimizer_callback(// out
                                                Ncameras_intrinsics, Ncameras_extrinsics,
                                                Nframes,
                                                Npoints, Npoints_fixed,
-                                               problem_details,
+                                               problem_selections,
                                                lensmodel);
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
@@ -4667,7 +4667,7 @@ bool mrcal_optimizer_callback(// out
                                            Npoints, Npoints_fixed,
                                            observations_board,
                                            observations_point,
-                                           problem_details,
+                                           problem_selections,
                                            lensmodel);
 
     if( buffer_size_x != Nmeasurements*(int)sizeof(double) )
@@ -4702,7 +4702,7 @@ bool mrcal_optimizer_callback(// out
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
-        .problem_details            = problem_details,
+        .problem_selections            = problem_selections,
         .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
@@ -4718,7 +4718,7 @@ bool mrcal_optimizer_callback(// out
                       frames_toref,
                       points,
                       calobject_warp,
-                      problem_details,
+                      problem_selections,
                       Ncameras_intrinsics, Ncameras_extrinsics,
                       Nframes, Npoints-Npoints_fixed, Nstate);
 
@@ -4767,7 +4767,7 @@ mrcal_optimize( // out
                 mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                 mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
                 // All the board pixel observations, in order.
                 // .x, .y are the pixel observations
@@ -4800,7 +4800,7 @@ mrcal_optimize( // out
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
-                mrcal_problem_details_t          problem_details,
+                mrcal_problem_selections_t          problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
 
                 double calibration_object_spacing,
@@ -4809,23 +4809,23 @@ mrcal_optimize( // out
 {
     if( Nobservations_board > 0 )
     {
-        if( problem_details.do_optimize_calobject_warp && calobject_warp == NULL )
+        if( problem_selections.do_optimize_calobject_warp && calobject_warp == NULL )
         {
             MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
             return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
         }
     }
     else
-        problem_details.do_optimize_calobject_warp = false;
+        problem_selections.do_optimize_calobject_warp = false;
 
     if(!modelHasCore_fxfycxcy(lensmodel))
-        problem_details.do_optimize_intrinsics_core = false;
+        problem_selections.do_optimize_intrinsics_core = false;
 
-    if(!problem_details.do_optimize_intrinsics_core        &&
-       !problem_details.do_optimize_intrinsics_distortions &&
-       !problem_details.do_optimize_extrinsics             &&
-       !problem_details.do_optimize_frames                 &&
-       !problem_details.do_optimize_calobject_warp)
+    if(!problem_selections.do_optimize_intrinsics_core        &&
+       !problem_selections.do_optimize_intrinsics_distortions &&
+       !problem_selections.do_optimize_extrinsics             &&
+       !problem_selections.do_optimize_frames                 &&
+       !problem_selections.do_optimize_calobject_warp)
     {
         MSG("Warning: Not optimizing any of our variables");
     }
@@ -4872,7 +4872,7 @@ mrcal_optimize( // out
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
-        .problem_details            = problem_details,
+        .problem_selections            = problem_selections,
         .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
@@ -4884,7 +4884,7 @@ mrcal_optimize( // out
                                                              Ncameras_intrinsics, Ncameras_extrinsics,
                                                              Nframes,
                                                              Npoints, Npoints_fixed,
-                                                             problem_details,
+                                                             problem_selections,
                                                              lensmodel),
         .N_j_nonzero                = _mrcal_num_j_nonzero(Nobservations_board,
                                                            Nobservations_point,
@@ -4895,7 +4895,7 @@ mrcal_optimize( // out
                                                            Npoints, Npoints_fixed,
                                                            observations_board,
                                                            observations_point,
-                                                           problem_details,
+                                                           problem_selections,
                                                            lensmodel),
         .Nintrinsics                = mrcal_lensmodel_num_params(lensmodel)};
     _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
@@ -4903,7 +4903,7 @@ mrcal_optimize( // out
     const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
-                                        problem_details,
+                                        problem_selections,
                                         lensmodel);
 
     if( p_packed_final != NULL &&
@@ -4944,7 +4944,7 @@ mrcal_optimize( // out
                       frames_toref,
                       points,
                       calobject_warp,
-                      problem_details,
+                      problem_selections,
                       Ncameras_intrinsics, Ncameras_extrinsics,
                       Nframes, Npoints-Npoints_fixed, Nstate);
 
@@ -5020,7 +5020,7 @@ mrcal_optimize( // out
                              calobject_warp,
                              packed_state,
                              lensmodel,
-                             problem_details,
+                             problem_selections,
                              Ncameras_intrinsics, Ncameras_extrinsics,
                              Nframes, Npoints-Npoints_fixed, Nstate);
         if(verbose)
@@ -5038,12 +5038,12 @@ mrcal_optimize( // out
             ctx.reportFitMsg = "After";
 #warning hook this up
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
-            if(problem_details.do_apply_regularization)
+            if(problem_selections.do_apply_regularization)
             {
                 double norm2_err_regularization = 0;
                 int    Nmeasurements_regularization =
                     Ncameras_intrinsics *
-                    num_regularization_terms_percamera(problem_details,
+                    num_regularization_terms_percamera(problem_selections,
                                                        lensmodel);
 
                 for(int i=0; i<Nmeasurements_regularization; i++)

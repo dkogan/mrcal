@@ -55,7 +55,7 @@ estimate of the solution) to the optimization routines. The
 2. And then refining that estimate with a sequences of optimization problems
    that allow more and more of the parameters to vary. The final problem is the
    /full/ problem where all the variables are free to move. The set of variables
-   we're optimizing can be selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_details_t=]] structure
+   we're optimizing can be selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure
    passed to [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or the =do_optimize_...= arguments to
    [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
 
@@ -311,7 +311,7 @@ detail. Currently the logic is at the end of the [[https://github.jpl.nasa.gov/m
 in =mrcal.c=.
 
 It is possible to control whether a solve does/does not include regularization
-terms with the =do_apply_regularization= bit in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_details_t=]] or the
+terms with the =do_apply_regularization= bit in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] or the
 =do_apply_regularization= key in the call to [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]].
 
 ** Measurement vector layout

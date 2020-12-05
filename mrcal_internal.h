@@ -99,5 +99,5 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
                          int Npoints, int Npoints_fixed,
                          const mrcal_observation_board_t* observations_board,
                          const mrcal_observation_point_t* observations_point,
-                         mrcal_problem_details_t problem_details,
+                         mrcal_problem_selections_t problem_selections,
                          mrcal_lensmodel_t lensmodel);

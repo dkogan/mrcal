@@ -14,22 +14,22 @@ bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t m )
 
 int main(int argc, char* argv[] )
 {
-    const char* usage = "Usage: %s LENSMODEL_XXX [problem-details problem-details ...]\n"
+    const char* usage = "Usage: %s LENSMODEL_XXX [problem-selections problem-selections ...]\n"
         "\n"
         "The lensmodels are given as the expected strings. Splined stereographic models\n"
         "MUST be given as either of\n"
         "  MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_2\n"
         "  MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_3\n"
         "\n"
-        "problem-details are a list of parameters we're optimizing. This is some set of\n"
+        "problem-selections are a list of parameters we're optimizing. This is some set of\n"
         "  intrinsic-core\n"
         "  intrinsic-distortions\n"
         "  extrinsics\n"
         "  frames\n"
         "  calobject-warp\n"
         "\n"
-        "If no details are given, we optimize everything. Otherwise, we start with an empty\n"
-        "mrcal_problem_details_t, and each argument sets a bit\n";
+        "If no selections are given, we optimize everything. Otherwise, we start with an empty\n"
+        "mrcal_problem_selections_t, and each argument sets a bit\n";
 
     if( argc >= 2 && argv[1][0] == '-' )
     {
@@ -37,7 +37,7 @@ int main(int argc, char* argv[] )
         return 0;
     }
 
-    mrcal_problem_details_t problem_details = {};
+    mrcal_problem_selections_t problem_selections = {};
 
 
     int iarg = 1;
@@ -73,7 +73,7 @@ int main(int argc, char* argv[] )
     iarg++;
 
     if(iarg >= argc)
-        problem_details = ((mrcal_problem_details_t) { .do_optimize_intrinsics_core       = true,
+        problem_selections = ((mrcal_problem_selections_t) { .do_optimize_intrinsics_core       = true,
                                                        .do_optimize_intrinsics_distortions= true,
                                                        .do_optimize_extrinsics            = true,
                                                        .do_optimize_frames                = true,
@@ -84,27 +84,27 @@ int main(int argc, char* argv[] )
         {
             if( 0 == strcmp(argv[iarg], "intrinsic-core") )
             {
-                problem_details.do_optimize_intrinsics_core = true;
+                problem_selections.do_optimize_intrinsics_core = true;
                 continue;
             }
             if( 0 == strcmp(argv[iarg], "intrinsic-distortions") )
             {
-                problem_details.do_optimize_intrinsics_distortions = true;
+                problem_selections.do_optimize_intrinsics_distortions = true;
                 continue;
             }
             if( 0 == strcmp(argv[iarg], "extrinsics") )
             {
-                problem_details.do_optimize_extrinsics = true;
+                problem_selections.do_optimize_extrinsics = true;
                 continue;
             }
             if( 0 == strcmp(argv[iarg], "frames") )
             {
-                problem_details.do_optimize_frames = true;
+                problem_selections.do_optimize_frames = true;
                 continue;
             }
             if( 0 == strcmp(argv[iarg], "calobject-warp" ) )
             {
-                problem_details.do_optimize_calobject_warp = true;
+                problem_selections.do_optimize_calobject_warp = true;
                 continue;
             }
 
@@ -191,7 +191,7 @@ int main(int argc, char* argv[] )
 
     if(!modelHasCore_fxfycxcy(lensmodel))
         // There is no core
-        problem_details.do_optimize_intrinsics_core = false;
+        problem_selections.do_optimize_intrinsics_core = false;
 
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     int Ndistortion = Nintrinsics;
@@ -293,47 +293,47 @@ int main(int argc, char* argv[] )
     printf("## Ncameras_intrinsics = %d\n", Ncameras_intrinsics);
     printf("## Ncameras_extrinsics = %d\n", Ncameras_extrinsics);
     printf("## Intrinsics: %d variables per camera (%d for the core, %d for the rest; %d total). Starts at variable %d\n",
-           (problem_details.do_optimize_intrinsics_core        ? 4           : 0) +
-           (problem_details.do_optimize_intrinsics_distortions ? Ndistortion : 0),
-           (problem_details.do_optimize_intrinsics_core        ? 4           : 0),
-           (problem_details.do_optimize_intrinsics_distortions ? Ndistortion : 0),
-           Ncameras_intrinsics*((problem_details.do_optimize_intrinsics_core        ? 4           : 0) +
-                                (problem_details.do_optimize_intrinsics_distortions ? Ndistortion : 0)),
+           (problem_selections.do_optimize_intrinsics_core        ? 4           : 0) +
+           (problem_selections.do_optimize_intrinsics_distortions ? Ndistortion : 0),
+           (problem_selections.do_optimize_intrinsics_core        ? 4           : 0),
+           (problem_selections.do_optimize_intrinsics_distortions ? Ndistortion : 0),
+           Ncameras_intrinsics*((problem_selections.do_optimize_intrinsics_core        ? 4           : 0) +
+                                (problem_selections.do_optimize_intrinsics_distortions ? Ndistortion : 0)),
            mrcal_state_index_intrinsics(0, Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
-                                        problem_details,
+                                        problem_selections,
                                         lensmodel));
     printf("## Extrinsics: %d variables per camera for all cameras except camera 0 (%d total). Starts at variable %d\n",
-           (problem_details.do_optimize_extrinsics ? 6                     : 0),
-           (problem_details.do_optimize_extrinsics ? 6*Ncameras_extrinsics : 0),
+           (problem_selections.do_optimize_extrinsics ? 6                     : 0),
+           (problem_selections.do_optimize_extrinsics ? 6*Ncameras_extrinsics : 0),
            mrcal_state_index_extrinsics(0, Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
-                                        problem_details,
+                                        problem_selections,
                                         lensmodel));
     printf("## Frames: %d variables per frame (%d total). Starts at variable %d\n",
-           (problem_details.do_optimize_frames ? 6         : 0),
-           (problem_details.do_optimize_frames ? 6*Nframes : 0),
+           (problem_selections.do_optimize_frames ? 6         : 0),
+           (problem_selections.do_optimize_frames ? 6*Nframes : 0),
            mrcal_state_index_frames(0, Ncameras_intrinsics, Ncameras_extrinsics,
                                     Nframes,
                                     Npoints, Npoints_fixed, Nobservations_board,
-                                    problem_details,
+                                    problem_selections,
                                     lensmodel));
     printf("## Discrete points: %d variables per point (%d total). Starts at variable %d\n",
-           (problem_details.do_optimize_frames ? 3                        : 0),
-           (problem_details.do_optimize_frames ? 3*(Npoints-Npoints_fixed) : 0),
+           (problem_selections.do_optimize_frames ? 3                        : 0),
+           (problem_selections.do_optimize_frames ? 3*(Npoints-Npoints_fixed) : 0),
            mrcal_state_index_points(0, Ncameras_intrinsics, Ncameras_extrinsics,
                                     Nframes,
                                     Npoints, Npoints_fixed, Nobservations_board,
-                                    problem_details,
+                                    problem_selections,
                                     lensmodel));
     printf("## calobject_warp: %d variables. Starts at variable %d\n",
-           (problem_details.do_optimize_calobject_warp ? 2 : 0),
+           (problem_selections.do_optimize_calobject_warp ? 2 : 0),
            mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
                                             Nframes,
                                             Npoints, Npoints_fixed, Nobservations_board,
-                                            problem_details,
+                                            problem_selections,
                                             lensmodel));
     int Nmeasurements_boards         = mrcal_num_measurements_boards(Nobservations_board,
                                                                      calibration_object_width_n,
@@ -342,7 +342,7 @@ int main(int argc, char* argv[] )
     int Nmeasurements_regularization = mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                                                              Nframes,
                                                                              Npoints, Npoints_fixed, Nobservations_board,
-                                                                             problem_details,
+                                                                             problem_selections,
                                                                              lensmodel);
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
            Nmeasurements_boards, 0);
@@ -377,7 +377,7 @@ int main(int argc, char* argv[] )
                     lensmodel,
                     1.0,
                     imagersizes,
-                    problem_details,
+                    problem_selections,
                     &problem_constants,
 
                     1.2,

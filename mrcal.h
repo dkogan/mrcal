@@ -406,11 +406,11 @@ typedef struct
 } mrcal_observation_point_t;
 
 
-// The "details" of the optimization problem being solved. We can ask mrcal to
-// solve for ALL the lens parameters and ALL the geometry and everything else.
-// OR we can ask mrcal to lock down some part of the optimization problem, and
-// to solve for the rest. If any variables are locked down, we use their initial
-// values passed-in to mrcal_optimize()
+// Bits indicating which parts of the optimization problem being solved. We can
+// ask mrcal to solve for ALL the lens parameters and ALL the geometry and
+// everything else. OR we can ask mrcal to lock down some part of the
+// optimization problem, and to solve for the rest. If any variables are locked
+// down, we use their initial values passed-in to mrcal_optimize()
 typedef struct
 {
     // If true, we solve for the intrinsics core. Applies only to those models
@@ -431,15 +431,15 @@ typedef struct
 
     // If true, optimize the shape of the calibration object
     bool do_optimize_calobject_warp         : 1;
-} mrcal_problem_details_t;
+} mrcal_problem_selections_t;
 
 
 // Return the number of parameters needed in optimizing the given lens model
 //
 // This is identical to mrcal_lensmodel_num_params(), but takes into account the
-// problem details. Any intrinsics parameters locked down in the
-// mrcal_problem_details_t do NOT count towards the optimization parameters
-int mrcal_num_intrinsics_optimization_params( mrcal_problem_details_t problem_details,
+// problem selections. Any intrinsics parameters locked down in the
+// mrcal_problem_selections_t do NOT count towards the optimization parameters
+int mrcal_num_intrinsics_optimization_params( mrcal_problem_selections_t problem_selections,
                                               mrcal_lensmodel_t m );
 
 
@@ -461,7 +461,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
                                      int Npoints, int Npoints_fixed,
-                                     mrcal_problem_details_t problem_details,
+                                     mrcal_problem_selections_t problem_selections,
                                      const mrcal_lensmodel_t lensmodel);
 
 
@@ -485,7 +485,7 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        int Ncameras_intrinsics, int Ncameras_extrinsics,
                                        int Nframes,
                                        int Npoints, int Npoints_fixed,
-                                       mrcal_problem_details_t problem_details,
+                                       mrcal_problem_selections_t problem_selections,
                                        const mrcal_lensmodel_t lensmodel);
 
 
@@ -591,7 +591,7 @@ mrcal_optimize( // out
                 mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                 mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
                 // All the board pixel observations, in order. .x, .y are the
                 // pixel observations .z is the weight of the observation. Most
@@ -621,7 +621,7 @@ mrcal_optimize( // out
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
-                mrcal_problem_details_t          problem_details,
+                mrcal_problem_selections_t          problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
 
                 double calibration_object_spacing,
@@ -672,7 +672,7 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
                              const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
                              const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                             const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_details.do_optimize_calobject_warp
+                             const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                              int Npoints, int Npoints_fixed, // at the end of points[]
@@ -697,7 +697,7 @@ bool mrcal_optimizer_callback(// out
                              double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
-                             mrcal_problem_details_t          problem_details,
+                             mrcal_problem_selections_t          problem_selections,
                              const mrcal_problem_constants_t* problem_constants,
 
                              double calibration_object_spacing,
@@ -718,7 +718,7 @@ void mrcal_free_context(void** ctx);
 // vector x by moving around the state vector p.
 //
 // Depending on the specific optimization problem being solved and the
-// mrcal_problem_details_t, the state vector may contain any of
+// mrcal_problem_selections_t, the state vector may contain any of
 // - The lens parameters
 // - The geometry of the cameras
 // - The geometry of the observed chessboards and discrete points
@@ -730,7 +730,7 @@ void mrcal_free_context(void** ctx);
 // - The penalties in the solved point positions
 // - The regularization terms
 //
-// Given the problem details and a vector p or x it is often useful to know
+// Given the problem selections and a vector p or x it is often useful to know
 // where specific quantities lie in those vectors. We have 4 sets of functions
 // to answer such questions:
 //
@@ -786,7 +786,7 @@ int mrcal_measurement_index_regularization(int Nobservations_board,
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                           int Nframes,
                                           int Npoints, int Npoints_fixed, int Nobservations_board,
-                                          mrcal_problem_details_t problem_details,
+                                          mrcal_problem_selections_t problem_selections,
                                           mrcal_lensmodel_t lensmodel);
 
 int mrcal_num_measurements(int Nobservations_board,
@@ -796,53 +796,53 @@ int mrcal_num_measurements(int Nobservations_board,
                            int Ncameras_intrinsics, int Ncameras_extrinsics,
                            int Nframes,
                            int Npoints, int Npoints_fixed,
-                           mrcal_problem_details_t problem_details,
+                           mrcal_problem_selections_t problem_selections,
                            mrcal_lensmodel_t lensmodel);
 
 int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
                      int Nframes,
                      int Npoints, int Npoints_fixed, int Nobservations_board,
-                     mrcal_problem_details_t problem_details,
+                     mrcal_problem_selections_t problem_selections,
                      mrcal_lensmodel_t lensmodel);
 int mrcal_state_index_intrinsics(int icam_intrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
-                                 mrcal_problem_details_t problem_details,
+                                 mrcal_problem_selections_t problem_selections,
                                  mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
-                                mrcal_problem_details_t problem_details,
+                                mrcal_problem_selections_t problem_selections,
                                 mrcal_lensmodel_t lensmodel);
 int mrcal_state_index_extrinsics(int icam_extrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
-                                 mrcal_problem_details_t problem_details,
+                                 mrcal_problem_selections_t problem_selections,
                                  mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
-                                mrcal_problem_details_t problem_details);
+                                mrcal_problem_selections_t problem_selections);
 int mrcal_state_index_frames(int iframe,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
-                             mrcal_problem_details_t problem_details,
+                             mrcal_problem_selections_t problem_selections,
                              mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_frames(int Nframes,
-                            mrcal_problem_details_t problem_details);
+                            mrcal_problem_selections_t problem_selections);
 int mrcal_state_index_points(int i_point,
                              int Ncameras_intrinsics, int Ncameras_extrinsics,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
-                             mrcal_problem_details_t problem_details,
+                             mrcal_problem_selections_t problem_selections,
                              mrcal_lensmodel_t lensmodel);
 int mrcal_num_states_points(int Npoints, int Npoints_fixed,
-                            mrcal_problem_details_t problem_details);
+                            mrcal_problem_selections_t problem_selections);
 int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
                                      int Npoints, int Npoints_fixed, int Nobservations_board,
-                                     mrcal_problem_details_t problem_details,
+                                     mrcal_problem_selections_t problem_selections,
                                      mrcal_lensmodel_t lensmodel);
-int mrcal_num_states_calobject_warp(mrcal_problem_details_t problem_details,
+int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selections,
                                     int Nobservations_board);
 
 
