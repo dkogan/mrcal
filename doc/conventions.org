@@ -8,50 +8,49 @@ explicitly define them here
   of a set of cameras. Usually this involves a stationary set of cameras
   observing a moving object.
 
-- *calibration object* or *chessboard* or *board*: these are used more or less
+- [[file:formulation.org::#Calibration object][*calibration object*]] or *chessboard* or *board*: these are used more or less
   interchangeably. They refer to the known-geometry object observed by the
   cameras, with those observations used as input during calibration
 
-- *pose*: a position and orientation
+- *camera model*: this is used to refer to the intrinsics (lens parameters) and
+  extrinsics (geometry) together
+
+- *confidence*: a measure of dispersion of some estimator. Higher confidence
+  implies less dispersion. Used to describe the [[file:uncertainty.org][calibration quality]]. Inverse of
+  *uncertainty*
+
+- *extrinsics*: the pose of a camera in respect to some fixed coordinate system
+
+- *frames*: in the context of [[file:formulation.org][mrcal's optimization]] these refer to an array of
+  poses of the observed chessboards
 
 - *intrinsics*: the parameters describing the behavior of a lens. The pose of
-  the lens does not affect the intrinsics
+  the lens is independent of the intrinsics
 
-- *extrinsics*: the pose of a lens in respect to some fixed coordinate system
+- *measurements* or *residuals*: used more or less interchangeably. This is the
+  vector whose norm the [[file:formulation.org][optimization algorithm]] is trying to minimize. mrcal
+  refers to this as $\vec x$, and it primarily contains differences between
+  observed and predicted pixel observations
 
-- *frames*: in the context of mrcal's optimization these refer to an array of
-  poses of the observed chessboards
+- *projection*: a mapping of a point in space in the camera coorddinate system
+  to a pixel coordinate where that point would be observed by a given camera
+
+- *pose*: a 6 degree-of-freedom vector describing a position and an orientation
 
 - *SFM*: structure from motion. This is the converse of "calibration": we
   observe a stationary scene from a moving camera to compute the geometry of the
   scene
 
-- *state*: the vector of parameters that an optimization algorithm is free to
-  move around as it searches for the optimum. mrcal generally refers to this
-  vector as $\vec p$
-
-- *measurements* or *residuals*: I use these more or less interchangeably. This
-  is the vector whose norm the optimization algorithm is trying to minimize.
-  mrcal generally refers to this as $\vec x$, and it contains differences
-  between pixel coordinates observed by a camera, and where the state vector
-  $\vec p$ predicts those observations should be. The optimization tries to
-  minimize these differences by finding the $\vec p$ that minimizes $\left \Vert
-  \vec x \right \Vert ^2$
-
-- *project*: to map a point in space to a pixel coordinate where that point
-  would be observed by a given camera
-
-- *unproject*: to map a pixel coordinate back to a point in space that would
-  produce an observation at that pixel. Unprojection is only unique up-to scale
-
-- *camera model*: this is used to refer to the intrinsics and extrinsics
-  together.
+- *state*: the vector of parameters that the [[file:formulation.org][mrcal optimization algorithm]] moves
+  around as it searches for the optimum. mrcal refers to this as $\vec p$
 
 - *uncertainty*: a measure of dispersion of some estimator. Higher uncertainty
-  implies more dispersion. Inverse of *confidence*
+  implies more dispersion. Used to describe the [[file:uncertainty.org][calibration quality]]. Inverse of
+  *confidence*
 
-- *confidence*: a measure of dispersion of some estimator. Higher confidence
-  implies less dispersion. Inverse of *uncertainty*
+- *unprojection*: a mapping of a pixel coordinate back to a point in space in
+  the camera coordinate system that would produce an observation at that pixel.
+  Unprojection is only unique up-to scale
 
 * Symbols
 ** Geometry
@@ -65,8 +64,10 @@ explicitly define them here
   \right)$ in space. Unlike $\vec v$, $\vec p$ has a defined range. Like $\vec
   v$ we have $\vec q = \mathrm{project}\left(\vec p \right)$
 
+- $\vec u$ is a 2-dimensional vector representing a [[file:lensmodels.org::#stereographic][normalized stereographic projection]]
+
 ** Optimization
-The core of the mrcal calibration routine is a nonlinear least-squares
+The core of the [[file:formulation.org][mrcal calibration routine]] is a nonlinear least-squares
 optimization
 
 \[
@@ -92,7 +93,7 @@ world coordinate system. The canonical /camera/ coordinate system has $x$ and
 $y$ as with pixel coordinates in an image: $x$ is to the right and $y$ is down.
 $z$ is then forward to complete the right-handed system of coordinates.
 
-* Transformations
+* Transformation naming
 We describe transformations as mappings between a representation of a point in
 one coordinate system to a representation of the /same/ point in another
 coordinate system. =T_AB= is a transformation from coordinate system =B= to
@@ -101,21 +102,26 @@ transformation between =A= and =B= and between =B= and =C=, we can transform a
 point represented in =C= to =A=: =x_A = T_AB T_BC x_C = T_AC x_C=. And =T_AC =
 T_AB T_BC=.
 
-* Poses
-
+* Pose representation
 Various parts of the toolkit have preferred representations of pose, and mrcal
 has functions to convert between them. Available representations are:
 
 - =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
-  (1,3) translation vector. This form is easy to work with, but there are
-  implied constraints: most (4,3) numpy arrays are /not/ valid =Rt=
-  transformations.
+  (1,3) translation vector:
+
+  \[ \left( \begin{aligned} R \\ \vec t^T \end{aligned} \right) \]
+
+  This form is easy to work with, but there are implied constraints: most (4,3)
+  numpy arrays are /not/ valid =Rt= transformations.
 
 - =rt=: a (6,) numpy array with a (3,) vector representing a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
-  concatenated with another (3,) vector, representing a rotation. This form
-  requires more computations to deal with, but has no implied constraints: /any/
-  (6,) numpy array is a valid =rt= transformation. Thus this is the form used
-  inside the mrcal optimization routine.
+  concatenated with another (3,) vector, representing a rotation:
+
+  \[ \left( \vec r^T \quad \vec t^T \right) \]
+
+  This form requires more computations to deal with, but has no implied
+  constraints: /any/ (6,) numpy array is a valid =rt= transformation. Thus this
+  is the form used inside the [[file:formulation.org][mrcal optimization routine]].
 
 Each of these represents a transformation =rotate(x) + t=.
 
@@ -135,9 +141,10 @@ representation, but they're lightly used, and exist only for compatibility with
 other tools. mrcal does not use quaternions.
 
 * Linear algebra
-mrcal follows the usual linear algebra convention of column vectors. So applying
-a rotation looks like $\vec b = R \vec a$ where both $\vec a$ and $\vec b$ are
-column vectors.
+mrcal follows the usual linear algebra convention of /column/ vectors. So
+rotating a vector using a rotation matrix is a matrix-vector multiplication
+operation: $\vec b = R \vec a$ where both $\vec a$ and $\vec b$ are column
+vectors.
 
 However, numpy print vectors (1-dimensional objects), as /row/ vectors, so the
 code treats 1-dimensional objects as transposed vectors. In the code, the above
@@ -146,26 +153,36 @@ rotation would be implemented equivalently: $\vec b^T = \vec a^T R^T$. The
 handle this transparently.
 
 A similar issue is that numpy follows the linear algebra convention of indexing
-array with =(index_column, index_row)= and representing array sizes with
+arrays with =(index_column, index_row)= and representing array sizes with
 =(height, width)=. This runs against the /other/ convention of referring to
-pixel coordinates as =(x,y)= and image dimensions as =(width, height)=. mrcal
-places the =x= coordinate first (as in the latter) whenever possible, but when
-interacting directly with numpy, it must place the =y= coordinate first. The
-choice being made is very clearly documented, so when in doubt, pay attantion to
-the docs.
+pixel coordinates as =(x,y)= and image dimensions as =(width, height)=. Whenever
+possible, mrcal places the =x= coordinate first (as in the latter), but when
+interacting directly with numpy, it must place the =y= coordinate first.
+/Usually/ =x= goes first. In any case, the choice being made is very clearly
+documented, so when in doubt, pay attention to the docs.
 
 When computing gradients mrcal places the dependent variables in the leading
-dimensions, and the independent variables in the trailing dimensions. So in the
-above expressions we have $\frac{ \partial \vec b }{ \partial \vec a } = R$ and
-row $i$ of $R$ represents the $\frac{ \partial b_i }{ \partial \vec a }$
+dimensions, and the independent variables in the trailing dimensions. So if we
+have $\vec b = R \vec a$, then
 
+\[ R = \frac{ \partial \vec b }{ \partial \vec a } =
+   \left( \begin{aligned} \frac{ \partial b_0 }{ \partial \vec a } \\
+                          \frac{ \partial b_1 }{ \partial \vec a } \\
+                          \frac{ \partial b_2 }{ \partial \vec a } \end{aligned} \right) =
+   \left( \frac{ \partial \vec b }{ \partial a_0 } \quad
+          \frac{ \partial \vec b }{ \partial a_1 } \quad
+          \frac{ \partial \vec b }{ \partial a_2 } \right)
+\]
+
+$\frac{ \partial b_i }{ \partial \vec a }$ is a (1,3) row vector and $\frac{
+\partial \vec b }{ \partial a_i }$ is a (3,1) column vector.
+                          
 * Implementation
 The core of mrcal is written in C, but most of the API is currently available in
-Python only. The python-wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library,
-which makes it fairly simple to make the Python interface /and/ provides
+Python only. The Python wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library,
+which makes it simple to make consistent Python interfaces /and/ provides
 [[https://numpy.org/doc/stable/user/basics.broadcasting.html][broadcasting]] support.
 
 The Python layer uses [[https://numpy.org/][numpy]] and [[https://github.com/dkogan/numpysane/][=numpysane=]] heavily. All the plotting is done
 with [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. [[https://opencv.org/][OpenCV]] is used a bit, but /only/ in the Python layer (their C
-APIs are gone, and the C++ APIs are unstable). Over time the dependence on this
-library will decrease even further.
+APIs are gone, and the C++ APIs are unstable).
