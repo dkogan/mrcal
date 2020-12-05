@@ -150,11 +150,11 @@ a standard deviation inversely proportional to the weight:
 
 so
 
-\begin{eqnarray*}
-\mathrm{Var}\left(\vec p\right) &=& \sigma^2 M W^{-2} M^T \\
-&=& \sigma^2 \left( J^T J \right)^{-1} J_\mathrm{observations}^T W W^{-2} W J_\mathrm{observations} \left( J^T J \right)^{-1} \\
-&=& \sigma^2 \left( J^T J \right)^{-1} J_\mathrm{observations}^T J_\mathrm{observations}  \left( J^T J \right)^{-1}
-\end{eqnarray*}
+\begin{aligned}
+\mathrm{Var}\left(\vec p\right) &= \sigma^2 M W^{-2} M^T \\
+&= \sigma^2 \left( J^T J \right)^{-1} J_\mathrm{observations}^T W W^{-2} W J_\mathrm{observations} \left( J^T J \right)^{-1} \\
+&= \sigma^2 \left( J^T J \right)^{-1} J_\mathrm{observations}^T J_\mathrm{observations}  \left( J^T J \right)^{-1}
+\end{aligned}
 
 If we have no regularization, and all measurements are pixel errors, then
 $J_\mathrm{observations} = J$ and

@@ -98,12 +98,12 @@ Let's calibrate the intrinsics! For a while the 8-parameter opencv lens model
 represents the radial "distortion" as a rational. If $\vec p$ is the
 camera-coordinate-system point being projected, we have
 
-\begin{eqnarray*}
-\vec P &\equiv& \frac{\vec {p_{xy}}}{p_z} \\
-r &\equiv& \left|\vec P\right|            \\
-\vec P_\mathrm{radial} &\equiv& \frac{ 1 + k_0 r^2 + k_1 r^4 + k_4 r^6}{ 1 + k_5 r^2 + k_6 r^4 + k_7 r^6} \vec P \\
-\vec q &=& \vec f_{xy} \left( \vec P_\mathrm{radial} + \vec P_\mathrm{tangential} \right) + \vec c_{xy}
-\end{eqnarray*}
+\begin{aligned}
+\vec P &\equiv \frac{\vec {p_{xy}}}{p_z} \\
+r &\equiv \left|\vec P\right|            \\
+\vec P_\mathrm{radial} &\equiv \frac{ 1 + k_0 r^2 + k_1 r^4 + k_4 r^6}{ 1 + k_5 r^2 + k_6 r^4 + k_7 r^6} \vec P \\
+\vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \vec P_\mathrm{tangential} \right) + \vec c_{xy}
+\end{aligned}
 
 Where $\vec P_\mathrm{tangential}$ is the unimportant (to this discussion)
 tangential distortion, $\vec q$ is the resulting projected pixel, $\vec f_{xy}$

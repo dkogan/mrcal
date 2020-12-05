@@ -225,10 +225,10 @@ An unwelcome property of the projection function defined above, is that it
 allows aphysical, nonmonotonic behavior to be represented. For instance, let's
 look at the gradient in one particular direction.
 
-\begin{eqnarray*}
-q_x &=& f_x \left( u_x + \Delta u_x \right) + c_x \\
-\frac{\mathrm{d}q_x}{\mathrm{d}u_x} &\propto& 1 + \frac{\mathrm{d}\Delta u_x}{\mathrm{d}u_x}
-\end{eqnarray*}
+\begin{aligned}
+q_x &= f_x \left( u_x + \Delta u_x \right) + c_x \\
+\frac{\mathrm{d}q_x}{\mathrm{d}u_x} &\propto 1 + \frac{\mathrm{d}\Delta u_x}{\mathrm{d}u_x}
+\end{aligned}
 
 We would expect $\frac{\mathrm{d}q_x}{\mathrm{d}u_x}$ to always be positive, but
 as we can see, here that depends on $\frac{\mathrm{d}\Delta
