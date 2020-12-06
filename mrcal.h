@@ -374,19 +374,6 @@ typedef struct
     int                  iframe;
 } mrcal_observation_board_t;
 
-
-// The "intrinsics core" of a camera. This defines the final step of a
-// projection operation. For instance with a pinhole model we have
-//
-//   q[0] = focal_xy[0] * x/z + center_xy[0]
-//   q[1] = focal_xy[1] * y/z + center_xy[1]
-typedef struct
-{
-    double focal_xy [2];
-    double center_xy[2];
-} mrcal_intrinsics_core_t;
-
-
 // An observation of a discrete point. Each "observation" is ONE camera
 // observing a single point in space
 typedef struct
@@ -715,6 +702,17 @@ void mrcal_free_context(void** ctx);
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////// Layout of the measurement and state vectors
 ////////////////////////////////////////////////////////////////////////////////
+
+// The "intrinsics core" of a camera. This defines the final step of a
+// projection operation. For instance with a pinhole model we have
+//
+//   q[0] = focal_xy[0] * x/z + center_xy[0]
+//   q[1] = focal_xy[1] * y/z + center_xy[1]
+typedef struct
+{
+    double focal_xy [2];
+    double center_xy[2];
+} mrcal_intrinsics_core_t;
 
 // The optimization routine tries to minimize the length of the measurement
 // vector x by moving around the state vector p.
