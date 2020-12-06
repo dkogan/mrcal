@@ -1452,7 +1452,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
               .do_optimize_extrinsics            = do_optimize_extrinsics,
               .do_optimize_frames                = do_optimize_frames,
               .do_optimize_calobject_warp        = do_optimize_calobject_warp,
-              .do_apply_regularization           = do_apply_regularization
+              .do_apply_regularization           = do_apply_regularization,
+              .do_apply_outlier_rejection        = do_apply_outlier_rejection
             };
 
         mrcal_problem_constants_t problem_constants =
@@ -1516,7 +1517,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
                                 false,
                                 verbose,
-                                do_apply_outlier_rejection,
                                 mrcal_lensmodel_type,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,
@@ -1624,12 +1624,13 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          c_points,
                                          c_calobject_warp,
 
+                                         c_observations_board_pool,
+                                         Nobservations_board,
+
                                          Ncameras_intrinsics, Ncameras_extrinsics,
                                          Nframes, Npoints, Npoints_fixed,
 
                                          c_observations_board,
-                                         c_observations_board_pool,
-                                         Nobservations_board,
                                          c_observations_point,
                                          Nobservations_point,
 

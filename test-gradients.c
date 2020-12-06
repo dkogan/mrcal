@@ -373,7 +373,6 @@ int main(int argc, char* argv[] )
 
                     true,
                     false,
-                    true,
                     lensmodel,
                     1.0,
                     imagersizes,

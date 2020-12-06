@@ -4550,7 +4550,9 @@ void optimizer_callback(// input state
 }
 
 bool mrcal_optimizer_callback(// out
-                             // Each one of these output pointers may be NULL
+
+                             // These output pointers may NOT be NULL, unlike
+                             // their analogues in mrcal_optimize()
 
                              // Shape (Nstate,)
                              double* p_packed,
@@ -4577,28 +4579,25 @@ bool mrcal_optimizer_callback(// out
                              // parameters may vary, depending on lensmodel, so
                              // this is a variable-length structure
                              const double*             intrinsics,         // Ncameras_intrinsics * NlensParams
-                             const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM reference frame
-                             const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO reference frame
+                             const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
+                             const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                              const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                              const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
+
+                             // All the board pixel observations, in order. .x,
+                             // .y are the pixel observations .z is the weight
+                             // of the observation. Most of the weights are
+                             // expected to be 1.0. Less precise observations
+                             // have lower weights.
+                             //
+                             // z<0 indicates that this is an outlier
+                             const mrcal_point3_t* observations_board_pool,
+                             int Nobservations_board,
 
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                              int Npoints, int Npoints_fixed, // at the end of points[]
 
                              const mrcal_observation_board_t* observations_board,
-
-                             // All the board pixel observations, in order.
-                             // .x, .y are the pixel observations
-                             // .z is the weight of the observation. Most of the
-                             // weights are expected to be 1.0, which implies
-                             // that the noise on the observation is gaussian,
-                             // independent on x,y, and has standard deviation
-                             // of observed_pixel_uncertainty.
-                             // observed_pixel_uncertainty scales inversely with
-                             // the weight
-                             const mrcal_point3_t* observations_board_pool,
-                             int Nobservations_board,
-
                              const mrcal_observation_point_t* observations_point,
                              int Nobservations_point,
                              bool verbose,
@@ -4607,7 +4606,7 @@ bool mrcal_optimizer_callback(// out
                              double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
-                             mrcal_problem_selections_t          problem_selections,
+                             mrcal_problem_selections_t       problem_selections,
                              const mrcal_problem_constants_t* problem_constants,
 
                              double calibration_object_spacing,
@@ -4793,14 +4792,11 @@ mrcal_optimize( // out
 
                 bool check_gradient,
                 bool verbose,
-                // Whether to try to find NEW outliers. The outliers given on
-                // input are respected regardless
-                const bool do_apply_outlier_rejection,
 
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
-                mrcal_problem_selections_t          problem_selections,
+                mrcal_problem_selections_t       problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
 
                 double calibration_object_spacing,
@@ -5000,7 +4996,7 @@ mrcal_optimize( // out
                                       solver_context->beforeStep, solver_context);
 #endif
 
-        } while( do_apply_outlier_rejection &&
+        } while( problem_selections.do_apply_outlier_rejection &&
                  markOutliers(observations_board_pool,
                               &stats.Noutliers,
                               observations_board,

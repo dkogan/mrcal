@@ -418,6 +418,11 @@ typedef struct
 
     // If true, optimize the shape of the calibration object
     bool do_optimize_calobject_warp         : 1;
+
+    // Whether to try to find NEW outliers. The outliers given on
+    // input are respected regardless
+    bool do_apply_outlier_rejection         : 1;
+
 } mrcal_problem_selections_t;
 
 // Constants used in a mrcal optimization. This is similar to
@@ -603,9 +608,6 @@ mrcal_optimize( // out
 
                 bool check_gradient,
                 bool verbose,
-                // Whether to try to find NEW outliers. The outliers given on
-                // input are respected regardless
-                const bool do_apply_outlier_rejection,
 
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
@@ -666,11 +668,6 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                              const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
-                             int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                             int Npoints, int Npoints_fixed, // at the end of points[]
-
-                             const mrcal_observation_board_t* observations_board,
-
                              // All the board pixel observations, in order. .x,
                              // .y are the pixel observations .z is the weight
                              // of the observation. Most of the weights are
@@ -681,6 +678,10 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t* observations_board_pool,
                              int Nobservations_board,
 
+                             int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                             int Npoints, int Npoints_fixed, // at the end of points[]
+
+                             const mrcal_observation_board_t* observations_board,
                              const mrcal_observation_point_t* observations_point,
                              int Nobservations_point,
                              bool verbose,
