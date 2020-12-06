@@ -570,18 +570,6 @@ mrcal_optimize( // out
                 int buffer_size_x,
 
                 // out, in
-                //
-                // This is a dogleg_solverContext_t. I don't want to #include
-                // <dogleg.h> here, so this is void
-                //
-                // if(_solver_context != NULL) then this is a persistent solver
-                // context. The context is NOT freed on exit.
-                // mrcal_free_context() should be called to release it
-                //
-                // if(*_solver_context != NULL), the given context is reused
-                // if(*_solver_context == NULL), a context is created, and
-                // returned here on exit
-                void** _solver_context,
 
                 // These are a seed on input, solution on output
 
@@ -712,11 +700,6 @@ bool mrcal_optimizer_callback(// out
                              int calibration_object_width_n,
                              int calibration_object_height_n,
                              bool verbose);
-
-
-// frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
-// this is void
-void mrcal_free_context(void** ctx);
 
 
 ////////////////////////////////////////////////////////////////////////////////

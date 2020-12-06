@@ -4746,15 +4746,6 @@ mrcal_optimize( // out
                 int buffer_size_x_final,
 
                 // out, in
-                //
-                // if(_solver_context != NULL) then this is a persistent solver
-                // context. The context is NOT freed on exit.
-                // mrcal_free_context() should be called to release it
-                //
-                // if(*_solver_context != NULL), the given context is reused
-                // if(*_solver_context == NULL), a context is created, and
-                // returned here on exit
-                void** _solver_context,
 
                 // These are a seed on input, solution on output
 
@@ -4918,12 +4909,7 @@ mrcal_optimize( // out
     }
 
 
-    dogleg_solverContext_t*  solver_context = NULL;
-    // If I have a context already, I free it and create it anew later. Ideally
-    // I'd reuse it, but then I'd need to make sure it's valid and such. Too
-    // much work for now
-    if(_solver_context != NULL && *_solver_context != NULL)
-        dogleg_freeContext((dogleg_solverContext_t**)_solver_context);
+    dogleg_solverContext_t* solver_context = NULL;
 
     if(verbose)
         MSG("## Nmeasurements=%d, Nstate=%d", ctx.Nmeasurements, Nstate);
@@ -4977,8 +4963,6 @@ mrcal_optimize( // out
                                            (dogleg_callback_t*)&optimizer_callback, &ctx,
                                            &dogleg_parameters,
                                            &solver_context);
-            if(_solver_context != NULL)
-                *_solver_context = solver_context;
 
             if(norm2_error < 0)
                 // libdogleg barfed. I quit out
@@ -5081,18 +5065,7 @@ mrcal_optimize( // out
         memcpy(x_final, solver_context->beforeStep->x, ctx.Nmeasurements*sizeof(double));
 
  done:
-    if(_solver_context == NULL && solver_context)
-        dogleg_freeContext(&solver_context);
+    dogleg_freeContext(&solver_context);
 
     return stats;
-}
-
-// frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so
-// this is void
-void mrcal_free_context(void** ctx)
-{
-    if( *ctx == NULL )
-        return;
-
-    dogleg_freeContext((dogleg_solverContext_t**)ctx);
 }

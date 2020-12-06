@@ -1498,7 +1498,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                 Nstate*sizeof(double),
                                 c_x_final,
                                 Nmeasurements*sizeof(double),
-                                NULL,
                                 c_intrinsics,
                                 c_extrinsics,
                                 c_frames,
