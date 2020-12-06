@@ -371,8 +371,6 @@ int main(int argc, char* argv[] )
                     observations_point,
                     Nobservations_point,
 
-                    true,
-                    false,
                     lensmodel,
                     1.0,
                     imagersizes,
@@ -381,7 +379,10 @@ int main(int argc, char* argv[] )
 
                     1.2,
                     calibration_object_width_n,
-                    calibration_object_height_n);
+                    calibration_object_height_n,
+
+                    false,
+                    true);
 
     return 0;
 }

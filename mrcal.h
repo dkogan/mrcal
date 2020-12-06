@@ -606,18 +606,17 @@ mrcal_optimize( // out
                 const mrcal_observation_point_t* observations_point,
                 int Nobservations_point,
 
-                bool check_gradient,
-                bool verbose,
-
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
-
                 double calibration_object_spacing,
                 int calibration_object_width_n,
-                int calibration_object_height_n);
+                int calibration_object_height_n,
+                bool verbose,
+
+                bool check_gradient);
 
 
 // This is cholmod_sparse. I don't want to include the full header that defines
@@ -684,18 +683,16 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_observation_board_t* observations_board,
                              const mrcal_observation_point_t* observations_point,
                              int Nobservations_point,
-                             bool verbose,
 
                              mrcal_lensmodel_t lensmodel,
                              double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
-
                              mrcal_problem_selections_t       problem_selections,
                              const mrcal_problem_constants_t* problem_constants,
-
                              double calibration_object_spacing,
                              int calibration_object_width_n,
-                             int calibration_object_height_n);
+                             int calibration_object_height_n,
+                             bool verbose);
 
 
 // frees a dogleg_solverContext_t. I don't want to #include <dogleg.h> here, so

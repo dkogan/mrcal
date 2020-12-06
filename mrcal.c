@@ -4600,7 +4600,6 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_observation_board_t* observations_board,
                              const mrcal_observation_point_t* observations_point,
                              int Nobservations_point,
-                             bool verbose,
 
                              mrcal_lensmodel_t lensmodel,
                              double observed_pixel_uncertainty,
@@ -4611,7 +4610,8 @@ bool mrcal_optimizer_callback(// out
 
                              double calibration_object_spacing,
                              int calibration_object_width_n,
-                             int calibration_object_height_n)
+                             int calibration_object_height_n,
+                             bool verbose)
 {
     bool result = false;
 
@@ -4790,9 +4790,6 @@ mrcal_optimize( // out
                 const mrcal_observation_point_t* observations_point,
                 int Nobservations_point,
 
-                bool check_gradient,
-                bool verbose,
-
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
@@ -4801,7 +4798,10 @@ mrcal_optimize( // out
 
                 double calibration_object_spacing,
                 int calibration_object_width_n,
-                int calibration_object_height_n)
+                int calibration_object_height_n,
+                bool verbose,
+
+                bool check_gradient)
 {
     if( Nobservations_board > 0 )
     {

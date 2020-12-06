@@ -1515,8 +1515,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                 c_observations_point,
                                 Nobservations_point,
 
-                                false,
-                                verbose,
                                 mrcal_lensmodel_type,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,
@@ -1524,7 +1522,10 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
                                 calibration_object_spacing,
                                 calibration_object_width_n,
-                                calibration_object_height_n);
+                                calibration_object_height_n,
+                                verbose,
+
+                                false);
 
             if(stats.rms_reproj_error__pixels < 0.0)
             {
@@ -1634,7 +1635,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          c_observations_point,
                                          Nobservations_point,
 
-                                         verbose,
                                          mrcal_lensmodel_type,
                                          observed_pixel_uncertainty,
                                          c_imagersizes,
@@ -1642,7 +1642,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
                                          calibration_object_spacing,
                                          calibration_object_width_n,
-                                         calibration_object_height_n) )
+                                         calibration_object_height_n,
+                                         verbose) )
             {
                 BARF("mrcal_optimizer_callback() failed!'");
                 goto done;
