@@ -53,7 +53,6 @@ else:
                          _set            = ('xyplane at -0.5',
                                             'view 60,30,1.7'),
                          hardcopy        = f'/tmp/stereo-geometry-{kind}.svg')
-    sys.exit()
 
     # Generate the rectified images, and write to disk
     images_rectified = [mrcal.transform_image(images[i], rectification_maps[i]) for i in range(2)]
