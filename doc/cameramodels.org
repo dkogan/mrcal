@@ -22,6 +22,9 @@ Each instance also /may/ contain
   a valid-intrinsics contour is often convenient to have and to visualize.
 
 * File formats
+:PROPERTIES:
+:CUSTOM_ID: cameramodel-file-formats
+:END:
 The =mrcal.cameramodel= class supports reading and writing two different file
 formats:
 
