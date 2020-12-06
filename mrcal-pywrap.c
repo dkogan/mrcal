@@ -1505,15 +1505,15 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                 c_points,
                                 c_calobject_warp,
 
-                                c_observations_board_pool,
-                                Nobservations_board,
-
                                 Ncameras_intrinsics, Ncameras_extrinsics,
                                 Nframes, Npoints, Npoints_fixed,
 
                                 c_observations_board,
                                 c_observations_point,
+                                Nobservations_board,
                                 Nobservations_point,
+
+                                c_observations_board_pool,
 
                                 mrcal_lensmodel_type,
                                 observed_pixel_uncertainty,
@@ -1625,15 +1625,15 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          c_points,
                                          c_calobject_warp,
 
-                                         c_observations_board_pool,
-                                         Nobservations_board,
-
                                          Ncameras_intrinsics, Ncameras_extrinsics,
                                          Nframes, Npoints, Npoints_fixed,
 
                                          c_observations_board,
                                          c_observations_point,
+                                         Nobservations_board,
                                          Nobservations_point,
+
+                                         c_observations_board_pool,
 
                                          mrcal_lensmodel_type,
                                          observed_pixel_uncertainty,

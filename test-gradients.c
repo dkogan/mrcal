@@ -362,14 +362,14 @@ int main(int argc, char* argv[] )
                     points,
                     &calobject_warp,
 
-                    (mrcal_point3_t*)observations_px,
-                    Nobservations_board,
-
                     Ncameras_intrinsics,Ncameras_extrinsics,
                     Nframes, Npoints, Npoints_fixed,
                     observations_board,
                     observations_point,
+                    Nobservations_board,
                     Nobservations_point,
+
+                    (mrcal_point3_t*)observations_px,
 
                     lensmodel,
                     1.0,

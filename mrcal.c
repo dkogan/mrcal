@@ -4584,6 +4584,14 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                              const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
+                             int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                             int Npoints, int Npoints_fixed, // at the end of points[]
+
+                             const mrcal_observation_board_t* observations_board,
+                             const mrcal_observation_point_t* observations_point,
+                             int Nobservations_board,
+                             int Nobservations_point,
+
                              // All the board pixel observations, in order. .x,
                              // .y are the pixel observations .z is the weight
                              // of the observation. Most of the weights are
@@ -4592,14 +4600,6 @@ bool mrcal_optimizer_callback(// out
                              //
                              // z<0 indicates that this is an outlier
                              const mrcal_point3_t* observations_board_pool,
-                             int Nobservations_board,
-
-                             int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                             int Npoints, int Npoints_fixed, // at the end of points[]
-
-                             const mrcal_observation_board_t* observations_board,
-                             const mrcal_observation_point_t* observations_point,
-                             int Nobservations_point,
 
                              mrcal_lensmodel_t lensmodel,
                              double observed_pixel_uncertainty,
@@ -4768,6 +4768,15 @@ mrcal_optimize( // out
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                 mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
+                // in
+                int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                int Npoints, int Npoints_fixed, // at the end of points[]
+
+                const mrcal_observation_board_t* observations_board,
+                const mrcal_observation_point_t* observations_point,
+                int Nobservations_board,
+                int Nobservations_point,
+
                 // All the board pixel observations, in order.
                 // .x, .y are the pixel observations
                 // .z is the weight of the observation. Most of the weights are
@@ -4780,15 +4789,6 @@ mrcal_optimize( // out
                 // input (even if !do_apply_outlier_rejection). New outliers are
                 // marked with z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
-                int Nobservations_board,
-
-                // in
-                int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                int Npoints, int Npoints_fixed, // at the end of points[]
-
-                const mrcal_observation_board_t* observations_board,
-                const mrcal_observation_point_t* observations_point,
-                int Nobservations_point,
 
                 mrcal_lensmodel_t lensmodel,
                 double observed_pixel_uncertainty,
