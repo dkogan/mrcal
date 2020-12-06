@@ -20,6 +20,9 @@ SYNOPSIS
                             do_apply_regularization           = True,
                             verbose                           = False)
 
+Please see the mrcal documentation at
+http://fatty.jpl.nasa.gov/mrcal/formulation.html for details.
+
 This is a flexible implementation of a calibration system core that uses sparse
 Jacobians, performs outlier rejection and reports some metrics back to the user.
 Measurements from any number of cameras can beat used simultaneously, and this
@@ -82,7 +85,7 @@ REQUIRED ARGUMENTS
 - intrinsics: array of dims (Ncameras_intrinsics, Nintrinsics). The intrinsics
   of each physical camera. Each intrinsic vector is given as
 
-    (focal_x, focal_y, center_pixel_x, center_pixel_y, distorion0, distortion1,
+    (focal_x, focal_y, center_pixel_x, center_pixel_y, distortion0, distortion1,
     ...)
 
   The focal lengths are given in pixels.
