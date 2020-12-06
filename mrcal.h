@@ -545,21 +545,21 @@ typedef struct
 // Solve the given optimization problem
 //
 // This is the entry point to the mrcal optimization routine. The argument list
-// is commented. It is expected that this will be called from Python only.
+// is commented.
 mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL
                 // Shape (Nstate,)
-                double* p_packed_final,
+                double* p_packed,
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
-                int buffer_size_p_packed_final,
+                int buffer_size_p_packed,
 
                 // Shape (Nmeasurements,)
-                double* x_final,
+                double* x,
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
-                int buffer_size_x_final,
+                int buffer_size_x,
 
                 // out, in
                 //
@@ -587,7 +587,13 @@ mrcal_optimize( // out
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                 mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
-                // All the board pixel observations, in order. .x, .y are the
+                // All the board pixel observations, in an array of shape
+                //
+                // ( Nobservations_board,
+                //   calibration_object_height_n,
+                //   calibration_object_width_n )
+                //
+                // .x, .y are the
                 // pixel observations .z is the weight of the observation. Most
                 // of the weights are expected to be 1.0. Less precise
                 // observations have lower weights.
@@ -667,11 +673,16 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
                              const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
-                             // All the board pixel observations, in order. .x,
-                             // .y are the pixel observations .z is the weight
-                             // of the observation. Most of the weights are
-                             // expected to be 1.0. Less precise observations
-                             // have lower weights.
+                             // All the board pixel observations, in an array of shape
+                             //
+                             // ( Nobservations_board,
+                             //   calibration_object_height_n,
+                             //   calibration_object_width_n )
+                             //
+                             // .x, .y are the pixel observations .z is the
+                             // weight of the observation. Most of the weights
+                             // are expected to be 1.0. Less precise
+                             // observations have lower weights.
                              //
                              // z<0 indicates that this is an outlier
                              const mrcal_point3_t* observations_board_pool,
