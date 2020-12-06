@@ -113,13 +113,15 @@ say "$programname - $summary\n";
 
 say "=head1 SYNOPSIS\n";
 
-say "$synopsis\n";
+say linkify($synopsis);
+say "";
 
 if( $description )
 {
     say "=head1 DESCRIPTION\n";
 
-    say "$description\n";
+    say linkify($description);
+    say "";
 }
 
 if(@args)
@@ -129,10 +131,18 @@ if(@args)
     {
         my ($kind,$what) = @$arg;
         say "=head2 $kind\n";
-        say "$what\n";
+        say linkify($what);
+        say "";
     }
 }
 
+
+
+sub linkify
+{
+    $_[0] =~ s{https?://\S+}{L<${^MATCH}>}gps;
+    return $_[0];
+}
 
 __END__
 
