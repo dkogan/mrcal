@@ -23,7 +23,8 @@ SYNOPSIS
     Wrote /tmp/camera0-1.cameramodel
 
 This tool uses the generic mrcal platform to solve a common specific problem of
-N-camera calibration using observations of a chessboard.
+N-camera calibration using observations of a chessboard. Please see the mrcal
+documentation at http://fatty.jpl.nasa.gov/mrcal/how-to-calibrate.html for details.
 
 '''
 
@@ -176,7 +177,6 @@ def parse_args():
                         nargs = 5,
                         default = (1, 0.5, 1.5, 3, 0),
                         type = float,
-
                         help='''For convenience we compute a valid-intrinsics region to describe the results
                         of the calibration. This is a watered-down
                         interpretation of the projection uncertainty that is

@@ -8,6 +8,8 @@ SYNOPSIS
   ... a plot pops up showing the projection uncertainty of the intrinsics in
   ... this model
 
+The operation of this tool is documented at
+http://fatty.jpl.nasa.gov/mrcal/uncertainty.html
 
 A calibration process produces the best-fitting camera parameters. To use these
 parameters intelligently we must have some sense of uncertainty in these

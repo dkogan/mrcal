@@ -9,6 +9,9 @@ SYNOPSIS
   Wrote model1.cameramodel
   Wrote model2.cameramodel
 
+File formats supported by mrcal are described at
+http://fatty.jpl.nasa.gov/mrcal/cameramodels.html#cameramodel-file-formats
+
 This tool converts a given model to the cameramodel file format. No changes to the
 content are made; this is purely a format converter. Model filenames are given
 on the commandline. Output is written to the same directory, with the same
