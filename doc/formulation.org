@@ -59,6 +59,13 @@ estimate of the solution) to the optimization routines. The
    passed to [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or the =do_optimize_...= arguments to
    [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
 
+** Outlier rejection
+:PROPERTIES:
+:CUSTOM_ID: outlier rejection
+:END:
+
+yyy write about this
+
 * World geometry
 There are 3 different coordinate systems in the optimization:
 
@@ -245,6 +252,9 @@ this:
 - [[file:mrcal-python-api-reference.html#-plotoptions_measurement_boundaries][=mrcal.plotoptions_measurement_boundaries()=]]: Return the 'set' plot options for gnuplotlib to show the measurement boundaries
 
 ** State vector scaling
+:PROPERTIES:
+:CUSTOM_ID: state packing
+:END:
 The nonlinear least squares-solving library used by mrcal is [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which
 implements [[https://en.wikipedia.org/wiki/Powell's_dog_leg_method][Powell's dogleg method]]. This is a trust-region algorithm that
 represents the trust region as a ball in state space. I.e. the radius of this

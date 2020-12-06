@@ -103,6 +103,10 @@ point represented in =C= to =A=: =x_A = T_AB T_BC x_C = T_AC x_C=. And =T_AC =
 T_AB T_BC=.
 
 * Pose representation
+:PROPERTIES:
+:CUSTOM_ID: pose representation
+:END:
+
 Various parts of the toolkit have preferred representations of pose, and mrcal
 has functions to convert between them. Available representations are:
 

@@ -1,8 +1,7 @@
 #+TITLE: mrcal commandline tools
-#+OPTIONS: toc:t
 
-A number of commandline tools are available for common tasks. If you're just
-using mrcal to calibrate some cameras, you may not need anything else.
+A number of commandline tools are available for common tasks, obviating the need
+to write any code. The available tools, with links to the manpages:
 
 - [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]: Calibrate N cameras. This is the main tool to solve
   "calibration" problems.
