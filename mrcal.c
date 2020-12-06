@@ -2020,7 +2020,7 @@ void project( // out
             for(int x = 0; x<calibration_object_width_n; x++)
             {
                 mrcal_point3_t pt_ref = {.x = (double)x * calibration_object_spacing,
-                                   .y = (double)y * calibration_object_spacing};
+                                         .y = (double)y * calibration_object_spacing};
                 mrcal_point2_t dpt_ref2_dwarp = {};
 
                 if(calobject_warp != NULL)
