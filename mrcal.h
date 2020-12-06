@@ -618,6 +618,9 @@ mrcal_optimize( // out
                 int calibration_object_height_n);
 
 
+// This is cholmod_sparse. I don't want to include the full header that defines
+// it in mrcal.h, and I don't need to: mrcal.h just needs to know that it's a
+// structure
 struct cholmod_sparse_struct;
 
 // Evaluate the value of the callback function at the given operating point
