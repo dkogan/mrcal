@@ -385,10 +385,18 @@ typedef struct
     // observed
     int                  i_point;
 
-    // Observed pixel coordinates
+    // Observed pixel coordinates. This works just like elements of
+    // observations_board_pool:
+    //
     // .x, .y are the pixel observations
     // .z is the weight of the observation. Most of the weights are expected to
     // be 1.0. Less precise observations have lower weights.
+    // .z<0 indicates that this is an outlier. This is respected on
+    // input
+    //
+    // Unlike observations_board_pool, outlier rejection is NOT YET IMPLEMENTED
+    // for points, so outlier points will NOT be found and reported on output in
+    // .z<0
     mrcal_point3_t px;
 } mrcal_observation_point_t;
 
@@ -607,9 +615,9 @@ mrcal_optimize( // out
                 // of the weights are expected to be 1.0. Less precise
                 // observations have lower weights.
                 //
-                // z<0 indicates that this is an outlier. This is respected on
+                // .z<0 indicates that this is an outlier. This is respected on
                 // input (even if !do_apply_outlier_rejection). New outliers are
-                // marked with z<0 on output, so this isn't const
+                // marked with .z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
 
                 mrcal_lensmodel_t lensmodel,
@@ -692,7 +700,7 @@ bool mrcal_optimizer_callback(// out
                              // are expected to be 1.0. Less precise
                              // observations have lower weights.
                              //
-                             // z<0 indicates that this is an outlier
+                             // .z<0 indicates that this is an outlier
                              const mrcal_point3_t* observations_board_pool,
 
                              mrcal_lensmodel_t lensmodel,
