@@ -92,6 +92,9 @@ camera captured each image at which time. I generally use
 captured at the same instant in time.
 
 * Monocular calibration with the 8-parameter opencv model
+:PROPERTIES:
+:CUSTOM_ID: opencv8-model-solving
+:END:
 
 Let's calibrate the intrinsics! For a while the 8-parameter opencv lens model
 ("opencv8" from now on) has been my default choice for wide lenses. This
@@ -310,6 +313,9 @@ only a single representation supported: a /splined stereographic/ model. More
 will be added with time.
 
 ** Splined stereographic model definition
+:PROPERTIES:
+:CUSTOM_ID: splined-model-definition
+:END:
 
 The basis of a splined stereographic model is a stereographic projection. A
 world point that lies $\theta$ off the camera's projection axis projects to
@@ -364,6 +370,9 @@ decides how much of the normalized $\vec u$ space we want to support. And the
 user decides how dense the spline should be.
 
 ** Solving
+:PROPERTIES:
+:CUSTOM_ID: splined-model-solving
+:END:
 
 I run the same exact calibration as before, but using the richer model to
 specify the lens:
@@ -479,7 +488,7 @@ for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:
 #+end_src
 
 Now the imager boundary is a nice rectangle, but the valid spline region is a
-curve. Here we can also see an [[file:lensmodels.org::#splined non-monotonicity][ugly feature of the current representation]]: since
+curve. Here we can also see an [[file:lensmodels.org::#splined-non-monotonicity][ugly feature of the current representation]]: since
 the correction $\Delta \vec u$ uses $\vec u$ to index the splined surface, the
 resulting projection function is allowed to be non-monotonic. This results in
 very odd-looking behavior at the edges:
@@ -801,6 +810,9 @@ lens follows the pinhole projection when you look closely enough) and we get
 truthful uncertainty reporting.
 
 ** Revisiting uncertainties from the earlier calibrations
+:PROPERTIES:
+:CUSTOM_ID: splined-model-uncertainties
+:END:
 
 We started this by calibrating a camera using an opencv8 model, and then again
 with a splined model. Let's look at the uncertainty of those solves using the
