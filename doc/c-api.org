@@ -1340,7 +1340,7 @@ observed by multiple cameras, producing larger =Nobservations_board= (or
 The actual chessboard observations are given in =observations_board_pool=, an
 array of shape (=Nobservations_board=, =calibration_object_height_n=,
 =calibration_object_width_n=) containing =mrcal_point3_t= elements. The observed
-pixel coordinates are in =.x= and =.y=, and the [[file:uncertainty.org::#noise model][observation weight]] is in =.z=.
+pixel coordinates are in =.x= and =.y=, and the [[file:formulation.org::#noise-model][observation weight]] is in =.z=.
 =.z < 0= means this point should be ignored; this can be used to specify
 incomplete board observations. If we're calling =mrcal_optimize()= and
 =mrcal_problem_selections_t.do_apply_outlier_rejection=, then in addition to the
@@ -1349,7 +1349,7 @@ return the outlier points will be marked with =.z < 0=.
 
 The [[file:lensmodels.org][lens model]] of /all/ the cameras is specified in the =lensmodel= argument.
 
-The [[file:uncertainty.org::#noise model][expected uncertainty]] of the pixel observations is given in
+The [[file:formulation.org::#noise-model][expected uncertainty]] of the pixel observations is given in
 =observed_pixel_uncertainty=. This is used primarily by the caller to estimate
 uncertainties. These functions currently use this value only in the [[file:formulation.org::#outlier rejection][outlier
 rejection]] routine.

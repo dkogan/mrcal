@@ -236,7 +236,7 @@ pointing in one direction. And the /other/ out-of-sync image would display equal
 and opposite errors. Rolling shutter effects would show a more complicated, but
 clearly non-random pattern. It is usually impossible to get clean-enough data to
 make all the patterns disappear, but these systematic errors are not represented
-by the [[file:uncertainty.org::#noise model][noise model]] method, so they will result in overly-optimistic
+by the [[file:formulation.org::#noise-model][noise model]] method, so they will result in overly-optimistic
 uncertainties.
 
 Now let's look at another visualization of residuals that will highlight any

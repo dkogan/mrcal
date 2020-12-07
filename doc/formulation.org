@@ -69,8 +69,6 @@ We aim to
 
 maximum likelihood
 
-noise model
-
 ** Outlier rejection
 :PROPERTIES:
 :CUSTOM_ID: outlier rejection
@@ -81,6 +79,49 @@ Some of the input data may not fit the model due to errors in the input data
 model not being able to represent reality (insufficiently-flexible lens model or
 [[*Board deformation][board deformation model]] for instance).
 
+* Input noise model
+:PROPERTIES:
+:CUSTOM_ID: noise-model
+:END:
+I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
+discrepancies between pixel observations and their predictions. The pixel
+observations are noisy, and I assume they are zero-mean, independent and
+normally-distributed. Empirical evidence suggests that this is a reasonable
+assumption. I treat the 2 values in each observation as two independent
+measurements. Thus I minimize a cost function $E \equiv \left \Vert \vec x
+\right \Vert ^2$ where $\vec x$ is the full measurement vector.
+
+Most elements of the measurement vector $\vec x$ depend on the pixel
+observations, but some don't (regularization: often needed to help convergence;
+small-enough to not break anything). For the purposes of propagating noise in
+the input observations, we only care about the former. For the $i$ -th observed
+point the optimized parameters $\vec p$ predict an observation at a pixel
+coordinate $\vec q_i$, while we actually did observe that same point at $\vec
+q_{\mathrm{ref}_i}$. What is $\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
+
+The chessboard corner detection routine tells us how confident it was in
+that observation, and we use that to weight the measurements. For convenience,
+the implementation splits this into two parts:
+
+- The baseline standard deviation of the noise $\sigma$ (referred to as the
+  =observed_pixel_uncertainty=)
+- The unitless scale applied to that baseline noise level
+
+This is useful when using [[https://github.com/dkogan/mrgingham/][=mrgingham=]] to detect the chessboard corners. It
+reports the resolution used in detecting each point, and from that we get the
+weight $w_i$. A point detected at half-resolution has double the uncertainty at
+full resolution, and I weigh it by a factor of 2 less in the optimization:
+$\mathrm{Var}\left( \vec q_{\mathrm{ref}_i} \right) = \frac{\sigma^2}{w_i^2} I$
+for all $i$. And $\vec x_i = w_i I (\vec q_i - \vec q_{\mathrm{ref}_i})$ and
+$\mathrm{Var}\left( \vec x_i\right) = \sigma^2 I$ for all $i$.
+
+So the variance on each pixel observation is identical, and the optimal
+parameter vector we compute from the least-squares optimization is the
+maximum-likelihood estimate of the true solution.
+
+The noise $\sigma$ is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham), but
+easy to loosely estimate. The current best practice is to get a conservative
+eyeball estimate to produce conservative estimates of projection uncertainty.
 * World geometry
 There are 3 different coordinate systems in the optimization:
 
@@ -191,7 +232,7 @@ centers will introduce biases into the solve that aren't modeled by the [[file:u
  model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
 favor of circle grids.
 
-mrcal [[file:uncertainty.org::#noise model][assumes independent noise]] on each point observation, so correlated sources
+mrcal [[#noise-model][assumes independent noise]] on each point observation, so correlated sources
 of point observations (such as corners of an apriltag) are also not appropriate
 sources of data. Apriltag centers would work, however.
 
@@ -338,8 +379,8 @@ a vector of errors $\vec q_\mathrm{err} \equiv \vec q_\mathrm{predicted}\left(
 For each observation in $\vec q_\mathrm{ref}$ the chessboard corner detection
 routine tells us how confident it was in that observation, from which we can get
 a vector of weights $\vec w$: less confident observations are weighed less in
-the optimization. See the [[file:uncertainty.org::#noise model][projection uncertainty]] documentation for the noise
-analysis. Let $W \equiv \mathrm{diag}\left( \vec w \right)$. Then I can define
+the optimization. See the [[#noise-model][noise model]] for the analysis. Let $W \equiv
+\mathrm{diag}\left( \vec w \right)$. Then I can define
 
 \[ \vec x_\mathrm{observations} \equiv W q_\mathrm{err} = W \left( \vec
 q_\mathrm{predicted}\left( \vec p \right) - \vec q_\mathrm{ref} \right) \]
