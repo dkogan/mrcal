@@ -180,15 +180,28 @@ c2[int(N//2)] *= 1.1
 y2 = sample_cubic(x, c2)
 
 if not skip_plots:
-    plot1 = gp.gnuplotlib(title = 'sample_segment_cubic')
+    plot1 = gp.gnuplotlib(title = 'Cubic splines: response to control point perturbation',
+                          # hardcopy = '/tmp/cubic-spline-perturbations.svg',
+                          # terminal = 'svg size 800,600 noenhanced solid dynamic font ",12"'
+                          )
     plot1.plot( (x, nps.cat(y,y2),
-                 dict(_with='lines',
-                      legend=np.array(('Spline: baseline',
-                                       'Spline: tweaked one control point')))),
+                 dict(_with = np.array(('lines lc "blue"',
+                                        'lines lc "sea-green"')),
+                      legend = np.array(('Spline: baseline',
+                                         'Spline: tweaked one control point')))),
                 (t[:len(c)], nps.cat(c,c2),
-                 dict(_with='linespoints pt 7 ps 2',
-                      legend=np.array(('Control points: baseline',
-                                       'Control points: tweaked one control point')))))
+                 dict(_with = np.array(('points pt 1 ps 1 lc "blue"',
+                                        'points pt 2 ps 1 lc "sea-green"')),
+                      legend= np.array(('Control points: baseline',
+                                        'Control points: tweaked one control point')))),
+                (x, y-y2,
+                 dict(_with  = 'lines lc "red"',
+                      legend = 'Difference',
+                      y2     = 1)),
+                _xrange = (10.5,19.5),
+                y2max   = 0.01,
+                ylabel   = 'Spline value',
+                y2label  = 'Difference due to perturbation',)
 
 ########### sample_wikipedia()
 @nps.broadcast_define(((),), ())
