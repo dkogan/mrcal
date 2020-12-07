@@ -99,7 +99,7 @@ represents the radial "distortion" as a rational. If $\vec p$ is the
 camera-coordinate-system point being projected, we have
 
 \begin{aligned}
-\vec P &\equiv \frac{\vec {p_{xy}}}{p_z} \\
+\vec P &\equiv \frac{\vec p_{xy}}{p_z} \\
 r &\equiv \left|\vec P\right|            \\
 \vec P_\mathrm{radial} &\equiv \frac{ 1 + k_0 r^2 + k_1 r^4 + k_4 r^6}{ 1 + k_5 r^2 + k_6 r^4 + k_7 r^6} \vec P \\
 \vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \vec P_\mathrm{tangential} \right) + \vec c_{xy}
@@ -340,10 +340,10 @@ point $\vec u$. I use this projection value to look-up an adjustment factor
 $\Delta \vec u$ using two splined surfaces: one for each of the two elements of
 
 \[ \Delta \vec u \equiv
-\begin{bmatrix}
+\left[ \begin{aligned}
 \Delta u_x \left( \vec u \right) \\
 \Delta u_y \left( \vec u \right)
-\end{bmatrix} \]
+\end{aligned} \right] \]
 
 The parameters defining these surfaces comprise the parameters of this lens
 model. I use B-splines to represent the surfaces (quadratic and cubic are
@@ -352,12 +352,11 @@ sufficient continuity properties.
 
 Once we have the correction, we can define the rest of the projection function:
 
-
 \[\vec q =
- \left( \begin{array}{c}
+ \left( \begin{aligned}
  f_x \left( u_x + \Delta u_x \right) + c_x \\
  f_y \left( u_y + \Delta u_y \right) + c_y
-\end{array} \right) \]
+\end{aligned} \right) \]
 
 Here $\vec f_{xy}$ and $\vec c_{xy}$ are the usual focal-length-in-pixels and
 imager-center parameters that all the other projection functions have. The user
