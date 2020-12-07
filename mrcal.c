@@ -1273,13 +1273,14 @@ static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPH
     // edge. With quadratic splines I need half an interval (see
     // stuff in analyses/splines/).
     //
-    // (width + k*interval_size)/(N-1) = interval_size
-    // ---> width/(N-1) = interval_size * (1 - k/(N-1))
-    // ---> interval_size = width / (N - 1 - k)
-    int NextraIntervals;
+    // (u_width_needed + Nknots_margin*u_interval_size)/(Nknots - 1) = u_interval_size
+    // ---> u_width_needed/(Nknots-1) = u_interval_size * (1 - Nknots_margin/(Nknots - 1))
+    // ---> u_width_needed  = u_interval_size * (Nknots - 1 - Nknots_margin)
+    // ---> u_interval_size = u_width_needed  / (Nknots - 1 - Nknots_margin)
+    int Nknots_margin;
     if(config->order == 2)
     {
-        NextraIntervals = 1;
+        Nknots_margin = 1;
         if(config->Nx < 3 || config->Ny < 3)
         {
             MSG("Quadratic splines: absolute minimum Nx, Ny is 3. Got Nx=%d Ny=%d. Barfing out",
@@ -1289,7 +1290,7 @@ static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPH
     }
     else if(config->order == 3)
     {
-        NextraIntervals = 2;
+        Nknots_margin = 2;
         if(config->Nx < 4 || config->Ny < 4)
         {
             MSG("Cubic splines: absolute minimum Nx, Ny is 4. Got Nx=%d Ny=%d. Barfing out",
@@ -1303,9 +1304,9 @@ static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPH
         assert(0);
     }
 
-    double th_fov_x_edge = (double)config->fov_x_deg/2. * M_PI / 180.;
-    double u_edge_x      = tan(th_fov_x_edge / 2.) * 2;
-    precomputed->segments_per_u = (config->Nx - 1 - NextraIntervals) / (u_edge_x*2.);
+    double th_edge_x = (double)config->fov_x_deg/2. * M_PI / 180.;
+    double u_edge_x  = tan(th_edge_x / 2.) * 2;
+    precomputed->segments_per_u = (config->Nx - 1 - Nknots_margin) / (u_edge_x*2.);
 }
 
 // NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
