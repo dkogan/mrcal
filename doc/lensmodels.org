@@ -1,21 +1,20 @@
 #+TITLE: mrcal lens models
 #+OPTIONS: toc:t
-mrcal supports a wide range of lens models in both C and in Python. The
-representation details and projection behaviors are described here.
+mrcal supports a wide range of lens models. The representation details and
+projection behaviors are described here.
 
 * Representation
 :PROPERTIES:
 :CUSTOM_ID: representation
 :END:
 In Python the models are identified with a string =LENSMODEL_XXX= where the
-=XXX= selects the specific model in question. For most models, this
-specification describes the model fully. For some models, however, the =XXX=
-selects a model /family/, and some /configuration parameters/ are required to
-define the specific model in question. An example string with a configuration:
+=XXX= selects the specific model. The =XXX= specifies a model /family/ (or
+/type/) and for the models types that need it, a /configuration/. A sample model
+string with a configuration:
 =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170=. The
-configuration parameters (=order=3=, =Nx=30= and so on) select the model, and
-are /not/ subject to optimization. Currently only the [[#Splined stereographic lens model][splined stereographic
-models]] have any configuration, but more will be added over time.
+configuration parameters (=order=3=, =Nx=30= and so on) specify the model, and
+are /not/ subject to optimization. Currently only the [[#splined-stereographic-lens-model][splined stereographic
+models]] have any configuration.
 
 In C, the model family is selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum. The
 elements are the same as the Python model names, but with =MRCAL_= prepended. So
@@ -31,34 +30,39 @@ obtained by calling [[file:mrcal-python-api-reference.html#-lensmodel_num_params
 :CUSTOM_ID: core
 :END:
 Most models contain an "intrinsics core". These are 4 values that appear at the
-start of the parameter list:
+start of the parameter vector:
 
-- $f_x$: the focal-length in the horizontal direction, in pixels
-- $f_y$: the focal-length in the vertical direction, in pixels
+- $f_x$: the focal length in the horizontal direction, in pixels
+- $f_y$: the focal length in the vertical direction, in pixels
 - $c_x$: the horizontal projection center, in pixels
 - $c_y$: the vertical projection center, in pixels
 
-At this time all models contain a core, but this will change in the future.
+At this time all models contain a core.
 
 * Models
 ** =LENSMODEL_PINHOLE=
-This is the basic "pinhole" model with 4 parameters (the core only). Projection
-of a point $\vec p$ is defined as
+:PROPERTIES:
+:CUSTOM_ID: lensmodel-pinhole
+:END:
+This is the basic "pinhole" model with 4 parameters: the core. Projection of a
+point $\vec p$ is defined as
 
-\[\vec q = \left( \begin{array}{c} f_x \frac{p_x}{p_z} + c_x \\ f_y \frac{p_y}{p_z} + c_y \end{array} \right) \]
+\[\vec q = \left( \begin{aligned} f_x \frac{p_x}{p_z} + c_x \\ f_y \frac{p_y}{p_z} + c_y \end{aligned} \right) \]
 
 This model is defined only in front of the camera, and projects to infinity as
 we approach 90 degrees off the projection axis ($p_z \rightarrow 0$). Straight
 lines in space remain straight under this projection, and observations of the
-same plane by two pinhole cameras define a homography. No real-world lens
-follows this projection, so this exists for data processing only.
+same plane by two pinhole cameras define a [[https://en.wikipedia.org/wiki/Homography][homography]]. Longer lenses tend to
+have roughly pinhole behavior, but no real-world lens follows this projection,
+so this exists for data processing only.
 
 ** =LENSMODEL_STEREOGRAPHIC=
 :PROPERTIES:
 :CUSTOM_ID: stereographic
 :END:
-Another trivial model that exists for data processing, and not to represent real
-lenses. Like the pinhole model, this has just the 4 core parameters.
+This is another trivial model that exists for data processing, and not to
+represent real lenses. Like the pinhole model, this has just the 4 core
+parameters.
 
 To define the projection of a point $\vec p$, let's define the angle off the
 projection axis:
@@ -71,118 +75,175 @@ then
 
 and
 
-\[\vec q = \left( \begin{array}{c} f_x u_x + c_x \\ f_y u_y + c_y \end{array} \right) \]
+\[\vec q = \left( \begin{aligned} f_x u_x + c_x \\ f_y u_y + c_y \end{aligned} \right) \]
 
 This model is able to project behind the camera, and has a single singularity:
 directly opposite the projection axis. mrcal refers to $\vec u$ as the
-/normalized/ stereographic projection; we get this when $f_x = f_y = 1$ and $c_x =
-c_y = 0$
+/normalized/ stereographic projection; we get the projection $\vec q = \vec u$
+when $f_x = f_y = 1$ and $c_x = c_y = 0$
 
 Note that the pinhole model can be defined in the same way, except the pinhole
 model has $\vec u \equiv \frac{\vec p_{xy}} {\left| \vec p_{xy} \right|} \tan
-\theta$. And we can thus see that for long lenses (where $\theta$ is small) the
-pinhole model and the stereographic model function similarly: $\tan \theta
-\approx 2 \tan \frac{\theta}{2}$
+\theta$. And we can thus see that for long lenses the pinhole model and the
+stereographic model function similarly: $\tan \theta \approx 2 \tan
+\frac{\theta}{2}$ as $\theta \rightarrow 0$
 
 ** =LENSMODEL_OPENCV4=, =LENSMODEL_OPENCV5=, =LENSMODEL_OPENCV8=, =LENSMODEL_OPENCV12=
+:PROPERTIES:
+:lensmodel-opencv:
+:END:
 These are simple parametric models that have the given number of "distortion"
 parameters in addition to the 4 core parameters. The projection behavior is
-described in the [[https://docs.opencv.org/4.5.0/d9/d0c/group__calib3d.html#details][OpenCV documentation]]. These do a reasonable (up to a point) job
-in representing real-world lenses, /and/ they're compatible with many other
-tools.
+described in the [[https://docs.opencv.org/4.5.0/d9/d0c/group__calib3d.html#details][OpenCV documentation]]. These do a reasonable job in representing
+real-world lenses, /and/ they're compatible with many other tools. The
+projection function is
+
+\begin{align*}
+\vec P &\equiv \frac{\vec p_{xy}}{p_z} \\
+r &\equiv \left|\vec P\right|            \\
+\vec P_\mathrm{radial} &\equiv \frac{ 1 + k_0 r^2 + k_1 r^4 + k_4 r^6}{ 1 + k_5 r^2 + k_6 r^4 + k_7 r^6} \vec P \\
+\vec P_\mathrm{tangential} &\equiv
+  \left( \begin{aligned}
+    2 k_2 P_0 P_1 &+ k_3 \left(r^2 + 2 P_0^2 \right) \\
+    2 k_3 P_0 P_1 &+ k_2 \left(r^2 + 2 P_1^2 \right)
+  \end{aligned}\right) \\
+\vec P_\mathrm{thinprism} &\equiv
+  \left( \begin{aligned}
+    k_8    r^2 + k_9    r^4 \\ 
+    k_{10} r^2 + k_{11} r^4
+  \end{aligned}\right) \\
+\vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \vec P_\mathrm{tangential} + \vec P_\mathrm{thinprism} \right) + \vec c_{xy}
+\end{align*}
+
+The parameters are $k_i$. For any N-parameter OpenCV model the higher-order
+terms $k_i$ for $i \geq N$ are all 0. So the tangential distortion terms exist for
+all the models, but the thin-prism terms exist only for =LENSMODEL_OPENCV12=.
+The radial distortion is a polynomial in =LENSMODEL_OPENCV4= and
+=LENSMODEL_OPENCV5=, but a rational for the higher-order models.
+Practically-speaking =LENSMODEL_OPENCV8= works decently well for wide lenses.
+For non-fisheye lenses, =LENSMODEL_OPENCV4= and =LENSMODEL_OPENCV5= work ok. I'm
+sure scenarios where =LENSMODEL_OPENCV12= is beneficial exist, but I haven't
+come across them.
 
 ** =LENSMODEL_CAHVOR=
 :PROPERTIES:
 :CUSTOM_ID: cahvor lens model
 :END:
 mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools used
-at JPL. Primarily this support exists for compatibility. The CAHVOR model has 5
-"distortion" parameters in addition to the 4 core parameters. If you want to use
-this, you already know what it does.
+at JPL. The =LENSMODEL_CAHVOR= model has 5 "distortion" parameters in addition
+to the 4 core parameters. This support exists only for compatibility, and
+there's no reason to use it otherwise. If you need this, you already know what
+it does.
 
 ** =LENSMODEL_CAHVORE=
-This is an extended =LENSMODEL_CAHVOR= to support wider lenses. CAHVORE is only
-partially supported: the parameter gradients aren't implemented, so it isn't
-currently possible to solve for a CAHVORE model. Full support may be added in
-the future.
+:PROPERTIES:
+:lensmodel-cahvore:
+:END:
+This is an extended flavor of =LENSMODEL_CAHVOR= to support wider lenses. The
+=LENSMODEL_CAHVORE= model has 8 "distortion" parameters in addition to the 4
+core parameters. CAHVORE is only partially supported: the parameter gradients
+aren't implemented, so it isn't currently possible to solve for a CAHVORE model.
+Full support may be added in the future, if somebody needs it.
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC_...=
 :PROPERTIES:
-:CUSTOM_ID: Splined stereographic lens model
+:CUSTOM_ID: splined-stereographic-lens-model
 :END:
 
-This projection function is a stereographic model with correction factors. We
-compute $\vec u$ as in the [[*=LENSMODEL_STEREOGRAPHIC=][=LENSMODEL_STEREOGRAPHIC=]] projection definition
-above. We then use $\vec u$ to look-up a $\Delta \vec u$ using two splined
-surfaces: one for each of the two elements of
+This projection function is a stereographic model with correction factors. This
+is one of many possible ways to define a rich, splined model. Better
+representations could be discovered in the future.
+
+We compute the normalized stereographic projection $\vec u$ as in the
+[[#stereographic][=LENSMODEL_STEREOGRAPHIC=]] definition above. Then we use $\vec u$ to look-up a
+$\Delta \vec u$ using two separate splined surfaces:
 
 \[ \Delta \vec u \equiv
-\begin{bmatrix}
+\left[ \begin{aligned}
 \Delta u_x \left( \vec u \right) \\
 \Delta u_y \left( \vec u \right)
-\end{bmatrix} \]
+\end{aligned} \right] \]
 
-Then we can define the rest of the projection function:
+and we define the rest of the projection function:
 
 \[\vec q =
- \left( \begin{array}{c}
+ \left( \begin{aligned}
  f_x \left( u_x + \Delta u_x \right) + c_x \\
  f_y \left( u_y + \Delta u_y \right) + c_y
-\end{array} \right) \]
+\end{aligned} \right) \]
 
-The surfaces $\Delta u_x$ and $\Delta u_y$ are defined as B-splines with
+The surfaces $\Delta u_x$ and $\Delta u_y$ are defined as [[https://en.wikipedia.org/wiki/B-spline][B-splines]] with
 evenly-spaced knots (control points) in the space of the domain $\vec u$. The
 values of the knots comprise the parameters of this lens model. We're using
 B-splines primarily for their local support properties: moving a knot only
-affect the surface in the immediate region surrounding that knot. This makes for
-a nice optimization problem.
+affects the surface in the immediate neighborhood of that knot. This is critical
+for rapid convergence of our optimization problem. A [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/analyses/splines/bsplines.py][script used in the
+development of the splined model]] shows this effect:
 
-Everything else needed to define the splined surfaces is given in the model
-configuration:
+[[file:figures/cubic-spline-perturbations.svg]]
+
+We sampled a curve defined by two sets of cubic B-spline control points: they're
+the same except the one point in the center differs. We can see that the two
+spline-interpolated functions produce a different value only in the vicinity of
+the tweaked control point. And we can clearly see the radius of the effect: the
+sampled value of a cubic B-spline depends on the two control points on either
+side of the query point. A quadratic B-spline has a narrower effect: the sampled
+value depends on the nearest control point, and one neighboring control point on
+either side.
+
+This plot shows a 1-dimension splined /curve/, but we have splined /surfaces/.
+To sample a spline surface:
+
+1. Arrange the control points in a grid
+2. Sample each row independently as a separate 1-dimensional B-spline
+3. Use these row samples as control points to sample the resulting column
+
+Processing columns first and then rows produces the same result. The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/analyses/splines/bsplines.py][same dev
+script from above]] checks this.
+
+The model configuration provides the rest of the values needed for projection
+via these expressions:
 
 - =order=: the degree of each 1D polynomial. This is either 2 (quadratic
   splines, C1 continuous) or 3 (cubic splines, C2 continuous)
 
 - =Nx= and =Ny=: The spline density. We have a =Nx= by =Ny= grid of
-  evenly-spaced control points. More control points results in more parameters
-  and a more flexible model. Naturally this also increases the amount of
-  calibration data we need to achieve the same projection uncertainty. The ratio
-  of =Nx= to =Ny= should usually follow the ratio of the two imager dimensions,
-  but this isn't required. No data-driven method of choosing =Nx= or =Ny= is
-  available at this time. Something will be built eventually.
+  evenly-spaced control points.
 
 - =fov_x_deg=: The horizontal field of view, in degrees. Controls the area where
   the spline is defined. Beyond this area the projection function will use the
   nearest spline patch. This will produce continuous, but very aphysical
   projection behavior. =fov_y_deg= is not included in the configuration: it is
-  assumed proportional with =Ny= and =Nx=.
+  assumed proportional with =Ny= and =Nx=. =fov_x_deg= is used to compute a
+  =knots_per_u= quantity, and this is applied in both the horizontal and
+  vertical directions
 
-*** Splined models and uncertainties
+*** Splined models: fidelity and uncertainties
 This splined model has many more parameters, and is far more flexible than the
-lean parametric models (all the other lens models). This has several significant
-effects.
+lean parametric models (all the other currently-supported lens models). This has
+several significant effects.
 
 These models are much more capable of representing the behavior of real-world
-lenses than the lean models. At a certain level of precision, the parametric
-models are always wrong.
+lenses than the lean models: at a certain level of precision the parametric
+models are always wrong. The tour of mrcal shows [[file:tour.org::#opencv8-model-solving][a fit using =LENSMODEL_OPENCV8=]]
+and a [[file:tour.org::#splined-model-solving][a fit using a splined model]].
 
-As usual, the flip side of this flexibility is potential overfitting.
-"Overfitting" means that the solution is influenced too much by random noise,
-and not enough by the input data. mrcal explicitly quantifies the effects of
-input noise in its [[file:uncertainty.org][uncertainty estimates]], so it reports exactly how much
-overfitting is happening, and the user can decide whether that is acceptable or
-not. More than that, mrcal reports the covariance matrix of any projection
-operations, so the uncertainty can be propagated to whatever is using the model.
-This is much better than simply deciding whether a given calibration is
-good-enough.
+As expected, the flip side of this flexibility is [[https://en.wikipedia.org/wiki/Overfitting][overfitting]]. "Overfitting"
+means that the solution is influenced too much by random noise, and not enough
+by the input data. mrcal explicitly quantifies the effects of input noise in its
+[[file:uncertainty.org][uncertainty estimates]], so it reports exactly how much overfitting is happening,
+and the user can decide whether that is acceptable or not. More than that, mrcal
+reports the covariance matrix of any projection operations, so the uncertainty
+can be propagated to whatever is using the model. This is much better than
+simply deciding whether a given calibration is good-enough.
 
 More parameters do imply more overfitting, so these rich models /do/ have higher
-reported uncertainties (see the [[file:tour.org::#uncertainty][tour of mrcal]] for examples). This is a good
+reported uncertainties (see the [[file:tour.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good
 thing, however: the lean models report uncertainty estimates that are low, but
-do not match reality, while the higher uncertainty estimates from the splined
-models do. This is because the [[file:uncertainty.org][uncertainty estimate algorithm]] constrains the
-lenses to the space that's representable by a given lens model, which is a
-constraint that only exists on paper.
+do not match reality. The higher uncertainty estimates from the splined models
+are truthful, however. This is because the [[file:uncertainty.org][uncertainty estimate algorithm]]
+constrains the lenses to the space that's representable by a given lens model,
+which is a constraint that only exists on paper.
 
 It is thus recommended to use splined models even for long lenses, which do fit
 the pinhole model more or less
@@ -190,17 +251,17 @@ the pinhole model more or less
 *** Splined model optimization practicalities
 **** Core redundancy
 As can be seen in the projection function above, the splined stereographic model
-contains splined correction factors $\Delta \vec u$ /and/ an intrinsics core.
-The core variables are largely redundant with $\Delta \vec u$: for any
-perturbation in the core, we can achieve a /very/ similar change in projection
-behavior by bumping $\Delta \vec u$ in a specific way. As a result, if we allow
-the optimization algorithm to control all the variables, the system will be
-under-determined, and the optimization routine will fail: complaining about a
-"not positive definite" (singular in this case) Hessian. At best the Hessian
-will be slightly non-singular, but convergence will be slow. To resolve this,
-the recommended sequence for optimizing splined stereographic models is:
+parameters contain splined correction factors $\Delta \vec u$ /and/ an
+intrinsics core. The core variables are largely redundant with $\Delta \vec u$:
+for any perturbation in the core, we can achieve a /very/ similar change in
+projection behavior by bumping $\Delta \vec u$ in a specific way. As a result,
+if we allow the optimization algorithm to control all the variables, the system
+will be under-determined, and the optimization routine will fail: complaining
+about a "not positive definite" (singular in this case) Hessian. At best the
+Hessian will be slightly non-singular, but convergence will be slow. To resolve
+this, the recommended sequence for optimizing splined stereographic models is:
 
-1. Fit the best =LENSMODEL_STEREOGRAPHIC= to compute an estimate of the
+1. Fit the best =LENSMODEL_STEREOGRAPHIC= model to compute an estimate of the
    intrinsics core
 2. Refine that solution with a full =LENSMODEL_SPLINED_STEREOGRAPHIC_...= model,
    using the core we just computed, and asking the optimizer to lock down those
@@ -212,25 +273,25 @@ the recommended sequence for optimizing splined stereographic models is:
 
 **** Regularization
 :PROPERTIES:
-:CUSTOM_ID: splined model regularization
+:CUSTOM_ID: splined-model-regularization
 :END:
 Another issue that comes up is the treatment of areas in the imager where no
 points were observed. By design, each parameter of the splined model controls
-projection from a small area in space. So what happens if we haven't gathered
-any data from an area? We then don't have anything to suggest to the solver what
-values the corresponding variables should take: they don't affect the cost
+projection from only a small area in space. So what happens to parameters
+controlling an area where no data was gathered? We have no data to suggest to
+the solver what values these parameters should take: they don't affect the cost
 function at all. Trying to optimize such a problem will result in a singular
 Hessian, and complaints from the solver. Currently we address this issue with
 regularization. mrcal applies light [[https://en.wikipedia.org/wiki/L2_regularization][L2 regularization]] to all the spline
 parameters. Thus $\Delta \vec u$ is always pulled lightly towards 0. The weights
 are chosen to be light-enough to not noticeably affect the optimization where we
 do have data. Where we don't have data, though, the optimizer now /does/ have
-information to act on: pull $\Delta \vec u$ towards 0. This could be handled
-better in the future.
+information to act on: pull $\Delta \vec u$ towards 0. This may be handled
+differently in the future.
 
 **** Uglyness at the edges
 :PROPERTIES:
-:CUSTOM_ID: splined non-monotonicity
+:CUSTOM_ID: splined-non-monotonicity
 :END:
 An unwelcome property of the projection function defined above, is that it
 allows aphysical, nonmonotonic behavior to be represented. For instance, let's
@@ -244,16 +305,16 @@ q_x &= f_x \left( u_x + \Delta u_x \right) + c_x \\
 We would expect $\frac{\mathrm{d}q_x}{\mathrm{d}u_x}$ to always be positive, but
 as we can see, here that depends on $\frac{\mathrm{d}\Delta
 u_x}{\mathrm{d}u_x}$, which could be /anything/ since $\Delta u_x$ is an
-arbitrary spline function. Most of the time we're fitting the spline into real
+arbitrary splined function. Most of the time we're fitting the spline into real
 data, so the real-world monotonic behavior will be represented. However, near
-the edges the behavior is driven by [[#splined model regularization][regularization]], which is /not/ based on
-data, and we're very likely to hit this odd-looking non-monotonic behavior
-there. This looks bad, but it's not /really/ a problem: we get aphysical
-behavior in areas where we don't have data, so we would expect unreliable
-projections there anyway. This makes the [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]]
+the edges quite often no data is available, so the behavior is driven by
+[[#splined-model-regularization][regularization]], and we're very likely to hit this non-monotonic behavior there.
+This looks bad, but it's not /really/ a problem: we get aphysical behavior in
+areas where we don't have data, so we have no expectations of reliable
+projections there. This makes the [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]]
 produce odd-looking knot layouts and imager contours. A better regularization
-scheme or (better yet) a better representation would fix this. This will be
-addressed in time.
+scheme or (better yet) a better representation would address this. See [[file:tour.org::#splined-model-solving][a tour of
+mrcal]] for examples.
 
 *** Splined models: selecting the configuration
 :PROPERTIES:
@@ -270,8 +331,10 @@ the configuration parameters? Here are some rules of thumb.
 - =Nx= and =Ny=: their ratio should match the aspect ratio of the imager. Inside
   each spline patch we effectively have a lean parametric model. So choosing a
   too-sparse spline spacing will result in not being able to fit real-world
-  lenses. I haven't yet done a study on this either, but =Nx=30_Ny=20= appears
-  to work well for some /very/ wide lenses I tested with.
+  lenses. Choosing a denser spacing results in more parameters and a more
+  flexible model at the cost of needing more data and slower computations. No
+  data-driven method of choosing =Nx= or =Ny= is available at this time, but
+  =Nx=30_Ny=20= appears to work well for some /very/ wide lenses I tested with.
 
 - =fov_x_deg=: this should be set widely-enough to cover the full viewable
   angular span in space, but not so wide to waste spline knots representing
@@ -279,8 +342,8 @@ the configuration parameters? Here are some rules of thumb.
   the lens, and run a calibration. The [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]]
   can be used to compare the imager bounds against the bounds of the
   valid-spline region. Note that the spline behavior at the edges of the imager
-  is usually not well-defined (since it's difficult to get usable calibration
-  data there), so reports of unprojectable imager regions from that tool should
-  be taken with an appropriate grain of salt. =mrcal-show-splined-model-surface=
-  has a =--observations= option to overlay the observations onto that plot. The
-  existing observations /must/ all lie within the valid-projection region.
+  is [[#splined-non-monotonicity][usually not well-defined]], so reports of unprojectable imager regions from
+  that tool should be taken with an appropriate grain of salt.
+  =mrcal-show-splined-model-surface= has a =--observations= option to overlay
+  the observations onto that plot. The existing observations /must/ all lie
+  within the valid-projection region.
