@@ -1,36 +1,41 @@
 #+TITLE: Optimization problem formulation
 #+OPTIONS: toc:t
 
-mrcal contains a solver used to compute the lens models and/or geometry in any
-given problem. This is accessible via either
+mrcal contains a solver used to compute the lens models and/or geometry. This is
+accessible via either
 
 - =mrcal_optimize()= routine in the [[file:c-api.org][C API]]
-- [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] routine in the Python API
+- [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] routine in the [[file:python-api.org][Python API]]
 
 These are the main call in the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool (to calibrate
 cameras) and [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool (to fit a different lens model into
 an existing model). The optimization routines themselves are more general than
-this, and can solve more problems, such as structure-from-motion. The APIs for
-the handling of discrete points are still unstable, so the structure-from-motion
-functionality remains undocumented for now.
+this, and can solve other problems, such as structure-from-motion. The APIs for
+handling discrete points are still unstable, so the structure-from-motion
+functionality remains lightly-documented for now.
 
-The solver moves around in the space of /state/ vectors $\vec p$, trying to
-minimize the cost function $E \equiv \left \Vert \vec x \right \Vert ^2$ where
-$\vec x$ is the vector of /measurements/. The solver evaluates each hypothesis
-$\vec p$ by repeatedly invoking a callback function to report $\vec x$ and the
-local gradients $J \equiv \frac{\partial \vec x}{\partial \vec p}$. The callback
-function is available by itself via
+The solver moves around the /state/ vector $\vec p$, which contains all the
+geometry and all the lens models. For any hypothesis $\vec p$, the solver can
+predict the pixel coordinates where the hypothetical cameras would observe their
+hypothetical world. The differences between these predicted pixel observations
+and the actual pixel observations we gathered from looking at chessboards are
+stored in a /measurement/ vector $\vec x$. The solver tries to find the set
+of geometry and lens parameters to best explain the observed pixel coordinates,
+so it seeks $\vec p$ to minimize the cost function $E \equiv \left
+\Vert \vec x \left(\vec p\right)\right \Vert ^2$.
+
+The optimization library interfaces with mrcal by invoking a callback function
+for each hypothesis $\vec p$ to test. This callback function computes $\vec x$
+and the local gradients $J \equiv \frac{\partial \vec x}{\partial \vec p}$. For
+analysis, this callback function is available by itself via
 
 - =mrcal_optimizer_callback()= routine in the [[file:c-api.org][C API]]
-- [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]] routine in the Python API
-
-More or less, it's trying to find the set of geometry and lens parameters to
-best explain the observed pixel coordinates.
+- [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]] routine in the [[file:python-api.org][Python API]]
 
 * Optimization details
 The mrcal solver is an optimization routine based on sparse nonlinear least
-squares. The optimization loop is implemented in [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which uses the
-[[https://people.engr.tamu.edu/davis/suitesparse.html][CHOLMOD solver]] to compute the [[https://en.wikipedia.org/wiki/Cholesky_decomposition][Cholesky factorization]]. With a Cholesky
+squares. The optimization loop is implemented in [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which at its core
+uses the [[https://people.engr.tamu.edu/davis/suitesparse.html][CHOLMOD solver]] to compute the [[https://en.wikipedia.org/wiki/Cholesky_decomposition][Cholesky factorization]]. With a Cholesky
 factorization we can efficiently solve the linear system $J^T J \vec a = \vec b$
 where the jacobian matrix $J$ is large and sparse.
 
@@ -46,42 +51,52 @@ estimate of the solution) to the optimization routines. The
 [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool achieves this by
 
 1. Computing an initial estimate directly using geometry and some simplifying
-   assumptions. The geometric seeding routines are available by themselves:
+   assumptions. These geometric seeding routines are available standalone:
 
    - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
    - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
    - [[file:mrcal-python-api-reference.html#-seed_pinhole][=mrcal.seed_pinhole()=]]: Compute an optimization seed for a camera calibration
 
-2. And then refining that estimate with a sequences of optimization problems
-   that allow more and more of the parameters to vary. The final problem is the
-   /full/ problem where all the variables are free to move. The set of variables
-   we're optimizing can be selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure
+2. Refining that estimate with a sequences of optimization problems that allow
+   more and more of the parameters to vary. The final problem is the /full/
+   problem where all the variables are free to move. The set of variables we're
+   optimizing can be selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure
    passed to [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or the =do_optimize_...= arguments to
    [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
+
+** Why least squares
+We aim to 
+
+maximum likelihood
+
+noise model
 
 ** Outlier rejection
 :PROPERTIES:
 :CUSTOM_ID: outlier rejection
 :END:
 
-yyy write about this
+Some of the input data may not fit the model due to errors in the input data
+(chessboard corner mis-detections or motion blur for instance) or due to the
+model not being able to represent reality (insufficiently-flexible lens model or
+[[*Board deformation][board deformation model]] for instance).
 
 * World geometry
 There are 3 different coordinate systems in the optimization:
 
-- *camera* coordinate system: the local coordinate system of each camera. The
-  $x$ and $y$ axes are aligned with pixel coordinates in an image: $x$ is to the
-  right and $y$ is down. $z$ is then forward to complete the right-handed
-  system of coordinates.
 - *frame* coordinate system: the local coordinate system of the chessboard. The
   chessboard is assumed mostly flat, with the grid of points lying in the $xy$
-  plane. The origin is at the first point.
+  plane. The origin is at one of the corners.
 - *reference* coordinate system: the "world" coordinate system in the
   optimization problem. This coordinate system is the common system that ties
   everything together. Each chessboard pose is represented as a transformation
   between the local chessboard frame and the reference frame. And each camera
   pose is represented as the transformation between the local camera frame and
   the reference frame.
+- *camera* coordinate system: the local coordinate system of each camera. The
+  $x$ and $y$ axes are aligned with pixel coordinates in an image: $x$ is to the
+  right and $y$ is down. $z$ is then forward to complete the right-handed
+  system of coordinates.
 
 So the data flow to project a particular chessboard corner which sits at $\vec
 p_\mathrm{frame}$ in the local chessboard coordinate system is:
@@ -92,7 +107,8 @@ p_\mathrm{frame}$ in the local chessboard coordinate system is:
    \vec p_\mathrm{frame}
 \]
 
-where the intrinsics and the transformations $T_\mathrm{cr}$ and $T_\mathrm{rf}$ are elements of the state vector.
+where the intrinsics and the transformations $T_\mathrm{cr}$ and $T_\mathrm{rf}$
+are all elements of the state vector.
 
 ** Geometric free variables
 If too many transformations are left as free variables for the optimizer to
@@ -100,34 +116,35 @@ find, the system will be under-determined, and the optimization routine will
 fail: complaining about a "not positive definite" (singular in this case)
 Hessian.
 
-Example: we have 1 stationary camera observing 10 chessboards. We want to be
-able to uniquely represent the transformation between each chessboard and the
+Example: we have 1 stationary camera observing 10 chessboards poses. We want to
+be able to uniquely represent the transformation between each chessboard and the
 camera, for a total of 10 transformations. If we optimize a separate
 $T_\mathrm{cr}$ for the camera and 10 separate $T_\mathrm{rf}$ for each
-chessboard, we will have 11 transformations in the optimization vector. Here 11
-> 10, so the system is under-determined, and the optimization will fail.
+chessboard, we will have 11 transformations in the optimization vector. Since 11
+> 10, we have more variables in the optimization vector than are needed to
+uniquely describe the world. So the system is under-determined, and the
+optimization will fail.
 
-In a vanilla calibration problem, we would address this by fixing the reference
-coordinate system to one of the camera or chessboard frames. The mrcal
-convention is to fix the reference coordinate system to camera 0. In the above
-example, this would reduce the number of transformations being optimized from 11
-to 10, which would resolve the issue.
+In a vanilla calibration problem such as this, we would address this by fixing
+the reference coordinate system to one of the camera or chessboard frames. The
+mrcal convention is to fix the reference coordinate system to camera 0. In the
+above example, this would reduce the number of transformations being optimized
+from 11 to 10, which resolves the issue.
 
 Any other method of making the optimization variables unique is valid also. For
 instance, the chessboard poses might be known. In that case we don't need to
 optimize any $T_\mathrm{rf}$, and solving for /all/ the $T_\mathrm{cr}$ is
 valid.
 
-** The meaning of the /reference/ coordinate system
+** The physical meaning of the /reference/ coordinate system
 The reference coordinate system is a single coordinate system common to the
 whole optimization problem that all the objects in the world can use to localize
-themselves. This reference coordinate system does /not/ have any physical
-meaning beyond that. In particular, the reference coordinate system is /not/
-attached to any fixed object in the world. So if we're looking at how the
-optimal geometry would respond to perturbations in the camera observations, the
-reference coordinate system would move, as would the camera and chessboard
-coordinate systems. Please see the [[file:uncertainty.org][projection uncertainty]] documentation for more
-information.
+themselves. It does /not/ have /any/ physical meaning beyond that. In
+particular, the reference coordinate system is /not/ attached to any fixed
+object in the world. Thus noise in the chessboard observations would shift the
+reference coordinate system, just as would shift the camera and chessboard
+coordinate systems. The [[file:uncertainty.org][projection uncertainty]] documentation talks about this in
+depth.
 
 * Calibration object
 :PROPERTIES:
@@ -138,39 +155,61 @@ optimization code refers to the chessboard pose array as "frames".
 
 When running a camera calibration, we use observations of a known-geometry
 object. At this time mrcal expects this object to be a planar grid of observable
-points, with possibly a small amount of [[#board deformation][deformation]].
+points, possibly with a small amount of [[#board deformation][deformation]]. Usually this object is a
+chessboard-like grid of black and white squares, where the observed points are
+at the corner of each square.
 
-Usually this object is a chessboard-like grid of black and white squares, where
-the observed points are the corners between squares. These are detected and
-serve as the input features to mrcal. mrcal is a purely geometrical toolkit, so
-this vision problem must be handled by another library. I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]],
-but any other source of grid observations may be used.
+** Chessboard corner detector
+Detections of these corners serve as the input features to mrcal. mrcal is a
+purely geometrical toolkit, and this vision problem must be handled by another
+library. [[https://en.wikipedia.org/wiki/Chessboard_detection][A number of tools]] are available to detect chessboard corners. These did
+not work well for my use cases, so I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]] for all corner
+detections. mrgingham is fast and is able to find chessboard corners subject to
+very un-pinhole-like projections. At this time it has two limitations that will
+be lifted eventually:
 
-When given an image of a chessboard, the detector is directly observing the
-feature we actually care about. Another common calibration board style is a grid
-of circles. When given an image of a grid of circles, the detector sees the edge
-of each circle, and then infers the circle center. This is difficult to do
-accurately when given tilted images subjected to arbitrary lens behaviors. The
-resulting inaccuracies in detections of the circle centers will introduce biases
-into the solve that aren't modeled by the [[file:uncertainty.org::#noise model][projection uncertainty routine]], so
-chessboards are /strongly/ recommended.
+- It more or less assumes a grid of 10x10 corners (i.e. 11x11 squares)
+- It requires /all/ the corners to be observed in order to report the detections
+  from an image. Incomplete chessboard observations aren't supported
+
+If these are unacceptable, any other detector may be used instead.
+
+** Choice of calibration object
+When given an image of a /chessboard/, the detector is directly observing the
+feature we actually care about: the corner. Another common calibration board
+style is a grid of circles, where the feature of interest is the center of each
+circle. When given an image of such a grid of circles, the detector either
+
+- detects the contour at the edge of each circle
+- finds the pixel blob comprising each circle observation
+
+and from either of these, the detector infers the circle center. This can work
+when looking at head-on images, but when given tilted images subjected to
+non-pinhole lens behaviors, getting accurate circle centers from outer contours
+or blobs is /hard/. The resulting inaccuracies in the detections of circle
+centers will introduce biases into the solve that aren't modeled by the [[file:uncertainty.org::#noise
+ model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
+favor of circle grids.
 
 mrcal [[file:uncertainty.org::#noise model][assumes independent noise]] on each point observation, so correlated sources
-of points (such as corners of an apriltag) are also not appropriate sources of
-data currently. Apriltag centers would work, however.
+of point observations (such as corners of an apriltag) are also not appropriate
+sources of data. Apriltag centers would work, however.
 
 ** Board deformation
 :PROPERTIES:
 :CUSTOM_ID: board deformation
 :END:
 
-The calibration object is assumed to be planar. However, large calibration
-boards used for calibration of wide lenses are never flat: temperature and
-humidity effects deform the board strongly-enough to affect the calibration.
-mrcal models this deformation with two axis-aligned parabolic factors. If the
-chessboard grid spans $[-1,1]$ along the $x$ and $y$ axes, then I define the
-non-planar deformation as $z \equiv k_x (1 - x^2) + k_y (1 - y^2)$ with $k_x$
-and $k_y$ being the two deformation factors being optimized by the solver.
+The calibration object is assumed to be nominally planar. However, large
+calibration boards used for calibration of wide lenses are never flat:
+temperature and humidity effects deform the board strongly-enough to affect the
+calibration. mrcal models this deformation with two axis-aligned parabolic
+factors. Let the chessboard grid span $[-1,1]$ along the $x$ and $y$ axes, then
+I define the non-planar deformation as $z \equiv k_x (1 - x^2) + k_y (1 - y^2)$
+with $k_x$ and $k_y$ being the two deformation factors being optimized by the
+solver. If the board were flat, $k_x$ and $k_y$ would be 0, and thus we would
+have $z=0$ everywhere. The deflection at the edges is 0, and is strongest at the
+center.
 
 Empirically, this appears to work well: I get better-fitting solves, and less
 systematic error. And the optimal deformation factors $k_x$, $k_y$ are
@@ -185,29 +224,29 @@ searches for the optimal solution. This vector may contain
 - *extrinsics*: the poses of all the cameras in the optimization problem. These
   are specified as unconstrained =rt= transformations from some arbitrary
   "reference". coordinate system, to the camera coordinate system. These are
-  represented by $T_\mathrm{cr}$ in the flow diagram above.
+  represented by $T_\mathrm{cr}$ in the flow diagram above
 - *frames*: the poses of all the chessboards in the optimization problem. These
   are specified as unconstrained =rt= transformations from the local chessboard
   coordinate system to some arbitrary "reference" coordinate system. These are
-  represented by $T_\mathrm{rf}$ in the flow diagram above.
+  represented by $T_\mathrm{rf}$ in the flow diagram above
 - *points*: the location in the reference coordinate system of any discrete
   points being observed. A vanilla "calibration" problem wouldn't have any of
-  these, but an SFM problem would have many.
-- *calibration-object warp*: the deformation of the calibration object. Large
-  calibration boards used for calibration of wide lenses are never flat:
-  temperature and humidity effects deform the board strongly-enough to affect
-  the calibration. mrcal models this deformation with two axis-aligned parabolic
-  factors. If the chessboard grid spans $[-1,1]$ along the $x$ and $y$ axes,
-  then I define the non-planar deformation as $z \equiv k_x (1 - x^2) + k_y (1 -
-  y^2)$ with $k_x$ and $k_y$ being the two deformation factors being optimized.
+  these, but an SFM problem would have many
+- *calibration-object warp*: the [[#board deformation][deformation of the calibration object]]
 
-The optimization problem /could/ contain all those things, but it usually
-doesn't. A vanilla calibration problem (stationary cameras, moving chessboard)
-has no discrete points. A structure-from-motion problem (moving cameras,
-stationary world being observed) usually has no chessboards or
-calibration-object warping, but many discrete points. An intrinsics-fitting
-problem (such as what [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] solves) has no extrinsics or
-frames or calibration-object warping, but multiple discrete points.
+An optimization problem could contain /all/ those things, but it usually only
+contains a subset, depending on the specific problem being solved. Common
+problems are:
+
+- A vanilla calibration problem. We have stationary cameras observing a moving
+  chessboard. $\vec p$ contains intrinsics and extrinsics and frames and the
+  calibration-object warp
+- Structure-from-motion. We have moving cameras observing a stationary world.
+  $\vec p$ contains extrinsics and points.
+- An intrinsics-fitting problem such as what [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] solves.
+  $\vec p$ contains intrinsics and points
+
+Any other combination is possible.
 
 ** State vector layout
 When analyzing the behavior of the optimizer it is often useful to pick out
@@ -253,7 +292,7 @@ this:
 
 ** State vector scaling
 :PROPERTIES:
-:CUSTOM_ID: state packing
+:CUSTOM_ID: state-packing
 :END:
 The nonlinear least squares-solving library used by mrcal is [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which
 implements [[https://en.wikipedia.org/wiki/Powell's_dog_leg_method][Powell's dogleg method]]. This is a trust-region algorithm that
@@ -261,19 +300,20 @@ represents the trust region as a ball in state space. I.e. the radius of this
 trust region is the same in every direction. And /that/ means that the
 optimization will work best when each state variable in $\vec p$ affects the
 cost function $E$ evenly. Example of what we don't want: camera positions
-measured in km, while the chessboard positions are measured in mm.
+measured in km, while the chessboard positions are measured in mm, with both
+sets of these very different numbers stored in $\vec p$.
 
 Clearly getting identical behavior from each variable is impossible, but we can
-scale the elements of $\vec p$ to keep things more or less even. Thus the
-=libdogleg= optimization library never sees the full state vector $\vec p$, but
-the scaled vector $\vec p_\mathrm{packed}$. Similarly, it never sees the full
-jacobian $J \equiv \frac{\partial \vec x}{\partial \vec p}$, but rather
-$J_\mathrm{packed} \equiv \frac{\partial \vec x}{\partial \vec
-p_\mathrm{packed}}$. This means that the optimization callback functions /also/
-report the packed state. These are
+scale the elements of $\vec p$ to keep things more or less even. mrcal applies
+this scaling, and the =libdogleg= optimization library never sees the full state
+vector $\vec p$, but the scaled vector $\vec p_\mathrm{packed}$. Similarly, it
+never sees the full jacobian $J \equiv \frac{\partial \vec x}{\partial \vec p}$,
+but rather $J_\mathrm{packed} \equiv \frac{\partial \vec x}{\partial \vec
+p_\mathrm{packed}}$. This means that the optimization callback functions report
+packed state. These are
 
 - =mrcal_optimizer_callback()= routine in the [[file:c-api.org][C API]]
-- [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]] routine in the Python API
+- [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]] routine in the [[file:python-api.org][Python API]]
 
 To pack or unpack an array of state, mrcal provides some routines. In C:
 
@@ -298,7 +338,7 @@ a vector of errors $\vec q_\mathrm{err} \equiv \vec q_\mathrm{predicted}\left(
 For each observation in $\vec q_\mathrm{ref}$ the chessboard corner detection
 routine tells us how confident it was in that observation, from which we can get
 a vector of weights $\vec w$: less confident observations are weighed less in
-the optimization. See the [[file:uncertainty.org][projection uncertainty]] documentation for the noise
+the optimization. See the [[file:uncertainty.org::#noise model][projection uncertainty]] documentation for the noise
 analysis. Let $W \equiv \mathrm{diag}\left( \vec w \right)$. Then I can define
 
 \[ \vec x_\mathrm{observations} \equiv W q_\mathrm{err} = W \left( \vec
@@ -311,14 +351,14 @@ This is the bulk of the measurement vector.
 :CUSTOM_ID: Regularization
 :END:
 
-In addition to $\vec x_\mathrm{observations}$ the measurement vector contains
+In addition to $\vec x_\mathrm{observations}$, the measurement vector contains
 [[https://en.wikipedia.org/wiki/Regularization_(mathematics)][/regularization/]] terms. These are mostly-insignificant terms that are meant to
-improve the convergence of the solver. These are aphysical, and cause a bias in
-the solution. mrcal is careful to keep these small-enough to not break anything
-noticeably. The behavior of these terms is likely to change in the future, so I
-don't want to do document these in detail; please consult the sources for
-detail. Currently the logic is at the end of the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=optimizer_callback()=]] function
-in =mrcal.c=.
+improve the convergence of the solver. They are also aphysical, and cause a bias
+in the solution, so mrcal is careful to keep these small-enough to not break
+anything noticeably. The behavior of these terms is likely to change in the
+future, so I don't document these in detail; please consult the sources.
+Currently the logic is at the end of the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.c][=optimizer_callback()=]] function in
+=mrcal.c=.
 
 It is possible to control whether a solve does/does not include regularization
 terms with the =do_apply_regularization= bit in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] or the
