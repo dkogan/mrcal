@@ -1069,11 +1069,11 @@ system FROM the calibration object coordinate system.
     return frames_rt_toref
 
 
-def make_seed_pinhole( imagersizes,
-                       focal_estimate,
-                       indices_frame_camera,
-                       observations,
-                       object_spacing):
+def seed_pinhole( imagersizes,
+                  focal_estimate,
+                  indices_frame_camera,
+                  observations,
+                  object_spacing):
     r'''Compute an optimization seed for a camera calibration
 
 SYNOPSIS
@@ -1093,11 +1093,11 @@ SYNOPSIS
     intrinsics_data,       \
     extrinsics_rt_fromref, \
     frames_rt_toref =      \
-        mrcal.make_seed_pinhole(imagersizes          = imagersizes,
-                                focal_estimate       = 1500,
-                                indices_frame_camera = indices_frame_camera,
-                                observations         = observations,
-                                object_spacing       = object_spacing)
+        mrcal.seed_pinhole(imagersizes          = imagersizes,
+                           focal_estimate       = 1500,
+                           indices_frame_camera = indices_frame_camera,
+                           observations         = observations,
+                           object_spacing       = object_spacing)
 
     ....
 
@@ -1169,7 +1169,7 @@ We return a tuple:
   model. mrcal refers to these 4 values as the "intrinsics core". For models
   that have such a core (currently, ALL supported models), the core is the first
   4 parameters of the intrinsics vector. So to calibrate some cameras, call
-  make_seed_pinhole(), append to intrinsics_data the proper number of parameters
+  seed_pinhole(), append to intrinsics_data the proper number of parameters
   to match whatever lens model we're using, and then invoke the optimizer.
 
 - extrinsics_rt_fromref: an array of shape (Ncameras-1,6). Each slice is an rt

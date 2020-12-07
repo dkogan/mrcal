@@ -77,7 +77,7 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]]: Compute the chessboard observations and returns them in a usable form
 - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
 - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
-- [[file:mrcal-python-api-reference.html#-make_seed_pinhole][=mrcal.make_seed_pinhole()=]]: Compute an optimization seed for a camera calibration
+- [[file:mrcal-python-api-reference.html#-seed_pinhole][=mrcal.seed_pinhole()=]]: Compute an optimization seed for a camera calibration
 
 * Image transforms
 - [[file:mrcal-python-api-reference.html#-scale_focal__best_pinhole_fit][=mrcal.scale_focal__best_pinhole_fit()=]]: Compute the optimal focal-length scale for reprojection to a pinhole lens
