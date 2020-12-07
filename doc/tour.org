@@ -433,38 +433,50 @@ show_residuals_directions(0, unset='key')
 
 /Much/ better. If there is a pattern, I can't see it.
 
-We can also visualize the spline surface itself. Here I'm using the commandline
-tool instead of a function in the =mrcal-calibrate-cameras= REPL.
+We can also visualize the spline surfaces themselves. Here I'm using the
+commandline tool instead of a function in the =mrcal-calibrate-cameras= REPL.
 
 #+begin_src sh
-mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel x --set 'cbrange [-.25:.25]' --unset key
+mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel x --set 'cbrange [-.1:.1]' --unset key
+
+mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel y --set 'cbrange [-.1:.1]' --unset key
 #+end_src
 
+$\Delta u_0$ looks like this:
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[file:figures/splined-knots.png]]
+[[file:figures/splined-knots-x.png]]
 
-This shows $\Delta u_0 = \mathrm{spline0}\left(\vec u\right)$. Each X in the
-plot is a "knot" of the spline surface, a point where a control point value is
-defined. We're looking at the spline domain, so the axes of the plot are $u_0$
-and $u_1$. This is a cubic spline, so the valid spline region starts one knot
-inside from the edge; this is shown as the green rectagle. Each $\vec u$
-projects to some pixel coordinate $\vec q$ in some very nonlinear way, and I
-draw the bounds of the imager as the thick, purple curve. We want the imager
-bounds to lie entirely within the valid spline region. Looking at this plot, we
-can see that is indeed what happens. If the imager poked outside the valid
-spline region, we wouldn't be able to project anything to that slice of the
-image. The fix would be to increase the model field of view by adjusting the
+And $\Delta u_1$:
+#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
+[[file:figures/splined-knots-y.png]]
+
+Each X in the plot is a "knot" of the spline surface, a point where a control
+point value is defined. We're looking at the spline domain, so the axes of the
+plot are $u_0$ and $u_1$. This is a cubic spline, so the valid spline region
+starts one knot inside from the edge; this is shown as the green rectagle. Each
+$\vec u$ projects to some pixel coordinate $\vec q$ in some very nonlinear way,
+and I draw the bounds of the imager as the thick, purple curve. We want the
+imager bounds to lie entirely within the valid spline region. Looking at this
+plot, we can see that is indeed what happens. If the imager poked outside the
+valid spline region, we wouldn't be able to project anything to that slice of
+the image. The fix would be to increase the model field of view by adjusting the
 =fov_x_deg= values in the name of the lens model.
 
 Alternately, I can look at the spline surface as a function of the pixel
-coordinates:
+coordinates. Just for $\Delta u_0$:
 
 #+begin_src sh
-mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.25:.25]' x --unset key --set 'xrange [-300:6300]' --set 'yrange [4300:-300]'
+mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.1:.1]' x --unset key --set 'xrange [-300:6300]' --set 'yrange [4300:-300]'
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[file:figures/splined-knots-pixel-domain.png]]
+[[file:figures/splined-knots-pixel-domain-x.png]]
+
+#+begin_src sh :exports none :eval no-export
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-$xy.png }
+
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-pixel-domain-$xy.png }
+#+end_src
 
 Now the imager boundary is a nice rectangle, but the valid spline region is a
 curve. Here we can also see an [[file:lensmodels.org::#splined non-monotonicity][ugly feature of the current representation]]: since
