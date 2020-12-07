@@ -36,7 +36,7 @@ This overall approach is sound, but it implies some limitations:
   do. However, this stiffness also serves to limit the model's response to noise
   in their parameters. So the above method will report less uncertainty for
   leaner models than rich models. So, unless we're /sure/ that a given lens
-  follows some particular lens model perfectly, a [[file:lensmodels.org::#Splined stereographic lens model][splined lens model]] (i.e. a
+  follows some particular lens model perfectly, a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]] (i.e. a
   very rich model) is recommended for truthful uncertainty reporting. Otherwise
   the reported confidence comes from the model itself, rather than the
   calibration data.
