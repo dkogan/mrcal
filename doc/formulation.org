@@ -1,6 +1,8 @@
 #+TITLE: Optimization problem formulation
 #+OPTIONS: toc:t
 
+* Overview
+
 mrcal contains a solver used to compute the lens models and/or geometry. This is
 accessible via either
 
@@ -10,118 +12,28 @@ accessible via either
 These are the main call in the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool (to calibrate
 cameras) and [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool (to fit a different lens model into
 an existing model). The optimization routines themselves are more general than
-this, and can solve other problems, such as structure-from-motion. The APIs for
-handling discrete points are still unstable, so the structure-from-motion
-functionality remains lightly-documented for now.
+this, and can solve other problems, such as structure-from-motion. Note that the
+APIs for handling discrete points are still unstable, so the SFM functionality
+remains lightly-documented for now.
 
 The solver moves around the /state/ vector $\vec p$, which contains all the
 geometry and all the lens models. For any hypothesis $\vec p$, the solver can
 predict the pixel coordinates where the hypothetical cameras would observe their
 hypothetical world. The differences between these predicted pixel observations
 and the actual pixel observations we gathered from looking at chessboards are
-stored in a /measurement/ vector $\vec x$. The solver tries to find the set
+stored in a /measurement/ vector $\vec x$. The solver then tries to find the set
 of geometry and lens parameters to best explain the observed pixel coordinates,
-so it seeks $\vec p$ to minimize the cost function $E \equiv \left
-\Vert \vec x \left(\vec p\right)\right \Vert ^2$.
+so it seeks the $\vec p$ to minimize the cost function $E \equiv \left \Vert \vec x
+\left(\vec p\right)\right \Vert ^2$.
 
 The optimization library interfaces with mrcal by invoking a callback function
 for each hypothesis $\vec p$ to test. This callback function computes $\vec x$
-and the local gradients $J \equiv \frac{\partial \vec x}{\partial \vec p}$. For
+and the local gradients $J \equiv \frac{\partial \vec x}{\partial \vec p}$ (large and sparse). For
 analysis, this callback function is available by itself via
 
 - =mrcal_optimizer_callback()= routine in the [[file:c-api.org][C API]]
 - [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]] routine in the [[file:python-api.org][Python API]]
 
-* Optimization details
-The mrcal solver is an optimization routine based on sparse nonlinear least
-squares. The optimization loop is implemented in [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which at its core
-uses the [[https://people.engr.tamu.edu/davis/suitesparse.html][CHOLMOD solver]] to compute the [[https://en.wikipedia.org/wiki/Cholesky_decomposition][Cholesky factorization]]. With a Cholesky
-factorization we can efficiently solve the linear system $J^T J \vec a = \vec b$
-where the jacobian matrix $J$ is large and sparse.
-
-The optimization problem is posed without constraints. This is achieved by using
-[[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues vectors]] to represent rotations. A different rotation representation,
-such as one using unit quaternions or rotation matrices would require
-constraints: not all sets of 4 numbers are a unit quaternion, and not all sets
-of 9 numbers are a valid rotation matrix.
-
-The optimization algorithm is iterative, so it isn't guaranteed to converge to
-the global optimum. Thus it is imperative to pass a good *seed* (an initial
-estimate of the solution) to the optimization routines. The
-[[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool achieves this by
-
-1. Computing an initial estimate directly using geometry and some simplifying
-   assumptions. These geometric seeding routines are available standalone:
-
-   - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
-   - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
-   - [[file:mrcal-python-api-reference.html#-seed_pinhole][=mrcal.seed_pinhole()=]]: Compute an optimization seed for a camera calibration
-
-2. Refining that estimate with a sequences of optimization problems that allow
-   more and more of the parameters to vary. The final problem is the /full/
-   problem where all the variables are free to move. The set of variables we're
-   optimizing can be selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure
-   passed to [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or the =do_optimize_...= arguments to
-   [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
-
-** Why least squares
-We aim to 
-
-maximum likelihood
-
-** Outlier rejection
-:PROPERTIES:
-:CUSTOM_ID: outlier rejection
-:END:
-
-Some of the input data may not fit the model due to errors in the input data
-(chessboard corner mis-detections or motion blur for instance) or due to the
-model not being able to represent reality (insufficiently-flexible lens model or
-[[*Board deformation][board deformation model]] for instance).
-
-* Input noise model
-:PROPERTIES:
-:CUSTOM_ID: noise-model
-:END:
-I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
-discrepancies between pixel observations and their predictions. The pixel
-observations are noisy, and I assume they are zero-mean, independent and
-normally-distributed. Empirical evidence suggests that this is a reasonable
-assumption. I treat the 2 values in each observation as two independent
-measurements. Thus I minimize a cost function $E \equiv \left \Vert \vec x
-\right \Vert ^2$ where $\vec x$ is the full measurement vector.
-
-Most elements of the measurement vector $\vec x$ depend on the pixel
-observations, but some don't (regularization: often needed to help convergence;
-small-enough to not break anything). For the purposes of propagating noise in
-the input observations, we only care about the former. For the $i$ -th observed
-point the optimized parameters $\vec p$ predict an observation at a pixel
-coordinate $\vec q_i$, while we actually did observe that same point at $\vec
-q_{\mathrm{ref}_i}$. What is $\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
-
-The chessboard corner detection routine tells us how confident it was in
-that observation, and we use that to weight the measurements. For convenience,
-the implementation splits this into two parts:
-
-- The baseline standard deviation of the noise $\sigma$ (referred to as the
-  =observed_pixel_uncertainty=)
-- The unitless scale applied to that baseline noise level
-
-This is useful when using [[https://github.com/dkogan/mrgingham/][=mrgingham=]] to detect the chessboard corners. It
-reports the resolution used in detecting each point, and from that we get the
-weight $w_i$. A point detected at half-resolution has double the uncertainty at
-full resolution, and I weigh it by a factor of 2 less in the optimization:
-$\mathrm{Var}\left( \vec q_{\mathrm{ref}_i} \right) = \frac{\sigma^2}{w_i^2} I$
-for all $i$. And $\vec x_i = w_i I (\vec q_i - \vec q_{\mathrm{ref}_i})$ and
-$\mathrm{Var}\left( \vec x_i\right) = \sigma^2 I$ for all $i$.
-
-So the variance on each pixel observation is identical, and the optimal
-parameter vector we compute from the least-squares optimization is the
-maximum-likelihood estimate of the true solution.
-
-The noise $\sigma$ is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham), but
-easy to loosely estimate. The current best practice is to get a conservative
-eyeball estimate to produce conservative estimates of projection uncertainty.
 * World geometry
 There are 3 different coordinate systems in the optimization:
 
@@ -186,7 +98,6 @@ object in the world. Thus noise in the chessboard observations would shift the
 reference coordinate system, just as would shift the camera and chessboard
 coordinate systems. The [[file:uncertainty.org][projection uncertainty]] documentation talks about this in
 depth.
-
 * Calibration object
 :PROPERTIES:
 :CUSTOM_ID: Calibration object
@@ -228,8 +139,7 @@ and from either of these, the detector infers the circle center. This can work
 when looking at head-on images, but when given tilted images subjected to
 non-pinhole lens behaviors, getting accurate circle centers from outer contours
 or blobs is /hard/. The resulting inaccuracies in the detections of circle
-centers will introduce biases into the solve that aren't modeled by the [[file:uncertainty.org::#noise
- model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
+centers will introduce biases into the solve that aren't modeled by the [[file:uncertainty.org::#noise-model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
 favor of circle grids.
 
 mrcal [[#noise-model][assumes independent noise]] on each point observation, so correlated sources
@@ -256,6 +166,38 @@ Empirically, this appears to work well: I get better-fitting solves, and less
 systematic error. And the optimal deformation factors $k_x$, $k_y$ are
 consistent between different calibrations. A richer deformation model could work
 even better, and will eventually be the studied.
+
+* Optimization details
+The mrcal solver is an optimization routine based on sparse nonlinear least
+squares. The optimization loop is implemented in [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which at its core
+uses the [[https://people.engr.tamu.edu/davis/suitesparse.html][CHOLMOD solver]] to compute the [[https://en.wikipedia.org/wiki/Cholesky_decomposition][Cholesky factorization]]. With a Cholesky
+factorization we can efficiently solve the linear system $J^T J \vec a = \vec b$
+where the jacobian matrix $J$ is large and sparse.
+
+The optimization problem is posed without constraints. This is achieved by using
+[[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues vectors]] to represent rotations. A different rotation representation,
+such as one using unit quaternions or rotation matrices would require
+constraints: not all sets of 4 numbers are a unit quaternion, and not all sets
+of 9 numbers are a valid rotation matrix.
+
+The optimization algorithm is iterative, so it isn't guaranteed to converge to
+the global optimum. Thus it is imperative to pass a good *seed* (an initial
+estimate of the solution) to the optimization routines. The
+[[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool achieves this by
+
+1. Computing an initial estimate directly using geometry and some simplifying
+   assumptions. These geometric seeding routines are available standalone:
+
+   - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
+   - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
+   - [[file:mrcal-python-api-reference.html#-seed_pinhole][=mrcal.seed_pinhole()=]]: Compute an optimization seed for a camera calibration
+
+2. Refining that estimate with a sequences of optimization problems that allow
+   more and more of the parameters to vary. The final problem is the /full/
+   problem where all the variables are free to move. The set of variables we're
+   optimizing can be selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure
+   passed to [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or the =do_optimize_...= arguments to
+   [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
 
 * State vector $\vec p$
 The state vector $\vec p$ is controlled by the optimization algorithm as it
@@ -376,11 +318,7 @@ vector $\vec p$ predicts each one would have been observed. So we can construct
 a vector of errors $\vec q_\mathrm{err} \equiv \vec q_\mathrm{predicted}\left(
 \vec p \right) - \vec q_\mathrm{ref}$.
 
-For each observation in $\vec q_\mathrm{ref}$ the chessboard corner detection
-routine tells us how confident it was in that observation, from which we can get
-a vector of weights $\vec w$: less confident observations are weighed less in
-the optimization. See the [[#noise-model][noise model]] for the analysis. Let $W \equiv
-\mathrm{diag}\left( \vec w \right)$. Then I can define
+From the [[#noise-model][noise analysis]] we derive a matrix of weights $W$ to construct
 
 \[ \vec x_\mathrm{observations} \equiv W q_\mathrm{err} = W \left( \vec
 q_\mathrm{predicted}\left( \vec p \right) - \vec q_\mathrm{ref} \right) \]
@@ -429,3 +367,106 @@ And in Python:
 - [[file:mrcal-python-api-reference.html#-num_measurements_regularization][=mrcal.num_measurements_regularization()=]]: Return how many measurements we have from regularization
 - [[file:mrcal-python-api-reference.html#-num_measurements][=mrcal.num_measurements()=]]: Return how many measurements we have in the full optimization problem
 
+* Noise modeling
+:PROPERTIES:
+:CUSTOM_ID: noise-model
+:END:
+** Noise on the inputs
+I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
+discrepancies between pixel observations and their predictions. The pixel
+observations $\vec q_\mathrm{ref}$ are noisy, and I assume they are zero-mean,
+independent and normally-distributed. In particular, I treat the 2 values in
+each observation ($x$ and $y$) as two independent measurements. Empirical
+evidence suggests that these are all reasonable assumptions. For any $i$ -th
+observed point, what is $\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
+
+The chessboard corner detection routine tells us how confident it was in each
+observation, and we use that confidence to estimate the noise level. Chessboard
+corner detectors often make it easy to infer the /relative/ accuracy levels
+between the different corners, as opposed to an /absolute/ noise level
+for each one. Thus the implementation splits the observed noise into two parts:
+
+- The baseline standard deviation of the noise $\sigma$ (referred to as the
+  =observed_pixel_uncertainty= in the implementation). This is one value that
+  applies to /all/ the observations
+- The scale $s_i$ applied to that baseline. These are different for each corner
+
+The [[https://github.com/dkogan/mrgingham/][=mrgingham=]] corner detector, in particular, reports the resolution used in
+detecting each corner as a decimation level: level-0 is "full-resolution",
+level-1 is "half-resolution" and so on. From that decimation level we get the
+relative scale
+
+\[ s_i \equiv 2^{\mathrm{level}} \]
+
+and we can define the 2x2 variance for each observed corner
+
+\[ \mathrm{Var}\left( \vec q_{\mathrm{ref}_i} \right) = s_i^2 \sigma^2 I \]
+
+and the variance for all the pixel observations
+
+\[\mathrm{Var}\left(\vec q_\mathrm{ref}\right) = \mathrm{diag}\left(s_i^2\right) \sigma^2 \]
+
+How do we get $\sigma? The noise $\sigma$ is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]]
+in mrgingham), but easy to loosely estimate. The current best practice is to get
+a conservative eyeball estimate to produce conservative estimates of projection
+uncertainty.
+
+** Noise in the measurement vector $\vec x$
+We know where each point was observed in reality, and we know where the state
+vector $\vec p$ predicts each one would have been observed. So we can construct
+a vector of errors $\vec q_\mathrm{err} \equiv \vec q_\mathrm{predicted}\left(
+\vec p \right) - \vec q_\mathrm{ref}$.
+
+For the purposes of optimization we want to weight the errors of uncertain
+observations less than confident ones, and to do that we can use the same $s_i$
+scale factor we computed earlier. For point $i$ I define the weight
+
+\[w_i \equiv \frac{1}{s_i} \]
+
+Let's construct a diagonal matrix of all these weights: $W \equiv
+\mathrm{diag}\left( \vec w \right)$. Then the measurement vector is
+
+\[ \vec x_\mathrm{observations} \equiv W q_\mathrm{err} = W \left( \vec
+q_\mathrm{predicted}\left( \vec p \right) - \vec q_\mathrm{ref} \right) \]
+
+and 
+
+\[\mathrm{Var}\left( \vec x_\mathrm{observations} \right) =
+  W \mathrm{Var}\left( \vec q_\mathrm{ref} \right) W^T =
+  \sigma^2 I
+\]
+
+Thus $\vec x_\mathrm{observations}$ is homoscedastic: each element as the same
+variance. I make two more assumptions:
+
+- the rest of the measurement vector $\vec x$ ([[#Regularization][regularization]]) is insignificant
+- I consider the linear problem at the local linearization of my nonlinear system
+
+And then I can make a larger statement: the optimal parameter vector we compute
+from the least-squares optimization is the maximum-likelihood estimate of the
+true solution.
+
+* Outlier rejection
+:PROPERTIES:
+:CUSTOM_ID: outlier-rejection
+:END:
+
+Some of the input data may not fit the model due to errors in the input data
+(chessboard corner mis-detections or motion blur for instance) or due to the
+model not being able to represent reality (insufficiently-flexible lens model or
+[[*Board deformation][board deformation model]] for instance). Either of these would violate the [[noise
+model]], which could bias the resulting estimate.
+
+Currently mrcal employs a very simple outlier-rejection scheme. Pseudo-code:
+
+1. do
+   - optimize
+   - if any $x_i > 3 \, \mathrm{max}\left(\sigma, \mathrm{RMS}\left( \vec x \right)\right)$
+     - throw out those measurements $x_i$ as outliers. These are excluded from
+       future reoptimization
+2. until no new outliers were found
+
+This is effective in handling small numbers of obvious outliers. Any subtle
+outliers will get through, and will poison the solve. So it is imperative that
+the input data is as clean as possible. More sophisticated methods are under
+development.
