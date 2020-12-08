@@ -165,14 +165,6 @@ def parse_args():
                         help='''By default we assume the calibration target is slightly deformed, and we
                         compute this deformation. If we want to assume that it
                         is flat, pass this option.''')
-
-    parser.add_argument('--unweighted-corners',
-                        action='store_true',
-                        help='''By default we weight each corner error contribution using the uncertainty
-                        from the corner detector. If we want to ignore this
-                        information, and weigh them all equally, pass
-                        --unweighted-corners.''')
-
     parser.add_argument('--valid-intrinsics-region-parameters',
                         nargs = 5,
                         default = (1, 0.5, 1.5, 3, 0),
@@ -569,8 +561,7 @@ observations, indices_frame_camera, paths = \
                                      args.object_height_n,
                                      args.images,
                                      args.corners_cache,
-                                     jobs = args.jobs,
-                                     extracol = '' if args.unweighted_corners else 'level')
+                                     jobs = args.jobs)
 
 Nobservations = len(observations)
 
