@@ -1344,14 +1344,14 @@ pixel coordinates are in =.x= and =.y=, and the [[file:formulation.org::#noise-m
 =.z < 0= means this point should be ignored; this can be used to specify
 incomplete board observations. If we're calling =mrcal_optimize()= and
 =mrcal_problem_selections_t.do_apply_outlier_rejection=, then in addition to the
-ignored points on input the [[file:formulation.org::#outlier rejection][outlier rejection]] algorithm will be active, and upon
+ignored points on input the [[file:formulation.org::#outlier-rejection][outlier rejection]] algorithm will be active, and upon
 return the outlier points will be marked with =.z < 0=.
 
 The [[file:lensmodels.org][lens model]] of /all/ the cameras is specified in the =lensmodel= argument.
 
 The [[file:formulation.org::#noise-model][expected uncertainty]] of the pixel observations is given in
 =observed_pixel_uncertainty=. This is used primarily by the caller to estimate
-uncertainties. These functions currently use this value only in the [[file:formulation.org::#outlier rejection][outlier
+uncertainties. These functions currently use this value only in the [[file:formulation.org::#outlier-rejection][outlier
 rejection]] routine.
 
 The =imagersizes= array contains the (width,height) dimensions of the imager of

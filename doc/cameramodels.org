@@ -33,7 +33,7 @@ formats:
 
 - =.cahvor=: the legacy format available for compatibility with existing tools.
   If you don't need to interoperate with tools that require this format, there's
-  little reason to use it. This format cannot store [[file:lensmodels.org::#Splined stereographic lens model][splined models]] or
+  little reason to use it. This format cannot store [[file:lensmodels.org::#splined-stereographic-lens-model][splined models]] or
   =optimization_inputs=, so it cannot be used for the [[file:uncertainty.org][uncertainty computations]].
 
 Note that both file formats can describe lenses using the [[file:lensmodels.org::#cahvor lens model][=LENSMODEL_CAHVOR=]]
