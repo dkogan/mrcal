@@ -107,7 +107,7 @@ optimization code refers to the chessboard pose array as "frames".
 
 When running a camera calibration, we use observations of a known-geometry
 object. At this time mrcal expects this object to be a planar grid of observable
-points, possibly with a small amount of [[#board deformation][deformation]]. Usually this object is a
+points, possibly with a small amount of [[#board-deformation][deformation]]. Usually this object is a
 chessboard-like grid of black and white squares, where the observed points are
 at the corner of each square.
 
@@ -148,7 +148,7 @@ sources of data. Apriltag centers would work, however.
 
 ** Board deformation
 :PROPERTIES:
-:CUSTOM_ID: board deformation
+:CUSTOM_ID: board-deformation
 :END:
 
 The calibration object is assumed to be nominally planar. However, large
@@ -215,7 +215,7 @@ searches for the optimal solution. This vector may contain
 - *points*: the location in the reference coordinate system of any discrete
   points being observed. A vanilla "calibration" problem wouldn't have any of
   these, but an SFM problem would have many
-- *calibration-object warp*: the [[#board deformation][deformation of the calibration object]]
+- *calibration-object warp*: the [[#board-deformation][deformation of the calibration object]]
 
 An optimization problem could contain /all/ those things, but it usually only
 contains a subset, depending on the specific problem being solved. Common
@@ -412,6 +412,9 @@ a conservative eyeball estimate to produce conservative estimates of projection
 uncertainty.
 
 ** Noise in the measurement vector $\vec x$
+:PROPERTIES:
+:CUSTOM_ID: noise-in-measurement-vector
+:END:
 We know where each point was observed in reality, and we know where the state
 vector $\vec p$ predicts each one would have been observed. So we can construct
 a vector of errors $\vec q_\mathrm{err} \equiv \vec q_\mathrm{predicted}\left(
@@ -454,7 +457,7 @@ true solution.
 Some of the input data may not fit the model due to errors in the input data
 (chessboard corner mis-detections or motion blur for instance) or due to the
 model not being able to represent reality (insufficiently-flexible lens model or
-[[*Board deformation][board deformation model]] for instance). Either of these would violate the [[#noise-model][noise
+[[#board-deformation][board deformation model]] for instance). Either of these would violate the [[#noise-model][noise
 model]], which could bias the resulting estimate.
 
 Currently mrcal employs a very simple outlier-rejection scheme. Pseudo-code:

@@ -773,7 +773,7 @@ in the =mrcal_problem_selections_t= structure. This defines
   to the optimizer to adjust
 - Whether we apply [[file:index.org::#Regularization][regularization]] to stabilize the solution
 - Whether the chessboard should be assumed flat, or if we should optimize
-  [[file:formulation.org::*Board deformation][deformation]] factors
+  [[file:formulation.org::#board-deformation][deformation]] factors
 
 This structure is defined like this:
 
@@ -815,7 +815,7 @@ Thus the state vector may contain any of
 - The lens parameters
 - The geometry of the cameras
 - The geometry of the observed chessboards and discrete points
-- The [[file:formulation.org::#board deformation][chessboard shape]]
+- The [[file:formulation.org::#board-deformation][chessboard shape]]
 
 The measurement vector may contain
 - The errors in observations of the chessboards

@@ -897,10 +897,9 @@ Qualitatively this is the figure I see 100% of the time, with the position of
 the minimum and of the asymptote varying.
 
 Why is the uncertainty unbounded as we approach the camera? Because we're
-looking at the projection of a stationary global point into a camera whose
-position is uncertain. As we get closer to the origin of the camera, the noise
-in the camera position dominates the projection, and the uncertainty shoots to
-infinity.
+looking at the projection of a fixed point into a camera whose position is
+uncertain. As we get closer to the origin of the camera, the noise in the camera
+position dominates the projection, and the uncertainty shoots to infinity.
 
 What controls the range where we see the uncertainty optimum? The range where we
 observed the chessboards. I will prove this conclusively in the next section. It
@@ -1580,4 +1579,3 @@ because the full propagation of uncertainty from the calibration to the
 extrinsics estimation to ranging isn't implemented yet. And until that is done,
 the results are only easily interpretable if the splined model does 1000 times
 better, which it does not. I will write that eventually.
-
