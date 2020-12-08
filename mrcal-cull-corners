@@ -159,7 +159,7 @@ observations, _, paths = \
     mrcal.compute_chessboard_corners(Nw = args.object_width_n,
                                      Nh = args.object_height_n,
                                      corners_cache_vnl = sys.stdin,
-                                     keep_level = True)
+                                     extracol = 'weight')
 
 N_keep       = int(round((1.0 - args.cull_random_observations_ratio) * len(observations)))
 indices_keep = np.sort(np.random.choice(len(observations), N_keep, replace=False))

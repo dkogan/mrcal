@@ -570,7 +570,7 @@ observations, indices_frame_camera, paths = \
                                      args.images,
                                      args.corners_cache,
                                      jobs = args.jobs,
-                                     weighted = not args.unweighted_corners)
+                                     extracol = '' if args.unweighted_corners else 'level')
 
 Nobservations = len(observations)
 

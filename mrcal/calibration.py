@@ -14,10 +14,12 @@ import re
 import cv2
 import mrcal
 
-def compute_chessboard_corners(Nw, Nh, globs=('*',), corners_cache_vnl=None, jobs=1,
-                               exclude_images=set(),
-                               weighted=True,
-                               keep_level=False):
+def compute_chessboard_corners(Nw, Nh,
+                               globs             = ('*',),
+                               corners_cache_vnl = None,
+                               jobs              = 1,
+                               exclude_images    = set(),
+                               extracol          = 'level'):
     r'''Compute the chessboard observations and returns them in a usable form
 
 SYNOPSIS
@@ -30,27 +32,36 @@ SYNOPSIS
 The input to a calibration problem is a set of images of a calibration object
 from different angles and positions. This function ingests these images, and
 outputs the detected chessboard corner coordinates in a form usable by the mrcal
-optimization routines. The "corners_cache_vnl" argument specifies a file to read
-from, or write to. This is a vnlog with legend
+optimization routines.
 
-    # filename x y level
+The "corners_cache_vnl" argument specifies a file containing cached results of
+the chessboard detector. If this file already exists, we don't run the detector,
+but just use the contents of the file. Otherwise, we run the detector, and store
+the results here.
 
-or
+The "corner cache" file is a vnlog 3 or 4 columns. Each row describes a
+chessboard corner. The first 3 columns are
 
     # filename x y
 
-Each record is a chessboard corner. The image filename and corner coordinates
-are given. The "level" is a decimation level of the detected corner. If we
-needed to cut down the image resolution to detect a corner, its coordinates are
-known less precisely, and we use that information to weight the errors
-appropriately later. We are able to read data that is missing the "level" field:
-a level of 0 (weight = 1) will be filled in. If we read data from a file,
-records with a "-" level mean "skip this point". We'll report the point with
-weight < 0. Any images with fewer than 3 points will be ignored entirely.
+If the 4th column is given, it usually is a 'level' or a 'weight'. It encodes
+the confidence we have in that corner, and the exact interpretation is dependent
+on the value of the 'extracol' argument. The output of this function is an array
+with a weight for each point, so the logic serves to convert the extra column to
+a weight.
 
-if keep_level: then instead of converting a decimation level to a weight, we'll
-just write the decimation level into the returned observations array. We write
-<0 to mean "skip this point".
+if extracol == 'level': the 4th column is a decimation level of the detected
+  corner. If we needed to cut down the image resolution to detect a corner, its
+  coordinates are known less precisely, and we use that information to weight
+  the errors appropriately later. We set the output weight = 1/2^level. If the
+  4th column is '-' or <0, the given point was not detected, and should be
+  ignored: we set weight = -1
+
+elif extracol == 'weight': the 4th column is already represented as a weight, so
+  I just copy it to the output. If the 4th column is '-' or <0, the given point
+  was not detected, and should be ignored: we set weight = -1
+
+else: I hard-code the output weight to 1.0
 
 ARGUMENTS
 
@@ -86,13 +97,17 @@ ARGUMENTS
 
 - exclude_images: a set of filenames to exclude from reported results
 
-- weighted: corner detectors can report an uncertainty in the coordinates of
-  each corner, and we use that by default. To ignore this, and to weigh all the
-  corners equally, call with weighted=True
+- extracol: an optional string, defaulting to 'level'. Selects the
+  interpretation of the 4th column describing each corner. Valid options are:
 
-- keep_level: if True, we write the decimation level into the observations
-  array, instead of converting it to a weight first. If keep_level: then
-  "weighted" has no effect. The default is False.
+  - 'level': the 4th column is a decimation level. Level-0 means
+    'full-resolution', level-1 means 'half-resolution' and so on. I set output
+    weight = 1/2^level. If the 4th column is '-' or <0, the given point was not
+    detected, and should be ignored: we set output weight = -1
+  - 'weight': the 4th column is already a weight; I copy it to the output. If
+    the 4th column is '-' or <0, the given point was not detected, and should be
+    ignored: we set output weight = -1
+  - '' the 4th column should be ignored, and I set the output weight to 1.0
 
 RETURNED VALUES
 
@@ -102,8 +117,7 @@ This function returns a tuple (observations, indices_frame_camera, files_sorted)
   N board observations where the board has dimensions
   (object_height_n,object_width_n) and each point is an (x,y,weight) pixel
   observation. A weight<0 means "ignore this point". Incomplete chessboard
-  observations can be specified in this way. if keep_level: then the decimation
-  level appears in the last column, instead of the weight
+  observations can be specified in this way.
 
 - indices_frame_camera is an (N,2) array of contiguous, sorted integers where
   each observation is (index_frame,index_camera)
@@ -116,6 +130,11 @@ caller's job to convert this into indices_frame_camintrinsics_camextrinsics,
 which mrcal.optimize() expects
 
     '''
+
+    if not (extracol == 'level' or
+            extracol == 'weight' or
+            extracol == ''):
+        raise Exception(f"extracol must be one of ('level','weight',''); got '{extracol}")
 
     import os
     import fnmatch
@@ -228,9 +247,9 @@ which mrcal.optimize() expects
         context0 = dict(f            = '',
                         igrid        = 0,
                         Nvalidpoints = 0)
-        # The default weight is 1; the default decimation level is 0
-        if keep_level: context0['grid'] = np.zeros((Nh*Nw,3), dtype=float)
-        else:          context0['grid'] = np.ones( (Nh*Nw,3), dtype=float)
+
+        # The default weight is 1.0
+        context0['grid'] = np.ones( (Nh*Nw,3), dtype=float)
 
         context = copy.deepcopy(context0)
 
@@ -287,18 +306,25 @@ which mrcal.optimize() expects
             else:
                 context['grid'][context['igrid'],:2] = (float(fields[0]),float(fields[1]))
                 context['Nvalidpoints'] += 1
-                if len(fields) == 3:
+                if len(fields) == 3 and extracol != '':
                     if fields[2] == '-':
                         # ignore this point
                         context['grid'][context['igrid'],2] = -1.0
                         context['Nvalidpoints'] -= 1
-                    elif keep_level:
-                        context['grid'][context['igrid'],2] = float(fields[2])
-                    elif weighted:
-                        # convert decimation level to weight. The weight is
-                        # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
-                        # weight=0.5, etc
-                        context['grid'][context['igrid'],2] = 1. / (1 << int(fields[2]))
+                    else:
+                        l = float(fields[2])
+                        if l < 0:
+                            # ignore this point
+                            context['grid'][context['igrid'],2] = -1.0
+                            context['Nvalidpoints'] -= 1
+                        else:
+                            if extracol == 'weight':
+                                context['grid'][context['igrid'],2] = l
+                            else:
+                                # convert decimation level to weight. The weight is
+                                # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
+                                # weight=0.5, etc
+                                context['grid'][context['igrid'],2] = 1. / (1 << int(l))
                     # else use the 1.0 that's already there
 
             context['igrid'] += 1
