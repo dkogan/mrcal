@@ -406,7 +406,7 @@ and the variance for all the pixel observations
 
 \[\mathrm{Var}\left(\vec q_\mathrm{ref}\right) = \mathrm{diag}\left(s_i^2\right) \sigma^2 \]
 
-How do we get $\sigma? The noise $\sigma$ is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]]
+How do we get $\sigma$? The noise $\sigma$ is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]]
 in mrgingham), but easy to loosely estimate. The current best practice is to get
 a conservative eyeball estimate to produce conservative estimates of projection
 uncertainty.
@@ -439,7 +439,7 @@ and
 Thus $\vec x_\mathrm{observations}$ is homoscedastic: each element as the same
 variance. I make two more assumptions:
 
-- the rest of the measurement vector $\vec x$ ([[#Regularization][regularization]]) is insignificant
+- The rest of the measurement vector $\vec x$ ([[#Regularization][regularization]]) is insignificant
 - I consider the linear problem at the local linearization of my nonlinear system
 
 And then I can make a larger statement: the optimal parameter vector we compute
@@ -454,7 +454,7 @@ true solution.
 Some of the input data may not fit the model due to errors in the input data
 (chessboard corner mis-detections or motion blur for instance) or due to the
 model not being able to represent reality (insufficiently-flexible lens model or
-[[*Board deformation][board deformation model]] for instance). Either of these would violate the [[noise
+[[*Board deformation][board deformation model]] for instance). Either of these would violate the [[#noise-model][noise
 model]], which could bias the resulting estimate.
 
 Currently mrcal employs a very simple outlier-rejection scheme. Pseudo-code:
