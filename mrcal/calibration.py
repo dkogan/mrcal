@@ -217,6 +217,9 @@ which mrcal.optimize() expects
             if Nw != 10 or Nh != 10:
                 raise Exception("mrgingham currently accepts ONLY 10x10 grids")
 
+            if extracol == 'weight':
+                raise Exception("Need to run mrgingham, so I will get a column of decimation levels, but extracol == 'weight'")
+
             args_mrgingham = ['mrgingham', '--jobs',
                               str(jobs)]
             args_mrgingham.extend(globs)
