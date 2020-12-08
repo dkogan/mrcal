@@ -8,7 +8,7 @@ explicitly define them here
   of a set of cameras. Usually this involves a stationary set of cameras
   observing a moving object.
 
-- [[file:formulation.org::#Calibration object][*calibration object*]] or *chessboard* or *board*: these are used more or less
+- [[file:formulation.org::#calibration-object][*calibration object*]] or *chessboard* or *board*: these are used more or less
   interchangeably. They refer to the known-geometry object observed by the
   cameras, with those observations used as input during calibration
 

@@ -6,7 +6,7 @@ is made available with the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate
 shown in the [[file:tour.org][tour of mrcal]]. A deeper description follows.
 
 * Capturing images
-We need to get observations of a [[file:formulation.org::#Calibration object][calibration object]], a board containing an
+We need to get observations of a [[file:formulation.org::#calibration-object][calibration object]], a board containing an
 observable grid of points. mrcal doesn't care where these observations come
 from, but the recommended method is to use a chessboard target detected by
 [[http://github.com/dkogan/mrgingham][mrgingham]]. Chessboards are recommended in favor of circles to obtain accurate

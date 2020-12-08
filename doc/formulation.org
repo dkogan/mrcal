@@ -100,7 +100,7 @@ coordinate systems. The [[file:uncertainty.org][projection uncertainty]] documen
 depth.
 * Calibration object
 :PROPERTIES:
-:CUSTOM_ID: Calibration object
+:CUSTOM_ID: calibration-object
 :END:
 This is called a "chessboard" or just "board" in some parts of the code. The
 optimization code refers to the chessboard pose array as "frames".

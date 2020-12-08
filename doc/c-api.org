@@ -1363,7 +1363,7 @@ The =problem_selections= and =problem_constants= define the problem details, as
 described above.
 
 The =calibration_object_spacing= and =calibration_object_width_n= and
-=calibration_object_height_n= arguments define the dimensions of the [[file:formulation.org::#Calibration object][chessboard]].
+=calibration_object_height_n= arguments define the dimensions of the [[file:formulation.org::#calibration-object][chessboard]].
 A regular grid of points is expected.
 
 If we want verbose reporting about what the optimizer is doing, pass =verbose =
