@@ -122,10 +122,22 @@ def parse_args():
                         The "level" is the decimation level used in detecting
                         that corner. "0" means "full-resolution", "1" means
                         "half-resolution", "2" means "quarter-resolution" and so
-                        on. A level of "-" means "skip this point". This is how
-                        incomplete board observations are specified. A file with
-                        a missing "level" column will fill in "0" for all
-                        corners''')
+                        on. A level of "-" or <0 means "skip this point". This
+                        is how incomplete board observations are specified. A
+                        file with a missing "level" column will fill in "0" for
+                        all corners. A non-mrgingham grid detector may be used
+                        by running that separately, and using this option to
+                        read the output. A detector may output weights instead
+                        of a decimation level in the last column. Pass
+                        --corners-cache-has-weights to interpret the data in
+                        that way''')
+    parser.add_argument('--corners-cache-has-weights',
+                        action='store_true',
+                        help='''By default the corners we read in --corners-cache have columns "filename x y
+                        level". If the last column is a weight instead of a
+                        decimation level, pass this option. This is useful to
+                        support non-mrgingham chessboard detectors''')
+
     parser.add_argument('--pairs',
                         action='store_true',
                         help='''By default, we are calibrating a set of N independent cameras. If we actually
@@ -165,6 +177,7 @@ def parse_args():
                         help='''By default we assume the calibration target is slightly deformed, and we
                         compute this deformation. If we want to assume that it
                         is flat, pass this option.''')
+
     parser.add_argument('--valid-intrinsics-region-parameters',
                         nargs = 5,
                         default = (1, 0.5, 1.5, 3, 0),
@@ -561,7 +574,8 @@ observations, indices_frame_camera, paths = \
                                      args.object_height_n,
                                      args.images,
                                      args.corners_cache,
-                                     jobs = args.jobs)
+                                     jobs = args.jobs,
+                                     extracol = 'weight' if args.corners_cache_has_weights else 'level')
 
 Nobservations = len(observations)
 
