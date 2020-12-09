@@ -658,8 +658,8 @@ rms_residual_perobservation = \
              nonoutliers_per_observation )
 
 
-i_observations_worst    = list(reversed(np.argsort(rms_residual_perobservation)))
-i_observation_from_path = dict( [(paths[_i],_i) for _i in range(len(observations))] )
+i_observations_sorted_from_worst = list(reversed(np.argsort(rms_residual_perobservation)))
+i_observation_from_path          = dict( [(paths[_i],_i) for _i in range(len(observations))] )
 
 
 
@@ -956,9 +956,9 @@ Potential things to look at:
     show_distortion_off_pinhole('radial',     icam)
     show_splined_model_surface(    icam, xy)
     stats
-    i_observations_worst
+    i_observations_sorted_from_worst
     rms_residual_perobservation
-    paths[i_observations_worst[0]]
+    paths[i_observations_sorted_from_worst[0]]
     calobject_warp
 ''')
 
@@ -1055,7 +1055,7 @@ def show_residuals_observation(i_observation,
 
 
 def show_residuals_observation_worst(i, **kwargs):
-    show_residuals_observation( i_observations_worst[i], **kwargs )
+    show_residuals_observation( i_observations_sorted_from_worst[i], **kwargs )
 
 def _get_show_residuals_data(icam):
     r'''Return the data used by the various show_residuals_...() functions'''
