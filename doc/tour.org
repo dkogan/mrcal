@@ -202,10 +202,9 @@ show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",12"' --hardcopy calibration-chessboards-geometry.svg
 #+end_src
 
-
 This displays all the cameras that have been calibrated in their final poses
 (here we have just one camera), and all the chessboards that were observed in
-/their/ final poses. The x,y axes run with the camera pixels, and the z axis
+/their/ final poses. The $x$,$y$ axes run with the camera pixels, and the $z$ axis
 points forward. As we can see, the chessboards were all right in front of the
 camera (0.5m - 1m out), many tilted quite heavily. This isn't an accident; much
 more on that later.
@@ -322,6 +321,9 @@ for instance, long-range stereo.
 Let's fix that.
 
 * Monocular calibration with a splined stereographic model
+:PROPERTIES:
+:CUSTOM_ID: splined-stereographic-fit
+:END:
 
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
 mrcal. To achive these, mrcal supports /splined/ models. At this time there's

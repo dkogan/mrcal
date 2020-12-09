@@ -46,7 +46,7 @@ yyy
 Dima Kogan =kogan@jpl.nasa.gov=
 
 * License and copyright
-mrcal itself is Copyright 2017-2020 California Institute of Technology.
+Copyright 2017-2020 California Institute of Technology.
 
 This is all proprietary for now.
 

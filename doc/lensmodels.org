@@ -90,7 +90,7 @@ stereographic model function similarly: $\tan \theta \approx 2 \tan
 
 ** =LENSMODEL_OPENCV4=, =LENSMODEL_OPENCV5=, =LENSMODEL_OPENCV8=, =LENSMODEL_OPENCV12=
 :PROPERTIES:
-:lensmodel-opencv:
+:CUSTOM_ID: lensmodel-opencv
 :END:
 These are simple parametric models that have the given number of "distortion"
 parameters in addition to the 4 core parameters. The projection behavior is

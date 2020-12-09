@@ -35,6 +35,9 @@ analysis, this callback function is available by itself via
 - [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]] routine in the [[file:python-api.org][Python API]]
 
 * World geometry
+:PROPERTIES:
+:CUSTOM_ID: world-geometry
+:END:
 There are 3 different coordinate systems in the optimization:
 
 - *frame* coordinate system: the local coordinate system of the chessboard. The
