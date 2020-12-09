@@ -37,7 +37,7 @@ depth-of-field. To also avoid motion blur I need fast exposures, so I did all
 the image gathering outside. Doing this under artificial light would require
 extra care to not blur the images.
 
-The images live [[file:data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.17 to detect the [[./data/board/corners.vnl][chessboard corners]]:
+The images live [[file:data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.17 to detect the [[file:data/board/corners.vnl][chessboard corners]]:
 
 #+begin_src sh
 mrgingham -j3 *.JPG > corners.vnl 
@@ -84,11 +84,10 @@ $ < corners.vnl vnl-filter x=='"-"' -p filename --skipcomments | uniq | wc -l
 90
 #+end_example
 
-The line counts above include one header line. So we have 186 images with
+The line counts above include the one header line. So we have 186 images with
 detected corners, and 89 images where a full chessboard wasn't found. Most of
 the misses are probably images where the chessboard wasn't entirely in view, but
-some are probably failures of mrgingham. In any case, 186 observations is
-plenty.
+some could be failures of mrgingham. In any case, 186 observations is plenty.
 
 If I had more that one camera, the image filenames would need to indicate what
 camera captured each image at which time. I generally use
@@ -120,13 +119,14 @@ This usually does a reasonable job with wide-angle lenses. Let's try.
 
 #+begin_example
 $ mrcal-calibrate-cameras        \
+  --corners-cache corners.vnl    \
   --focal 1700                   \
   --object-spacing 0.077         \
   --object-width-n 10            \
   --lensmodel LENSMODEL_OPENCV8  \
-  --corners-cache corners.vnl    \
   --observed-pixel-uncertainty 2 \
-  --explore '*.JPG'
+  --explore                      \
+  '*.JPG'
 
 
 vvvvvvvvvvvvvvvvvvvv initial solve: geometry only
@@ -182,20 +182,19 @@ we can look around. Most visualizations can be made by running the
 some of the residual visualizations are only available inside the REPL at this
 time.
 
-The tool reports some diagnostics. As we can see, the final RMS reprojection
-error was 0.8 pixels. Of the 18600 corner observations (186 observations of the
-board with 10*10 = 100 points each), 3 didn't fit the model well, and were
-thrown out as outliers. And the board flex was computed as 1.0mm horizontally,
-and 0.5mm vertically in the opposite direction.
+Let's sanity-check the results. The tool reports some diagnostics. As we can
+see, the final RMS reprojection error was 0.8 pixels. Of the 18600 corner
+observations (186 observations of the board with 10*10 = 100 points each), 3
+didn't fit the model well, and were thrown out as outliers. And the board flex
+was computed as 1.0mm horizontally, and 0.5mm vertically in the opposite
+direction. That all sounds reasonable.
 
-That sounds reasonable. After running a calibration, we should run some sanity
-checks. First off, what does the solve think about our geometry? Does it match
-reality?
+What does the solve think about our geometry? Does it match reality?
 
-#+begin_example
+#+begin_src python
 show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
                 unset = 'key')
-#+end_example
+#+end_src
 
 [[file:figures/calibration-chessboards-geometry.svg]]
 
@@ -320,7 +319,7 @@ Clearly there's some bias in this model. As we have seen, the errors here are
 all fairly small, but they become very important when doing precision work like,
 for instance, long-range stereo.
 
-Let's fix it.
+Let's fix that.
 
 * Monocular calibration with a splined stereographic model
 
@@ -396,13 +395,14 @@ specify the lens:
 
 #+begin_example
 $ mrcal-calibrate-cameras                                                       \
+  --corners-cache corners.vnl                                                   \
   --focal 1700                                                                  \
   --object-spacing 0.077                                                        \
   --object-width-n 10                                                           \
   --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170 \
-  --corners-cache corners.vnl                                                   \
   --observed-pixel-uncertainty 2                                                \
-  --explore '*.JPG'
+  --explore                                                                     \
+  '*.JPG'
 
 
 vvvvvvvvvvvvvvvvvvvv initial solve: geometry only
