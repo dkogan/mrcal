@@ -64,6 +64,10 @@ $ < corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)
 #+ATTR_HTML: :width 80% :min-width 500px :max-width 900px
 [[file:figures/mrgingham-results.png]]
 
+#+begin_src sh :exports none :eval no-export
+< corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' --hardcopy /tmp/mrgingham-results.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
 So in this image many of the corners were detected at full-resolution (level-0),
 but some required downsampling for the detector to find them (shown as smaller
 circles). The downsampled points have less precision, so they are weighed less
@@ -196,7 +200,7 @@ show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
 [[file:figures/calibration-chessboards-geometry.svg]]
 
 #+begin_src sh :exports none :eval no-export
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 dynamic noenhanced solid' --hardcopy calibration-chessboards-geometry.svg
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",12"' --hardcopy calibration-chessboards-geometry.svg
 #+end_src
 
 
@@ -218,6 +222,13 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/worst-opencv8.png]]
+
+#+begin_src python :exports none :eval no-export
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                 hardcopy='/tmp/worst-opencv8.png',
+                                 terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+#+end_src
+
 
 If there're any issues, they're often seen in this image. And since this is the
 worst-fitting chessboard observation, if it looks OK, we can declare victory,
@@ -282,9 +293,15 @@ Let's look at another way to visualize the systematic errors in this solve:
 let's look at all the residuals over all the observations, color-coded by their
 direction, ignoring the magnitudes:
 
-#+begin_example
+#+begin_src python
 show_residuals_directions(0, unset='key')
-#+end_example
+#+end_src
+
+#+begin_src python :exports none :eval no-export
+show_residuals_directions(0, unset='key',
+                          hardcopy='/tmp/directions-opencv8.png',
+                          terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+#+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/directions-opencv8.png]]
@@ -429,16 +446,28 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/worst-splined.png]]
 
+#+begin_src python :exports none :eval no-export
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                 hardcopy='/tmp/worst-splined.png',
+                                 terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+#+end_src
+
 Interestingly, it is the same observations as with opencv8. All the errors are
 significantly smaller than before; the previous pattern is much less pronounced,
 but it still there. What do the residual directions tell us?
 
-#+begin_example
+#+begin_src python
 show_residuals_directions(0, unset='key')
-#+end_example
+#+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/directions-splined.png]]
+
+#+begin_src python :exports none :eval no-export
+show_residuals_directions(0, unset='key',
+                          hardcopy='/tmp/directions-splined.png',
+                          terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+#+end_src
 
 /Much/ better. If there is a pattern, I can't see it.
 
@@ -482,9 +511,9 @@ mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.1:.1]' x 
 [[file:figures/splined-knots-pixel-domain-x.png]]
 
 #+begin_src sh :exports none :eval no-export
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-$xy.png }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-pixel-domain-$xy.png }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 #+end_src
 
 Now the imager boundary is a nice rectangle, but the valid spline region is a
@@ -525,6 +554,11 @@ Let's compare the two models:
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
 #+end_src
 
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy /tmp/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/diff-radius0-heatmap-splined-opencv8.png]]
 
@@ -535,6 +569,11 @@ heat map, we get a hint about what's going on:
 
 #+begin_src sh
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel
+#+end_src
+
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy /tmp/diff-radius0-vectorfield-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
@@ -580,6 +619,11 @@ bypass the fit. Let's leave out that option to get the usable diff:
 mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
 #+end_src
 
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy /tmp/diff-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/diff-splined-opencv8.png]]
 
@@ -595,6 +639,11 @@ there:
 
 #+begin_src sh
 mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
+#+end_src
+
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy /tmp/diff-radius500-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 #+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
@@ -826,7 +875,7 @@ mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",12"'
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:figures/uncertainty-opencv8.png]]
@@ -839,7 +888,7 @@ mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",12"'
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:figures/uncertainty-splined.png]]
@@ -927,7 +976,7 @@ calibrations. A diff at infinity:
 mrcal-show-projection-diff --unset key camera[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-diff --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/figures/diff-l2-dance68-joint1-camera11-infinity.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-diff --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/figures/diff-l2-dance68-joint1-camera11-infinity.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:figures/diff-l2-dance68-joint1-camera11-infinity.png]]
@@ -938,7 +987,7 @@ And again at 0.5m (close to the range to the chessboards)
 mrcal-show-projection-diff --distance 0.5 --unset key camera[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-diff --distance 0.5 --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/figures/diff-l2-dance68-joint1-camera11-0.5m.png --terminal 'pngcairo size 1024,768 noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-diff --distance 0.5 --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/figures/diff-l2-dance68-joint1-camera11-0.5m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:figures/diff-l2-dance68-joint1-camera11-0.5m.png]]
