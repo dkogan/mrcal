@@ -1058,11 +1058,15 @@ def show_residuals_observation_worst(i, **kwargs):
     show_residuals_observation( i_observations_sorted_from_worst[i], **kwargs )
 
 def _get_show_residuals_data(icam):
-    r'''Return the data used by the various show_residuals_...() functions'''
+    r'''Return the data used by the various show_residuals_...() functions
+
+    icam is the camera in question, or None for ALL the cameras'''
 
     # I select non-outlier residuals from THIS camera
     idx = np.ones( observations.shape[:-1], dtype=bool)
-    idx[indices_frame_camera[:,1] != icam, ...] = False
+
+    if icam is not None:
+        idx[indices_frame_camera[:,1] != icam, ...] = False
 
     idx[ observations[...,2] < 0.0 ] = False
 
@@ -1074,24 +1078,28 @@ def _get_show_residuals_data(icam):
     err = residuals[idx, ...]
     obs = observations[idx, ..., :2]
 
-    legend = "Valid-intrinsics region"
-    valid_region = models[icam].valid_intrinsics_region()
+    if icam is not None:
+        legend = "Valid-intrinsics region"
+        valid_region = models[icam].valid_intrinsics_region()
 
-    if valid_region.size == 0:
-        valid_region = np.zeros((1,2))
-        legend += ": empty"
+        if valid_region.size == 0:
+            valid_region = np.zeros((1,2))
+            legend += ": empty"
 
-    valid_intrinsics_region_plotarg_3d = \
-        (valid_region[:,0],
-         valid_region[:,1],
-         np.zeros(valid_region.shape[-2]),
-         dict(_with  = 'lines lw 3',
-              legend = legend))
-    valid_intrinsics_region_plotarg_2d = \
-        (valid_region[:,0],
-         valid_region[:,1],
-         dict(_with  = 'lines lw 3',
-              legend = legend))
+        valid_intrinsics_region_plotarg_3d = \
+            (valid_region[:,0],
+             valid_region[:,1],
+             np.zeros(valid_region.shape[-2]),
+             dict(_with  = 'lines lw 3',
+                  legend = legend))
+        valid_intrinsics_region_plotarg_2d = \
+            (valid_region[:,0],
+             valid_region[:,1],
+             dict(_with  = 'lines lw 3',
+                  legend = legend))
+    else:
+        valid_intrinsics_region_plotarg_2d = None
+        valid_intrinsics_region_plotarg_3d = None
 
     return err,obs,valid_intrinsics_region_plotarg_2d,valid_intrinsics_region_plotarg_3d
 
@@ -1311,7 +1319,7 @@ def show_residuals_regional(icam = 0, **kwargs):
 
 
 plots_residuals_histogram = None
-def show_residuals_histogram(icam = 0, binwidth=0.02,
+def show_residuals_histogram(icam = None, binwidth=0.02,
                              **kwargs):
 
     r'''Visualize the histogram of the optimized residuals
@@ -1320,18 +1328,22 @@ def show_residuals_histogram(icam = 0, binwidth=0.02,
     distribution. If the optimization was successful, and if
     observed_pixel_uncertainty was correct, the two should line up.
 
-    icam is the camera in question. First camera by default
+    icam is the camera in question or None for ALL the cameras; this is the
+    default
 
     '''
 
     global plots_residuals_histogram
     if plots_residuals_histogram is None:
-        plots_residuals_histogram = [None] * Ncameras
+        plots_residuals_histogram = [None] * (Ncameras+1) # last one is for all the cameras together
 
-    err,obs, \
-    valid_intrinsics_region_plotarg_2d, \
-    valid_intrinsics_region_plotarg_3d = \
-        _get_show_residuals_data(icam)
+    err,obs, _,_ = _get_show_residuals_data(icam)
+
+    if icam is None:
+        icam = -1
+        what = 'all the cameras'
+    else:
+        what = f"camera {icam}"
 
     x = err.ravel()
     N = len(x)
@@ -1384,7 +1396,7 @@ def show_residuals_histogram(icam = 0, binwidth=0.02,
                    (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
     plots_residuals_histogram[icam] = \
         gp.gnuplotlib(equation_above = equations,
-                      title = 'Observed and expected distribution of fitted residuals',
+                      title = f'Observed and expected distribution of fitted residuals for {what}',
                       xlabel = 'Residuals (pixels). x and y components of error are counted separately',
                       ylabel = 'Observed frequency',
                       **kwargs)
