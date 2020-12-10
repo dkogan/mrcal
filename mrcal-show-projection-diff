@@ -16,10 +16,11 @@ different chessboard dances. Or one may want to evaluate the stability of the
 intrinsics in response to mechanical or thermal stresses. This tool makes these
 comparisons, and produces a visualization of the results.
 
-In the most common case we're given exactly 2 models to compare, and we show the
-xy differences in projection at each point (as a heat map or as a vector field).
-If we're given more than 2 models, we show the STANDARD DEVIATION of all the
-differences instead (as a heat map).
+In the most common case we're given exactly 2 models to compare. We then display
+the projection difference as either a vector field or a heat map. If we're given
+more than 2 models, then a vector field isn't possible and we instead display as
+a heatmap the standard deviation of the differences between models 1..N and
+model0.
 
 How are we computing the differences? The details are in the docstring of
 mrcal.projection_diff(). Broadly, we do this:
@@ -219,7 +220,7 @@ def parse_args():
     args = parser.parse_args()
 
     if len(args.models) < 2:
-        raise Exception("I need at least two models to diff. Instead got this: {}".format(args.models))
+        raise Exception(f"I need at least two models to diff. Instead got '{args.models}'")
 
     return args
 

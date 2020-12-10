@@ -1038,8 +1038,9 @@ these comparisons, and returns the results. mrcal.show_projection_diff() ALSO
 produces a visualization.
 
 In the most common case we're given exactly 2 models to compare, and we compute
-the xy differences in projection at each point. If we're given more than 2
-models, we compute the STANDARD DEVIATION of all the differences instead.
+the differences in projection of each point. If we're given more than 2 models,
+we instead compute the standard deviation of the differences between models 1..N
+and model0.
 
 We do this:
 
@@ -1161,24 +1162,27 @@ RETURNED VALUE
 A tuple
 
 - difflen: a numpy array of shape (gridn_height,gridn_width) containing the
-  magnitude of differences at each cell, or the standard deviation of
-  differences if len(models)>1. if len(models)==1: this is nps.mag(diff)
+  magnitude of differences at each cell, or the standard deviation of the
+  differences between models 1..N and model0 if len(models)>2. if
+  len(models)==2: this is nps.mag(diff)
 
 - diff: a numpy array of shape (gridn_height,gridn_width,2) containing the
-  vector of differences at each cell. If len(models)>1 this isn't well-defined,
-  and we set this to None
+  vector of differences at each cell. If len(models)>2 this isn't defined, so
+  None is returned
 
 - q0: a numpy array of shape (gridn_height,gridn_width,2) containing the pixel
   coordinates of each grid cell
 
 - implied_Rt10: the geometric Rt transformation in an array of shape (...,4,3).
   This is either whatever was passed into this function (if anything was), or
-  the identity if focus_radius==0 or the fitted results. if len(models)>1: this
+  the identity if focus_radius==0 or the fitted results. if len(models)>2: this
   is an array of shape (len(models)-1,4,3), with slice i representing the
   transformation between camera 0 and camera i+1.
 
     '''
 
+    if len(models) < 2:
+        raise Exception("At least 2 models are required to compute the diff")
     if implied_Rt10 is not None:
         if len(models) != 2:
             raise Exception("implied_Rt10 may be given ONLY if I have exactly two models")

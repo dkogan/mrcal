@@ -521,10 +521,11 @@ function makes these comparisons, and produces a visualization of the results.
 mrcal.projection_diff() computes the differences, and returns the results
 WITHOUT making plots.
 
-In the most common case we're given exactly 2 models to compare. We then show
+In the most common case we're given exactly 2 models to compare. We then display
 the projection DIFFERENCE as either a vector field or a heat map. If we're given
-more than 2 models, then a vector field isn't possible and we show a heat map of
-the STANDARD DEVIATION of all the differences.
+more than 2 models, then a vector field isn't possible and we instead display as
+a heatmap the standard deviation of the differences between models 1..N and
+model0.
 
 The details of how the comparison is computed, and the meaning of the arguments
 controlling this, are in the docstring of mrcal.projection_diff().
@@ -626,6 +627,10 @@ A tuple:
   transformation between camera 0 and camera i+1.
 
     '''
+
+    if len(models) < 2:
+        raise Exception("At least 2 models are required to compute the diff")
+
 
     import gnuplotlib as gp
 
