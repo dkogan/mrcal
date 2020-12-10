@@ -525,7 +525,7 @@ mrcal.projection_diff() computes the differences, and returns the results
 WITHOUT making plots.
 
 In the most common case we're given exactly 2 models to compare. We then display
-the projection DIFFERENCE as either a vector field or a heat map. If we're given
+the projection difference as either a vector field or a heat map. If we're given
 more than 2 models, then a vector field isn't possible and we instead display as
 a heatmap the standard deviation of the differences between models 1..N and
 model0.
