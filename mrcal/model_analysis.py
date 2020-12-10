@@ -838,6 +838,65 @@ else:                    we return an array of shape (...)
 
     '''
 
+
+    # I computed Var(p) earlier, which contains the variance of ALL the optimization
+    # parameters together. The noise on the chessboard poses is coupled to the noise
+    # on the extrinsics and to the noise on the intrinsics. And we can apply all these
+    # together to propagate the uncertainty.
+
+    # Let's define some variables:
+
+    # - p_i: the intrinsics of a camera
+    # - p_e: the extrinsics of that camera (T_cr)
+    # - p_f: ALL the chessboard poses (T_fr)
+    # - p_ief: the concatenation of p_i, p_e and p_f
+
+    # I have
+
+    #     dq = q0 + dq/dp_ief dp_ief
+
+    #     Var(q) = dq/dp_ief Var(p_ief) (dq/dp_ief)t
+
+    #     Var(p_ief) is a subset of Var(p), computed above.
+
+    #     dq/dp_ief = [dq/dp_i dq/dp_e dq/dp_f]
+
+    #     dq/dp_e = dq/dpcam dpcam/dp_e
+
+    #     dq/dp_f = dq/dpcam dpcam/dpref dpref/dp_f / Nframes
+
+    # dq/dp_i and all the constituent expressions comes directly from the project()
+    # and transform calls above. Depending on the details of the optimization problem,
+    # some of these may not exist. For instance, if we're looking at a camera that is
+    # sitting at the reference coordinate system, then there is no p_e, and Var_ief is
+    # smaller: it's just Var_if. If we somehow know the poses of the frames, then
+    # there's no Var_f. If we want to know the uncertainty at distance=infinity, then
+    # we ignore all the translation components of p_e and p_f.
+
+
+
+    # Alright, so we have Var(q). We could claim victory at that point. But it'd be
+    # nice to convert Var(q) into a single number that describes my projection
+    # uncertainty at q. Empirically I see that Var(dq) often describes an eccentric
+    # ellipse, so I want to look at the length of the major axis of the 1-sigma
+    # ellipse:
+
+    #     eig (a b) --> (a-l)*(c-l)-b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
+    #         (b c)
+
+    #     --> l = (a+c +- sqrt( a^2+2ac+c^2 - 4ac + 4b^2)) / 2 =
+    #           = (a+c +- sqrt( a^2-2ac+c^2 + 4b^2)) / 2 =
+    #           = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
+
+    # So the worst-case stdev(q) is
+
+    #     sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
+
+
+
+
+
+
     what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
