@@ -524,6 +524,10 @@ very odd-looking behavior at the edges:
 It would be nice to fix these, but they cause no obvious practical ill effects.
 
 * Differencing
+:PROPERTIES:
+:CUSTOM_ID: differencing
+:END:
+
 We just used the same chessboard observations to compute the intrinsics of a
 lens in two different ways:
 
@@ -534,10 +538,9 @@ And we saw evidence that the splined model will do a better job of representing
 reality. Can we quantify that? How different are the two models? Let's compute
 it. Given a pixel $\vec q_0$ we can
 
-1. Unproject it to a point $\vec p$ using one lens model
-2. Project $\vec p$ back to pixel coords $\vec q_1$ using the /other/ lens model
-3. Report the reprojection difference $\vec q_1 - \vec q_0$ as the diff at this
-   pixel location
+1. Unproject $\vec q_0$ to a fixed point $\vec p$ using lens 0
+2. Project $\vec p$ back to pixel coords $\vec q_1$ using lens 1
+3. Report the reprojection difference $\vec q_1 - \vec q_0$
 
 [[file:figures/diff-notransform.svg]]
 
@@ -587,13 +590,12 @@ is built-in to the intrinsics*. Even if we're not explicitly optimizing the
 camera pose (which is the case with these monocular solves), this implied
 transformation is still something that exists and moves around in response to
 noise. Rich models like the splined stereographic models are able to encode a
-wider range of implied transformations, but even the simplest models have some
+wide range of implied transformations, but even the simplest models have some
 transform that must be compensated for.
 
-Looking at the vectorfield above, it looks like we need to move one of the
-cameras up and to the left, and then we need to rotate that camera. We can
-automate this by adding a critical missing step to the procedure above between
-steps 1 and 2:
+The above vectorfield suggests that we need to move one of the cameras up and to
+the left, and then we need to rotate that camera. We can automate this by adding
+a critical missing step to the procedure above between steps 1 and 2:
 
 - Transform $\vec p$ from the coordinate system of one camera to the coordinate
   system of the other camera
@@ -602,7 +604,7 @@ steps 1 and 2:
 
 But we don't know anything about the physical coordinate system of either
 camera. How can we compute this transformation? We do a fit. The "right"
-transformation will transform $\vec v$ in such a way that the reported
+transformation will transform $\vec p$ in such a way that the reported
 mismatches in $\vec q$ will be minimized. There are many details here, but we
 don't need to know them to run the tool. Previously we passed =--radius 0= to
 bypass the fit. Let's leave out that option to get the usable diff:
@@ -641,12 +643,13 @@ mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramod
 
 Both are valid.
 
-This differencing method is very powerful. We can use it to, for instance
+This differencing method is very powerful, and has numerous applications. For
+instance:
 
-- evaluate the variability of different lenses
-- quantify intrinsics drift due to mechanical or thermal stresses, or anything else
-- test different solution methods
-- as the core of a cross-validation scheme
+- evaluating the manufacturing variation of different lenses
+- quantifying intrinsics drift due to mechanical or thermal stresses
+- testing different solution methods
+- underlying a cross-validation scheme
 
 Many of these analyses immediately raise a question: how much of a difference do
 I expect to get from random noise, and how much is attributable to whatever I'm
@@ -909,7 +912,7 @@ have $\vec q = \mathrm{project}\left(k \vec v\right)$ /for all/ $k$. So an
 unprojection gives you a direction, but no range. What that means in this case,
 is that we must choose a range of interest when computing diffs or
 uncertainties. It only makes sense to talk about a "diff when looking at points
-$x$ meters away" or "the projection uncertainty when looking out to $x$ meters".
+$r$ meters away" or "the projection uncertainty when looking out to $r$ meters".
 
 A surprising consequence of this is that while /projection/ is invariant to
 scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty
