@@ -163,6 +163,10 @@ def parse_args():
                         default=False,
                         help='''If given, I show where the chessboard corners were observed at calibration
                         time. These should correspond to the low-diff regions.''')
+    parser.add_argument('--valid-intrinsics-region',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I overlay the valid-intrinsics regions onto the plots''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=4,
@@ -445,18 +449,19 @@ else:
 
 plot,implied_Rt10 = mrcal.show_projection_diff(models,
                                                args.gridn[0], args.gridn[1],
-                                               observations      = args.observations,
-                                               distance          = distance,
-                                               use_uncertainties = not args.no_uncertainties,
-                                               focus_center      = args.where,
-                                               focus_radius      = args.radius,
-                                               implied_Rt10      = implied_Rt10,
-                                               vectorfield       = args.vectorfield,
-                                               vectorscale       = args.vectorscale,
-                                               hardcopy          = args.hardcopy,
-                                               terminal          = args.terminal,
-                                               cbmax             = args.cbmax,
-                                               extratitle        = args.extratitle,
+                                               observations            = args.observations,
+                                               valid_intrinsics_region = args.valid_intrinsics_region,
+                                               distance                = distance,
+                                               use_uncertainties       = not args.no_uncertainties,
+                                               focus_center            = args.where,
+                                               focus_radius            = args.radius,
+                                               implied_Rt10            = implied_Rt10,
+                                               vectorfield             = args.vectorfield,
+                                               vectorscale             = args.vectorscale,
+                                               hardcopy                = args.hardcopy,
+                                               terminal                = args.terminal,
+                                               cbmax                   = args.cbmax,
+                                               extratitle              = args.extratitle,
                                                **plotkwargs_extra)
 
 if implied_Rt10 is not None and implied_Rt10.shape == (4,3):

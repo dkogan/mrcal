@@ -98,6 +98,10 @@ def parse_args():
                         help='''If given, I show where the chessboard corners were observed at calibration
                         time. This should correspond to the low-uncertainty
                         regions.''')
+    parser.add_argument('--valid-intrinsics-region',
+                        action='store_true',
+                        default=False,
+                        help='''If given, I overlay the valid-intrinsics region onto the plot''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=3,
@@ -203,13 +207,14 @@ elif args.vs_distance_at is not None:
 else:
     plot = mrcal.show_projection_uncertainty(model,
                                              args.gridn[0], args.gridn[1],
-                                             distance     = args.distance,
-                                             isotropic    = args.isotropic,
-                                             observations = args.observations,
-                                             hardcopy     = args.hardcopy,
-                                             terminal     = args.terminal,
-                                             cbmax        = args.cbmax,
-                                             extratitle   = args.extratitle,
+                                             distance                = args.distance,
+                                             isotropic               = args.isotropic,
+                                             observations            = args.observations,
+                                             valid_intrinsics_region = args.valid_intrinsics_region,
+                                             hardcopy                = args.hardcopy,
+                                             terminal                = args.terminal,
+                                             cbmax                   = args.cbmax,
+                                             extratitle              = args.extratitle,
                                              **plotkwargs_extra)
 
 if args.hardcopy is None:
