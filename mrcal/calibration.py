@@ -225,7 +225,7 @@ which mrcal.optimize() expects
             args_mrgingham.extend(globs)
 
             sys.stderr.write("Computing chessboard corners by running:\n   {}\n". \
-                             format(' '.join(shellquote(s) for s in args_mrgingham)))
+                             format(' '.join(mrcal.shellquote(s) for s in args_mrgingham)))
             if corners_cache_vnl is not None:
                 # need to save the corners into a cache. I want to do this
                 # atomically: if the dot-finding is interrupted I don't want to
