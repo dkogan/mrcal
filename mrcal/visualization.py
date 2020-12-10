@@ -488,8 +488,9 @@ def show_projection_diff(models,
                          gridn_width  = 60,
                          gridn_height = None,
 
-                         observations = False,
-                         distance     = None,
+                         observations            = False,
+                         valid_intrinsics_region = False,
+                         distance                = None,
 
                          use_uncertainties= True,
                          focus_center     = None,
@@ -549,6 +550,10 @@ ARGUMENTS
 - observations: optional boolean, defaulting to False. If True, we overlay
   calibration-time observations on top of the difference plot. We should then
   see that more data produces more consistent results.
+
+- valid_intrinsics_region: optional boolean, defaulting to False. If True, we
+  overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
+  regions aren't available, we will silently omit them
 
 - distance: optional value, defaulting to None. The projection difference varies
   depending on the range to the observed world points, with the queried range
@@ -712,20 +717,25 @@ A tuple:
         plot_data_args = [ (difflen, curveoptions) ]
 
 
-    valid_region0 = models[0].valid_intrinsics_region()
-    if valid_region0 is not None:
-        if vectorfield:
-            # 2d plot
-            plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
-                                    dict(_with = 'lines lw 3',
-                                         legend = "valid region of 1st camera")) )
-        else:
-            # 3d plot
-            plot_data_args.append( (valid_region0[:,0], valid_region0[:,1], valid_region0[:,0]*0,
-                                    dict(_with = 'lines lw 3 nocontour',
-                                         legend = "valid region of 1st camera")) )
+    if valid_intrinsics_region:
+        valid_region0 = models[0].valid_intrinsics_region()
+        if valid_region0 is not None:
+            if vectorfield:
+                # 2d plot
+                plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
+                                        dict(_with = 'lines lw 3',
+                                             legend = "valid region of 1st camera")) )
+            else:
+                # 3d plot
+                plot_data_args.append( (valid_region0[:,0], valid_region0[:,1], valid_region0[:,0]*0,
+                                        dict(_with = 'lines lw 3 nocontour',
+                                             legend = "valid region of 1st camera")) )
 
-    valid_region1 = models[1].valid_intrinsics_region()
+        valid_region1 = models[1].valid_intrinsics_region()
+    else:
+        valid_region0 = None
+        valid_region1 = None
+
     if len(models) == 2 and valid_region1 is not None:
         # The second camera has a valid region, and I should plot it. This has
         # more complexity: each point on the contour of the valid region of the
@@ -797,15 +807,16 @@ A tuple:
 
 
 def show_projection_uncertainty(model,
-                                gridn_width  = 60,
-                                gridn_height = None,
+                                gridn_width             = 60,
+                                gridn_height            = None,
 
-                                observations = False,
-                                distance     = None,
-                                isotropic    = False,
-                                extratitle   = None,
-                                cbmax        = 3,
-                                return_plot_args = False,
+                                observations            = False,
+                                valid_intrinsics_region = False,
+                                distance                = None,
+                                isotropic               = False,
+                                extratitle              = None,
+                                cbmax                   = 3,
+                                return_plot_args        = False,
                                 **kwargs):
     r'''Visualize the uncertainty in camera projection
 
@@ -869,6 +880,10 @@ ARGUMENTS
 - observations: optional boolean, defaulting to False. If True, we overlay
   calibration-time observations on top of the uncertainty plot. We should then
   see that more data produces more confident results.
+
+- valid_intrinsics_region: optional boolean, defaulting to False. If True, we
+  overlay the valid-intrinsics region onto the plot. If the valid-intrinsics
+  region isn't available, we will silently omit it
 
 - distance: optional value, defaulting to None. The projection uncertainty
   varies depending on the range to the observed point, with the queried range
@@ -949,7 +964,10 @@ plot
 
     plot_data_args = [(err, curveoptions)]
 
-    valid_intrinsics_region = model.valid_intrinsics_region()
+    if valid_intrinsics_region:
+        valid_intrinsics_region = model.valid_intrinsics_region()
+    else:
+        valid_intrinsics_region = None
     if valid_intrinsics_region is not None:
         plot_data_args.append( (valid_intrinsics_region[:,0],
                                 valid_intrinsics_region[:,1],
