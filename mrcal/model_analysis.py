@@ -15,7 +15,7 @@ import sys
 import mrcal
 
 
-def implied_Rt10__from_unprojections(q0, v0, v1,
+def implied_Rt10__from_unprojections(q0, p0, v1,
                                      weights      = None,
                                      atinfinity   = True,
                                      focus_center = np.zeros((2,), dtype=float),
@@ -65,10 +65,10 @@ diffs in a wide area.
 The primary inputs are unprojected gridded samples of the two imagers, obtained
 with something like mrcal.sample_imager_unproject(). We grid the two imagers,
 and produce normalized observation vectors for each grid point. We pass the
-pixel grid from camera0 in q0, and the two unprojections in v0, v1. This
+pixel grid from camera0 in q0, and the two unprojections in p0, v1. This
 function then tries to find a transformation to minimize
 
-  norm2( project(camera1, transform(v0)) - q1 )
+  norm2( project(camera1, transform(p0)) - q1 )
 
 We return an Rt transformation to map points in the camera0 coordinate system to
 the camera1 coordinate system. Some details about this general formulation are
@@ -97,15 +97,15 @@ different locations along a single observation ray, there will be a variation in
 the observed diff. This is due to the geometric difference in the two cameras.
 If the models differed only in their intrinsics parameters, then this would not
 happen. Thus this function needs to know how far from the camera it should look.
-By default (atinfinity = True) we look out to infinity. In this case, v0 is
+By default (atinfinity = True) we look out to infinity. In this case, p0 is
 expected to contain unit vectors. To use any other distance, pass atinfinity =
-False, and pass POINTS in v0 instead of just observation directions. v1 should
+False, and pass POINTS in p0 instead of just observation directions. v1 should
 always be normalized. Generally the most confident distance will be where the
 chessboards were observed at calibration time.
 
 Practically, it is very easy for the unprojection operation to produce nan or
 inf values. And the weights could potentially have some invalid values also.
-This function explicitly checks for such illegal data in v0, v1 and weights, and
+This function explicitly checks for such illegal data in p0, v1 and weights, and
 ignores those points.
 
 ARGUMENTS
@@ -113,7 +113,7 @@ ARGUMENTS
 - q0: an array of shape (Nh,Nw,2). Gridded pixel coordinates covering the imager
   of both cameras
 
-- v0: an array of shape (...,Nh,Nw,3). An unprojection of q0 from camera 0. If
+- p0: an array of shape (...,Nh,Nw,3). An unprojection of q0 from camera 0. If
   atinfinity, this should contain unit vectors, else it should contain points in
   space at the desired distance from the camera. This array may have leading
   dimensions that are all used in the fit. These leading dimensions correspond
@@ -127,12 +127,12 @@ ARGUMENTS
   uncertainties to apply a stronger weight to more confident points. If omitted
   or None, we weigh each point equally. This array may have leading dimensions
   that are all used in the fit. These leading dimensions correspond to those in
-  the "v0" array
+  the "p0" array
 
 - atinfinity: optional boolean; True by default. If True, we're looking out to
   infinity, and I compute a rotation-only fit; a full Rt transformation is still
-  returned, but Rt[3,:] is 0; v0 should contain unit vectors. If False, I'm
-  looking out to a finite distance, and v0 should contain 3D points specifying
+  returned, but Rt[3,:] is 0; p0 should contain unit vectors. If False, I'm
+  looking out to a finite distance, and p0 should contain 3D points specifying
   the positions of interest.
 
 - focus_center: optional array of shape (2,); (0,0) by default. Used to indicate
@@ -162,25 +162,25 @@ report a full Rt transformation with the t component set to 0
     import scipy.optimize
 
     if weights is None:
-        weights = np.ones(v0.shape[:-1], dtype=float)
+        weights = np.ones(p0.shape[:-1], dtype=float)
     else:
         # Any inf/nan weight or vector are set to 0
         weights = weights.copy()
         weights[ ~np.isfinite(weights) ] = 0.0
 
-    v0 = v0.copy()
+    p0 = p0.copy()
     v1 = v1.copy()
 
-    # v0 had shape (..., Nh,Nw,3). Collapse all the leading dimensions into one
+    # p0 had shape (..., Nh,Nw,3). Collapse all the leading dimensions into one
     # And do the same for weights
-    v0      = nps.clump(v0,      n = len(v0.shape)     -3)
+    p0      = nps.clump(p0,      n = len(p0.shape)     -3)
     weights = nps.clump(weights, n = len(weights.shape)-2)
 
-    i_nan_v0 = ~np.isfinite(v0)
-    v0[i_nan_v0] = 0.
-    weights[i_nan_v0[...,0]] = 0.0
-    weights[i_nan_v0[...,1]] = 0.0
-    weights[i_nan_v0[...,2]] = 0.0
+    i_nan_p0 = ~np.isfinite(p0)
+    p0[i_nan_p0] = 0.
+    weights[i_nan_p0[...,0]] = 0.0
+    weights[i_nan_p0[...,1]] = 0.0
+    weights[i_nan_p0[...,2]] = 0.0
 
     i_nan_v1 = ~np.isfinite(v1)
     v1[i_nan_v1] = 0.
@@ -194,7 +194,7 @@ report a full Rt transformation with the t component set to 0
     if np.count_nonzero(i)<3:
         raise Exception("Focus region contained too few points")
 
-    v0_cut  = v0     [...,i, :]
+    p0_cut  = p0     [...,i, :]
     v1_cut  = v1     [    i, :]
     weights = weights[...,i   ]
 
@@ -202,7 +202,7 @@ report a full Rt transformation with the t component set to 0
 
         # rtp0 has shape (...,N,3)
         rtp0, drtp0_drt, _ = \
-            mrcal.transform_point_rt(rt, v0_cut,
+            mrcal.transform_point_rt(rt, p0_cut,
                                      get_gradients = True)
 
         # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
@@ -236,21 +236,21 @@ report a full Rt transformation with the t component set to 0
 
     def residual_jacobian_r(r):
 
-        # rv0     has shape (N,3)
-        # drv0_dr has shape (N,3,3)
-        rv0, drv0_dr, _ = \
-            mrcal.rotate_point_r(r, v0_cut,
+        # rp0     has shape (N,3)
+        # drp0_dr has shape (N,3,3)
+        rp0, drp0_dr, _ = \
+            mrcal.rotate_point_r(r, p0_cut,
                                  get_gradients = True)
 
         # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
         # Each of these has shape (N)
-        inner = nps.inner(rv0, v1_cut)
+        inner = nps.inner(rp0, v1_cut)
         th2   = 2.* (1.0 - inner)
         x     = th2 * weights
 
         # shape (N,3)
         dinner_dr = nps.matmult( nps.dummy(v1_cut, -2), # shape (N,1,3)
-                                 drv0_dr                # shape (N,3,3)
+                                 drp0_dr                # shape (N,3,3)
                                  # matmult has shape (N,1,3)
                                )[:,0,:]
 
