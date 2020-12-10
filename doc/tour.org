@@ -218,7 +218,6 @@ the worst-fitting image:
 show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 #+end_example
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/worst-opencv8.png]]
 
 #+begin_src python :exports none :eval no-export
@@ -272,7 +271,6 @@ pointing mostly inward. This isn't clearly indicative of any specific cause, so
 we move on. For reference, here's the worst image from another solve, when both
 focus and slight motion blur issues were present:
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/worst-opencv8-bias.png]]
 
 Here we see two distinct problems:
@@ -301,7 +299,6 @@ show_residuals_directions(0, unset='key',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random
@@ -445,7 +442,6 @@ Let's look at the worst-fitting single image in /this/ solve:
 show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 #+end_example
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/worst-splined.png]]
 
 #+begin_src python :exports none :eval no-export
@@ -462,7 +458,6 @@ but it still there. What do the residual directions tell us?
 show_residuals_directions(0, unset='key')
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/directions-splined.png]]
 
 #+begin_src python :exports none :eval no-export
@@ -483,11 +478,9 @@ mrcal-show-splined-model-surface --spline-index-domain data/board/splined.camera
 #+end_src
 
 $\Delta u_0$ looks like this:
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/splined-knots-x.png]]
 
 And $\Delta u_1$:
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/splined-knots-y.png]]
 
 Each X in the plot is a "knot" of the spline surface, a point where a control
@@ -509,7 +502,6 @@ coordinates. Just for $\Delta u_0$:
 mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.1:.1]' x --unset key --set 'xrange [-300:6300]' --set 'yrange [4300:-300]'
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/splined-knots-pixel-domain-x.png]]
 
 #+begin_src sh :exports none :eval no-export
@@ -561,7 +553,6 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8
   --hardcopy /tmp/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/diff-radius0-heatmap-splined-opencv8.png]]
 
 Well that's strange. The reported differences really do have units of /pixels/.
@@ -578,7 +569,6 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --ve
   --hardcopy /tmp/diff-radius0-vectorfield-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/diff-radius0-vectorfield-splined-opencv8.png]]
 
 This is a /very/ regular pattern. What does it mean?
@@ -626,7 +616,6 @@ mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board
   --hardcopy /tmp/diff-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/diff-splined-opencv8.png]]
 
 /Much/ better. As expected, the two models agree relatively well in the center,
@@ -648,7 +637,6 @@ mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramod
   --hardcopy /tmp/diff-radius500-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/diff-radius500-splined-opencv8.png]]
 
 Both are valid.
