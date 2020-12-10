@@ -1030,6 +1030,9 @@ SYNOPSIS
     # each grid cell. 'difference' is the projection variation between the two
     # models at each cell
 
+The operation of this tool is documented at
+http://fatty.jpl.nasa.gov/mrcal/differencing.html
+
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to validate a calibration by comparing the results of two
 different chessboard dances. Or one may want to evaluate the stability of the

@@ -513,6 +513,9 @@ SYNOPSIS
 
     # A plot pops up displaying the projection difference between the two models
 
+The operation of this tool is documented at
+http://fatty.jpl.nasa.gov/mrcal/differencing.html
+
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to evaluate the quality of a calibration by comparing the
 results of two different chessboard dances. Or one may want to evaluate the
