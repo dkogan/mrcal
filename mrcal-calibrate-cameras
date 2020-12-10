@@ -884,6 +884,9 @@ region was computed and it is empty"
                          cv2.CHAIN_APPROX_SIMPLE)[-2]
 
     areas = np.array([ cv2.contourArea(c) for c in contours ])
+    if areas.size == 0:
+        return np.zeros((0,2)) # empty valid-intrinsics region
+
     contour = contours[np.argmax(areas)][:,0,:].astype(float)
 
     contour = mrcal.close_contour(contour)
