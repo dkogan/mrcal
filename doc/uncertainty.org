@@ -3,12 +3,12 @@
 
 After a calibration has been computed, it is essential to get a sense of how
 good the calibration is. Traditional calibration routines rely on one metric of
-calibration quality: the residual fit error. This is very inadequate however,
-since we can always improve this metric by throwing away input data. And it
-doesn't make sense that using less data would make a calibration /better/.
+calibration quality: the residual fit error. This is clearly inadequate because
+we can always improve this metric by throwing away input data, and it doesn't
+make sense that using less data would make a calibration /better/.
 
-mrcal addresses this by providing [[file:how-to-calibrate.org][some tools]] to gauge how well the data fits the
-model. And by providing and estimate of projection uncertainty via the
+mrcal addresses this with [[file:how-to-calibrate.org::#interpreting-results][some tools]] to gauge how well the data fits the model
+and with a method to estimate th projection uncertainty, accessed via the
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function. This tells us how good a calibration
 is (we aim for low projection uncertainties), and it tells us how good the
 downstream results are (by allowing the user to propagate projection
@@ -30,7 +30,7 @@ This overall approach is sound, but it implies some limitations:
   other issues are /not/ included in the reported uncertainty. Issues such as:
   motion blur, out-of-focus images, out-of-synchronization images, unexpected
   chessboard shape. It is thus imperative that we try to minimize these issues,
-  and mrcal provides [[file:how-to-calibrate.org][tools]] to detect some of these problems.
+  and mrcal provides [[file:how-to-calibrate.org::#interpreting-results][tools]] to detect some of these problems.
 
 - A consequence of the above is that the choice of lens model affects the
   reported uncertainties. Lean models (those with few parameters) are less
@@ -128,6 +128,9 @@ $x_i$ and $J_i$ would all decrease. And as a result, $\mathrm{Var}\left(\vec
 p\right)$ would increase, as expected.
 
 * Propagating the state vector noise through projection
+:PROPERTIES:
+:CUSTOM_ID: propagating-through-projection
+:END:
 We now have the variance of the full optimization state $\vec p$, and we want to
 propagate this through projection to end up with an estimate of uncertainty at
 any given pixel $\vec q$.
@@ -226,8 +229,14 @@ $\mathrm{project}()$ come directly from the optimization state vector $\vec p$. 
 We computed $\mathrm{Var}\left( \vec p \right )$ earlier, and $\frac{\partial
 \vec q^+}{\partial \vec p}$ comes from the projection expression above.
 
-The [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function implements this logic, which can
-also be accessed using the [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool.
+The [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function implements this logic. For the
+special-case of visualizing the uncertianties, call the any of the uncertainty
+visualization functions:
+- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]: Visualize the uncertainty in camera projection
+- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_xydist][=mrcal.show_projection_uncertainty_xydist()=]]: Visualize in 3D the uncertainty in camera projection
+- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray
+
+or use the [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool.
 
 * The effect of range
 We glossed over an important detail in the above derivation. Unlike a projection
