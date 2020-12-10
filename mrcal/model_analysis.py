@@ -1258,6 +1258,13 @@ A tuple
             # weights has shape (len(distance),Nh,Nw))
             if uncertainties is not None:
                 weights = 1.0 / (uncertainties[0]*uncertainties[1])
+
+                # It appears to work better if I discount the uncertain regions
+                # even more. This isn't a principled decision, and is supported
+                # only by a little bit of data. The differencing.org I'm writing
+                # now will contain a weighted diff of culled and not-culled
+                # splined model data. That diff computation requires this.
+                weights *= weights
             else:
                 weights = None
 
