@@ -199,7 +199,7 @@ show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
 [[file:figures/calibration-chessboards-geometry.svg]]
 
 #+begin_src sh :exports none :eval no-export
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",12"' --hardcopy calibration-chessboards-geometry.svg
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy /tmp/calibration-chessboards-geometry.svg
 #+end_src
 
 This displays all the cameras that have been calibrated in their final poses
@@ -550,7 +550,7 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8
 
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy /tmp/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:figures/diff-radius0-heatmap-splined-opencv8.png]]
@@ -566,10 +566,10 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --ve
 
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy /tmp/diff-radius0-vectorfield-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius0-vectorfield-splined-opencv8.svg --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
 #+end_src
 
-[[file:figures/diff-radius0-vectorfield-splined-opencv8.png]]
+[[file:figures/diff-radius0-vectorfield-splined-opencv8.svg]]
 
 This is a /very/ regular pattern. What does it mean?
 
@@ -613,7 +613,7 @@ mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board
 
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy /tmp/diff-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/figures/diff-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:figures/diff-splined-opencv8.png]]
@@ -733,7 +733,7 @@ test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-document
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-documentation-plots /tmp/simulated-uncertainty-opencv4
+test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-documentation-plots ~/jpl/mrcal/doc/figures/simulated-uncertainty-opencv4
 #+end_src
 
 Let's place 4 cameras using an opencv4 distortion model side by side, and let's
@@ -829,7 +829,7 @@ test/test-projection-uncertainty.py --fixed cam0 --model splined --make-document
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots /tmp/simulated-uncertainty-splined
+test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots ~/jpl/mrcal/doc/figures/simulated-uncertainty-splined
 #+end_src
 
 [[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage.svg]]
@@ -863,7 +863,7 @@ First, the opencv8 solve:
 mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
@@ -876,7 +876,7 @@ And the splined solve:
 mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
@@ -924,7 +924,7 @@ different ranges for the opencv8 model we computed earlier:
 mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]'
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
 #+end_src
 
 [[file:figures/uncertainty-vs-distance-at-center.svg]]
@@ -1168,17 +1168,17 @@ corners.
 #+begin_src sh :exports none :eval no-export
 # how did I make all these? full commands:
 
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Nframes        --Ncameras 1 --Nframes 20,200 --range 0.5 board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --ymax 1 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-Nframes.svg --terminal 'svg size 800,600 dynamic noenhanced solid' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan range          --Ncameras 1 --Nframes 100 --range 0.4,10 board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-range.svg --terminal 'svg size 800,600 dynamic noenhanced solid' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan tilt_radius    --tilt-radius 0,80 --Ncameras 1 --Nframes 100 --range 0.5 board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-tilt_radius.svg --terminal 'svg size 800,600 dynamic noenhanced solid' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Ncameras       --Ncameras 1,8 --camera-spacing 0 --Nframes 100 --range 0.5 board/opencv8.cameramodel \
-               --ymax 0.4 --uncertainty-at-range-sampled-max 10 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-Ncameras.svg --terminal 'svg size 800,600 dynamic noenhanced solid' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 --object-width-n 5,30 board/opencv8.cameramodel --uncertainty-at-range-sampled-max 30 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_width_n.svg --terminal 'svg size 800,600 dynamic noenhanced solid' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_spacing.svg --terminal 'svg size 800,600 dynamic noenhanced solid' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --scan-object-spacing-compensate-range --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 --ymax 20 --uncertainty-at-range-sampled-max 200 board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_spacing-compensated-range.svg --terminal 'svg size 800,600 dynamic noenhanced solid' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Nframes        --Ncameras 1 --Nframes 20,200 --range 0.5 data/board/opencv8.cameramodel \
+               --observed-pixel-uncertainty 2 --ymax 1 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-Nframes.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan range          --Ncameras 1 --Nframes 100 --range 0.4,10 data/board/opencv8.cameramodel \
+               --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan tilt_radius    --tilt-radius 0,80 --Ncameras 1 --Nframes 100 --range 0.5 data/board/opencv8.cameramodel \
+               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-tilt_radius.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Ncameras       --Ncameras 1,8 --camera-spacing 0 --Nframes 100 --range 0.5 data/board/opencv8.cameramodel \
+               --ymax 0.4 --uncertainty-at-range-sampled-max 10 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-Ncameras.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 --object-width-n 5,30 data/board/opencv8.cameramodel --uncertainty-at-range-sampled-max 30 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_width_n.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_spacing.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --scan-object-spacing-compensate-range --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 --ymax 20 --uncertainty-at-range-sampled-max 200 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_spacing-compensated-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 #+end_src
 
 * Stereo
