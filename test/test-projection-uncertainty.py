@@ -199,9 +199,9 @@ if args.make_documentation_plots:
 
     print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
 
-    if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic font ",8"'
-    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color   font ",8"'
-    if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 noenhanced crop          font ",8"'
+    if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
+    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
+    if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 
 extraset = dict()
 for k in pointscale.keys():
@@ -417,7 +417,7 @@ if args.make_documentation_plots is not None:
                                          hardcopy = f'{args.make_documentation_plots}--simulated-observations.{extension}')
             gp.plot( *obs_cam,
                      tuplesize=-2,
-                     _with='points',
+                     _with='dots',
                      square=1,
                      _xrange=(0, models_true[0].imagersize()[0]-1),
                      _yrange=(models_true[0].imagersize()[1]-1, 0),
@@ -430,7 +430,7 @@ if args.make_documentation_plots is not None:
         processoptions_output = dict(wait = True)
         gp.plot( *obs_cam,
                  tuplesize=-2,
-                 _with='points',
+                 _with='dots',
                  square=1,
                  _xrange=(0, models_true[0].imagersize()[0]-1),
                  _yrange=(models_true[0].imagersize()[1]-1, 0),
@@ -1020,6 +1020,8 @@ def make_plot(icam, report_center_points = True, **kwargs):
              title=f'Uncertainty reprojection distribution for camera {icam}',
              **kwargs)
 
+    gp.add_plot_option(plot_options, 'set', ('xtics 1', 'ytics 1'))
+
     return data_tuples, plot_options
 
 
@@ -1071,6 +1073,7 @@ if args.make_documentation_plots is not None:
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
     gp.add_plot_option(plot_options, 'unset', 'key')
+    gp.add_plot_option(plot_options, 'set',   ('xtics 1000', 'ytics 1000'))
 
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
