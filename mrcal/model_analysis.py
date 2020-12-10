@@ -205,7 +205,7 @@ report a full Rt transformation with the t component set to 0
             mrcal.transform_point_rt(rt, p0_cut,
                                      get_gradients = True)
 
-        # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
+        # inner(a,b)/(mag(a)*mag(b)) = cos(x) ~ 1 - x^2/2
         # Each of these has shape (...,N)
         mag_rtp0 = nps.mag(rtp0)
         inner    = nps.inner(rtp0, v1_cut)
