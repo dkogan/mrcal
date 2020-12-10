@@ -32,6 +32,21 @@ given. Exactly one is required:
 --cull-random-observations-ratio throws out whole object observations, not just
   individual points. These removed observations do not appear in the output data
   stream at all
+
+
+This tool exists primarily for testing, and probably you don't want to use it.
+The filtering is crude, and the tool might report chessboard observations with
+very few remaining points. You PROBABLY want to post-process the output to keep
+only observations with enough points. For instance:
+
+  mrcal-cull-corners ... > culled-raw.vnl
+
+  vnl-join --vnl-sort - -j filename culled-raw.vnl \
+     <(< culled-raw.vnl vnl-filter -p filename --has level |
+                        vnl-uniq -c |
+                        vnl-filter 'count > 20' -p filename ) \
+  > culled.vnl
+
 '''
 
 
