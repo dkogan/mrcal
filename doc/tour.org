@@ -758,7 +758,7 @@ mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramod
 
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy /tmp/diff-radius500-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius500-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:figures/diff-radius500-splined-opencv8.png]]
