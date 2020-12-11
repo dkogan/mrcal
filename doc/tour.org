@@ -1150,7 +1150,7 @@ How many chessboard observations should we get?
 #+begin_src sh
 dance-study.py --scan Nframes --Ncameras 1 --Nframes 20,200 --range 0.5 \
                --observed-pixel-uncertainty 2 --ymax 1 \
-               board/opencv8.cameramodel
+               opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-Nframes.svg]]
@@ -1171,7 +1171,7 @@ OK. How close should the chessboards be?
 #+begin_src sh
 dance-study.py --scan range --Ncameras 1 --Nframes 100 --range 0.4,10 \
                --observed-pixel-uncertainty 2 \
-               board/opencv8.cameramodel
+               opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-range.svg]]
@@ -1187,7 +1187,7 @@ Alrighty. Should the chessboards be shown head-on, or should they be tilted?
 dance-study.py --scan tilt_radius --tilt-radius 0,80 --Ncameras 1 --Nframes 100 \
                --range 0.5 \
                --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 \
-               board/opencv8.cameramodel
+               opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-tilt_radius.svg]]
@@ -1226,7 +1226,7 @@ parameters and constraints.
 dance-study.py --scan Ncameras --Ncameras 1,8 --camera-spacing 0 --Nframes 100 \
                --range 0.5 --ymax 0.4 --uncertainty-at-range-sampled-max 10 \
                --observed-pixel-uncertainty 2 \
-               board/opencv8.cameramodel
+               opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-Ncameras.svg]]
@@ -1258,7 +1258,7 @@ dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 \
                --object-width-n 5,30 \
                --uncertainty-at-range-sampled-max 30 \
                --observed-pixel-uncertainty 2 \
-               board/opencv8.cameramodel
+               opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-object_width_n.svg]]
@@ -1274,7 +1274,7 @@ imager. We expect that this would improve the things:
 dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
                --object-spacing 0.04,0.20 \
                --observed-pixel-uncertainty 2 \
-               board/opencv8.cameramodel
+               opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-object_spacing.svg]]
@@ -1291,7 +1291,7 @@ dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
                --object-spacing 0.04,0.20 \
                --observed-pixel-uncertainty 2 --scan-object-spacing-compensate-range \
                --ymax 20 --uncertainty-at-range-sampled-max 200 \
-               board/opencv8.cameramodel
+               opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-object_spacing-compensated-range.svg]]
