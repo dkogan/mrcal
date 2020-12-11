@@ -1382,8 +1382,8 @@ for img ( data/figueroa-overpass-looking-S/{[01].jpg,[01]-reprojected-scale*.jpg
 
 The two images out of the camera look like this:
 
-[[./figures/figueroa-overpass-looking-S/0.jpg][file:figures/0.downsampled.jpg]]
-[[./figures/figueroa-overpass-looking-S/1.jpg][file:figures/1.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/0.jpg][file:figures/0.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/1.jpg][file:figures/1.downsampled.jpg]]
 
 All the full-size images are available by clicking on an image.
 
@@ -1436,7 +1436,7 @@ for what (splined opencv8) { PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_
 
 I then use the mrcal APIs to compute rectification maps, rectify the images,
 compute disparities and convert them to ranges. This is done with the script
-[[file:stereo.py][=stereo.py=]]. We run it like this:
+[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/doc/stereo.py][=stereo.py=]]. We run it like this:
 
 #+begin_src sh
 python3 stereo.py splined-[01].cameramodel [01].jpg splined
@@ -1444,13 +1444,13 @@ python3 stereo.py splined-[01].cameramodel [01].jpg splined
 
 The rectified images look like this:
 
-[[./figures/figueroa-overpass-looking-S/rectified0-splined.jpg][file:figures/rectified0-splined.downsampled.jpg]]
-[[./figures/figueroa-overpass-looking-S/rectified1-splined.jpg][file:figures/rectified1-splined.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/rectified0-splined.jpg][file:figures/rectified0-splined.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/rectified1-splined.jpg][file:figures/rectified1-splined.downsampled.jpg]]
 
 And the disparity and range images looks like this:
 
-[[./figures/figueroa-overpass-looking-S/disparity-splined.png][file:figures/disparity-splined.downsampled.png]]
-[[./figures/figueroa-overpass-looking-S/range-splined.png][file:figures/range-splined.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/disparity-splined.png][file:figures/disparity-splined.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/range-splined.png][file:figures/range-splined.downsampled.png]]
 
 Clearly this is working well.
 
@@ -1628,13 +1628,13 @@ converted the models to the [[file:cameramodels.org::#cameramodel-file-formats][
 
 The wider pinhole resampling of the two images:
 
-[[./figures/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:figures/0-reprojected-scale0.35.downsampled.jpg]]
-[[./figures/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:figures/1-reprojected-scale0.35.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:figures/0-reprojected-scale0.35.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:figures/1-reprojected-scale0.35.downsampled.jpg]]
 
 The narrower resampling of the two images:
 
-[[./figures/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:figures/0-reprojected-scale0.6.downsampled.jpg]]
-[[./figures/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:figures/1-reprojected-scale0.6.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:figures/0-reprojected-scale0.6.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:figures/1-reprojected-scale0.6.downsampled.jpg]]
 
 And the camera models:
 
@@ -1663,13 +1663,13 @@ The rectified images look like this.
 
 For the wider mapping:
 
-[[./figures/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:figures/jplv-stereo-rect-left-scale0.35.downsampled.png]]
-[[./figures/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:figures/jplv-stereo-rect-right-scale0.35.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:figures/jplv-stereo-rect-left-scale0.35.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:figures/jplv-stereo-rect-right-scale0.35.downsampled.png]]
 
 For the narrow mapping:
 
-[[./figures/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:figures/jplv-stereo-rect-left-scale0.6.downsampled.png]]
-[[./figures/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:figures/jplv-stereo-rect-right-scale0.6.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:figures/jplv-stereo-rect-left-scale0.6.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:figures/jplv-stereo-rect-right-scale0.6.downsampled.png]]
 
 The bottom is cut-off in these images; this is probably a bug in jplv. Here we
 see that jplv's rectification function also has some implicit pinhole projection
@@ -1684,8 +1684,8 @@ python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.35.png jplv-scale0.35
 python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.6.png  jplv-scale0.6
 #+end_src
 
-[[./figures/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:figures/disparity-jplv-scale0.35.downsampled.png]]
-[[./figures/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:figures/disparity-jplv-scale0.6.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:figures/disparity-jplv-scale0.35.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:figures/disparity-jplv-scale0.6.downsampled.png]]
 
 Looks reasonable.
 
@@ -1705,7 +1705,7 @@ each image we need to construct
 - The image of the scene that such a model would have observed
 
 This requires writing a little bit of code, which mrcal simple:
-[[file:narrow-section.py][=narrow-section.py=]]. Let's run that for each of my images:
+[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/doc/narrow-section.py][=narrow-section.py=]]. Let's run that for each of my images:
 
 #+begin_src sh
 python3 narrow-section.py splined-0.cameramodel 0.jpg -45 left
@@ -1714,8 +1714,8 @@ python3 narrow-section.py splined-1.cameramodel 1.jpg -45 right
 
 The images look like this:
 
-[[./figures/figueroa-overpass-looking-S/narrow-left.jpg][file:figures/narrow-left.downsampled.jpg]]
-[[./figures/figueroa-overpass-looking-S/narrow-right.jpg][file:figures/narrow-right.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/narrow-left.jpg][file:figures/narrow-left.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/narrow-right.jpg][file:figures/narrow-right.downsampled.jpg]]
 
 Note that these are pinhole images, but the field of view is much more narrow,
 so they don't look distorted like before. The corresponding pinhole models:
@@ -1747,13 +1747,13 @@ compensates.
 
 And we get nice-looking rectified images:
 
-[[./figures/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:figures/rectified0-narrow.downsampled.jpg]]
-[[./figures/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:figures/rectified1-narrow.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:figures/rectified0-narrow.downsampled.jpg]]
+[[file:data/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:figures/rectified1-narrow.downsampled.jpg]]
 
 And disparity and range images:
 
-[[./figures/figueroa-overpass-looking-S/disparity-narrow.png][file:figures/disparity-narrow.downsampled.png]]
-[[./figures/figueroa-overpass-looking-S/range-narrow.png][file:figures/range-narrow.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/disparity-narrow.png][file:figures/disparity-narrow.downsampled.png]]
+[[file:data/figueroa-overpass-looking-S/range-narrow.png][file:figures/range-narrow.downsampled.png]]
 
 And this is despite running pinhole-reprojected stereo from a very wide lens.
 
