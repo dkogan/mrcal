@@ -239,6 +239,9 @@ visualization functions:
 or use the [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool.
 
 * The effect of range
+:PROPERTIES:
+:CUSTOM_ID: effect-of-range
+:END:
 We glossed over an important detail in the above derivation. Unlike a projection
 operation, an /unprojection/ is ambiguous: given some camera-coordinate-system
 point $\vec p$ that projects to a pixel $\vec q$, we have $\vec q =
