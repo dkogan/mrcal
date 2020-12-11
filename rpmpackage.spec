@@ -12,7 +12,7 @@ Source0:        https://github.jpl.nasa.gov/maritime-robotics/mrcal/archive/%{ve
 BuildRequires: python36-numpy
 
 # For the non-global parameters
-BuildRequires: libdogleg-devel >= 0.15.3
+BuildRequires: libdogleg-devel >= 0.15.4
 BuildRequires: suitesparse-devel >= 4.1.0
 BuildRequires: lapack-devel
 BuildRequires: python36-devel
@@ -20,8 +20,8 @@ BuildRequires: python36-libs
 
 # I need to run the python stuff in order to build the manpages and to generate
 # the npsp wrappers
-BuildRequires: numpysane >= 0.28
-BuildRequires: gnuplotlib >= 0.28-3
+BuildRequires: numpysane >= 0.29-1
+BuildRequires: gnuplotlib >= 0.36
 BuildRequires: opencv-python36
 BuildRequires: python36-scipy
 BuildRequires: python36
