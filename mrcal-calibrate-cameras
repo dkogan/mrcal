@@ -1209,6 +1209,16 @@ def show_residuals_directions(icam = 0, **kwargs):
         _get_show_residuals_data(icam)
 
     W,H = imagersizes[icam]
+
+
+    kwargs = copy.deepcopy(kwargs)
+    # Use an maximum-saturation, maximum-value HSV
+    # palette where the hue encodes the error direction.
+    # The direction is periodic, as is the hue
+    gp.add_plot_option(kwargs, 'set',
+                       'palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV')
+
+
     plots_residuals_directions[icam] = \
         gp.gnuplotlib( square=1,
                        _xrange=[0,W], yrange=[H,0],
@@ -1216,10 +1226,6 @@ def show_residuals_directions(icam = 0, **kwargs):
                        xlabel = 'Imager x',
                        ylabel = 'Imager y',
 
-                       # Use an maximum-saturation, maximum-value HSV
-                       # palette where the hue encodes the error direction.
-                       # The direction is periodic, as is the hue
-                       _set='palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV',
                        cbrange = [-180., 180.],
                        **kwargs)
     plot_data_args = [( obs[:,0], obs[:,1], 180./np.pi * np.arctan2(err[...,1], err[...,0]),
@@ -1296,15 +1302,20 @@ def show_residuals_regional(icam = 0, **kwargs):
             what = re.sub('[^a-zA-Z0-9_-]+', '_', title)
             kwargs_here['hardcopy'] = re.sub(r'(\.[^\.]+$)', '.' + what + r'\1', kwargs_here['hardcopy'])
 
+        gp.add_plot_option(kwargs_here,
+                           'set',
+                           ('xrange [:] noextend',
+                            'yrange [:] noextend reverse',
+                            'view equal xy',
+                            'view map'))
+        gp.add_plot_option(kwargs_here,
+                           'unset',
+                           'grid')
+
         W,H = imagersizes[icam]
         p = gp.gnuplotlib( _3d=1,
                            ascii=1,
-                           unset='grid',
                            _xrange=[0,W], _yrange=[H,0],
-                           _set = ['xrange [:] noextend',
-                                   'yrange [:] noextend reverse',
-                                   'view equal xy',
-                                   'view map'],
                            title = title,
                            **kwargs_here)
         plot_data_args = [( x,
@@ -1316,9 +1327,10 @@ def show_residuals_regional(icam = 0, **kwargs):
         p.plot(*plot_data_args)
         return p
 
-    plots_residuals_regional[icam] = [ mkplot(np.abs(mean), 'abs(mean)'),
-                                           mkplot(stdev,        'stdev'),
-                                           mkplot(count,        'count', cbrange = (0, 20)) ]
+    plots_residuals_regional[icam] = \
+        [ mkplot(np.abs(mean), 'abs(mean)'),
+          mkplot(stdev,        'stdev'),
+          mkplot(count,        'count', cbrange = (0, 20)) ]
 
 
 plots_residuals_histogram = None
