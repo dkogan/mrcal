@@ -758,7 +758,7 @@ mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board
 
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges. If we used a leaner model,
-such as =LENSMODEL_OPENCV4=, this effect is far more pronounced:
+such as =LENSMODEL_OPENCV4=, this effect would be far more pronounced:
 
 #+begin_src sh
 mrcal-show-projection-diff --no-uncertainties \
