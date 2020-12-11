@@ -395,7 +395,8 @@ Let's fix it.
 
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
 mrcal. To achive these, mrcal supports /splined/ models. At this time there's
-only one representation supported: a [[file:lensmodels.org::#splined-stereographic-lens-model][/splined stereographic/ model]].
+only one representation supported: a /splined stereographic/ model, described in
+detail [[file:lensmodels.org::#splined-stereographic-lens-model][here]].
 
 ** Splined stereographic model definition
 :PROPERTIES:
@@ -594,9 +595,11 @@ We can also visualize the [[file:lensmodels.org::#splined-stereographic-lens-mod
 commandline tool instead of a function in the =mrcal-calibrate-cameras= REPL.
 
 #+begin_src sh
-mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel x --set 'cbrange [-.1:.1]' --unset key
+mrcal-show-splined-model-surface --spline-index-domain splined.cameramodel x \
+                                 --set 'cbrange [-.1:.1]' --unset key
 
-mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel y --set 'cbrange [-.1:.1]' --unset key
+mrcal-show-splined-model-surface --spline-index-domain splined.cameramodel y \
+                                 --set 'cbrange [-.1:.1]' --unset key
 #+end_src
 
 $\Delta u_0$ looks like this:
@@ -626,7 +629,10 @@ Alternately, I can look at the spline surface as a function of the pixel
 coordinates. Just for $\Delta u_0$:
 
 #+begin_src sh
-mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.1:.1]' x --unset key --set 'xrange [-300:6300]' --set 'yrange [4300:-300]'
+mrcal-show-splined-model-surface splined.cameramodel x                \
+                                 --set 'cbrange [-.1:.1]' --unset key \
+                                 --set 'xrange [-300:6300]'           \
+                                 --set 'yrange [4300:-300]'
 #+end_src
 
 [[file:figures/splined-knots-pixel-domain-x.png]]
@@ -656,9 +662,11 @@ lens in two different ways:
 - Using a lean =LENSMODEL_OPENCV8= lens model
 - Using a rich splined-stereographic lens model
 
-And we saw evidence that the splined model will do a better job of representing
-reality. Can we quantify that? How different are the two models? Let's compute
-it. Given a pixel $\vec q_0$ we can
+And we saw evidence that the splined model does a better job of representing
+reality. Can we quantify that? How different are the two models we computed? An
+overview follows; see the [[file:differencing.org][differencing page]] for details.
+
+Let's compute the difference. Given a pixel $\vec q_0$ we can
 
 1. Unproject $\vec q_0$ to a fixed point $\vec p$ using lens 0
 2. Project $\vec p$ back to pixel coords $\vec q_1$ using lens 1
@@ -666,11 +674,12 @@ it. Given a pixel $\vec q_0$ we can
 
 [[file:figures/diff-notransform.svg]]
 
-This is a very common thing to want to do, so mrcal provides a tool to do it.
+This is a very common thing to want to do, so mrcal provides a [[file:mrcal-calibrate-cameras.html][tool]] to do it.
 Let's compare the two models:
 
 #+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
+mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
+                           opencv8.cameramodel splined.cameramodel
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
@@ -686,7 +695,9 @@ this plot indicates? If we ask for the vector field of differences instead of a
 heat map, we get a hint about what's going on:
 
 #+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel
+mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
+                           --vectorfield --vectorscale 5 --gridn 30 20 \
+                           opencv8.cameramodel splined.cameramodel
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
@@ -698,26 +709,28 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --ve
 
 This is a /very/ regular pattern. What does it mean?
 
-The answer is rooted in the location and orientation of the camera coordinate
-system in respect to the physical lens and camera. The optimization algorithm
-only knows where the chessboard corners were observed. It does /not/ know where
-anything is, and it has to compute all geometry. And as always, fitted results
-differ from reality somewhat. In this case, the origin of the camera coordinate
-system and the orientation of this coordinate system are noisy quantities that
-will vary from solve to solve. There exists some transformation between the
-camera coordinate system from the solution and the coordinate system defined by
-the physical lens and camera body. And this transformation is different each
-time we run a solve. It is important to note that *this implied transformation
-is built-in to the intrinsics*. Even if we're not explicitly optimizing the
-camera pose (which is the case with these monocular solves), this implied
-transformation is still something that exists and moves around in response to
-noise. Rich models like the splined stereographic models are able to encode a
-wide range of implied transformations, but even the simplest models have some
-transform that must be compensated for.
+The issue is that each calibration produces noisy estimates of all the
+intrinsics and all the coordinate transformations:
 
-The above vectorfield suggests that we need to move one of the cameras up and to
-the left, and then we need to rotate that camera. We can automate this by adding
-a critical missing step to the procedure above between steps 1 and 2:
+[[file:figures/uncertainty.svg]]
+
+The above plots projected the same $\vec p$ in the camera coordinate system, but
+that coordinate system has shifted between the two models we're comparing. So in
+the /fixed/ coordinate system attached to the camera housing, we weren't in fact
+projecting the same point.
+
+There exists some transformation between the camera coordinate system from the
+solution and the coordinate system defined by the physical camera housing. It is
+important to note that *this implied transformation is built-in to the
+intrinsics*. Even if we're not explicitly optimizing the camera pose, this
+implied transformation is still something that exists and moves around in
+response to noise. Rich models like the [[file:lensmodels.org::#splined-stereographic-lens-model][splined stereographic models]] are able to
+encode a wide range of implied transformations, but even the simplest models
+have some transform that must be compensated for.
+
+The above vector field suggests that we need to move one of the cameras up and
+to the left, and then we need to rotate that camera. We can automate this by
+adding a critical missing step to the procedure above between steps 1 and 2:
 
 - Transform $\vec p$ from the coordinate system of one camera to the coordinate
   system of the other camera
@@ -727,12 +740,13 @@ a critical missing step to the procedure above between steps 1 and 2:
 But we don't know anything about the physical coordinate system of either
 camera. How can we compute this transformation? We do a fit. The "right"
 transformation will transform $\vec p$ in such a way that the reported
-mismatches in $\vec q$ will be minimized. There are many details here, but we
-don't need to know them to run the tool. Previously we passed =--radius 0= to
-bypass the fit. Let's leave out that option to get the usable diff:
+mismatches in $\vec q$ will be minimized. Lots of [[file:differencing.org][details]] are glossed-over here.
+Previously we passed =--radius 0= to bypass the fit. Let's leave out that option
+to get the usable diff:
 
 #+begin_src sh
-mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
+mrcal-show-projection-diff --unset key \
+                           opencv8.cameramodel splined.cameramodel
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
@@ -744,26 +758,17 @@ mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board
 
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges. If we used a leaner model,
-such as opencv4, this effect would be more pronounced. Do note that since we do
-a fit, there's some ambiguity in the details. We choose where we get the data
-for our implied transformation fit. We can decide that we really care about low
-differences right at the center at the expense of a worse fit further out, or we
-can decide that a reasonable-but-not-great fit is acceptable as long as it
-covers a wide area. For instance, focusing at the center gives us a lower diff
-there:
+such as =LENSMODEL_OPENCV4=, this effect is far more pronounced:
 
 #+begin_src sh
-mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel
+mrcal-show-projection-diff --no-uncertainties \
+  --distance 1 --radius 200 \
+  --unset key --extratitle "radius 200" opencv[48].cameramodel
 #+end_src
 
-#+begin_src sh :exports none :eval no-export
-mrcal-show-projection-diff --radius 500 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius500-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
-#+end_src
+[[file:figures/diff-radius200-opencv4-opencv8.png]]
 
-[[file:figures/diff-radius500-splined-opencv8.png]]
-
-Both are valid.
+Please see the [[file:differencing.org][differencing page]] for details.
 
 This differencing method is very powerful, and has numerous applications. For
 instance:
