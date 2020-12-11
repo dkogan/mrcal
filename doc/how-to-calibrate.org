@@ -179,7 +179,6 @@ $ < corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)
   feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable'
 #+end_example
 
-#+ATTR_HTML: :width 80% :min-width 500px :max-width 900px
 [[file:figures/mrgingham-results.png]]
 
 Here the size of the circle indicates the detection weight. In this image many
@@ -278,6 +277,9 @@ Note that these are /globs/, not /filenames/. So they need to be quoted or
 escaped to prevent the shell from expanding it: hence ='*.JPG'= and not =*.JPG=.
 
 ** Interpreting the results
+:PROPERTIES:
+:CUSTOM_ID: interpreting-results
+:END:
 When the =mrcal-calibrate-cameras= tool is run as given above, it spends a bit
 of time computing. The time needed is highly dependent on the specific problem,
 with richer lens models and more data and more cameras slowing it down, as
@@ -301,9 +303,9 @@ Wrote ./camera-0.cameramodel
 Here the final RMS reprojection error is 0.8 pixels. Of the 18600 corner
 observations (186 observations of the board with 10*10 = 100 points each), 3
 didn't fit the model well, and were thrown out as [[file:formulation.org::#outlier-rejection][outliers]]. We expect the RMS
-reprojection error to be a bit below the true =observed-pixel-uncertainty= (see
-below). Our estimated =observed-pixel-uncertainty= was 2, so the results are
-reasonable, and don't raise any red flags.
+reprojection error to be a bit below the true =--observed-pixel-uncertainty=
+(see below). Our estimated =--observed-pixel-uncertainty= was 2, so the results
+are reasonable, and don't raise any red flags.
 
 High outlier counts or high reprojection errors would indicate that the model
 mrcal is using does not fit the data well. That would suggest some/all of
@@ -350,30 +352,29 @@ reprojection-error value from above, but let's look at the full distribution of
 errors for /all/ the cameras:
 
 #+begin_src python
-show_residuals_histogram(icam = None, binwidth=0.1, _xrange=(-4,4))
+show_residuals_histogram(icam = None, binwidth=0.1, _xrange=(-4,4), unset='key')
 #+end_src
 
 [[file:figures/residuals-histogram-opencv8.svg]]
 
-The reported stdev here looks at the individual values in the measurement vector
-$\vec x$, not at pixel distance, so it doesn't match the 0.8 pixels RMS value
-from above. We would like to see a normal distribution since that's what the
-[[file:formulation.org::#noise-model][noise model]] assumes. We do see this somewhat, but the central cluster is a bit
+We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
+assumes. We do see this somewhat, but the central cluster is a bit
 over-populated. Not a ton to do about that, so I will claim this is
 close-enough. We see the normal distribution fitted to our data, and we see the
-normal distribution as predicted by the =observed-pixel-uncertainty=. Our error
-distribution fits tighter than the distribution predicted by the input noise.
-This is expected for two reasons:
+normal distribution as predicted by the =--observed-pixel-uncertainty=. Our
+error distribution fits tighter than the distribution predicted by the input
+noise. This is expected for two reasons:
 
-- We don't actually know what =observed-pixel-uncertainty= is; the value we're
+- We don't actually know what =--observed-pixel-uncertainty= is; the value we're
   using is a rough estimate
-- We're [[https://en.wikipedia.org/wiki/Overfitting][overfitting]]. If we fit a model using just a little bit of data, we will
-  overfit, and use the model to explain noise in the data. And we will see low
-  fit errors. As we get more and more data, this effect is reduced, and
-  eventually, the residual distribution will match the actual distribution of
-  the noise. /Here/ we never get there. But instead, we [[file:uncertainty.org][explicitly quantify our
-  uncertainty]], so while we see some overfitting, we know exactly how much it
-  affects the reliability of our results.
+- We're [[https://en.wikipedia.org/wiki/Overfitting][overfitting]]. If we fit a model using just a little bit of data, we would
+  overfit, the model would explain the noise in the data, and we would get very
+  low fit errors. As we get more and more data, this effect is reduced, and
+  eventually the data itself drives the solution, and the residual distribution
+  matches the distribution of input noise. /Here/ we never quite get there. But
+  this isn't a problem: we [[file:uncertainty.org][explicitly quantify our uncertainty]], so while we do
+  see some overfitting, we know exactly how much it affects the reliability of
+  our results. And we can act on that information.
 
 Let's look deeper. If there's anything really wrong with our data, then we
 should see it in the worst-fitting images. The =mrcal-calibrate-cameras= REPL
@@ -409,7 +410,6 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 # same as show_residuals_observation( i_observations_sorted_from_worst[0], ... )
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/worst-opencv8.png]]
 
 The residual vector for each chessboard corner in this observation is shown,
@@ -469,7 +469,6 @@ magnitudes:
 show_residuals_directions(icam=0, unset='key')
 #+end_src
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
 [[file:figures/directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random

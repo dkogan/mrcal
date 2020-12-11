@@ -48,23 +48,25 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key          \
 
 [[file:figures/diff-radius0-vectorfield-splined-opencv8.svg]]
 
-The reported differences are in pixels. The issue is similar to the one
-encountered by the [[file:uncertainty.org::#propagating-through-projection][projection uncertainty]] routine: each calibration produces
-noisy estimates of all the intrinsics and all the coordinate transformations.
+The reported differences are in pixels.
+
+The issue is similar to the one encountered by the [[file:uncertainty.org::#propagating-through-projection][projection uncertainty]]
+routine: each calibration produces noisy estimates of all the intrinsics and all
+the coordinate transformations:
 
 [[file:figures/uncertainty.svg]]
 
-So the above plots projected the same $\vec p$ in the camera coordinate system,
-but that coordinate system has shifted between the two models we're comparing.
-So in the /fixed/ coordinate system attached to the camera housing, we weren't
-in fact projecting the same point.
+The above plots projected the same $\vec p$ in the camera coordinate system, but
+that coordinate system has shifted between the two models we're comparing. So in
+the /fixed/ coordinate system attached to the camera housing, we weren't in fact
+projecting the same point.
 
 There exists some transformation between the camera coordinate system from the
 solution and the coordinate system defined by the physical camera housing. It is
 important to note that *this implied transformation is built-in to the
 intrinsics*. Even if we're not explicitly optimizing the camera pose, this
 implied transformation is still something that exists and moves around in
-response to noise. Rich models like the splined stereographic models are able to
+response to noise. Rich models like the [[file:lensmodels.org::#splined-stereographic-lens-model][splined stereographic models]] are able to
 encode a wide range of implied transformations, but even the simplest models
 have some transform that must be compensated for.
 

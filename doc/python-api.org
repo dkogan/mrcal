@@ -9,7 +9,7 @@ The available functions, by category:
 
 * Geometry
 ** Primitives
-Functions to manipulates [[file:conventions.org::#pose representation][rotations and poses]].
+Functions to manipulate [[file:conventions.org::#pose-representation][rotations and poses]].
 
 - [[file:mrcal-python-api-reference.html#-identity_R][=mrcal.identity_R()=]]: Return an identity rotation matrix
 - [[file:mrcal-python-api-reference.html#-identity_r][=mrcal.identity_r()=]]: Return an identity Rodrigues rotation

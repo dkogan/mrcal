@@ -115,6 +115,9 @@ chessboard-like grid of black and white squares, where the observed points are
 at the corner of each square.
 
 ** Chessboard corner detector
+:PROPERTIES:
+:CUSTOM_ID: detector
+:END:
 Detections of these corners serve as the input features to mrcal. mrcal is a
 purely geometrical toolkit, and this vision problem must be handled by another
 library. [[https://en.wikipedia.org/wiki/Chessboard_detection][A number of tools]] are available to detect chessboard corners. These did
@@ -203,6 +206,9 @@ estimate of the solution) to the optimization routines. The
    [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
 
 * State vector $\vec p$
+:PROPERTIES:
+:CUSTOM_ID: state-vector
+:END:
 The state vector $\vec p$ is controlled by the optimization algorithm as it
 searches for the optimal solution. This vector may contain
 

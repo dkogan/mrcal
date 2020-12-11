@@ -104,7 +104,7 @@ T_AB T_BC=.
 
 * Pose representation
 :PROPERTIES:
-:CUSTOM_ID: pose representation
+:CUSTOM_ID: pose-representation
 :END:
 
 Various parts of the toolkit have preferred representations of pose, and mrcal

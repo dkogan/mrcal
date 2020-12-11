@@ -166,7 +166,7 @@ def parse_args():
     parser.add_argument('--valid-intrinsics-region',
                         action='store_true',
                         default=False,
-                        help='''If given, I overlay the valid-intrinsics regions onto the plots''')
+                        help='''If given, I overlay the valid-intrinsics regions onto the plot''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=4,

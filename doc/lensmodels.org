@@ -50,7 +50,7 @@ point $\vec p$ is defined as
 \[\vec q = \left( \begin{aligned} f_x \frac{p_x}{p_z} + c_x \\ f_y \frac{p_y}{p_z} + c_y \end{aligned} \right) \]
 
 This model is defined only in front of the camera, and projects to infinity as
-we approach 90 degrees off the projection axis ($p_z \rightarrow 0$). Straight
+we approach 90 degrees off the optical axis ($p_z \rightarrow 0$). Straight
 lines in space remain straight under this projection, and observations of the
 same plane by two pinhole cameras define a [[https://en.wikipedia.org/wiki/Homography][homography]]. Longer lenses tend to
 have roughly pinhole behavior, but no real-world lens follows this projection,
@@ -65,7 +65,7 @@ represent real lenses. Like the pinhole model, this has just the 4 core
 parameters.
 
 To define the projection of a point $\vec p$, let's define the angle off the
-projection axis:
+optical axis:
 
 \[ \theta \equiv \tan^{-1} \frac{\left| \vec p_{xy} \right|}{p_z} \]
 
@@ -78,7 +78,7 @@ and
 \[\vec q = \left( \begin{aligned} f_x u_x + c_x \\ f_y u_y + c_y \end{aligned} \right) \]
 
 This model is able to project behind the camera, and has a single singularity:
-directly opposite the projection axis. mrcal refers to $\vec u$ as the
+directly opposite the optical axis. mrcal refers to $\vec u$ as the
 /normalized/ stereographic projection; we get the projection $\vec q = \vec u$
 when $f_x = f_y = 1$ and $c_x = c_y = 0$
 
@@ -167,10 +167,10 @@ $\Delta \vec u$ using two separate splined surfaces:
 and we define the rest of the projection function:
 
 \[\vec q =
- \left( \begin{aligned}
+ \left[ \begin{aligned}
  f_x \left( u_x + \Delta u_x \right) + c_x \\
  f_y \left( u_y + \Delta u_y \right) + c_y
-\end{aligned} \right) \]
+\end{aligned} \right] \]
 
 The surfaces $\Delta u_x$ and $\Delta u_y$ are defined as [[https://en.wikipedia.org/wiki/B-spline][B-splines]] with
 evenly-spaced knots (control points) in the space of the domain $\vec u$. The
