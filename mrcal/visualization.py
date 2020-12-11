@@ -427,7 +427,9 @@ def _options_heatmap_with_contours( # update these
                                     plotoptions,
 
                                     contour_max, contour_increment,
-                                    imagersize, gridn_width, gridn_height):
+                                    imagersize, gridn_width, gridn_height,
+                                    contour_labels_styles = 'boxed',
+                                    contour_labels_font   = None):
     r'''Update plotoptions, return curveoptions for a contoured heat map'''
 
 
@@ -462,6 +464,9 @@ def _options_heatmap_with_contours( # update these
                                  'style textbox opaque',
                                  f'cntrparam levels incremental {contour_max},{contour_increment},0'] )
 
+    if contour_labels_font is not None:
+        plotoptions['_set'].append( f'cntrlabel font "{contour_labels_font}"' )
+
     plotoptions['_3d']     = True
     plotoptions['_xrange'] = [0,             imagersize[0]]
     plotoptions['_yrange'] = [imagersize[1], 0]
@@ -481,7 +486,7 @@ def _options_heatmap_with_contours( # update these
               # - to make the contour labels
               _with=np.array(('image',
                               'lines nosurface',
-                              'labels boxed nosurface')))
+                              f'labels {contour_labels_styles} nosurface')))
 
 
 def show_projection_diff(models,
@@ -816,6 +821,9 @@ def show_projection_uncertainty(model,
                                 isotropic               = False,
                                 extratitle              = None,
                                 cbmax                   = 3,
+                                contour_increment       = None,
+                                contour_labels_styles   = 'boxed',
+                                contour_labels_font     = None,
                                 return_plot_args        = False,
                                 **kwargs):
     r'''Visualize the uncertainty in camera projection
@@ -901,6 +909,19 @@ ARGUMENTS
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
   map
 
+- contour_increment: optional value, defaulting to None. If given, this will be
+  used as the distance between adjacent contours. If omitted of None, a
+  reasonable value will be estimated
+
+- contour_labels_styles: optional string, defaulting to 'boxed'. The style of
+  the contour labels. This will be passed to gnuplot as f"with labels
+  {contour_labels_styles} nosurface". Can be used to box/unbox the label, set
+  the color, etc. To change the font use contour_labels_font.
+
+- contour_labels_font: optional string, defaulting to None, If given, this is
+  the font string for the contour labels. Will be passed to gnuplot as f'set
+  cntrlabel font "{contour_labels_font}"'
+
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
   then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
@@ -958,9 +979,11 @@ plot
         _options_heatmap_with_contours( # update these plot options
             kwargs,
 
-            cbmax, None,
+            cbmax, contour_increment,
             model.imagersize(),
-            gridn_width, gridn_height)
+            gridn_width, gridn_height,
+            contour_labels_styles = contour_labels_styles,
+            contour_labels_font   = contour_labels_font)
 
     plot_data_args = [(err, curveoptions)]
 
