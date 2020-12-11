@@ -45,5 +45,7 @@
          :publishing-function org-publish-attachment)
 
         ("website"
-         :components ("orgfiles" "css" "images"
+         :components ("orgfiles" "css"
+                      ;; "images"
+                      ;; I'm doing this manually for now
                       ))))
