@@ -357,14 +357,16 @@ residuals over all the observations, color-coded by their direction, ignoring
 the magnitudes:
 
 #+begin_src python
-show_residuals_directions(icam=0, unset='key')
+show_residuals_directions(icam=0, unset='key', valid_intrinsics_region = False)
 #+end_src
 
 #+begin_src python :exports none :eval no-export
 show_residuals_directions(icam=0, unset='key',
+                          valid_intrinsics_region = False,
                           hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_directions(icam=0, unset='key',
+                          valid_intrinsics_region = False,
                           _set    ='pointsize 0.5',
                           hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.pdf',
                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
@@ -573,16 +575,18 @@ show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
 Neat! The model fits the data in the corners now. And what about the residual directions?
 
 #+begin_src python
-show_residuals_directions(icam=0, unset='key')
+show_residuals_directions(icam=0, unset='key', valid_intrinsics_region = False)
 #+end_src
 
 [[file:figures/directions-splined.png]]
 
 #+begin_src python :exports none :eval no-export
 show_residuals_directions(icam=0, unset='key',
+                          valid_intrinsics_region = False,
                           hardcopy='~/jpl/mrcal/doc/figures/directions-splined.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_directions(icam=0, unset='key',
+                          valid_intrinsics_region = False,
                           _set    ='pointsize 0.5',
                           hardcopy='~/jpl/mrcal/doc/figures/directions-splined.pdf',
                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
