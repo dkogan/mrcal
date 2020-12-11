@@ -4,7 +4,7 @@
 #include <math.h>
 #include <stdbool.h>
 
-#include <minimath.h>
+#include "../minimath/minimath.h"
 
 #include "test-harness.h"
 

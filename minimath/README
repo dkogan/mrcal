@@ -1,0 +1,56 @@
+This is a copy of libminimath 0.7 from
+
+https://github.com/dkogan/libminimath
+
+
+
+
+This is a very simple C library to implement basic linear algebra routines for
+small matrices. Libraries such as BLAS are highly optimized for large matrices,
+but their overhead often makes them suboptimal for very small matrices. By
+contrast, this library has very simple, predefined functions for the various
+routines it supports. These functions are NOT at all optimized at the source
+level, but they are simple, and the C compiler can generally do a very good job
+optimizing these. All the routines are in a header, so the compiler is free to
+aggressively inline the code, as it sees fit. Supported are various ways to
+compute norms of vectors, multiply matrices and solve linear systems.
+
+The suffix of every function determines where its output goes. The ..._vout
+functions store their output in a new vector, generally given as the last
+argument. The ..._vaccum functions are the same except the output is added to
+the data already in that vector instead of overwriting. With neither of these
+suffixes, the functions store their output into the vector pointed to by the
+first argument. Many functions have ...._scaled flavors that can apply a scale
+factor to the given operation. The scale factor is in the last argument.
+
+Matrices are stored row-first. Dimensions are given col-first. Vectors are
+treated as row vectors. So for instance, a '3x2' matrix M stored in double[]
+{1.0, 2.0, 3.0, 4.0, 5.0, 6.0} implies
+
+    [ 1.0 2.0 ]
+M = [ 3.0 4.0 ]
+    [ 5.0 6.0 ]
+
+a 3-vector v = [ 11.0 12.0 13.0 ] can be multiplied by M to compute v*M using the
+
+mul_vec3_gen32_... family of functions.
+
+Example:
+
+#include <minimath.h>
+#include <stdio.h>
+int main(void)
+{
+  double M[] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+  double v[] = {11.0, 12.0, 13.0};
+
+  mul_vec3_gen32(v, M);
+  printf("%f %f\n", v[0], v[1]);
+  return 0;
+}
+
+
+
+C99-compliant compiler required.
+
+THIS LIBRARY IS UNDER DEVELOPMENT AND THE APIs MAY CHANGE AT ANY TIME

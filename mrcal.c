@@ -4,13 +4,13 @@
 #include <inttypes.h>
 
 #include <dogleg.h>
-#include <minimath.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
 
 #include "mrcal.h"
+#include "minimath/minimath.h"
 
 // These are parameter variable scales. They have the units of the parameters
 // themselves, so the optimizer sees x/SCALE_X for each parameter. I.e. as far

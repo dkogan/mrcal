@@ -2,7 +2,6 @@ Source: mrcal
 Priority: optional
 Section: devel
 Build-Depends: debhelper (>= 9), dh-python,
- libminimath-dev,
  libdogleg-dev (>= 0.15.3),
  libsuitesparse-dev (>= 1:4.1.0),
  pkg-config,

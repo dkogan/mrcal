@@ -11,6 +11,13 @@ The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/tree/master/mrbuild][b
 a dependency. Distributed under an MIT-style license. Copyright 2016-2019
 California Institute of Technology.
 
+* [[https://github.com/dkogan/libminimath][libminimath]]
+mrcal uses some tiny-matrix linear algebra routines implemented by this library.
+This is a header-only library, so we're not "linking" to it. I'm not modifying
+the sources, so using the LGPL here is fine, and doesn't trigger the copyleft
+provisions. Copyright 2011 Oblong Industries. This library is distributed under
+the terms of the GNU LGPL
+
 * opencv projection
 The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal.c#L747][opencv projection function]] is a cut-down implementation from the OpenCV
 project. Distributed under an BSD-style license. Copyright (C) 2000-2008, Intel

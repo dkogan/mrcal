@@ -16,6 +16,11 @@ CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 CCXXFLAGS += -ffast-math -mtune=native
 
+mrcal.o test/test-cahvor.o: minimath/minimath_generated.h
+minimath/minimath_generated.h: minimath/minimath_generate.pl
+	./$< > $@.tmp && mv $@.tmp $@
+EXTRA_CLEAN += minimath/minimath_generated.h
+
 DIST_INCLUDE += basic_geometry.h mrcal.h poseutils.h
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\

@@ -17,7 +17,6 @@ BuildRequires: suitesparse-devel >= 4.1.0
 BuildRequires: lapack-devel
 BuildRequires: python36-devel
 BuildRequires: python36-libs
-BuildRequires: libminimath-devel
 
 # I need to run the python stuff in order to build the manpages and to generate
 # the npsp wrappers
