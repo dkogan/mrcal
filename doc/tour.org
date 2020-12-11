@@ -653,7 +653,7 @@ expectation of a reliable projection.
 We just used the same chessboard observations to compute the intrinsics of a
 lens in two different ways:
 
-- Using a lean opencv8 lens model
+- Using a lean =LENSMODEL_OPENCV8= lens model
 - Using a rich splined-stereographic lens model
 
 And we saw evidence that the splined model will do a better job of representing
@@ -842,7 +842,7 @@ So let's compute it. We assume that the model of our system is correct, and that
 the fitted results are not perfect only because the input observations have some
 noise. As we have seen in the earlier solves, this assumption is much more valid
 with splined models than it is with all the lean models. We have seen that the
-residual distribution in the opencv8 solve has visible patterns (it is
+residual distribution in the =LENSMODEL_OPENCV8= solve has visible patterns (it is
 heteroscedactic), so there are unmodeled errors in that solve. The uncertainty
 analysis does /not/ take those errors into account, and the reported
 uncertainties will be overly-optimistic when using lean models.
@@ -861,7 +861,7 @@ test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-document
 test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-documentation-plots ~/jpl/mrcal/doc/figures/simulated-uncertainty-opencv4
 #+end_src
 
-Let's place 4 cameras using an opencv4 distortion model side by side, and let's
+Let's place 4 cameras using an =LENSMODEL_OPENCV4= distortion model side by side, and let's
 have them look at 50 chessboards, with randomized positions and orientations.
 The bulk of this is done by =mrcal.synthesize_board_observations()=. The
 synthetic geometry looks like this:
@@ -931,13 +931,13 @@ No. We didn't observe any chessboards there, so we really don't know how the
 lens behaves in that area. The uncertainty algorithm isn't wrong, but in this
 case it's not answering the question we really want answered. We're computing
 how the observation noise affects the calibration, including the lens parameters
-(opencv4 in this case). And then we compute how the noise in those lens
+(=LENSMODEL_OPENCV4= in this case). And then we compute how the noise in those lens
 parameters and geometry affects projection. In /this/ case we're using a very
 lean lens model. Thus this model is quite stiff, and this stiffness prevents the
 projection $\vec q$ from moving very far, which we then interpret as a
 relatively-low uncertainty of 0.8 pixels. Our choice of lens model itself is
 giving us low uncertainties. If we knew for a fact that the true lens is 100%
-representable by an opencv4 model, then this would be be correct, but that never
+representable by an =LENSMODEL_OPENCV4= model, then this would be be correct, but that never
 happens in reality. So *lean models always produce an overly-optimistic
 uncertainty estimate*.
 
@@ -978,11 +978,11 @@ truthful uncertainty reporting.
 :CUSTOM_ID: splined-model-uncertainties
 :END:
 
-We started this by calibrating a camera using an opencv8 model, and then again
+We started this by calibrating a camera using an =LENSMODEL_OPENCV8= model, and then again
 with a splined model. Let's look at the uncertainty of those solves using the
 handy =mrcal-show-projection-uncertainty= tool.
 
-First, the opencv8 solve:
+First, the =LENSMODEL_OPENCV8= solve:
 
 #+begin_src sh
 mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key
@@ -1008,7 +1008,7 @@ mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key
 
 [[file:figures/uncertainty-splined.png]]
 
-As expected, the splined model doesn't have the stiffness of opencv8, so we get
+As expected, the splined model doesn't have the stiffness of =LENSMODEL_OPENCV8=, so we get
 the less optimistic (but more realistic) uncertainties.
 
 * The effect of range in differencing and uncertainty computations
@@ -1043,7 +1043,7 @@ of this projection is /not/:
 [[file:figures/projection-scale-invariance.svg]]
 
 Let's look at the projection uncertainty at the center of the imager at
-different ranges for the opencv8 model we computed earlier:
+different ranges for the =LENSMODEL_OPENCV8= model we computed earlier:
 
 #+begin_src sh
 mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]'
@@ -1125,7 +1125,7 @@ computed by the =analyses/dancing/dance-study.py= tool. It generates synthetic
 data, scans a parameter, and produces the uncertainty-vs-range curves at the
 center to visualize the effect of that parameter.
 
-I run all of these studies using the opencv8 model computed above. It computes
+I run all of these studies using the =LENSMODEL_OPENCV8= model computed above. It computes
 faster than the splined model, and qualitatively produces the similar results.
 
 How many chessboard observations should we get?
