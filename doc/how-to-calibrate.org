@@ -441,25 +441,22 @@ Back to the sample image. In absolute terms, even this worst-fitting image fits
 residuals in this image look mostly reasonable. There is a bit of a pattern:
 errors point outwardly in the center, larger errors on the outside of the image,
 pointing mostly inward. This isn't clearly indicative of any specific problem,
-so there's nothing obvious to fix, so we move on. For reference, here's the worst
-image from another solve, when both focus and slight motion blur issues were
-present:
+so there's nothing obvious to fix, so we move on.
 
-#+ATTR_HTML: :width 70% :min-width 500px :max-width 900px
-[[file:figures/worst-opencv8-bias.png]]
+One issue with lean models such as =LENSMODEL_OPENCV8= is that the radial
+distortion is never quite right, especially as we move further and further away
+form the optical axis: this is the last point in the common-errors list above.
+We can clearly see this here in the 3rd-worst image:
 
-Here we see two distinct problems:
+#+begin_src python
+show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0)
+#+end_src
 
-- In the corners we get large errors that are dissimilar to the errors
-  elsewhere. This is due to the radial distortion model of [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]
-  misrepresenting reality when looking this far away from the optical axis.
-  =LENSMODEL_OPENCV8= can only project in front of the camera, and this lens is
-  so wide, observations in the corners have $p_z$ approaching 0, and $\vec P$
-  approaching infinity, so we would not expect things to work well in the
-  corners.
+[[file:figures/worst-incorner-opencv8.png]]
 
-- We see a much more clear systematic error pattern: the error vectors in any
-  given region largely all point in the same direction.
+/This/ is clearly a problem that should be addressed. Using a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]]
+instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour.org::#splined-stereographic-fit][tour of mrcal]].
 
 Another way to visualize the systematic errors in this solve is to examine the
 residuals over all observations, color-coded by their direction, ignoring the
@@ -476,7 +473,7 @@ noise, and no color pattern would be discernible in these dots. Here we can
 clearly see lots of green in the top-right and top and left, lots of blue and
 magenta in the center, yellow at the bottom, and so on. This is not random
 noise, and is a /very/ clear indication that this lens model is not able to fit
-this data. To see what happens when a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens models]] is used for this data
+this data. To see what happens when a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]] is used for this data
 instead of =LENSMODEL_OPENCV8=, see the [[file:tour.org::#splined-stereographic-fit][tour of mrcal]].
 
 It would be very nice to have a quantitative measure of these systematic
