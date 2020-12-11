@@ -993,7 +993,7 @@ def make_plot(icam, report_center_points = True, **kwargs):
 
     data_tuples = \
         make_tuple((q_sampled[:,icam,0], q_sampled[:,icam,1],
-                    dict(_with = 'points pt 6',
+                    dict(_with = 'points pt 6 ps 0.5',
                          tuplesize = 2)),
                    *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed uncertainty"),
                    *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
@@ -1066,9 +1066,11 @@ if args.make_documentation_plots is not None:
 
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
-                                             observations     = False,
-                                             distance         = args.distances[0],
-                                             return_plot_args = True) \
+                                             observations          = False,
+                                             distance              = args.distances[0],
+                                             contour_increment     = -0.4,
+                                             contour_labels_styles = '',
+                                             return_plot_args      = True) \
           for icam in range(args.Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
