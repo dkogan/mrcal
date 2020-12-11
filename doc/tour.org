@@ -1,15 +1,16 @@
 #+title: A tour of mrcal
 #+OPTIONS: toc:t
 
-mrcal is a general-purpose library that can do many things. The best way to
-convey a sense of the capabilities is to demonstrate some real-world usage
-scenarios. Let's go through a full calibration sequence starting with chessboard
-images, and eventually finishing with stereo processing.
+mrcal is a general-purpose toolkit that can solve a number of problems. The best
+way to convey a sense of the capabilities is to demonstrate some real-world
+usage scenarios. So let's go through a full calibration sequence starting with
+chessboard images, and eventually finishing with stereo processing. This page is
+a high-level overview; for more details, please see [[file:index.org][the main documentation]].
 
 All images have been gathered with a Nikon D750 SLR. I want to stress-test the
 system, so I'm using the widest lens I can find: a Samyang 12mm F2.8 fisheye
-lens. This lens has a ~ 180deg field of view corner to corner, and about 145deg
-field of view center-left to center-right.
+lens. This lens has a ~ 180deg field of view corner to corner, and about 150deg
+field of view horizontally.
 
 In these demos I'm using only one camera, so I'm going to run a /monocular/
 calibration to compute the intrinsics (the lens parameters). mrcal is fully able
@@ -17,25 +18,26 @@ to calibrate any N cameras at a time, I'm just using the one camera /here/.
 
 * Gathering chessboard corners
 
-We start by gathering images of a chessboard. This is a wide lens, so I need a
-large chessboard viewed up close in order to fill the imager. My chessboard has
-10x10 internal corners with a spacing of 7.7cm. A big chessboard such as this is
+We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. This is a wide lens, so I need a
+large chessboard in order to fill the imager. My chessboard has 10x10 internal
+corners with a corner-corner spacing of 7.7cm. A big chessboard such as this is
 never completely rigid or completely flat. I'm using a board backed with 2cm of
-foam, which keeps the shape stable over short periods of time. But the shape
-still drifts with changes in temperature and humidity, so mrcal estimates the
-chessboard shape as part of its calibration solve.
+foam, which keeps the shape stable over short periods of time, long-enough to
+complete a board dance. But the shape still drifts with changes in temperature
+and humidity, so mrcal estimates the [[file:formulation.org::#board-deformation][board shape]] as part of its calibration
+solve.
 
-When getting these close-up images, lens focus becomes an issue. If I'm
-eventually going to be using the lens to look at faraway objects, I will want to
-focus at ~ infinity. But at calibration time I'll be looking at a chessboard
-0.5m away, which implies a very different position of the focus ring. However,
-moving the focus ring could potentially break the computed intrinsics, so I
-really want to calibrate the lens in its final configuration.
+An important consideration when gathering calibration images is keeping them in
+focus. As we shall see [[#choreography][later]], we want to gather close-up images as much as
+possible, so depth-of-field is the limiting factor. Moving the focus ring or the
+aperture ring on the lens /may/ affect the intrinsics, so ideally a single lens
+setting can cover both the calibration-time closeups and the working distance
+(presumably much further out).
 
-So I set the focus to infinity, and gather all my images at F22 to increase the
-depth-of-field. To also avoid motion blur I need fast exposures, so I did all
-the image gathering outside. Doing this under artificial light would require
-extra care to not blur the images.
+So for these tests I set the focus to infinity, and gather all my images at F22
+to increase the depth-of-field as much as I can. To also avoid motion blur I
+need fast exposures, so I did all the image gathering outside, with bright
+natural lighting.
 
 The images live [[file:data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.17 to detect the [[file:data/board/corners.vnl][chessboard corners]]:
 
@@ -57,21 +59,22 @@ DSC_7374.JPG 1589.571471 1276.563664 1
 
 $ f=DSC_7374.JPG
 
-$ < corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | \
-  feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable'
+$ < corners.vnl \
+    vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | \
+  feedgnuplot --image $f --domain --square --tuplesizeall 3 \
+              --with 'points pt 7 ps variable'
 #+end_example
 
-#+ATTR_HTML: :width 80% :min-width 500px :max-width 900px
 [[file:figures/mrgingham-results.png]]
 
 #+begin_src sh :exports none :eval no-export
-< corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' --hardcopy /tmp/mrgingham-results.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+< corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' --hardcopy ~/jpl/mrcal/jpl/figures/mrgingham-results.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 So in this image many of the corners were detected at full-resolution (level-0),
-but some required downsampling for the detector to find them (shown as smaller
-circles). The downsampled points have less precision, so they are weighed less
-in the optimization. How many images produced successful corner detections?
+but some required downsampling for the detector to find them: shown as smaller
+circles. The downsampled points have less precision, so they are [[file:formulation.org::#noise-in-measurement-vector][weighed less
+in the optimization]]. How many images produced successful corner detections?
 
 #+begin_example
 $ < corners.vnl vnl-filter --has x -p filename --skipcomments | uniq | wc -l
@@ -99,23 +102,22 @@ captured at the same instant in time.
 :CUSTOM_ID: opencv8-model-solving
 :END:
 
-Let's calibrate the intrinsics! For a while the 8-parameter opencv lens model
-("opencv8" from now on) has been my default choice for wide lenses. This
-represents the radial "distortion" as a rational. If $\vec p$ is the
-camera-coordinate-system point being projected, we have
+Let's calibrate the intrinsics! We begin with [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]], a lean model
+that supports wide lenses decently well. Primarily it does this with a rational
+radial "distortion" model. Projecting $\vec p$ in the camera coordinate system:
 
 \begin{aligned}
 \vec P &\equiv \frac{\vec p_{xy}}{p_z} \\
 r &\equiv \left|\vec P\right|            \\
 \vec P_\mathrm{radial} &\equiv \frac{ 1 + k_0 r^2 + k_1 r^4 + k_4 r^6}{ 1 + k_5 r^2 + k_6 r^4 + k_7 r^6} \vec P \\
-\vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \vec P_\mathrm{tangential} \right) + \vec c_{xy}
+\vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \cdots \right) + \vec c_{xy}
 \end{aligned}
 
-Where $\vec P_\mathrm{tangential}$ is the unimportant (to this discussion)
-tangential distortion, $\vec q$ is the resulting projected pixel, $\vec f_{xy}$
+Where $\vec q$ is the resulting projected pixel, $\vec f_{xy}$
 is the focal lengths and $\vec c_{xy}$ is the center pixel of the imager.
 
-This usually does a reasonable job with wide-angle lenses. Let's try.
+Let's compute the calibration: the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool is the main
+frontend for that purpose.
 
 #+begin_example
 $ mrcal-calibrate-cameras        \
@@ -146,28 +148,27 @@ calobject_warp = [-0.00103983  0.00052493]
 Wrote ./camera-0.cameramodel
 #+end_example
 
-The resulting model is available [[file:data/board/opencv8.cameramodel][here]]. This is a [[file:cameramodels.org][mrcal =.cameramodel= file]]
-containing at least the lens parameters and geometry. For [[file:uncertainty.org][uncertainty
-quantification]] and potential after-the-fact analysis, the /full/ optimization
-inputs are included in this file. Reading and re-optimizing those inputs is
-trivial:
+The resulting model is available [[file:data/board/opencv8.cameramodel][here]]. This is a [[file:cameramodels.org][mrcal-native =.cameramodel=
+file]] containing at least the lens parameters and the geometry. For [[file:uncertainty.org][uncertainty
+quantification]] and for after-the-fact analysis, the /full/ optimization inputs
+are included in this file. Reading and re-optimizing those inputs is trivial:
 
 #+begin_src python
 import mrcal
 
-m = mrcal.cameramodel('./camera-0.cameramodel')
+m = mrcal.cameramodel('camera-0.cameramodel')
 optimization_inputs = m.optimization_inputs()
 mrcal.optimize(**optimization_inputs)
 model_reoptimized = \
   mrcal.cameramodel( optimization_inputs = m.optimization_inputs(), 
                      icam_intrinsics     = m.icam_intrinsics() )
+model_reoptimized.write('camera0-reoptimized.cameramodel')
 #+end_src
 
 Here we didn't make any changes to the inputs, and we should already have an
-optimal solution, so the re-optimized model should be the same as the initial
-one. But we can tweak optimization problem before reoptimizing, and this would
-give us an nice way to observe the effects of those changes. We can add input
-noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or anything else.
+optimal solution, so the re-optimized model is the same as the initial one. But
+we could add input noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or
+anything else, and we would then observe the effects of those changes.
 
 I'm specifying the initial very rough estimate of the focal length (in pixels),
 the geometry of my chessboard (10x10 board with 0.077m spacing between corners),
@@ -182,12 +183,17 @@ we can look around. Most visualizations can be made by running the
 some of the residual visualizations are only available inside the REPL at this
 time.
 
-Let's sanity-check the results. The tool reports some diagnostics. As we can
-see, the final RMS reprojection error was 0.8 pixels. Of the 18600 corner
-observations (186 observations of the board with 10*10 = 100 points each), 3
-didn't fit the model well, and were thrown out as outliers. And the board flex
-was computed as 1.0mm horizontally, and 0.5mm vertically in the opposite
-direction. That all sounds reasonable.
+The =--observed-pixel-uncertainty= is a rough estimate of the input pixel noise,
+used primarily for the [[#uncertainty][projection uncertainty]] reporting.
+
+Let's sanity-check the results. We want to flag down any issues with the data
+that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
+
+The tool reports some diagnostics. As we can see, the final RMS reprojection
+error was 0.8 pixels. Of the 18600 corner observations (186 observations of the
+board with 10*10 = 100 points each), 3 didn't fit the model well, and were
+thrown out as [[file:formulation.org::#outlier-rejection][outliers]]. And the [[file:formulation.org::#board-deformation][board flex]] was computed as 1.0mm horizontally,
+and 0.5mm vertically in the opposite direction. That all sounds reasonable.
 
 What does the solve think about our geometry? Does it match reality?
 
@@ -199,37 +205,80 @@ show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
 [[file:figures/calibration-chessboards-geometry.svg]]
 
 #+begin_src sh :exports none :eval no-export
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy /tmp/calibration-chessboards-geometry.svg
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/jpl/mrcal/jpl/figures/calibration-chessboards-geometry.svg
 #+end_src
 
-This displays all the cameras that have been calibrated in their final poses
-(here we have just one camera), and all the chessboards that were observed in
-/their/ final poses. The $x$,$y$ axes run with the camera pixels, and the $z$ axis
-points forward. As we can see, the chessboards were all right in front of the
-camera (0.5m - 1m out), many tilted quite heavily. This isn't an accident; much
-more on that later.
+We could also have used the [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool from the shell. All plots
+are interactive when executed from the REPL or from the shell. Here we see the
+[[file:formulation.org::#world-geometry][axes of our camera]] (purple) situated in the [[file:formulation.org::#world-geometry][reference coordinate system]]. In this
+solve, the camera coordinate system /is/ the reference coordinate system; this
+would look more interesting with more cameras. In front of the camera (along the
+$z$ axis) we can see the solved chessboard poses. There are a whole lot of them,
+and they're all sitting right in front of the camera with some heavy tilt. This
+matches with how this chessboard dance was performed (it was performed following
+the guidelines set by the [[file:tour.org::#choreography][dance study]]).
 
-The geometry is as expected. Past that, The most useful thing to examine is the
-residuals in the solve (the discrepancies between the observed chessboard
-corners, and their predictions based on the best-fitting model). Let's look at
-the worst-fitting image:
+Next, let's examine the residuals more closely. We have an overall RMS
+reprojection-error value from above, but let's look at the full distribution of
+errors for /all/ the cameras:
 
-#+begin_example
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
-#+end_example
+#+begin_src python
+show_residuals_histogram(icam = None, binwidth=0.1, _xrange=(-4,4), unset='key')
+#+end_src
+#+begin_src python :exports none :eval no-export
+show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
+                 unset   = 'key',
+                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-opencv8.svg',
+                 terminal='svg size 800,600 noenhanced solid dynamic font ",14"')
 
-[[file:figures/worst-opencv8.png]]
+show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
+                 unset   = 'key',
+                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-opencv8.pdf',
+                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
+#+end_src
+
+[[file:figures/residuals-histogram-opencv8.svg]]
+
+We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
+assumes. We do see this somewhat, but the central cluster is a bit
+over-populated. Not a ton to do about that, so I will claim this is
+close-enough. We see the normal distribution fitted to our data, and we see the
+normal distribution as predicted by the =--observed-pixel-uncertainty=. Our
+error distribution fits tighter than the distribution predicted by the input
+noise. This is expected for two reasons:
+
+- We don't actually know what =--observed-pixel-uncertainty= is; the value we're
+  using is a rough estimate
+- We're [[https://en.wikipedia.org/wiki/Overfitting][overfitting]]. If we fit a model using just a little bit of data, we would
+  overfit, the model would explain the noise in the data, and we would get very
+  low fit errors. As we get more and more data, this effect is reduced, and
+  eventually the data itself drives the solution, and the residual distribution
+  matches the distribution of input noise. /Here/ we never quite get there. But
+  this isn't a problem: we [[file:uncertainty.org][explicitly quantify our uncertainty]], so while we do
+  see some overfitting, we know exactly how much it affects the reliability of
+  our results. And we can act on that information.
+
+Let's look deeper. If there's anything really wrong with our data, then we
+should see it in the worst-fitting images. Let's ask the tool to see the worst
+one:
+
+#+begin_src python
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0)
+#+end_src
 
 #+begin_src python :exports none :eval no-export
 show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
-                                 hardcopy='/tmp/worst-opencv8.png',
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/figures/worst-opencv8.png',
                                  terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.25,
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/figures/worst-opencv8.pdf',
+                                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
-
-If there're any issues, they're often seen in this image. And since this is the
-worst-fitting chessboard observation, if it looks OK, we can declare victory,
-and move on.
+[[file:figures/worst-opencv8.png]]
 
 The residual vector for each chessboard corner in this observation is shown,
 scaled by a factor of 100 for legibility (the actual errors are tiny!) The
@@ -238,65 +287,87 @@ represents the weight given to that point. The weight is reduced for points that
 were detected at a lower resolution by the chessboard detector. Points thrown
 out as outliers are not shown at all.
 
+This is the worst-fitting image, so any data-gathering issues will show up in
+this plot.
+
 We look for any errors that look unreasonably large. And we look for patterns.
 In a perfect world, the model fits the observations, and the residuals display
 purely random noise. Any patterns in the errors indicate that the noise isn't
-random, and thus the model does /not/ fit. This would result in a bias when we
-eventually use this model for projection. This bias is an unmodeled source of
-error, so we /really/ want to push this down as far as we can. Getting rid of
-all such biases completely is usually impossible, but we should do our best.
+random, and thus the model does /not/ fit. This would violate the [[file:formulation.org::#noise-model][noise model]],
+and would result in a bias when we ultimately use this calibration for
+projection. This bias is an unmodeled source of error, so we /really/ want to
+push this down as far as we can. Getting rid of all such errors completely is
+usually impossible, but we should do our best.
 
-Common sources of bias:
+Common sources of unmodeled errors:
 
 - out-of focus images
 
 - images with motion blur
 
-- insufficiently-rich model (the model of the lens or of the chessboard shape or
-  anything else)
+- [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]] effects
 
 - synchronization errors
 
-When calibrating multiple cameras at the same time, sync errors show up very
-clearly. Out-of-sync images capture the chessboard at different locations, while
-the solve computes only a single pose. This pose will lie in-between the
-real-world poses, and this will be clearly visible as equal-and-opposite errors
-in the out-of-sync images.
+- chessboard detector failures
+
+- insufficiently-rich model (the model of the lens or of the chessboard shape or
+  anything else)
 
 Back to /this/ image. In absolute terms, even this worst-fitting image fits
 /really/ well. The RMS error of the errors in this image is 1.48 pixels. The
 residuals in this image look mostly reasonable. There is a bit of a pattern:
 errors point outwardly in the center, larger errors on the outside of the image,
-pointing mostly inward. This isn't clearly indicative of any specific cause, so
-we move on. For reference, here's the worst image from another solve, when both
-focus and slight motion blur issues were present:
+pointing mostly inward. This isn't great, but it's a small effect, so let's keep
+going.
 
-[[file:figures/worst-opencv8-bias.png]]
-
-Here we see two distinct problems:
-
-- In the corners we get large errors that are dissimilar to the errors
-  elsewhere. This is due to the radial distortion model of opencv8
-  misrepresenting reality when looking this far away from the optical axis.
-  Opencv8 can only project in front of the camera, and this lens is so wide,
-  observations in the corners have $p_z$ approaching 0, and $\vec P$ approaching
-  infinity, so we would not expect things to work well in the corners.
-
-- We see a much more clear systematic error pattern: the error vectors in any
-  given region largely all point in the same direction.
-
-Let's look at another way to visualize the systematic errors in this solve:
-let's look at all the residuals over all the observations, color-coded by their
-direction, ignoring the magnitudes:
+One issue with lean models such as =LENSMODEL_OPENCV8= is that the radial
+distortion is never quite right, especially as we move further and further away
+form the optical axis: this is the last point in the common-errors list above.
+We can clearly see this here in the 3rd-worst image:
 
 #+begin_src python
-show_residuals_directions(0, unset='key')
+show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0)
 #+end_src
 
 #+begin_src python :exports none :eval no-export
-show_residuals_directions(0, unset='key',
-                          hardcopy='/tmp/directions-opencv8.png',
+show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-opencv8.png',
+                                 terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.25,
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-opencv8.pdf',
+                                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
+#+end_src
+
+[[file:figures/worst-incorner-opencv8.png]]
+
+/This/ is clearly a problem. Which observation is this, so that we can come back to it later?
+
+#+begin_example
+print(i_observations_sorted_from_worst[2])
+
+---> 184
+#+end_example
+
+Let's look at the systematic errors in another way: let's look at all the
+residuals over all the observations, color-coded by their direction, ignoring
+the magnitudes:
+
+#+begin_src python
+show_residuals_directions(icam=0, unset='key')
+#+end_src
+
+#+begin_src python :exports none :eval no-export
+show_residuals_directions(icam=0, unset='key',
+                          hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_directions(icam=0, unset='key',
+                          _set    ='pointsize 0.5',
+                          hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.pdf',
+                          terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
 [[file:figures/directions-opencv8.png]]
@@ -305,17 +376,17 @@ As before, if the model fit the observations, the errors would represent random
 noise, and no color pattern would be discernible in these dots. Here we can
 clearly see lots of green in the top-right and top and left, lots of blue and
 magenta in the center, yellow at the bottom, and so on. This is not random
-noise.
+noise, and is a /very/ clear indication that this lens model is not able to fit
+this data.
 
-The green contour at the edge is the "valid-intrinsics region", a rough estimate
-indicating where the intrinsics are reliable. It is useful only approximately,
-/especially/ for parametric models such as opencv8.
+It would be very nice to have a quantitative measure of these systematic
+patterns. At this time mrcal doesn't provide an automated way to do that.
 
-Clearly there's some bias in this model. As we have seen, the errors here are
-all fairly small, but they become very important when doing precision work like,
-for instance, long-range stereo.
+Clearly there're unmodeled errors in this solve. As we have seen, the errors
+here are all fairly small, but they become very important when doing precision
+work like, for instance, long-range stereo.
 
-Let's fix that.
+Let's fix it.
 
 * Monocular calibration with a splined stereographic model
 :PROPERTIES:
@@ -324,41 +395,41 @@ Let's fix that.
 
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
 mrcal. To achive these, mrcal supports /splined/ models. At this time there's
-only a single representation supported: a /splined stereographic/ model. More
-will be added with time.
+only one representation supported: a [[file:lensmodels.org::#splined-stereographic-lens-model][/splined stereographic/ model]].
 
 ** Splined stereographic model definition
 :PROPERTIES:
 :CUSTOM_ID: splined-model-definition
 :END:
 
-The basis of a splined stereographic model is a stereographic projection. A
-world point that lies $\theta$ off the camera's projection axis projects to
-$\left|\vec q - \vec q_0\right| = 2 f \tan \frac{\theta}{2}$ pixels from the
-image center where $f$ is the focal length. Note that this representation
-supports projections behind the camera ($\theta > 90^\circ$) with a single
-singularity directly behind the camera. This is unlike the pinhole model, which
-has $\left|\vec q - \vec q_0\right| = f \tan \theta$, and projects to infinity as $\theta
-\rightarrow 90^\circ$.
+The basis of a splined stereographic model is a [[file:lensmodels.org::#stereographic][stereographic projection]]. In
+this projection, a point that lies an angle $\theta$ off the camera's optical
+axis projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan \frac{\theta}{2}$
+pixels from the imager center, where $f$ is the focal length. Note that this
+representation supports projections behind the camera ($\theta > 90^\circ$) with
+a single singularity directly behind the camera. This is unlike the pinhole
+model, which has $\left|\vec q - \vec q_0\right| = f \tan \theta$, and projects
+to infinity as $\theta \rightarrow 90^\circ$.
 
 Basing the new model on a stereographic projection lifts the inherent
-forward-view-only limitation of opencv8. To give the model enough flexibility to
-be able to represent any projection function I define two correction surfaces,
-which serve to adjust the stereographic projection to fit whatever projection
-behavior we want. I do this:
+forward-view-only limitation of =LENSMODEL_OPENCV8=. To give the model enough
+flexibility to be able to represent any projection function I define two
+correction surfaces, which serve to adjust the stereographic projection to fit
+whatever projection behavior we want.
 
 Let $\vec p$ be the camera-coordinate system point being projected. The angle
-off the projection axis is
+off the optical axis is
 
 \[ \theta \equiv \tan^{-1} \frac{\left| \vec p_{xy} \right|}{p_z} \]
 
-The normalized stereographic projection is
+The /normalized/ stereographic projection is
 
 \[ \vec u \equiv \frac{\vec p_{xy}}{\left| \vec p_{xy} \right|} 2 \tan\frac{\theta}{2} \]
 
-This initial projection operation collapses the 3D point $\vec p$ into a 2D
-point $\vec u$. I use this projection value to look-up an adjustment factor
-$\Delta \vec u$ using two splined surfaces: one for each of the two elements of
+This initial projection operation unambiguously collapses the 3D point $\vec p$
+into a 2D point $\vec u$. We then use $\vec u$ to look-up an
+adjustment factor $\Delta \vec u$ using two splined surfaces: one for each of
+the two elements of
 
 \[ \Delta \vec u \equiv
 \left[ \begin{aligned}
@@ -366,30 +437,23 @@ $\Delta \vec u$ using two splined surfaces: one for each of the two elements of
 \Delta u_y \left( \vec u \right)
 \end{aligned} \right] \]
 
-The parameters defining these surfaces comprise the parameters of this lens
-model. I use B-splines to represent the surfaces (quadratic and cubic are
-implemented at this time). These have optimization-friendly local support and
-sufficient continuity properties.
-
-Once we have the correction, we can define the rest of the projection function:
+We can then define the rest of the projection function:
 
 \[\vec q =
- \left( \begin{aligned}
+ \left[ \begin{aligned}
  f_x \left( u_x + \Delta u_x \right) + c_x \\
  f_y \left( u_y + \Delta u_y \right) + c_y
-\end{aligned} \right) \]
+\end{aligned} \right] \]
 
-Here $\vec f_{xy}$ and $\vec c_{xy}$ are the usual focal-length-in-pixels and
-imager-center parameters that all the other projection functions have. The user
-decides how much of the normalized $\vec u$ space we want to support. And the
-user decides how dense the spline should be.
+The parameters we can optimize are the spline control points and $f_x$, $f_y$,
+$c_x$ and $c_y$, the usual focal-length-in-pixels and imager-center values.
 
 ** Solving
 :PROPERTIES:
 :CUSTOM_ID: splined-model-solving
 :END:
 
-I run the same exact calibration as before, but using the richer model to
+Let's run the same exact calibration as before, but using the richer model to
 specify the lens:
 
 #+begin_example
@@ -422,53 +486,111 @@ The resulting model is available [[file:data/board/splined.cameramodel][here]].
 
 The lens model
 =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170= is the only
-difference in the command. Unlike =LENSMODEL_OPENCV8=, /this/ model has
+difference in the command. Unlike =LENSMODEL_OPENCV8=, /this/ model has some
 /configuration/ parameters: the spline order (we use cubic splines here), the
 spline density (here each spline surface has 30 x 20 knots), and the rough
-field-of-view (here we specify about 170 degrees horizontal field of view).
+horizontal field-of-view we support (we specify about 170 degrees horizontal
+field of view).
 
 There're over 1000 lens parameters here, but the problem is very sparse, so we
-can still process this in a reasonable time. Making this work faster would be
-great, but it's already reasonably fast for most usages.
+can still process this in a reasonable amount of time.
 
-The opencv8 solve had 3 points that fit so poorly, the solver threw them away as
+The =LENSMODEL_OPENCV8= solve had 3 points that fit so poorly, the solver threw them away as
 outliers. Here we have 0. The RMS reprojection error dropped from 0.8 pixels to
 0.6. The estimated chessboard shape stayed roughly the same. These are all what
 we hope to see.
 
+Let's look at the residual distribution in /this/ solve:
+
+#+begin_src python
+show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4), unset='key')
+#+end_src
+#+begin_src sh :exports none :eval no-export
+show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
+                 unset   = 'key',
+                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-splined.svg',
+                 terminal='svg size 800,600 noenhanced solid dynamic font ",14"')
+
+show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
+                 unset   = 'key',
+                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-splined.pdf',
+                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
+#+end_src
+
+[[file:figures/residuals-histogram-splined.svg]]
+
+This still has the nice bell curve, but the residuals are lower: the data fits
+better than before.
+
 Let's look at the worst-fitting single image in /this/ solve:
 
-#+begin_example
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
-#+end_example
+#+begin_src python
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0)
+#+end_src
 
 [[file:figures/worst-splined.png]]
 
 #+begin_src python :exports none :eval no-export
 show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
-                                 hardcopy='/tmp/worst-splined.png',
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/figures/worst-splined.png',
                                  terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/figures/worst-splined.pdf',
+                                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
-Interestingly, it is the same observations as with opencv8. All the errors are
-significantly smaller than before; the previous pattern is much less pronounced,
-but it still there. What do the residual directions tell us?
+Interestingly, the worst observation here is the same one we saw with
+=LENSMODEL_OPENCV8=. But all the errors are significantly smaller than before.
+The previous pattern is much less pronounced, but it still there. I don't know
+the cause conclusively. My suspicion is that the [[file:formulation.org::#board-deformation][board flex]] model isn't quite
+rich-enough. In any case, these errors are small, so let's proceed.
+
+What happens when we look at the image that showed a poor fit in the corner
+previously? It was observation 184.
 
 #+begin_src python
-show_residuals_directions(0, unset='key')
+show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
+                           cbmax = 5.0)
+#+end_src
+
+[[file:figures/worst-incorner-splined.png]]
+
+#+begin_src python :exports none :eval no-export
+show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
+                           cbmax = 5.0,
+                           hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-splined.png',
+                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
+                           cbmax = 5.0,
+                           hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-splined.pdf',
+                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
+#+end_src
+
+Neat! The model fits the data in the corners now. And what about the residual directions?
+
+#+begin_src python
+show_residuals_directions(icam=0, unset='key')
 #+end_src
 
 [[file:figures/directions-splined.png]]
 
 #+begin_src python :exports none :eval no-export
-show_residuals_directions(0, unset='key',
-                          hardcopy='/tmp/directions-splined.png',
+show_residuals_directions(icam=0, unset='key',
+                          hardcopy='~/jpl/mrcal/doc/figures/directions-splined.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_directions(icam=0, unset='key',
+                          _set    ='pointsize 0.5',
+                          hardcopy='~/jpl/mrcal/doc/figures/directions-splined.pdf',
+                          terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
-/Much/ better. If there is a pattern, I can't see it.
+/Much/ better than before. Maybe there's still a pattern, but it's not clearly
+discernible.
 
-We can also visualize the spline surfaces themselves. Here I'm using the
+We can also visualize the [[file:lensmodels.org::#splined-stereographic-lens-model][splined surfaces]] themselves. Here I'm using the
 commandline tool instead of a function in the =mrcal-calibrate-cameras= REPL.
 
 #+begin_src sh
@@ -478,22 +600,27 @@ mrcal-show-splined-model-surface --spline-index-domain data/board/splined.camera
 #+end_src
 
 $\Delta u_0$ looks like this:
+
 [[file:figures/splined-knots-x.png]]
 
 And $\Delta u_1$:
+
 [[file:figures/splined-knots-y.png]]
 
 Each X in the plot is a "knot" of the spline surface, a point where a control
 point value is defined. We're looking at the spline domain, so the axes of the
-plot are $u_0$ and $u_1$. This is a cubic spline, so the valid spline region
-starts one knot inside from the edge; this is shown as the green rectagle. Each
-$\vec u$ projects to some pixel coordinate $\vec q$ in some very nonlinear way,
-and I draw the bounds of the imager as the thick, purple curve. We want the
-imager bounds to lie entirely within the valid spline region. Looking at this
-plot, we can see that is indeed what happens. If the imager poked outside the
-valid spline region, we wouldn't be able to project anything to that slice of
-the image. The fix would be to increase the model field of view by adjusting the
-=fov_x_deg= values in the name of the lens model.
+plot are $u_0$ and $u_1$, and the knots are arranged in a regular grid. The
+region where the spline surface is well-defined begins at the 2nd knot from the
+edges; its boundary is shown as a thin green line. The boundary of the imager is
+shown as a thick, purple curve. Since each $\vec u$ projects to a pixel
+coordinate $\vec q$ in some very nonlinear way, this curve is very much not
+straight. We can also see irregular spline behavior outside of the imager
+bounds: we couldn't observe chessboards there, so the spline there is driven
+entirely by [[file:lensmodels.org::#splined-model-regularization][regularization]], and not by the data.
+
+We want the imager bounds to lie entirely within the valid spline region, and
+that happens here. If the imager poked outside the valid spline region, we
+wouldn't be able to project anything into that slice of the image.
 
 Alternately, I can look at the spline surface as a function of the pixel
 coordinates. Just for $\Delta u_0$:
@@ -505,23 +632,18 @@ mrcal-show-splined-model-surface splined.cameramodel --set 'cbrange [-.1:.1]' x 
 [[file:figures/splined-knots-pixel-domain-x.png]]
 
 #+begin_src sh :exports none :eval no-export
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/jpl/figures/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy /tmp/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/jpl/figures/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 #+end_src
 
-Now the imager boundary is a nice rectangle, but the valid spline region is a
-curve. Here we can also see an [[file:lensmodels.org::#splined-non-monotonicity][ugly feature of the current representation]]: since
-the correction $\Delta \vec u$ uses $\vec u$ to index the splined surface, the
-resulting projection function is allowed to be non-monotonic. This results in
-very odd-looking behavior at the edges:
+Now the imager boundary is a nice rectangle, but the valid spline region is
+complex curve. As we saw, this region is subject to the irregular spline
+behavior, so we get the irregular behavior beyond the imager.
 
-- wildly jumping knot positions at the edges (as seen in the scary-looking
-  valid-spline region bounds in this plot)
-- extreme values of the spline surface at the edges (as seen in the yellow/black
-  blobs in the previous plots)
-
-It would be nice to fix these, but they cause no obvious practical ill effects.
+This scary-looking behavior is a [[file:lensmodels.org::#splined-non-monotonicity][side-effect of the current representation]], but
+it is benign: the questionable projections lie in regions where we have no
+expectation of a reliable projection.
 
 * Differencing
 :PROPERTIES:
