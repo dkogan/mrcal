@@ -363,11 +363,12 @@ show_residuals_directions(icam=0, unset='key', valid_intrinsics_region = False)
 #+begin_src python :exports none :eval no-export
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
+                          _set    ='pointsize 0.5',
                           hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
-                          _set    ='pointsize 0.5',
+                          _set    ='pointsize 0.25',
                           hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.pdf',
                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
@@ -583,11 +584,12 @@ show_residuals_directions(icam=0, unset='key', valid_intrinsics_region = False)
 #+begin_src python :exports none :eval no-export
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
+                          _set    ='pointsize 0.5',
                           hardcopy='~/jpl/mrcal/doc/figures/directions-splined.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
-                          _set    ='pointsize 0.5',
+                          _set    ='pointsize 0.25',
                           hardcopy='~/jpl/mrcal/doc/figures/directions-splined.pdf',
                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
