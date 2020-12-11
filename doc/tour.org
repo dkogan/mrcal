@@ -1030,19 +1030,18 @@ the less optimistic (but more realistic) uncertainty reports.
 
 * The effect of range in differencing and uncertainty computations
 
-Earlier I talked about how we compute the diff between two models and about how
-we compute uncertainties. There was one important detail common to both those
-computations that I glossed over earlier, and that I would like to revisit now.
-A reminder:
+Earlier I talked about model [[#differencing][differencing]] and estimation of [[#uncertainty][projection
+uncertainty]]. In both cases I glossed over one important detail that I would like
+to revisit now. A refresher:
 
 - To compute a diff, I unproject $\vec q_0$ to a point in space $\vec p$ (in
   camera coordinates), transform it, and project that back to the other camera
   to get $\vec q_1$
 
 - To compute an uncertainty, I unproject $\vec q_0$ to (eventually) a point in
-  space $\vec p$ (in some global coordinate system), then project it back,
-  propagating all the uncertanties of all the quantities used to compute the
-  transformations and projection.
+  space $\vec p_\mathrm{fixed}$ (in some fixed coordinate system), then project
+  it back, propagating all the uncertanties of all the quantities used to
+  compute the transformations and projection.
 
 The significant part is the specifics of "unproject $\vec q_0$". Unlike a
 projection operation, an /unprojection/ is ambiguous: given some
@@ -1063,7 +1062,8 @@ Let's look at the projection uncertainty at the center of the imager at
 different ranges for the =LENSMODEL_OPENCV8= model we computed earlier:
 
 #+begin_src sh
-mrcal-show-projection-uncertainty --vs-distance-at center opencv8.cameramodel --set 'yrange [0:0.3]'
+mrcal-show-projection-uncertainty --vs-distance-at center \
+                                  opencv8.cameramodel --set 'yrange [0:0.3]'
 #+end_src
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
@@ -1082,13 +1082,13 @@ looking at the projection of a fixed point into a camera whose position is
 uncertain. As we get closer to the origin of the camera, the noise in the camera
 position dominates the projection, and the uncertainty shoots to infinity.
 
-What controls the range where we see the uncertainty optimum? The range where we
+What controls the range where we see the lowest uncertainty? The range where we
 observed the chessboards. I will prove this conclusively in the next section. It
 makes sense: the lowest uncertainty corresponds to the region where we have the
 most information.
 
 What controls the uncertainty at infinity? I don't have an intuitive answer, but
-we'll get a sense from experiments in the next section.
+we'll get a good sense from experiments in the next section.
 
 This is a very important effect to characterize. In many applications the range
 of observations at calibration time will vary significantly from the working
