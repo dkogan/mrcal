@@ -990,7 +990,7 @@ handy =mrcal-show-projection-uncertainty= tool.
 First, the =LENSMODEL_OPENCV8= solve:
 
 #+begin_src sh
-mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key
+mrcal-show-projection-uncertainty opencv8.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
@@ -1003,7 +1003,7 @@ mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key
 And the splined solve:
 
 #+begin_src sh
-mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key
+mrcal-show-projection-uncertainty splined.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
@@ -1051,7 +1051,7 @@ Let's look at the projection uncertainty at the center of the imager at
 different ranges for the =LENSMODEL_OPENCV8= model we computed earlier:
 
 #+begin_src sh
-mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]'
+mrcal-show-projection-uncertainty --vs-distance-at center opencv8.cameramodel --set 'yrange [0:0.3]'
 #+end_src
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
