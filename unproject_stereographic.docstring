@@ -8,6 +8,10 @@ SYNOPSIS
 
     # v is now a (N,3) array of observation directions. v are not normalized
 
+
+This is a special case of mrcal.unproject(). Useful as part of data analysis,
+not to represent any real-world lens.
+
 Given a (N,2) array of pixel coordinates and parameters of a perfect
 stereographic camera, this function computes the inverse projection, optionally
 with gradients. No actual lens ever follows this model exactly, but this is
