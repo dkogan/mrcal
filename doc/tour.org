@@ -1138,9 +1138,9 @@ document because they're too good to see this clearly.
 
 Now that we know how to measure calibration quality and what to look for, we can
 run some studies to figure out what makes a good chessboard dance. These are all
-computed by the =analyses/dancing/dance-study.py= tool. It generates synthetic
+computed by the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/analyses/dancing/dance-study.py][=analyses/dancing/dance-study.py=]] tool. It generates synthetic
 data, scans a parameter, and produces the uncertainty-vs-range curves at the
-center to visualize the effect of that parameter.
+imager center to visualize the effect of that parameter.
 
 I run all of these studies using the =LENSMODEL_OPENCV8= model computed above. It computes
 faster than the splined model, and qualitatively produces the similar results.
@@ -1148,8 +1148,9 @@ faster than the splined model, and qualitatively produces the similar results.
 How many chessboard observations should we get?
 
 #+begin_src sh
-dance-study.py --scan Nframes --Ncameras 1 --Nframes 20,200 --range 0.5 board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --ymax 1
+dance-study.py --scan Nframes --Ncameras 1 --Nframes 20,200 --range 0.5 \
+               --observed-pixel-uncertainty 2 --ymax 1 \
+               board/opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-Nframes.svg]]
@@ -1168,8 +1169,9 @@ diminishing returns at ~ 100 frames.
 OK. How close should the chessboards be?
 
 #+begin_src sh
-dance-study.py --scan range --Ncameras 1 --Nframes 100 --range 0.4,10 board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2
+dance-study.py --scan range --Ncameras 1 --Nframes 100 --range 0.4,10 \
+               --observed-pixel-uncertainty 2 \
+               board/opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-range.svg]]
@@ -1183,8 +1185,9 @@ Alrighty. Should the chessboards be shown head-on, or should they be tilted?
 
 #+begin_src sh
 dance-study.py --scan tilt_radius --tilt-radius 0,80 --Ncameras 1 --Nframes 100 \
-               --range 0.5 board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5
+               --range 0.5 \
+               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 \
+               board/opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-tilt_radius.svg]]
@@ -1221,9 +1224,9 @@ parameters and constraints.
 
 #+begin_src sh
 dance-study.py --scan Ncameras --Ncameras 1,8 --camera-spacing 0 --Nframes 100 \
-               --range 0.5 board/opencv8.cameramodel \
-               --ymax 0.4 --uncertainty-at-range-sampled-max 10 \
-               --observed-pixel-uncertainty 2
+               --range 0.5 --ymax 0.4 --uncertainty-at-range-sampled-max 10 \
+               --observed-pixel-uncertainty 2 \
+               board/opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-Ncameras.svg]]
@@ -1252,9 +1255,10 @@ data to work with. This expectation is correct:
 
 #+begin_src sh
 dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 \
-               --object-width-n 5,30 board/opencv8.cameramodel \
+               --object-width-n 5,30 \
                --uncertainty-at-range-sampled-max 30 \
-               --observed-pixel-uncertainty 2
+               --observed-pixel-uncertainty 2 \
+               board/opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-object_width_n.svg]]
@@ -1268,8 +1272,9 @@ imager. We expect that this would improve the things:
 
 #+begin_src sh
 dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
-               --object-spacing 0.04,0.20 board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2
+               --object-spacing 0.04,0.20 \
+               --observed-pixel-uncertainty 2 \
+               board/opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-object_spacing.svg]]
@@ -1283,9 +1288,10 @@ in?
 
 #+begin_src sh
 dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
-               --object-spacing 0.04,0.20 board/opencv8.cameramodel \
+               --object-spacing 0.04,0.20 \
                --observed-pixel-uncertainty 2 --scan-object-spacing-compensate-range \
-               --ymax 20 --uncertainty-at-range-sampled-max 200
+               --ymax 20 --uncertainty-at-range-sampled-max 200 \
+               board/opencv8.cameramodel
 #+end_src
 
 [[file:figures/dance-study-scan-object_spacing-compensated-range.svg]]
@@ -1306,6 +1312,11 @@ None of these are surprising, but it's good to see the effects directly from the
 data. And we now know /exactly/ how much value we get out of each additional
 observation or an extra little bit of board tilt or some extra chessboard
 corners.
+
+Before moving on, I should say that these are very conclusive results
+/qualitatively/. But specific recommendations about how to dance and what kind
+of board to use very, depending on the specific kind of lens and geometry. Rerun
+these studies for your use cases, if conclusive results are needed.
 
 #+begin_src sh :exports none :eval no-export
 # how did I make all these? full commands:
