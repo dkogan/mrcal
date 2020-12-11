@@ -94,16 +94,19 @@ by a command like this:
     model0.cameramodel model1.cameramodel 'image*-cam0.jpg' 'image*-cam1.jpg'
 
 This maps observations of a given plane in camera0 coordinates to where this
-plane would be observed in camera1 coordinates. This uses ALL the intrinsics,
-extrinsics and the plane representation. If all of these are correct, the
-observations of this plane would line up exactly in the remapped-camera0 image
-and the camera1 image. The plane is represented in camera0 coordinates by a
-normal vector given by --plane-n, and the distance to the normal given by
-plane-d. The plane is all points p such that inner(p,planen) = planed. planen
-does not need to be normalized.
+plane would be observed in camera1 coordinates. This requires both models to be
+passed-in. And ALL the intrinsics, extrinsics and the plane representation are
+used. If all of these are correct, the observations of this plane would line up
+exactly in the remapped-camera0 image and the camera1 image. The plane is
+represented in camera0 coordinates by a normal vector given by --plane-n, and
+the distance to the normal given by plane-d. The plane is all points p such that
+inner(p,planen) = planed. planen does not need to be normalized. This mode does
+not require --to-pinhole, but it makes the computations run much faster, as
+before.
 
-If 2 camera models are given, we use the rotation component of the extrinsics,
-unless --intrinsics-only. The translation is always ignored.
+In the non-plane-remapping modes, if 2 camera models are given, we use the
+rotation component of the extrinsics, unless --intrinsics-only. The translation
+is always ignored.
 
 If --to-pinhole, then we generate a pinhole model, that is written to standard
 output. By default, the focal length of this pinhole model is the same as that
