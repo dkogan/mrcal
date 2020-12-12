@@ -65,6 +65,9 @@ make %{?_smp_mflags}
 rm -rf $RPM_BUILD_ROOT
 %make_install
 
+%check
+make test
+
 %files
 %doc
 %{_bindir}/*
