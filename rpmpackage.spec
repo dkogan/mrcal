@@ -26,6 +26,12 @@ BuildRequires: opencv-python36
 BuildRequires: python36-scipy
 BuildRequires: python36
 
+# some tests shell out to vnl-filter
+BuildRequires: vnlog
+
+# for minimath
+BuildRequires: perl-List-MoreUtils
+
 Requires: numpysane >= 0.29-1
 Requires: gnuplotlib >= 0.36
 Requires: opencv-python36
