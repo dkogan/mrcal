@@ -1939,6 +1939,7 @@ void project( // out
                                    lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
                                    lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
                                    precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u);
+            // WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context
             if(dq_dintrinsics_pool_int != NULL)
             {
                 *(dq_dintrinsics_pool_int++) = ivar0;
@@ -2614,7 +2615,7 @@ bool _mrcal_unproject_internal( // out
         }
 
 
-#warning "This should go away. For some reason it makes unproject() converge better, and it makes the tests pass. But it's not even right!"
+        // WARNING: This should go away. For some reason it makes unproject() converge better, and it makes the tests pass. But it's not even right!
 #if 0
         out->xyz[0] = (q[i].x-cx)/fx;
         out->xyz[1] = (q[i].y-cy)/fy;
@@ -3574,6 +3575,8 @@ void optimizer_callback(// input state
     // subset of my data. I reconstitute the intrinsics and extrinsics here.
     // I do the frame poses later. This is a good way to do it if I have few
     // cameras. With many cameras (this will be slow)
+
+    // WARNING: sparsify this. This is potentially a BIG thing on the stack
     double intrinsics_all[ctx->Ncameras_intrinsics][ctx->Nintrinsics];
     mrcal_pose_t camera_rt[ctx->Ncameras_extrinsics];
 
@@ -4077,7 +4080,7 @@ void optimizer_callback(// input state
             point_ref = ctx->points[i_point];
 
 
-#warning "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
+        // WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
         double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics)];
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy                             = NULL;
@@ -4681,8 +4684,6 @@ bool mrcal_optimizer_callback(// out
         Nobservations_board *
         calibration_object_width_n*calibration_object_height_n;
 
-#warning "Outliers only work with board observations for now. Point outliers could be implemented without a lot of trouble now"
-
     const callback_context_t ctx = {
         .intrinsics                 = intrinsics,
         .extrinsics_fromref         = extrinsics_fromref,
@@ -4822,7 +4823,6 @@ mrcal_optimize( // out
     dogleg_getDefaultParameters(&dogleg_parameters);
     dogleg_parameters.dogleg_debug = verbose ? DOGLEG_DEBUG_VNLOG : 0;
 
-#warning update these parameters
     // These were derived empirically, seeking high accuracy, fast convergence
     // and without serious concern for performance. I looked only at a single
     // frame. Tweak them please
@@ -4838,8 +4838,6 @@ mrcal_optimize( // out
     const int Npoints_fromBoards =
         Nobservations_board *
         calibration_object_width_n*calibration_object_height_n;
-
-#warning "outliers only work with board observations for now"
 
     callback_context_t ctx = {
         .intrinsics                 = intrinsics,
@@ -4938,7 +4936,6 @@ mrcal_optimize( // out
     {
         stats.Noutliers = 0;
 
-#warning "outliers for board observations only"
         int Nfeatures =
             Nobservations_board *
             calibration_object_width_n *
@@ -4950,7 +4947,6 @@ mrcal_optimize( // out
         if(verbose)
         {
             ctx.reportFitMsg = "Before";
-#warning hook this up
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
         }
         ctx.reportFitMsg = NULL;
@@ -5017,7 +5013,6 @@ mrcal_optimize( // out
 #endif
 
             ctx.reportFitMsg = "After";
-#warning hook this up
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
             if(problem_selections.do_apply_regularization)
             {
