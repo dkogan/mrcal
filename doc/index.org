@@ -16,7 +16,9 @@ results really are.
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
 toolkit.
 
-Before using mrcal in any way, it is helpful to read about the [[file:conventions.org][terminology and
+First, the tools should be [[file:install.org][built or installed]].
+
+Before using the tools, it is helpful to read about the [[file:conventions.org][terminology and
 conventions]] used in the sources and documentation.
 
 At the core of a calibration routine is an optimization problem. Details about
@@ -31,7 +33,7 @@ After running a calibration, the camera models are written to [[file:cameramodel
 
 We can then use these files with a number of [[file:commandline-tools.org][command-line tools]]. In particular,
 we can [[file:differencing.org][compare the projection behaviors of different models]]. And we can [[file:uncertainty.org][compute
-the projection uncertainty]] of a model.
+the projection uncertainties]] of a model.
 
 If we need to do something more than what the pre-made tools can do, there're
 two sets programmatic interfaces available:
