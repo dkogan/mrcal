@@ -5066,7 +5066,8 @@ mrcal_optimize( // out
         memcpy(x_final, solver_context->beforeStep->x, ctx.Nmeasurements*sizeof(double));
 
  done:
-    dogleg_freeContext(&solver_context);
+    if(solver_context != NULL)
+        dogleg_freeContext(&solver_context);
 
     return stats;
 }
