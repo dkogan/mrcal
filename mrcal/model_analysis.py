@@ -327,9 +327,13 @@ report a full Rt transformation with the t component set to 0
                                            # Especially for
                                            # very-nearly-identical rotations.
                                            # This is tested by diffing the same
-                                           # model in test-projection-diff.py
-                                           # requires scipy >= 1.3.0
-                                           gtol = None,
+                                           # model in test-projection-diff.py.
+                                           # I'd like to set this to None to
+                                           # disable the comparison entirely,
+                                           # but that requires scipy >= 1.3.0.
+                                           # So instead I set the threshold so
+                                           # low that it's effectively disabled
+                                           gtol = np.finfo(float).eps,
                                            verbose=0)
         Rt = np.zeros((4,3), dtype=float)
         Rt[:3,:] = mrcal.R_from_r(res.x)
@@ -355,9 +359,13 @@ report a full Rt transformation with the t component set to 0
                                            # Especially for
                                            # very-nearly-identical rotations.
                                            # This is tested by diffing the same
-                                           # model in test-projection-diff.py
-                                           # requires scipy >= 1.3.0
-                                           gtol = None)
+                                           # model in test-projection-diff.py.
+                                           # I'd like to set this to None to
+                                           # disable the comparison entirely,
+                                           # but that requires scipy >= 1.3.0.
+                                           # So instead I set the threshold so
+                                           # low that it's effectively disabled
+                                           gtol = np.finfo(float).eps )
         return mrcal.Rt_from_rt(res.x)
 
 
