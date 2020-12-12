@@ -32,6 +32,9 @@ BuildRequires: vnlog
 # for minimath
 BuildRequires: perl-List-MoreUtils
 
+# for mrbuild
+BuildRequires: chrpath
+
 Requires: numpysane >= 0.29-1
 Requires: gnuplotlib >= 0.36
 Requires: opencv-python36
