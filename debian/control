@@ -17,7 +17,7 @@ Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
 Vcs-Git: git@github.jpl.nasa.gov:maritime-robotics/mrcal.git
 Vcs-Browser: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
 
-Package: libmrcal0
+Package: libmrcal1
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -31,7 +31,7 @@ Description: Calibration and SFM library
 
 Package: mrcal
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal1 (= ${binary:Version}),
          python3-mrcal (= ${binary:Version}), python,
          python3-gnuplotlib (>= 0.36-1), python3-numpysane (>= 0.29-1),
          python3-scipy,  python3-ipython,
@@ -48,7 +48,7 @@ Package: libmrcal-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends}, libmrcal0 (= ${binary:Version})
+Depends: ${misc:Depends}, libmrcal1 (= ${binary:Version})
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
@@ -60,7 +60,7 @@ Package: python3-mrcal
 Section: python
 Architecture: any
 Multi-Arch: same
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal0 (= ${binary:Version}),
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal1 (= ${binary:Version}),
          ${python3:Depends},
          python3-gnuplotlib, python3-numpysane (>= 0.29-1),
          python3-scipy,  python3-ipython, python3-shapely
