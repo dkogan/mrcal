@@ -38,7 +38,7 @@ dependencies are more recent than the usual packages, so you need to enable the
 
 #+begin_src sh
 < /etc/yum.repos.d/mrbuild-main.repo \
-  perl -p -i -e 's/main/backports/g' \
+  perl -p -e 's/main/backports/g' \
 > /etc/yum.repos.d/mrbuild-backports.repo
 #+end_src
 
@@ -84,7 +84,7 @@ Otherwise, tell the build about where the built =libdogleg= is:
 
 #+begin_src sh
 LIBDOGLEGDIR=....
-=CFLAGS=-I$LIBDOGLEGDIR LDFLAGS="-L$LIBDOGLEGDIR -Wl,-rpath=$LIBDOGLEGDIR"  make
+CFLAGS=-I$LIBDOGLEGDIR LDFLAGS="-L$LIBDOGLEGDIR -Wl,-rpath=$LIBDOGLEGDIR"  make
 #+end_src
 
 If that works, the test suite should all pass:
