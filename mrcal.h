@@ -421,11 +421,11 @@ typedef struct
     // If true, solve for the poses of the calibration object
     bool do_optimize_frames                 : 1;
 
-    // If true, apply the regularization terms in the solver
-    bool do_apply_regularization            : 1;
-
     // If true, optimize the shape of the calibration object
     bool do_optimize_calobject_warp         : 1;
+
+    // If true, apply the regularization terms in the solver
+    bool do_apply_regularization            : 1;
 
     // Whether to try to find NEW outliers. The outliers given on
     // input are respected regardless
