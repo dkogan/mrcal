@@ -47,12 +47,19 @@ else:
     Rt_stereo_ref  = mrcal.compose_Rt( mrcal.invert_Rt(Rt_cam0_stereo),
                                       Rt_cam0_ref )
     rt_stereo_ref  = mrcal.rt_from_Rt(Rt_stereo_ref)
-    mrcal.show_geometry( models + [ rt_stereo_ref ],
-                         ( "camera0", "camera1", "stereo" ),
-                         show_calobjects = False,
-                         _set            = ('xyplane at -0.5',
-                                            'view 60,30,1.7'),
-                         hardcopy        = f'/tmp/stereo-geometry-{kind}.svg')
+
+    terminal = dict(pdf = 'pdf size 8in,6in       noenhanced solid color      font ",12"',
+                    svg = 'svg size 800,600       noenhanced solid dynamic    font ",14"',
+                    png = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"',
+                    gp  = 'gp')
+    for extension in terminal.keys():
+        mrcal.show_geometry( models + [ rt_stereo_ref ],
+                             ( "camera0", "camera1", "stereo" ),
+                             show_calobjects = False,
+                             _set            = ('xyplane at -0.5',
+                                                'view 60,30,1.7'),
+                             terminal        = terminal[extension],
+                             hardcopy        = f'/tmp/stereo-geometry-{kind}.{extension}')
 
     # Generate the rectified images, and write to disk
     images_rectified = [mrcal.transform_image(images[i], rectification_maps[i]) for i in range(2)]
