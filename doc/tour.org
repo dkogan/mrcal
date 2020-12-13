@@ -930,7 +930,7 @@ Now that we validated the relatively quick-to-compute
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] estimates, let's use them to compute
 uncertainty maps across the whole imager, not just at a single point:
 
-[[file:figures/simulated-uncertainty-opencv4--uncertainty-wholeimage.svg]]
+[[file:figures/simulated-uncertainty-opencv4--uncertainty-wholeimage-noobservations.svg]]
 
 As expected, we see that the sweet spot is different for each camera, and it
 tracks the location of the chessboard observations. And we can see that the
@@ -973,11 +973,22 @@ test/test-projection-uncertainty.py --fixed cam0 --model splined \
 test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots ~/jpl/mrcal/doc/figures/simulated-uncertainty-splined
 #+end_src
 
-[[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage.svg]]
+[[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations.svg]]
 
 As expected, the reported uncertainties are now far worse. In fact, we can see
 that only the first camera's projection is truly reliable at the
 $\color{red}{\ast}$. This is representative of reality.
+
+To further clarify where the uncertainty region comes from, let's overlay the
+chessboard observations onto it:
+
+[[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage-observations.svg]]
+
+The connection between the usable-projection region and the observed-chessboards
+region is undisputable. This plot also sheds some light on the effects of spline
+density. If we had a denser spline, some of the gaps in-between the chessboard
+observations would show up as poor-uncertainty regions. This hasn't yet been
+studied on real-world data.
 
 Given all this I will claim that we want to use splined models in most
 situations, even for long lenses which roughly follow the pinhole model. The
