@@ -894,14 +894,15 @@ observations. So we run 100 randomized trials, where each time we
 - add a bit of noise to the observations
 - compute the calibration
 - look at what happens to the projection of an arbitrary point $\vec q$ on the
-  imager: the marked * in the plots above
+  imager: the marked $\color{red}{\ast}$ in the plots above
 
-A very confident calibration has low $\mathrm{Var}\left(\vec q\right)$, and projections would be
-insensitive to observation noise: the * wouldn't move very much when we add
-input noise. By contrast, a poor calibration would have high uncertainty, and
-the * would move quite a bit due to random observation noise.
+A very confident calibration has low $\mathrm{Var}\left(\vec q\right)$, and
+projections would be insensitive to observation noise: the $\color{red}{\ast}$
+wouldn't move very much when we add input noise. By contrast, a poor calibration
+would have high uncertainty, and the $\color{red}{\ast}$ would move quite a bit
+due to random observation noise.
 
-Let's run the trials, following the reprojection of *. Let's plot the empirical
+Let's run the trials, following the reprojection of $\color{red}{\ast}$. Let's plot the empirical
 1-sigma ellipse computed from these samples, and let's also plot the 1-sigma
 ellipse predicted by the [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] routine. This is the
 routine that implements the scheme described above. It is analytical, and does
@@ -932,14 +933,14 @@ uncertainty maps across the whole imager, not just at a single point:
 [[file:figures/simulated-uncertainty-opencv4--uncertainty-wholeimage.svg]]
 
 As expected, we see that the sweet spot is different for each camera, and it
-tracks the location of the chessboard observations. And we can see that the * is
-in the sweet spot only in the first camera.
+tracks the location of the chessboard observations. And we can see that the
+$\color{red}{\ast}$ is in the sweet spot only in the first camera.
 
 Let's focus on the last camera. Here the chessboard observations were nowhere
 near the focus point, and we reported an expected reprojection error of ~0.8
 pixels. This is significantly worse than the other cameras, but it's not
 terrible. If an error of 0.8 pixels is acceptable for our application, could we
-use that calibration result to project points around the *?
+use that calibration result to project points around the $\color{red}{\ast}$?
 
 No. We didn't observe any chessboards there, so we really don't know how the
 lens behaves in that area. The uncertainty algorithm isn't wrong, but in this
@@ -975,8 +976,8 @@ test/test-projection-uncertainty.py --fixed cam0 --model splined --make-document
 [[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage.svg]]
 
 As expected, the reported uncertainties are now far worse. In fact, we can see
-that only the first camera's projection is truly reliable at the *. This is
-representative of reality.
+that only the first camera's projection is truly reliable at the
+$\color{red}{\ast}$. This is representative of reality.
 
 Given all this I will claim that we want to use splined models in most
 situations, even for long lenses which roughly follow the pinhole model. The
