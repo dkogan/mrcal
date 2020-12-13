@@ -206,6 +206,8 @@ show_geometry( _set  = ('xyplane 0', 'view 80,30,1.5'),
 
 #+begin_src sh :exports none :eval no-export
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/jpl/mrcal/doc/figures/calibration-chessboards-geometry.svg
+
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"' --hardcopy ~/jpl/mrcal/doc/figures/calibration-chessboards-geometry.pdf
 #+end_src
 
 We could also have used the [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool from the shell. All plots
@@ -272,10 +274,6 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
                                  cbmax = 5.0,
                                  hardcopy='~/jpl/mrcal/doc/figures/worst-opencv8.png',
                                  terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.25,
-                                 cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/figures/worst-opencv8.pdf',
-                                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
 [[file:figures/worst-opencv8.png]]
@@ -540,10 +538,6 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
                                  cbmax = 5.0,
                                  hardcopy='~/jpl/mrcal/doc/figures/worst-splined.png',
                                  terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/figures/worst-splined.pdf',
-                                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
 Interestingly, the worst observation here is the same one we saw with
@@ -710,6 +704,9 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
   --hardcopy ~/jpl/mrcal/doc/figures/diff-radius0-vectorfield-splined-opencv8.svg --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
+
+mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius0-vectorfield-splined-opencv8.pdf  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
 [[file:figures/diff-radius0-vectorfield-splined-opencv8.svg]]
@@ -1073,6 +1070,7 @@ mrcal-show-projection-uncertainty --vs-distance-at center \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
 [[file:figures/uncertainty-vs-distance-at-center.svg]]
@@ -1383,7 +1381,9 @@ either side, making for an interesting stereo scene.
 
 #+begin_src sh :exports none :eval no-export
 # all the images downsampled for view on the page like this
-for img ( data/figueroa-overpass-looking-S/{[01].jpg,[01]-reprojected-scale*.jpg,jplv-stereo-rect-*-scale*.png,rectified[01]-*.jpg,narrow-{left,right}.jpg,range-*.png,disparity-*.png} ) { convert $img -scale 12% ${img:t:r}.downsampled.${img:e} }
+for img ( data/figueroa-overpass-looking-S/{[01].jpg,[01]-reprojected-scale*.jpg,jplv-stereo-rect-*-scale*.png,rectified[01]-*.jpg~*narrow*,{range,disparity}-*.png~*narrow*} ) { convert $img -scale 12% ${img:t:r}.downsampled.${img:e} }
+
+for img ( data/figueroa-overpass-looking-S/{rectified[01]-narrow.jpg,narrow-{left,right}.jpg,{range,disparity}-narrow.png} ) { convert $img -scale 25% ${img:t:r}.downsampled.${img:e} }
 #+end_src
 
 The two images out of the camera look like this:
