@@ -300,17 +300,12 @@ usually impossible, but we should do our best.
 Common sources of unmodeled errors:
 
 - out-of focus images
-
 - images with motion blur
-
 - [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]] effects
-
 - synchronization errors
-
 - chessboard detector failures
-
-- insufficiently-rich model (the model of the lens or of the chessboard shape or
-  anything else)
+- insufficiently-rich models (of the lens or of the chessboard shape or anything
+  else)
 
 Back to /this/ image. In absolute terms, even this worst-fitting image fits
 /really/ well. The RMS error of the errors in this image is 1.48 pixels. The
@@ -410,7 +405,7 @@ axis projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan \frac{
 pixels from the imager center, where $f$ is the focal length. Note that this
 representation supports projections behind the camera ($\theta > 90^\circ$) with
 a single singularity directly behind the camera. This is unlike the pinhole
-model, which has $\left|\vec q - \vec q_0\right| = f \tan \theta$, and projects
+model, which has $\left|\vec q - \vec q_\mathrm{center}\right| = f \tan \theta$, and projects
 to infinity as $\theta \rightarrow 90^\circ$.
 
 Basing the new model on a stereographic projection lifts the inherent
@@ -958,7 +953,7 @@ which we then interpret as a relatively-low uncertainty of 0.8 pixels. Our
 choice of lens model itself is giving us low uncertainties. If we knew for a
 fact that the true lens is 100% representable by an =LENSMODEL_OPENCV4= model,
 then this would be be correct, but that never happens in reality. So *lean
-models always produce an overly-optimistic uncertainty estimate*.
+models always produce overly-optimistic uncertainty estimates*.
 
 This is yet another major advantage of the splined models: they're very
 flexible, so the model itself has very little effect on our reported
@@ -1238,15 +1233,6 @@ dance-study.py --scan Ncameras --Ncameras 1,8 --camera-spacing 0 --Nframes 100 \
 So clearly there's a benefit to more cameras. After about 4, we hit diminishing
 returns.
 
-Conclusions:
-
-- More frames are good
-- Closeups are /extremely/ important
-- Tilted views are good
-- A smaller number of bigger calibration problems is good
-
-[[file:figures/observation-usefulness.svg]]
-
 That's great. We now know how to dance given a particular chessboard. But what
 kind of chessboard do we want? We can study that too.
 
@@ -1307,10 +1293,16 @@ ranges to the camera.
 
 Conclusions:
 
+- More frames are good
+- Closeups are /extremely/ important
+- Tilted views are good
+- A smaller number of bigger calibration problems is good
 - More chessboard corners is good, as long as the detector can find them
   reliably
 - Tiny chessboards near the camera are better than giant far-off chessboards. As
   long as the camera can keep the chessboards /and/ the working objects in focus
+
+[[file:figures/observation-usefulness.svg]]
 
 None of these are surprising, but it's good to see the effects directly from the
 data. And we now know /exactly/ how much value we get out of each additional
