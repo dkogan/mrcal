@@ -1,0 +1,586 @@
+#+title: mrcal - camera calibrations and more!
+#+AUTHOR: Dima Kogan
+
+#+OPTIONS: toc:nil H:2
+
+#+LATEX_CLASS_OPTIONS: [presentation]
+#+LaTeX_HEADER: \setbeamertemplate{navigation symbols}{}
+
+# I want clickable links to be blue and underlined, as is custom
+#+LaTeX_HEADER: \usepackage{letltxmacro}
+#+LaTeX_HEADER: \LetLtxMacro{\hreforiginal}{\href}
+#+LaTeX_HEADER: \renewcommand{\href}[2]{\hreforiginal{#1}{\color{blue}{\underline{#2}}}}
+#+LaTeX_HEADER: \renewcommand{\url}[1]{\href{#1}{\tt{#1}}}
+
+# I want a visible gap between paragraphs
+#+LaTeX_HEADER: \setlength{\parskip}{\smallskipamount}
+
+* Overview
+** Where is all this?
+Documentation, installation instructions and everything else are available here:
+
+- http://fatty.jpl.nasa.gov/mrcal/
+
+This talk is a condensed version of the "tour of mrcal" page:
+
+- http://fatty.jpl.nasa.gov/mrcal/tour.html
+
+Please see that page for a bit more detail, and for links to all the data and
+commands in the studies I'll discuss
+
+** The need
+I couldn't find a set of tools to make my visual ranging work possible, so I
+wrote my own. Things that I needed/wanted:
+
+- Functional tools: I should be able to get a calibration, and use it for
+  ranging. And if not, the tools should tell me why not
+- Precision. How much faith should I have in the ranges I get?
+- Support for at least the OpenCV and CAHVOR lens models
+- Support for /wide/ lens models: many tools have only been tested with long
+  lenses
+- Under-the-hood niceties
+  - Both a C API and some sort of higher-level language bindings
+  - Reasonable reading/writing of models
+  - Documentation, tests, packaging
+
+** mrcal: calibrations and other stuff
+- A set of Python libraries to
+  - Read/write camera models
+  - Manipulate these models in various ways
+  - Visualize stuff
+  - Do basic 3D pose things
+  - (Un)project images and points
+- Fancy analysis facilities
+- Fancy lens models available
+- A generic C library with Python bindings
+- Lots of commandline tools so no coding required for many tasks
+
+** Tour of mrcal
+I will go through the "tour of mrcal" page:
+
+- http://fatty.jpl.nasa.gov/mrcal/tour.html
+
+We follow a real-world data flow, from chessboard observations to stereo
+processing. Images captured using
+
+- Nikon D750 full-frame SLR. 6000x4000 imager
+- /Very/ wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
+  corner-corner
+- Just one camera.
+
+* Corners                                                          :noexport:
+** Gathering corners
+
+This is a wide lens, so we have a large chessboard:
+
+- 10x10 point grid
+- 7.7cm between adjacent points
+
+Most observations take right in front of the lens, so depth of field is a
+concern. Thus
+
+- Images gathered outside
+- F22
+
+** Corner detections
+We gathered the images, and detected the corners using the mrgingham corner
+detector:
+
+#+begin_src sh
+mrgingham -j3 *.JPG > corners.vnl 
+#+end_src
+
+Non-mrgingham detectors have been completely non-functional when I tried to use
+them.
+
+For an arbitrary image we can look at the corner detections:
+
+#+begin_example
+$ < corners.vnl head -n5
+
+## generated with mrgingham -j3 *.JPG
+# filename x y level
+DSC_7374.JPG 1049.606126 1032.249784 1
+DSC_7374.JPG 1322.477977 1155.491028 1
+DSC_7374.JPG 1589.571471 1276.563664 1
+#+end_example
+
+** Corner detections
+And we can visualize them
+
+#+begin_example
+$ f=DSC_7374.JPG
+
+$ < corners.vnl                                \
+    vnl-filter "filename eq \"$f\"" --perl     \
+               -p x,y,size='2**(1-level)' |    \
+  feedgnuplot --image $f --domain --square     \
+              --tuplesizeall 3                 \
+              --with 'points pt 7 ps variable'
+#+end_example
+
+** Corner detections
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/mrgingham-results.png]]
+
+** Corner detections
+The circle size shows the resolution used by the detector to find that point.
+
+The downsampled points have less precision, so they are weighed less in the
+optimization
+
+* Calibrating opencv8                                              :noexport:
+** Let's run a calibration!
+This is a wide lens, so we need a lens model that can handle it. I have been
+using the 8-parameter OpenCV model: =LENSMODEL_OPENCV8= from now on.
+
+#+begin_example
+$ mrcal-calibrate-cameras        \
+  --corners-cache corners.vnl    \
+  --focal 1700                   \
+  --object-spacing 0.077         \
+  --object-width-n 10            \
+  --lensmodel LENSMODEL_OPENCV8  \
+  --observed-pixel-uncertainty 2 \
+  --explore                      \
+  '*.JPG'
+#+end_example
+
+- =--explore= asks for a REPL for us to look around
+
+** =LENSMODEL_OPENCV8= summary
+The calibration tool chugs for a bit, and then says:
+
+#+begin_example
+RMS reprojection error: 0.8 pixels
+Noutliers: 3 out of 18600 total points: 0.0% of the data
+calobject_warp = [-0.00103983  0.00052493]
+#+end_example
+
+Now let's examine the solution. This is where we would be looking for problems.
+
+Primarily we want the errors in the solve to follow the mrcal noise model, and
+if they don't, we want to try to fix it.
+
+** Noise model
+mrcal assumes that
+
+- The model (lens parameters, geometry, ...) accurately represents reality
+- All errors (differences between the observations of the chessboard and what
+  the model predicts) come from observation noise, declared in
+  =--observed-pixel-uncertainty=
+- The errors are independent, gaussian and have the same variance everywhere
+
+If all those assumptions are true, then the results of the least-squares
+optimization (what the calibration routine is doing) are the maximum-likelihood
+solution.
+
+We will never satisfy all these assumptions, but we should try hard to do that.
+
+** =LENSMODEL_OPENCV8= geometry
+What does the solve think about our geometry? Does it match reality? We can ask,
+in the REPL:
+
+#+begin_src python
+show_geometry( _set  = ('xyplane 0', 'view 80,30,1.5'),
+               unset = 'key')
+#+end_src
+
+** =LENSMODEL_OPENCV8= geometry
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/calibration-chessboards-geometry.pdf]]
+
+** =LENSMODEL_OPENCV8= geometry
+This is correct.
+
+- The camera axes are shown in purple, at the reference coordinate system. This
+  is a monocular solve, so the camera is at the origin of the coordinates by
+  definition
+- Observed chessboards are right in front of the camera (along the $z$ axis)
+- They're very close, and tilted. That's how I did the dance, and the solve
+  figured that out
+
+** =LENSMODEL_OPENCV8= residuals histogram
+The reprojection error was reported as 0.8 pixels RMS. What does the
+distribution look like?
+
+We ask in the =mrcal-calibrate-cameras= REPL
+
+#+begin_src python
+show_residuals_histogram(icam = None, binwidth=0.1,
+                         _xrange=(-4,4), unset='key')
+#+end_src
+
+** =LENSMODEL_OPENCV8= residuals histogram
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/residuals-histogram-opencv8.pdf]]
+
+** =LENSMODEL_OPENCV8= residuals histogram
+We see
+
+- The distribution of errors is indeed gaussian-ish
+- The observed variance of errors is much smaller than what we claimed in
+  =--observed-pixel-uncertainty=
+
+Either the actual accuracy of the mrgingham detector is /much/ better than I
+think it is, or we're seeing overfitting effects.
+
+This is not a problem (more on that later!)
+
+** =LENSMODEL_OPENCV8= worst-observation residuals
+If there's anything really wrong with our data, then we'd see it in the
+worst-fitting images. These are a great way to see common issues such as:
+
+- out-of focus images
+- images with motion blur
+- rolling shutter effects
+- synchronization errors
+- chessboard detector failures
+- insufficiently-rich models (of the lens or of the chessboard shape or anything
+  else)
+
+Any of these would violate the assumptions of the noise model, so we want to fix
+them, if we can. Let's look at the worst image:
+
+#+begin_src python
+show_residuals_observation_worst(0, vectorscale = 100,
+                                 circlescale=0.5,
+                                 cbmax = 5.0)
+#+end_src
+
+** =LENSMODEL_OPENCV8= worst-observation residuals
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/worst-opencv8.png]]
+
+** =LENSMODEL_OPENCV8= worst-observation residuals
+The errors are shown as vectors, with color-coded circles for extra legibility.
+
+- Even this worst-case image fits well: 1.48 pixels of RMS reprojection error
+- There is a pattern: the errors are mostly acting radially
+
+Any non-randomness in the errors violates the independent-noise assumptions in
+the noise model
+
+** =LENSMODEL_OPENCV8= worst-observation residuals
+Usually, lean models such as =LENSMODEL_OPENCV8= cannot represent wide lenses
+faraway from the optical center. We can clearly see this here in the 3rd-worst
+image:
+
+#+begin_src python
+show_residuals_observation_worst(2, vectorscale = 100,
+                                 circlescale=0.5,
+                                 cbmax = 5.0)
+#+end_src
+
+** =LENSMODEL_OPENCV8= worst-observation residuals
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/worst-incorner-opencv8.png]]
+
+** =LENSMODEL_OPENCV8= worst-observation residuals
+/This/ is clearly a problem.
+
+Let's come back to it later. Which observation was this?
+
+#+begin_example
+print(i_observations_sorted_from_worst[2])
+
+---> 184
+#+end_example
+
+** =LENSMODEL_OPENCV8= residual directions
+Another way to look for systematic errors is to examine all the observed errors
+in aggregate. Let's look at the errors, color-coded by the error /direction/
+
+#+begin_src python
+show_residuals_directions(icam=0, unset='key',
+                          valid_intrinsics_region = False)
+#+end_src
+
+** =LENSMODEL_OPENCV8= residual directions
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/directions-opencv8.pdf]]
+
+** =LENSMODEL_OPENCV8= residual directions
+Once again, any patterns violate the assumption of independence.
+
+And here we clearly have patterns:
+
+- lots of green in the top-right and top and left
+- lots of blue and magenta in the center
+- yellow at the bottom
+
+and so on
+
+** =LENSMODEL_OPENCV8=: conclusions
+The =LENSMODEL_OPENCV8= lens model does not fit our data in observable ways.
+
+These unmodeled errors are small, but cause big problems when doing precision
+work, for instance with long-range stereo.
+
+Let's fix it.
+
+* Calibrating splined models                                       :noexport:
+** Splined models
+- We need a more flexible lens model to represent our lens.
+- mrcal currently supports a /splined/ model that is configurable to be as rich
+  as we like: =LENSMODEL_SPLINED_STEREOGRAPHIC=
+
+This model is based on a /stereographic/ projection. The pixel distance from the
+center, as a function of $\theta$, the angle off the optical axis is:
+
+\[ \left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan \frac{\theta}{2} \]
+
+This is a unique mapping that is defined even behind the camera. By contrast, a
+pinhole model has
+
+\[ \left|\vec q - \vec q_\mathrm{center}\right| = f \tan \theta \]
+
+So a /pinhole/ projections become singular as $\theta \rightarrow 90^\circ$, and
+cannot see behind the camera.
+
+** Splined models
+So to project a camera-coordinate point $\vec p$, we compute the /normalized/
+stereographic projection:
+
+\[ \vec u \equiv \frac{\vec p_{xy}}{\left| \vec p_{xy} \right|} 2 \tan\frac{\theta}{2} \]
+
+This is a 2D representation of the observation direction. We then use $\vec u$
+to look-up an adjustment factor $\Delta \vec u$ using two splined surfaces: one
+for each of the two elements of
+
+\[ \Delta \vec u \equiv
+\left[ \begin{aligned}
+\Delta u_x \left( \vec u \right) \\
+\Delta u_y \left( \vec u \right)
+\end{aligned} \right] \]
+
+We can then define the rest of the projection function:
+
+\[\vec q =
+ \left[ \begin{aligned}
+ f_x \left( u_x + \Delta u_x \right) + c_x \\
+ f_y \left( u_y + \Delta u_y \right) + c_y
+\end{aligned} \right] \]
+
+** Splined models
+The surfaces $\Delta u_x\left(\vec u\right)$ and $\Delta u_y\left(\vec u\right)$
+are defined by a B-spline regularly sampled in $\vec u$.
+
+The parameters we can optimize are
+
+- the control points defining $\Delta u_x\left(\vec u\right)$ and $\Delta
+  u_y\left(\vec u\right)$
+- the usual pinhole projection values $f_x$, $f_y$, $c_x$ and $c_y$
+  (focal-length-in-pixels and imager-center)
+
+** Let's re-run the calibration
+Let's re-process the same calibration data using this splined model. We run the
+same command as before, but using the =LENSMODEL_SPLINED_STEREOGRAPHIC_= ...
+=order=3_Nx=30_Ny=20_fov_x_deg=170= model. This is one long string.
+
+#+begin_example
+$ mrcal-calibrate-cameras                 \
+  --corners-cache corners.vnl             \
+  --focal 1700                            \
+  --object-spacing 0.077                  \
+  --object-width-n 10                     \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_ ...
+    ... order=3_Nx=30_Ny=20_fov_x_deg=170 \
+  --observed-pixel-uncertainty 2          \
+  --explore                               \
+  '*.JPG'
+#+end_example
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= summary
+The tool says
+
+#+begin_example
+RMS reprojection error: 0.6 pixels
+Noutliers: 0 out of 18600 total points: 0.0% of the data
+calobject_warp = [-0.00096895  0.00052931]
+#+end_example
+
+We get
+
+- lower fit errors: 0.6 pixels, down from 0.8 pixels before
+- fewer outliers: 0 points, down from 3 before
+- the same estimated chessboard deformation as before
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals histogram
+This all sounds promising. What does the histogram look like?
+
+We ask in the =mrcal-calibrate-cameras= REPL
+
+#+begin_src python
+show_residuals_histogram(icam = None, binwidth=0.1,
+                         _xrange=(-4,4), unset='key')
+#+end_src
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/residuals-histogram-splined.pdf]]
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals histogram
+Similar from before, but with smaller errors, as expected.
+
+What about the worst-image residuals?
+
+#+begin_src python
+show_residuals_observation_worst(0, vectorscale = 100,
+                                 circlescale=0.5,
+                                 cbmax = 5.0)
+#+end_src
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/worst-splined.png]]
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+Interestingly, the worst observation here is the same one we saw with
+=LENSMODEL_OPENCV8=. But all the errors are significantly smaller.
+
+The previous pattern is much less pronounced, but it still there. My guess: the
+board flex model isn't quite rich-enough.
+
+These errors are small, so let's proceed.
+
+Let's look at observation 184, the image that fit badly in the corner previously:
+
+#+begin_src python
+show_residuals_observation(184, vectorscale = 100,
+                           circlescale=0.5,
+                           cbmax = 5.0)
+#+end_src
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/worst-incorner-splined.png]]
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+Neat! The model fits the data in the corners now. And what about the residual directions?
+
+#+begin_src python
+show_residuals_directions(icam=0, unset='key',
+                          valid_intrinsics_region = False)
+#+end_src
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/directions-splined.png]]
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= residual directions
+/Much/ better than before. Maybe there's still a pattern, but it's not clearly
+discernible.
+
+It would be nice to have a data-driven method to estimate the randomness of the
+residuals. I have not yet attempted to do that.
+
+Lots of other diagnostics are available, such as visualizing the splined
+surface. See the docs!
+
+* Differencing
+** Differencing
+We computed the calibration two different ways. How different are the two
+models?
+
+Let's compute the difference using an obvious algorithm:
+
+Given a pixel $\vec q_0$,
+
+- Unproject $\vec q_0$ to a fixed point $\vec p$ using lens 0
+- Project $\vec p$ back to pixel coords $\vec q_1$ using lens 1
+- Report the reprojection difference $\vec q_1 - \vec q_0$
+
+#+ATTR_LATEX: :width 0.8\linewidth
+[[file:../figures/diff-notransform.pdf]]
+
+** Differencing
+mrcal has a tool for that, so let's run it:
+
+#+begin_src sh
+mrcal-show-projection-diff --radius 0 --cbmax 200 \
+                           --unset key            \
+                           opencv8.cameramodel    \ 
+                           splined.cameramodel
+#+end_src
+
+** Differencing
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/diff-radius0-heatmap-splined-opencv8.png]]
+
+** Differencing
+The reported differences really do have units of /pixels/. So if true, this is
+terrible. But is it true? Let's look at the differences as a vector field
+instead:
+
+#+begin_src sh
+mrcal-show-projection-diff --radius 0 --cbmax 200 \
+                           --unset key            \
+                           --vectorfield          \
+                           --vectorscale 5        \
+                           --gridn 30 20          \
+                           opencv8.cameramodel    \ 
+                           splined.cameramodel
+#+end_src
+
+** Differencing
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/diff-radius0-vectorfield-splined-opencv8.pdf]]
+
+** Differencing
+So with a motion of the camera, we can make the errors disappear.
+
+The issue is that each calibration produces noisy estimates of all the
+intrinsics and all the coordinate transformations:
+
+[[file:../figures/uncertainty.pdf]]
+
+And the point $\vec p$ we were projecting wasn't truly fixed.
+
+** Differencing
+We want to add a step:
+
+- Unproject $\vec q_0$ to a fixed point $\vec p_0$ using lens 0
+- *Transform $\vec p_0$ from the coordinate system of one camera to the coordinate
+  system of the other camera*
+- Project $\vec p_1$ back to pixel coords $\vec q_1$ using lens 1
+- Report the reprojection difference $\vec q_1 - \vec q_0$
+
+[[file:../figures/diff-yestransform.pdf]]
+
+** Differencing
+An important note: we weren't even computing the extrinsics in this solve. So
+*this implied transformation is built-in to the intrinsics*.
+
+Let's compute the diff, taking this transfomration into account
+
+#+begin_src sh
+mrcal-show-projection-diff --radius 0 --cbmax 200 \
+                           --unset key            \
+                           opencv8.cameramodel    \ 
+                           splined.cameramodel
+#+end_src
+
+** Differencing
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/diff-splined-opencv8.png]]
+
+** Differencing
+/Much/ better. As expected, the two models agree relatively well in the center,
+and the error grows as we move towards the edges.
+
+This differencing method has numerous applications:
+
+- evaluating the manufacturing variation of different lenses
+- quantifying intrinsics drift due to mechanical or thermal stresses
+- testing different solution methods
+- underlying a cross-validation scheme
+
+** Differencing
+A big question:
+
+- How much of the observed difference is random sampling error?
+
+To answer this (an other) questions, mrcal can quantify the projection
+uncertainty, so let's do that.
+
