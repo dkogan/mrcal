@@ -1066,7 +1066,7 @@ if args.make_documentation_plots is not None:
 
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
-                                             observations          = False,
+                                             observations          = True,
                                              distance              = args.distances[0],
                                              contour_increment     = -0.4,
                                              contour_labels_styles = '',
@@ -1086,17 +1086,38 @@ if args.make_documentation_plots is not None:
                               dict(tuplesize = 3,
                                    _with =f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]} nocontour'))] \
                             for icam in range(args.Ncameras) ]
-            processoptions_output = dict(wait     = False,
-                                         terminal = shorter_terminal(terminal[extension]),
-                                         _set     = extraset[extension],
-                                         hardcopy = f'{args.make_documentation_plots}--uncertainty-wholeimage.{extension}')
-            if '_set' in processoptions_output:
-                gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
-                del processoptions_output['_set']
-            gp.plot( *data_tuples,
-                     **plot_options,
-                     multiplot = f'layout 2,2',
-                     **processoptions_output)
+
+            # look through all the plots
+            #   look through all the data tuples in each plot
+            #     look at the last data tuple
+            #     if it's dict(_with = 'dots ...'): ignore it
+            def is_datatuple_withdots(t):
+                d = t[-1]
+                if type(d) is not dict: return False
+                if '_with' not in d:    return False
+                w = d['_with']
+                if type(w) is not str:  return False
+                return re.match('dots',w) is not None
+            def subplots_noobservations(p):
+                return \
+                    [ t for t in p if not is_datatuple_withdots(t) ]
+            data_tuples_no_observations = \
+                [ subplots_noobservations(p) for p in data_tuples ]
+
+
+            for obs_yesno, dt in (('observations',   data_tuples),
+                                  ('noobservations', data_tuples_no_observations)):
+                processoptions_output = dict(wait     = False,
+                                             terminal = shorter_terminal(terminal[extension]),
+                                             _set     = extraset[extension],
+                                             hardcopy = f'{args.make_documentation_plots}--uncertainty-wholeimage-{obs_yesno}.{extension}')
+                if '_set' in processoptions_output:
+                    gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
+                    del processoptions_output['_set']
+                gp.plot( *dt,
+                         **plot_options,
+                         multiplot = f'layout 2,2',
+                         **processoptions_output)
     else:
         data_tuples = [ data_tuples_plot_options[icam][0] + \
                         [(q0_baseline[0], q0_baseline[1], 0, \
