@@ -54,8 +54,18 @@ DOC_OUTPUT_DIR := doc/out
 doc: $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
 	doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
-.PHONY: doc
 EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
+
+DOC_ALL_FIG          := $(wildcard doc/*.fig)
+DOC_ALL_SVG_FROM_FIG := $(patsubst %.fig,doc/figures/%.svg,$(notdir $(DOC_ALL_FIG)))
+DOC_ALL_PDF_FROM_FIG := $(patsubst %.fig,doc/figures/%.pdf,$(notdir $(DOC_ALL_FIG)))
+doc: $(DOC_ALL_SVG_FROM_FIG) $(DOC_ALL_PDF_FROM_FIG)
+$(DOC_ALL_SVG_FROM_FIG): doc/figures/%.svg: doc/%.fig
+	fig2dev -L svg $< $@
+$(DOC_ALL_PDF_FROM_FIG): doc/figures/%.pdf: doc/%.fig
+	fig2dev -L pdf $< $@
+
+.PHONY: doc
 
 
 ## Each submodule in a separate .html. This works, but needs more effort:
