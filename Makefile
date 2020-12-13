@@ -49,10 +49,12 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 DOC_OUTPUT_DIR := doc/out
+$(DOC_OUTPUT_DIR)/:
+	mkdir $@
 
 ## mrcal-python-api-reference.html contains everything. It is large
 doc: $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
-$(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION)
+$(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION) | $(DOC_OUTPUT_DIR)/
 	doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 
@@ -106,7 +108,7 @@ EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
 # I generate a manpage. Some perl stuff to add the html preamble
 MANPAGES_HTML := $(patsubst %,$(DOC_OUTPUT_DIR)/%.html,$(DIST_BIN))
-$(DOC_OUTPUT_DIR)/%.html: %.pod
+$(DOC_OUTPUT_DIR)/%.html: %.pod | $(DOC_OUTPUT_DIR)/
 	pod2html --noindex --css=mrcal.css --infile=$< | perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@.tmp && mv $@.tmp $@
 doc: $(MANPAGES_HTML)
 EXTRA_CLEAN += $(MANPAGES_HTML)
