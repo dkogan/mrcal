@@ -68,7 +68,7 @@ processing. Images captured using
   corner-corner
 - Just one camera.
 
-* Corners                                                          :noexport:
+* Corners
 ** Gathering corners
 
 This is a wide lens, so we have a large chessboard:
@@ -129,7 +129,7 @@ The circle size shows the resolution used by the detector to find that point.
 The downsampled points have less precision, so they are weighed less in the
 optimization
 
-* Calibrating opencv8                                              :noexport:
+* Calibrating opencv8
 ** Let's run a calibration!
 This is a wide lens, so we need a lens model that can handle it. I have been
 using the 8-parameter OpenCV model: =LENSMODEL_OPENCV8= from now on.
@@ -320,7 +320,7 @@ work, for instance with long-range stereo.
 
 Let's fix it.
 
-* Calibrating splined models                                       :noexport:
+* Calibrating splined models
 ** Splined models
 - We need a more flexible lens model to represent our lens.
 - mrcal currently supports a /splined/ model that is configurable to be as rich
@@ -478,7 +478,7 @@ residuals. I have not yet attempted to do that.
 Lots of other diagnostics are available, such as visualizing the splined
 surface. See the docs!
 
-* Differencing                                                     :noexport:
+* Differencing
 ** Differencing
 We computed the calibration two different ways. How different are the two
 models?
@@ -796,3 +796,124 @@ for the commands.
 
 #+ATTR_LATEX: :width 0.7\linewidth
 [[file:../figures/observation-usefulness.pdf]]
+
+* Stereo
+** Overview
+mrcal can do some basic stereo processing. At its core, it's the usual epipolar
+geometry process:
+
+1. Ingest two camera models
+2. Ingest images captured by these two cameras
+3. Transform the images to construct "rectified" images
+4. Perform "stereo matching"
+
+Each pair of corresponding rows in the rectified images represents a plane in
+space:
+
+#+ATTR_LATEX: :width 0.65\linewidth
+[[file:../figures/rectification.pdf]]
+
+** Input images
+I used the lens I calibrated at the start to capture a pair of images in
+downtown Los Angeles. The left image:
+
+#+ATTR_LATEX: :width 0.75\linewidth
+[[file:../figures/0.downsampled.jpg]]
+
+We're on a catwalk between 2nd and 3rd, looking S over Figueroa St.
+
+** Rectification
+I then used mrcal's rectification function to produce the rectified image. The
+left:
+
+#+ATTR_LATEX: :width 0.7\linewidth
+file:../figures/rectified0-splined.downsampled.jpg
+
+** Disparity
+And the resulting disparity, as computed by the OpenCV matcher:
+
+#+ATTR_LATEX: :width 0.7\linewidth
+file:../figures/disparity-splined.downsampled.png
+
+** Rectification notes
+- mrcal's rectification map uses an even spacing in azimuth
+- this expands the image /vertically/ as you move outwards
+- since stereo matching works on rows, this is what we want
+- rectification maps that change the horizontal scale inside each row (such as
+  what jplv does) are worse at stereo matching at the edges
+
+** JPLV
+
+What if we wanted to use JPLV stereo with splined models?
+
+We can use mrcal to remap to another projection and feed /that/ to jplv. For
+instance, let's
+
+- remap to a pinhole model (with some arbitrary zoom factor)
+- use jplv to compute the rectified image
+
+** JPLV remapped-to-pinhole image
+Remapped to a pinhole image with mrcal
+
+#+ATTR_LATEX: :width 0.9\linewidth
+file:../figures/0-reprojected-scale0.35.downsampled.jpg
+
+** JPLV rectified image
+Rectified with jplv
+
+#+ATTR_LATEX: :width 0.9\linewidth
+file:../figures/jplv-stereo-rect-left-scale0.35.downsampled.png
+
+** JPLV stereo
+Disparity from OpenCV
+
+#+ATTR_LATEX: :width 0.9\linewidth
+file:../figures/disparity-jplv-scale0.35.downsampled.png
+
+** JPLV stereo discussion
+
+Clearly the pinhole remap and the rectification are distorting the input image
+dramatically, and changing the image scale within each row.
+
+And we found another likely jplv bug: the bottom is cut-off in the rectified
+images.
+
+** Narrow virtual cameras
+Another way to do stereo processing of wide images using tools that aren't built
+for it is to
+
+- split the wide-angle stereo pair into a set of narrow-view stereo pairs
+
+This generates a skewed geometry, but mrcal can still use it just fine. Due to a
+bug, jplv cannot.
+
+** Narrow virtual cameras
+#+ATTR_LATEX: :width 0.9\linewidth
+file:../figures/stereo-geometry-narrow.pdf
+
+** Narrow virtual cameras
+One of the resulting resampled /pinhole/ images:
+
+#+ATTR_LATEX: :width 0.9\linewidth
+file:../figures/narrow-left.downsampled.jpg
+
+** Narrow virtual cameras
+Rectified using mrcal
+
+#+ATTR_LATEX: :width 0.9\linewidth
+file:../figures/rectified0-narrow.downsampled.jpg
+
+** Narrow virtual cameras
+Disparity from OpenCV
+
+#+ATTR_LATEX: :width 0.9\linewidth
+file:../figures/disparity-narrow.downsampled.png
+
+* Finally
+** Conclusions
+We have a toolkit that can do lots of cool stuff
+
+There's much to do still, and there's a laundry list on the documentation page.
+
+** Thanks!
+Questions?
