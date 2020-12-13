@@ -68,7 +68,7 @@ $ < corners.vnl \
 [[file:figures/mrgingham-results.png]]
 
 #+begin_src sh :exports none :eval no-export
-< corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' --hardcopy ~/jpl/mrcal/jpl/figures/mrgingham-results.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+< corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' --hardcopy ~/jpl/mrcal/doc/figures/mrgingham-results.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 So in this image many of the corners were detected at full-resolution (level-0),
@@ -205,7 +205,7 @@ show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
 [[file:figures/calibration-chessboards-geometry.svg]]
 
 #+begin_src sh :exports none :eval no-export
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/jpl/mrcal/jpl/figures/calibration-chessboards-geometry.svg
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/jpl/mrcal/doc/figures/calibration-chessboards-geometry.svg
 #+end_src
 
 We could also have used the [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool from the shell. All plots
@@ -644,9 +644,9 @@ mrcal-show-splined-model-surface splined.cameramodel x                \
 [[file:figures/splined-knots-pixel-domain-x.png]]
 
 #+begin_src sh :exports none :eval no-export
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/jpl/figures/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/figures/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/jpl/figures/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/figures/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 #+end_src
 
 Now the imager boundary is a nice rectangle, but the valid spline region is
