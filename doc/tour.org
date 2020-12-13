@@ -198,8 +198,8 @@ and 0.5mm vertically in the opposite direction. That all sounds reasonable.
 What does the solve think about our geometry? Does it match reality?
 
 #+begin_src python
-show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
-                unset = 'key')
+show_geometry( _set  = ('xyplane 0', 'view 80,30,1.5'),
+               unset = 'key')
 #+end_src
 
 [[file:figures/calibration-chessboards-geometry.svg]]
