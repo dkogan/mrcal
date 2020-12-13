@@ -154,7 +154,7 @@ them
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/worst-incorner-opencv8.png]]
 
-** =LENSMODEL_OPENCV8= residual directions
+** =LENSMODEL_OPENCV8=: residual directions
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/directions-opencv8.pdf]]
 
@@ -167,33 +167,21 @@ work, for instance with long-range stereo.
 Let's fix it.
 
 * Calibrating splined models
-** Splined models
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition
 - We need a more flexible lens model to represent our lens.
 - mrcal currently supports a /splined/ model that is configurable to be as rich
-  as we like: =LENSMODEL_SPLINED_STEREOGRAPHIC=
+  as we like
 
-This model is based on a /stereographic/ projection. The pixel distance from the
-center, as a function of $\theta$, the angle off the optical axis is:
+We compute a normalized /stereographic/ projection:
 
-\[ \left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan \frac{\theta}{2} \]
+\[ \vec u = \mathrm{project}_\mathrm{stereographic}\left(\vec p\right) \]
 
-This is a unique mapping that is defined even behind the camera. By contrast, a
-pinhole model has
+This maps a 3D direction vector to a 2D point $\vec u$. This works behind the
+camera, so wide-angle lenses are supported well.
 
-\[ \left|\vec q - \vec q_\mathrm{center}\right| = f \tan \theta \]
-
-So a /pinhole/ projections become singular as $\theta \rightarrow 90^\circ$, and
-cannot see behind the camera.
-
-** Splined models
-So to project a camera-coordinate point $\vec p$, we compute the /normalized/
-stereographic projection:
-
-\[ \vec u \equiv \frac{\vec p_{xy}}{\left| \vec p_{xy} \right|} 2 \tan\frac{\theta}{2} \]
-
-This is a 2D representation of the observation direction. We then use $\vec u$
-to look-up an adjustment factor $\Delta \vec u$ using two splined surfaces: one
-for each of the two elements of
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition
+Then use $\vec u$ to look-up an adjustment factor $\Delta \vec u$ using two
+splined surfaces: one for each of the two elements of
 
 \[ \Delta \vec u \equiv
 \left[ \begin{aligned}
@@ -209,120 +197,38 @@ We can then define the rest of the projection function:
  f_y \left( u_y + \Delta u_y \right) + c_y
 \end{aligned} \right] \]
 
-** Splined models
-The surfaces $\Delta u_x\left(\vec u\right)$ and $\Delta u_y\left(\vec u\right)$
-are defined by a B-spline regularly sampled in $\vec u$.
-
-The parameters we can optimize are
-
-- the control points defining $\Delta u_x\left(\vec u\right)$ and $\Delta
-  u_y\left(\vec u\right)$
-- the usual pinhole projection values $f_x$, $f_y$, $c_x$ and $c_y$
-  (focal-length-in-pixels and imager-center)
-
 ** Let's re-run the calibration
 Let's re-process the same calibration data using this splined model. We run the
 same command as before, but using the =LENSMODEL_SPLINED_STEREOGRAPHIC_= ...
 =order=3_Nx=30_Ny=20_fov_x_deg=170= model. This is one long string.
 
 #+begin_example
-$ mrcal-calibrate-cameras                 \
-  --corners-cache corners.vnl             \
-  --focal 1700                            \
-  --object-spacing 0.077                  \
-  --object-width-n 10                     \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_ ...
-    ... order=3_Nx=30_Ny=20_fov_x_deg=170 \
-  --observed-pixel-uncertainty 2          \
-  --explore                               \
-  '*.JPG'
-#+end_example
-
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= summary
-The tool says
-
-#+begin_example
+$ mrcal-calibrate-cameras
+    --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_ ...
+    ... order=3_Nx=30_Ny=20_fov_x_deg=170 ...
+...
 RMS reprojection error: 0.6 pixels
 Noutliers: 0 out of 18600 total points: 0.0% of the data
 calobject_warp = [-0.00096895  0.00052931]
 #+end_example
 
-We get
-
-- lower fit errors: 0.6 pixels, down from 0.8 pixels before
-- fewer outliers: 0 points, down from 3 before
-- the same estimated chessboard deformation as before
-
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals histogram
-This all sounds promising. What does the histogram look like?
+This is promising. What does the histogram look like?
 
-We ask in the =mrcal-calibrate-cameras= REPL
-
-#+begin_src python
-show_residuals_histogram(icam = None, binwidth=0.1,
-                         _xrange=(-4,4), unset='key')
-#+end_src
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\linewidth
 [[file:../figures/residuals-histogram-splined.pdf]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals histogram
-Similar from before, but with smaller errors, as expected.
-
-What about the worst-image residuals?
-
-#+begin_src python
-show_residuals_observation_worst(0, vectorscale = 100,
-                                 circlescale=0.5,
-                                 cbmax = 5.0)
-#+end_src
-
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+** =LENSMODEL_SPLINED_STEREOGRAPHIC=: the worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/worst-splined.png]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
-Interestingly, the worst observation here is the same one we saw with
-=LENSMODEL_OPENCV8=. But all the errors are significantly smaller.
-
-The previous pattern is much less pronounced, but it still there. My guess: the
-board flex model isn't quite rich-enough.
-
-These errors are small, so let's proceed.
-
-Let's look at observation 184, the image that fit badly in the corner previously:
-
-#+begin_src python
-show_residuals_observation(184, vectorscale = 100,
-                           circlescale=0.5,
-                           cbmax = 5.0)
-#+end_src
-
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+** =LENSMODEL_SPLINED_STEREOGRAPHIC=: the 3rd-worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/worst-incorner-splined.png]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
-Neat! The model fits the data in the corners now. And what about the residual directions?
-
-#+begin_src python
-show_residuals_directions(icam=0, unset='key',
-                          valid_intrinsics_region = False)
-#+end_src
-
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= worst-observation residuals
+** =LENSMODEL_SPLINED_STEREOGRAPHIC=: residual directions
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/directions-splined.png]]
-
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= residual directions
-/Much/ better than before. Maybe there's still a pattern, but it's not clearly
-discernible.
-
-It would be nice to have a data-driven method to estimate the randomness of the
-residuals. I have not yet attempted to do that.
-
-Lots of other diagnostics are available, such as visualizing the splined
-surface. See the docs!
 
 * Differencing
 ** Differencing
@@ -341,33 +247,8 @@ Given a pixel $\vec q_0$,
 [[file:../figures/diff-notransform.pdf]]
 
 ** Differencing
-mrcal has a tool for that, so let's run it:
-
-#+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 \
-                           --unset key            \
-                           opencv8.cameramodel    \ 
-                           splined.cameramodel
-#+end_src
-
-** Differencing
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/diff-radius0-heatmap-splined-opencv8.png]]
-
-** Differencing
-The reported differences really do have units of /pixels/. So if true, this is
-terrible. But is it true? Let's look at the differences as a vector field
-instead:
-
-#+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 \
-                           --unset key            \
-                           --vectorfield          \
-                           --vectorscale 5        \
-                           --gridn 30 20          \
-                           opencv8.cameramodel    \ 
-                           splined.cameramodel
-#+end_src
 
 ** Differencing
 #+ATTR_LATEX: :width \linewidth
@@ -393,19 +274,6 @@ We want to add a step:
 - Report the reprojection difference $\vec q_1 - \vec q_0$
 
 [[file:../figures/diff-yestransform.pdf]]
-
-** Differencing
-An important note: we weren't even computing the extrinsics in this solve. So
-*this implied transformation is built-in to the intrinsics*.
-
-Let's compute the diff, taking this transfomration into account
-
-#+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 \
-                           --unset key            \
-                           opencv8.cameramodel    \ 
-                           splined.cameramodel
-#+end_src
 
 ** Differencing
 #+ATTR_LATEX: :width \linewidth
@@ -487,49 +355,28 @@ Each camera sees this:
 The red *$\ast$* is a point we will examine.
 
 ** Uncertainty simulation
-- We run 100 randomized trials, adding noise on the inputs
-- Then we look at where the projection of *$\ast$* ends up
-- We plot the 1-$\sigma$ ellipses based on the randomized projections
-- We /also/ plot the 1-$\sigma$ ellipses from the prediction made by
-  =mrcal.projection_uncertainty()=
-
-** Uncertainty simulation
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/simulated-uncertainty-opencv4--distribution-onepoint.pdf]]
-
-** Uncertainty simulation
-Clearly the ellipses match up /very/ well. =mrcal.projection_uncertainty()= does
-no sampling, and is thus much faster. So we use that from now on
-
-Note that the uncertainties are different from camera to camera. This is because
-
-- The first camera had lots of chessboard observations around the *$\ast$*
-- In the view of the second and third cameras the *$\ast$* was at the edge of the
-  observations
-- In the view of the last camera, the chessboards were nowhere near the *$\ast$*
-
-So we observe what we expect: the first camera has the best projection
-confidence, and the last camera has the worst.
 
 ** Uncertainty simulation
 Let's look at the uncertainty everywhere in the imager
 
 #+ATTR_LATEX: :width \linewidth
-[[file:../figures/simulated-uncertainty-opencv4--uncertainty-wholeimage.pdf]]
+[[file:../figures/simulated-uncertainty-opencv4--uncertainty-wholeimage-noobservations.pdf]]
 
 This confirms the expectation: the sweet spot of low uncertainty follows the
 region where the chessboards were
 
 ** Uncertainty simulation
-The worst-uncertainty-at-*$\ast$* camera claims an uncertainty of 0.8 pixels. That's
-pretty low. We had no chessboard observations there; is this uncertainty
-realistic? _No_
+- The worst-uncertainty-at-*$\ast$* camera claims an uncertainty of 0.8 pixels.
+  That's pretty low. But we had no chessboard observations there; is this
+  uncertainty realistic? _No_
 
-=LENSMODEL_OPENCV4= is stiff, so the projection doesn't move much due to noise.
-And we interpreted that as low uncertainty. But that comes from our choice of
-model, and /not/ from the data. So
+- =LENSMODEL_OPENCV4= is stiff, so the projection doesn't move much due to
+  noise. And we interpreted that as low uncertainty. But that comes from our
+  choice of model, and /not/ from the data. So
 
-*lean models always produce overly-optimistic uncertainty estimates*
+*Lean models always produce overly-optimistic uncertainty estimates*
 
 Solution: use splined models! They are very flexible, and don't have this issue.
 
@@ -538,9 +385,15 @@ Running the same simulation with a splined model, we see the /real/ projection
 uncertainty:
 
 #+ATTR_LATEX: :width \linewidth
-[[file:../figures/simulated-uncertainty-splined--uncertainty-wholeimage.pdf]]
+[[file:../figures/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations.pdf]]
 
 So /only/ the first camera actually had usable projections.
+
+** Uncertainty simulation
+Let's overlay the observations:
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/simulated-uncertainty-splined--uncertainty-wholeimage-observations.pdf]]
 
 ** Uncertainty from previous calibrations
 Computing the uncertainty map from the earlier =LENSMODEL_OPENCV8= calibration:
@@ -558,11 +411,11 @@ The splined model promises double the uncertainty that =LENSMODEL_OPENCV8= does.
 
 Conclusions:
 
-- We have a usable uncertianty-quantification method
-- It is over-optimistic when given lean models to work with
+- We have a usable uncertainty-quantification method
+- It is over-optimistic when applied to lean models
 
 So splined models have a clear benefit even for long lenses, where the lean
-models are expected to fit somewhat.
+models are expected to fit
 
 * Ranging note
 ** Ranging note
@@ -584,10 +437,6 @@ function of range:
 
 #+ATTR_LATEX: :width 0.8\linewidth
 [[file:../figures/uncertainty-vs-distance-at-center.pdf]]
-
-** The uncertainty figure
-Qualitatively, this is the figure I always see. The details depend on the
-chessboard dance. So let's study it!
 
 * Choreography
 ** Overview
@@ -681,13 +530,6 @@ And the resulting disparity, as computed by the OpenCV matcher:
 #+ATTR_LATEX: :width 0.7\linewidth
 file:../figures/disparity-splined.downsampled.png
 
-** Rectification notes
-- mrcal's rectification map uses an even spacing in azimuth
-- this expands the image /vertically/ as you move outwards
-- since stereo matching works on rows, this is what we want
-- rectification maps that change the horizontal scale inside each row (such as
-  what jplv does) are worse at stereo matching at the edges
-
 ** JPLV
 
 What if we wanted to use JPLV stereo with splined models?
@@ -695,8 +537,8 @@ What if we wanted to use JPLV stereo with splined models?
 We can use mrcal to remap to another projection and feed /that/ to jplv. For
 instance, let's
 
-- remap to a pinhole model (with some arbitrary zoom factor)
-- use jplv to compute the rectified image
+- Remap to a pinhole model (with some arbitrary zoom factor)
+- Use jplv to compute the rectified image
 
 ** JPLV remapped-to-pinhole image
 Remapped to a pinhole image with mrcal
@@ -715,14 +557,6 @@ Disparity from OpenCV
 
 #+ATTR_LATEX: :width 0.9\linewidth
 file:../figures/disparity-jplv-scale0.35.downsampled.png
-
-** JPLV stereo discussion
-
-Clearly the pinhole remap and the rectification are distorting the input image
-dramatically, and changing the image scale within each row.
-
-And we found another likely jplv bug: the bottom is cut-off in the rectified
-images.
 
 ** Narrow virtual cameras
 Another way to do stereo processing of wide images using tools that aren't built
@@ -757,9 +591,9 @@ file:../figures/disparity-narrow.downsampled.png
 
 * Finally
 ** Conclusions
-We have a toolkit that can do lots of cool stuff
+- We have a toolkit that can do lots of cool stuff
 
-There's much to do still, and there's a laundry list on the documentation page.
+- There's much to do still, and there's a laundry list on the documentation page.
 
 ** Thanks!
 Questions?
