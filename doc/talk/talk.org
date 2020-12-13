@@ -478,7 +478,7 @@ residuals. I have not yet attempted to do that.
 Lots of other diagnostics are available, such as visualizing the splined
 surface. See the docs!
 
-* Differencing
+* Differencing                                                     :noexport:
 ** Differencing
 We computed the calibration two different ways. How different are the two
 models?
@@ -583,4 +583,163 @@ A big question:
 
 To answer this (an other) questions, mrcal can quantify the projection
 uncertainty, so let's do that.
+
+* Uncertainty
+** Uncertainty
+When we project a point $\vec p$ to a pixel $\vec q$, it would be /really/ nice
+to get an uncertainty estimate $\mathrm{Var} \left(\vec q\right)$. The we could
+
+- Propagate this uncertainty downstream to whatever uses the projection
+  operation, for example to get the uncertainty of ranges from a triangulation
+- Evaluate how trustworthy a given calibration is, and to run studies about how
+  to do better
+- Quantify overfitting effects
+- Quantify the baseline noise level for informed interpretation of model
+  differences
+
+Since splined models can have 1000s of parameters (the one we just demoed has
+1204), they are prone to overfitting, and it's critically important to gauge
+those effects.
+
+** Uncertainty
+A grand summary of how we do this:
+
+1. We are assuming a particular distribution of observation input noise
+   $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$
+2. We propagate it through the optimization to get the variance of the
+   optimization state $\mathrm{Var}(\vec p)$
+3. For any /fixed/ point, its projection $\vec q = \mathrm{project}\left(
+   \mathrm{transform}\left( \vec p_\mathrm{fixed} \right)\right)$ depends on
+   parameters of $\vec p$, whose variance we know. So
+
+\[ \mathrm{Var}\left( \vec q \right) =
+\frac{\partial \vec q}{\partial \vec p}
+\mathrm{Var}\left( \vec p \right)
+\frac{\partial \vec q}{\partial \vec p}^T
+\]
+
+** Uncertainty simulation
+The mrcal test suite contains a simulation to validate the approach.
+
+- 4 cameras
+- =LENSMODEL_OPENCV4= lens model
+- Placed side by side + noise in pose
+- looking at 50 chessboard poses, with randomized pose
+
+** Uncertainty simulation
+The geometry looks like this:
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/simulated-uncertainty-opencv4--simulated-geometry.pdf]]
+
+** Uncertainty simulation
+Each camera sees this:
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/simulated-uncertainty-opencv4--simulated-observations.pdf]]
+
+The red *$\ast$* is a point we will examine.
+
+** Uncertainty simulation
+- We run 100 randomized trials, adding noise on the inputs
+- Then we look at where the projection of *$\ast$* ends up
+- We plot the 1-$\sigma$ ellipses based on the randomized projections
+- We /also/ plot the 1-$\sigma$ ellipses from the prediction made by
+  =mrcal.projection_uncertainty()=
+
+** Uncertainty simulation
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/simulated-uncertainty-opencv4--distribution-onepoint.pdf]]
+
+** Uncertainty simulation
+Clearly the ellipses match up /very/ well. =mrcal.projection_uncertainty()= does
+no sampling, and is thus much faster. So we use that from now on
+
+Note that the uncertainties are different from camera to camera. This is because
+
+- The first camera had lots of chessboard observations around the *$\ast$*
+- In the view of the second and third cameras the *$\ast$* was at the edge of the
+  observations
+- In the view of the last camera, the chessboards were nowhere near the *$\ast$*
+
+So we observe what we expect: the first camera has the best projection
+confidence, and the last camera has the worst.
+
+** Uncertainty simulation
+Let's look at the uncertainty everywhere in the imager
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/simulated-uncertainty-opencv4--uncertainty-wholeimage.pdf]]
+
+This confirms the expectation: the sweet spot of low uncertainty follows the
+region where the chessboards were
+
+** Uncertainty simulation
+The worst-uncertainty-at-*$\ast$* camera claims an uncertainty of 0.8 pixels. That's
+pretty low. We had no chessboard observations there; is this uncertainty
+realistic? _No_
+
+=LENSMODEL_OPENCV4= is stiff, so the projection doesn't move much due to noise.
+And we interpreted that as low uncertainty. But that comes from our choice of
+model, and /not/ from the data. So
+
+*lean models always produce overly-optimistic uncertainty estimates*
+
+Solution: use splined models! They are very flexible, and don't have this issue.
+
+** Uncertainty simulation
+Running the same simulation with a splined model, we see the /real/ projection
+uncertainty:
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/simulated-uncertainty-splined--uncertainty-wholeimage.pdf]]
+
+So /only/ the first camera actually had usable projections.
+
+** Uncertainty from previous calibrations
+Computing the uncertainty map from the earlier =LENSMODEL_OPENCV8= calibration:
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/uncertainty-opencv8.pdf]]
+** Uncertainty from previous calibrations
+And from the =LENSMODEL_SPLINED_STEREOGRAPHIC_...= calibration:
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/uncertainty-splined.pdf]]
+
+** Uncertainty conclusion
+The splined model promises double the uncertainty that =LENSMODEL_OPENCV8= does.
+
+Conclusions:
+
+- We have a usable uncertianty-quantification method
+- It is over-optimistic when given lean models to work with
+
+So splined models have a clear benefit even for long lenses, where the lean
+models are expected to fit somewhat.
+
+* Ranging note
+** Ranging note
+Let's revisit an important detail I glossed-over when talking about differencing
+and uncertainties. Both computations begin with $\vec p =
+\mathrm{unproject}\left( \vec q \right)$
+
+But an unprojection is ambiguous in range, so *diffs and uncertainties are
+defined as a function of range*
+
+#+ATTR_LATEX: :width \linewidth
+[[file:../figures/projection-scale-invariance.pdf]]
+
+All the uncertainties reported so far, were at $\infty$
+
+** The uncertainty figure
+The uncertainty of our =LENSMODEL_OPENCV8= calibration at the center as a
+function of range:
+
+#+ATTR_LATEX: :width 0.8\linewidth
+[[file:../figures/uncertainty-vs-distance-at-center.pdf]]
+
+** The uncertainty figure
+Qualitatively, this is the figure I always see. The details depend on the
+chessboard dance. So let's study it!
 
