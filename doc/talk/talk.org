@@ -66,7 +66,7 @@ processing. Images captured using
 - Nikon D750 full-frame SLR. 6000x4000 imager
 - /Very/ wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
   corner-corner
-- Just one camera.
+- Just one camera
 
 * Corners
 ** Gathering corners
@@ -83,84 +83,26 @@ concern. Thus
 - F22
 
 ** Corner detections
-We gathered the images, and detected the corners using the mrgingham corner
-detector:
+mrgingham corner detections look like this for an arbitrary image:
 
-#+begin_src sh
-mrgingham -j3 *.JPG > corners.vnl 
-#+end_src
-
-Non-mrgingham detectors have been completely non-functional when I tried to use
-them.
-
-For an arbitrary image we can look at the corner detections:
-
-#+begin_example
-$ < corners.vnl head -n5
-
-## generated with mrgingham -j3 *.JPG
-# filename x y level
-DSC_7374.JPG 1049.606126 1032.249784 1
-DSC_7374.JPG 1322.477977 1155.491028 1
-DSC_7374.JPG 1589.571471 1276.563664 1
-#+end_example
-
-** Corner detections
-And we can visualize them
-
-#+begin_example
-$ f=DSC_7374.JPG
-
-$ < corners.vnl                                \
-    vnl-filter "filename eq \"$f\"" --perl     \
-               -p x,y,size='2**(1-level)' |    \
-  feedgnuplot --image $f --domain --square     \
-              --tuplesizeall 3                 \
-              --with 'points pt 7 ps variable'
-#+end_example
-
-** Corner detections
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/mrgingham-results.png]]
 
-** Corner detections
-The circle size shows the resolution used by the detector to find that point.
-
-The downsampled points have less precision, so they are weighed less in the
-optimization
-
 * Calibrating opencv8
 ** Let's run a calibration!
-This is a wide lens, so we need a lens model that can handle it. I have been
-using the 8-parameter OpenCV model: =LENSMODEL_OPENCV8= from now on.
+This is a wide lens, so we need a lens model that can handle it. Let's use the
+8-parameter OpenCV model: =LENSMODEL_OPENCV8=
 
 #+begin_example
-$ mrcal-calibrate-cameras        \
-  --corners-cache corners.vnl    \
-  --focal 1700                   \
-  --object-spacing 0.077         \
-  --object-width-n 10            \
-  --lensmodel LENSMODEL_OPENCV8  \
-  --observed-pixel-uncertainty 2 \
-  --explore                      \
-  '*.JPG'
-#+end_example
-
-- =--explore= asks for a REPL for us to look around
-
-** =LENSMODEL_OPENCV8= summary
-The calibration tool chugs for a bit, and then says:
-
-#+begin_example
+$ mrcal-calibrate-cameras --lensmodel LENSMODEL_OPENCV8 ...
+...
 RMS reprojection error: 0.8 pixels
 Noutliers: 3 out of 18600 total points: 0.0% of the data
 calobject_warp = [-0.00103983  0.00052493]
 #+end_example
 
-Now let's examine the solution. This is where we would be looking for problems.
-
-Primarily we want the errors in the solve to follow the mrcal noise model, and
-if they don't, we want to try to fix it.
+Let's examine the solution. We want the errors in the solve to follow the mrcal
+noise model, and if they don't, we want to try to fix it.
 
 ** Noise model
 mrcal assumes that
@@ -177,60 +119,21 @@ solution.
 
 We will never satisfy all these assumptions, but we should try hard to do that.
 
-** =LENSMODEL_OPENCV8= geometry
-What does the solve think about our geometry? Does it match reality? We can ask,
-in the REPL:
+** Does the solved geometry look right?
 
-#+begin_src python
-show_geometry( _set  = ('xyplane 0', 'view 80,30,1.5'),
-               unset = 'key')
-#+end_src
-
-** =LENSMODEL_OPENCV8= geometry
-
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.8\linewidth
 [[file:../figures/calibration-chessboards-geometry.pdf]]
 
-** =LENSMODEL_OPENCV8= geometry
-This is correct.
-
-- The camera axes are shown in purple, at the reference coordinate system. This
-  is a monocular solve, so the camera is at the origin of the coordinates by
-  definition
-- Observed chessboards are right in front of the camera (along the $z$ axis)
-- They're very close, and tilted. That's how I did the dance, and the solve
-  figured that out
+Yes. That's how I danced.
 
 ** =LENSMODEL_OPENCV8= residuals histogram
-The reprojection error was reported as 0.8 pixels RMS. What does the
-distribution look like?
+What does the error distribution look like?
 
-We ask in the =mrcal-calibrate-cameras= REPL
-
-#+begin_src python
-show_residuals_histogram(icam = None, binwidth=0.1,
-                         _xrange=(-4,4), unset='key')
-#+end_src
-
-** =LENSMODEL_OPENCV8= residuals histogram
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\linewidth
 [[file:../figures/residuals-histogram-opencv8.pdf]]
 
-** =LENSMODEL_OPENCV8= residuals histogram
-We see
-
-- The distribution of errors is indeed gaussian-ish
-- The observed variance of errors is much smaller than what we claimed in
-  =--observed-pixel-uncertainty=
-
-Either the actual accuracy of the mrgingham detector is /much/ better than I
-think it is, or we're seeing overfitting effects.
-
-This is not a problem (more on that later!)
-
 ** =LENSMODEL_OPENCV8= worst-observation residuals
-If there's anything really wrong with our data, then we'd see it in the
-worst-fitting images. These are a great way to see common issues such as:
+The worst-fitting observations are a great way to see common issues such as:
 
 - out-of focus images
 - images with motion blur
@@ -241,76 +144,19 @@ worst-fitting images. These are a great way to see common issues such as:
   else)
 
 Any of these would violate the assumptions of the noise model, so we want to fix
-them, if we can. Let's look at the worst image:
+them
 
-#+begin_src python
-show_residuals_observation_worst(0, vectorscale = 100,
-                                 circlescale=0.5,
-                                 cbmax = 5.0)
-#+end_src
-
-** =LENSMODEL_OPENCV8= worst-observation residuals
+** =LENSMODEL_OPENCV8=: the worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/worst-opencv8.png]]
 
-** =LENSMODEL_OPENCV8= worst-observation residuals
-The errors are shown as vectors, with color-coded circles for extra legibility.
-
-- Even this worst-case image fits well: 1.48 pixels of RMS reprojection error
-- There is a pattern: the errors are mostly acting radially
-
-Any non-randomness in the errors violates the independent-noise assumptions in
-the noise model
-
-** =LENSMODEL_OPENCV8= worst-observation residuals
-Usually, lean models such as =LENSMODEL_OPENCV8= cannot represent wide lenses
-faraway from the optical center. We can clearly see this here in the 3rd-worst
-image:
-
-#+begin_src python
-show_residuals_observation_worst(2, vectorscale = 100,
-                                 circlescale=0.5,
-                                 cbmax = 5.0)
-#+end_src
-
-** =LENSMODEL_OPENCV8= worst-observation residuals
+** =LENSMODEL_OPENCV8=: the 3rd-worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/worst-incorner-opencv8.png]]
-
-** =LENSMODEL_OPENCV8= worst-observation residuals
-/This/ is clearly a problem.
-
-Let's come back to it later. Which observation was this?
-
-#+begin_example
-print(i_observations_sorted_from_worst[2])
-
----> 184
-#+end_example
-
-** =LENSMODEL_OPENCV8= residual directions
-Another way to look for systematic errors is to examine all the observed errors
-in aggregate. Let's look at the errors, color-coded by the error /direction/
-
-#+begin_src python
-show_residuals_directions(icam=0, unset='key',
-                          valid_intrinsics_region = False)
-#+end_src
 
 ** =LENSMODEL_OPENCV8= residual directions
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/directions-opencv8.pdf]]
-
-** =LENSMODEL_OPENCV8= residual directions
-Once again, any patterns violate the assumption of independence.
-
-And here we clearly have patterns:
-
-- lots of green in the top-right and top and left
-- lots of blue and magenta in the center
-- yellow at the bottom
-
-and so on
 
 ** =LENSMODEL_OPENCV8=: conclusions
 The =LENSMODEL_OPENCV8= lens model does not fit our data in observable ways.
