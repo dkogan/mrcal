@@ -1,4 +1,4 @@
-#+title: mrcal - camera calibrations and more
+#+title: mrcal - camera calibrations and more!
 
 mrcal is a toolkit for working with lens models, camera geometry, images,
 projections, and the various related operations such as camera calibration. Any
@@ -41,9 +41,6 @@ two sets programmatic interfaces available:
 - [[file:c-api.org][The C API to provide a set of core functionality]]
 - [[file:python-api.org][The Python API to do that and a whole lot more]]
 
-* Build and/or install
-yyy
-
 * Author
 Dima Kogan =kogan@jpl.nasa.gov=
 
@@ -63,6 +60,8 @@ and licenses]].
   and to report correlations in the projection. Should work with multiple
   cameras somehow (could calibration more than one camera at the same time)
 - splined models should behave more nicely at the edges
+- better regularization scheme for the non-splined models. Can I do better than
+  L2? Surely I can
 - better regularization scheme for the splined models. I should pull not towards
   0 but towards the mean. I had an implementation in
   c8f9918023142d7ee463821661dc5bcc8f770b51 that I reverted because any planar
@@ -90,7 +89,7 @@ could have trouble
 
 
 - SFM
-- integrate deltapose-lite
+- integrate deltapose-lite into this.
 - can I quantify the heteroscedasticity and thus the model-nonfitting and the
   resulted expected bias? White test?
 - study cubic/quadratic splines, spline density effects
@@ -106,13 +105,34 @@ could have trouble
 - uncertainty math currently does a separate mean-frames for each q we ask
   about. Thus we're effectively computing a different implied tranform each
   time. We should have a single one for ALL q
+- projection_diff(): weighting should be better. Should I do outlier rejection?
+  Should I use the hoaky valid-intrinsics region to cut down the fit set? Should
+  I optimize actual reprojection error?
+- outlier rejection for points AND board observations
+- add cmdline tool for stereo processing
+- add triangulation tool to mrcal/stereo.py
+
+
+** warnings in mrcal.c
+[[file:~/jpl/mrcal/mrcal.c::// WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context][something about being efficient and not copying stuff]]
+
+[[file:~/jpl/mrcal/mrcal.c::// WARNING: This should go away. For some reason it makes unproject() converge better, and it makes the tests pass. But it's not even right!][=mrcal_unproject_internal()=]] is seeding the optimization in a 100% wrong way
+that, for some reason, works better than if I fix the bug. Fixing the bug makes
+the tests fail
+
+[[file:~/jpl/mrcal/mrcal.c::// WARNING: sparsify this. This is potentially a BIG thing on the stack][not putting the full optimization state on the stack]]
+
+[[file:~/jpl/mrcal/mrcal.c::// WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"][Again: don't put the full intrinsics on the stack]]
+
+mrcal_optimize(): merge =packed_state= and =p_packed_final=. And =packed_state=
+is a big stack thing, which is scary
+
+Hook up the =// optimizer_callback(packed_state, NULL, NULL, &ctx);= calls.
+These are supposed to do diagnostics only, or something. Look at what deltapose
+is doing.
 
 * todo for the document                                            :noexport:
-document m-c-c and/or mrcal.optimize and/or mrcal_optimize
-
 stereo. Try opencv rectification
-diffs
-Add some sort of "visualization" section
 
 something somewhere should describe the optimizer_callback()
 
@@ -121,20 +141,7 @@ Somewhere talk about these:
   - [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
     talk about this next to optimization_inputs()
 
-tour: stereo shouldn't use deltapose, but a procrustes fit. Much better demo
+talk about --seed and how that can be used to validate intrinsics
 
-links to board/ must work. Make sure tour/narrow-section and tour/stereo links work
+add punchline note at the end of the tour
 
-search for yyy everywhere
-
-add triangulation tool to stereo.py
-
-** re-read
-
-- [[file:how-to-calibrate.org]]
-- [[file:differencing.org]]
-- [[file:tour.org]]
-
-** fill-in section
-*** [[file:index.org]]
-build and install
