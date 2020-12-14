@@ -99,3 +99,7 @@ make test
 
 If stuff doesn't work, feel free to bug me. But you /really/ should be using the
 packages, if at all possible
+* code                                                             :noexport:
+dependency building
+
+distro=bionic; sbuild --lintian-opt='--suppress-tags=bad-distribution-in-changes-file' --anything-failed-commands '%s' --nolog -s --force-orig-source -A -d $distro --extra-repository="deb [trusted=yes] file:///var/www/debian/$distro/public/ $distro main" -j 18
