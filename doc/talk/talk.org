@@ -222,7 +222,7 @@ This is promising. What does the histogram look like?
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/worst-splined.png]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC=: the 3rd-worst image
+** =LENSMODEL_SPLINED_STEREOGRAPHIC=: 3rd-worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../figures/worst-incorner-splined.png]]
 
