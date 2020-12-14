@@ -47,7 +47,7 @@ At this time all models contain a core.
 This is the basic "pinhole" model with 4 parameters: the core. Projection of a
 point $\vec p$ is defined as
 
-\[\vec q = \left( \begin{aligned} f_x \frac{p_x}{p_z} + c_x \\ f_y \frac{p_y}{p_z} + c_y \end{aligned} \right) \]
+\[\vec q = \left[ \begin{aligned} f_x \frac{p_x}{p_z} + c_x \\ f_y \frac{p_y}{p_z} + c_y \end{aligned} \right] \]
 
 This model is defined only in front of the camera, and projects to infinity as
 we approach 90 degrees off the optical axis ($p_z \rightarrow 0$). Straight
@@ -75,7 +75,7 @@ then
 
 and
 
-\[\vec q = \left( \begin{aligned} f_x u_x + c_x \\ f_y u_y + c_y \end{aligned} \right) \]
+\[\vec q = \left[ \begin{aligned} f_x u_x + c_x \\ f_y u_y + c_y \end{aligned} \right] \]
 
 This model is able to project behind the camera, and has a single singularity:
 directly opposite the optical axis. mrcal refers to $\vec u$ as the
@@ -103,15 +103,15 @@ projection function is
 r &\equiv \left|\vec P\right|            \\
 \vec P_\mathrm{radial} &\equiv \frac{ 1 + k_0 r^2 + k_1 r^4 + k_4 r^6}{ 1 + k_5 r^2 + k_6 r^4 + k_7 r^6} \vec P \\
 \vec P_\mathrm{tangential} &\equiv
-  \left( \begin{aligned}
+  \left[ \begin{aligned}
     2 k_2 P_0 P_1 &+ k_3 \left(r^2 + 2 P_0^2 \right) \\
     2 k_3 P_0 P_1 &+ k_2 \left(r^2 + 2 P_1^2 \right)
-  \end{aligned}\right) \\
+  \end{aligned}\right] \\
 \vec P_\mathrm{thinprism} &\equiv
-  \left( \begin{aligned}
+  \left[ \begin{aligned}
     k_8    r^2 + k_9    r^4 \\ 
     k_{10} r^2 + k_{11} r^4
-  \end{aligned}\right) \\
+  \end{aligned}\right] \\
 \vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \vec P_\mathrm{tangential} + \vec P_\mathrm{thinprism} \right) + \vec c_{xy}
 \end{align*}
 
