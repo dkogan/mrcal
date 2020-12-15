@@ -28,32 +28,18 @@ This talk is a condensed version of the "tour of mrcal" page:
 Please see that page for a bit more detail, and for links to all the data and
 commands in the studies I'll discuss
 
-** The need
-I couldn't find a set of tools to make my visual ranging work possible, so I
-wrote my own. Things that I needed/wanted:
-
-- Functional tools: I should be able to get a calibration, and use it for
-  ranging. And if not, the tools should tell me why not
-- Precision. How much faith should I have in the ranges I get?
-- Support for at least the OpenCV and CAHVOR lens models
-- Support for /wide/ lens models: many tools have only been tested with long
-  lenses
-- Under-the-hood niceties
-  - Both a C API and some sort of higher-level language bindings
-  - Reasonable reading/writing of models
-  - Documentation, tests, packaging
-
 ** mrcal: calibrations and other stuff
-- A set of Python libraries to
-  - Read/write camera models
-  - Manipulate these models in various ways
-  - Visualize stuff
-  - Do basic 3D pose things
-  - (Un)project images and points
-- Fancy analysis facilities
-- Fancy lens models available
-- A generic C library with Python bindings
-- Lots of commandline tools so no coding required for many tasks
+I couldn't find a set of tools to make my visual ranging work possible, so I
+wrote my own:
+
+- A set of C, Python libraries to work with
+  - camera models
+  - 3D geometry
+  - images
+- Lots of analysis, tools available
+- Fancy lens models
+- Lots of visualization facilities
+- Many commandline tools available, so no coding required for many tasks
 
 ** Tour of mrcal
 I will go through the "tour of mrcal" page:
@@ -336,8 +322,8 @@ A grand summary of how we do this:
 The mrcal test suite contains a simulation to validate the approach.
 
 - 4 cameras
-- =LENSMODEL_OPENCV4= lens model
 - Placed side by side + noise in pose
+- =LENSMODEL_OPENCV4= lens model
 - looking at 50 chessboard poses, with randomized pose
 
 ** Uncertainty simulation
