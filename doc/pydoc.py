@@ -84,6 +84,7 @@ Broadly:
 
 - Using my css style and my preamble
 
+- I don't swallow failures due to a broken import
 
 
 
@@ -396,16 +397,6 @@ def synopsis(filename, cache={}):
         cache[filename] = (mtime, result)
     return result
 
-class ErrorDuringImport(Exception):
-    """Errors that occurred while trying to import something to document it."""
-    def __init__(self, filename, exc_info):
-        self.filename = filename
-        self.exc, self.value, self.tb = exc_info
-
-    def __str__(self):
-        exc = self.exc.__name__
-        return 'problem in %s - %s: %s' % (self.filename, exc, self.value)
-
 def importfile(path):
     """Import a Python source file or compiled file given its path."""
     magic = importlib.util.MAGIC_NUMBER
@@ -419,10 +410,7 @@ def importfile(path):
         loader = importlib._bootstrap_external.SourceFileLoader(name, path)
     # XXX We probably don't need to pass in the loader here.
     spec = importlib.util.spec_from_file_location(name, path, loader=loader)
-    try:
-        return importlib._bootstrap._load(spec)
-    except:
-        raise ErrorDuringImport(path, sys.exc_info())
+    return importlib._bootstrap._load(spec)
 
 def safeimport(path, forceload=0, cache={}):
     """Import a module; handle errors; return None if the module isn't found.
@@ -1798,22 +1786,16 @@ def render_doc(thing, title='Python Library Documentation: %s', forceload=0,
 def doc(thing, title='Python Library Documentation: %s', forceload=0,
         output=None):
     """Display text documentation, given an object or a path to an object."""
-    try:
-        if output is None:
-            pager(render_doc(thing, title, forceload))
-        else:
-            output.write(render_doc(thing, title, forceload, plaintext))
-    except (ImportError, ErrorDuringImport) as value:
-        print(value)
+    if output is None:
+        pager(render_doc(thing, title, forceload))
+    else:
+        output.write(render_doc(thing, title, forceload, plaintext))
 
 def writedoc(thing, forceload=0):
     """Write HTML documentation to a file in the current directory."""
-    try:
-        object, name = resolve(thing, forceload)
-        page = html.page(describe(object), html.document(object, name))
-        sys.stdout.write(page)
-    except (ImportError, ErrorDuringImport) as value:
-        print(value, file=sys.stderr)
+    object, name = resolve(thing, forceload)
+    page = html.page(describe(object), html.document(object, name))
+    sys.stdout.write(page)
 
 def writedocs(dir, pkgpath='', done=None):
     """Write out HTML documentation for all modules in a directory tree."""
@@ -2826,18 +2808,16 @@ def cli():
             if ispath(arg) and not os.path.exists(arg):
                 print('file %r does not exist' % arg, file=sys.stderr)
                 break
-            try:
-                if ispath(arg) and os.path.isfile(arg):
-                    arg = importfile(arg)
-                if writing:
-                    if ispath(arg) and os.path.isdir(arg):
-                        writedocs(arg)
-                    else:
-                        writedoc(arg)
+
+            if ispath(arg) and os.path.isfile(arg):
+                arg = importfile(arg)
+            if writing:
+                if ispath(arg) and os.path.isdir(arg):
+                    writedocs(arg)
                 else:
-                    help.help(arg)
-            except ErrorDuringImport as value:
-                print(value, file=sys.stderr)
+                    writedoc(arg)
+            else:
+                help.help(arg)
 
     except (getopt.error, BadUsage):
         cmd = os.path.splitext(os.path.basename(sys.argv[0]))[0]
