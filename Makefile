@@ -97,6 +97,17 @@ doc: $(DOC_ALL_CSS_TARGET)
 $(DOC_ALL_CSS_TARGET): doc/out/%.css: doc/%.css | doc/out/
 	cp $< doc/out
 
+DOC_ALL_ORG         := $(wildcard doc/*.org)
+DOC_ALL_HTML_TARGET := $(patsubst doc/%.org,doc/out/%.html,$(DOC_ALL_ORG))
+doc: $(DOC_ALL_HTML_TARGET)
+# This ONE command creates ALL the html files, so I want a pattern rule to indicate
+# that. I want to do:
+#   %/out/a.html %/out/b.html %/out/c.html: %/a.org %/b.org %/c.org
+$(addprefix %,$(patsubst doc/%,/%,$(DOC_ALL_HTML_TARGET))): $(addprefix %,$(patsubst doc/%,/%,$(DOC_ALL_ORG)))
+	emacs --chdir=doc -l mrcal-docs-publish.el --batch --eval '(load-library "org")' --eval '(org-publish-all t nil)'
+$(DOC_ALL_HTML_TARGET): doc/mrcal-docs-publish.el | doc/out/
+
+
 # I parse the version from the changelog. This version is generally something
 # like 0.04 .I strip leading 0s, so the above becomes 0.4
 VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*/./g; p; q;' debian/changelog)
