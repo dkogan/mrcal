@@ -30,4 +30,5 @@ test/test-cahvor
 *.backup*
 
 *.fig.bak
-doc/ltximg/
+ltximg/
+doc/out
