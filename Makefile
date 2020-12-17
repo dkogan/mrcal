@@ -65,9 +65,6 @@ $(DOC_ALL_SVG_FROM_FIG): doc/out/figures/%.svg: doc/%.fig | doc/out/figures/
 $(DOC_ALL_PDF_FROM_FIG): doc/out/figures/%.pdf: doc/%.fig | doc/out/figures/
 	fig2dev -L pdf $< $@
 
-.PHONY: doc
-
-
 ## Each submodule in a separate .html. This works, but needs more effort:
 ##
 ## - top level mrcal.html is confused about what it contains. It has all of
@@ -94,6 +91,12 @@ $(DOC_ALL_PDF_FROM_FIG): doc/out/figures/%.pdf: doc/%.fig | doc/out/figures/
 
 
 
+DOC_ALL_CSS        := $(wildcard doc/*.css)
+DOC_ALL_CSS_TARGET := $(patsubst doc/%,doc/out/%,$(DOC_ALL_CSS))
+doc: $(DOC_ALL_CSS_TARGET)
+$(DOC_ALL_CSS_TARGET): doc/out/%.css: doc/%.css | doc/out/
+	cp $< doc/out
+
 # I parse the version from the changelog. This version is generally something
 # like 0.04 .I strip leading 0s, so the above becomes 0.4
 VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*/./g; p; q;' debian/changelog)
@@ -109,8 +112,15 @@ doc/out/%.html: %.pod | doc/out/
 	pod2html --noindex --css=mrcal.css --infile=$< | perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@.tmp && mv $@.tmp $@
 doc: $(MANPAGES_HTML)
 
+.PHONY: doc
+
 # the whole output documentation directory
 EXTRA_CLEAN += doc/out
+
+
+
+
+
 
 ######### python stuff
 mrcal-npsp-pywrap-GENERATED.c: mrcal-genpywrap.py
