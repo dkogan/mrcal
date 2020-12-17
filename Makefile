@@ -48,23 +48,21 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
 
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
-DOC_OUTPUT_DIR := doc/out
-$(DOC_OUTPUT_DIR)/:
+%/:
 	mkdir $@
 
 ## mrcal-python-api-reference.html contains everything. It is large
-doc: $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
-$(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION) | $(DOC_OUTPUT_DIR)/
+doc: doc/out/mrcal-python-api-reference.html
+doc/out/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION) | doc/out/
 	python3 doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
-EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 
 DOC_ALL_FIG          := $(wildcard doc/*.fig)
-DOC_ALL_SVG_FROM_FIG := $(patsubst %.fig,doc/figures/%.svg,$(notdir $(DOC_ALL_FIG)))
-DOC_ALL_PDF_FROM_FIG := $(patsubst %.fig,doc/figures/%.pdf,$(notdir $(DOC_ALL_FIG)))
+DOC_ALL_SVG_FROM_FIG := $(patsubst doc/%.fig,doc/out/figures/%.svg,$(DOC_ALL_FIG))
+DOC_ALL_PDF_FROM_FIG := $(patsubst doc/%.fig,doc/out/figures/%.pdf,$(DOC_ALL_FIG))
 doc: $(DOC_ALL_SVG_FROM_FIG) $(DOC_ALL_PDF_FROM_FIG)
-$(DOC_ALL_SVG_FROM_FIG): doc/figures/%.svg: doc/%.fig
+$(DOC_ALL_SVG_FROM_FIG): doc/out/figures/%.svg: doc/%.fig | doc/out/figures/
 	fig2dev -L svg $< $@
-$(DOC_ALL_PDF_FROM_FIG): doc/figures/%.pdf: doc/%.fig
+$(DOC_ALL_PDF_FROM_FIG): doc/out/figures/%.pdf: doc/%.fig | doc/out/figures/
 	fig2dev -L pdf $< $@
 
 .PHONY: doc
@@ -78,22 +76,21 @@ $(DOC_ALL_PDF_FROM_FIG): doc/figures/%.pdf: doc/%.fig
 #
 # doc-reference: \
 # 	$(patsubst mrcal/%.py,doc/mrcal.%.html,$(filter-out %/__init__.py,$(wildcard mrcal/*.py))) \
-# 	$(patsubst %,$(DOC_OUTPUT_DIR)/mrcal.%.html,$(ALL_PY_EXTENSION_MODULES)) \
-# 	$(DOC_OUTPUT_DIR)/mrcal.html
-# $(DOC_OUTPUT_DIR)/mrcal.%.html: \
+# 	$(patsubst %,doc/out/mrcal.%.html,$(ALL_PY_EXTENSION_MODULES)) \
+# 	doc/out/mrcal.html
+# doc/out/mrcal.%.html: \
 # 	mrcal/%.py \
 # 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
 # 	libmrcal.so.$(ABI_VERSION)
 # 	doc/pydoc.py -w mrcal.$* > $@.tmp && mv $@.tmp $@
-# $(DOC_OUTPUT_DIR)/mrcal.%.html: mrcal/%$(PY_EXT_SUFFIX)
+# doc/out/mrcal.%.html: mrcal/%$(PY_EXT_SUFFIX)
 # 	doc/pydoc.py -w mrcal.$* > $@.tmp && mv $@.tmp $@
-# $(DOC_OUTPUT_DIR)/mrcal.html: \
+# doc/out/mrcal.html: \
 # 	$(wildcard mrcal/*.py) \
 # 	$(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) \
 # 	libmrcal.so.$(ABI_VERSION)
 # 	doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
 # .PHONY: doc-reference
-# EXTRA_CLEAN += doc/*.html
 
 
 
@@ -107,14 +104,13 @@ $(DIST_MAN): %.1: %.pod
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
 # I generate a manpage. Some perl stuff to add the html preamble
-MANPAGES_HTML := $(patsubst %,$(DOC_OUTPUT_DIR)/%.html,$(DIST_BIN))
-$(DOC_OUTPUT_DIR)/%.html: %.pod | $(DOC_OUTPUT_DIR)/
+MANPAGES_HTML := $(patsubst %,doc/out/%.html,$(DIST_BIN))
+doc/out/%.html: %.pod | doc/out/
 	pod2html --noindex --css=mrcal.css --infile=$< | perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@.tmp && mv $@.tmp $@
 doc: $(MANPAGES_HTML)
-EXTRA_CLEAN += $(MANPAGES_HTML)
 
 # the whole output documentation directory
-EXTRA_CLEAN += $(DOC_OUTPUT_DIR)
+EXTRA_CLEAN += doc/out
 
 ######### python stuff
 mrcal-npsp-pywrap-GENERATED.c: mrcal-genpywrap.py
