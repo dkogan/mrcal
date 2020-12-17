@@ -1323,7 +1323,7 @@ corners.
 
 Before moving on, I should say that these are very conclusive results
 /qualitatively/. But specific recommendations about how to dance and what kind
-of board to use very, depending on the specific kind of lens and geometry. Rerun
+of board to use vary, depending on the specific kind of lens and geometry. Rerun
 these studies for your use cases, if conclusive results are needed.
 
 #+begin_src sh :exports none :eval no-export
@@ -1701,21 +1701,22 @@ Looks reasonable.
 
 ** Splitting a wide view into multiple narrow views
 
-Another way to resolve the geometric challenges of wide-angle lenses would be to
+So we can use jplv to handle mrcal lenses in this way, but at the cost of
+degraded feature-matching accuracy due to unevenly-scaled rectified images. A
+way to resolve the geometric challenges of wide-angle lenses would be to
 subdivide the wide field of view into multiple narrower virtual lenses. Then
-you'd have several narrow-angle stereo pairs instead of a single wide stereo
-pair. And any existing stereo library that works with narrow views only would
-then become an option.
+we'd have several narrow-angle stereo pairs instead of a single wide stereo
+pair.
 
 mrcal makes necessary transformations simple, so let's do it. For
 each image we need to construct
 
-- The narrow pinhole model we want that looks at the area we want to (to the
-  left in this example)
+- The narrow pinhole model we want that looks at the area we want to (45 degrees
+  to the left in this example)
 - The image of the scene that such a model would have observed
 
-This requires writing a little bit of code, which mrcal simple:
-[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/doc/narrow-section.py][=narrow-section.py=]]. Let's run that for each of my images:
+This requires writing a little bit of code: [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/doc/narrow-section.py][=narrow-section.py=]]. Let's run that
+for each of my images:
 
 #+begin_src sh
 python3 narrow-section.py splined-0.cameramodel 0.jpg -45 left
@@ -1767,8 +1768,8 @@ And disparity and range images:
 
 And this is despite running pinhole-reprojected stereo from a very wide lens.
 
-Don't try this in jplv, however: it has a bug in its rectification function, and
-can't handle the misalignment present in this geometry.
+Unfortunately, this triggers a bug in the jplv rectification function, and it
+produces unusable disparity maps when given such a misaligned geometry.
 
 ** Range accuracy                                                  :noexport:
 A good punchline to all this would be to show that we can now get great ranges,
