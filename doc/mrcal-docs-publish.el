@@ -1,14 +1,9 @@
-;; Python API and the cmdline tool manpages
-(defun dima-org-export-build-docs (plist)
-  (shell-command (format "make -C .. doc")))
-
 (setq org-publish-project-alist
       `(("orgfiles"
          :base-directory "."
          :base-extension "org"
          :publishing-directory "./out"
          :publishing-function org-html-publish-to-html
-         :completion-function dima-org-export-build-docs
          :section-numbers nil
          :with-toc nil
          :with-sub-superscript nil
@@ -31,21 +26,4 @@
                                 (indent "0em")
                                 (multlinewidth "85%")
                                 (tagindent ".8em")
-                                (tagside "right")))
-        ("css"
-         :base-directory "."
-         :base-extension "css"
-         :publishing-directory "./out"
-         :publishing-function org-publish-attachment)
-
-        ("images"
-         :base-directory "~/jpl/mrcaldocs/"
-         :base-extension "jpg\\|png\\|svg"
-         :publishing-directory "./out"
-         :publishing-function org-publish-attachment)
-
-        ("website"
-         :components ("orgfiles" "css"
-                      ;; "images"
-                      ;; I'm doing this manually for now
-                      ))))
+                                (tagside "right")))))
