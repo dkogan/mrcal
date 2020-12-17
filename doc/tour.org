@@ -17,6 +17,9 @@ calibration to compute the intrinsics (the lens parameters). mrcal is fully able
 to calibrate any N cameras at a time, I'm just using the one camera /here/.
 
 * Gathering chessboard corners
+:PROPERTIES:
+:CUSTOM_ID: gathering-corners
+:END:
 
 We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. This is a wide lens, so I need a
 large chessboard in order to fill the imager. My chessboard has 10x10 internal
@@ -1039,6 +1042,9 @@ As expected, the splined model doesn't have the stiffness of =LENSMODEL_OPENCV8=
 the less optimistic (but more realistic) uncertainty reports.
 
 * The effect of range in differencing and uncertainty computations
+:PROPERTIES:
+:CUSTOM_ID: effect-of-range
+:END:
 
 Earlier I talked about model [[#differencing][differencing]] and estimation of [[#uncertainty][projection
 uncertainty]]. In both cases I glossed over one important detail that I would like
@@ -1343,6 +1349,9 @@ PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --sc
 #+end_src
 
 * Stereo
+:PROPERTIES:
+:CUSTOM_ID: stereo
+:END:
 Finally, let's do some stereo processing. Originally mrcal wasn't intended to do
 this, but its generic capabilities in manipulating images, observations,
 geometry and lens models made core stereo functionality straightforward to
@@ -1350,6 +1359,9 @@ implement. So when I hit some problems with existing tools, I added these
 functions to mrcal.
 
 ** Formulation
+:PROPERTIES:
+:CUSTOM_ID: stereo-formulation
+:END:
 What does "stereo processing" mean? I do usual [[https://en.wikipedia.org/wiki/Epipolar_geometry][epipolar geometry]] thing:
 
 1. Ingest two camera models, each containing the intrinsics /and/ the relative
@@ -1375,6 +1387,9 @@ plane):
 [[file:figures/rectification.svg]]
 
 ** Let's do it!
+:PROPERTIES:
+:CUSTOM_ID: stereo-do-it
+:END:
 
 We computed intrinsics from chessboards observations earlier, so let's use these
 for stereo processing. I only use the splined model here.
@@ -1593,6 +1608,9 @@ model1.write('/tmp/1.cameramodel')
 #+end_src
 
 ** Stereo rectification outside of mrcal
+:PROPERTIES:
+:CUSTOM_ID: stereo-without-mrcal
+:END:
 
 What if we want to do our stereo processing with some other tool (like jplv),
 and what if that tool doesn't support the splined model we want to use? We can
@@ -1700,6 +1718,9 @@ python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.6.png  jplv-scale0.6
 Looks reasonable.
 
 ** Splitting a wide view into multiple narrow views
+:PROPERTIES:
+:CUSTOM_ID: stereo-narrow
+:END:
 
 So we can use jplv to handle mrcal lenses in this way, but at the cost of
 degraded feature-matching accuracy due to unevenly-scaled rectified images. A
@@ -1772,6 +1793,9 @@ Unfortunately, this triggers a bug in the jplv rectification function, and it
 produces unusable disparity maps when given such a misaligned geometry.
 
 ** Range accuracy                                                  :noexport:
+:PROPERTIES:
+:CUSTOM_ID: stereo-range-accuracy
+:END:
 A good punchline to all this would be to show that we can now get great ranges,
 and the splined model does better than the =LENSMODEL_OPENCV8= model. I'm not
 reporting this because the full propagation of uncertainty from the calibration
