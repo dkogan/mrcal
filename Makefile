@@ -55,7 +55,7 @@ $(DOC_OUTPUT_DIR)/:
 ## mrcal-python-api-reference.html contains everything. It is large
 doc: $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION) | $(DOC_OUTPUT_DIR)/
-	doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
+	python3 doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += $(DOC_OUTPUT_DIR)/mrcal-python-api-reference.html
 
 DOC_ALL_FIG          := $(wildcard doc/*.fig)
