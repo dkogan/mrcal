@@ -600,17 +600,17 @@ mrcal-show-splined-model-surface --spline-index-domain splined.cameramodel y \
                                  --set 'cbrange [-.1:.1]' --unset key
 #+end_src
 
-$\Delta u_0$ looks like this:
+$\Delta u_x$ looks like this:
 
 [[file:figures/splined-knots-x.png]]
 
-And $\Delta u_1$:
+And $\Delta u_y$:
 
 [[file:figures/splined-knots-y.png]]
 
 Each X in the plot is a "knot" of the spline surface, a point where a control
 point value is defined. We're looking at the spline domain, so the axes of the
-plot are $u_0$ and $u_1$, and the knots are arranged in a regular grid. The
+plot are $u_x$ and $u_y$, and the knots are arranged in a regular grid. The
 region where the spline surface is well-defined begins at the 2nd knot from the
 edges; its boundary is shown as a thin green line. The boundary of the imager is
 shown as a thick, purple curve. Since each $\vec u$ projects to a pixel
@@ -624,7 +624,7 @@ that happens here. If the imager poked outside the valid spline region, we
 wouldn't be able to project anything into that slice of the image.
 
 Alternately, I can look at the spline surface as a function of the pixel
-coordinates. Just for $\Delta u_0$:
+coordinates. Just for $\Delta u_x$:
 
 #+begin_src sh
 mrcal-show-splined-model-surface splined.cameramodel x                \
